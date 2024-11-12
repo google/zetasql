@@ -310,6 +310,24 @@ class LittleEndian {
   static void Store(T value, char* p);
 };
 
+// Utilities to convert numbers between the current hosts's native byte
+// order and little-endian byte order
+//
+// Load/Store methods are alignment safe
+class BigEndian {
+ public:
+  static absl::uint128 Load128(const void* p) {
+    return absl::MakeUint128(ToHost64(ZETASQL_INTERNAL_UNALIGNED_LOAD64(p)),
+                             ToHost64(ZETASQL_INTERNAL_UNALIGNED_LOAD64(
+                                 reinterpret_cast<const uint64_t*>(p) + 1)));
+  }
+
+#ifdef ABSL_IS_LITTLE_ENDIAN
+  static uint64_t ToHost64(uint64_t x) { return gbswap_64(x); }
+#elif defined ABSL_IS_BIG_ENDIAN
+  static uint64_t ToHost64(uint64_t x) { return x; }
+#endif
+};
 
 //////////////////////////////////////////////////////////////////////
 // Implementation details: Clients can stop reading here.

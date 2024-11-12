@@ -42,11 +42,19 @@ import com.google.zetasql.ZetaSQLType.ProtoTypeProto;
 import com.google.zetasql.ZetaSQLType.TypeProto;
 import com.google.zetasql.ZetaSQLTypeModifiers.TypeModifiersProto;
 import com.google.zetasql.ZetaSQLTypeParameters.TypeParametersProto;
+import com.google.zetasql.GraphElementLabel;
+import com.google.zetasql.GraphElementLabelRefProto;
+import com.google.zetasql.GraphElementTable;
+import com.google.zetasql.GraphElementTableRefProto;
+import com.google.zetasql.GraphPropertyDeclaration;
+import com.google.zetasql.GraphPropertyDeclarationRefProto;
 import com.google.zetasql.Model;
 import com.google.zetasql.ModelRefProto;
 import com.google.zetasql.OneofDescriptorRefProto;
 import com.google.zetasql.Procedure;
 import com.google.zetasql.ProcedureRefProto;
+import com.google.zetasql.PropertyGraph;
+import com.google.zetasql.PropertyGraphRefProto;
 import com.google.zetasql.ResolvedCollationProto;
 import com.google.zetasql.ResolvedColumnProto;
 import com.google.zetasql.ResolvedFunctionCallInfo;
@@ -118,6 +126,14 @@ public abstract class AbstractDeserializationHelper {
   abstract Procedure deserialize(ProcedureRefProto proto);
 
   abstract Column deserialize(ColumnRefProto proto);
+
+  abstract PropertyGraph deserialize(PropertyGraphRefProto proto);
+
+  abstract GraphPropertyDeclaration deserialize(GraphPropertyDeclarationRefProto proto);
+
+  abstract GraphElementLabel deserialize(GraphElementLabelRefProto proto);
+
+  abstract GraphElementTable deserialize(GraphElementTableRefProto proto);
 
   ResolvedColumn deserialize(ResolvedColumnProto proto) {
     return new ResolvedColumn(

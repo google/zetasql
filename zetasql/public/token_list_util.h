@@ -20,12 +20,21 @@
 #include <string>
 #include <vector>
 
-#include "zetasql/public/simple_token_list.h"
 #include "zetasql/public/value.h"
+#include "absl/status/statusor.h"
 
 namespace zetasql {
 
+// Creates a TokenList value from a vector of strings.
 Value TokenListFromStringArray(std::vector<std::string> tokens);
+
+// Returns a vector of strings from a TokenList value. Each string is the text
+// representation of a token in the TokenList.
+absl::StatusOr<std::vector<std::string>> StringArrayFromTokenList(
+    const Value& token_list);
+
+// Creates a TokenList value from bytes that are serialized from a TokenList.
+Value TokenListFromBytes(std::string bytes);
 
 }  // namespace zetasql
 

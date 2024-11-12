@@ -97,8 +97,8 @@ class FloatMargin {
     if (std::isnan(x) && std::isnan(y)) return true;
     if (!std::isfinite(x) || !std::isfinite(y))
       return false;  // One of the values is finite, the other is not.
-    T abs_error = MaxAbsDiff<T>(x, y);
-    return zetasql_base::MathUtil::WithinMargin<T>(x, y, abs_error);
+    T abs_error = MaxAbsDiff(x, y);
+    return zetasql_base::MathUtil::WithinMargin(x, y, abs_error);
   }
 
   // For a given finite non-zero floating point number returns its unit in the
@@ -132,7 +132,7 @@ class FloatMargin {
                           " is nan/inf while the other is not");
     }
     return absl::StrCat(
-        "The difference ", RoundTripDoubleToString(zetasql_base::MathUtil::AbsDiff<T>(x, y)),
+        "The difference ", RoundTripDoubleToString(zetasql_base::MathUtil::AbsDiff(x, y)),
         " between ", RoundTripDoubleToString(x), " and ",
         RoundTripDoubleToString(y), " exceeds maximal error ", DebugString(),
         " of ", RoundTripDoubleToString(MaxAbsDiff(x, y)));
@@ -163,14 +163,13 @@ class FloatMargin {
       T zero_margin =
           zetasql_base::MathUtil::IPow(2.0, zero_ulp_bits_) * Ulp(static_cast<T>(1.0));
       ABSL_CHECK(std::isfinite(zero_margin)) << "Zero margin overflow: " << *this;
-      if (zetasql_base::MathUtil::Abs<T>(x) <= zero_margin &&
-          zetasql_base::MathUtil::Abs<T>(y) <= zero_margin) {
+      if (zetasql_base::MathUtil::Abs(x) <= zero_margin && zetasql_base::MathUtil::Abs(y) <= zero_margin) {
         return zero_margin;
       }
     }
 
     T result = zetasql_base::MathUtil::IPow(2.0, ulp_bits_) *
-               Ulp(std::max(zetasql_base::MathUtil::Abs<T>(x), zetasql_base::MathUtil::Abs<T>(y)));
+               Ulp(std::max(zetasql_base::MathUtil::Abs(x), zetasql_base::MathUtil::Abs(y)));
     ABSL_CHECK(std::isfinite(result)) << "Float margin overflow: " << *this;
     return result;
   }

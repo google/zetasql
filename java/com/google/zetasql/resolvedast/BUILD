@@ -17,6 +17,7 @@
 # Description:
 #   ZetaSQL ResolvedAST Java library.
 
+load("@rules_java//java:defs.bzl", "java_library")
 load("//zetasql/resolved_ast:build_rules.bzl", "gen_resolved_ast_files")
 
 package(
@@ -49,6 +50,7 @@ java_library(
     deps = [
         "//java/com/google/zetasql:client",
         "//java/com/google/zetasql:debug_printable_node",
+        "//java/com/google/zetasql:property_graph",
         "//java/com/google/zetasql:types",
         "//zetasql/proto:function_java_proto",
         "//zetasql/public:annotation_java_proto",
@@ -80,6 +82,7 @@ java_library(
     deps = [
         "//java/com/google/zetasql:catalog",
         "//java/com/google/zetasql:debug_printable_node",
+        "//java/com/google/zetasql:property_graph",
         "//java/com/google/zetasql:types",
         "//zetasql/proto:function_java_proto",
         "//zetasql/public:annotation_java_proto",

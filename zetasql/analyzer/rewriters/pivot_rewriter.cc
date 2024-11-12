@@ -37,6 +37,7 @@
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
+#include "zetasql/resolved_ast/column_factory.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_deep_copy_visitor.h"
 #include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
@@ -428,6 +429,14 @@ absl::Status PivotRewriterVisitor::VerifyAggregateFunctionIsSupported(
     return MakeUnimplementedErrorAtNode(call)
            << "Use of HAVING inside an aggregate function used as a PIVOT "
               "expression is not supported";
+  }
+
+  if (!call->group_by_list().empty()) {
+    // TODO: Add support for multi-level aggregate functions in
+    // PIVOT.
+    return MakeUnimplementedErrorAtNode(call)
+           << "Multi-level aggregate functions currently cannot be used as "
+              "PIVOT expressions.";
   }
 
   if (call->signature().context_id() == FN_COUNT_STAR ||

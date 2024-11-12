@@ -22,6 +22,7 @@
 #include "zetasql/public/catalog.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/strings/string_view.h"
 
 namespace zetasql {
 
@@ -50,8 +51,8 @@ TEST(SelectableCatalog, FindSelectableCatalog_none) {
 
 // Test that catalog `catalog_name` can be found, and that it includes a table
 // called `table_name`.
-static void TestCatalog(const std::string& catalog_name,
-                        const std::string& table_name) {
+static void TestCatalog(absl::string_view catalog_name,
+                        absl::string_view table_name) {
   auto found = FindSelectableCatalog(catalog_name);
   ZETASQL_ASSERT_OK(found);
   SelectableCatalog* selectable = found.value();
@@ -62,7 +63,7 @@ static void TestCatalog(const std::string& catalog_name,
   Catalog* catalog = get_catalog_result.value();
 
   const Table* table;
-  ZETASQL_EXPECT_OK(catalog->FindTable({table_name}, &table));
+  ZETASQL_EXPECT_OK(catalog->FindTable({std::string(table_name)}, &table));
   EXPECT_EQ(table->Name(), table_name);
 }
 

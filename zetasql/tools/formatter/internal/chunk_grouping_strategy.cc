@@ -944,12 +944,13 @@ absl::Status ComputeChunkBlocksForChunks(ChunkBlockFactory* block_factory,
     // We start with the previous level and then go up or down based on the
     // current chunk.
     ChunkBlock* chunk_block = previous_chunk.ChunkBlock();
+    ChunkBlock* parent_chunk_block = chunk_block->Parent();
 
     if (chunk.IsImport()) {
       top->AddIndentedChunk(&chunk);
     } else if (previous_chunk.IsSetOperator()) {
       // SET operators always introduce a new sibling chunk.
-      previous_chunk.ChunkBlock()->Parent()->AddChildChunk(&chunk);
+      chunk_block->AddSameLevelChunk(&chunk);
     } else if (chunk.IsSetOperator()) {
       AddBlockForSetOperator(chunk_block, &chunk);
     } else if (chunk.IsStartOfNewQuery()) {
@@ -972,6 +973,16 @@ absl::Status ComputeChunkBlocksForChunks(ChunkBlockFactory* block_factory,
       // Should be before handling top level clause keywords, since some ddl
       // keywords may be top level in other contexts.
       AddBlockForDdlChunk(chunk_block, &chunk);
+    } else if (chunk.FirstToken().Is(Token::Type::SELECT_STAR_MODIFIER)) {
+      if (parent_chunk_block->FirstChunkUnder() != nullptr &&
+          parent_chunk_block->FirstChunkUnder()->FirstToken().Is(
+              Token::Type::SELECT_STAR_MODIFIER)) {
+        // If there is already a same-level select * modifier, add a sibling.
+        // Otherwise, add an indented chunk.
+        chunk_block->AddSameLevelChunk(&chunk);
+      } else {
+        chunk_block->AddIndentedChunk(&chunk);
+      }
     } else if (chunk.FirstKeyword() == ".") {
       if (previous_chunk.StartsWithChainableOperator() ||
           previous_chunk.FirstKeyword() == "=") {
@@ -1015,7 +1026,7 @@ absl::Status ComputeChunkBlocksForChunks(ChunkBlockFactory* block_factory,
       //     ...
       //   )  # <- Previous chunk.
       // SELECT  # <- This chunk.
-      chunk_block->Parent()->AddSameLevelChunk(&chunk);
+      parent_chunk_block->AddSameLevelChunk(&chunk);
       if (chunk.FirstToken().IsMacroCall()) {
         chunk.Tokens().WithoutComments()[0]->SetType(
             Token::Type::TOP_LEVEL_KEYWORD);

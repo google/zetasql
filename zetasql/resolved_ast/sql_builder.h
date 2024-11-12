@@ -41,6 +41,7 @@
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/target_syntax.h"
+#include "absl/base/attributes.h"
 #include "absl/container/btree_map.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
@@ -246,6 +247,13 @@ class SQLBuilder : public ResolvedASTVisitor {
   absl::Status Process(const ResolvedNode& ast);
 
   // Returns the sql string for the last visited ResolvedAST.
+  // Some nodes must have been visited before calling this.
+  absl::StatusOr<std::string> GetSql();
+
+  // This deprecated version can crash in some cases.  Use GetSql() instead.
+  // This one also returns successfully with "" if no nodes have been visited,
+  // which GetSql() won't do any more.
+  ABSL_DEPRECATED("Use GetSql(), which can handle errors without crashing")
   std::string sql();
 
   // Returns a map of column id to its path expression.
@@ -353,6 +361,8 @@ class SQLBuilder : public ResolvedASTVisitor {
 
   // Visit methods for types of ResolvedStatement.
   absl::Status VisitResolvedQueryStmt(const ResolvedQueryStmt* node) override;
+  absl::Status VisitResolvedGeneralizedQueryStmt(
+      const ResolvedGeneralizedQueryStmt* node) override;
   absl::Status VisitResolvedExplainStmt(
       const ResolvedExplainStmt* node) override;
   absl::Status VisitResolvedCreateConnectionStmt(
@@ -541,6 +551,8 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedAssertRowsModified* node) override;
   absl::Status VisitResolvedReturningClause(
       const ResolvedReturningClause* node) override;
+  absl::Status VisitResolvedOnConflictClause(
+      const ResolvedOnConflictClause* node) override;
   absl::Status VisitResolvedDMLDefault(const ResolvedDMLDefault* node) override;
   absl::Status VisitResolvedDMLValue(const ResolvedDMLValue* node) override;
   absl::Status VisitResolvedInsertRow(const ResolvedInsertRow* node) override;
@@ -593,6 +605,10 @@ class SQLBuilder : public ResolvedASTVisitor {
   absl::Status VisitResolvedSampleScan(const ResolvedSampleScan* node) override;
   absl::Status VisitResolvedSingleRowScan(
       const ResolvedSingleRowScan* node) override;
+  absl::Status VisitResolvedMatchRecognizeScan(
+      const ResolvedMatchRecognizeScan* node) override;
+  absl::StatusOr<std::string> GeneratePatternExpression(
+      const ResolvedMatchRecognizePatternExpr* node);
   absl::Status VisitResolvedPivotScan(const ResolvedPivotScan* node) override;
   absl::Status VisitResolvedUnpivotScan(
       const ResolvedUnpivotScan* node) override;
@@ -601,8 +617,18 @@ class SQLBuilder : public ResolvedASTVisitor {
   absl::Status VisitResolvedStaticDescribeScan(
       const ResolvedStaticDescribeScan* node) override;
   absl::Status VisitResolvedAssertScan(const ResolvedAssertScan* node) override;
+  absl::Status VisitResolvedLogScan(const ResolvedLogScan* node) override;
+  absl::Status VisitResolvedPipeIfScan(const ResolvedPipeIfScan* node) override;
+  absl::Status VisitResolvedPipeForkScan(
+      const ResolvedPipeForkScan* node) override;
+  absl::Status VisitResolvedPipeExportDataScan(
+      const ResolvedPipeExportDataScan* node) override;
   absl::Status VisitResolvedBarrierScan(
       const ResolvedBarrierScan* node) override;
+  absl::Status VisitResolvedSubpipeline(
+      const ResolvedSubpipeline* node) override;
+  absl::Status VisitResolvedSubpipelineInputScan(
+      const ResolvedSubpipelineInputScan* node) override;
 
   // Visit methods for analytic functions related nodes.
   absl::Status VisitResolvedAnalyticFunctionGroup(
@@ -622,6 +648,157 @@ class SQLBuilder : public ResolvedASTVisitor {
   absl::Status VisitResolvedAuxLoadDataStmt(
       const ResolvedAuxLoadDataStmt* node) override;
 
+  absl::Status VisitResolvedLockMode(const ResolvedLockMode* node) override;
+
+  // Visit methods for graph related nodes.
+  absl::Status VisitResolvedCreatePropertyGraphStmt(
+      const ResolvedCreatePropertyGraphStmt* node) override;
+  absl::Status VisitResolvedGraphTableScan(
+      const ResolvedGraphTableScan* node) override;
+  absl::Status VisitResolvedGraphNodeScan(
+      const ResolvedGraphNodeScan* node) override;
+  absl::Status VisitResolvedGraphEdgeScan(
+      const ResolvedGraphEdgeScan* node) override;
+  absl::Status VisitResolvedGraphPathScan(
+      const ResolvedGraphPathScan* node) override;
+  absl::Status VisitResolvedGraphScan(const ResolvedGraphScan* node) override;
+  absl::Status VisitResolvedGraphGetElementProperty(
+      const ResolvedGraphGetElementProperty* node) override;
+  absl::Status VisitResolvedGraphIsLabeledPredicate(
+      const ResolvedGraphIsLabeledPredicate* node) override;
+
+  absl::Status VisitResolvedGraphLabel(const ResolvedGraphLabel* node) override;
+  absl::Status VisitResolvedGraphLabelNaryExpr(
+      const ResolvedGraphLabelNaryExpr* node) override;
+  absl::Status MakeGraphLabelNaryExpressionString(
+      absl::string_view op, const ResolvedGraphLabelNaryExpr* node,
+      std::string& output);
+  absl::Status VisitResolvedGraphWildCardLabel(
+      const ResolvedGraphWildCardLabel* node) override;
+  absl::Status VisitResolvedArrayAggregate(
+      const ResolvedArrayAggregate* node) override;
+  absl::Status ProcessResolvedGraphShape(
+      absl::Span<const ResolvedColumn> column_list,
+      absl::Span<const std::unique_ptr<const ResolvedComputedColumn>>
+          shape_expr_list,
+      const std::string& table_alias,
+      std::vector<std::pair<std::string, std::string>>* select_list,
+      std::string* sql);
+  absl::Status ProcessGqlSubquery(const ResolvedSubqueryExpr* node,
+                                  std::string& output_sql);
+  absl::Status ProcessResolvedGraphPathScan(const ResolvedGraphPathScan* node,
+                                            std::string& output_sql);
+  absl::Status ProcessResolvedGqlLinearScanIgnoringLastReturn(
+      const ResolvedGraphLinearScan* node, std::string& output_sql,
+      std::vector<std::string>& columns);
+  absl::Status ProcessResolvedGqlMatchOp(const ResolvedGraphScan* node,
+                                         std::string& output_sql);
+  absl::Status ProcessGqlCompositeScans(const ResolvedGraphLinearScan* node,
+                                        std::string& output_sql,
+                                        std::vector<std::string>& columns);
+  absl::Status ProcessGqlSetOp(const ResolvedSetOperationScan* node,
+                               std::string& output_sql,
+                               std::vector<std::string>& columns);
+
+  // Returns GQL for a graph single linear scan.
+  // `output_column_to_alias` contains an ordered map of the output column to
+  //     output alias. It only has value when the single linear scan is an input
+  //     of a set operation.
+  // `columns` is an ordered list of the output column names.
+  absl::Status ProcessResolvedGqlLinearOp(
+      const ResolvedGraphLinearScan* node,
+      std::optional<absl::btree_map<ResolvedColumn, std::string>>
+          output_column_to_alias,
+      std::string& output_sql, std::vector<std::string>& columns);
+  absl::Status ProcessResolvedGqlWithOp(const ResolvedAggregateScan* node,
+                                        std::string& output_sql);
+  absl::Status ProcessResolvedGqlWithOp(const ResolvedProjectScan* node,
+                                        std::string& output_sql);
+  absl::Status ProcessResolvedGqlWithOp(const ResolvedAnalyticScan* node,
+                                        std::string& output_sql);
+  absl::Status ProcessResolvedGqlWithOp(const ResolvedScan* node,
+                                        std::string& output_sql);
+  absl::Status ProcessResolvedGqlLetOp(const ResolvedProjectScan* node,
+                                       std::string& output_sql);
+  absl::Status ProcessResolvedGqlFilterOp(const ResolvedFilterScan* node,
+                                          std::string& output_sql);
+  // Used for operations such as GQL's LET, which may have an
+  // AnalyticScan (or a ProjScan whose input is an AnalyticScan) as their input.
+  // Such operators need to collapse those expressions by storing their SQL in
+  // pending_computed_columns_.
+  absl::Status ProcessAnalyticInputsWithNoVerticalAggregation(
+      const ResolvedScan* input_scan);
+
+  absl::Status ProcessResolvedGqlForOp(const ResolvedArrayScan* node,
+                                       std::string& output_sql);
+  // Processes an ORDER BY clause as a primitive query statement.
+  absl::Status ProcessResolvedGqlOrderByOp(const ResolvedOrderByScan* node,
+                                           std::string& output_sql);
+  absl::Status ProcessResolvedGqlPageOp(const ResolvedLimitOffsetScan* node,
+                                        std::string& output_sql);
+  absl::Status ProcessGraphPathPatternQuantifier(
+      const ResolvedGraphPathPatternQuantifier* node, std::string& output_sql);
+  void AppendGraphReference(const ResolvedGraphTableScan* node,
+                            std::string& output_sql);
+  absl::Status ProcessResolvedGraphSubquery(const ResolvedGraphTableScan* node,
+                                            std::string& output_sql);
+
+  // Helper method to process the input project scan in an OrderByScan.
+  absl::Status ProcessResolvedGqlProjectScanFromOrderBy(
+      const ResolvedProjectScan* scan);
+
+  // Helper method to process an order by item in an OrderByScan.
+  // `return_alias` is nullptr if the order by item is a return column.
+  absl::StatusOr<std::string> ProcessResolvedGqlOrderByItem(
+      const ResolvedOrderByItem* item, const std::string* return_alias);
+
+  // Helper method to process the OFFSET clause in a LimitOffsetScan.
+  absl::Status ProcessGqlOffset(const ResolvedLimitOffsetScan* node,
+                                std::string& output_sql);
+
+  // Helper method to process the LIMIT clause in a LimitOffsetScan.
+  absl::Status ProcessGqlLimit(const ResolvedLimitOffsetScan* node,
+                               std::string& output_sql);
+
+ private:
+  using StringToStringHashMap = absl::flat_hash_map<std::string, std::string>;
+
+  absl::Status VisitResolvedGraphElementScanInternal(
+      const ResolvedGraphElementScan* node, absl::string_view prefix,
+      absl::string_view suffix);
+
+  // Helper method to take an output column list and convert it to its
+  // SQL representation, computing column aliases when necessary.
+  // `column_alias_to_sql` is a map that will replace the WITH clause item
+  // for a given column alias with a precomputed SQL string.
+  absl::Status PopulateItemsForGqlWithOp(
+      absl::Span<const ResolvedColumn> columns,
+      StringToStringHashMap& column_alias_to_sql,
+      std::vector<std::string>& with_item_list);
+
+  // Helper method to linearize the sequence of scans of a GQL WITH clause.
+  absl::Status LinearizeWithOpResolvedScans(
+      const ResolvedScan* ret_scan,
+      std::vector<const ResolvedScan*>& return_scans,
+      const ResolvedLimitOffsetScan*& limit_offset_scan) const;
+
+  // Helper method to collapse the sequence of scans of a GQL RETURN clause.
+  // `output_column_to_alias` contains an ordered map of the output column to
+  //     output alias. It only has value if the RETURN clause belongs to a
+  //     linear scan that is an input to a set operation input. If it has value,
+  //     reuse the aliases. Otherwise, always generate new aliases for output
+  //     columns.
+  absl::Status CollapseResolvedGqlReturnScans(
+      const ResolvedScan* ret_scan,
+      std::optional<absl::btree_map<ResolvedColumn, std::string>>
+          output_column_to_alias,
+      std::string& output_sql, std::vector<std::string>& columns);
+
+  // Helper method to append a path mode to the SQL string.
+  absl::Status AppendPathMode(const ResolvedGraphPathMode* path_mode,
+                              std::string& sql);
+
+ public:
   absl::Status DefaultVisit(const ResolvedNode* node) override;
 
  protected:
@@ -720,7 +897,7 @@ class SQLBuilder : public ResolvedASTVisitor {
       std::string* sql);
   // Only append an OPTIONS clause if there is at least one option.
   absl::Status AppendOptionsIfPresent(
-      const std::vector<std::unique_ptr<const ResolvedOption>>& option_list,
+      absl::Span<const std::unique_ptr<const ResolvedOption>> option_list,
       std::string* sql);
 
   absl::Status AppendHintsIfPresent(

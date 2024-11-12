@@ -63,6 +63,8 @@ const char* const kInScopeExpressionColumnName =
     "in_scope_expression_column_name";
 const char* const kInScopeExpressionColumnType =
     "in_scope_expression_column_type";
+const char* const kAllowAggregateStandaloneExpression =
+    "allow_aggregate_standalone_expression";
 const char* const kCoercedQueryOutputTypes = "coerced_query_output_types";
 const char* const kStatementContext = "statement_context";
 const char* const kProductMode = "product_mode";
@@ -175,6 +177,7 @@ void RegisterAnalyzerTestOptions(
   // Prune unused columns by default.  We intend to make this the default
   // once all engines are updated.
   test_case_options->RegisterBool(kPruneUnusedColumns, true);
+  test_case_options->RegisterBool(kAllowAggregateStandaloneExpression, false);
 }
 
 std::vector<std::pair<std::string, const zetasql::Type*>> GetQueryParameters(

@@ -209,7 +209,7 @@ cc_library(
     linkstatic = 1,
     deps = [
         ":local_service_grpc",
-        "//zetasql/jdk:jni",
+        "@bazel_tools//tools/jdk:jni",
         "@com_github_grpc_grpc//:grpc++",
     ],
     alwayslink = 1,

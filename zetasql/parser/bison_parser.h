@@ -327,6 +327,7 @@ class BisonParser {
 // strings as globals here allows us to use them in generating warnings without
 // interrupting those tests.
 inline constexpr absl::string_view kQualify = "QUALIFY";
+inline constexpr absl::string_view kGraphTable = "GRAPH_TABLE";
 
 }  // namespace parser
 }  // namespace zetasql

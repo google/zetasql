@@ -27,13 +27,18 @@ import com.google.protobuf.Descriptors.OneofDescriptor;
 import com.google.protobuf.ProtocolMessageEnum;
 import com.google.zetasql.Column;
 import com.google.zetasql.Connection;
+import com.google.zetasql.Constant;
 import com.google.zetasql.DebugPrintableNode.DebugStringField;
 import com.google.zetasql.DescriptorPool.ZetaSQLFieldDescriptor;
 import com.google.zetasql.DescriptorPool.ZetaSQLOneofDescriptor;
 import com.google.zetasql.FunctionSignature;
 import com.google.zetasql.ZetaSQLStrings;
+import com.google.zetasql.GraphElementLabel;
+import com.google.zetasql.GraphElementTable;
+import com.google.zetasql.GraphPropertyDeclaration;
 import com.google.zetasql.Model;
 import com.google.zetasql.Procedure;
+import com.google.zetasql.PropertyGraph;
 import com.google.zetasql.ResolvedFunctionCallInfo;
 import com.google.zetasql.Sequence;
 import com.google.zetasql.TVFSignature;
@@ -105,6 +110,14 @@ class DebugStrings {
 
   static boolean isDefaultValue(ResolvedFunctionCallInfo call) {
     return call.isDefaultValue();
+  }
+
+  static boolean isDefaultValue(TableValuedFunction tvf) {
+    return tvf.isDefaultValue();
+  }
+
+  static boolean isDefaultValue(TVFSignature signature) {
+    return signature.isDefaultValue();
   }
 
   static boolean isDefaultValue(ResolvedColumn column) {
@@ -208,6 +221,10 @@ class DebugStrings {
     return column.debugString();
   }
 
+  static String toStringImpl(Constant constant) {
+    return constant.toString();
+  }
+
   static String toStringImpl(FunctionSignature signature) {
     return signature.toString();
   }
@@ -277,6 +294,35 @@ class DebugStrings {
 
   static String toStringImpl(TypeParameters typeParameters) {
     return typeParameters.debugString();
+  }
+
+  static String toStringImpl(PropertyGraph propertyGraph) {
+    return propertyGraph.getFullName();
+  }
+
+  static String toStringImpl(GraphPropertyDeclaration graphPropertyDeclaration) {
+    return String.format(
+        "%s(%s)",
+        graphPropertyDeclaration.getName(), graphPropertyDeclaration.getType().debugString());
+  }
+
+  static String toStringImpl(GraphElementLabel graphElementLabel) {
+    return graphElementLabel.getFullName();
+  }
+
+  static String toStringImpl(GraphElementTable graphElementTable) {
+    return graphElementTable.getName();
+  }
+
+  static String toStringCommaSeparatedForGraphElementLabel(
+      ImmutableList<GraphElementLabel> labels) {
+    return labels.stream().map(GraphElementLabel::getName).collect(joining(","));
+  }
+
+  static String toStringCommaSeparatedForGraphElementTable(
+      ImmutableList<GraphElementTable> tables) {
+    return String.format(
+        "[%s]", tables.stream().map(GraphElementTable::getFullName).collect(joining(",")));
   }
 
   static String toStringPeriodSeparatedForFieldDescriptors(List<ZetaSQLFieldDescriptor> fields) {

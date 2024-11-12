@@ -1,6 +1,6 @@
 # This file contains tests for different combinations of set operation options.
 SELECT 1
-{{|FULL|FULL OUTER|LEFT|LEFT OUTER}} {{UNION|INTERSECT|EXCEPT}} {{ALL|DISTINCT}} {{|STRICT}} {{|CORRESPONDING|CORRESPONDING BY (a)}}
+{{|FULL|FULL OUTER|LEFT|LEFT OUTER|INNER}} {{UNION|INTERSECT|EXCEPT}} {{ALL|DISTINCT}} {{|STRICT}} {{|CORRESPONDING|CORRESPONDING BY (a)|BY NAME|BY NAME ON (a)}}
 SELECT 2
 --
 ALTERNATION GROUP: UNION,ALL,,
@@ -76,6 +76,58 @@ QueryStatement [0-50] [SELECT 1...) SELECT 2]
 SELECT
   1
 UNION ALL CORRESPONDING BY (a)
+SELECT
+  2
+--
+ALTERNATION GROUP: UNION,ALL,,BY NAME
+--
+QueryStatement [0-37] [SELECT 1...NAME SELECT 2]
+  Query [0-37] [SELECT 1...NAME SELECT 2]
+    SetOperation(UNION ALL) [0-37] [SELECT 1...NAME SELECT 2]
+      SetOperationMetadataList [10-28] [UNION ALL  BY NAME]
+        SetOperationMetadata [10-28] [UNION ALL  BY NAME]
+          SetOperationType [10-15] [UNION]
+          SetOperationAllOrDistinct [16-19] [ALL]
+          SetOperationColumnMatchMode [21-28] [BY NAME]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [29-37] [SELECT 2]
+        SelectList [36-37] [2]
+          SelectColumn [36-37] [2]
+            IntLiteral(2) [36-37] [2]
+--
+SELECT
+  1
+UNION ALL BY NAME
+SELECT
+  2
+--
+ALTERNATION GROUP: UNION,ALL,,BY NAME ON (a)
+--
+QueryStatement [0-44] [SELECT 1...) SELECT 2]
+  Query [0-44] [SELECT 1...) SELECT 2]
+    SetOperation(UNION ALL) [0-44] [SELECT 1...) SELECT 2]
+      SetOperationMetadataList [10-35] [UNION ALL  BY NAME ON (a)]
+        SetOperationMetadata [10-35] [UNION ALL  BY NAME ON (a)]
+          SetOperationType [10-15] [UNION]
+          SetOperationAllOrDistinct [16-19] [ALL]
+          SetOperationColumnMatchMode [21-31] [BY NAME ON]
+          ColumnList [32-35] [(a)]
+            Identifier(a) [33-34] [a]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [36-44] [SELECT 2]
+        SelectList [43-44] [2]
+          SelectColumn [43-44] [2]
+            IntLiteral(2) [43-44] [2]
+--
+SELECT
+  1
+UNION ALL BY NAME ON (a)
 SELECT
   2
 --
@@ -158,6 +210,18 @@ UNION ALL STRICT CORRESPONDING BY (a)
 SELECT
   2
 --
+ALTERNATION GROUP: UNION,ALL,STRICT,BY NAME
+--
+ERROR: Syntax error: STRICT cannot be used with BY NAME in set operations [at 2:12]
+ UNION ALL STRICT BY NAME
+           ^
+--
+ALTERNATION GROUP: UNION,ALL,STRICT,BY NAME ON (a)
+--
+ERROR: Syntax error: STRICT cannot be used with BY NAME in set operations [at 2:12]
+ UNION ALL STRICT BY NAME ON (a)
+           ^
+--
 ALTERNATION GROUP: UNION,DISTINCT,,
 --
 QueryStatement [0-35] [SELECT 1...SELECT 2]
@@ -231,6 +295,58 @@ QueryStatement [0-55] [SELECT 1...) SELECT 2]
 SELECT
   1
 UNION DISTINCT CORRESPONDING BY (a)
+SELECT
+  2
+--
+ALTERNATION GROUP: UNION,DISTINCT,,BY NAME
+--
+QueryStatement [0-42] [SELECT 1...NAME SELECT 2]
+  Query [0-42] [SELECT 1...NAME SELECT 2]
+    SetOperation(UNION DISTINCT) [0-42] [SELECT 1...NAME SELECT 2]
+      SetOperationMetadataList [10-33] [UNION DISTINCT  BY NAME]
+        SetOperationMetadata [10-33] [UNION DISTINCT  BY NAME]
+          SetOperationType [10-15] [UNION]
+          SetOperationAllOrDistinct [16-24] [DISTINCT]
+          SetOperationColumnMatchMode [26-33] [BY NAME]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [34-42] [SELECT 2]
+        SelectList [41-42] [2]
+          SelectColumn [41-42] [2]
+            IntLiteral(2) [41-42] [2]
+--
+SELECT
+  1
+UNION DISTINCT BY NAME
+SELECT
+  2
+--
+ALTERNATION GROUP: UNION,DISTINCT,,BY NAME ON (a)
+--
+QueryStatement [0-49] [SELECT 1...) SELECT 2]
+  Query [0-49] [SELECT 1...) SELECT 2]
+    SetOperation(UNION DISTINCT) [0-49] [SELECT 1...) SELECT 2]
+      SetOperationMetadataList [10-40] [UNION DISTINCT  BY NAME ON (a)]
+        SetOperationMetadata [10-40] [UNION DISTINCT  BY NAME ON (a)]
+          SetOperationType [10-15] [UNION]
+          SetOperationAllOrDistinct [16-24] [DISTINCT]
+          SetOperationColumnMatchMode [26-36] [BY NAME ON]
+          ColumnList [37-40] [(a)]
+            Identifier(a) [38-39] [a]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [41-49] [SELECT 2]
+        SelectList [48-49] [2]
+          SelectColumn [48-49] [2]
+            IntLiteral(2) [48-49] [2]
+--
+SELECT
+  1
+UNION DISTINCT BY NAME ON (a)
 SELECT
   2
 --
@@ -313,6 +429,18 @@ UNION DISTINCT STRICT CORRESPONDING BY (a)
 SELECT
   2
 --
+ALTERNATION GROUP: UNION,DISTINCT,STRICT,BY NAME
+--
+ERROR: Syntax error: STRICT cannot be used with BY NAME in set operations [at 2:17]
+ UNION DISTINCT STRICT BY NAME
+                ^
+--
+ALTERNATION GROUP: UNION,DISTINCT,STRICT,BY NAME ON (a)
+--
+ERROR: Syntax error: STRICT cannot be used with BY NAME in set operations [at 2:17]
+ UNION DISTINCT STRICT BY NAME ON (a)
+                ^
+--
 ALTERNATION GROUP: INTERSECT,ALL,,
 --
 QueryStatement [0-34] [SELECT 1...SELECT 2]
@@ -386,6 +514,58 @@ QueryStatement [0-54] [SELECT 1...) SELECT 2]
 SELECT
   1
 INTERSECT ALL CORRESPONDING BY (a)
+SELECT
+  2
+--
+ALTERNATION GROUP: INTERSECT,ALL,,BY NAME
+--
+QueryStatement [0-41] [SELECT 1...NAME SELECT 2]
+  Query [0-41] [SELECT 1...NAME SELECT 2]
+    SetOperation(INTERSECT ALL) [0-41] [SELECT 1...NAME SELECT 2]
+      SetOperationMetadataList [10-32] [INTERSECT ALL  BY NAME]
+        SetOperationMetadata [10-32] [INTERSECT ALL  BY NAME]
+          SetOperationType [10-19] [INTERSECT]
+          SetOperationAllOrDistinct [20-23] [ALL]
+          SetOperationColumnMatchMode [25-32] [BY NAME]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [33-41] [SELECT 2]
+        SelectList [40-41] [2]
+          SelectColumn [40-41] [2]
+            IntLiteral(2) [40-41] [2]
+--
+SELECT
+  1
+INTERSECT ALL BY NAME
+SELECT
+  2
+--
+ALTERNATION GROUP: INTERSECT,ALL,,BY NAME ON (a)
+--
+QueryStatement [0-48] [SELECT 1...) SELECT 2]
+  Query [0-48] [SELECT 1...) SELECT 2]
+    SetOperation(INTERSECT ALL) [0-48] [SELECT 1...) SELECT 2]
+      SetOperationMetadataList [10-39] [INTERSECT ALL  BY NAME ON (a)]
+        SetOperationMetadata [10-39] [INTERSECT ALL  BY NAME ON (a)]
+          SetOperationType [10-19] [INTERSECT]
+          SetOperationAllOrDistinct [20-23] [ALL]
+          SetOperationColumnMatchMode [25-35] [BY NAME ON]
+          ColumnList [36-39] [(a)]
+            Identifier(a) [37-38] [a]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [40-48] [SELECT 2]
+        SelectList [47-48] [2]
+          SelectColumn [47-48] [2]
+            IntLiteral(2) [47-48] [2]
+--
+SELECT
+  1
+INTERSECT ALL BY NAME ON (a)
 SELECT
   2
 --
@@ -468,6 +648,18 @@ INTERSECT ALL STRICT CORRESPONDING BY (a)
 SELECT
   2
 --
+ALTERNATION GROUP: INTERSECT,ALL,STRICT,BY NAME
+--
+ERROR: Syntax error: STRICT cannot be used with BY NAME in set operations [at 2:16]
+ INTERSECT ALL STRICT BY NAME
+               ^
+--
+ALTERNATION GROUP: INTERSECT,ALL,STRICT,BY NAME ON (a)
+--
+ERROR: Syntax error: STRICT cannot be used with BY NAME in set operations [at 2:16]
+ INTERSECT ALL STRICT BY NAME ON (a)
+               ^
+--
 ALTERNATION GROUP: INTERSECT,DISTINCT,,
 --
 QueryStatement [0-39] [SELECT 1...SELECT 2]
@@ -541,6 +733,58 @@ QueryStatement [0-59] [SELECT 1...) SELECT 2]
 SELECT
   1
 INTERSECT DISTINCT CORRESPONDING BY (a)
+SELECT
+  2
+--
+ALTERNATION GROUP: INTERSECT,DISTINCT,,BY NAME
+--
+QueryStatement [0-46] [SELECT 1...NAME SELECT 2]
+  Query [0-46] [SELECT 1...NAME SELECT 2]
+    SetOperation(INTERSECT DISTINCT) [0-46] [SELECT 1...NAME SELECT 2]
+      SetOperationMetadataList [10-37] [INTERSECT DISTINCT  BY NAME]
+        SetOperationMetadata [10-37] [INTERSECT DISTINCT  BY NAME]
+          SetOperationType [10-19] [INTERSECT]
+          SetOperationAllOrDistinct [20-28] [DISTINCT]
+          SetOperationColumnMatchMode [30-37] [BY NAME]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [38-46] [SELECT 2]
+        SelectList [45-46] [2]
+          SelectColumn [45-46] [2]
+            IntLiteral(2) [45-46] [2]
+--
+SELECT
+  1
+INTERSECT DISTINCT BY NAME
+SELECT
+  2
+--
+ALTERNATION GROUP: INTERSECT,DISTINCT,,BY NAME ON (a)
+--
+QueryStatement [0-53] [SELECT 1...) SELECT 2]
+  Query [0-53] [SELECT 1...) SELECT 2]
+    SetOperation(INTERSECT DISTINCT) [0-53] [SELECT 1...) SELECT 2]
+      SetOperationMetadataList [10-44] [INTERSECT...NAME ON (a)]
+        SetOperationMetadata [10-44] [INTERSECT...NAME ON (a)]
+          SetOperationType [10-19] [INTERSECT]
+          SetOperationAllOrDistinct [20-28] [DISTINCT]
+          SetOperationColumnMatchMode [30-40] [BY NAME ON]
+          ColumnList [41-44] [(a)]
+            Identifier(a) [42-43] [a]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [45-53] [SELECT 2]
+        SelectList [52-53] [2]
+          SelectColumn [52-53] [2]
+            IntLiteral(2) [52-53] [2]
+--
+SELECT
+  1
+INTERSECT DISTINCT BY NAME ON (a)
 SELECT
   2
 --
@@ -623,6 +867,18 @@ INTERSECT DISTINCT STRICT CORRESPONDING BY (a)
 SELECT
   2
 --
+ALTERNATION GROUP: INTERSECT,DISTINCT,STRICT,BY NAME
+--
+ERROR: Syntax error: STRICT cannot be used with BY NAME in set operations [at 2:21]
+ INTERSECT DISTINCT STRICT BY NAME
+                    ^
+--
+ALTERNATION GROUP: INTERSECT,DISTINCT,STRICT,BY NAME ON (a)
+--
+ERROR: Syntax error: STRICT cannot be used with BY NAME in set operations [at 2:21]
+ INTERSECT DISTINCT STRICT BY NAME ON (a)
+                    ^
+--
 ALTERNATION GROUP: EXCEPT,ALL,,
 --
 QueryStatement [0-31] [SELECT 1...SELECT 2]
@@ -696,6 +952,58 @@ QueryStatement [0-51] [SELECT 1...) SELECT 2]
 SELECT
   1
 EXCEPT ALL CORRESPONDING BY (a)
+SELECT
+  2
+--
+ALTERNATION GROUP: EXCEPT,ALL,,BY NAME
+--
+QueryStatement [0-38] [SELECT 1...NAME SELECT 2]
+  Query [0-38] [SELECT 1...NAME SELECT 2]
+    SetOperation(EXCEPT ALL) [0-38] [SELECT 1...NAME SELECT 2]
+      SetOperationMetadataList [10-29] [EXCEPT ALL  BY NAME]
+        SetOperationMetadata [10-29] [EXCEPT ALL  BY NAME]
+          SetOperationType [10-16] [EXCEPT]
+          SetOperationAllOrDistinct [17-20] [ALL]
+          SetOperationColumnMatchMode [22-29] [BY NAME]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [30-38] [SELECT 2]
+        SelectList [37-38] [2]
+          SelectColumn [37-38] [2]
+            IntLiteral(2) [37-38] [2]
+--
+SELECT
+  1
+EXCEPT ALL BY NAME
+SELECT
+  2
+--
+ALTERNATION GROUP: EXCEPT,ALL,,BY NAME ON (a)
+--
+QueryStatement [0-45] [SELECT 1...) SELECT 2]
+  Query [0-45] [SELECT 1...) SELECT 2]
+    SetOperation(EXCEPT ALL) [0-45] [SELECT 1...) SELECT 2]
+      SetOperationMetadataList [10-36] [EXCEPT ALL  BY NAME ON (a)]
+        SetOperationMetadata [10-36] [EXCEPT ALL  BY NAME ON (a)]
+          SetOperationType [10-16] [EXCEPT]
+          SetOperationAllOrDistinct [17-20] [ALL]
+          SetOperationColumnMatchMode [22-32] [BY NAME ON]
+          ColumnList [33-36] [(a)]
+            Identifier(a) [34-35] [a]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [37-45] [SELECT 2]
+        SelectList [44-45] [2]
+          SelectColumn [44-45] [2]
+            IntLiteral(2) [44-45] [2]
+--
+SELECT
+  1
+EXCEPT ALL BY NAME ON (a)
 SELECT
   2
 --
@@ -778,6 +1086,18 @@ EXCEPT ALL STRICT CORRESPONDING BY (a)
 SELECT
   2
 --
+ALTERNATION GROUP: EXCEPT,ALL,STRICT,BY NAME
+--
+ERROR: Syntax error: STRICT cannot be used with BY NAME in set operations [at 2:13]
+ EXCEPT ALL STRICT BY NAME
+            ^
+--
+ALTERNATION GROUP: EXCEPT,ALL,STRICT,BY NAME ON (a)
+--
+ERROR: Syntax error: STRICT cannot be used with BY NAME in set operations [at 2:13]
+ EXCEPT ALL STRICT BY NAME ON (a)
+            ^
+--
 ALTERNATION GROUP: EXCEPT,DISTINCT,,
 --
 QueryStatement [0-36] [SELECT 1...SELECT 2]
@@ -851,6 +1171,58 @@ QueryStatement [0-56] [SELECT 1...) SELECT 2]
 SELECT
   1
 EXCEPT DISTINCT CORRESPONDING BY (a)
+SELECT
+  2
+--
+ALTERNATION GROUP: EXCEPT,DISTINCT,,BY NAME
+--
+QueryStatement [0-43] [SELECT 1...NAME SELECT 2]
+  Query [0-43] [SELECT 1...NAME SELECT 2]
+    SetOperation(EXCEPT DISTINCT) [0-43] [SELECT 1...NAME SELECT 2]
+      SetOperationMetadataList [10-34] [EXCEPT DISTINCT  BY NAME]
+        SetOperationMetadata [10-34] [EXCEPT DISTINCT  BY NAME]
+          SetOperationType [10-16] [EXCEPT]
+          SetOperationAllOrDistinct [17-25] [DISTINCT]
+          SetOperationColumnMatchMode [27-34] [BY NAME]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [35-43] [SELECT 2]
+        SelectList [42-43] [2]
+          SelectColumn [42-43] [2]
+            IntLiteral(2) [42-43] [2]
+--
+SELECT
+  1
+EXCEPT DISTINCT BY NAME
+SELECT
+  2
+--
+ALTERNATION GROUP: EXCEPT,DISTINCT,,BY NAME ON (a)
+--
+QueryStatement [0-50] [SELECT 1...) SELECT 2]
+  Query [0-50] [SELECT 1...) SELECT 2]
+    SetOperation(EXCEPT DISTINCT) [0-50] [SELECT 1...) SELECT 2]
+      SetOperationMetadataList [10-41] [EXCEPT DISTINCT...NAME ON (a)]
+        SetOperationMetadata [10-41] [EXCEPT DISTINCT...NAME ON (a)]
+          SetOperationType [10-16] [EXCEPT]
+          SetOperationAllOrDistinct [17-25] [DISTINCT]
+          SetOperationColumnMatchMode [27-37] [BY NAME ON]
+          ColumnList [38-41] [(a)]
+            Identifier(a) [39-40] [a]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [42-50] [SELECT 2]
+        SelectList [49-50] [2]
+          SelectColumn [49-50] [2]
+            IntLiteral(2) [49-50] [2]
+--
+SELECT
+  1
+EXCEPT DISTINCT BY NAME ON (a)
 SELECT
   2
 --
@@ -933,6 +1305,18 @@ EXCEPT DISTINCT STRICT CORRESPONDING BY (a)
 SELECT
   2
 --
+ALTERNATION GROUP: EXCEPT,DISTINCT,STRICT,BY NAME
+--
+ERROR: Syntax error: STRICT cannot be used with BY NAME in set operations [at 2:18]
+ EXCEPT DISTINCT STRICT BY NAME
+                 ^
+--
+ALTERNATION GROUP: EXCEPT,DISTINCT,STRICT,BY NAME ON (a)
+--
+ERROR: Syntax error: STRICT cannot be used with BY NAME in set operations [at 2:18]
+ EXCEPT DISTINCT STRICT BY NAME ON (a)
+                 ^
+--
 ALTERNATION GROUP: FULL,UNION,ALL,,
 --
 QueryStatement [0-34] [SELECT 1 FULL...SELECT 2]
@@ -1012,6 +1396,60 @@ FULL UNION ALL CORRESPONDING BY (a)
 SELECT
   2
 --
+ALTERNATION GROUP: FULL,UNION,ALL,,BY NAME
+--
+QueryStatement [0-41] [SELECT 1 FULL...NAME SELECT 2]
+  Query [0-41] [SELECT 1 FULL...NAME SELECT 2]
+    SetOperation(UNION ALL) [0-41] [SELECT 1 FULL...NAME SELECT 2]
+      SetOperationMetadataList [9-32] [FULL UNION ALL  BY NAME]
+        SetOperationMetadata [9-32] [FULL UNION ALL  BY NAME]
+          SetOperationType [14-19] [UNION]
+          SetOperationAllOrDistinct [20-23] [ALL]
+          SetOperationColumnMatchMode [25-32] [BY NAME]
+          SetOperationColumnPropagationMode [9-13] [FULL]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [33-41] [SELECT 2]
+        SelectList [40-41] [2]
+          SelectColumn [40-41] [2]
+            IntLiteral(2) [40-41] [2]
+--
+SELECT
+  1
+FULL UNION ALL BY NAME
+SELECT
+  2
+--
+ALTERNATION GROUP: FULL,UNION,ALL,,BY NAME ON (a)
+--
+QueryStatement [0-48] [SELECT 1 FULL...) SELECT 2]
+  Query [0-48] [SELECT 1 FULL...) SELECT 2]
+    SetOperation(UNION ALL) [0-48] [SELECT 1 FULL...) SELECT 2]
+      SetOperationMetadataList [9-39] [FULL UNION ALL  BY NAME ON (a)]
+        SetOperationMetadata [9-39] [FULL UNION ALL  BY NAME ON (a)]
+          SetOperationType [14-19] [UNION]
+          SetOperationAllOrDistinct [20-23] [ALL]
+          SetOperationColumnMatchMode [25-35] [BY NAME ON]
+          SetOperationColumnPropagationMode [9-13] [FULL]
+          ColumnList [36-39] [(a)]
+            Identifier(a) [37-38] [a]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [40-48] [SELECT 2]
+        SelectList [47-48] [2]
+          SelectColumn [47-48] [2]
+            IntLiteral(2) [47-48] [2]
+--
+SELECT
+  1
+FULL UNION ALL BY NAME ON (a)
+SELECT
+  2
+--
 ALTERNATION GROUP: FULL,UNION,ALL,STRICT,
 --
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:16]
@@ -1028,6 +1466,18 @@ ALTERNATION GROUP: FULL,UNION,ALL,STRICT,CORRESPONDING BY (a)
 --
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:16]
 FULL UNION ALL STRICT CORRESPONDING BY (a)
+               ^
+--
+ALTERNATION GROUP: FULL,UNION,ALL,STRICT,BY NAME
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:16]
+FULL UNION ALL STRICT BY NAME
+               ^
+--
+ALTERNATION GROUP: FULL,UNION,ALL,STRICT,BY NAME ON (a)
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:16]
+FULL UNION ALL STRICT BY NAME ON (a)
                ^
 --
 ALTERNATION GROUP: FULL,UNION,DISTINCT,,
@@ -1109,6 +1559,60 @@ FULL UNION DISTINCT CORRESPONDING BY (a)
 SELECT
   2
 --
+ALTERNATION GROUP: FULL,UNION,DISTINCT,,BY NAME
+--
+QueryStatement [0-46] [SELECT 1 FULL...NAME SELECT 2]
+  Query [0-46] [SELECT 1 FULL...NAME SELECT 2]
+    SetOperation(UNION DISTINCT) [0-46] [SELECT 1 FULL...NAME SELECT 2]
+      SetOperationMetadataList [9-37] [FULL UNION DISTINCT  BY NAME]
+        SetOperationMetadata [9-37] [FULL UNION DISTINCT  BY NAME]
+          SetOperationType [14-19] [UNION]
+          SetOperationAllOrDistinct [20-28] [DISTINCT]
+          SetOperationColumnMatchMode [30-37] [BY NAME]
+          SetOperationColumnPropagationMode [9-13] [FULL]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [38-46] [SELECT 2]
+        SelectList [45-46] [2]
+          SelectColumn [45-46] [2]
+            IntLiteral(2) [45-46] [2]
+--
+SELECT
+  1
+FULL UNION DISTINCT BY NAME
+SELECT
+  2
+--
+ALTERNATION GROUP: FULL,UNION,DISTINCT,,BY NAME ON (a)
+--
+QueryStatement [0-53] [SELECT 1 FULL...) SELECT 2]
+  Query [0-53] [SELECT 1 FULL...) SELECT 2]
+    SetOperation(UNION DISTINCT) [0-53] [SELECT 1 FULL...) SELECT 2]
+      SetOperationMetadataList [9-44] [FULL UNION...NAME ON (a)]
+        SetOperationMetadata [9-44] [FULL UNION...NAME ON (a)]
+          SetOperationType [14-19] [UNION]
+          SetOperationAllOrDistinct [20-28] [DISTINCT]
+          SetOperationColumnMatchMode [30-40] [BY NAME ON]
+          SetOperationColumnPropagationMode [9-13] [FULL]
+          ColumnList [41-44] [(a)]
+            Identifier(a) [42-43] [a]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [45-53] [SELECT 2]
+        SelectList [52-53] [2]
+          SelectColumn [52-53] [2]
+            IntLiteral(2) [52-53] [2]
+--
+SELECT
+  1
+FULL UNION DISTINCT BY NAME ON (a)
+SELECT
+  2
+--
 ALTERNATION GROUP: FULL,UNION,DISTINCT,STRICT,
 --
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:21]
@@ -1125,6 +1629,18 @@ ALTERNATION GROUP: FULL,UNION,DISTINCT,STRICT,CORRESPONDING BY (a)
 --
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:21]
 FULL UNION DISTINCT STRICT CORRESPONDING BY (a)
+                    ^
+--
+ALTERNATION GROUP: FULL,UNION,DISTINCT,STRICT,BY NAME
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:21]
+FULL UNION DISTINCT STRICT BY NAME
+                    ^
+--
+ALTERNATION GROUP: FULL,UNION,DISTINCT,STRICT,BY NAME ON (a)
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:21]
+FULL UNION DISTINCT STRICT BY NAME ON (a)
                     ^
 --
 ALTERNATION GROUP: FULL,INTERSECT,ALL,,
@@ -1206,6 +1722,60 @@ FULL INTERSECT ALL CORRESPONDING BY (a)
 SELECT
   2
 --
+ALTERNATION GROUP: FULL,INTERSECT,ALL,,BY NAME
+--
+QueryStatement [0-45] [SELECT 1 FULL...NAME SELECT 2]
+  Query [0-45] [SELECT 1 FULL...NAME SELECT 2]
+    SetOperation(INTERSECT ALL) [0-45] [SELECT 1 FULL...NAME SELECT 2]
+      SetOperationMetadataList [9-36] [FULL INTERSECT ALL  BY NAME]
+        SetOperationMetadata [9-36] [FULL INTERSECT ALL  BY NAME]
+          SetOperationType [14-23] [INTERSECT]
+          SetOperationAllOrDistinct [24-27] [ALL]
+          SetOperationColumnMatchMode [29-36] [BY NAME]
+          SetOperationColumnPropagationMode [9-13] [FULL]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [37-45] [SELECT 2]
+        SelectList [44-45] [2]
+          SelectColumn [44-45] [2]
+            IntLiteral(2) [44-45] [2]
+--
+SELECT
+  1
+FULL INTERSECT ALL BY NAME
+SELECT
+  2
+--
+ALTERNATION GROUP: FULL,INTERSECT,ALL,,BY NAME ON (a)
+--
+QueryStatement [0-52] [SELECT 1 FULL...) SELECT 2]
+  Query [0-52] [SELECT 1 FULL...) SELECT 2]
+    SetOperation(INTERSECT ALL) [0-52] [SELECT 1 FULL...) SELECT 2]
+      SetOperationMetadataList [9-43] [FULL INTERSECT...NAME ON (a)]
+        SetOperationMetadata [9-43] [FULL INTERSECT...NAME ON (a)]
+          SetOperationType [14-23] [INTERSECT]
+          SetOperationAllOrDistinct [24-27] [ALL]
+          SetOperationColumnMatchMode [29-39] [BY NAME ON]
+          SetOperationColumnPropagationMode [9-13] [FULL]
+          ColumnList [40-43] [(a)]
+            Identifier(a) [41-42] [a]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [44-52] [SELECT 2]
+        SelectList [51-52] [2]
+          SelectColumn [51-52] [2]
+            IntLiteral(2) [51-52] [2]
+--
+SELECT
+  1
+FULL INTERSECT ALL BY NAME ON (a)
+SELECT
+  2
+--
 ALTERNATION GROUP: FULL,INTERSECT,ALL,STRICT,
 --
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:20]
@@ -1222,6 +1792,18 @@ ALTERNATION GROUP: FULL,INTERSECT,ALL,STRICT,CORRESPONDING BY (a)
 --
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:20]
 FULL INTERSECT ALL STRICT CORRESPONDING BY (a)
+                   ^
+--
+ALTERNATION GROUP: FULL,INTERSECT,ALL,STRICT,BY NAME
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:20]
+FULL INTERSECT ALL STRICT BY NAME
+                   ^
+--
+ALTERNATION GROUP: FULL,INTERSECT,ALL,STRICT,BY NAME ON (a)
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:20]
+FULL INTERSECT ALL STRICT BY NAME ON (a)
                    ^
 --
 ALTERNATION GROUP: FULL,INTERSECT,DISTINCT,,
@@ -1303,6 +1885,60 @@ FULL INTERSECT DISTINCT CORRESPONDING BY (a)
 SELECT
   2
 --
+ALTERNATION GROUP: FULL,INTERSECT,DISTINCT,,BY NAME
+--
+QueryStatement [0-50] [SELECT 1 FULL...NAME SELECT 2]
+  Query [0-50] [SELECT 1 FULL...NAME SELECT 2]
+    SetOperation(INTERSECT DISTINCT) [0-50] [SELECT 1 FULL...NAME SELECT 2]
+      SetOperationMetadataList [9-41] [FULL INTERSECT...INCT  BY NAME]
+        SetOperationMetadata [9-41] [FULL INTERSECT...INCT  BY NAME]
+          SetOperationType [14-23] [INTERSECT]
+          SetOperationAllOrDistinct [24-32] [DISTINCT]
+          SetOperationColumnMatchMode [34-41] [BY NAME]
+          SetOperationColumnPropagationMode [9-13] [FULL]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [42-50] [SELECT 2]
+        SelectList [49-50] [2]
+          SelectColumn [49-50] [2]
+            IntLiteral(2) [49-50] [2]
+--
+SELECT
+  1
+FULL INTERSECT DISTINCT BY NAME
+SELECT
+  2
+--
+ALTERNATION GROUP: FULL,INTERSECT,DISTINCT,,BY NAME ON (a)
+--
+QueryStatement [0-57] [SELECT 1 FULL...) SELECT 2]
+  Query [0-57] [SELECT 1 FULL...) SELECT 2]
+    SetOperation(INTERSECT DISTINCT) [0-57] [SELECT 1 FULL...) SELECT 2]
+      SetOperationMetadataList [9-48] [FULL INTERSECT...NAME ON (a)]
+        SetOperationMetadata [9-48] [FULL INTERSECT...NAME ON (a)]
+          SetOperationType [14-23] [INTERSECT]
+          SetOperationAllOrDistinct [24-32] [DISTINCT]
+          SetOperationColumnMatchMode [34-44] [BY NAME ON]
+          SetOperationColumnPropagationMode [9-13] [FULL]
+          ColumnList [45-48] [(a)]
+            Identifier(a) [46-47] [a]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [49-57] [SELECT 2]
+        SelectList [56-57] [2]
+          SelectColumn [56-57] [2]
+            IntLiteral(2) [56-57] [2]
+--
+SELECT
+  1
+FULL INTERSECT DISTINCT BY NAME ON (a)
+SELECT
+  2
+--
 ALTERNATION GROUP: FULL,INTERSECT,DISTINCT,STRICT,
 --
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:25]
@@ -1319,6 +1955,18 @@ ALTERNATION GROUP: FULL,INTERSECT,DISTINCT,STRICT,CORRESPONDING BY (a)
 --
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:25]
 FULL INTERSECT DISTINCT STRICT CORRESPONDING BY (a)
+                        ^
+--
+ALTERNATION GROUP: FULL,INTERSECT,DISTINCT,STRICT,BY NAME
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:25]
+FULL INTERSECT DISTINCT STRICT BY NAME
+                        ^
+--
+ALTERNATION GROUP: FULL,INTERSECT,DISTINCT,STRICT,BY NAME ON (a)
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:25]
+FULL INTERSECT DISTINCT STRICT BY NAME ON (a)
                         ^
 --
 ALTERNATION GROUP: FULL,EXCEPT,ALL,,
@@ -1400,6 +2048,60 @@ FULL EXCEPT ALL CORRESPONDING BY (a)
 SELECT
   2
 --
+ALTERNATION GROUP: FULL,EXCEPT,ALL,,BY NAME
+--
+QueryStatement [0-42] [SELECT 1 FULL...NAME SELECT 2]
+  Query [0-42] [SELECT 1 FULL...NAME SELECT 2]
+    SetOperation(EXCEPT ALL) [0-42] [SELECT 1 FULL...NAME SELECT 2]
+      SetOperationMetadataList [9-33] [FULL EXCEPT ALL  BY NAME]
+        SetOperationMetadata [9-33] [FULL EXCEPT ALL  BY NAME]
+          SetOperationType [14-20] [EXCEPT]
+          SetOperationAllOrDistinct [21-24] [ALL]
+          SetOperationColumnMatchMode [26-33] [BY NAME]
+          SetOperationColumnPropagationMode [9-13] [FULL]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [34-42] [SELECT 2]
+        SelectList [41-42] [2]
+          SelectColumn [41-42] [2]
+            IntLiteral(2) [41-42] [2]
+--
+SELECT
+  1
+FULL EXCEPT ALL BY NAME
+SELECT
+  2
+--
+ALTERNATION GROUP: FULL,EXCEPT,ALL,,BY NAME ON (a)
+--
+QueryStatement [0-49] [SELECT 1 FULL...) SELECT 2]
+  Query [0-49] [SELECT 1 FULL...) SELECT 2]
+    SetOperation(EXCEPT ALL) [0-49] [SELECT 1 FULL...) SELECT 2]
+      SetOperationMetadataList [9-40] [FULL EXCEPT...NAME ON (a)]
+        SetOperationMetadata [9-40] [FULL EXCEPT...NAME ON (a)]
+          SetOperationType [14-20] [EXCEPT]
+          SetOperationAllOrDistinct [21-24] [ALL]
+          SetOperationColumnMatchMode [26-36] [BY NAME ON]
+          SetOperationColumnPropagationMode [9-13] [FULL]
+          ColumnList [37-40] [(a)]
+            Identifier(a) [38-39] [a]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [41-49] [SELECT 2]
+        SelectList [48-49] [2]
+          SelectColumn [48-49] [2]
+            IntLiteral(2) [48-49] [2]
+--
+SELECT
+  1
+FULL EXCEPT ALL BY NAME ON (a)
+SELECT
+  2
+--
 ALTERNATION GROUP: FULL,EXCEPT,ALL,STRICT,
 --
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:17]
@@ -1416,6 +2118,18 @@ ALTERNATION GROUP: FULL,EXCEPT,ALL,STRICT,CORRESPONDING BY (a)
 --
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:17]
 FULL EXCEPT ALL STRICT CORRESPONDING BY (a)
+                ^
+--
+ALTERNATION GROUP: FULL,EXCEPT,ALL,STRICT,BY NAME
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:17]
+FULL EXCEPT ALL STRICT BY NAME
+                ^
+--
+ALTERNATION GROUP: FULL,EXCEPT,ALL,STRICT,BY NAME ON (a)
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:17]
+FULL EXCEPT ALL STRICT BY NAME ON (a)
                 ^
 --
 ALTERNATION GROUP: FULL,EXCEPT,DISTINCT,,
@@ -1497,6 +2211,60 @@ FULL EXCEPT DISTINCT CORRESPONDING BY (a)
 SELECT
   2
 --
+ALTERNATION GROUP: FULL,EXCEPT,DISTINCT,,BY NAME
+--
+QueryStatement [0-47] [SELECT 1 FULL...NAME SELECT 2]
+  Query [0-47] [SELECT 1 FULL...NAME SELECT 2]
+    SetOperation(EXCEPT DISTINCT) [0-47] [SELECT 1 FULL...NAME SELECT 2]
+      SetOperationMetadataList [9-38] [FULL EXCEPT DISTINCT  BY NAME]
+        SetOperationMetadata [9-38] [FULL EXCEPT DISTINCT  BY NAME]
+          SetOperationType [14-20] [EXCEPT]
+          SetOperationAllOrDistinct [21-29] [DISTINCT]
+          SetOperationColumnMatchMode [31-38] [BY NAME]
+          SetOperationColumnPropagationMode [9-13] [FULL]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [39-47] [SELECT 2]
+        SelectList [46-47] [2]
+          SelectColumn [46-47] [2]
+            IntLiteral(2) [46-47] [2]
+--
+SELECT
+  1
+FULL EXCEPT DISTINCT BY NAME
+SELECT
+  2
+--
+ALTERNATION GROUP: FULL,EXCEPT,DISTINCT,,BY NAME ON (a)
+--
+QueryStatement [0-54] [SELECT 1 FULL...) SELECT 2]
+  Query [0-54] [SELECT 1 FULL...) SELECT 2]
+    SetOperation(EXCEPT DISTINCT) [0-54] [SELECT 1 FULL...) SELECT 2]
+      SetOperationMetadataList [9-45] [FULL EXCEPT...NAME ON (a)]
+        SetOperationMetadata [9-45] [FULL EXCEPT...NAME ON (a)]
+          SetOperationType [14-20] [EXCEPT]
+          SetOperationAllOrDistinct [21-29] [DISTINCT]
+          SetOperationColumnMatchMode [31-41] [BY NAME ON]
+          SetOperationColumnPropagationMode [9-13] [FULL]
+          ColumnList [42-45] [(a)]
+            Identifier(a) [43-44] [a]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [46-54] [SELECT 2]
+        SelectList [53-54] [2]
+          SelectColumn [53-54] [2]
+            IntLiteral(2) [53-54] [2]
+--
+SELECT
+  1
+FULL EXCEPT DISTINCT BY NAME ON (a)
+SELECT
+  2
+--
 ALTERNATION GROUP: FULL,EXCEPT,DISTINCT,STRICT,
 --
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:22]
@@ -1513,6 +2281,18 @@ ALTERNATION GROUP: FULL,EXCEPT,DISTINCT,STRICT,CORRESPONDING BY (a)
 --
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:22]
 FULL EXCEPT DISTINCT STRICT CORRESPONDING BY (a)
+                     ^
+--
+ALTERNATION GROUP: FULL,EXCEPT,DISTINCT,STRICT,BY NAME
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:22]
+FULL EXCEPT DISTINCT STRICT BY NAME
+                     ^
+--
+ALTERNATION GROUP: FULL,EXCEPT,DISTINCT,STRICT,BY NAME ON (a)
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:22]
+FULL EXCEPT DISTINCT STRICT BY NAME ON (a)
                      ^
 --
 ALTERNATION GROUP: FULL OUTER,UNION,ALL,,
@@ -1594,6 +2374,60 @@ FULL UNION ALL CORRESPONDING BY (a)
 SELECT
   2
 --
+ALTERNATION GROUP: FULL OUTER,UNION,ALL,,BY NAME
+--
+QueryStatement [0-47] [SELECT 1 FULL...NAME SELECT 2]
+  Query [0-47] [SELECT 1 FULL...NAME SELECT 2]
+    SetOperation(UNION ALL) [0-47] [SELECT 1 FULL...NAME SELECT 2]
+      SetOperationMetadataList [9-38] [FULL OUTER UNION ALL  BY NAME]
+        SetOperationMetadata [9-38] [FULL OUTER UNION ALL  BY NAME]
+          SetOperationType [20-25] [UNION]
+          SetOperationAllOrDistinct [26-29] [ALL]
+          SetOperationColumnMatchMode [31-38] [BY NAME]
+          SetOperationColumnPropagationMode [9-19] [FULL OUTER]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [39-47] [SELECT 2]
+        SelectList [46-47] [2]
+          SelectColumn [46-47] [2]
+            IntLiteral(2) [46-47] [2]
+--
+SELECT
+  1
+FULL UNION ALL BY NAME
+SELECT
+  2
+--
+ALTERNATION GROUP: FULL OUTER,UNION,ALL,,BY NAME ON (a)
+--
+QueryStatement [0-54] [SELECT 1 FULL...) SELECT 2]
+  Query [0-54] [SELECT 1 FULL...) SELECT 2]
+    SetOperation(UNION ALL) [0-54] [SELECT 1 FULL...) SELECT 2]
+      SetOperationMetadataList [9-45] [FULL OUTER...NAME ON (a)]
+        SetOperationMetadata [9-45] [FULL OUTER...NAME ON (a)]
+          SetOperationType [20-25] [UNION]
+          SetOperationAllOrDistinct [26-29] [ALL]
+          SetOperationColumnMatchMode [31-41] [BY NAME ON]
+          SetOperationColumnPropagationMode [9-19] [FULL OUTER]
+          ColumnList [42-45] [(a)]
+            Identifier(a) [43-44] [a]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [46-54] [SELECT 2]
+        SelectList [53-54] [2]
+          SelectColumn [53-54] [2]
+            IntLiteral(2) [53-54] [2]
+--
+SELECT
+  1
+FULL UNION ALL BY NAME ON (a)
+SELECT
+  2
+--
 ALTERNATION GROUP: FULL OUTER,UNION,ALL,STRICT,
 --
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:22]
@@ -1610,6 +2444,18 @@ ALTERNATION GROUP: FULL OUTER,UNION,ALL,STRICT,CORRESPONDING BY (a)
 --
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:22]
 FULL OUTER UNION ALL STRICT CORRESPONDING BY (a)
+                     ^
+--
+ALTERNATION GROUP: FULL OUTER,UNION,ALL,STRICT,BY NAME
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:22]
+FULL OUTER UNION ALL STRICT BY NAME
+                     ^
+--
+ALTERNATION GROUP: FULL OUTER,UNION,ALL,STRICT,BY NAME ON (a)
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:22]
+FULL OUTER UNION ALL STRICT BY NAME ON (a)
                      ^
 --
 ALTERNATION GROUP: FULL OUTER,UNION,DISTINCT,,
@@ -1691,6 +2537,60 @@ FULL UNION DISTINCT CORRESPONDING BY (a)
 SELECT
   2
 --
+ALTERNATION GROUP: FULL OUTER,UNION,DISTINCT,,BY NAME
+--
+QueryStatement [0-52] [SELECT 1 FULL...NAME SELECT 2]
+  Query [0-52] [SELECT 1 FULL...NAME SELECT 2]
+    SetOperation(UNION DISTINCT) [0-52] [SELECT 1 FULL...NAME SELECT 2]
+      SetOperationMetadataList [9-43] [FULL OUTER...DISTINCT  BY NAME]
+        SetOperationMetadata [9-43] [FULL OUTER...DISTINCT  BY NAME]
+          SetOperationType [20-25] [UNION]
+          SetOperationAllOrDistinct [26-34] [DISTINCT]
+          SetOperationColumnMatchMode [36-43] [BY NAME]
+          SetOperationColumnPropagationMode [9-19] [FULL OUTER]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [44-52] [SELECT 2]
+        SelectList [51-52] [2]
+          SelectColumn [51-52] [2]
+            IntLiteral(2) [51-52] [2]
+--
+SELECT
+  1
+FULL UNION DISTINCT BY NAME
+SELECT
+  2
+--
+ALTERNATION GROUP: FULL OUTER,UNION,DISTINCT,,BY NAME ON (a)
+--
+QueryStatement [0-59] [SELECT 1 FULL...) SELECT 2]
+  Query [0-59] [SELECT 1 FULL...) SELECT 2]
+    SetOperation(UNION DISTINCT) [0-59] [SELECT 1 FULL...) SELECT 2]
+      SetOperationMetadataList [9-50] [FULL OUTER...NAME ON (a)]
+        SetOperationMetadata [9-50] [FULL OUTER...NAME ON (a)]
+          SetOperationType [20-25] [UNION]
+          SetOperationAllOrDistinct [26-34] [DISTINCT]
+          SetOperationColumnMatchMode [36-46] [BY NAME ON]
+          SetOperationColumnPropagationMode [9-19] [FULL OUTER]
+          ColumnList [47-50] [(a)]
+            Identifier(a) [48-49] [a]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [51-59] [SELECT 2]
+        SelectList [58-59] [2]
+          SelectColumn [58-59] [2]
+            IntLiteral(2) [58-59] [2]
+--
+SELECT
+  1
+FULL UNION DISTINCT BY NAME ON (a)
+SELECT
+  2
+--
 ALTERNATION GROUP: FULL OUTER,UNION,DISTINCT,STRICT,
 --
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:27]
@@ -1707,6 +2607,18 @@ ALTERNATION GROUP: FULL OUTER,UNION,DISTINCT,STRICT,CORRESPONDING BY (a)
 --
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:27]
 FULL OUTER UNION DISTINCT STRICT CORRESPONDING BY (a)
+                          ^
+--
+ALTERNATION GROUP: FULL OUTER,UNION,DISTINCT,STRICT,BY NAME
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:27]
+FULL OUTER UNION DISTINCT STRICT BY NAME
+                          ^
+--
+ALTERNATION GROUP: FULL OUTER,UNION,DISTINCT,STRICT,BY NAME ON (a)
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:27]
+FULL OUTER UNION DISTINCT STRICT BY NAME ON (a)
                           ^
 --
 ALTERNATION GROUP: FULL OUTER,INTERSECT,ALL,,
@@ -1788,6 +2700,60 @@ FULL INTERSECT ALL CORRESPONDING BY (a)
 SELECT
   2
 --
+ALTERNATION GROUP: FULL OUTER,INTERSECT,ALL,,BY NAME
+--
+QueryStatement [0-51] [SELECT 1 FULL...NAME SELECT 2]
+  Query [0-51] [SELECT 1 FULL...NAME SELECT 2]
+    SetOperation(INTERSECT ALL) [0-51] [SELECT 1 FULL...NAME SELECT 2]
+      SetOperationMetadataList [9-42] [FULL OUTER...ALL  BY NAME]
+        SetOperationMetadata [9-42] [FULL OUTER...ALL  BY NAME]
+          SetOperationType [20-29] [INTERSECT]
+          SetOperationAllOrDistinct [30-33] [ALL]
+          SetOperationColumnMatchMode [35-42] [BY NAME]
+          SetOperationColumnPropagationMode [9-19] [FULL OUTER]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [43-51] [SELECT 2]
+        SelectList [50-51] [2]
+          SelectColumn [50-51] [2]
+            IntLiteral(2) [50-51] [2]
+--
+SELECT
+  1
+FULL INTERSECT ALL BY NAME
+SELECT
+  2
+--
+ALTERNATION GROUP: FULL OUTER,INTERSECT,ALL,,BY NAME ON (a)
+--
+QueryStatement [0-58] [SELECT 1 FULL...) SELECT 2]
+  Query [0-58] [SELECT 1 FULL...) SELECT 2]
+    SetOperation(INTERSECT ALL) [0-58] [SELECT 1 FULL...) SELECT 2]
+      SetOperationMetadataList [9-49] [FULL OUTER...NAME ON (a)]
+        SetOperationMetadata [9-49] [FULL OUTER...NAME ON (a)]
+          SetOperationType [20-29] [INTERSECT]
+          SetOperationAllOrDistinct [30-33] [ALL]
+          SetOperationColumnMatchMode [35-45] [BY NAME ON]
+          SetOperationColumnPropagationMode [9-19] [FULL OUTER]
+          ColumnList [46-49] [(a)]
+            Identifier(a) [47-48] [a]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [50-58] [SELECT 2]
+        SelectList [57-58] [2]
+          SelectColumn [57-58] [2]
+            IntLiteral(2) [57-58] [2]
+--
+SELECT
+  1
+FULL INTERSECT ALL BY NAME ON (a)
+SELECT
+  2
+--
 ALTERNATION GROUP: FULL OUTER,INTERSECT,ALL,STRICT,
 --
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:26]
@@ -1804,6 +2770,18 @@ ALTERNATION GROUP: FULL OUTER,INTERSECT,ALL,STRICT,CORRESPONDING BY (a)
 --
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:26]
 FULL OUTER INTERSECT ALL STRICT CORRESPONDING BY (a)
+                         ^
+--
+ALTERNATION GROUP: FULL OUTER,INTERSECT,ALL,STRICT,BY NAME
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:26]
+FULL OUTER INTERSECT ALL STRICT BY NAME
+                         ^
+--
+ALTERNATION GROUP: FULL OUTER,INTERSECT,ALL,STRICT,BY NAME ON (a)
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:26]
+FULL OUTER INTERSECT ALL STRICT BY NAME ON (a)
                          ^
 --
 ALTERNATION GROUP: FULL OUTER,INTERSECT,DISTINCT,,
@@ -1885,6 +2863,60 @@ FULL INTERSECT DISTINCT CORRESPONDING BY (a)
 SELECT
   2
 --
+ALTERNATION GROUP: FULL OUTER,INTERSECT,DISTINCT,,BY NAME
+--
+QueryStatement [0-56] [SELECT 1 FULL...NAME SELECT 2]
+  Query [0-56] [SELECT 1 FULL...NAME SELECT 2]
+    SetOperation(INTERSECT DISTINCT) [0-56] [SELECT 1 FULL...NAME SELECT 2]
+      SetOperationMetadataList [9-47] [FULL OUTER...DISTINCT  BY NAME]
+        SetOperationMetadata [9-47] [FULL OUTER...DISTINCT  BY NAME]
+          SetOperationType [20-29] [INTERSECT]
+          SetOperationAllOrDistinct [30-38] [DISTINCT]
+          SetOperationColumnMatchMode [40-47] [BY NAME]
+          SetOperationColumnPropagationMode [9-19] [FULL OUTER]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [48-56] [SELECT 2]
+        SelectList [55-56] [2]
+          SelectColumn [55-56] [2]
+            IntLiteral(2) [55-56] [2]
+--
+SELECT
+  1
+FULL INTERSECT DISTINCT BY NAME
+SELECT
+  2
+--
+ALTERNATION GROUP: FULL OUTER,INTERSECT,DISTINCT,,BY NAME ON (a)
+--
+QueryStatement [0-63] [SELECT 1 FULL...) SELECT 2]
+  Query [0-63] [SELECT 1 FULL...) SELECT 2]
+    SetOperation(INTERSECT DISTINCT) [0-63] [SELECT 1 FULL...) SELECT 2]
+      SetOperationMetadataList [9-54] [FULL OUTER...NAME ON (a)]
+        SetOperationMetadata [9-54] [FULL OUTER...NAME ON (a)]
+          SetOperationType [20-29] [INTERSECT]
+          SetOperationAllOrDistinct [30-38] [DISTINCT]
+          SetOperationColumnMatchMode [40-50] [BY NAME ON]
+          SetOperationColumnPropagationMode [9-19] [FULL OUTER]
+          ColumnList [51-54] [(a)]
+            Identifier(a) [52-53] [a]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [55-63] [SELECT 2]
+        SelectList [62-63] [2]
+          SelectColumn [62-63] [2]
+            IntLiteral(2) [62-63] [2]
+--
+SELECT
+  1
+FULL INTERSECT DISTINCT BY NAME ON (a)
+SELECT
+  2
+--
 ALTERNATION GROUP: FULL OUTER,INTERSECT,DISTINCT,STRICT,
 --
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:31]
@@ -1901,6 +2933,18 @@ ALTERNATION GROUP: FULL OUTER,INTERSECT,DISTINCT,STRICT,CORRESPONDING BY (a)
 --
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:31]
 FULL OUTER INTERSECT DISTINCT STRICT CORRESPONDING BY (a)
+                              ^
+--
+ALTERNATION GROUP: FULL OUTER,INTERSECT,DISTINCT,STRICT,BY NAME
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:31]
+FULL OUTER INTERSECT DISTINCT STRICT BY NAME
+                              ^
+--
+ALTERNATION GROUP: FULL OUTER,INTERSECT,DISTINCT,STRICT,BY NAME ON (a)
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:31]
+FULL OUTER INTERSECT DISTINCT STRICT BY NAME ON (a)
                               ^
 --
 ALTERNATION GROUP: FULL OUTER,EXCEPT,ALL,,
@@ -1982,6 +3026,60 @@ FULL EXCEPT ALL CORRESPONDING BY (a)
 SELECT
   2
 --
+ALTERNATION GROUP: FULL OUTER,EXCEPT,ALL,,BY NAME
+--
+QueryStatement [0-48] [SELECT 1 FULL...NAME SELECT 2]
+  Query [0-48] [SELECT 1 FULL...NAME SELECT 2]
+    SetOperation(EXCEPT ALL) [0-48] [SELECT 1 FULL...NAME SELECT 2]
+      SetOperationMetadataList [9-39] [FULL OUTER EXCEPT ALL  BY NAME]
+        SetOperationMetadata [9-39] [FULL OUTER EXCEPT ALL  BY NAME]
+          SetOperationType [20-26] [EXCEPT]
+          SetOperationAllOrDistinct [27-30] [ALL]
+          SetOperationColumnMatchMode [32-39] [BY NAME]
+          SetOperationColumnPropagationMode [9-19] [FULL OUTER]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [40-48] [SELECT 2]
+        SelectList [47-48] [2]
+          SelectColumn [47-48] [2]
+            IntLiteral(2) [47-48] [2]
+--
+SELECT
+  1
+FULL EXCEPT ALL BY NAME
+SELECT
+  2
+--
+ALTERNATION GROUP: FULL OUTER,EXCEPT,ALL,,BY NAME ON (a)
+--
+QueryStatement [0-55] [SELECT 1 FULL...) SELECT 2]
+  Query [0-55] [SELECT 1 FULL...) SELECT 2]
+    SetOperation(EXCEPT ALL) [0-55] [SELECT 1 FULL...) SELECT 2]
+      SetOperationMetadataList [9-46] [FULL OUTER...NAME ON (a)]
+        SetOperationMetadata [9-46] [FULL OUTER...NAME ON (a)]
+          SetOperationType [20-26] [EXCEPT]
+          SetOperationAllOrDistinct [27-30] [ALL]
+          SetOperationColumnMatchMode [32-42] [BY NAME ON]
+          SetOperationColumnPropagationMode [9-19] [FULL OUTER]
+          ColumnList [43-46] [(a)]
+            Identifier(a) [44-45] [a]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [47-55] [SELECT 2]
+        SelectList [54-55] [2]
+          SelectColumn [54-55] [2]
+            IntLiteral(2) [54-55] [2]
+--
+SELECT
+  1
+FULL EXCEPT ALL BY NAME ON (a)
+SELECT
+  2
+--
 ALTERNATION GROUP: FULL OUTER,EXCEPT,ALL,STRICT,
 --
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:23]
@@ -1998,6 +3096,18 @@ ALTERNATION GROUP: FULL OUTER,EXCEPT,ALL,STRICT,CORRESPONDING BY (a)
 --
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:23]
 FULL OUTER EXCEPT ALL STRICT CORRESPONDING BY (a)
+                      ^
+--
+ALTERNATION GROUP: FULL OUTER,EXCEPT,ALL,STRICT,BY NAME
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:23]
+FULL OUTER EXCEPT ALL STRICT BY NAME
+                      ^
+--
+ALTERNATION GROUP: FULL OUTER,EXCEPT,ALL,STRICT,BY NAME ON (a)
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:23]
+FULL OUTER EXCEPT ALL STRICT BY NAME ON (a)
                       ^
 --
 ALTERNATION GROUP: FULL OUTER,EXCEPT,DISTINCT,,
@@ -2079,6 +3189,60 @@ FULL EXCEPT DISTINCT CORRESPONDING BY (a)
 SELECT
   2
 --
+ALTERNATION GROUP: FULL OUTER,EXCEPT,DISTINCT,,BY NAME
+--
+QueryStatement [0-53] [SELECT 1 FULL...NAME SELECT 2]
+  Query [0-53] [SELECT 1 FULL...NAME SELECT 2]
+    SetOperation(EXCEPT DISTINCT) [0-53] [SELECT 1 FULL...NAME SELECT 2]
+      SetOperationMetadataList [9-44] [FULL OUTER...DISTINCT  BY NAME]
+        SetOperationMetadata [9-44] [FULL OUTER...DISTINCT  BY NAME]
+          SetOperationType [20-26] [EXCEPT]
+          SetOperationAllOrDistinct [27-35] [DISTINCT]
+          SetOperationColumnMatchMode [37-44] [BY NAME]
+          SetOperationColumnPropagationMode [9-19] [FULL OUTER]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [45-53] [SELECT 2]
+        SelectList [52-53] [2]
+          SelectColumn [52-53] [2]
+            IntLiteral(2) [52-53] [2]
+--
+SELECT
+  1
+FULL EXCEPT DISTINCT BY NAME
+SELECT
+  2
+--
+ALTERNATION GROUP: FULL OUTER,EXCEPT,DISTINCT,,BY NAME ON (a)
+--
+QueryStatement [0-60] [SELECT 1 FULL...) SELECT 2]
+  Query [0-60] [SELECT 1 FULL...) SELECT 2]
+    SetOperation(EXCEPT DISTINCT) [0-60] [SELECT 1 FULL...) SELECT 2]
+      SetOperationMetadataList [9-51] [FULL OUTER...NAME ON (a)]
+        SetOperationMetadata [9-51] [FULL OUTER...NAME ON (a)]
+          SetOperationType [20-26] [EXCEPT]
+          SetOperationAllOrDistinct [27-35] [DISTINCT]
+          SetOperationColumnMatchMode [37-47] [BY NAME ON]
+          SetOperationColumnPropagationMode [9-19] [FULL OUTER]
+          ColumnList [48-51] [(a)]
+            Identifier(a) [49-50] [a]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [52-60] [SELECT 2]
+        SelectList [59-60] [2]
+          SelectColumn [59-60] [2]
+            IntLiteral(2) [59-60] [2]
+--
+SELECT
+  1
+FULL EXCEPT DISTINCT BY NAME ON (a)
+SELECT
+  2
+--
 ALTERNATION GROUP: FULL OUTER,EXCEPT,DISTINCT,STRICT,
 --
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:28]
@@ -2095,6 +3259,18 @@ ALTERNATION GROUP: FULL OUTER,EXCEPT,DISTINCT,STRICT,CORRESPONDING BY (a)
 --
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:28]
 FULL OUTER EXCEPT DISTINCT STRICT CORRESPONDING BY (a)
+                           ^
+--
+ALTERNATION GROUP: FULL OUTER,EXCEPT,DISTINCT,STRICT,BY NAME
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:28]
+FULL OUTER EXCEPT DISTINCT STRICT BY NAME
+                           ^
+--
+ALTERNATION GROUP: FULL OUTER,EXCEPT,DISTINCT,STRICT,BY NAME ON (a)
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:28]
+FULL OUTER EXCEPT DISTINCT STRICT BY NAME ON (a)
                            ^
 --
 ALTERNATION GROUP: LEFT,UNION,ALL,,
@@ -2176,6 +3352,60 @@ LEFT UNION ALL CORRESPONDING BY (a)
 SELECT
   2
 --
+ALTERNATION GROUP: LEFT,UNION,ALL,,BY NAME
+--
+QueryStatement [0-41] [SELECT 1 LEFT...NAME SELECT 2]
+  Query [0-41] [SELECT 1 LEFT...NAME SELECT 2]
+    SetOperation(UNION ALL) [0-41] [SELECT 1 LEFT...NAME SELECT 2]
+      SetOperationMetadataList [9-32] [LEFT UNION ALL  BY NAME]
+        SetOperationMetadata [9-32] [LEFT UNION ALL  BY NAME]
+          SetOperationType [14-19] [UNION]
+          SetOperationAllOrDistinct [20-23] [ALL]
+          SetOperationColumnMatchMode [25-32] [BY NAME]
+          SetOperationColumnPropagationMode [9-13] [LEFT]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [33-41] [SELECT 2]
+        SelectList [40-41] [2]
+          SelectColumn [40-41] [2]
+            IntLiteral(2) [40-41] [2]
+--
+SELECT
+  1
+LEFT UNION ALL BY NAME
+SELECT
+  2
+--
+ALTERNATION GROUP: LEFT,UNION,ALL,,BY NAME ON (a)
+--
+QueryStatement [0-48] [SELECT 1 LEFT...) SELECT 2]
+  Query [0-48] [SELECT 1 LEFT...) SELECT 2]
+    SetOperation(UNION ALL) [0-48] [SELECT 1 LEFT...) SELECT 2]
+      SetOperationMetadataList [9-39] [LEFT UNION ALL  BY NAME ON (a)]
+        SetOperationMetadata [9-39] [LEFT UNION ALL  BY NAME ON (a)]
+          SetOperationType [14-19] [UNION]
+          SetOperationAllOrDistinct [20-23] [ALL]
+          SetOperationColumnMatchMode [25-35] [BY NAME ON]
+          SetOperationColumnPropagationMode [9-13] [LEFT]
+          ColumnList [36-39] [(a)]
+            Identifier(a) [37-38] [a]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [40-48] [SELECT 2]
+        SelectList [47-48] [2]
+          SelectColumn [47-48] [2]
+            IntLiteral(2) [47-48] [2]
+--
+SELECT
+  1
+LEFT UNION ALL BY NAME ON (a)
+SELECT
+  2
+--
 ALTERNATION GROUP: LEFT,UNION,ALL,STRICT,
 --
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:16]
@@ -2192,6 +3422,18 @@ ALTERNATION GROUP: LEFT,UNION,ALL,STRICT,CORRESPONDING BY (a)
 --
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:16]
 LEFT UNION ALL STRICT CORRESPONDING BY (a)
+               ^
+--
+ALTERNATION GROUP: LEFT,UNION,ALL,STRICT,BY NAME
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:16]
+LEFT UNION ALL STRICT BY NAME
+               ^
+--
+ALTERNATION GROUP: LEFT,UNION,ALL,STRICT,BY NAME ON (a)
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:16]
+LEFT UNION ALL STRICT BY NAME ON (a)
                ^
 --
 ALTERNATION GROUP: LEFT,UNION,DISTINCT,,
@@ -2273,6 +3515,60 @@ LEFT UNION DISTINCT CORRESPONDING BY (a)
 SELECT
   2
 --
+ALTERNATION GROUP: LEFT,UNION,DISTINCT,,BY NAME
+--
+QueryStatement [0-46] [SELECT 1 LEFT...NAME SELECT 2]
+  Query [0-46] [SELECT 1 LEFT...NAME SELECT 2]
+    SetOperation(UNION DISTINCT) [0-46] [SELECT 1 LEFT...NAME SELECT 2]
+      SetOperationMetadataList [9-37] [LEFT UNION DISTINCT  BY NAME]
+        SetOperationMetadata [9-37] [LEFT UNION DISTINCT  BY NAME]
+          SetOperationType [14-19] [UNION]
+          SetOperationAllOrDistinct [20-28] [DISTINCT]
+          SetOperationColumnMatchMode [30-37] [BY NAME]
+          SetOperationColumnPropagationMode [9-13] [LEFT]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [38-46] [SELECT 2]
+        SelectList [45-46] [2]
+          SelectColumn [45-46] [2]
+            IntLiteral(2) [45-46] [2]
+--
+SELECT
+  1
+LEFT UNION DISTINCT BY NAME
+SELECT
+  2
+--
+ALTERNATION GROUP: LEFT,UNION,DISTINCT,,BY NAME ON (a)
+--
+QueryStatement [0-53] [SELECT 1 LEFT...) SELECT 2]
+  Query [0-53] [SELECT 1 LEFT...) SELECT 2]
+    SetOperation(UNION DISTINCT) [0-53] [SELECT 1 LEFT...) SELECT 2]
+      SetOperationMetadataList [9-44] [LEFT UNION...NAME ON (a)]
+        SetOperationMetadata [9-44] [LEFT UNION...NAME ON (a)]
+          SetOperationType [14-19] [UNION]
+          SetOperationAllOrDistinct [20-28] [DISTINCT]
+          SetOperationColumnMatchMode [30-40] [BY NAME ON]
+          SetOperationColumnPropagationMode [9-13] [LEFT]
+          ColumnList [41-44] [(a)]
+            Identifier(a) [42-43] [a]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [45-53] [SELECT 2]
+        SelectList [52-53] [2]
+          SelectColumn [52-53] [2]
+            IntLiteral(2) [52-53] [2]
+--
+SELECT
+  1
+LEFT UNION DISTINCT BY NAME ON (a)
+SELECT
+  2
+--
 ALTERNATION GROUP: LEFT,UNION,DISTINCT,STRICT,
 --
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:21]
@@ -2289,6 +3585,18 @@ ALTERNATION GROUP: LEFT,UNION,DISTINCT,STRICT,CORRESPONDING BY (a)
 --
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:21]
 LEFT UNION DISTINCT STRICT CORRESPONDING BY (a)
+                    ^
+--
+ALTERNATION GROUP: LEFT,UNION,DISTINCT,STRICT,BY NAME
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:21]
+LEFT UNION DISTINCT STRICT BY NAME
+                    ^
+--
+ALTERNATION GROUP: LEFT,UNION,DISTINCT,STRICT,BY NAME ON (a)
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:21]
+LEFT UNION DISTINCT STRICT BY NAME ON (a)
                     ^
 --
 ALTERNATION GROUP: LEFT,INTERSECT,ALL,,
@@ -2370,6 +3678,60 @@ LEFT INTERSECT ALL CORRESPONDING BY (a)
 SELECT
   2
 --
+ALTERNATION GROUP: LEFT,INTERSECT,ALL,,BY NAME
+--
+QueryStatement [0-45] [SELECT 1 LEFT...NAME SELECT 2]
+  Query [0-45] [SELECT 1 LEFT...NAME SELECT 2]
+    SetOperation(INTERSECT ALL) [0-45] [SELECT 1 LEFT...NAME SELECT 2]
+      SetOperationMetadataList [9-36] [LEFT INTERSECT ALL  BY NAME]
+        SetOperationMetadata [9-36] [LEFT INTERSECT ALL  BY NAME]
+          SetOperationType [14-23] [INTERSECT]
+          SetOperationAllOrDistinct [24-27] [ALL]
+          SetOperationColumnMatchMode [29-36] [BY NAME]
+          SetOperationColumnPropagationMode [9-13] [LEFT]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [37-45] [SELECT 2]
+        SelectList [44-45] [2]
+          SelectColumn [44-45] [2]
+            IntLiteral(2) [44-45] [2]
+--
+SELECT
+  1
+LEFT INTERSECT ALL BY NAME
+SELECT
+  2
+--
+ALTERNATION GROUP: LEFT,INTERSECT,ALL,,BY NAME ON (a)
+--
+QueryStatement [0-52] [SELECT 1 LEFT...) SELECT 2]
+  Query [0-52] [SELECT 1 LEFT...) SELECT 2]
+    SetOperation(INTERSECT ALL) [0-52] [SELECT 1 LEFT...) SELECT 2]
+      SetOperationMetadataList [9-43] [LEFT INTERSECT...NAME ON (a)]
+        SetOperationMetadata [9-43] [LEFT INTERSECT...NAME ON (a)]
+          SetOperationType [14-23] [INTERSECT]
+          SetOperationAllOrDistinct [24-27] [ALL]
+          SetOperationColumnMatchMode [29-39] [BY NAME ON]
+          SetOperationColumnPropagationMode [9-13] [LEFT]
+          ColumnList [40-43] [(a)]
+            Identifier(a) [41-42] [a]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [44-52] [SELECT 2]
+        SelectList [51-52] [2]
+          SelectColumn [51-52] [2]
+            IntLiteral(2) [51-52] [2]
+--
+SELECT
+  1
+LEFT INTERSECT ALL BY NAME ON (a)
+SELECT
+  2
+--
 ALTERNATION GROUP: LEFT,INTERSECT,ALL,STRICT,
 --
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:20]
@@ -2386,6 +3748,18 @@ ALTERNATION GROUP: LEFT,INTERSECT,ALL,STRICT,CORRESPONDING BY (a)
 --
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:20]
 LEFT INTERSECT ALL STRICT CORRESPONDING BY (a)
+                   ^
+--
+ALTERNATION GROUP: LEFT,INTERSECT,ALL,STRICT,BY NAME
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:20]
+LEFT INTERSECT ALL STRICT BY NAME
+                   ^
+--
+ALTERNATION GROUP: LEFT,INTERSECT,ALL,STRICT,BY NAME ON (a)
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:20]
+LEFT INTERSECT ALL STRICT BY NAME ON (a)
                    ^
 --
 ALTERNATION GROUP: LEFT,INTERSECT,DISTINCT,,
@@ -2467,6 +3841,60 @@ LEFT INTERSECT DISTINCT CORRESPONDING BY (a)
 SELECT
   2
 --
+ALTERNATION GROUP: LEFT,INTERSECT,DISTINCT,,BY NAME
+--
+QueryStatement [0-50] [SELECT 1 LEFT...NAME SELECT 2]
+  Query [0-50] [SELECT 1 LEFT...NAME SELECT 2]
+    SetOperation(INTERSECT DISTINCT) [0-50] [SELECT 1 LEFT...NAME SELECT 2]
+      SetOperationMetadataList [9-41] [LEFT INTERSECT...INCT  BY NAME]
+        SetOperationMetadata [9-41] [LEFT INTERSECT...INCT  BY NAME]
+          SetOperationType [14-23] [INTERSECT]
+          SetOperationAllOrDistinct [24-32] [DISTINCT]
+          SetOperationColumnMatchMode [34-41] [BY NAME]
+          SetOperationColumnPropagationMode [9-13] [LEFT]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [42-50] [SELECT 2]
+        SelectList [49-50] [2]
+          SelectColumn [49-50] [2]
+            IntLiteral(2) [49-50] [2]
+--
+SELECT
+  1
+LEFT INTERSECT DISTINCT BY NAME
+SELECT
+  2
+--
+ALTERNATION GROUP: LEFT,INTERSECT,DISTINCT,,BY NAME ON (a)
+--
+QueryStatement [0-57] [SELECT 1 LEFT...) SELECT 2]
+  Query [0-57] [SELECT 1 LEFT...) SELECT 2]
+    SetOperation(INTERSECT DISTINCT) [0-57] [SELECT 1 LEFT...) SELECT 2]
+      SetOperationMetadataList [9-48] [LEFT INTERSECT...NAME ON (a)]
+        SetOperationMetadata [9-48] [LEFT INTERSECT...NAME ON (a)]
+          SetOperationType [14-23] [INTERSECT]
+          SetOperationAllOrDistinct [24-32] [DISTINCT]
+          SetOperationColumnMatchMode [34-44] [BY NAME ON]
+          SetOperationColumnPropagationMode [9-13] [LEFT]
+          ColumnList [45-48] [(a)]
+            Identifier(a) [46-47] [a]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [49-57] [SELECT 2]
+        SelectList [56-57] [2]
+          SelectColumn [56-57] [2]
+            IntLiteral(2) [56-57] [2]
+--
+SELECT
+  1
+LEFT INTERSECT DISTINCT BY NAME ON (a)
+SELECT
+  2
+--
 ALTERNATION GROUP: LEFT,INTERSECT,DISTINCT,STRICT,
 --
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:25]
@@ -2483,6 +3911,18 @@ ALTERNATION GROUP: LEFT,INTERSECT,DISTINCT,STRICT,CORRESPONDING BY (a)
 --
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:25]
 LEFT INTERSECT DISTINCT STRICT CORRESPONDING BY (a)
+                        ^
+--
+ALTERNATION GROUP: LEFT,INTERSECT,DISTINCT,STRICT,BY NAME
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:25]
+LEFT INTERSECT DISTINCT STRICT BY NAME
+                        ^
+--
+ALTERNATION GROUP: LEFT,INTERSECT,DISTINCT,STRICT,BY NAME ON (a)
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:25]
+LEFT INTERSECT DISTINCT STRICT BY NAME ON (a)
                         ^
 --
 ALTERNATION GROUP: LEFT,EXCEPT,ALL,,
@@ -2564,6 +4004,60 @@ LEFT EXCEPT ALL CORRESPONDING BY (a)
 SELECT
   2
 --
+ALTERNATION GROUP: LEFT,EXCEPT,ALL,,BY NAME
+--
+QueryStatement [0-42] [SELECT 1 LEFT...NAME SELECT 2]
+  Query [0-42] [SELECT 1 LEFT...NAME SELECT 2]
+    SetOperation(EXCEPT ALL) [0-42] [SELECT 1 LEFT...NAME SELECT 2]
+      SetOperationMetadataList [9-33] [LEFT EXCEPT ALL  BY NAME]
+        SetOperationMetadata [9-33] [LEFT EXCEPT ALL  BY NAME]
+          SetOperationType [14-20] [EXCEPT]
+          SetOperationAllOrDistinct [21-24] [ALL]
+          SetOperationColumnMatchMode [26-33] [BY NAME]
+          SetOperationColumnPropagationMode [9-13] [LEFT]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [34-42] [SELECT 2]
+        SelectList [41-42] [2]
+          SelectColumn [41-42] [2]
+            IntLiteral(2) [41-42] [2]
+--
+SELECT
+  1
+LEFT EXCEPT ALL BY NAME
+SELECT
+  2
+--
+ALTERNATION GROUP: LEFT,EXCEPT,ALL,,BY NAME ON (a)
+--
+QueryStatement [0-49] [SELECT 1 LEFT...) SELECT 2]
+  Query [0-49] [SELECT 1 LEFT...) SELECT 2]
+    SetOperation(EXCEPT ALL) [0-49] [SELECT 1 LEFT...) SELECT 2]
+      SetOperationMetadataList [9-40] [LEFT EXCEPT...NAME ON (a)]
+        SetOperationMetadata [9-40] [LEFT EXCEPT...NAME ON (a)]
+          SetOperationType [14-20] [EXCEPT]
+          SetOperationAllOrDistinct [21-24] [ALL]
+          SetOperationColumnMatchMode [26-36] [BY NAME ON]
+          SetOperationColumnPropagationMode [9-13] [LEFT]
+          ColumnList [37-40] [(a)]
+            Identifier(a) [38-39] [a]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [41-49] [SELECT 2]
+        SelectList [48-49] [2]
+          SelectColumn [48-49] [2]
+            IntLiteral(2) [48-49] [2]
+--
+SELECT
+  1
+LEFT EXCEPT ALL BY NAME ON (a)
+SELECT
+  2
+--
 ALTERNATION GROUP: LEFT,EXCEPT,ALL,STRICT,
 --
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:17]
@@ -2580,6 +4074,18 @@ ALTERNATION GROUP: LEFT,EXCEPT,ALL,STRICT,CORRESPONDING BY (a)
 --
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:17]
 LEFT EXCEPT ALL STRICT CORRESPONDING BY (a)
+                ^
+--
+ALTERNATION GROUP: LEFT,EXCEPT,ALL,STRICT,BY NAME
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:17]
+LEFT EXCEPT ALL STRICT BY NAME
+                ^
+--
+ALTERNATION GROUP: LEFT,EXCEPT,ALL,STRICT,BY NAME ON (a)
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:17]
+LEFT EXCEPT ALL STRICT BY NAME ON (a)
                 ^
 --
 ALTERNATION GROUP: LEFT,EXCEPT,DISTINCT,,
@@ -2661,6 +4167,60 @@ LEFT EXCEPT DISTINCT CORRESPONDING BY (a)
 SELECT
   2
 --
+ALTERNATION GROUP: LEFT,EXCEPT,DISTINCT,,BY NAME
+--
+QueryStatement [0-47] [SELECT 1 LEFT...NAME SELECT 2]
+  Query [0-47] [SELECT 1 LEFT...NAME SELECT 2]
+    SetOperation(EXCEPT DISTINCT) [0-47] [SELECT 1 LEFT...NAME SELECT 2]
+      SetOperationMetadataList [9-38] [LEFT EXCEPT DISTINCT  BY NAME]
+        SetOperationMetadata [9-38] [LEFT EXCEPT DISTINCT  BY NAME]
+          SetOperationType [14-20] [EXCEPT]
+          SetOperationAllOrDistinct [21-29] [DISTINCT]
+          SetOperationColumnMatchMode [31-38] [BY NAME]
+          SetOperationColumnPropagationMode [9-13] [LEFT]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [39-47] [SELECT 2]
+        SelectList [46-47] [2]
+          SelectColumn [46-47] [2]
+            IntLiteral(2) [46-47] [2]
+--
+SELECT
+  1
+LEFT EXCEPT DISTINCT BY NAME
+SELECT
+  2
+--
+ALTERNATION GROUP: LEFT,EXCEPT,DISTINCT,,BY NAME ON (a)
+--
+QueryStatement [0-54] [SELECT 1 LEFT...) SELECT 2]
+  Query [0-54] [SELECT 1 LEFT...) SELECT 2]
+    SetOperation(EXCEPT DISTINCT) [0-54] [SELECT 1 LEFT...) SELECT 2]
+      SetOperationMetadataList [9-45] [LEFT EXCEPT...NAME ON (a)]
+        SetOperationMetadata [9-45] [LEFT EXCEPT...NAME ON (a)]
+          SetOperationType [14-20] [EXCEPT]
+          SetOperationAllOrDistinct [21-29] [DISTINCT]
+          SetOperationColumnMatchMode [31-41] [BY NAME ON]
+          SetOperationColumnPropagationMode [9-13] [LEFT]
+          ColumnList [42-45] [(a)]
+            Identifier(a) [43-44] [a]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [46-54] [SELECT 2]
+        SelectList [53-54] [2]
+          SelectColumn [53-54] [2]
+            IntLiteral(2) [53-54] [2]
+--
+SELECT
+  1
+LEFT EXCEPT DISTINCT BY NAME ON (a)
+SELECT
+  2
+--
 ALTERNATION GROUP: LEFT,EXCEPT,DISTINCT,STRICT,
 --
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:22]
@@ -2677,6 +4237,18 @@ ALTERNATION GROUP: LEFT,EXCEPT,DISTINCT,STRICT,CORRESPONDING BY (a)
 --
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:22]
 LEFT EXCEPT DISTINCT STRICT CORRESPONDING BY (a)
+                     ^
+--
+ALTERNATION GROUP: LEFT,EXCEPT,DISTINCT,STRICT,BY NAME
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:22]
+LEFT EXCEPT DISTINCT STRICT BY NAME
+                     ^
+--
+ALTERNATION GROUP: LEFT,EXCEPT,DISTINCT,STRICT,BY NAME ON (a)
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:22]
+LEFT EXCEPT DISTINCT STRICT BY NAME ON (a)
                      ^
 --
 ALTERNATION GROUP: LEFT OUTER,UNION,ALL,,
@@ -2758,6 +4330,60 @@ LEFT UNION ALL CORRESPONDING BY (a)
 SELECT
   2
 --
+ALTERNATION GROUP: LEFT OUTER,UNION,ALL,,BY NAME
+--
+QueryStatement [0-47] [SELECT 1 LEFT...NAME SELECT 2]
+  Query [0-47] [SELECT 1 LEFT...NAME SELECT 2]
+    SetOperation(UNION ALL) [0-47] [SELECT 1 LEFT...NAME SELECT 2]
+      SetOperationMetadataList [9-38] [LEFT OUTER UNION ALL  BY NAME]
+        SetOperationMetadata [9-38] [LEFT OUTER UNION ALL  BY NAME]
+          SetOperationType [20-25] [UNION]
+          SetOperationAllOrDistinct [26-29] [ALL]
+          SetOperationColumnMatchMode [31-38] [BY NAME]
+          SetOperationColumnPropagationMode [9-19] [LEFT OUTER]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [39-47] [SELECT 2]
+        SelectList [46-47] [2]
+          SelectColumn [46-47] [2]
+            IntLiteral(2) [46-47] [2]
+--
+SELECT
+  1
+LEFT UNION ALL BY NAME
+SELECT
+  2
+--
+ALTERNATION GROUP: LEFT OUTER,UNION,ALL,,BY NAME ON (a)
+--
+QueryStatement [0-54] [SELECT 1 LEFT...) SELECT 2]
+  Query [0-54] [SELECT 1 LEFT...) SELECT 2]
+    SetOperation(UNION ALL) [0-54] [SELECT 1 LEFT...) SELECT 2]
+      SetOperationMetadataList [9-45] [LEFT OUTER...NAME ON (a)]
+        SetOperationMetadata [9-45] [LEFT OUTER...NAME ON (a)]
+          SetOperationType [20-25] [UNION]
+          SetOperationAllOrDistinct [26-29] [ALL]
+          SetOperationColumnMatchMode [31-41] [BY NAME ON]
+          SetOperationColumnPropagationMode [9-19] [LEFT OUTER]
+          ColumnList [42-45] [(a)]
+            Identifier(a) [43-44] [a]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [46-54] [SELECT 2]
+        SelectList [53-54] [2]
+          SelectColumn [53-54] [2]
+            IntLiteral(2) [53-54] [2]
+--
+SELECT
+  1
+LEFT UNION ALL BY NAME ON (a)
+SELECT
+  2
+--
 ALTERNATION GROUP: LEFT OUTER,UNION,ALL,STRICT,
 --
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:22]
@@ -2774,6 +4400,18 @@ ALTERNATION GROUP: LEFT OUTER,UNION,ALL,STRICT,CORRESPONDING BY (a)
 --
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:22]
 LEFT OUTER UNION ALL STRICT CORRESPONDING BY (a)
+                     ^
+--
+ALTERNATION GROUP: LEFT OUTER,UNION,ALL,STRICT,BY NAME
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:22]
+LEFT OUTER UNION ALL STRICT BY NAME
+                     ^
+--
+ALTERNATION GROUP: LEFT OUTER,UNION,ALL,STRICT,BY NAME ON (a)
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:22]
+LEFT OUTER UNION ALL STRICT BY NAME ON (a)
                      ^
 --
 ALTERNATION GROUP: LEFT OUTER,UNION,DISTINCT,,
@@ -2855,6 +4493,60 @@ LEFT UNION DISTINCT CORRESPONDING BY (a)
 SELECT
   2
 --
+ALTERNATION GROUP: LEFT OUTER,UNION,DISTINCT,,BY NAME
+--
+QueryStatement [0-52] [SELECT 1 LEFT...NAME SELECT 2]
+  Query [0-52] [SELECT 1 LEFT...NAME SELECT 2]
+    SetOperation(UNION DISTINCT) [0-52] [SELECT 1 LEFT...NAME SELECT 2]
+      SetOperationMetadataList [9-43] [LEFT OUTER...DISTINCT  BY NAME]
+        SetOperationMetadata [9-43] [LEFT OUTER...DISTINCT  BY NAME]
+          SetOperationType [20-25] [UNION]
+          SetOperationAllOrDistinct [26-34] [DISTINCT]
+          SetOperationColumnMatchMode [36-43] [BY NAME]
+          SetOperationColumnPropagationMode [9-19] [LEFT OUTER]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [44-52] [SELECT 2]
+        SelectList [51-52] [2]
+          SelectColumn [51-52] [2]
+            IntLiteral(2) [51-52] [2]
+--
+SELECT
+  1
+LEFT UNION DISTINCT BY NAME
+SELECT
+  2
+--
+ALTERNATION GROUP: LEFT OUTER,UNION,DISTINCT,,BY NAME ON (a)
+--
+QueryStatement [0-59] [SELECT 1 LEFT...) SELECT 2]
+  Query [0-59] [SELECT 1 LEFT...) SELECT 2]
+    SetOperation(UNION DISTINCT) [0-59] [SELECT 1 LEFT...) SELECT 2]
+      SetOperationMetadataList [9-50] [LEFT OUTER...NAME ON (a)]
+        SetOperationMetadata [9-50] [LEFT OUTER...NAME ON (a)]
+          SetOperationType [20-25] [UNION]
+          SetOperationAllOrDistinct [26-34] [DISTINCT]
+          SetOperationColumnMatchMode [36-46] [BY NAME ON]
+          SetOperationColumnPropagationMode [9-19] [LEFT OUTER]
+          ColumnList [47-50] [(a)]
+            Identifier(a) [48-49] [a]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [51-59] [SELECT 2]
+        SelectList [58-59] [2]
+          SelectColumn [58-59] [2]
+            IntLiteral(2) [58-59] [2]
+--
+SELECT
+  1
+LEFT UNION DISTINCT BY NAME ON (a)
+SELECT
+  2
+--
 ALTERNATION GROUP: LEFT OUTER,UNION,DISTINCT,STRICT,
 --
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:27]
@@ -2871,6 +4563,18 @@ ALTERNATION GROUP: LEFT OUTER,UNION,DISTINCT,STRICT,CORRESPONDING BY (a)
 --
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:27]
 LEFT OUTER UNION DISTINCT STRICT CORRESPONDING BY (a)
+                          ^
+--
+ALTERNATION GROUP: LEFT OUTER,UNION,DISTINCT,STRICT,BY NAME
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:27]
+LEFT OUTER UNION DISTINCT STRICT BY NAME
+                          ^
+--
+ALTERNATION GROUP: LEFT OUTER,UNION,DISTINCT,STRICT,BY NAME ON (a)
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:27]
+LEFT OUTER UNION DISTINCT STRICT BY NAME ON (a)
                           ^
 --
 ALTERNATION GROUP: LEFT OUTER,INTERSECT,ALL,,
@@ -2952,6 +4656,60 @@ LEFT INTERSECT ALL CORRESPONDING BY (a)
 SELECT
   2
 --
+ALTERNATION GROUP: LEFT OUTER,INTERSECT,ALL,,BY NAME
+--
+QueryStatement [0-51] [SELECT 1 LEFT...NAME SELECT 2]
+  Query [0-51] [SELECT 1 LEFT...NAME SELECT 2]
+    SetOperation(INTERSECT ALL) [0-51] [SELECT 1 LEFT...NAME SELECT 2]
+      SetOperationMetadataList [9-42] [LEFT OUTER...ALL  BY NAME]
+        SetOperationMetadata [9-42] [LEFT OUTER...ALL  BY NAME]
+          SetOperationType [20-29] [INTERSECT]
+          SetOperationAllOrDistinct [30-33] [ALL]
+          SetOperationColumnMatchMode [35-42] [BY NAME]
+          SetOperationColumnPropagationMode [9-19] [LEFT OUTER]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [43-51] [SELECT 2]
+        SelectList [50-51] [2]
+          SelectColumn [50-51] [2]
+            IntLiteral(2) [50-51] [2]
+--
+SELECT
+  1
+LEFT INTERSECT ALL BY NAME
+SELECT
+  2
+--
+ALTERNATION GROUP: LEFT OUTER,INTERSECT,ALL,,BY NAME ON (a)
+--
+QueryStatement [0-58] [SELECT 1 LEFT...) SELECT 2]
+  Query [0-58] [SELECT 1 LEFT...) SELECT 2]
+    SetOperation(INTERSECT ALL) [0-58] [SELECT 1 LEFT...) SELECT 2]
+      SetOperationMetadataList [9-49] [LEFT OUTER...NAME ON (a)]
+        SetOperationMetadata [9-49] [LEFT OUTER...NAME ON (a)]
+          SetOperationType [20-29] [INTERSECT]
+          SetOperationAllOrDistinct [30-33] [ALL]
+          SetOperationColumnMatchMode [35-45] [BY NAME ON]
+          SetOperationColumnPropagationMode [9-19] [LEFT OUTER]
+          ColumnList [46-49] [(a)]
+            Identifier(a) [47-48] [a]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [50-58] [SELECT 2]
+        SelectList [57-58] [2]
+          SelectColumn [57-58] [2]
+            IntLiteral(2) [57-58] [2]
+--
+SELECT
+  1
+LEFT INTERSECT ALL BY NAME ON (a)
+SELECT
+  2
+--
 ALTERNATION GROUP: LEFT OUTER,INTERSECT,ALL,STRICT,
 --
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:26]
@@ -2968,6 +4726,18 @@ ALTERNATION GROUP: LEFT OUTER,INTERSECT,ALL,STRICT,CORRESPONDING BY (a)
 --
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:26]
 LEFT OUTER INTERSECT ALL STRICT CORRESPONDING BY (a)
+                         ^
+--
+ALTERNATION GROUP: LEFT OUTER,INTERSECT,ALL,STRICT,BY NAME
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:26]
+LEFT OUTER INTERSECT ALL STRICT BY NAME
+                         ^
+--
+ALTERNATION GROUP: LEFT OUTER,INTERSECT,ALL,STRICT,BY NAME ON (a)
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:26]
+LEFT OUTER INTERSECT ALL STRICT BY NAME ON (a)
                          ^
 --
 ALTERNATION GROUP: LEFT OUTER,INTERSECT,DISTINCT,,
@@ -3049,6 +4819,60 @@ LEFT INTERSECT DISTINCT CORRESPONDING BY (a)
 SELECT
   2
 --
+ALTERNATION GROUP: LEFT OUTER,INTERSECT,DISTINCT,,BY NAME
+--
+QueryStatement [0-56] [SELECT 1 LEFT...NAME SELECT 2]
+  Query [0-56] [SELECT 1 LEFT...NAME SELECT 2]
+    SetOperation(INTERSECT DISTINCT) [0-56] [SELECT 1 LEFT...NAME SELECT 2]
+      SetOperationMetadataList [9-47] [LEFT OUTER...DISTINCT  BY NAME]
+        SetOperationMetadata [9-47] [LEFT OUTER...DISTINCT  BY NAME]
+          SetOperationType [20-29] [INTERSECT]
+          SetOperationAllOrDistinct [30-38] [DISTINCT]
+          SetOperationColumnMatchMode [40-47] [BY NAME]
+          SetOperationColumnPropagationMode [9-19] [LEFT OUTER]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [48-56] [SELECT 2]
+        SelectList [55-56] [2]
+          SelectColumn [55-56] [2]
+            IntLiteral(2) [55-56] [2]
+--
+SELECT
+  1
+LEFT INTERSECT DISTINCT BY NAME
+SELECT
+  2
+--
+ALTERNATION GROUP: LEFT OUTER,INTERSECT,DISTINCT,,BY NAME ON (a)
+--
+QueryStatement [0-63] [SELECT 1 LEFT...) SELECT 2]
+  Query [0-63] [SELECT 1 LEFT...) SELECT 2]
+    SetOperation(INTERSECT DISTINCT) [0-63] [SELECT 1 LEFT...) SELECT 2]
+      SetOperationMetadataList [9-54] [LEFT OUTER...NAME ON (a)]
+        SetOperationMetadata [9-54] [LEFT OUTER...NAME ON (a)]
+          SetOperationType [20-29] [INTERSECT]
+          SetOperationAllOrDistinct [30-38] [DISTINCT]
+          SetOperationColumnMatchMode [40-50] [BY NAME ON]
+          SetOperationColumnPropagationMode [9-19] [LEFT OUTER]
+          ColumnList [51-54] [(a)]
+            Identifier(a) [52-53] [a]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [55-63] [SELECT 2]
+        SelectList [62-63] [2]
+          SelectColumn [62-63] [2]
+            IntLiteral(2) [62-63] [2]
+--
+SELECT
+  1
+LEFT INTERSECT DISTINCT BY NAME ON (a)
+SELECT
+  2
+--
 ALTERNATION GROUP: LEFT OUTER,INTERSECT,DISTINCT,STRICT,
 --
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:31]
@@ -3065,6 +4889,18 @@ ALTERNATION GROUP: LEFT OUTER,INTERSECT,DISTINCT,STRICT,CORRESPONDING BY (a)
 --
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:31]
 LEFT OUTER INTERSECT DISTINCT STRICT CORRESPONDING BY (a)
+                              ^
+--
+ALTERNATION GROUP: LEFT OUTER,INTERSECT,DISTINCT,STRICT,BY NAME
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:31]
+LEFT OUTER INTERSECT DISTINCT STRICT BY NAME
+                              ^
+--
+ALTERNATION GROUP: LEFT OUTER,INTERSECT,DISTINCT,STRICT,BY NAME ON (a)
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:31]
+LEFT OUTER INTERSECT DISTINCT STRICT BY NAME ON (a)
                               ^
 --
 ALTERNATION GROUP: LEFT OUTER,EXCEPT,ALL,,
@@ -3146,6 +4982,60 @@ LEFT EXCEPT ALL CORRESPONDING BY (a)
 SELECT
   2
 --
+ALTERNATION GROUP: LEFT OUTER,EXCEPT,ALL,,BY NAME
+--
+QueryStatement [0-48] [SELECT 1 LEFT...NAME SELECT 2]
+  Query [0-48] [SELECT 1 LEFT...NAME SELECT 2]
+    SetOperation(EXCEPT ALL) [0-48] [SELECT 1 LEFT...NAME SELECT 2]
+      SetOperationMetadataList [9-39] [LEFT OUTER EXCEPT ALL  BY NAME]
+        SetOperationMetadata [9-39] [LEFT OUTER EXCEPT ALL  BY NAME]
+          SetOperationType [20-26] [EXCEPT]
+          SetOperationAllOrDistinct [27-30] [ALL]
+          SetOperationColumnMatchMode [32-39] [BY NAME]
+          SetOperationColumnPropagationMode [9-19] [LEFT OUTER]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [40-48] [SELECT 2]
+        SelectList [47-48] [2]
+          SelectColumn [47-48] [2]
+            IntLiteral(2) [47-48] [2]
+--
+SELECT
+  1
+LEFT EXCEPT ALL BY NAME
+SELECT
+  2
+--
+ALTERNATION GROUP: LEFT OUTER,EXCEPT,ALL,,BY NAME ON (a)
+--
+QueryStatement [0-55] [SELECT 1 LEFT...) SELECT 2]
+  Query [0-55] [SELECT 1 LEFT...) SELECT 2]
+    SetOperation(EXCEPT ALL) [0-55] [SELECT 1 LEFT...) SELECT 2]
+      SetOperationMetadataList [9-46] [LEFT OUTER...NAME ON (a)]
+        SetOperationMetadata [9-46] [LEFT OUTER...NAME ON (a)]
+          SetOperationType [20-26] [EXCEPT]
+          SetOperationAllOrDistinct [27-30] [ALL]
+          SetOperationColumnMatchMode [32-42] [BY NAME ON]
+          SetOperationColumnPropagationMode [9-19] [LEFT OUTER]
+          ColumnList [43-46] [(a)]
+            Identifier(a) [44-45] [a]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [47-55] [SELECT 2]
+        SelectList [54-55] [2]
+          SelectColumn [54-55] [2]
+            IntLiteral(2) [54-55] [2]
+--
+SELECT
+  1
+LEFT EXCEPT ALL BY NAME ON (a)
+SELECT
+  2
+--
 ALTERNATION GROUP: LEFT OUTER,EXCEPT,ALL,STRICT,
 --
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:23]
@@ -3162,6 +5052,18 @@ ALTERNATION GROUP: LEFT OUTER,EXCEPT,ALL,STRICT,CORRESPONDING BY (a)
 --
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:23]
 LEFT OUTER EXCEPT ALL STRICT CORRESPONDING BY (a)
+                      ^
+--
+ALTERNATION GROUP: LEFT OUTER,EXCEPT,ALL,STRICT,BY NAME
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:23]
+LEFT OUTER EXCEPT ALL STRICT BY NAME
+                      ^
+--
+ALTERNATION GROUP: LEFT OUTER,EXCEPT,ALL,STRICT,BY NAME ON (a)
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:23]
+LEFT OUTER EXCEPT ALL STRICT BY NAME ON (a)
                       ^
 --
 ALTERNATION GROUP: LEFT OUTER,EXCEPT,DISTINCT,,
@@ -3243,6 +5145,60 @@ LEFT EXCEPT DISTINCT CORRESPONDING BY (a)
 SELECT
   2
 --
+ALTERNATION GROUP: LEFT OUTER,EXCEPT,DISTINCT,,BY NAME
+--
+QueryStatement [0-53] [SELECT 1 LEFT...NAME SELECT 2]
+  Query [0-53] [SELECT 1 LEFT...NAME SELECT 2]
+    SetOperation(EXCEPT DISTINCT) [0-53] [SELECT 1 LEFT...NAME SELECT 2]
+      SetOperationMetadataList [9-44] [LEFT OUTER...DISTINCT  BY NAME]
+        SetOperationMetadata [9-44] [LEFT OUTER...DISTINCT  BY NAME]
+          SetOperationType [20-26] [EXCEPT]
+          SetOperationAllOrDistinct [27-35] [DISTINCT]
+          SetOperationColumnMatchMode [37-44] [BY NAME]
+          SetOperationColumnPropagationMode [9-19] [LEFT OUTER]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [45-53] [SELECT 2]
+        SelectList [52-53] [2]
+          SelectColumn [52-53] [2]
+            IntLiteral(2) [52-53] [2]
+--
+SELECT
+  1
+LEFT EXCEPT DISTINCT BY NAME
+SELECT
+  2
+--
+ALTERNATION GROUP: LEFT OUTER,EXCEPT,DISTINCT,,BY NAME ON (a)
+--
+QueryStatement [0-60] [SELECT 1 LEFT...) SELECT 2]
+  Query [0-60] [SELECT 1 LEFT...) SELECT 2]
+    SetOperation(EXCEPT DISTINCT) [0-60] [SELECT 1 LEFT...) SELECT 2]
+      SetOperationMetadataList [9-51] [LEFT OUTER...NAME ON (a)]
+        SetOperationMetadata [9-51] [LEFT OUTER...NAME ON (a)]
+          SetOperationType [20-26] [EXCEPT]
+          SetOperationAllOrDistinct [27-35] [DISTINCT]
+          SetOperationColumnMatchMode [37-47] [BY NAME ON]
+          SetOperationColumnPropagationMode [9-19] [LEFT OUTER]
+          ColumnList [48-51] [(a)]
+            Identifier(a) [49-50] [a]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [52-60] [SELECT 2]
+        SelectList [59-60] [2]
+          SelectColumn [59-60] [2]
+            IntLiteral(2) [59-60] [2]
+--
+SELECT
+  1
+LEFT EXCEPT DISTINCT BY NAME ON (a)
+SELECT
+  2
+--
 ALTERNATION GROUP: LEFT OUTER,EXCEPT,DISTINCT,STRICT,
 --
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:28]
@@ -3260,3 +5216,993 @@ ALTERNATION GROUP: LEFT OUTER,EXCEPT,DISTINCT,STRICT,CORRESPONDING BY (a)
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:28]
 LEFT OUTER EXCEPT DISTINCT STRICT CORRESPONDING BY (a)
                            ^
+--
+ALTERNATION GROUP: LEFT OUTER,EXCEPT,DISTINCT,STRICT,BY NAME
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:28]
+LEFT OUTER EXCEPT DISTINCT STRICT BY NAME
+                           ^
+--
+ALTERNATION GROUP: LEFT OUTER,EXCEPT,DISTINCT,STRICT,BY NAME ON (a)
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:28]
+LEFT OUTER EXCEPT DISTINCT STRICT BY NAME ON (a)
+                           ^
+--
+ALTERNATION GROUP: INNER,UNION,ALL,,
+--
+QueryStatement [0-35] [SELECT 1 INNER...SELECT 2]
+  Query [0-35] [SELECT 1 INNER...SELECT 2]
+    SetOperation(UNION ALL) [0-35] [SELECT 1 INNER...SELECT 2]
+      SetOperationMetadataList [9-24] [INNER UNION ALL]
+        SetOperationMetadata [9-24] [INNER UNION ALL]
+          SetOperationType [15-20] [UNION]
+          SetOperationAllOrDistinct [21-24] [ALL]
+          SetOperationColumnPropagationMode [9-14] [INNER]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [27-35] [SELECT 2]
+        SelectList [34-35] [2]
+          SelectColumn [34-35] [2]
+            IntLiteral(2) [34-35] [2]
+--
+SELECT
+  1
+INNER UNION ALL
+SELECT
+  2
+--
+ALTERNATION GROUP: INNER,UNION,ALL,,CORRESPONDING
+--
+QueryStatement [0-48] [SELECT 1 INNER...DING SELECT 2]
+  Query [0-48] [SELECT 1 INNER...DING SELECT 2]
+    SetOperation(UNION ALL) [0-48] [SELECT 1 INNER...DING SELECT 2]
+      SetOperationMetadataList [9-39] [INNER UNION ALL  CORRESPONDING]
+        SetOperationMetadata [9-39] [INNER UNION ALL  CORRESPONDING]
+          SetOperationType [15-20] [UNION]
+          SetOperationAllOrDistinct [21-24] [ALL]
+          SetOperationColumnMatchMode [26-39] [CORRESPONDING]
+          SetOperationColumnPropagationMode [9-14] [INNER]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [40-48] [SELECT 2]
+        SelectList [47-48] [2]
+          SelectColumn [47-48] [2]
+            IntLiteral(2) [47-48] [2]
+--
+SELECT
+  1
+INNER UNION ALL CORRESPONDING
+SELECT
+  2
+--
+ALTERNATION GROUP: INNER,UNION,ALL,,CORRESPONDING BY (a)
+--
+QueryStatement [0-55] [SELECT 1 INNER...) SELECT 2]
+  Query [0-55] [SELECT 1 INNER...) SELECT 2]
+    SetOperation(UNION ALL) [0-55] [SELECT 1 INNER...) SELECT 2]
+      SetOperationMetadataList [9-46] [INNER UNION...ESPONDING BY (a)]
+        SetOperationMetadata [9-46] [INNER UNION...ESPONDING BY (a)]
+          SetOperationType [15-20] [UNION]
+          SetOperationAllOrDistinct [21-24] [ALL]
+          SetOperationColumnMatchMode [26-42] [CORRESPONDING BY]
+          SetOperationColumnPropagationMode [9-14] [INNER]
+          ColumnList [43-46] [(a)]
+            Identifier(a) [44-45] [a]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [47-55] [SELECT 2]
+        SelectList [54-55] [2]
+          SelectColumn [54-55] [2]
+            IntLiteral(2) [54-55] [2]
+--
+SELECT
+  1
+INNER UNION ALL CORRESPONDING BY (a)
+SELECT
+  2
+--
+ALTERNATION GROUP: INNER,UNION,ALL,,BY NAME
+--
+QueryStatement [0-42] [SELECT 1 INNER...NAME SELECT 2]
+  Query [0-42] [SELECT 1 INNER...NAME SELECT 2]
+    SetOperation(UNION ALL) [0-42] [SELECT 1 INNER...NAME SELECT 2]
+      SetOperationMetadataList [9-33] [INNER UNION ALL  BY NAME]
+        SetOperationMetadata [9-33] [INNER UNION ALL  BY NAME]
+          SetOperationType [15-20] [UNION]
+          SetOperationAllOrDistinct [21-24] [ALL]
+          SetOperationColumnMatchMode [26-33] [BY NAME]
+          SetOperationColumnPropagationMode [9-14] [INNER]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [34-42] [SELECT 2]
+        SelectList [41-42] [2]
+          SelectColumn [41-42] [2]
+            IntLiteral(2) [41-42] [2]
+--
+SELECT
+  1
+INNER UNION ALL BY NAME
+SELECT
+  2
+--
+ALTERNATION GROUP: INNER,UNION,ALL,,BY NAME ON (a)
+--
+QueryStatement [0-49] [SELECT 1 INNER...) SELECT 2]
+  Query [0-49] [SELECT 1 INNER...) SELECT 2]
+    SetOperation(UNION ALL) [0-49] [SELECT 1 INNER...) SELECT 2]
+      SetOperationMetadataList [9-40] [INNER UNION...NAME ON (a)]
+        SetOperationMetadata [9-40] [INNER UNION...NAME ON (a)]
+          SetOperationType [15-20] [UNION]
+          SetOperationAllOrDistinct [21-24] [ALL]
+          SetOperationColumnMatchMode [26-36] [BY NAME ON]
+          SetOperationColumnPropagationMode [9-14] [INNER]
+          ColumnList [37-40] [(a)]
+            Identifier(a) [38-39] [a]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [41-49] [SELECT 2]
+        SelectList [48-49] [2]
+          SelectColumn [48-49] [2]
+            IntLiteral(2) [48-49] [2]
+--
+SELECT
+  1
+INNER UNION ALL BY NAME ON (a)
+SELECT
+  2
+--
+ALTERNATION GROUP: INNER,UNION,ALL,STRICT,
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:17]
+INNER UNION ALL STRICT 
+                ^
+--
+ALTERNATION GROUP: INNER,UNION,ALL,STRICT,CORRESPONDING
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:17]
+INNER UNION ALL STRICT CORRESPONDING
+                ^
+--
+ALTERNATION GROUP: INNER,UNION,ALL,STRICT,CORRESPONDING BY (a)
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:17]
+INNER UNION ALL STRICT CORRESPONDING BY (a)
+                ^
+--
+ALTERNATION GROUP: INNER,UNION,ALL,STRICT,BY NAME
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:17]
+INNER UNION ALL STRICT BY NAME
+                ^
+--
+ALTERNATION GROUP: INNER,UNION,ALL,STRICT,BY NAME ON (a)
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:17]
+INNER UNION ALL STRICT BY NAME ON (a)
+                ^
+--
+ALTERNATION GROUP: INNER,UNION,DISTINCT,,
+--
+QueryStatement [0-40] [SELECT 1 INNER...SELECT 2]
+  Query [0-40] [SELECT 1 INNER...SELECT 2]
+    SetOperation(UNION DISTINCT) [0-40] [SELECT 1 INNER...SELECT 2]
+      SetOperationMetadataList [9-29] [INNER UNION DISTINCT]
+        SetOperationMetadata [9-29] [INNER UNION DISTINCT]
+          SetOperationType [15-20] [UNION]
+          SetOperationAllOrDistinct [21-29] [DISTINCT]
+          SetOperationColumnPropagationMode [9-14] [INNER]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [32-40] [SELECT 2]
+        SelectList [39-40] [2]
+          SelectColumn [39-40] [2]
+            IntLiteral(2) [39-40] [2]
+--
+SELECT
+  1
+INNER UNION DISTINCT
+SELECT
+  2
+--
+ALTERNATION GROUP: INNER,UNION,DISTINCT,,CORRESPONDING
+--
+QueryStatement [0-53] [SELECT 1 INNER...DING SELECT 2]
+  Query [0-53] [SELECT 1 INNER...DING SELECT 2]
+    SetOperation(UNION DISTINCT) [0-53] [SELECT 1 INNER...DING SELECT 2]
+      SetOperationMetadataList [9-44] [INNER UNION...CORRESPONDING]
+        SetOperationMetadata [9-44] [INNER UNION...CORRESPONDING]
+          SetOperationType [15-20] [UNION]
+          SetOperationAllOrDistinct [21-29] [DISTINCT]
+          SetOperationColumnMatchMode [31-44] [CORRESPONDING]
+          SetOperationColumnPropagationMode [9-14] [INNER]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [45-53] [SELECT 2]
+        SelectList [52-53] [2]
+          SelectColumn [52-53] [2]
+            IntLiteral(2) [52-53] [2]
+--
+SELECT
+  1
+INNER UNION DISTINCT CORRESPONDING
+SELECT
+  2
+--
+ALTERNATION GROUP: INNER,UNION,DISTINCT,,CORRESPONDING BY (a)
+--
+QueryStatement [0-60] [SELECT 1 INNER...) SELECT 2]
+  Query [0-60] [SELECT 1 INNER...) SELECT 2]
+    SetOperation(UNION DISTINCT) [0-60] [SELECT 1 INNER...) SELECT 2]
+      SetOperationMetadataList [9-51] [INNER UNION...ESPONDING BY (a)]
+        SetOperationMetadata [9-51] [INNER UNION...ESPONDING BY (a)]
+          SetOperationType [15-20] [UNION]
+          SetOperationAllOrDistinct [21-29] [DISTINCT]
+          SetOperationColumnMatchMode [31-47] [CORRESPONDING BY]
+          SetOperationColumnPropagationMode [9-14] [INNER]
+          ColumnList [48-51] [(a)]
+            Identifier(a) [49-50] [a]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [52-60] [SELECT 2]
+        SelectList [59-60] [2]
+          SelectColumn [59-60] [2]
+            IntLiteral(2) [59-60] [2]
+--
+SELECT
+  1
+INNER UNION DISTINCT CORRESPONDING BY (a)
+SELECT
+  2
+--
+ALTERNATION GROUP: INNER,UNION,DISTINCT,,BY NAME
+--
+QueryStatement [0-47] [SELECT 1 INNER...NAME SELECT 2]
+  Query [0-47] [SELECT 1 INNER...NAME SELECT 2]
+    SetOperation(UNION DISTINCT) [0-47] [SELECT 1 INNER...NAME SELECT 2]
+      SetOperationMetadataList [9-38] [INNER UNION DISTINCT  BY NAME]
+        SetOperationMetadata [9-38] [INNER UNION DISTINCT  BY NAME]
+          SetOperationType [15-20] [UNION]
+          SetOperationAllOrDistinct [21-29] [DISTINCT]
+          SetOperationColumnMatchMode [31-38] [BY NAME]
+          SetOperationColumnPropagationMode [9-14] [INNER]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [39-47] [SELECT 2]
+        SelectList [46-47] [2]
+          SelectColumn [46-47] [2]
+            IntLiteral(2) [46-47] [2]
+--
+SELECT
+  1
+INNER UNION DISTINCT BY NAME
+SELECT
+  2
+--
+ALTERNATION GROUP: INNER,UNION,DISTINCT,,BY NAME ON (a)
+--
+QueryStatement [0-54] [SELECT 1 INNER...) SELECT 2]
+  Query [0-54] [SELECT 1 INNER...) SELECT 2]
+    SetOperation(UNION DISTINCT) [0-54] [SELECT 1 INNER...) SELECT 2]
+      SetOperationMetadataList [9-45] [INNER UNION...NAME ON (a)]
+        SetOperationMetadata [9-45] [INNER UNION...NAME ON (a)]
+          SetOperationType [15-20] [UNION]
+          SetOperationAllOrDistinct [21-29] [DISTINCT]
+          SetOperationColumnMatchMode [31-41] [BY NAME ON]
+          SetOperationColumnPropagationMode [9-14] [INNER]
+          ColumnList [42-45] [(a)]
+            Identifier(a) [43-44] [a]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [46-54] [SELECT 2]
+        SelectList [53-54] [2]
+          SelectColumn [53-54] [2]
+            IntLiteral(2) [53-54] [2]
+--
+SELECT
+  1
+INNER UNION DISTINCT BY NAME ON (a)
+SELECT
+  2
+--
+ALTERNATION GROUP: INNER,UNION,DISTINCT,STRICT,
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:22]
+INNER UNION DISTINCT STRICT 
+                     ^
+--
+ALTERNATION GROUP: INNER,UNION,DISTINCT,STRICT,CORRESPONDING
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:22]
+INNER UNION DISTINCT STRICT CORRESPONDING
+                     ^
+--
+ALTERNATION GROUP: INNER,UNION,DISTINCT,STRICT,CORRESPONDING BY (a)
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:22]
+INNER UNION DISTINCT STRICT CORRESPONDING BY (a)
+                     ^
+--
+ALTERNATION GROUP: INNER,UNION,DISTINCT,STRICT,BY NAME
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:22]
+INNER UNION DISTINCT STRICT BY NAME
+                     ^
+--
+ALTERNATION GROUP: INNER,UNION,DISTINCT,STRICT,BY NAME ON (a)
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:22]
+INNER UNION DISTINCT STRICT BY NAME ON (a)
+                     ^
+--
+ALTERNATION GROUP: INNER,INTERSECT,ALL,,
+--
+QueryStatement [0-39] [SELECT 1 INNER...SELECT 2]
+  Query [0-39] [SELECT 1 INNER...SELECT 2]
+    SetOperation(INTERSECT ALL) [0-39] [SELECT 1 INNER...SELECT 2]
+      SetOperationMetadataList [9-28] [INNER INTERSECT ALL]
+        SetOperationMetadata [9-28] [INNER INTERSECT ALL]
+          SetOperationType [15-24] [INTERSECT]
+          SetOperationAllOrDistinct [25-28] [ALL]
+          SetOperationColumnPropagationMode [9-14] [INNER]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [31-39] [SELECT 2]
+        SelectList [38-39] [2]
+          SelectColumn [38-39] [2]
+            IntLiteral(2) [38-39] [2]
+--
+SELECT
+  1
+INNER INTERSECT ALL
+SELECT
+  2
+--
+ALTERNATION GROUP: INNER,INTERSECT,ALL,,CORRESPONDING
+--
+QueryStatement [0-52] [SELECT 1 INNER...DING SELECT 2]
+  Query [0-52] [SELECT 1 INNER...DING SELECT 2]
+    SetOperation(INTERSECT ALL) [0-52] [SELECT 1 INNER...DING SELECT 2]
+      SetOperationMetadataList [9-43] [INNER INTERSECT...ORRESPONDING]
+        SetOperationMetadata [9-43] [INNER INTERSECT...ORRESPONDING]
+          SetOperationType [15-24] [INTERSECT]
+          SetOperationAllOrDistinct [25-28] [ALL]
+          SetOperationColumnMatchMode [30-43] [CORRESPONDING]
+          SetOperationColumnPropagationMode [9-14] [INNER]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [44-52] [SELECT 2]
+        SelectList [51-52] [2]
+          SelectColumn [51-52] [2]
+            IntLiteral(2) [51-52] [2]
+--
+SELECT
+  1
+INNER INTERSECT ALL CORRESPONDING
+SELECT
+  2
+--
+ALTERNATION GROUP: INNER,INTERSECT,ALL,,CORRESPONDING BY (a)
+--
+QueryStatement [0-59] [SELECT 1 INNER...) SELECT 2]
+  Query [0-59] [SELECT 1 INNER...) SELECT 2]
+    SetOperation(INTERSECT ALL) [0-59] [SELECT 1 INNER...) SELECT 2]
+      SetOperationMetadataList [9-50] [INNER INTERSECT...NDING BY (a)]
+        SetOperationMetadata [9-50] [INNER INTERSECT...NDING BY (a)]
+          SetOperationType [15-24] [INTERSECT]
+          SetOperationAllOrDistinct [25-28] [ALL]
+          SetOperationColumnMatchMode [30-46] [CORRESPONDING BY]
+          SetOperationColumnPropagationMode [9-14] [INNER]
+          ColumnList [47-50] [(a)]
+            Identifier(a) [48-49] [a]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [51-59] [SELECT 2]
+        SelectList [58-59] [2]
+          SelectColumn [58-59] [2]
+            IntLiteral(2) [58-59] [2]
+--
+SELECT
+  1
+INNER INTERSECT ALL CORRESPONDING BY (a)
+SELECT
+  2
+--
+ALTERNATION GROUP: INNER,INTERSECT,ALL,,BY NAME
+--
+QueryStatement [0-46] [SELECT 1 INNER...NAME SELECT 2]
+  Query [0-46] [SELECT 1 INNER...NAME SELECT 2]
+    SetOperation(INTERSECT ALL) [0-46] [SELECT 1 INNER...NAME SELECT 2]
+      SetOperationMetadataList [9-37] [INNER INTERSECT ALL  BY NAME]
+        SetOperationMetadata [9-37] [INNER INTERSECT ALL  BY NAME]
+          SetOperationType [15-24] [INTERSECT]
+          SetOperationAllOrDistinct [25-28] [ALL]
+          SetOperationColumnMatchMode [30-37] [BY NAME]
+          SetOperationColumnPropagationMode [9-14] [INNER]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [38-46] [SELECT 2]
+        SelectList [45-46] [2]
+          SelectColumn [45-46] [2]
+            IntLiteral(2) [45-46] [2]
+--
+SELECT
+  1
+INNER INTERSECT ALL BY NAME
+SELECT
+  2
+--
+ALTERNATION GROUP: INNER,INTERSECT,ALL,,BY NAME ON (a)
+--
+QueryStatement [0-53] [SELECT 1 INNER...) SELECT 2]
+  Query [0-53] [SELECT 1 INNER...) SELECT 2]
+    SetOperation(INTERSECT ALL) [0-53] [SELECT 1 INNER...) SELECT 2]
+      SetOperationMetadataList [9-44] [INNER INTERSECT...NAME ON (a)]
+        SetOperationMetadata [9-44] [INNER INTERSECT...NAME ON (a)]
+          SetOperationType [15-24] [INTERSECT]
+          SetOperationAllOrDistinct [25-28] [ALL]
+          SetOperationColumnMatchMode [30-40] [BY NAME ON]
+          SetOperationColumnPropagationMode [9-14] [INNER]
+          ColumnList [41-44] [(a)]
+            Identifier(a) [42-43] [a]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [45-53] [SELECT 2]
+        SelectList [52-53] [2]
+          SelectColumn [52-53] [2]
+            IntLiteral(2) [52-53] [2]
+--
+SELECT
+  1
+INNER INTERSECT ALL BY NAME ON (a)
+SELECT
+  2
+--
+ALTERNATION GROUP: INNER,INTERSECT,ALL,STRICT,
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:21]
+INNER INTERSECT ALL STRICT 
+                    ^
+--
+ALTERNATION GROUP: INNER,INTERSECT,ALL,STRICT,CORRESPONDING
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:21]
+INNER INTERSECT ALL STRICT CORRESPONDING
+                    ^
+--
+ALTERNATION GROUP: INNER,INTERSECT,ALL,STRICT,CORRESPONDING BY (a)
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:21]
+INNER INTERSECT ALL STRICT CORRESPONDING BY (a)
+                    ^
+--
+ALTERNATION GROUP: INNER,INTERSECT,ALL,STRICT,BY NAME
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:21]
+INNER INTERSECT ALL STRICT BY NAME
+                    ^
+--
+ALTERNATION GROUP: INNER,INTERSECT,ALL,STRICT,BY NAME ON (a)
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:21]
+INNER INTERSECT ALL STRICT BY NAME ON (a)
+                    ^
+--
+ALTERNATION GROUP: INNER,INTERSECT,DISTINCT,,
+--
+QueryStatement [0-44] [SELECT 1 INNER...SELECT 2]
+  Query [0-44] [SELECT 1 INNER...SELECT 2]
+    SetOperation(INTERSECT DISTINCT) [0-44] [SELECT 1 INNER...SELECT 2]
+      SetOperationMetadataList [9-33] [INNER INTERSECT DISTINCT]
+        SetOperationMetadata [9-33] [INNER INTERSECT DISTINCT]
+          SetOperationType [15-24] [INTERSECT]
+          SetOperationAllOrDistinct [25-33] [DISTINCT]
+          SetOperationColumnPropagationMode [9-14] [INNER]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [36-44] [SELECT 2]
+        SelectList [43-44] [2]
+          SelectColumn [43-44] [2]
+            IntLiteral(2) [43-44] [2]
+--
+SELECT
+  1
+INNER INTERSECT DISTINCT
+SELECT
+  2
+--
+ALTERNATION GROUP: INNER,INTERSECT,DISTINCT,,CORRESPONDING
+--
+QueryStatement [0-57] [SELECT 1 INNER...DING SELECT 2]
+  Query [0-57] [SELECT 1 INNER...DING SELECT 2]
+    SetOperation(INTERSECT DISTINCT) [0-57] [SELECT 1 INNER...DING SELECT 2]
+      SetOperationMetadataList [9-48] [INNER INTERSECT...ORRESPONDING]
+        SetOperationMetadata [9-48] [INNER INTERSECT...ORRESPONDING]
+          SetOperationType [15-24] [INTERSECT]
+          SetOperationAllOrDistinct [25-33] [DISTINCT]
+          SetOperationColumnMatchMode [35-48] [CORRESPONDING]
+          SetOperationColumnPropagationMode [9-14] [INNER]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [49-57] [SELECT 2]
+        SelectList [56-57] [2]
+          SelectColumn [56-57] [2]
+            IntLiteral(2) [56-57] [2]
+--
+SELECT
+  1
+INNER INTERSECT DISTINCT CORRESPONDING
+SELECT
+  2
+--
+ALTERNATION GROUP: INNER,INTERSECT,DISTINCT,,CORRESPONDING BY (a)
+--
+QueryStatement [0-64] [SELECT 1 INNER...) SELECT 2]
+  Query [0-64] [SELECT 1 INNER...) SELECT 2]
+    SetOperation(INTERSECT DISTINCT) [0-64] [SELECT 1 INNER...) SELECT 2]
+      SetOperationMetadataList [9-55] [INNER INTERSECT...NDING BY (a)]
+        SetOperationMetadata [9-55] [INNER INTERSECT...NDING BY (a)]
+          SetOperationType [15-24] [INTERSECT]
+          SetOperationAllOrDistinct [25-33] [DISTINCT]
+          SetOperationColumnMatchMode [35-51] [CORRESPONDING BY]
+          SetOperationColumnPropagationMode [9-14] [INNER]
+          ColumnList [52-55] [(a)]
+            Identifier(a) [53-54] [a]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [56-64] [SELECT 2]
+        SelectList [63-64] [2]
+          SelectColumn [63-64] [2]
+            IntLiteral(2) [63-64] [2]
+--
+SELECT
+  1
+INNER INTERSECT DISTINCT CORRESPONDING BY (a)
+SELECT
+  2
+--
+ALTERNATION GROUP: INNER,INTERSECT,DISTINCT,,BY NAME
+--
+QueryStatement [0-51] [SELECT 1 INNER...NAME SELECT 2]
+  Query [0-51] [SELECT 1 INNER...NAME SELECT 2]
+    SetOperation(INTERSECT DISTINCT) [0-51] [SELECT 1 INNER...NAME SELECT 2]
+      SetOperationMetadataList [9-42] [INNER INTERSECT...NCT  BY NAME]
+        SetOperationMetadata [9-42] [INNER INTERSECT...NCT  BY NAME]
+          SetOperationType [15-24] [INTERSECT]
+          SetOperationAllOrDistinct [25-33] [DISTINCT]
+          SetOperationColumnMatchMode [35-42] [BY NAME]
+          SetOperationColumnPropagationMode [9-14] [INNER]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [43-51] [SELECT 2]
+        SelectList [50-51] [2]
+          SelectColumn [50-51] [2]
+            IntLiteral(2) [50-51] [2]
+--
+SELECT
+  1
+INNER INTERSECT DISTINCT BY NAME
+SELECT
+  2
+--
+ALTERNATION GROUP: INNER,INTERSECT,DISTINCT,,BY NAME ON (a)
+--
+QueryStatement [0-58] [SELECT 1 INNER...) SELECT 2]
+  Query [0-58] [SELECT 1 INNER...) SELECT 2]
+    SetOperation(INTERSECT DISTINCT) [0-58] [SELECT 1 INNER...) SELECT 2]
+      SetOperationMetadataList [9-49] [INNER INTERSECT...NAME ON (a)]
+        SetOperationMetadata [9-49] [INNER INTERSECT...NAME ON (a)]
+          SetOperationType [15-24] [INTERSECT]
+          SetOperationAllOrDistinct [25-33] [DISTINCT]
+          SetOperationColumnMatchMode [35-45] [BY NAME ON]
+          SetOperationColumnPropagationMode [9-14] [INNER]
+          ColumnList [46-49] [(a)]
+            Identifier(a) [47-48] [a]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [50-58] [SELECT 2]
+        SelectList [57-58] [2]
+          SelectColumn [57-58] [2]
+            IntLiteral(2) [57-58] [2]
+--
+SELECT
+  1
+INNER INTERSECT DISTINCT BY NAME ON (a)
+SELECT
+  2
+--
+ALTERNATION GROUP: INNER,INTERSECT,DISTINCT,STRICT,
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:26]
+INNER INTERSECT DISTINCT STRICT 
+                         ^
+--
+ALTERNATION GROUP: INNER,INTERSECT,DISTINCT,STRICT,CORRESPONDING
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:26]
+INNER INTERSECT DISTINCT STRICT CORRESPONDING
+                         ^
+--
+ALTERNATION GROUP: INNER,INTERSECT,DISTINCT,STRICT,CORRESPONDING BY (a)
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:26]
+INNER INTERSECT DISTINCT STRICT CORRESPONDING BY (a)
+                         ^
+--
+ALTERNATION GROUP: INNER,INTERSECT,DISTINCT,STRICT,BY NAME
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:26]
+INNER INTERSECT DISTINCT STRICT BY NAME
+                         ^
+--
+ALTERNATION GROUP: INNER,INTERSECT,DISTINCT,STRICT,BY NAME ON (a)
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:26]
+INNER INTERSECT DISTINCT STRICT BY NAME ON (a)
+                         ^
+--
+ALTERNATION GROUP: INNER,EXCEPT,ALL,,
+--
+QueryStatement [0-36] [SELECT 1 INNER...SELECT 2]
+  Query [0-36] [SELECT 1 INNER...SELECT 2]
+    SetOperation(EXCEPT ALL) [0-36] [SELECT 1 INNER...SELECT 2]
+      SetOperationMetadataList [9-25] [INNER EXCEPT ALL]
+        SetOperationMetadata [9-25] [INNER EXCEPT ALL]
+          SetOperationType [15-21] [EXCEPT]
+          SetOperationAllOrDistinct [22-25] [ALL]
+          SetOperationColumnPropagationMode [9-14] [INNER]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [28-36] [SELECT 2]
+        SelectList [35-36] [2]
+          SelectColumn [35-36] [2]
+            IntLiteral(2) [35-36] [2]
+--
+SELECT
+  1
+INNER EXCEPT ALL
+SELECT
+  2
+--
+ALTERNATION GROUP: INNER,EXCEPT,ALL,,CORRESPONDING
+--
+QueryStatement [0-49] [SELECT 1 INNER...DING SELECT 2]
+  Query [0-49] [SELECT 1 INNER...DING SELECT 2]
+    SetOperation(EXCEPT ALL) [0-49] [SELECT 1 INNER...DING SELECT 2]
+      SetOperationMetadataList [9-40] [INNER EXCEPT...CORRESPONDING]
+        SetOperationMetadata [9-40] [INNER EXCEPT...CORRESPONDING]
+          SetOperationType [15-21] [EXCEPT]
+          SetOperationAllOrDistinct [22-25] [ALL]
+          SetOperationColumnMatchMode [27-40] [CORRESPONDING]
+          SetOperationColumnPropagationMode [9-14] [INNER]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [41-49] [SELECT 2]
+        SelectList [48-49] [2]
+          SelectColumn [48-49] [2]
+            IntLiteral(2) [48-49] [2]
+--
+SELECT
+  1
+INNER EXCEPT ALL CORRESPONDING
+SELECT
+  2
+--
+ALTERNATION GROUP: INNER,EXCEPT,ALL,,CORRESPONDING BY (a)
+--
+QueryStatement [0-56] [SELECT 1 INNER...) SELECT 2]
+  Query [0-56] [SELECT 1 INNER...) SELECT 2]
+    SetOperation(EXCEPT ALL) [0-56] [SELECT 1 INNER...) SELECT 2]
+      SetOperationMetadataList [9-47] [INNER EXCEPT...SPONDING BY (a)]
+        SetOperationMetadata [9-47] [INNER EXCEPT...SPONDING BY (a)]
+          SetOperationType [15-21] [EXCEPT]
+          SetOperationAllOrDistinct [22-25] [ALL]
+          SetOperationColumnMatchMode [27-43] [CORRESPONDING BY]
+          SetOperationColumnPropagationMode [9-14] [INNER]
+          ColumnList [44-47] [(a)]
+            Identifier(a) [45-46] [a]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [48-56] [SELECT 2]
+        SelectList [55-56] [2]
+          SelectColumn [55-56] [2]
+            IntLiteral(2) [55-56] [2]
+--
+SELECT
+  1
+INNER EXCEPT ALL CORRESPONDING BY (a)
+SELECT
+  2
+--
+ALTERNATION GROUP: INNER,EXCEPT,ALL,,BY NAME
+--
+QueryStatement [0-43] [SELECT 1 INNER...NAME SELECT 2]
+  Query [0-43] [SELECT 1 INNER...NAME SELECT 2]
+    SetOperation(EXCEPT ALL) [0-43] [SELECT 1 INNER...NAME SELECT 2]
+      SetOperationMetadataList [9-34] [INNER EXCEPT ALL  BY NAME]
+        SetOperationMetadata [9-34] [INNER EXCEPT ALL  BY NAME]
+          SetOperationType [15-21] [EXCEPT]
+          SetOperationAllOrDistinct [22-25] [ALL]
+          SetOperationColumnMatchMode [27-34] [BY NAME]
+          SetOperationColumnPropagationMode [9-14] [INNER]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [35-43] [SELECT 2]
+        SelectList [42-43] [2]
+          SelectColumn [42-43] [2]
+            IntLiteral(2) [42-43] [2]
+--
+SELECT
+  1
+INNER EXCEPT ALL BY NAME
+SELECT
+  2
+--
+ALTERNATION GROUP: INNER,EXCEPT,ALL,,BY NAME ON (a)
+--
+QueryStatement [0-50] [SELECT 1 INNER...) SELECT 2]
+  Query [0-50] [SELECT 1 INNER...) SELECT 2]
+    SetOperation(EXCEPT ALL) [0-50] [SELECT 1 INNER...) SELECT 2]
+      SetOperationMetadataList [9-41] [INNER EXCEPT...NAME ON (a)]
+        SetOperationMetadata [9-41] [INNER EXCEPT...NAME ON (a)]
+          SetOperationType [15-21] [EXCEPT]
+          SetOperationAllOrDistinct [22-25] [ALL]
+          SetOperationColumnMatchMode [27-37] [BY NAME ON]
+          SetOperationColumnPropagationMode [9-14] [INNER]
+          ColumnList [38-41] [(a)]
+            Identifier(a) [39-40] [a]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [42-50] [SELECT 2]
+        SelectList [49-50] [2]
+          SelectColumn [49-50] [2]
+            IntLiteral(2) [49-50] [2]
+--
+SELECT
+  1
+INNER EXCEPT ALL BY NAME ON (a)
+SELECT
+  2
+--
+ALTERNATION GROUP: INNER,EXCEPT,ALL,STRICT,
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:18]
+INNER EXCEPT ALL STRICT 
+                 ^
+--
+ALTERNATION GROUP: INNER,EXCEPT,ALL,STRICT,CORRESPONDING
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:18]
+INNER EXCEPT ALL STRICT CORRESPONDING
+                 ^
+--
+ALTERNATION GROUP: INNER,EXCEPT,ALL,STRICT,CORRESPONDING BY (a)
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:18]
+INNER EXCEPT ALL STRICT CORRESPONDING BY (a)
+                 ^
+--
+ALTERNATION GROUP: INNER,EXCEPT,ALL,STRICT,BY NAME
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:18]
+INNER EXCEPT ALL STRICT BY NAME
+                 ^
+--
+ALTERNATION GROUP: INNER,EXCEPT,ALL,STRICT,BY NAME ON (a)
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:18]
+INNER EXCEPT ALL STRICT BY NAME ON (a)
+                 ^
+--
+ALTERNATION GROUP: INNER,EXCEPT,DISTINCT,,
+--
+QueryStatement [0-41] [SELECT 1 INNER...SELECT 2]
+  Query [0-41] [SELECT 1 INNER...SELECT 2]
+    SetOperation(EXCEPT DISTINCT) [0-41] [SELECT 1 INNER...SELECT 2]
+      SetOperationMetadataList [9-30] [INNER EXCEPT DISTINCT]
+        SetOperationMetadata [9-30] [INNER EXCEPT DISTINCT]
+          SetOperationType [15-21] [EXCEPT]
+          SetOperationAllOrDistinct [22-30] [DISTINCT]
+          SetOperationColumnPropagationMode [9-14] [INNER]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [33-41] [SELECT 2]
+        SelectList [40-41] [2]
+          SelectColumn [40-41] [2]
+            IntLiteral(2) [40-41] [2]
+--
+SELECT
+  1
+INNER EXCEPT DISTINCT
+SELECT
+  2
+--
+ALTERNATION GROUP: INNER,EXCEPT,DISTINCT,,CORRESPONDING
+--
+QueryStatement [0-54] [SELECT 1 INNER...DING SELECT 2]
+  Query [0-54] [SELECT 1 INNER...DING SELECT 2]
+    SetOperation(EXCEPT DISTINCT) [0-54] [SELECT 1 INNER...DING SELECT 2]
+      SetOperationMetadataList [9-45] [INNER EXCEPT...CORRESPONDING]
+        SetOperationMetadata [9-45] [INNER EXCEPT...CORRESPONDING]
+          SetOperationType [15-21] [EXCEPT]
+          SetOperationAllOrDistinct [22-30] [DISTINCT]
+          SetOperationColumnMatchMode [32-45] [CORRESPONDING]
+          SetOperationColumnPropagationMode [9-14] [INNER]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [46-54] [SELECT 2]
+        SelectList [53-54] [2]
+          SelectColumn [53-54] [2]
+            IntLiteral(2) [53-54] [2]
+--
+SELECT
+  1
+INNER EXCEPT DISTINCT CORRESPONDING
+SELECT
+  2
+--
+ALTERNATION GROUP: INNER,EXCEPT,DISTINCT,,CORRESPONDING BY (a)
+--
+QueryStatement [0-61] [SELECT 1 INNER...) SELECT 2]
+  Query [0-61] [SELECT 1 INNER...) SELECT 2]
+    SetOperation(EXCEPT DISTINCT) [0-61] [SELECT 1 INNER...) SELECT 2]
+      SetOperationMetadataList [9-52] [INNER EXCEPT...SPONDING BY (a)]
+        SetOperationMetadata [9-52] [INNER EXCEPT...SPONDING BY (a)]
+          SetOperationType [15-21] [EXCEPT]
+          SetOperationAllOrDistinct [22-30] [DISTINCT]
+          SetOperationColumnMatchMode [32-48] [CORRESPONDING BY]
+          SetOperationColumnPropagationMode [9-14] [INNER]
+          ColumnList [49-52] [(a)]
+            Identifier(a) [50-51] [a]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [53-61] [SELECT 2]
+        SelectList [60-61] [2]
+          SelectColumn [60-61] [2]
+            IntLiteral(2) [60-61] [2]
+--
+SELECT
+  1
+INNER EXCEPT DISTINCT CORRESPONDING BY (a)
+SELECT
+  2
+--
+ALTERNATION GROUP: INNER,EXCEPT,DISTINCT,,BY NAME
+--
+QueryStatement [0-48] [SELECT 1 INNER...NAME SELECT 2]
+  Query [0-48] [SELECT 1 INNER...NAME SELECT 2]
+    SetOperation(EXCEPT DISTINCT) [0-48] [SELECT 1 INNER...NAME SELECT 2]
+      SetOperationMetadataList [9-39] [INNER EXCEPT DISTINCT  BY NAME]
+        SetOperationMetadata [9-39] [INNER EXCEPT DISTINCT  BY NAME]
+          SetOperationType [15-21] [EXCEPT]
+          SetOperationAllOrDistinct [22-30] [DISTINCT]
+          SetOperationColumnMatchMode [32-39] [BY NAME]
+          SetOperationColumnPropagationMode [9-14] [INNER]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [40-48] [SELECT 2]
+        SelectList [47-48] [2]
+          SelectColumn [47-48] [2]
+            IntLiteral(2) [47-48] [2]
+--
+SELECT
+  1
+INNER EXCEPT DISTINCT BY NAME
+SELECT
+  2
+--
+ALTERNATION GROUP: INNER,EXCEPT,DISTINCT,,BY NAME ON (a)
+--
+QueryStatement [0-55] [SELECT 1 INNER...) SELECT 2]
+  Query [0-55] [SELECT 1 INNER...) SELECT 2]
+    SetOperation(EXCEPT DISTINCT) [0-55] [SELECT 1 INNER...) SELECT 2]
+      SetOperationMetadataList [9-46] [INNER EXCEPT...NAME ON (a)]
+        SetOperationMetadata [9-46] [INNER EXCEPT...NAME ON (a)]
+          SetOperationType [15-21] [EXCEPT]
+          SetOperationAllOrDistinct [22-30] [DISTINCT]
+          SetOperationColumnMatchMode [32-42] [BY NAME ON]
+          SetOperationColumnPropagationMode [9-14] [INNER]
+          ColumnList [43-46] [(a)]
+            Identifier(a) [44-45] [a]
+      Select [0-8] [SELECT 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [47-55] [SELECT 2]
+        SelectList [54-55] [2]
+          SelectColumn [54-55] [2]
+            IntLiteral(2) [54-55] [2]
+--
+SELECT
+  1
+INNER EXCEPT DISTINCT BY NAME ON (a)
+SELECT
+  2
+--
+ALTERNATION GROUP: INNER,EXCEPT,DISTINCT,STRICT,
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:23]
+INNER EXCEPT DISTINCT STRICT 
+                      ^
+--
+ALTERNATION GROUP: INNER,EXCEPT,DISTINCT,STRICT,CORRESPONDING
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:23]
+INNER EXCEPT DISTINCT STRICT CORRESPONDING
+                      ^
+--
+ALTERNATION GROUP: INNER,EXCEPT,DISTINCT,STRICT,CORRESPONDING BY (a)
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:23]
+INNER EXCEPT DISTINCT STRICT CORRESPONDING BY (a)
+                      ^
+--
+ALTERNATION GROUP: INNER,EXCEPT,DISTINCT,STRICT,BY NAME
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:23]
+INNER EXCEPT DISTINCT STRICT BY NAME
+                      ^
+--
+ALTERNATION GROUP: INNER,EXCEPT,DISTINCT,STRICT,BY NAME ON (a)
+--
+ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 2:23]
+INNER EXCEPT DISTINCT STRICT BY NAME ON (a)
+                      ^

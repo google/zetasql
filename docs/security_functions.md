@@ -6,7 +6,7 @@
 
 ZetaSQL supports the following security functions.
 
-### Function list
+## Function list
 
 <table>
   <thead>
@@ -18,8 +18,7 @@ ZetaSQL supports the following security functions.
   <tbody>
 
 <tr>
-  <td><a href="#session_user"><code>SESSION_USER</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/security_functions.md#session_user"><code>SESSION_USER</code></a>
 </td>
   <td>
     Get the email address or principal identifier of the user that is running
@@ -30,7 +29,7 @@ ZetaSQL supports the following security functions.
   </tbody>
 </table>
 
-### `SESSION_USER`
+## `SESSION_USER`
 
 ```
 SESSION_USER()

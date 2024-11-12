@@ -28,6 +28,7 @@
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/tools/execute_query/execute_query_writer.h"
 #include "absl/status/status.h"
+#include "absl/strings/string_view.h"
 
 namespace zetasql {
 
@@ -44,6 +45,8 @@ class ExecuteQueryStreamProtobufWriter : public ExecuteQueryWriter {
 
   absl::Status executed(const ResolvedNode& ast,
                         std::unique_ptr<EvaluatorTableIterator> iter) override;
+
+  absl::Status log(absl::string_view message) override;
 
  private:
   const google::protobuf::DescriptorPool* parent_descriptor_pool_;

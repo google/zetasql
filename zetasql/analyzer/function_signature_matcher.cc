@@ -1249,6 +1249,53 @@ bool FunctionSignatureMatcher::
     }
   }
 
+  const Type* input_type = input_argument.type();
+  switch (signature_argument.kind()) {
+    case ARG_TYPE_GRAPH_NODE:
+    case ARG_TYPE_GRAPH_EDGE:
+    case ARG_TYPE_GRAPH_ELEMENT:
+      if (input_type == nullptr) {
+        SET_ARG_KIND_MISMATCH_ERROR();
+        return false;
+      }
+      if (!input_type->IsGraphElement()) {
+        SET_ARG_KIND_MISMATCH_ERROR();
+        return false;
+      }
+      if ((signature_argument.kind() == ARG_TYPE_GRAPH_EDGE) &&
+          input_type->AsGraphElement()->IsNode()) {
+        SET_ARG_KIND_MISMATCH_ERROR();
+        return false;
+      }
+      if ((signature_argument.kind() == ARG_TYPE_GRAPH_NODE) &&
+          input_type->AsGraphElement()->IsEdge()) {
+        SET_ARG_KIND_MISMATCH_ERROR();
+        return false;
+      }
+      break;
+    case ARG_TYPE_GRAPH_PATH:
+      if (input_type == nullptr || !input_type->IsGraphPath()) {
+        SET_ARG_KIND_MISMATCH_ERROR();
+        return false;
+      }
+      break;
+    default:
+      // Disallow graph types when the signature does not *explicitly* take
+      // graph element types: even if the signature type is ANY.
+      if (!language_.LanguageFeatureEnabled(
+              FEATURE_V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT) &&
+          input_type != nullptr && input_type->IsGraphElement()) {
+        SET_MISMATCH_ERROR_WITH_INDEX(absl::StrFormat(
+            "expected %s, found %s: which is not allowed for %s arguments",
+            signature_argument.UserFacingName(language_.product_mode(),
+                                              /*print_template_details=*/true),
+            input_argument.UserFacingName(language_.product_mode()),
+            signature_argument.UserFacingName(language_.product_mode())));
+        return false;
+      }
+      break;
+  }
+
   return true;
 }
 
@@ -1730,7 +1777,8 @@ absl::StatusOr<bool> FunctionSignatureMatcher::SignatureMatches(
       GetConcreteArguments(input_arguments, signature, repetitions, optionals,
                            resolved_templated_arguments, arg_index_mapping));
   *concrete_result_signature = std::make_unique<FunctionSignature>(
-      *result_type, arg_list, signature.context_id(), signature.options());
+      std::move(*result_type), arg_list, signature.context_id(),
+      signature.options());
   // We have a matching concrete signature, so update <signature_match_result>
   // for all arguments as compared to this signature.
   for (int idx = 0; idx < input_arguments.size(); ++idx) {

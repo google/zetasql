@@ -29,7 +29,6 @@
 #include "zetasql/base/atomic_sequence_num.h"
 #include "zetasql/base/logging.h"
 #include "zetasql/base/enum_utils.h"
-#include "google/protobuf/text_format.h"
 #include "zetasql/analyzer/analyzer_output_mutator.h"
 #include "zetasql/analyzer/analyzer_test_options.h"
 #include "zetasql/common/internal_analyzer_output_properties.h"
@@ -54,6 +53,7 @@
 #include "zetasql/public/proto/logging.pb.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/simple_catalog_util.h"
+#include "zetasql/public/sql_constant.h"
 #include "zetasql/public/sql_formatter.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/table_valued_function.h"
@@ -87,8 +87,9 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/algorithm/container.h"
-#include "absl/container/btree_map.h"
 #include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
+#include "absl/container/node_hash_map.h"
 #include "absl/flags/commandlineflag.h"
 #include "absl/flags/flag.h"
 #include "absl/flags/reflection.h"
@@ -104,14 +105,15 @@
 #include "absl/strings/str_replace.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
+#include "absl/strings/strip.h"
 #include "absl/time/time.h"
 #include "absl/types/span.h"
 #include "file_based_test_driver/file_based_test_driver.h"
 #include "file_based_test_driver/run_test_case_result.h"
 #include "file_based_test_driver/test_case_options.h"
+#include "google/protobuf/text_format.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
-#include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 
 ABSL_FLAG(std::string, test_file, "", "location of test data file.");
@@ -270,9 +272,8 @@ absl::StatusOr<std::unique_ptr<AnalyzerOutput>> CopyAnalyzerOutput(
         output.analyzer_output_properties(),
         /*parser_output=*/nullptr, output.deprecation_warnings(),
         output.undeclared_parameters(),
-        output.undeclared_positional_parameters(),
-        output.max_column_id()
-    );
+        output.undeclared_positional_parameters(), output.max_column_id(),
+        output.has_graph_references());
   } else if (output.resolved_expr() != nullptr) {
     ZETASQL_RETURN_IF_ERROR(output.resolved_expr()->Accept(&visitor));
     ret = std::make_unique<AnalyzerOutput>(
@@ -281,9 +282,8 @@ absl::StatusOr<std::unique_ptr<AnalyzerOutput>> CopyAnalyzerOutput(
         output.analyzer_output_properties(),
         /*parser_output=*/nullptr, output.deprecation_warnings(),
         output.undeclared_parameters(),
-        output.undeclared_positional_parameters(),
-        output.max_column_id()
-    );
+        output.undeclared_positional_parameters(), output.max_column_id(),
+        output.has_graph_references());
   }
 
   ZETASQL_RET_CHECK(ret) << "No resolved AST in AnalyzerOutput";
@@ -725,6 +725,10 @@ class AnalyzerTestRunner {
       } else {
         ASSERT_EQ("", test_case_options_.GetString(kStatementContext));
       }
+    }
+
+    if (test_case_options_.GetBool(kAllowAggregateStandaloneExpression)) {
+      options.set_allow_aggregate_standalone_expression(true);
     }
 
     // Also add an in-scope expression column if either option is set.
@@ -1299,13 +1303,22 @@ class AnalyzerTestRunner {
       test_result->AddTestOutput(AddFailure(
           "FAILED extracting statement kind. GetNextStatementProperties "
           "failed to find any possible kind."));
-    } else if (resolved_statement->node_kind() !=
-                   extracted_statement_properties.node_kind &&
-               resolved_statement->node_kind() !=
-                   RESOLVED_ALTER_TABLE_SET_OPTIONS_STMT) {
+    } else if (resolved_statement->node_kind() ==
+                   RESOLVED_GENERALIZED_QUERY_STMT &&
+               extracted_statement_properties.node_kind ==
+                   RESOLVED_QUERY_STMT) {
+      // This case is allowed because ResolvedGeneralizedQueryStmt is an
+      // expected form for some complex ASTQueryStatement patterns.
+      // e.g. If we have a query containing pipe FORK, the statement is
+      // detected as a QueryStmt based on the prefix, but resolved to a
+      // GeneralizedQueryStmt.
+    } else if (resolved_statement->node_kind() ==
+               RESOLVED_ALTER_TABLE_SET_OPTIONS_STMT) {
       // TODO: AST_ALTER_TABLE_STATEMENT sometimes will return
       // RESOLVED_ALTER_TABLE_SET_OPTIONS_STMT for backward compatibility.
       // Disable the resulting test failure for now.
+    } else if (resolved_statement->node_kind() !=
+               extracted_statement_properties.node_kind) {
       test_result->AddTestOutput(AddFailure(absl::StrCat(
           "FAILED extracting statement kind. Extracted kind ",
           ResolvedNodeKindToString(extracted_statement_properties.node_kind),
@@ -1508,6 +1521,14 @@ class AnalyzerTestRunner {
       absl::StripAsciiWhitespace(&test_result_string);
     }
 
+    if (test_case_options_.GetBool(kShowReferencedPropertyGraphs) &&
+        output != nullptr) {
+      std::string result_string;
+      TestReferencedPropertyGraph(output, &result_string);
+      absl::StrAppend(&test_result_string, "\n", result_string);
+      absl::StripAsciiWhitespace(&test_result_string);
+    }
+
     ZETASQL_ASSERT_OK_AND_ASSIGN(AnalyzerTestRewriteGroups rewrite_groups,
                          GetEnabledRewrites(test_case_options_));
     if (!rewrite_groups.empty() &&
@@ -1699,6 +1720,20 @@ class AnalyzerTestRunner {
                  ->AddOwnedTableValuedFunctionIfNotPresent(&tvf)) {
           return absl::InvalidArgumentError(absl::StrFormat(
               "prepare_database duplicate TVF definition %s", tvf->Name()));
+        }
+        break;
+      }
+      case RESOLVED_CREATE_CONSTANT_STMT: {
+        ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<SQLConstant> owned_constant,
+                         MakeConstantFromCreateConstant(
+                             *output->resolved_statement()
+                                  ->GetAs<ResolvedCreateConstantStmt>()));
+        const SQLConstant* constant = owned_constant.get();
+        if (!database_entry->mutable_catalog()->AddOwnedConstantIfNotPresent(
+                std::move(owned_constant))) {
+          return absl::InvalidArgumentError(absl::StrFormat(
+              "prepare_database duplicate constant definition %s",
+              constant->Name()));
         }
         break;
       }
@@ -2331,6 +2366,61 @@ class AnalyzerTestRunner {
                CompareExpressionShape(
                    output_stmt->GetAs<ResolvedAssignmentStmt>()->expr(),
                    unparsed_stmt->GetAs<ResolvedAssignmentStmt>()->expr());
+      case RESOLVED_CREATE_PROPERTY_GRAPH_STMT: {
+        const ResolvedCreatePropertyGraphStmt* output_create_stmt =
+            output_stmt->GetAs<ResolvedCreatePropertyGraphStmt>();
+        const ResolvedCreatePropertyGraphStmt* unparsed_create_stmt =
+            unparsed_stmt->GetAs<ResolvedCreatePropertyGraphStmt>();
+
+        if (!ComparePath(output_create_stmt->name_path(),
+                         unparsed_create_stmt->name_path())) {
+          return false;
+        }
+        if (output_create_stmt->create_mode() !=
+            unparsed_create_stmt->create_mode()) {
+          return false;
+        }
+        if (output_create_stmt->create_scope() !=
+            unparsed_create_stmt->create_scope()) {
+          return false;
+        }
+        if (!CompareOptionList(output_create_stmt->option_list(),
+                               unparsed_create_stmt->option_list())) {
+          return false;
+        }
+        if (!absl::c_equal(
+                output_create_stmt->label_list(),
+                unparsed_create_stmt->label_list(),
+                absl::bind_front(&AnalyzerTestRunner::GraphElementLabelEqual,
+                                 this))) {
+          return false;
+        }
+        if (!absl::c_equal(
+                output_create_stmt->property_declaration_list(),
+                unparsed_create_stmt->property_declaration_list(),
+                absl::bind_front(
+                    &AnalyzerTestRunner::GraphPropertyDeclarationEqual,
+                    this))) {
+          return false;
+        }
+        if (!absl::c_equal(
+                output_create_stmt->node_table_list(),
+                unparsed_create_stmt->node_table_list(),
+                absl::bind_front(&AnalyzerTestRunner::GraphElementTableEqual,
+                                 this))) {
+          return false;
+        }
+        if (!absl::c_equal(
+                output_create_stmt->edge_table_list(),
+                unparsed_create_stmt->edge_table_list(),
+                absl::bind_front(&AnalyzerTestRunner::GraphElementTableEqual,
+                                 this))) {
+          return false;
+        }
+        ZETASQL_EXPECT_OK(output_create_stmt->CheckFieldsAccessed());
+        ZETASQL_EXPECT_OK(unparsed_create_stmt->CheckFieldsAccessed());
+        return true;
+      }
 
       // There is nothing to test for these statement kinds, or we just
       // haven't implemented any comparison yet.  Some of these could do
@@ -2479,9 +2569,9 @@ class AnalyzerTestRunner {
   }
 
   bool CompareIndexItemList(
-      const std::vector<std::unique_ptr<const ResolvedIndexItem>>&
+      absl::Span<const std::unique_ptr<const ResolvedIndexItem>>
           output_item_list,
-      const std::vector<std::unique_ptr<const ResolvedIndexItem>>&
+      absl::Span<const std::unique_ptr<const ResolvedIndexItem>>
           unparsed_item_list) {
     if (output_item_list.size() != unparsed_item_list.size()) {
       return false;
@@ -2611,6 +2701,95 @@ class AnalyzerTestRunner {
     return true;
   }
 
+  bool GraphElementLabelEqual(
+      const std::unique_ptr<const ResolvedGraphElementLabel>& output,
+      const std::unique_ptr<const ResolvedGraphElementLabel>& unparsed) {
+    return CompareNode(output.get(), unparsed.get());
+  }
+
+  bool GraphPropertyDeclarationEqual(
+      const std::unique_ptr<const ResolvedGraphPropertyDeclaration>&
+          output_query,
+      const std::unique_ptr<const ResolvedGraphPropertyDeclaration>&
+          unparsed_query) {
+    return CompareNode(output_query.get(), unparsed_query.get());
+  }
+
+  bool GraphPropertyDefinitionEqual(
+      const std::unique_ptr<const ResolvedGraphPropertyDefinition>& output,
+      const std::unique_ptr<const ResolvedGraphPropertyDefinition>& unparsed) {
+    return output->property_declaration_name() ==
+               unparsed->property_declaration_name() &&
+           output->sql() == unparsed->sql() &&
+           CompareExpressionShape(output->expr(), unparsed->expr(),
+                                  /*mark_fields_accessed=*/true);
+  }
+
+  bool GraphNodeTableReferenceEqual(
+      const ResolvedGraphNodeTableReference* output,
+      const ResolvedGraphNodeTableReference* unparsed) {
+    if ((output == nullptr) != (unparsed == nullptr)) {
+      return false;
+    }
+    if (output == nullptr) {
+      return true;
+    }
+    if (output->node_table_identifier() != unparsed->node_table_identifier()) {
+      return false;
+    }
+    if (!absl::c_equal(
+            output->edge_table_column_list(),
+            unparsed->edge_table_column_list(),
+            absl::bind_front(&AnalyzerTestRunner::ExpressionPtrShapeEqual,
+                             this))) {
+      return false;
+    }
+    if (!absl::c_equal(
+            output->node_table_column_list(),
+            unparsed->node_table_column_list(),
+            absl::bind_front(&AnalyzerTestRunner::ExpressionPtrShapeEqual,
+                             this))) {
+      return false;
+    }
+    return true;
+  }
+
+  bool GraphElementTableEqual(
+      const std::unique_ptr<const ResolvedGraphElementTable>& output,
+      const std::unique_ptr<const ResolvedGraphElementTable>& unparsed) {
+    if (output->alias() != unparsed->alias()) {
+      return false;
+    }
+    if (!CompareNode(output->input_scan(), unparsed->input_scan())) {
+      return false;
+    }
+    if (!absl::c_equal(
+            output->key_list(), unparsed->key_list(),
+            absl::bind_front(&AnalyzerTestRunner::ExpressionPtrShapeEqual,
+                             this))) {
+      return false;
+    }
+    if (output->label_name_list() != unparsed->label_name_list()) {
+      return false;
+    }
+    if (!absl::c_equal(
+            output->property_definition_list(),
+            unparsed->property_definition_list(),
+            absl::bind_front(&AnalyzerTestRunner::GraphPropertyDefinitionEqual,
+                             this))) {
+      return false;
+    }
+    if (!GraphNodeTableReferenceEqual(output->source_node_reference(),
+                                      unparsed->source_node_reference())) {
+      return false;
+    }
+    if (!GraphNodeTableReferenceEqual(output->dest_node_reference(),
+                                      unparsed->dest_node_reference())) {
+      return false;
+    }
+    return true;
+  }
+
   // This method is executed to populate the output of
   // undeclared_parameters.test.
   void TestUndeclaredParameters(const AnalyzerOutput* analyzer_output,
@@ -2637,6 +2816,14 @@ class AnalyzerTestRunner {
     }
     absl::StrAppend(result_string, "[UNDECLARED_PARAMETERS]\n", parameters_str,
                     "\n\n");
+  }
+
+  // This method is called to augment test output when
+  // show_referenced_property_graph option is specified.
+  void TestReferencedPropertyGraph(const AnalyzerOutput* analyzer_output,
+                                   std::string* result_string) {
+    absl::StrAppend(result_string, "\n[has_graph_references=",
+                    analyzer_output->has_graph_references(), "]\n\n");
   }
 
   // This method is executed to populate the output of parse_locations.test.
@@ -2671,6 +2858,13 @@ class AnalyzerTestRunner {
 
     // Make the given kind the only supported statement kind.
     options.mutable_language()->SetSupportedStatementKinds({kind});
+
+    // ResolvedGeneralizedQueryStmt comes out for queries, which can't be
+    // started unless ResolvedQueryStmt is also enabled.
+    if (kind == RESOLVED_GENERALIZED_QUERY_STMT) {
+      options.mutable_language()->AddSupportedStatementKind(
+          RESOLVED_QUERY_STMT);
+    }
 
     options.set_column_id_sequence_number(nullptr);
 
@@ -2901,6 +3095,16 @@ class AnalyzerTestRunner {
     SQLBuilderWithNestedCatalogSupport builder(builder_options);
     absl::Status visitor_status = builder.Process(*ast);
 
+    std::string builder_sql;
+    if (visitor_status.ok()) {
+      auto sql_or_error = builder.GetSql();
+      if (sql_or_error.ok()) {
+        builder_sql = sql_or_error.value();
+      } else {
+        visitor_status = sql_or_error.status();
+      }
+    }
+
     if (!visitor_status.ok()) {
       if (test_case_options_.GetBool(kAllowInternalError)) {
         EXPECT_EQ(visitor_status.code(), absl::StatusCode::kInternal)
@@ -2913,7 +3117,17 @@ class AnalyzerTestRunner {
 
       *result_string =
           absl::StrCat("ERROR from SQLBuilder: ", FormatError(visitor_status));
-      return;
+      FAIL() << *result_string;
+    }
+
+    std::string formatted_sql;
+    if (is_statement) {
+      const absl::Status status = FormatSql(builder_sql, &formatted_sql);
+      if (!status.ok()) {
+        ZETASQL_VLOG(1) << "FormatSql error: " << FormatError(status);
+      }
+    } else {
+      formatted_sql = builder_sql;
     }
 
     TypeFactory type_factory;
@@ -2922,17 +3136,18 @@ class AnalyzerTestRunner {
     std::unique_ptr<const AnalyzerOutput> unparsed_output;
     absl::Status re_analyze_status =
         is_statement
-            ? AnalyzeStatement(builder.sql(), options, catalog_holder.catalog(),
+            ? AnalyzeStatement(builder_sql, options, catalog_holder.catalog(),
                                &type_factory, &unparsed_output)
-            : AnalyzeExpression(builder.sql(), options,
-                                catalog_holder.catalog(), &type_factory,
-                                &unparsed_output);
+            : AnalyzeExpression(builder_sql, options, catalog_holder.catalog(),
+                                &type_factory, &unparsed_output);
     bool unparsed_tree_matches_original_tree = false;
     // Re-analyzing the query should never fail.
-    ZETASQL_ASSERT_OK(re_analyze_status) << "Original SQL:\n"
-                                 << test_case << "\nSQLBuilder SQL:\n"
-                                 << builder.sql() << "\nAST to unparse:\n"
-                                 << ast->DebugString();
+    if (!re_analyze_status.ok()) {
+      *result_string = absl::StrCat(
+          "ERROR while analyzing SQLBuilder output: ", re_analyze_status,
+          "\n[SQLBUILDER SQL]\n", formatted_sql);
+      FAIL() << *result_string;
+    }
 
     unparsed_tree_matches_original_tree =
         is_statement ? CompareStatement(analyzer_output->resolved_statement(),
@@ -2940,18 +3155,8 @@ class AnalyzerTestRunner {
                      : CompareNode(analyzer_output->resolved_expr(),
                                    unparsed_output->resolved_expr());
 
-    std::string query;
-    if (is_statement) {
-      const absl::Status status = FormatSql(builder.sql(), &query);
-      if (!status.ok()) {
-        ZETASQL_VLOG(1) << "FormatSql error: " << FormatError(status);
-      }
-    } else {
-      query = builder.sql();
-    }
-
     if (test_case_options_.GetBool(kShowUnparsed)) {
-      absl::StrAppend(result_string, "[UNPARSED_SQL]\n", query, "\n\n");
+      absl::StrAppend(result_string, "[UNPARSED_SQL]\n", formatted_sql, "\n\n");
     }
 
     // Skip printing analysis of the unparser output if positional parameters
@@ -2981,7 +3186,8 @@ class AnalyzerTestRunner {
                                      unparsed_output->resolved_expr());
     if (!shape_matches) {
       if (!test_case_options_.GetBool(kShowUnparsed)) {
-        absl::StrAppend(result_string, "[UNPARSED_SQL]\n", query, "\n\n");
+        absl::StrAppend(result_string, "[UNPARSED_SQL]\n", formatted_sql,
+                        "\n\n");
       }
       absl::StrAppend(result_string, "[UNPARSED_SQL_SHAPE]\n",
                       "* Unparsed tree does not produce same result shape as "

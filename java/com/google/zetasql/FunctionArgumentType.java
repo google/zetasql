@@ -297,6 +297,14 @@ public final class FunctionArgumentType implements Serializable {
         return "<void>";
       case ARG_TYPE_LAMBDA:
         return "<function<T->T>>";
+      case ARG_TYPE_GRAPH_NODE:
+        return "<graph_node>";
+      case ARG_TYPE_GRAPH_EDGE:
+        return "<graph_edge>";
+      case ARG_TYPE_GRAPH_ELEMENT:
+        return "<graph_element>";
+      case ARG_TYPE_GRAPH_PATH:
+        return "<graph_path>";
       case __SignatureArgumentKind__switch_must_have_a_default__:
       default:
         return "UNKNOWN_ARG_KIND";

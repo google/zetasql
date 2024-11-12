@@ -6,7 +6,7 @@
 
 ZetaSQL supports the following interval functions.
 
-### Function list
+## Function list
 
 <table>
   <thead>
@@ -18,8 +18,7 @@ ZetaSQL supports the following interval functions.
   <tbody>
 
 <tr>
-  <td><a href="#extract"><code>EXTRACT</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/interval_functions.md#extract"><code>EXTRACT</code></a>
 </td>
   <td>
     Extracts part of an <code>INTERVAL</code> value.
@@ -27,8 +26,7 @@ ZetaSQL supports the following interval functions.
 </tr>
 
 <tr>
-  <td><a href="#justify_days"><code>JUSTIFY_DAYS</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/interval_functions.md#justify_days"><code>JUSTIFY_DAYS</code></a>
 </td>
   <td>
     Normalizes the day part of an <code>INTERVAL</code> value.
@@ -36,8 +34,7 @@ ZetaSQL supports the following interval functions.
 </tr>
 
 <tr>
-  <td><a href="#justify_hours"><code>JUSTIFY_HOURS</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/interval_functions.md#justify_hours"><code>JUSTIFY_HOURS</code></a>
 </td>
   <td>
     Normalizes the time part of an <code>INTERVAL</code> value.
@@ -45,8 +42,7 @@ ZetaSQL supports the following interval functions.
 </tr>
 
 <tr>
-  <td><a href="#justify_interval"><code>JUSTIFY_INTERVAL</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/interval_functions.md#justify_interval"><code>JUSTIFY_INTERVAL</code></a>
 </td>
   <td>
     Normalizes the day and time parts of an <code>INTERVAL</code> value.
@@ -54,8 +50,7 @@ ZetaSQL supports the following interval functions.
 </tr>
 
 <tr>
-  <td><a href="#make_interval"><code>MAKE_INTERVAL</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/interval_functions.md#make_interval"><code>MAKE_INTERVAL</code></a>
 </td>
   <td>
     Constructs an <code>INTERVAL</code> value.
@@ -65,7 +60,7 @@ ZetaSQL supports the following interval functions.
   </tbody>
 </table>
 
-### `EXTRACT`
+## `EXTRACT`
 
 ```sql
 EXTRACT(part FROM interval_expression)
@@ -141,7 +136,7 @@ FROM
  *------+--------*/
 ```
 
-### `JUSTIFY_DAYS`
+## `JUSTIFY_DAYS`
 
 ```sql
 JUSTIFY_DAYS(interval_expression)
@@ -173,7 +168,7 @@ SELECT
  *--------------+--------------+-------------+---------------+--------------*/
 ```
 
-### `JUSTIFY_HOURS`
+## `JUSTIFY_HOURS`
 
 ```sql
 JUSTIFY_HOURS(interval_expression)
@@ -204,7 +199,7 @@ SELECT
  *--------------+--------------+--------------+-----------------*/
 ```
 
-### `JUSTIFY_INTERVAL`
+## `JUSTIFY_INTERVAL`
 
 ```sql
 JUSTIFY_INTERVAL(interval_expression)
@@ -230,7 +225,7 @@ SELECT JUSTIFY_INTERVAL(INTERVAL '29 49:00:00' DAY TO SECOND) AS i
  *-------------*/
 ```
 
-### `MAKE_INTERVAL`
+## `MAKE_INTERVAL`
 
 ```sql
 MAKE_INTERVAL(

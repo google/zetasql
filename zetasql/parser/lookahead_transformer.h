@@ -25,13 +25,15 @@
 
 #include "zetasql/base/arena.h"
 #include "zetasql/parser/bison_parser_mode.h"
-#include "zetasql/parser/bison_token_codes.h"
 #include "zetasql/parser/macros/macro_catalog.h"
 #include "zetasql/parser/macros/macro_expander.h"
-#include "zetasql/parser/macros/token_with_location.h"
+#include "zetasql/parser/tm_token.h"
+#include "zetasql/parser/token_codes.h"
+#include "zetasql/parser/token_with_location.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/parse_location.h"
 #include "absl/base/attributes.h"
+#include "absl/base/macros.h"
 #include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -40,20 +42,18 @@
 namespace zetasql {
 namespace parser {
 
-using TokenKind = int;
+using TokenKind ABSL_DEPRECATED("Inline me!") = Token;
 using Location = ParseLocationRange;
-
-constexpr TokenKind kNoToken = -2;  // TokenKinds::YYEMPTY
 
 // Represents a token with a possible override_error. We don't use
 // absl::StatusOr because the token location is still needed when an error
 // occurs.
 struct TokenWithOverrideError {
-  macros::TokenWithLocation token;
+  TokenWithLocation token;
 
   // When this token becomes a lookback, disambiguation rules should see
   // `lookback_token` and typically ignore `token.kind`.
-  TokenKind lookback_override = kNoToken;
+  Token lookback_override = Token::UNAVAILABLE;
 
   // The lookahead_transformer may want to return an error directly. It does
   // this by returning EOF to the bison parser, which then may or may not spew
@@ -77,19 +77,19 @@ class LookaheadTransformer final {
   //   returned token exists and produces an error.
   //
   // - If `SetForceTerminate()` has been called, subsequent calls to
-  //   `GetNextToken()` will always return Token::YYEOF.
+  //   `GetNextToken()` will always return Token::EOI.
   //
-  // - If a previous call to `GetNextToken()` returned Token::YYEOF, which can
+  // - If a previous call to `GetNextToken()` returned Token::EOI, which can
   //   be because
   //   - `SetForceTerminate()` has been called.
   //   - Or the previous token errors.
   //   - Or the previous token is a real end of input.
   //
-  //   all future calls to `GetNextToken()` return Token::YYEOF and
+  //   all future calls to `GetNextToken()` return Token::EOI and
   //   `GetOverrideError()` returns the same error, if any.
   //
   // - If an error occurs, i.e. `GetOverrideError().ok()` is false after the
-  //   call, returns Token::YYEOF.
+  //   call, returns Token::EOI.
   //
   // Output parameters:
   // - The output parameters are undefined if
@@ -97,7 +97,7 @@ class LookaheadTransformer final {
   //   - Or the returned token has an error.
   // - Otherwise, they will be updated with the text and location of the
   //   returned token.
-  TokenKind GetNextToken(absl::string_view* text, Location* yylloc);
+  Token GetNextToken(absl::string_view* text, Location* yylloc);
 
   // Returns the error associated with the most recent token returned by
   // GetNextToken, and absl::OkStatus() if it does not have errors.
@@ -111,7 +111,7 @@ class LookaheadTransformer final {
 
   // Returns the Bison token id in `token` and the ZetaSQL location
   // in `location`. Returns an error if the tokenizer sets override_error.
-  absl::Status GetNextToken(ParseLocationRange* location, TokenKind* token);
+  absl::Status GetNextToken(ParseLocationRange* location, Token* token);
 
   // Ensures that the next token returned will be EOF, even if we're not at the
   // end of the input.
@@ -121,11 +121,11 @@ class LookaheadTransformer final {
   // (1) 0 if no tokens have been returned.
   // (2) -1 if the most recently returned token errors.
   // (3) the end location of the most recently returned token if
-  //     - the most recently returned token is Token::YYEOF with no error.
-  //     - or the lookahead1 is not a Token::YYEOF or a Token::YYEOF with an
+  //     - the most recently returned token is Token::EOI with no error.
+  //     - or the lookahead1 is not a Token::EOI or a Token::EOI with an
   //       error.
   // (4) the end location of the lookahead1 otherwise, i.e. lookahead1 is a
-  //     Token::YYEOF without errors.
+  //     Token::EOI without errors.
   //
   // Explanations:
   // - For (2): We currently lose the token location when the underlying token
@@ -138,7 +138,7 @@ class LookaheadTransformer final {
   //   `end_byte_offset` points to the end of the semicolon plus whitespaces,
   //   not just the semicolon.
   //
-  // Future calls to `GetNextToken` will always return Token::YYEOF. An error
+  // Future calls to `GetNextToken` will always return Token::EOI. An error
   // is returned if and only if the most recently returned token, if exists, has
   // an error.
   void SetForceTerminate(int* end_byte_offset);
@@ -167,22 +167,22 @@ class LookaheadTransformer final {
   // lookahead_transformer, the parser may have acted on that token kind. This
   // is useful for affecting subsequent tokens beyond `expected_next_token`.
   absl::Status OverrideNextTokenLookback(bool parser_lookahead_is_empty,
-                                         TokenKind expected_next_token,
-                                         TokenKind lookback_token);
+                                         Token expected_next_token,
+                                         Token lookback_token);
 
   // This function is called by the parser to set the `lookback_override` field
   // for `current_token_` to be `new_token_kind`. A ZETASQL_RET_CHECK is returned if
   // `current_token_` is std::nullopt.
-  absl::Status OverrideCurrentTokenLookback(TokenKind new_token_kind);
+  absl::Status OverrideCurrentTokenLookback(Token new_token_kind);
 
   // Returns the number of lexical tokens returned by the underlying tokenizer.
   int64_t num_lexical_tokens() const;
 
  private:
-  using StateType = char;
+  using StateType = Token;
 
   LookaheadTransformer(BisonParserMode mode,
-                       std::optional<macros::TokenWithLocation> start_token,
+                       std::optional<TokenWithLocation> start_token,
                        const LanguageOptions& language_options,
                        std::unique_ptr<macros::MacroExpanderBase> expander);
 
@@ -194,31 +194,39 @@ class LookaheadTransformer final {
 
   // Returns the kind for the N+1 token. Requires lookahead buffers have been
   // populated.
-  TokenKind Lookahead1() const;
+  Token Lookahead1() const;
 
   // Returns the kind for the N+2 token. Requires lookahead buffers have been
   // populated.
-  TokenKind Lookahead2() const;
+  Token Lookahead2() const;
 
   // Returns the kind for the N+3 token. Requires lookahead buffers have been
   // populated.
-  TokenKind Lookahead3() const;
+  Token Lookahead3() const;
 
   // Lookback to token returned before `curren_token_`. If the
   // `lookback_override` field has been set then that token kind will be
   // returned. Otherwise, this will return the N-1 token as produced after
   // macro expansion.
   //
-  // Until one token has been returned, this will return kNoToken.
-  TokenKind Lookback1() const;
+  // Until one token has been returned, this will return YYEMPTY.
+  Token Lookback1() const;
 
   // Lookback to token returned before `Lookback1()`. If the
   // `lookback_override` field has been set then that token kind will be
   // returned. Otherwise, this will return the N-2 token as produced after
   // macro expansion.
   //
-  // Until two tokens have been returned, this will return kNoToken.
-  TokenKind Lookback2() const;
+  // Until two tokens have been returned, this will return YYEMPTY.
+  Token Lookback2() const;
+
+  // Lookback to token returned before `Lookback2()`. If the
+  // `lookback_override` field has been set then that token kind will be
+  // returned. Otherwise, this will return the N-3 token as produced after
+  // macro expansion.
+  //
+  // Until three tokens have been returned, this will return kNoToken.
+  Token Lookback3() const;
 
   // Populates the lookahead buffers if they are nullopt.
   void PopulateLookaheads();
@@ -241,7 +249,7 @@ class LookaheadTransformer final {
   // lookahead logic simple since we can depend on `IsReservedKeyword` and
   // `IsNonreservedKeyword` without special casing conditionally reserved
   // keywords each time.
-  void ApplyConditionallyReservedKeywords(TokenKind& kind);
+  void ApplyConditionallyReservedKeywords(Token& kind);
 
   // Applies a set of rules based on previous and successive token kinds and if
   // any rule matches, returns the token kind specified by the rule.  Otherwise
@@ -250,21 +258,20 @@ class LookaheadTransformer final {
   // `SetOverrideError`.
   //
   // Requirements on the rules:
-  // - Token::YYEOF cannot be transformed into any other tokens.
-  // - Rules that compare lookaheads with Token::YYEOF must also check
-  //   whether the lookaheads have any errors, because Token::YYEOF can also
+  // - Token::EOI cannot be transformed into any other tokens.
+  // - Rules that compare lookaheads with Token::EOI must also check
+  //   whether the lookaheads have any errors, because Token::EOI can also
   //   indicate an error rather than the real end of file.
-  TokenKind ApplyTokenDisambiguation(
-      const macros::TokenWithLocation& token_with_location);
+  Token ApplyTokenDisambiguation(const TokenWithLocation& token_with_location);
 
   // Sets the field `override_error_` and returns the token kind
-  // Token::YYEOF.
-  ABSL_MUST_USE_RESULT TokenKind SetOverrideErrorAndReturnEof(
+  // Token::EOI.
+  ABSL_MUST_USE_RESULT Token SetOverrideErrorAndReturnEof(
       absl::string_view error_message, const Location& error_location);
 
-  // Returns whether `lookahead_1_` contains a Token::YYEOF that represents the
+  // Returns whether `lookahead_1_` contains a Token::EOI that represents the
   // real end of input. For example, if `lookahead_1_` errors, its token kind
-  // is Token::YYEOF but it does not represent the real end of input.
+  // is Token::EOI but it does not represent the real end of input.
   bool Lookahead1IsRealEndOfInput() const;
 
   // This determines the first token returned to the bison parser, which
@@ -285,7 +292,7 @@ class LookaheadTransformer final {
   // Number of tokens inserted by this layer.
   int num_inserted_tokens_ = 0;
 
-  // Sets the token of `lookahead` to Token::YYEOF even if `lookahead` is
+  // Sets the token of `lookahead` to Token::EOI even if `lookahead` is
   // nullopt. All other fields, for example, `lookahead->error` and
   // `lookahead->token.location` are set to the same values in `template_token`.
   void ResetToEof(const TokenWithOverrideError& template_token,
@@ -293,14 +300,14 @@ class LookaheadTransformer final {
 
   // Returns whether the given `token_kind` can appear before "." in a path
   // expression.
-  bool LookbackTokenCanBeBeforeDotInPathExpression(TokenKind token_kind) const;
+  bool LookbackTokenCanBeBeforeDotInPathExpression(Token token_kind) const;
 
   // Fuses `lookahead_1_` into `current_token_` with the new token kind
   // `fused_token_kind`. The lookahead buffers are advanced accordingly.
   //
   // Should only be called when `current_token_` has value and
   // `IsAdjacentPrecedingToken(current_token_, lookahead_1_)` returns true.
-  void FuseLookahead1IntoCurrent(TokenKind fused_token_kind);
+  void FuseLookahead1IntoCurrent(Token fused_token_kind);
 
   // Pushes a state onto the stack used by the lookahead_transformer to handle
   // paren-balancing operations. Typically, `state` is a character sort that
@@ -324,11 +331,11 @@ class LookaheadTransformer final {
   //
   // This function should only be called when under the `kTokenizer` or
   // `kTokenizerPreserveComments` mode.
-  TokenKind EmitInvalidLiteralPrecedesIdentifierTokenIfApplicable();
+  Token EmitInvalidLiteralPrecedesIdentifierTokenIfApplicable();
 
   // Applies token transformations for `current_token_` and returns the new
   // token kind. Should only be called when `current_token_` holds '.'.
-  TokenKind TransformDotSymbol();
+  Token TransformDotSymbol();
 
   // Applies token transformations for `current_token_`. Should only be called
   // when `current_token_` holds DECIMAL_INTEGER_LITERAL.
@@ -355,6 +362,10 @@ class LookaheadTransformer final {
   // instead of just the TokenKind to allow easier swap with `lookback_1_`.
   std::optional<TokenWithOverrideError> lookback_2_;
 
+  // The token returned before `lookback_2_`. TokenWithOverrideError is used
+  // instead of just the TokenKind to allow easier swap with `lookback_2_`.
+  std::optional<TokenWithOverrideError> lookback_3_;
+
   // The lookahead_N_ fields implement the token lookahead buffer. There are a
   // fixed number of fields here, each represented by an optional, rather than a
   // deque or vector because, ideally we only do token disambiguation on small
@@ -365,8 +376,8 @@ class LookaheadTransformer final {
   // `current_token_`.
   //
   // Invariants:
-  // - If `current_token_` or a lookahead is Token::YYEOF, all further
-  //   lookaheads are Token::YYEOF with the same errors.
+  // - If `current_token_` or a lookahead is Token::EOI, all further
+  //   lookaheads are Token::EOI with the same errors.
 
   // A token in the lookahead buffer.
   // The lookahead buffer slot for token N+1.
@@ -377,6 +388,17 @@ class LookaheadTransformer final {
 
   // The lookahead buffer slot for token N+3.
   std::optional<TokenWithOverrideError> lookahead_3_;
+
+  // The TextMapperLexerAdapter allows the Flex lexer state to be
+  // consumed by multiple lookahead streams and replayed by the main parse.
+  //
+  // The first stage of the Textmapper integration re-uses the Flex lexer. This
+  // wrapper allows the lookahead functionality of Textmapper to restart the
+  // lexer. This field is not used at all except in Textmapper lookahead mode.
+  friend class TextMapperLexerAdapter;
+  // This field is entirely consistently maintained by the
+  // TextMapperLexerAdapter class which handles insertion and deletion.
+  std::vector<class TextMapperLexerAdapter*> watching_lexers_;
 
   // Stores the special symbols that affect the token disambiguation behaviors.
   //

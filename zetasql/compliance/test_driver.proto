@@ -34,6 +34,10 @@ message TestDatabaseProto {
 
   // test_table.name should be unique within this list.
   repeated TestTableProto test_tables = 5;
+
+  // Set of CREATE PROPERTY GRAPH statements.
+  reserved 6;  // Used to be SimplePropertyGraphProtos before, not used anymore.
+  repeated TestPropertyGraphProto property_graphs = 7;
 }
 
 message TestTableOptionsProto {
@@ -78,4 +82,9 @@ message TestTableProto {
 message TypeAndValue {
   optional zetasql.ValueProto value = 1;
   optional zetasql.TypeProto type = 2;
+}
+
+message TestPropertyGraphProto {
+  optional string name = 1;
+  optional string create_stmt = 2;  // The CREATE PROPERTY GRAPH statement.
 }

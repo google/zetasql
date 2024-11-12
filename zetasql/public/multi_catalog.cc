@@ -22,8 +22,16 @@
 #include <vector>
 
 #include "zetasql/base/logging.h"
+#include "zetasql/public/catalog.h"
+#include "zetasql/public/constant.h"
+#include "zetasql/public/function.h"
+#include "zetasql/public/types/type.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 #include "zetasql/base/ret_check.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
@@ -41,17 +49,83 @@ absl::Status MultiCatalog::Create(
   return absl::OkStatus();
 }
 
-void MultiCatalog::AppendCatalog(Catalog* catalog) {
-  ABSL_CHECK(catalog != nullptr);
+absl::Status MultiCatalog::PrependCatalog(Catalog* catalog) {
+  ZETASQL_RET_CHECK(catalog != nullptr) << "Catalog must not be null.";
+  catalog_list_.insert(catalog_list_.begin(), catalog);
+  return absl::OkStatus();
+}
+
+absl::Status MultiCatalog::AppendCatalog(Catalog* catalog) {
+  ZETASQL_RET_CHECK(catalog != nullptr) << "Catalog must not be null.";
   catalog_list_.push_back(catalog);
+  return absl::OkStatus();
+}
+
+absl::Status MultiCatalog::PrependOwnedCatalog(
+    std::unique_ptr<Catalog> catalog) {
+  ZETASQL_RETURN_IF_ERROR(PrependCatalog(catalog.get()));
+  owned_catalogs_.insert(owned_catalogs_.begin(), std::move(catalog));
+  return absl::OkStatus();
 }
 
 absl::Status MultiCatalog::AppendOwnedCatalog(
     std::unique_ptr<Catalog> catalog) {
-  ZETASQL_RET_CHECK(catalog != nullptr) << "Catalog must not be null.";
-  AppendCatalog(catalog.get());
+  ZETASQL_RETURN_IF_ERROR(AppendCatalog(catalog.get()));
   owned_catalogs_.push_back(std::move(catalog));
   return absl::OkStatus();
+}
+
+bool MultiCatalog::RemoveCatalog(Catalog* catalog) {
+  for (auto it = catalog_list_.begin(); it != catalog_list_.end(); ++it) {
+    if (*it == catalog) {
+      catalog_list_.erase(it);
+      return true;
+    }
+  }
+  return false;
+}
+
+absl::StatusOr<std::unique_ptr<Catalog>> MultiCatalog::RemoveOwnedCatalog(
+    Catalog* catalog) {
+  std::unique_ptr<Catalog> removed_owned_catalog = nullptr;
+  int owned_catalog_index = 0;
+  for (owned_catalog_index = 0; owned_catalog_index < owned_catalogs_.size();
+       ++owned_catalog_index) {
+    if (owned_catalogs_[owned_catalog_index].get() == catalog) {
+      removed_owned_catalog = std::move(owned_catalogs_[owned_catalog_index]);
+      break;
+    }
+  }
+
+  bool found_and_removed_catalog = RemoveCatalog(catalog);
+  if (found_and_removed_catalog) {
+    if (removed_owned_catalog == nullptr) {
+      return absl::InternalError(
+          absl::StrCat("Catalog ", catalog->FullName(),
+                       " is not owned by this MultiCatalog, but was found in "
+                       "the general catalog list. Did you intend to "
+                       "call RemoveCatalog() instead?"));
+    }
+    owned_catalogs_.erase(owned_catalogs_.begin() + owned_catalog_index);
+    return removed_owned_catalog;
+  } else if (removed_owned_catalog != nullptr) {
+    // All owned_catalogs_ should also be in catalog_list_, since only
+    // catalog_list_ is used for lookups. If this check fails,  where somehow
+    // this MultiCatalog owns a Catalog that is not also in catalog_list_,
+    // there may be some internal Catalog mismanagement within MultiCatalog.
+    return absl::InternalError(
+        absl::StrCat("Owned catalog ", catalog->FullName(),
+                     " was not found in main catalog list, but should have "
+                     "been present. Perhaps RemoveCatalog() was erroneously "
+                     "called on the MultiCatalog-owned catalog?"));
+  } else {
+    // If the catalog was not found in catalog_list_ or owned_catalogs_,
+    // then return an error, since there may be confusion over ownership of
+    // the catalogue that should be identified and resolved.
+    return absl::NotFoundError(
+        absl::StrCat("Catalog ", catalog->FullName(),
+                     " is not owned by this MultiCatalog."));
+  }
 }
 
 absl::Status MultiCatalog::FindTable(const absl::Span<const std::string>& path,
@@ -167,6 +241,19 @@ absl::Status MultiCatalog::FindTableWithPathPrefix(
   }
   *num_names_consumed = 0;
   return TableNotFoundError(path);
+}
+
+absl::Status MultiCatalog::FindPropertyGraph(
+    absl::Span<const std::string> path, const PropertyGraph*& property_graph,
+    const FindOptions& options) {
+  for (Catalog* catalog : catalog_list_) {
+    const absl::Status find_status =
+        catalog->FindPropertyGraph(path, property_graph, options);
+    if (!absl::IsNotFound(find_status)) {
+      return find_status;
+    }
+  }
+  return PropertyGraphNotFoundError(path);
 }
 
 std::string MultiCatalog::SuggestTable(

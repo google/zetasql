@@ -148,6 +148,13 @@ class MapType : public ContainerType {
       const ValueEqualityCheckOptions& options,
       const ValueEqualityCheckOptions& key_equality_options) const;
 
+  void FormatValueContentDebugModeImpl(
+      const internal::ValueContentMap* value_content_map,
+      const FormatValueContentOptions& options, std::string* result) const;
+  void FormatValueContentSqlModeImpl(
+      const internal::ValueContentMap* value_content_map,
+      const FormatValueContentOptions& options, std::string* result) const;
+
   struct ValueContentMapElementHasher;
   const Type* const key_type_;
   const Type* const value_type_;

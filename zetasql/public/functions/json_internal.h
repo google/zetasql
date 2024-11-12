@@ -220,7 +220,7 @@ class StrictJSONPathIterator final
 //
 // Invariant maintaining functions are inlined for performance reasons.
 //
-class JSONPathExtractor : public zetasql::JSONParser {
+class JSONPathExtractor : public JSONParser {
  public:
   // Maximum recursion depth when parsing JSON. We check both for stack space
   // and for depth relative to this limit when parsing; in practice, the
@@ -230,7 +230,7 @@ class JSONPathExtractor : public zetasql::JSONParser {
 
   // `iter` and the object underlying `json` must outlive this object.
   JSONPathExtractor(absl::string_view json, ValidJSONPathIterator* iter)
-      : zetasql::JSONParser(json),
+      : JSONParser(json),
         stack_(),
         curr_depth_(),
         matching_token_(),
@@ -264,7 +264,9 @@ class JSONPathExtractor : public zetasql::JSONParser {
   bool Extract(std::string* result, bool* is_null,
                std::optional<std::function<void(absl::Status)>> issue_warning =
                    std::nullopt) {
-    bool parse_success = zetasql::JSONParser::Parse() || stop_on_first_match_;
+    absl::Status parse_status = JSONParser::Parse();
+    // TODO: b/196226376 - Fix the swallowing of the `parse_status` error.
+    bool parse_success = parse_status.ok() || stop_on_first_match_;
 
     // Parse-failed OR no-match-found OR null-Value
     *is_null = !parse_success || !stop_on_first_match_ || parsed_null_result_;
@@ -405,7 +407,7 @@ class JSONPathExtractor : public zetasql::JSONParser {
     return !stop_on_first_match_;
   }
 
-  bool ReportFailure(const std::string& error_message) override {
+  bool ReportFailure(absl::string_view error_message) override {
     return JSONParser::ReportFailure(error_message);
   }
 
@@ -472,14 +474,14 @@ class JSONPathExtractor : public zetasql::JSONParser {
   //    escaping callback if provided. Else appends unescaped `val`.
   template <bool is_key>
   inline void JsonEscapeAndAppendString(absl::string_view val) {
-    if (zetasql::JsonStringNeedsEscaping(val)) {
+    if (JsonStringNeedsEscaping(val)) {
       bool enable_value_escaping = escape_special_characters_;
       bool enable_key_escaping =
           escape_special_characters_ && enable_key_escaping_;
       if ((is_key && enable_key_escaping) ||
           (!is_key && enable_value_escaping)) {
         std::string escaped;
-        zetasql::JsonEscapeString(val, &escaped);
+        JsonEscapeString(val, &escaped);
         // EscapeString adds quotes.
         absl::StrAppend(&result_json_, escaped, is_key ? ":" : "");
       } else {
@@ -565,8 +567,9 @@ class JSONPathExtractScalar final : public JSONPathExtractor {
       : JSONPathExtractor(json, iter) {}
 
   bool Extract(std::string* result, bool* is_null) {
-    bool parse_success =
-        zetasql::JSONParser::Parse() || accept_ || stop_on_first_match_;
+    absl::Status parse_status = JSONParser::Parse();
+    // TODO: b/196226376 - Fix the swallowing of the `parse_status` error.
+    bool parse_success = parse_status.ok() || accept_ || stop_on_first_match_;
 
     // Parse-failed  OR Subtree-Node OR null-Value OR no-match-found
     *is_null = !parse_success || accept_ || parsed_null_result_ ||
@@ -615,7 +618,9 @@ class JSONPathArrayExtractor final : public JSONPathExtractor {
   bool ExtractArray(std::vector<std::string>* result, bool* is_null,
                     std::optional<std::function<void(absl::Status)>>
                         issue_warning = std::nullopt) {
-    bool parse_success = zetasql::JSONParser::Parse() || stop_on_first_match_;
+    absl::Status parse_status = JSONParser::Parse();
+    // TODO: b/196226376 - Fix the swallowing of the `parse_status` error.
+    bool parse_success = parse_status.ok() || stop_on_first_match_;
 
     // Parse-failed OR no-match-found OR null-Value OR not-an-array
     *is_null = !parse_success || !stop_on_first_match_ || parsed_null_result_ ||
@@ -669,7 +674,9 @@ class JSONPathStringArrayExtractor final : public JSONPathExtractor {
 
   bool ExtractStringArray(std::vector<std::optional<std::string>>* result,
                           bool* is_null) {
-    bool parse_success = zetasql::JSONParser::Parse() || stop_on_first_match_;
+    absl::Status parse_status = JSONParser::Parse();
+    // TODO: b/196226376 - Fix the swallowing of the `parse_status` error.
+    bool parse_success = parse_status.ok() || stop_on_first_match_;
 
     // Parse-failed OR no-match-found OR null-Value OR not-an-array
     *is_null = !parse_success || !stop_on_first_match_ || parsed_null_result_ ||

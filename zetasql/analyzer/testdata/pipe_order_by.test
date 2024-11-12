@@ -408,3 +408,100 @@ from KeyValue
 ERROR: Cannot reference a named window in pipe ORDER BY clause [at 2:27]
 |> ORDER BY count(*) OVER w
                           ^
+==
+
+# b/373412424: ORDER BY ordinal was using the column_list rather than the
+# NameList, so got confused about columns after DROP.
+FROM KeyValue
+|> DROP key
+|> ORDER BY {{1|2}}
+--
+ALTERNATION GROUP: 1
+--
+QueryStmt
++-output_column_list=
+| +-KeyValue.Value#2 AS Value [STRING]
++-query=
+  +-OrderByScan
+    +-column_list=[KeyValue.Value#2]
+    +-is_ordered=TRUE
+    +-input_scan=
+    | +-TableScan(column_list=[KeyValue.Value#2], table=KeyValue, column_index_list=[1])
+    +-order_by_item_list=
+      +-OrderByItem
+        +-column_ref=
+          +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+--
+ALTERNATION GROUP: 2
+--
+ERROR: ORDER BY column number exceeds input table column count: 2 vs 1 [at 3:13]
+|> ORDER BY 2
+            ^
+==
+
+# b/373412424: ORDER BY ordinal was using the column_list rather than the
+# NameList, so ordinals could reference pseudo-columns incorrectly.
+# This table has 3 real columns and 2 pseudo-columns.
+FROM EnumTable
+|> ORDER BY {{3|4}}
+--
+ALTERNATION GROUP: 3
+--
+QueryStmt
++-output_column_list=
+| +-EnumTable.key#1 AS key [INT32]
+| +-EnumTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+| +-EnumTable.AnotherTestEnum#3 AS AnotherTestEnum [ENUM<zetasql_test__.AnotherTestEnum>]
++-query=
+  +-OrderByScan
+    +-column_list=EnumTable.[key#1, TestEnum#2, AnotherTestEnum#3]
+    +-is_ordered=TRUE
+    +-input_scan=
+    | +-TableScan(column_list=EnumTable.[key#1, TestEnum#2, AnotherTestEnum#3], table=EnumTable, column_index_list=[0, 1, 2])
+    +-order_by_item_list=
+      +-OrderByItem
+        +-column_ref=
+          +-ColumnRef(type=ENUM<zetasql_test__.AnotherTestEnum>, column=EnumTable.AnotherTestEnum#3)
+--
+ALTERNATION GROUP: 4
+--
+ERROR: ORDER BY column number exceeds input table column count: 4 vs 3 [at 2:13]
+|> ORDER BY 4
+            ^
+==
+
+# For value tables, ORDER BY 1 orders by the value, if possible.
+# TestExtraValueTable also has pseudo-columns, which ordinals can't select.
+FROM {{TestExtraValueTable|Int32ValueTable}}
+|> ORDER BY {{1|2}}
+--
+ALTERNATION GROUP: TestExtraValueTable,1
+--
+ERROR: ORDER BY does not support expressions of type zetasql_test__.TestExtraPB [at 2:13]
+|> ORDER BY 1
+            ^
+--
+ALTERNATION GROUPS:
+    TestExtraValueTable,2
+    Int32ValueTable,2
+--
+ERROR: ORDER BY column number exceeds input table column count: 2 vs 1 [at 2:13]
+|> ORDER BY 2
+            ^
+--
+ALTERNATION GROUP: Int32ValueTable,1
+--
+QueryStmt
++-output_column_list=
+| +-Int32ValueTable.value#1 AS `$value` [INT32]
++-is_value_table=TRUE
++-query=
+  +-OrderByScan
+    +-column_list=[Int32ValueTable.value#1]
+    +-is_ordered=TRUE
+    +-input_scan=
+    | +-TableScan(column_list=[Int32ValueTable.value#1], table=Int32ValueTable, column_index_list=[0])
+    +-order_by_item_list=
+      +-OrderByItem
+        +-column_ref=
+          +-ColumnRef(type=INT32, column=Int32ValueTable.value#1)

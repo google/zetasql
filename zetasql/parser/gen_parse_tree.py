@@ -39,7 +39,22 @@ from zetasql.parser.generator_utils import ScalarType
 from zetasql.parser.generator_utils import Trim
 from zetasql.parser.generator_utils import UpperCamelCase
 
-NEXT_NODE_TAG_ID = 490
+# You can use `tag_id=GetTempTagId()` until doing the final submit.
+# That will avoid merge conflicts when syncing in other changes.
+NEXT_NODE_TAG_ID = 508
+
+
+def GetTempTagId():
+  """Returns a temporary tag_id for a node while a CL is under development.
+
+  This avoids merge conficts when syncing in other changes.
+
+  This must be replaced with a real permanent tag_id before submit.
+  """
+  global NEXT_NODE_TAG_ID
+  tag = NEXT_NODE_TAG_ID
+  NEXT_NODE_TAG_ID += 1
+  return tag
 
 ROOT_NODE_NAME = 'ASTNode'
 
@@ -158,6 +173,10 @@ SCALAR_OPTIONS_ENTRY_ASSIGNMENT_OP = EnumScalarType(
 SCALAR_ORDERING_SPEC = EnumScalarType('OrderingSpec', 'ASTOrderingExpression',
                                       'UNSPECIFIED')
 
+SCALAR_LOCK_STRENGTH_SPEC = EnumScalarType(
+    'LockStrengthSpec', 'ASTLockMode', 'NOT_SET'
+)
+
 SCALAR_JOIN_TYPE = EnumScalarType('JoinType', 'ASTJoin', 'DEFAULT_JOIN_TYPE')
 
 SCALAR_JOIN_HINT = EnumScalarType('JoinHint', 'ASTJoin', 'NO_JOIN_HINT')
@@ -221,6 +240,10 @@ SCALAR_RELATIVE_POSITION_TYPE = EnumScalarType('RelativePositionType',
 SCALAR_INSERT_MODE = EnumScalarType('InsertMode', 'ASTInsertStatement',
                                     'DEFAULT_MODE')
 
+SCALAR_CONFLICT_ACTION_TYPE = EnumScalarType(
+    'ConflictAction', 'ASTOnConflictClause', 'NOT_SET'
+)
+
 SCALAR_ACTION_TYPE = EnumScalarType('ActionType', 'ASTMergeAction', 'NOT_SET')
 
 SCALAR_MATCH_TYPE = EnumScalarType('MatchType', 'ASTMergeWhenClause', 'NOT_SET')
@@ -255,8 +278,44 @@ SCALAR_SPANNER_INTERLEAVE_TYPE = EnumScalarType('Type',
                                                 'ASTSpannerInterleaveClause',
                                                 'NOT_SET')
 
+SCALAR_AFTER_MATCH_SKIP_TARGET_TYPE = EnumScalarType(
+    'AfterMatchSkipTargetType',
+    'ASTAfterMatchSkipClause',
+    'AFTER_MATCH_SKIP_TARGET_UNSPECIFIED',
+)
+
 SCALAR_ROW_PATTERN_OPERATION_TYPE = EnumScalarType(
     'OperationType', 'ASTRowPatternOperation', 'OPERATION_TYPE_UNSPECIFIED'
+)
+
+SCALAR_ROW_PATTERN_ANCHOR = EnumScalarType(
+    'Anchor', 'ASTRowPatternAnchor', 'ANCHOR_UNSPECIFIED'
+)
+
+SCALAR_QUANTIFIER_SYMBOL = EnumScalarType(
+    'Symbol', 'ASTSymbolQuantifier', 'SYMBOL_UNSPECIFIED'
+)
+
+SCALAR_GRAPH_NODE_TABLE_REFERENCE_TYPE = EnumScalarType(
+    'NodeReferenceType', 'ASTGraphNodeTableReference',
+    'NODE_REFERENCE_TYPE_UNSPECIFIED')
+
+SCALAR_GRAPH_LABEL_OPERATION_TYPE = EnumScalarType('OperationType',
+                                                   'ASTGraphLabelOperation',
+                                                   'OPERATION_TYPE_UNSPECIFIED')
+
+SCALAR_EDGE_ORIENTATION = EnumScalarType('EdgeOrientation',
+                                         'ASTGraphEdgePattern',
+                                         'EDGE_ORIENTATION_NOT_SET')
+
+SCALAR_PATH_MODE = EnumScalarType('PathMode',
+                                  'ASTGraphPathMode',
+                                  'PATH_MODE_UNSPECIFIED')
+
+SCALAR_GRAPH_PATH_SEARCH_PREFIX_TYPE = EnumScalarType(
+    'PathSearchPrefixType',
+    'ASTGraphPathSearchPrefix',
+    'PATH_SEARCH_PREFIX_TYPE_UNSPECIFIED',
 )
 
 SCALAR_COLUMN_MATCH_MODE = EnumScalarType(
@@ -274,11 +333,16 @@ SCALAR_COLUMN_PROPAGATION_MODE = EnumScalarType(
 # of these methods:
 # REQUIRED: The next node in the vector, which must exist, is used for this
 #           field.
-# OPTIONAL: The next node in the vector, if it exists, is used for this field.
+# OPTIONAL: The next node in the vector, if its node kind matches, is used
+#           for this field.
 # OPTIONAL_EXPRESSION: The next node in the vector for which IsExpression()
 #           is true, if it exists, is used for this field.
 # OPTIONAL_TYPE: The next node in the vector for which IsType()
 #           is true, if it exists, is used for this field.
+# OPTIONAL_QUANTIFIER: The next node in the vector which is a subclass of
+#           ASTQuantifier, if it exists, is used for this field.
+# OPTIONAL_SUBKIND: The next node in the vector whose node kind is or is a sub
+#           kind of the field node kind, if it exists, is used for this field.
 # REST_AS_REPEATED: All remaining nodes, if any, are used for this field,
 #           which should be a vector type.
 # REPEATING_WHILE_IS_NODE_KIND: Appends remaining nodes to the vector, stopping
@@ -292,8 +356,10 @@ class FieldLoaderMethod(enum.Enum):
   REST_AS_REPEATED = 2
   OPTIONAL_EXPRESSION = 3
   OPTIONAL_TYPE = 4
-  REPEATING_WHILE_IS_NODE_KIND = 5
-  REPEATING_WHILE_IS_EXPRESSION = 6
+  OPTIONAL_QUANTIFIER = 5
+  OPTIONAL_SUBKIND = 6
+  REPEATING_WHILE_IS_NODE_KIND = 7
+  REPEATING_WHILE_IS_EXPRESSION = 8
 
 
 # Specifies visibility of a Field.
@@ -445,8 +511,9 @@ Ancestor = collections.namedtuple('Ancestor', [
 ])
 
 # InitField holds the attributes of a field needed to add it in InitFields().
-InitField = collections.namedtuple('InitField', [
-    'field_loader', 'member_name', 'node_kind'])
+InitField = collections.namedtuple(
+    'InitField', ['field_loader', 'member_name', 'node_kind', 'ctype']
+)
 
 
 class TreeGenerator(object):
@@ -477,34 +544,34 @@ class TreeGenerator(object):
 
     Args:
       name: class name for this node
-      tag_id: unique sequential id for this node, which should not change.
-          New nodes should use the tag_id of NEXT_NODE_TAG_ID, then update it.
+      tag_id: unique sequential id for this node, which should not change. New
+        nodes should use the tag_id of NEXT_NODE_TAG_ID, then update it.
       parent: class name of the parent node
       is_abstract: true if this node is an abstract class
       fields: list of fields in this class; created with Field function
       extra_public_defs: extra public C++ definitions to add to the public
-          portion of the header.
+        portion of the header.
       extra_protected_defs: extra C++ definitions to add to the protected
-          portion of the header.
-      extra_private_defs: extra C++ definitions to add to the private
-          portion of the header. Overrides to InitFields() should be here.
+        portion of the header.
+      extra_private_defs: extra C++ definitions to add to the private portion of
+        the header. Overrides to InitFields() should be here.
       comment: Class level comment text for this node. Text will be stripped and
-          de-indented.
+        de-indented.
       use_custom_debug_string: If True, generate prototype for overridden
-          SingleNodeDebugString method.
+        SingleNodeDebugString method.
       custom_debug_string_comment: Optional comment for SingleNodeDebugString
-          method.
+        method.
       init_fields_order: Optional override to the default ordering of field
-          initialization, which must match the grammar as defined in
-          bison_parser.y. The generated method by default initializes all node
-          fields, including inherited fields, in order of declaration, starting
-          with the final class. To use a different order, specify a list
-          of field names here. Inherited fields which are marked optional may
-          be omitted if they are not used in the final class.
+        initialization, which must match the grammar as defined in zetasql.tm.
+        The generated method by default initializes all node fields, including
+        inherited fields, in order of declaration, starting with the final
+        class. To use a different order, specify a list of field names here.
+        Inherited fields which are marked optional may be omitted if they are
+        not used in the final class.
       gen_init_fields: May be set to False in final classes to suppress
-          generation of a default InitFields() method, in which case a custom
-          InitFields() must be provide in extra_private_defs. Not applicable
-          to non-final classes.
+        generation of a default InitFields() method, in which case a custom
+        InitFields() must be provide in extra_private_defs. Not applicable to
+        non-final classes.
     """
     enum_defs = self._GenEnums(name)
     proto_type = '%sProto' % name
@@ -662,8 +729,12 @@ class TreeGenerator(object):
       # each level up.
       for field in node['fields']:
         if field['is_node_ptr'] or field['is_vector']:
-          init_field = InitField(field['field_loader'], field['member_name'],
-                                 field['node_kind'])
+          init_field = InitField(
+              field['field_loader'],
+              field['member_name'],
+              field['node_kind'],
+              field['ctype'],
+          )
           init_fields.append(init_field)
       parent_name = node['parent']
       if parent_name != ROOT_NODE_NAME:
@@ -867,6 +938,13 @@ def main(argv):
       <order_by_>.
             """,
           ),
+          Field(
+              'lock_mode',
+              'ASTLockMode',
+              tag_id=9,
+              comment="""
+                If present, applies to the <query_expr_>.""",
+          ),
           Field('is_nested', SCALAR_BOOL, tag_id=6),
           Field(
               'is_pivot_input',
@@ -901,6 +979,20 @@ def main(argv):
               tag_id=2,
               field_loader=FieldLoaderMethod.REQUIRED,
           )
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTSubpipeline',
+      tag_id=497,
+      parent='ASTNode',
+      fields=[
+          Field(
+              'pipe_operator_list',
+              'ASTPipeOperator',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED,
+          ),
       ],
   )
 
@@ -1196,6 +1288,20 @@ def main(argv):
   )
 
   gen.AddNode(
+      name='ASTPipeLog',
+      tag_id=498,
+      parent='ASTPipeOperator',
+      fields=[
+          Field('hint', 'ASTHint', tag_id=2),
+          Field(
+              'subpipeline',
+              'ASTSubpipeline',
+              tag_id=3,
+          ),
+      ],
+  )
+
+  gen.AddNode(
       name='ASTPipeDrop',
       tag_id=449,
       parent='ASTPipeOperator',
@@ -1265,6 +1371,79 @@ def main(argv):
           Field(
               'unpivot_clause',
               'ASTUnpivotClause',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTPipeIf',
+      tag_id=502,
+      parent='ASTPipeOperator',
+      comment="""
+      `if_cases` must have at least one item. The first item is the IF case.
+      Additional items are ELSEIF cases.
+      """,
+      fields=[
+          Field('hint', 'ASTHint', tag_id=2),
+          Field(
+              'if_cases',
+              'ASTPipeIfCase',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REPEATING_WHILE_IS_NODE_KIND,
+          ),
+          Field(
+              'else_subpipeline',
+              'ASTSubpipeline',
+              tag_id=4,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTPipeIfCase',
+      tag_id=503,
+      parent='ASTPipeOperator',
+      fields=[
+          Field(
+              'condition',
+              'ASTExpression',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+          Field(
+              'subpipeline',
+              'ASTSubpipeline',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTPipeFork',
+      tag_id=504,
+      parent='ASTPipeOperator',
+      fields=[
+          Field('hint', 'ASTHint', tag_id=2),
+          Field(
+              'subpipeline_list',
+              'ASTSubpipeline',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTPipeExportData',
+      tag_id=505,
+      parent='ASTPipeOperator',
+      fields=[
+          Field(
+              'export_data_statement',
+              'ASTExportDataStatement',
               tag_id=2,
               field_loader=FieldLoaderMethod.REQUIRED,
           ),
@@ -2672,11 +2851,11 @@ def main(argv):
               SCALAR_BOOL,
               tag_id=12,
               comment="""
-      Used by the Bison parser to mark CURRENT_<date/time> functions to which no
+      Used by the parser to mark CURRENT_<date/time> functions to which no
       parentheses have yet been applied.
               """,
               private_comment="""
-      This is set by the Bison parser to indicate a parentheses-less call to
+      This is set by the parser to indicate a parentheses-less call to
       CURRENT_* functions. The parser parses them as function calls even without
       the parentheses, but then still allows function call parentheses to be
       applied.
@@ -2893,7 +3072,7 @@ def main(argv):
               tag_id=6,
               field_loader=FieldLoaderMethod.REQUIRED,
               comment="""
-              Represents the location of the 'BETWEEEN' token. Used only for
+              Represents the location of the 'BETWEEN' token. Used only for
               error messages.
               """),
           Field(
@@ -3230,7 +3409,7 @@ def main(argv):
       extra_public_defs="""
   static std::string ModifierToString(Modifier modifier);
 
-  // Note, this is intended by called from inside bison_parser.  At this stage
+  // Note, this is intended by called from inside the parser.  At this stage
   // InitFields has _not_ been set, thus we need to use only children offsets.
   // Returns null on error.
   ASTQuery* GetMutableQueryChildInternal() {
@@ -3417,75 +3596,19 @@ def main(argv):
       parent='ASTQueryExpression',
       use_custom_debug_string=True,
       fields=[
-          Field('hint', 'ASTHint', tag_id=2, gen_setters_and_getters=False),
+          Field(
+              'metadata',
+              'ASTSetOperationMetadataList',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
           Field(
               'inputs',
               'ASTQueryExpression',
               tag_id=3,
               field_loader=FieldLoaderMethod.REST_AS_REPEATED,
           ),
-          Field(
-              'op_type',
-              SCALAR_OPERATION_TYPE,
-              tag_id=4,
-              gen_setters_and_getters=False,
-          ),
-          Field(
-              'distinct', SCALAR_BOOL, tag_id=5, gen_setters_and_getters=False
-          ),
-          Field(
-              'metadata',
-              'ASTSetOperationMetadataList',
-              tag_id=6,
-              field_loader=FieldLoaderMethod.REQUIRED,
-          ),
       ],
-      init_fields_order=[
-          'hint',
-          'metadata',
-          'inputs',
-      ],
-      extra_public_defs="""
-  // Returns the pair of <set operation type, distinct>, e.g. <UNION, ALL>,
-  // <EXCEPT, DISTINCT>.
-  // For the `ASTSetOperation` structure that supports multiple set
-  // operations), returns the <operation type, distinct'ness> of the first set
-  // operation.
-  ABSL_DEPRECATED("Use `metadata()` to get `op_type` and `all_or_distinct` instead")
-  std::pair<std::string, std::string> GetSQLForOperationPair() const;
-
-  // Returns the SQL keywords for the underlying set operation eg. UNION ALL,
-  // UNION DISTINCT, EXCEPT ALL, INTERSECT DISTINCT etc.
-  ABSL_DEPRECATED("Use `metadata()` to get `op_type` and `all_or_distinct` instead")
-  std::string GetSQLForOperation() const;
-
-  // Returns the hint of the set operation.
-  // For the legacy `ASTSetOperation` structure supporting only one hint, it
-  // returns the hint, if present; For the `ASTSetOperation` supporting multiple
-  // set operation metadata, it returns the hint of the first set operation.
-  ABSL_DEPRECATED("Use `metadata()` to get `hint` for each set operation.")
-  const ASTHint* hint() const;
-
-  // For the legacy `ASTSetOperation` supporting only one `all_or_distinct`,
-  // returns whether the set operation is distinct; for the ASTSetOperation
-  // structure supporting multiple set operations, returns the distinct'ness of
-  // the first set operation.
-  ABSL_DEPRECATED("Use `metadata()` to get `all_or_distinct` for each set operation.")
-  bool distinct() const;
-
-  ABSL_DEPRECATED("Setter for the legacy field `distinct_`. Do not use.")
-  void set_distinct(bool distinct) { distinct_ = distinct; }
-
-  // For the legacy `ASTSetOperation` structure supporting only one `op_type`,
-  // returns the operation type of the set operation, e.g. UNION; for the
-  // structure that supports multiple set operations, returns the operation type
-  // of the first set operation.
-  ABSL_DEPRECATED("Use `metadata()` to get `op_type` for each set operation.")
-  OperationType op_type() const;
-
-  ABSL_DEPRECATED("Setter for the legacy field `op_type_`. Do not use.")
-  void set_op_type(ASTSetOperation::OperationType op_type) { op_type_ = op_type; }
-      """,
   )
 
   gen.AddNode(
@@ -3600,6 +3723,10 @@ def main(argv):
               """,
           ),
       ],
+      extra_public_defs="""
+      // Returns a SQL string representation for the metadata.
+      std::string GetSQLForOperation() const;
+      """,
   )
 
   gen.AddNode(
@@ -4782,27 +4909,39 @@ def main(argv):
       Represents a row pattern recognition clause, i.e., MATCH_RECOGNIZE().
       """,
       fields=[
+          Field('options_list', 'ASTOptionsList', tag_id=10),
           Field('partition_by', 'ASTPartitionBy', tag_id=2),
           Field('order_by', 'ASTOrderBy', tag_id=3),
           Field('measures', 'ASTSelectList', tag_id=4),
+          Field('after_match_skip_clause', 'ASTAfterMatchSkipClause', tag_id=5),
           Field(
               'pattern',
               'ASTRowPatternExpression',
-              tag_id=5,
+              tag_id=6,
               field_loader=FieldLoaderMethod.REQUIRED,
           ),
           # Note: Leaving a placeholder for subset_clause.
           Field(
               'pattern_variable_definition_list',
               'ASTSelectList',
-              tag_id=7,
+              tag_id=8,
               field_loader=FieldLoaderMethod.REQUIRED,
           ),
-          Field('output_alias', 'ASTAlias', tag_id=8),
+          Field('output_alias', 'ASTAlias', tag_id=9),
       ],
       extra_public_defs="""
   absl::string_view Name() const override { return "MATCH_RECOGNIZE"; }
-    """)
+    """,
+  )
+
+  gen.AddNode(
+      name='ASTAfterMatchSkipClause',
+      tag_id=499,
+      parent='ASTNode',
+      fields=[
+          Field('target_type', SCALAR_AFTER_MATCH_SKIP_TARGET_TYPE, tag_id=2),
+      ],
+  )
 
   gen.AddNode(
       name='ASTRowPatternExpression',
@@ -4853,6 +4992,169 @@ def main(argv):
   )
 
   gen.AddNode(
+      name='ASTEmptyRowPattern',
+      tag_id=490,
+      parent='ASTRowPatternExpression',
+      comment="""
+      Represents an empty pattern. Unparenthesized empty patterns can occur at
+      the root of the pattern, or under alternation. Never under concatenation,
+      since it has no infix operator.
+
+      Parenthesized empty patterns can appear anywhere.
+
+      This node's location is a point location, usually the start of the
+      following token.
+      """,
+      fields=[],
+      extra_public_defs="""
+  std::string SingleNodeDebugString() const override;
+      """,
+  )
+
+  gen.AddNode(
+      name='ASTRowPatternAnchor',
+      tag_id=500,
+      parent='ASTRowPatternExpression',
+      comment="""
+      Represents an anchor in a row pattern, i.e., `^` or `$`.
+      Just like in regular expressions, the `^` anchor adds the requirement that
+      the match must be at the start of the partition, while the `$` anchor
+      means the match must be at the end of the partition.
+      """,
+      fields=[
+          Field('anchor', SCALAR_ROW_PATTERN_ANCHOR, tag_id=2),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTQuantifier',
+      tag_id=491,
+      parent='ASTNode',
+      is_abstract=True,
+      comment="""
+      Represents a quantifier, either a symbol (e.g. + or *), or a
+      bounded quantifier, e.g. {1, 3}.
+      """,
+      fields=[
+          Field(
+              'is_reluctant',
+              SCALAR_BOOL,
+              tag_id=2,
+          ),
+      ],
+      extra_public_defs="""
+  std::string SingleNodeDebugString() const override;
+  bool IsQuantifier() const final { return true; }
+      """,
+  )
+
+  gen.AddNode(
+      name='ASTBoundedQuantifier',
+      tag_id=492,
+      parent='ASTQuantifier',
+      comment="""
+      Represents a bounded quantifier, e.g. {1, 3}. At least one bound must be
+      non-null.
+      """,
+      fields=[
+          Field(
+              'lower_bound',
+              'ASTQuantifierBound',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+          Field(
+              'upper_bound',
+              'ASTQuantifierBound',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTQuantifierBound',
+      comment="""
+      Represents the lower or upper bound of a quantifier. This wrapper node
+      is to get around the field loader mechanism.
+      """,
+      tag_id=493,
+      parent='ASTNode',
+      fields=[
+          Field(
+              'bound',
+              'ASTExpression',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.OPTIONAL_EXPRESSION,
+          )
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTFixedQuantifier',
+      comment="""
+      Represents a fixed quantifier. Note that this cannot be represented as a
+      bounded quantifier with identical ends because of positional parameters:
+      i.e., {?} is not the same as {?, ?}. See b/362819300 for details.
+      """,
+      tag_id=494,
+      parent='ASTQuantifier',
+      fields=[
+          Field(
+              'bound',
+              'ASTExpression',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTSymbolQuantifier',
+      tag_id=495,
+      parent='ASTQuantifier',
+      comment="""
+      Represents a quantifier such as '+', '?', or '*'.
+      """,
+      fields=[
+          Field(
+              'symbol',
+              SCALAR_QUANTIFIER_SYMBOL,
+              tag_id=2,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTRowPatternQuantification',
+      tag_id=496,
+      parent='ASTRowPatternExpression',
+      comment="""
+      Represents a quantified row pattern expression, e.g. (A|B)+?
+      """,
+      fields=[
+          Field(
+              'operand',
+              'ASTRowPatternExpression',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+              comment="""
+              The operand of the quantification. Cannot be nullptr.
+              """,
+          ),
+          Field(
+              'quantifier',
+              'ASTQuantifier',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REQUIRED,
+              comment="""
+              The quantifier. Cannot be nullptr.
+              """,
+          ),
+      ],
+  )
+
+  gen.AddNode(
       name='ASTQualify',
       tag_id=135,
       parent='ASTNode',
@@ -4861,8 +5163,10 @@ def main(argv):
               'expression',
               'ASTExpression',
               tag_id=2,
-              field_loader=FieldLoaderMethod.REQUIRED),
-      ])
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ASTClampedBetweenModifier',
@@ -5540,7 +5844,7 @@ def main(argv):
   gen.AddNode(
       name='ASTTableClause',
       tag_id=157,
-      parent='ASTNode',
+      parent='ASTQueryExpression',
       comment="""
      This represents a clause of form "TABLE <target>", where <target> is either
      a path expression representing a table name, or <target> is a TVF call.
@@ -5554,12 +5858,12 @@ def main(argv):
               tag_id=2,
               private_comment="""
               Exactly one of these will be non-null.
-              """),
-          Field(
-              'tvf',
-              'ASTTVF',
-              tag_id=3),
-      ])
+              """,
+          ),
+          Field('tvf', 'ASTTVF', tag_id=3),
+          Field('where_clause', 'ASTWhereClause', tag_id=4),
+      ],
+  )
 
   gen.AddNode(
       name='ASTModelClause',
@@ -6020,20 +6324,21 @@ def main(argv):
       tag_id=176,
       parent='ASTStatement',
       fields=[
-          Field(
-              'with_connection_clause',
-              'ASTWithConnectionClause',
-              tag_id=2),
-          Field(
-              'options_list',
-              'ASTOptionsList',
-              tag_id=3),
+          Field('with_connection_clause', 'ASTWithConnectionClause', tag_id=2),
+          Field('options_list', 'ASTOptionsList', tag_id=3),
           Field(
               'query',
               'ASTQuery',
               tag_id=4,
-              field_loader=FieldLoaderMethod.REQUIRED),
-      ])
+              comment="""
+          `query` is always present when this node is used as an EXPORT DATA
+          statement.
+          `query` is never present when this is node is used as a
+          pipe EXPORT DATA operator.
+          """,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ASTExportModelStatement',
@@ -6356,6 +6661,56 @@ def main(argv):
       ])
 
   gen.AddNode(
+      name='ASTOnConflictClause',
+      tag_id=501,
+      parent='ASTNode',
+      comment="""
+      This is used in INSERT statements to specify an alternate action if the
+      the insert row causes unique constraint violations.
+
+      conflict_action is either UPDATE or NOTHING
+
+      conflict_target, unique_constraint_name:
+      They are applicable for both conflict actions. They are optional but are
+      mutually exclusive. It is allowed for both fields to be null. They will
+      then be analyzed according to the conflict action.
+
+      update_item_list, update_where_clause applies:
+      They are applicable for conflict action UPDATE only.
+      """,
+      fields=[
+          Field(
+              'conflict_action',
+              SCALAR_CONFLICT_ACTION_TYPE,
+              tag_id=2,
+          ),
+          Field('conflict_target', 'ASTColumnList', tag_id=3,
+                comment="""
+                If defined, the column list must not be empty.
+                """),
+          Field('unique_constraint_name', 'ASTIdentifier', tag_id=4),
+          Field('update_item_list', 'ASTUpdateItemList', tag_id=5,
+                comment="""
+                Defined only for conflict action UPDATE. It must be non empty
+                if defined.
+                """),
+          Field(
+              'update_where_clause',
+              'ASTExpression',
+              tag_id=6,
+              field_loader=FieldLoaderMethod.OPTIONAL_EXPRESSION,
+              comment="""
+              Defined only for conflict action UPDATE. It is an optional field.
+              """,
+          ),
+      ],
+      extra_public_defs="""
+  std::string GetSQLForConflictAction() const;
+  std::string SingleNodeDebugString() const override;
+  """,
+  )
+
+  gen.AddNode(
       name='ASTDeleteStatement',
       tag_id=193,
       parent='ASTStatement',
@@ -6369,29 +6724,19 @@ def main(argv):
               'target_path',
               'ASTGeneralizedPathExpression',
               tag_id=2,
-              field_loader=FieldLoaderMethod.REQUIRED),
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
           Field('hint', 'ASTHint', tag_id=8),
-          Field(
-              'alias',
-              'ASTAlias',
-              tag_id=3),
-          Field(
-              'offset',
-              'ASTWithOffset',
-              tag_id=4),
+          Field('alias', 'ASTAlias', tag_id=3),
+          Field('offset', 'ASTWithOffset', tag_id=4),
           Field(
               'where',
               'ASTExpression',
               tag_id=5,
-              field_loader=FieldLoaderMethod.OPTIONAL_EXPRESSION),
-          Field(
-              'assert_rows_modified',
-              'ASTAssertRowsModified',
-              tag_id=6),
-          Field(
-              'returning',
-              'ASTReturningClause',
-              tag_id=7),
+              field_loader=FieldLoaderMethod.OPTIONAL_EXPRESSION,
+          ),
+          Field('assert_rows_modified', 'ASTAssertRowsModified', tag_id=6),
+          Field('returning', 'ASTReturningClause', tag_id=7),
       ],
       extra_public_defs="""
   // Verifies that the target path is an ASTPathExpression and, if so, returns
@@ -6402,7 +6747,8 @@ def main(argv):
   const ASTGeneralizedPathExpression* GetTargetPathForNested() const {
     return target_path_;
   }
-      """)
+      """,
+  )
 
   gen.AddNode(
       name='ASTColumnAttribute',
@@ -6659,6 +7005,7 @@ def main(argv):
               """,
           ),
           Field('query', 'ASTQuery', tag_id=5),
+          Field('on_conflict', 'ASTOnConflictClause', tag_id=11),
           Field('assert_rows_modified', 'ASTAssertRowsModified', tag_id=6),
           Field('returning', 'ASTReturningClause', tag_id=7),
           Field(
@@ -9983,6 +10330,1098 @@ def main(argv):
       ])
 
   gen.AddNode(
+      name='ASTCreatePropertyGraphStatement',
+      tag_id=373,
+      parent='ASTCreateStatement',
+      fields=[
+          Field(
+              'name',
+              'ASTPathExpression',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+              comment="""
+              Path expression for the target property graph.
+              """),
+          Field(
+              'node_table_list',
+              'ASTGraphElementTableList',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REQUIRED,
+              comment="""
+              GraphNodeTable definitions.
+              """),
+          Field(
+              'edge_table_list',
+              'ASTGraphElementTableList',
+              tag_id=4,
+              field_loader=FieldLoaderMethod.OPTIONAL,
+              comment="""
+              GraphEdgeTable definitions.
+              """),
+          Field(
+              'options_list',
+              'ASTOptionsList',
+              tag_id=5,
+              field_loader=FieldLoaderMethod.OPTIONAL,
+              comment="""
+              Placeholder for now. Schema options support is out of scope of MVP.
+              """),
+      ],
+      extra_public_defs="""
+  const ASTPathExpression* GetDdlTarget() const override { return name_; }
+      """)
+
+  gen.AddNode(
+      name='ASTGraphElementTableList',
+      tag_id=374,
+      parent='ASTNode',
+      fields=[
+          Field(
+              'element_tables',
+              'ASTGraphElementTable',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED,
+              comment="""
+              GraphElementTable definitions.
+              """),
+      ])
+
+  gen.AddNode(
+      name='ASTGraphElementTable',
+      tag_id=375,
+      parent='ASTNode',
+      fields=[
+          Field(
+              'name',
+              'ASTPathExpression',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+              comment="""
+              GraphElementTable identifier. There should exist an underlying
+              table with the same name.
+              """),
+          Field(
+              'alias',
+              'ASTAlias',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.OPTIONAL,
+              comment="""
+              GraphElementTable alias.
+              """),
+          Field(
+              'key_list',
+              'ASTColumnList',
+              tag_id=4,
+              field_loader=FieldLoaderMethod.OPTIONAL,
+              comment="""
+              List of columns that uniquely identifies a row in GraphElementTable.
+              """),
+          Field(
+              'source_node_reference',
+              'ASTGraphNodeTableReference',
+              tag_id=5,
+              field_loader=FieldLoaderMethod.OPTIONAL,
+              comment="""
+              GraphEdgeTable should have this field referencing source node of the edge.
+              """),
+          Field(
+              'dest_node_reference',
+              'ASTGraphNodeTableReference',
+              tag_id=6,
+              field_loader=FieldLoaderMethod.OPTIONAL,
+              comment="""
+              GraphEdgeTable should have this field referencing destination node of the edge.
+              """),
+          Field(
+              'label_properties_list',
+              'ASTGraphElementLabelAndPropertiesList',
+              tag_id=7,
+              field_loader=FieldLoaderMethod.REQUIRED,
+              comment="""
+              List of Labels exposed by this ElementTable, along with the
+              Properties exposed by the Label. This list can never be empty.
+              """),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTGraphNodeTableReference',
+      tag_id=376,
+      parent='ASTNode',
+      use_custom_debug_string=True,
+      fields=[
+          Field(
+              'node_table_identifier',
+              'ASTIdentifier',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+              comment="""
+              Referenced GraphNodeTable alias
+              """),
+          Field(
+              'edge_table_columns',
+              'ASTColumnList',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REQUIRED,
+              comment="""
+              GraphEdgeTable columns referencing GraphNodeTable columns.
+              """),
+          Field(
+              'node_table_columns',
+              'ASTColumnList',
+              tag_id=4,
+              field_loader=FieldLoaderMethod.OPTIONAL,
+              comment="""
+              GraphNodeTable columns referenced by GraphEdgeTable
+              """),
+          Field(
+              'node_reference_type',
+              SCALAR_GRAPH_NODE_TABLE_REFERENCE_TYPE,
+              tag_id=5),
+      ])
+
+  gen.AddNode(
+      name='ASTGraphElementLabelAndPropertiesList',
+      tag_id=379,
+      parent='ASTNode',
+      fields=[
+          Field(
+              'label_properties_list',
+              'ASTGraphElementLabelAndProperties',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED,
+              comment="""
+              This can never be empty.
+              """),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTGraphElementLabelAndProperties',
+      tag_id=380,
+      parent='ASTNode',
+      fields=[
+          Field(
+              'label_name',
+              'ASTIdentifier',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.OPTIONAL,
+              comment="""
+              Label of the element table.
+              If NULL, it is equivalent to explicitly specifying "DEFAULT LABEL" in
+              the element table definition.
+              """),
+          Field(
+              'properties',
+              'ASTGraphProperties',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REQUIRED,
+              comment="""
+              Properties exposed by the label.
+              """),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTGraphProperties',
+      tag_id=381,
+      parent='ASTNode',
+      fields=[
+          Field(
+              'no_properties',
+              SCALAR_BOOL,
+              tag_id=2,
+              comment="""
+              If true, derived_property_list and all_except_columns are ignored.
+              It means NO PROPERTIES
+              """),
+          Field(
+              'derived_property_list',
+              'ASTSelectList',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.OPTIONAL,
+              comment="""
+              no_properties must be false for the following to take effect:
+              If NULL, it means: PROPERTIES [ARE] ALL COLUMNS.
+              If not NULL, it means: PROPERTIES(<derived property list>);
+              """),
+          Field(
+              'all_except_columns',
+              'ASTColumnList',
+              tag_id=4,
+              field_loader=FieldLoaderMethod.OPTIONAL,
+              comment="""
+              no_properties must be false and derived_property_list must be
+              NULL for the following to take effect:
+              If not NULL, it appends optional EXCEPT(<all_except_columns>)
+              list to PROPERTIES [ARE] ALL COLUMNS.
+              """),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTGraphPattern',
+      tag_id=394,
+      parent='ASTNode',
+      comment="""
+      Represents a <graph pattern>
+      """,
+      fields=[
+          Field(
+              'paths',
+              'ASTGraphPathPattern',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REPEATING_WHILE_IS_NODE_KIND,
+          ),
+          Field(
+              'where_clause',
+              'ASTWhereClause',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.OPTIONAL,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTGqlQuery',
+      comment="""
+      This represents a graph query expression which can only be produced
+      by either a top level graph query statement, or a subquery expression.
+      See below docs for details:
+      - (broken link):top-level-gql-query-statement
+      - (broken link):gql-subquery
+      """,
+      tag_id=457,
+      parent='ASTQueryExpression',
+      fields=[
+          Field(
+              'graph_table',
+              'ASTGraphTableQuery',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTGqlGraphPatternQuery',
+      comment="""
+      This represents a graph query expression that only contains a
+      graph pattern. It can be used to construct an "EXISTS" graph subquery
+      expression.
+      """,
+      tag_id=477,
+      parent='ASTQueryExpression',
+      fields=[
+          Field(
+              'graph_reference',
+              'ASTPathExpression',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.OPTIONAL,
+              comment="""
+              Optional path expression for the target property graph.
+              """,
+          ),
+          Field(
+              'graph_pattern',
+              'ASTGraphPattern',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTGqlLinearOpsQuery',
+      comment="""
+      This represents a graph query expression that only contains an
+      ASTGqlOperatorList. It can be used to construct an "EXISTS"
+      graph subquery expression with RETURN operator omitted.
+      """,
+      tag_id=478,
+      parent='ASTQueryExpression',
+      fields=[
+          Field(
+              'graph_reference',
+              'ASTPathExpression',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.OPTIONAL,
+              comment="""
+              Optional path expression for the target property graph.
+              """,
+          ),
+          Field(
+              'linear_ops',
+              'ASTGqlOperatorList',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+  )
+
+  # AST nodes for GRAPH_TABLE queries.
+  gen.AddNode(
+      name='ASTGraphTableQuery',
+      tag_id=356,
+      parent='ASTTableExpression',
+      comment="""
+      Represents a GRAPH_TABLE() query
+      """,
+      fields=[
+          Field(
+              'graph_reference',
+              'ASTPathExpression',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.OPTIONAL,
+              comment="""
+              Path expression for the target property graph.
+              If this is a subquery, the graph reference is optional and may be
+              inferred from the context.
+              """,
+          ),
+          Field(
+              'graph_op',
+              'ASTGqlOperator',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REQUIRED,
+              comment="""
+              Graph matching operator. Can be an ASTGqlMatch or an
+              ASTGqlOperatorList. See (broken link):gql-graph-table for more details
+              """,
+          ),
+          Field(
+              'graph_table_shape',
+              'ASTSelectList',
+              tag_id=5,
+              comment="""
+              The expression list with aliases to be projected to the outer
+              query. Exists only when `graph_op` is an ASTGqlMatch. See
+              (broken link):gql-graph-table for more details
+              """,
+          ),
+          Field('alias', 'ASTAlias', tag_id=6),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTGraphLabelExpression',
+      tag_id=359,
+      parent='ASTNode',
+      is_abstract=True,
+      comment="""
+      Represents a graph element label expression.
+      """,
+      fields=[
+          Field('parenthesized', SCALAR_BOOL, tag_id=2),
+      ])
+
+  gen.AddNode(
+      name='ASTGraphElementLabel',
+      tag_id=360,
+      parent='ASTGraphLabelExpression',
+      fields=[
+          Field(
+              'name',
+              'ASTIdentifier',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED),
+      ])
+
+  gen.AddNode(
+      name='ASTGraphWildcardLabel',
+      tag_id=361,
+      parent='ASTGraphLabelExpression',
+      fields=[])
+
+  gen.AddNode(
+      name='ASTGraphLabelOperation',
+      tag_id=362,
+      parent='ASTGraphLabelExpression',
+      use_custom_debug_string=True,
+      fields=[
+          Field('op_type', SCALAR_GRAPH_LABEL_OPERATION_TYPE, tag_id=2),
+          Field(
+              'inputs',
+              'ASTGraphLabelExpression',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED),
+      ])
+
+  gen.AddNode(
+      name='ASTGraphLabelFilter',
+      tag_id=363,
+      parent='ASTNode',
+      comment="""
+      Filter label on a graph node or edge pattern. This node wraps the label
+      expression filter just like ASTWhereClause wraps the scalar filter
+      expression.
+      """,
+      fields=[
+          Field(
+              'label_expression',
+              'ASTGraphLabelExpression',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REQUIRED),
+      ])
+
+  gen.AddNode(
+      name='ASTGraphIsLabeledPredicate',
+      tag_id=474,
+      parent='ASTExpression',
+      comment="""
+      Binary expression which contains an element variable name `operand` and
+      a `label_expression`.
+      Note we do not use ASTBinaryExpression because we need to accommodate
+      `label_expression` which is not an `expression`.
+      """,
+      fields=[
+          Field(
+              'is_not',
+              SCALAR_BOOL,
+              tag_id=2,
+              comment="""
+              Signifies whether the predicate has a NOT.
+              Used for "IS NOT LABELED"
+              """,
+          ),
+          Field(
+              'operand',
+              'ASTExpression',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+          Field(
+              'label_expression',
+              'ASTGraphLabelExpression',
+              tag_id=4,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTGraphElementPatternFiller',
+      tag_id=370,
+      parent='ASTNode',
+      comment="""
+      Filler of an element pattern which can contain the element variable name
+      of this pattern and two element filters (label-based filter and where
+      clause filter).
+      """,
+      fields=[
+          Field(
+              'variable_name',
+              'ASTIdentifier',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.OPTIONAL),
+          Field(
+              'label_filter',
+              'ASTGraphLabelFilter',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.OPTIONAL),
+          Field(
+              'where_clause',
+              'ASTWhereClause',
+              tag_id=4,
+              field_loader=FieldLoaderMethod.OPTIONAL),
+          Field(
+              'property_specification',
+              'ASTGraphPropertySpecification',
+              tag_id=5,
+              field_loader=FieldLoaderMethod.OPTIONAL,
+          ),
+          Field(
+              'hint',
+              'ASTHint',
+              tag_id=6,
+              field_loader=FieldLoaderMethod.OPTIONAL),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTGraphPropertySpecification',
+      tag_id=455,
+      parent='ASTNode',
+      comment="""
+      The property specification that contains a list of property name and value
+      .
+      """,
+      fields=[
+          Field(
+              'property_name_and_value',
+              'ASTGraphPropertyNameAndValue',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTGraphPropertyNameAndValue',
+      tag_id=456,
+      parent='ASTNode',
+      comment="""
+      Property name and value pair.
+      """,
+      fields=[
+          Field(
+              'property_name',
+              'ASTIdentifier',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+          Field(
+              'value',
+              'ASTExpression',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTGraphPathBase',
+      tag_id=429,
+      parent='ASTNode',
+      is_abstract=True,
+      comment="""
+      Common base class for ASTGraphElementPattern and ASTGraphPathPattern.
+      Both are potentially quantified.
+
+      Unlike quantifiers in MATCH_RECOGNIZE, graph quantifiers can never be
+      reluctant and do not support symbol quantification (?, + and *).
+      """,
+      fields=[
+          Field(
+              'quantifier',
+              'ASTQuantifier',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.OPTIONAL_QUANTIFIER,
+              visibility=Visibility.PROTECTED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTGraphElementPattern',
+      tag_id=371,
+      parent='ASTGraphPathBase',
+      is_abstract=True,
+      comment="""
+      Represents one element pattern.
+      """,
+      fields=[
+          Field(
+              'filler',
+              'ASTGraphElementPatternFiller',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.OPTIONAL,
+              visibility=Visibility.PROTECTED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTGraphNodePattern',
+      tag_id=357,
+      parent='ASTGraphElementPattern',
+      comment="""
+      ASTGraphElementPattern that represents one node pattern.
+      """,
+      fields=[])
+
+  gen.AddNode(
+      name='ASTGraphLhsHint',
+      tag_id=410,
+      parent='ASTNode',
+      comment="""
+      ASTGraphLhsHint is used to represent a hint that occurs on a traversal
+      from a node to an inbound edge.
+      """,
+      fields=[
+          Field('hint', 'ASTHint', tag_id=2),
+      ])
+
+  gen.AddNode(
+      name='ASTGraphRhsHint',
+      tag_id=411,
+      parent='ASTNode',
+      comment="""
+      ASTGraphRhsHint is used to represent a hint that occurs on a traversal
+      from an outbound edge to a node.
+      """,
+      fields=[
+          Field('hint', 'ASTHint', tag_id=2),
+      ])
+
+  gen.AddNode(
+      name='ASTGraphPathSearchPrefix',
+      comment="""
+      Represents a path pattern search prefix which restricts the result from a
+      graph pattern match by partitioning the resulting paths by their endpoints
+      (the first and last vertices) and makes a selection of paths from each
+      partition. For now ANY 1 and SHORTEST 1 are supported.
+      """,
+      tag_id=471,
+      parent='ASTNode',
+      fields=[
+          Field(
+              'type',
+              SCALAR_GRAPH_PATH_SEARCH_PREFIX_TYPE,
+              tag_id=2,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTGraphEdgePattern',
+      tag_id=372,
+      parent='ASTGraphElementPattern',
+      comment="""
+      ASTGraphElementPattern that represents one edge pattern.
+      """,
+      fields=[
+          Field('orientation', SCALAR_EDGE_ORIENTATION, tag_id=2),
+          # The following is a workaround for how ASTNode is initialized by
+          # FieldLoader. FieldLoader cannot distinguish two consecutive optional
+          # field with the same type. Thus we define two different ASTNodes
+          # (LHS/RHS) for essentially the same thing.
+          Field('lhs_hint', 'ASTGraphLhsHint', tag_id=3),
+          Field('rhs_hint', 'ASTGraphRhsHint', tag_id=4),
+      ],
+      # To maintain parity with ASTGraphPathPattern which shares the same
+      # parent node, we initialize the quantifiers first.
+      init_fields_order=[
+          'quantifier',
+          'lhs_hint',
+          'rhs_hint',
+          'filler',
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTGraphPathMode',
+      tag_id=469,
+      parent='ASTNode',
+      comment="""
+      Represents path mode.
+      """,
+      fields=[
+          Field('path_mode', SCALAR_PATH_MODE, tag_id=2),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTGraphPathPattern',
+      tag_id=377,
+      parent='ASTGraphPathBase',
+      comment="""
+          Represents a path pattern that contains a list of element
+          patterns or subpath patterns.
+      """,
+      use_custom_debug_string=True,
+      custom_debug_string_comment="""
+      This adds the "parenthesized" modifier to the node name.
+      """,
+      fields=[
+          Field(
+              'hint',
+              'ASTHint',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.OPTIONAL,
+          ),
+          Field(
+              'where_clause',
+              'ASTWhereClause',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.OPTIONAL,
+          ),
+          Field(
+              'path_mode',
+              'ASTGraphPathMode',
+              tag_id=4,
+              field_loader=FieldLoaderMethod.OPTIONAL,
+          ),
+          Field(
+              'search_prefix',
+              'ASTGraphPathSearchPrefix',
+              tag_id=7,
+              field_loader=FieldLoaderMethod.OPTIONAL,
+          ),
+          Field(
+              'input_pattern_list',
+              'ASTGraphPathBase',
+              tag_id=5,
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED,
+          ),
+          Field('parenthesized', SCALAR_BOOL, tag_id=6),
+          Field(
+              'path_name',
+              'ASTIdentifier',
+              tag_id=8,
+              field_loader=FieldLoaderMethod.OPTIONAL,
+          ),
+      ],
+      # Initializing all non-repeated fields first, as using
+      # AddRepeatedWhileIsNodeKind does not support abstract kinds like
+      # ASTGraphPathBase.
+      init_fields_order=[
+          'quantifier',
+          'hint',
+          'where_clause',
+          'path_name',
+          'search_prefix',
+          'path_mode',
+          'input_pattern_list',
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTGqlOperator',
+      tag_id=432,
+      parent='ASTNode',
+      comment="""
+      Represents a generic graph operator in ZetaSQL graph query language.
+      """,
+      is_abstract=True,
+      fields=[],
+  )
+
+  gen.AddNode(
+      name='ASTGqlMatch',
+      tag_id=433,
+      parent='ASTGqlOperator',
+      comment="""
+      Represents a MATCH operator in ZetaSQL graph query language,
+      which simply contains <graph pattern>.
+      """,
+      use_custom_debug_string=True,
+      fields=[
+          Field(
+              'graph_pattern',
+              'ASTGraphPattern',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+          Field(
+              'optional',
+              SCALAR_BOOL,
+              tag_id=3,
+          ),
+          Field(
+              'hint',
+              'ASTHint',
+              tag_id=4,
+              field_loader=FieldLoaderMethod.OPTIONAL,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTGqlReturn',
+      tag_id=434,
+      parent='ASTGqlOperator',
+      comment="""
+      Represents a RETURN operator in ZetaSQL graph query language.
+      RETURN is represented with an ASTSelect with only the
+      SELECT, DISTINCT, and (optionally) GROUP BY clause present.
+      Using this representation rather than storing an ASTSelectList and
+      ASTGroupBy makes sharing resolver code easier.
+      """,
+      fields=[
+          Field(
+              'select',
+              'ASTSelect',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+          Field(
+              'order_by_page',
+              'ASTGqlOrderByAndPage',
+              tag_id=3,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTGqlWith',
+      tag_id=473,
+      parent='ASTGqlOperator',
+      comment="""
+      Represents a WITH operator in ZetaSQL graph query language.
+      WITH is represented with an ASTSelect with only the
+      SELECT clause present.
+      """,
+      fields=[
+          Field(
+              'select',
+              'ASTSelect',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTGqlFor',
+      tag_id=476,
+      parent='ASTGqlOperator',
+      comment="""
+      Represents a FOR operator in ZetaSQL graph query language.
+      """,
+      fields=[
+          Field(
+              'identifier',
+              'ASTIdentifier',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+          Field(
+              'expression',
+              'ASTExpression',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+          Field(
+              'with_offset',
+              'ASTWithOffset',
+              tag_id=4,
+              field_loader=FieldLoaderMethod.OPTIONAL,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTGqlLet',
+      tag_id=441,
+      parent='ASTGqlOperator',
+      comment="""
+        Represents a LET operator in ZetaSQL graph query language
+        """,
+      fields=[
+          Field(
+              'variable_definition_list',
+              'ASTGqlLetVariableDefinitionList',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTGqlLetVariableDefinitionList',
+      tag_id=442,
+      parent='ASTNode',
+      comment="""
+        Represents column definitions within a LET statement of a GQL query
+        """,
+      fields=[
+          Field(
+              'variable_definitions',
+              'ASTGqlLetVariableDefinition',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTGqlLetVariableDefinition',
+      tag_id=443,
+      parent='ASTNode',
+      comment="""
+        Represents one column definition within a LET statement of a GQL query
+        """,
+      fields=[
+          Field(
+              'identifier',
+              'ASTIdentifier',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED
+          ),
+          Field(
+              'expression',
+              'ASTExpression',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REQUIRED
+          )
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTGqlFilter',
+      tag_id=444,
+      parent='ASTGqlOperator',
+      comment="""
+        Represents a FILTER operator within ZetaSQL Graph query language.
+        """,
+      fields=[
+          Field(
+              'condition',
+              'ASTWhereClause',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTGqlOperatorList',
+      tag_id=436,
+      parent='ASTGqlOperator',
+      comment="""
+      Represents a linear graph query operator in
+      ZetaSQL graph query language, which contains a vector of child
+      graph query operators.
+      """,
+      fields=[
+          Field(
+              'operators',
+              'ASTGqlOperator',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTGqlSetOperation',
+      tag_id=472,
+      parent='ASTGqlOperator',
+      comment="""
+      Represents a composite query statement, aka. set operation, in
+      ZetaSQL graph query language. Each input is one linear graph query.
+      """,
+      fields=[
+          Field(
+              'metadata',
+              'ASTSetOperationMetadataList',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+          Field(
+              'inputs',
+              'ASTGqlOperator',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTGqlPageLimit',
+      tag_id=458,
+      parent='ASTNode',
+      comment="""
+      Represents the LIMIT clause of a GQL '[<order by>] [<offset>] [<limit>]`
+      linear query statement. It is a child of ASTGqlPage. Note: we cannot use
+      an ASTLimitOffset node because its 'limit' field is required, while it can
+      be optional in GQL linear queries. We also cannot have two
+      consecutive OPTIONAL_EXPRESSION fields in ASTGqlPage.
+      """,
+      fields=[
+          Field(
+              'limit',
+              'ASTExpression',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTGqlPageOffset',
+      tag_id=459,
+      parent='ASTNode',
+      comment="""
+      Represents the OFFSET clause of a GQL '[<order by>] [<offset>] [<limit>]`
+      linear query statement. It is a child of ASTGqlPage. Note: we cannot use
+      an ASTLimitOffset node because its 'limit' field is required, while it can
+      be optional in GQL linear queries. We also cannot have two
+      consecutive OPTIONAL_EXPRESSION fields in ASTGqlPage.
+      """,
+      fields=[
+          Field(
+              'offset',
+              'ASTExpression',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTGqlPage',
+      tag_id=460,
+      parent='ASTNode',
+      comment="""
+      Groups together ASTGqlPageOffset and ASTGqlPageLimit nodes. Note: we
+      cannot use an ASTLimitOffset node because its 'limit' field is required,
+      while it can be optional in GQL linear queries. We also cannot have two
+      consecutive OPTIONAL_EXPRESSION fields.
+      """,
+      fields=[
+          Field(
+              'offset',
+              'ASTGqlPageOffset',
+              tag_id=2,
+              comment="""
+              The OFFSET value. Offset and limit are independent, and can be
+              present or not regardless of whether the other is present.
+              """,
+          ),
+          Field(
+              'limit',
+              'ASTGqlPageLimit',
+              tag_id=3,
+              comment="""
+              The LIMIT value. Offset and limit are independent, and can be
+              present or not regardless of whether the other is present.
+              """,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTGqlOrderByAndPage',
+      tag_id=461,
+      parent='ASTGqlOperator',
+      comment="""
+      Represents the three clauses of a GQL '[<order by>] [<offset>] [<limit>]`
+      linear query statement.
+      """,
+      fields=[
+          Field(
+              'order_by',
+              'ASTOrderBy',
+              tag_id=2,
+          ),
+          Field(
+              'page',
+              'ASTGqlPage',
+              tag_id=3,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTGqlSample',
+      tag_id=507,
+      parent='ASTGqlOperator',
+      comment="""
+        Represents a SAMPLE operator within ZetaSQL Graph query language.
+      """,
+      fields=[
+          Field(
+              'sample',
+              'ASTSampleClause',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
       name='ASTSelectWith',
       tag_id=364,
       parent='ASTNode',
@@ -10259,6 +11698,122 @@ def main(argv):
               tag_id=5,
               getter_is_override=True,
               field_loader=FieldLoaderMethod.OPTIONAL,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTLockMode',
+      tag_id=481,
+      parent='ASTNode',
+      fields=[
+          Field(
+              'strength',
+              SCALAR_LOCK_STRENGTH_SPEC,
+              tag_id=2,
+              field_loader=FieldLoaderMethod.OPTIONAL,
+              comment="""
+          The lock strength. Never NULL.
+              """,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTPipeRecursiveUnion',
+      tag_id=506,
+      parent='ASTPipeOperator',
+      comment="""
+      Represents a pipe RECURSIVE UNION operator ((broken link)):
+      ```
+      |> RECURSIVE [outer_mode] UNION {ALL | DISTINCT} [corresponding_spec]
+         [recursion_depth_clause]
+         {<subquery> | <subpipeline>}
+         [AS alias]
+      ```
+
+      It is semantically the same as the standard recursive queries using WITH
+      RECURSIVE but the syntax is more intuitive.
+
+      It supports subqueries or subpipelines as input.
+      Exactly one of `input_subquery` and `input_subpipeline` will be set.
+      """,
+      fields=[
+          Field(
+              'metadata',
+              'ASTSetOperationMetadata',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+          Field(
+              'recursion_depth_modifier',
+              'ASTRecursionDepthModifier',
+              comment="""
+                The optional recursion depth modifier for the recursive query.
+              """,
+              tag_id=3,
+          ),
+          Field(
+              'input_subpipeline',
+              'ASTSubpipeline',
+              comment="""
+                The input subpipeline for the recursive union operator. The
+                input table to the subpipeline is the output of the previous
+                iteration.
+
+                Example:
+
+                ```SQL
+                FROM KeyValue
+                |> RECURSIVE UNION ALL (
+                    |> SET value = value + 1
+                    |> WHERE key < 10
+                  )
+              """,
+              tag_id=4,
+          ),
+          Field(
+              'input_subquery',
+              'ASTQueryExpression',
+              comment="""
+                The input subquery for the recursive union operator.
+
+                Example:
+
+                ```SQL
+                FROM KeyValue
+                |> RECURSIVE UNION ALL (
+                    SELECT key, value + 1 AS value
+                    FROM KeyValue
+                    WHERE key < 10
+                  )
+                ```
+              """,
+              tag_id=5,
+              field_loader=FieldLoaderMethod.OPTIONAL_SUBKIND,
+          ),
+          Field(
+              'alias',
+              'ASTAlias',
+              comment="""
+                The optional alias for the result of the recursive union. Note
+                it acts as both the input table to the next iteration, and the
+                output table of the recursive union. For example, in the
+                following query:
+
+                ```SQL
+                FROM TreeNodes
+                |> RECURSIVE UNION ALL (
+                  |> JOIN TreeNodes AS child_node ON
+                      nodes.id = child_node.parent_id
+                  |> SELECT child_node.*
+                ) AS nodes;
+                ```
+
+                The alias `nodes` is the output table of the recursive union,
+                and the input table to the next iteration.
+              """,
+              tag_id=6,
           ),
       ],
   )

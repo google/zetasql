@@ -17,12 +17,22 @@
 #ifndef ZETASQL_COMMON_FUNCTION_UTILS_H_
 #define ZETASQL_COMMON_FUNCTION_UTILS_H_
 
+#include <string>
+#include <vector>
+
 namespace zetasql {
 
 class Function;
+class FunctionSignature;
 
 // Helper function that used to implement Function::is_operator.
 bool FunctionIsOperator(const Function& function_name);
+
+// Update arguments to be used in GetSQL.
+// This is used to ensure that named arguments are printed prefixed with their
+// names.
+void UpdateArgsForGetSQL(const FunctionSignature* signature,
+                         std::vector<std::string>* args);
 
 }  // namespace zetasql
 

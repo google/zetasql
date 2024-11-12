@@ -88,8 +88,8 @@ bool RegExp::Match(absl::string_view str, bool* out,
 
 bool RegExp::Extract(absl::string_view str, PositionUnit position_unit,
                      int64_t position, int64_t occurrence_index,
-                     absl::string_view* out, bool* is_null,
-                     absl::Status* error) const {
+                     bool use_legacy_position_behavior, absl::string_view* out,
+                     bool* is_null, absl::Status* error) const {
   ABSL_DCHECK(re_);
   *is_null = true;
   *error = internal::ValidatePositionAndOccurrence(position, occurrence_index);
@@ -115,13 +115,20 @@ bool RegExp::Extract(absl::string_view str, PositionUnit position_unit,
   } else {
     offset = position - 1;
   }
-  str.remove_prefix(offset);
+
+  // If use_legacy_position_behavior is true, the offset is used to
+  // left-truncate the input string before matching.
+  if (use_legacy_position_behavior) {
+    str.remove_prefix(offset);
+    offset = 0;
+  }
+
   if (str.data() == nullptr) {
     // Ensure that the output string never has a null data pointer if a match is
     // found.
     str = absl::string_view("", 0);
   }
-  ExtractAllIterator iter = CreateExtractAllIterator(str);
+  ExtractAllIterator iter = CreateExtractAllIterator(str, offset);
 
   for (int64_t current_index = 0; current_index < occurrence_index;
        ++current_index) {
@@ -135,8 +142,11 @@ bool RegExp::Extract(absl::string_view str, PositionUnit position_unit,
 }
 
 RegExp::ExtractAllIterator::ExtractAllIterator(const RE2* re,
-                                               absl::string_view str)
-    : re_(re), extract_all_input_(str) {}
+                                               absl::string_view str,
+                                               int64_t offset)
+    : re_(re), extract_all_input_(str) {
+  extract_all_position_ = (offset > 0) ? offset : 0;
+}
 
 bool RegExp::ExtractAllIterator::Next(absl::string_view* out,
                                       absl::Status* error) {
@@ -197,7 +207,7 @@ bool RegExp::ExtractAllIterator::Next(absl::string_view* out,
         return false;
       }
     } else {
-      extract_all_position_++;
+      ++extract_all_position_;
     }
   }
   // No more input - next call to ExtractAllNext will return false.
@@ -209,12 +219,14 @@ bool RegExp::ExtractAllIterator::Next(absl::string_view* out,
 }
 
 RegExp::ExtractAllIterator RegExp::CreateExtractAllIterator(
-    absl::string_view str) const {
+    absl::string_view str, int64_t offset) const {
   ABSL_DCHECK(re_.get());
-  return ExtractAllIterator{re_.get(), str};
+  return ExtractAllIterator{re_.get(), str, offset};
 }
 
-bool RegExp::Instr(const InstrParams& options, absl::Status* error) const {
+bool RegExp::Instr(const InstrParams& options,
+                   bool use_legacy_position_behavior,
+                   absl::Status* error) const {
   ABSL_DCHECK(re_ != nullptr);
   ABSL_DCHECK(error != nullptr);
   ABSL_DCHECK(options.out != nullptr);
@@ -244,8 +256,15 @@ bool RegExp::Instr(const InstrParams& options, absl::Status* error) const {
   } else {
     offset = options.position - 1;
   }
-  str.remove_prefix(offset);
-  ExtractAllIterator iter = CreateExtractAllIterator(str);
+
+  // If `use_legacy_position_behavior` is true, the offset is used to
+  // left-truncate the input string before matching.
+  if (use_legacy_position_behavior) {
+    str.remove_prefix(offset);
+    offset = 0;
+  }
+
+  ExtractAllIterator iter = CreateExtractAllIterator(str, offset);
 
   absl::string_view next_match;
   for (int64_t current_index = 0; current_index < options.occurrence_index;
@@ -258,6 +277,12 @@ bool RegExp::Instr(const InstrParams& options, absl::Status* error) const {
   if (next_match.data() == nullptr) {
     return true;
   }
+
+  // If we truncated the string before matching, we need to add back the
+  // number of units truncated to get the correct position. Otherwise, add 1 to
+  // to account for the fact that the result uses one-based indexing.
+  int64_t padding = use_legacy_position_behavior ? options.position : 1;
+
   int32_t visited_bytes = 0;
   if (re_->NumberOfCapturingGroups() == 0) {
     // extract_all_position_ and capture_group_position_ are the indices based
@@ -281,9 +306,9 @@ bool RegExp::Instr(const InstrParams& options, absl::Status* error) const {
     if (!LengthUtf8(prev_str, &utf8_size, error)) {
       return false;
     }
-    *options.out = utf8_size + options.position;
+    *options.out = utf8_size + padding;
   } else {
-    *options.out = visited_bytes + options.position;
+    *options.out = visited_bytes + padding;
   }
   return true;
 }

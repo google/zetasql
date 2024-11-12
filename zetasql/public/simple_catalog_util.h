@@ -17,6 +17,10 @@
 #ifndef ZETASQL_PUBLIC_SIMPLE_CATALOG_UTIL_H_
 #define ZETASQL_PUBLIC_SIMPLE_CATALOG_UTIL_H_
 
+// This file contains helper methods for handling SQL CREATE statements (or
+// their resolved forms) and creating objects that can be loaded into a
+// SimpleCatalog (or other Catalogs).
+
 #include <memory>
 #include <optional>
 #include <vector>
@@ -26,6 +30,7 @@
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/simple_catalog.h"
+#include "zetasql/public/sql_constant.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -131,6 +136,31 @@ absl::Status AddTableFromCreateTable(
 // but doesn't process the query or set up table contents for either of them.
 absl::StatusOr<std::unique_ptr<SimpleTable>> MakeTableFromCreateTable(
     const ResolvedCreateTableStmtBase& create_table_stmt);
+
+// Creates a SQLConstant from a ResolvedCreateConstantStmt.
+// `stmt` must outlive the returned object.
+// The returned SQLConstant will not be evaluated so will not have a Value yet.
+// It's the caller's responsibility to evaluate the expression and set a Value.
+absl::StatusOr<std::unique_ptr<SQLConstant>> MakeConstantFromCreateConstant(
+    const ResolvedCreateConstantStmt& stmt);
+
+// Adds a `PropertyGraph` object to `catalog` for the property graph defined by
+// `create_property_graph_stmt`.
+//
+// `create_property_graph_stmt`: Must be a CREATE PROPERTY GRAPH statement.
+// `analyzer_options`: Analyzer options used to analyze
+// `create_property_graph_stmt`.
+// `analyzer_output`: Analyzer outputs from
+// compiling `create_property_graph_stmt`. The
+//     lifetime of `analyzer_output` must exceed the lifetime of `catalog`.
+//     `analyzer_options.language()` must support
+//     `RESOLVED_CREATE_PROPERTY_GRAPH_STMT`.
+// `catalog`: A SimpleCatalog that will own the created PropertyGraph* object.
+absl::Status AddPropertyGraphFromCreatePropertyGraphStmt(
+    absl::string_view create_property_graph_stmt,
+    const AnalyzerOptions& analyzer_options,
+    std::vector<std::unique_ptr<const AnalyzerOutput>>& artifacts,
+    SimpleCatalog& catalog);
 
 }  // namespace zetasql
 

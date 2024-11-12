@@ -111,6 +111,7 @@ absl::Status Resolver::ResolveDMLTargetTable(
       target_path, *alias, has_explicit_alias, alias_location, hint,
       /*for_system_time=*/nullptr, empty_name_scope_.get(),
       /*remaining_names=*/nullptr, resolved_table_scan, name_list,
+      /*output_column_name_list=*/nullptr,
       resolved_columns_to_catalog_columns_for_target_scan));
   ZETASQL_RET_CHECK((*name_list)->HasRangeVariable(*alias));
   return absl::OkStatus();
@@ -237,7 +238,7 @@ absl::Status Resolver::ResolveTruncateStatement(
       /*alias_location=*/name_path, /*hints=*/nullptr,
       /*for_system_time=*/nullptr, empty_name_scope_.get(),
       /*remaining_names=*/nullptr, &resolved_table_scan, &name_list,
-      resolved_columns_from_table_scans_));
+      /*output_column_name_list=*/nullptr, resolved_columns_from_table_scans_));
 
   const NameScope truncate_scope(*name_list);
   std::unique_ptr<const ResolvedExpr> resolved_where_expr;
@@ -349,9 +350,9 @@ absl::Status Resolver::ResolveInsertQuery(
   std::unique_ptr<const ResolvedScan> resolved_query;
   std::shared_ptr<const NameList> query_name_list;
 
-  ZETASQL_RETURN_IF_ERROR(ResolveQuery(query, name_scope, kInsertId,
-                               /*is_outer_query=*/!is_nested , &resolved_query,
-                               &query_name_list));
+  ZETASQL_RETURN_IF_ERROR(ResolveQuery(query, name_scope, kInsertId, &resolved_query,
+                               &query_name_list,
+                               {.is_outer_query = !is_nested}));
 
   if (correlated_columns_set != nullptr) {
     FetchCorrelatedSubqueryParameters(*correlated_columns_set, parameter_list);
@@ -600,6 +601,7 @@ absl::Status Resolver::ResolveInsertStatement(
       /*alias_location=*/target_path, ast_statement->hint(),
       /*for_system_time=*/nullptr, empty_name_scope_.get(),
       /*remaining_names=*/nullptr, &resolved_table_scan, &name_list,
+      /*output_column_name_list=*/nullptr,
       out_resolved_columns_to_catalog_columns_for_target_scan));
 
   // Insert the resolved columns from current scan to all scans map.
@@ -791,6 +793,29 @@ absl::Status Resolver::ResolveInsertStatementImpl(
         target_scope.get(), &resolved_returning_clause));
   }
 
+  std::unique_ptr<const ResolvedOnConflictClause> resolved_on_conflict_clause;
+  if (ast_statement->on_conflict() != nullptr) {
+    if (!language().LanguageFeatureEnabled(
+            FEATURE_V_1_4_INSERT_ON_CONFLICT_CLAUSE)) {
+      return MakeSqlErrorAt(ast_statement->on_conflict())
+             << "ON CONFLICT is not supported";
+    }
+    if (insert_mode != ResolvedInsertStmt::OR_ERROR) {
+      return MakeSqlErrorAt(ast_statement->on_conflict())
+             << "ON CONFLICT is not allowed with insert mode: "
+             << ResolvedInsertStmt::InsertModeToString(insert_mode);
+    }
+    if (is_nested) {
+      return MakeSqlErrorAt(ast_statement->on_conflict())
+             << "Nested INSERTs cannot have ON CONFLICT clause";
+    }
+    ZETASQL_ASSIGN_OR_RETURN(const ASTPathExpression* target_path,
+                     ast_statement->GetTargetPathForNonNested());
+    ZETASQL_RETURN_IF_ERROR(ResolveOnConflictClause(
+        target_path, ast_statement->on_conflict(), resolved_table_scan.get(),
+        target_name_list, &resolved_on_conflict_clause));
+  }
+
   // For nested INSERTs, 'insert_columns' contains a single reference to the
   // element_column field of the enclosing UPDATE, and
   // ResolvedInsertStmt.insert_columns is implicit.
@@ -819,9 +844,191 @@ absl::Status Resolver::ResolveInsertStatementImpl(
       is_nested ? ResolvedColumnList() : insert_columns,
       std::move(query_parameter_list), std::move(resolved_query),
       query_output_column_list, std::move(row_list),
+      std::move(resolved_on_conflict_clause),
       out_topologically_sorted_generated_column_ids,
       std::move(out_generated_column_expr_list));
 
+  return absl::OkStatus();
+}
+
+absl::StatusOr<ResolvedOnConflictClause::ConflictAction> GetOnConflictAction(
+    const ASTOnConflictClause* ast_node) {
+  switch (ast_node->conflict_action()) {
+    case ASTOnConflictClause::NOTHING:
+      return ResolvedOnConflictClause::NOTHING;
+    case ASTOnConflictClause::UPDATE:
+      return ResolvedOnConflictClause::UPDATE;
+    default:
+      ZETASQL_RET_CHECK_FAIL() << absl::StrCat("Unexpected conflict action: ",
+                                       ast_node->conflict_action());
+  }
+}
+
+absl::Status Resolver::ResolveOnConflictClause(
+    const ASTPathExpression* insert_target_path,
+    const ASTOnConflictClause* ast_node,
+    const ResolvedTableScan* target_table_scan,
+    const std::shared_ptr<const NameList>& target_name_list,
+    std::unique_ptr<const ResolvedOnConflictClause>* output) {
+  // 1. Get the conflict action.
+  ZETASQL_ASSIGN_OR_RETURN(ResolvedOnConflictClause::ConflictAction conflict_action,
+                   GetOnConflictAction(ast_node));
+
+  // 2. If the conflict target is defined, then populate the conflict target
+  // columns.
+  ResolvedColumnList conflict_target_column_list;
+  if (ast_node->conflict_target() != nullptr) {
+    IdStringHashMapCase<ResolvedColumn> table_scan_columns;
+    for (const ResolvedColumn& column : target_table_scan->column_list()) {
+      zetasql_base::InsertIfNotPresent(&table_scan_columns, column.name_id(), column);
+    }
+
+    IdStringHashSetCase visited_column_names;
+    for (const ASTIdentifier* column_name :
+         ast_node->conflict_target()->identifiers()) {
+      const IdString column_name_id = column_name->GetAsIdString();
+      // Allow repetition of column name in the conflict target.
+      if (!visited_column_names.insert(column_name_id).second) {
+        continue;
+      }
+
+      const ResolvedColumn* column =
+          zetasql_base::FindOrNull(table_scan_columns, column_name_id);
+      if (column == nullptr) {
+        return MakeSqlErrorAt(column_name)
+               << "Column " << column_name->GetAsString()
+               << " is not present in table "
+               << target_table_scan->table()->FullName();
+      }
+      // Conflict target must have READ access as they are read to check if
+      // constraint is violated.
+      conflict_target_column_list.push_back(*column);
+      RecordColumnAccess(*column, ResolvedStatement::READ);
+    }
+  }
+
+  // 3. Get Unique constraint name, if present.
+  IdString unique_constraint_name;
+  if (ast_node->unique_constraint_name() != nullptr &&
+      !ast_node->unique_constraint_name()->GetAsString().empty()) {
+    ZETASQL_RET_CHECK(ast_node->conflict_target() == nullptr);
+    unique_constraint_name =
+        ast_node->unique_constraint_name()->GetAsIdString();
+  }
+
+  std::vector<std::unique_ptr<const ResolvedUpdateItem>> update_item_list;
+  std::unique_ptr<const ResolvedExpr> resolved_where_expr;
+
+  // 4. If action is NOTHING, no more fields are populated. Construct the
+  // ResolvedOnConflictClause and return.
+  if (conflict_action == ResolvedOnConflictClause::NOTHING) {
+    ZETASQL_ASSIGN_OR_RETURN(
+        *output,
+        ResolvedOnConflictClauseBuilder()
+            .set_conflict_action(conflict_action)
+            .set_conflict_target_column_list(
+                std::move(conflict_target_column_list))
+            .set_unique_constraint_name(unique_constraint_name.ToString())
+            .set_insert_row_scan(nullptr)
+            .set_update_item_list(std::move(update_item_list))
+            .set_update_where_expression(std::move(resolved_where_expr))
+            .Build());
+    return absl::OkStatus();
+  }
+
+  // Resolve ON CONFLICT DO UPDATE action.
+
+  // Conflict target is mandatory for DO UPDATE conflict action.
+  if (unique_constraint_name.empty() && conflict_target_column_list.empty()) {
+    return MakeSqlErrorAt(ast_node)
+           << "ON CONFLICT DO UPDATE requires a constraint inference or "
+           << "unique constraint name";
+  }
+
+  ZETASQL_RET_CHECK(ast_node->update_item_list() != nullptr)
+      << "DO UPDATE must specify an update list";
+
+  // 5. Build scan `insert_row_scan` to get column references from insert row.
+  // The column references are used in SET RHS and WHERE expressions.
+  std::unique_ptr<const ResolvedTableScan> insert_row_scan;
+  std::shared_ptr<const NameList> insert_row_name_list(new NameList);
+  ResolvedColumnToCatalogColumnHashMap
+      out_resolved_columns_to_catalog_columns_for_target_scan;
+  ZETASQL_RETURN_IF_ERROR(ResolvePathExpressionAsTableScan(
+      insert_target_path, id_string_pool_->Make("excluded"),
+      /*has_explicit_alias=*/true,
+      /*alias_location=*/insert_target_path, nullptr,
+      /*for_system_time=*/nullptr, empty_name_scope_.get(),
+      /*remaining_names=*/nullptr, &insert_row_scan, &insert_row_name_list,
+      /*output_column_name_list=*/nullptr,
+      out_resolved_columns_to_catalog_columns_for_target_scan));
+
+  resolved_columns_from_table_scans_.insert(
+      out_resolved_columns_to_catalog_columns_for_target_scan.begin(),
+      out_resolved_columns_to_catalog_columns_for_target_scan.end());
+
+  // 6. Construct the update item list from UPDATE..SET clause and the optional
+  // WHERE clause expression.
+
+  // `update_scope` sets the columns that can be read/referenced in UPDATE SET
+  // and WHERE clause. It is a union of columns from table row
+  // (i.e target table scan) and the insert row (i.e. insert row scan built
+  // above).
+  std::unique_ptr<NameList> update_name_list(new NameList);
+  ZETASQL_RETURN_IF_ERROR(
+      update_name_list->MergeFrom(*target_name_list, insert_target_path));
+  ZETASQL_RETURN_IF_ERROR(update_name_list->MergeFrom(*insert_row_name_list, ast_node));
+  const std::unique_ptr<const NameScope> update_scope(
+      new NameScope(*update_name_list));
+
+  // `target_scope` sets the column that can be updated i.e. LHS of SET clause.
+  // Only columns in the target table can be updated.
+  const std::unique_ptr<const NameScope> target_scope(
+      new NameScope(*target_name_list));
+
+  // Resolve UPDATE SET clause
+  ZETASQL_RETURN_IF_ERROR(ResolveUpdateItemList(ast_node->update_item_list(),
+                                        /*is_nested=*/false, target_scope.get(),
+                                        update_scope.get(), &update_item_list));
+
+  // Resolve UPDATE...WHERE clause
+  std::unique_ptr<const ResolvedExpr> update_where_expr;
+  if (ast_node->update_where_clause() != nullptr) {
+    ZETASQL_RETURN_IF_ERROR(ResolveScalarExpr(ast_node->update_where_clause(),
+                                      update_scope.get(), "DO UPDATE scope",
+                                      &update_where_expr));
+    ZETASQL_RETURN_IF_ERROR(CoerceExprToBool(ast_node->update_where_clause(),
+                                     "WHERE clause", &update_where_expr));
+  }
+
+  // 7. Build and return the ResolvedOnConflictClause.
+
+  // It is possible that UPDATE SET and/or WHERE clause does not references any
+  // columns from insert row, in which case, `insert_row_scan` is not needed.
+  // We cannot rely on automatic pruning of column lists as it will leave a
+  // dangling table scan with no columns.
+  // So, we manually handle it by not adding the insert row scan to
+  // ResolvedOnConflictClause if none of its column are referenced.
+  int num_referenced_columns = 0;
+  for (const auto column : insert_row_scan->column_list()) {
+    if (zetasql_base::ContainsKey(referenced_column_access_, column)) {
+      num_referenced_columns++;
+    }
+  }
+  bool insert_row_referenced_in_update_clause = (num_referenced_columns > 0);
+  ZETASQL_ASSIGN_OR_RETURN(
+      *output,
+      ResolvedOnConflictClauseBuilder()
+          .set_conflict_action(conflict_action)
+          .set_conflict_target_column_list(
+              std::move(conflict_target_column_list))
+          .set_unique_constraint_name(unique_constraint_name.ToString())
+          .set_insert_row_scan(insert_row_referenced_in_update_clause
+                                   ? std::move(insert_row_scan)
+                                   : nullptr)
+          .set_update_item_list(std::move(update_item_list))
+          .set_update_where_expression(std::move(update_where_expr))
+          .Build());
   return absl::OkStatus();
 }
 
@@ -1792,6 +1999,7 @@ absl::Status Resolver::ResolveUpdateStatement(
   }
   ZETASQL_RETURN_IF_ERROR(update_name_list->MergeFrom(
       *target_name_list, target_path));
+
   std::shared_ptr<const NameList> shared_update_name_list(
       update_name_list.release());
 
@@ -2031,7 +2239,7 @@ absl::Status Resolver::ResolveMergeWhenClauseList(
         visible_name_scope = source_name_scope;
         break;
       case ASTMergeWhenClause::NOT_SET:
-        ZETASQL_RET_CHECK(false);
+        ZETASQL_RET_CHECK_FAIL();
     }
 
     std::unique_ptr<const ResolvedExpr> resolved_match_condition_expr;

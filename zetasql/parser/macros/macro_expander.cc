@@ -31,13 +31,13 @@
 #include "zetasql/base/arena_allocator.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/common/thread_stack.h"
-#include "zetasql/parser/bison_token_codes.h"
 #include "zetasql/parser/macros/macro_catalog.h"
 #include "zetasql/parser/macros/quoting.h"
 #include "zetasql/parser/macros/standalone_macro_expansion.h"
 #include "zetasql/parser/macros/token_provider_base.h"
 #include "zetasql/parser/macros/token_splicing_utils.h"
-#include "zetasql/parser/macros/token_with_location.h"
+#include "zetasql/parser/tm_token.h"
+#include "zetasql/parser/token_with_location.h"
 #include "zetasql/proto/internal_error_location.pb.h"
 #include "zetasql/public/error_helpers.h"
 #include "zetasql/public/language_options.h"
@@ -59,10 +59,6 @@
 namespace zetasql {
 namespace parser {
 namespace macros {
-
-// This is a workaround until ZetaSQL's Bison is updated to a newer version
-// and has this symbol.
-#define YYUNDEF 257
 
 // TODO: we should also employ a cycle detector to find infinitie
 //           macro call recursion and give the users a good error message.
@@ -104,8 +100,8 @@ absl::StatusOr<int> ParseMacroArgIndex(absl::string_view text) {
 static bool TokenCanBeKeywordOrUnquotedIdentifier(
     const TokenWithLocation& token) {
   switch (token.kind) {
-    case EXP_IN_FLOAT_NO_SIGN:
-    case STANDALONE_EXPONENT_SIGN:
+    case Token::EXP_IN_FLOAT_NO_SIGN:
+    case Token::STANDALONE_EXPONENT_SIGN:
       return true;
     default:
       return IsKeywordOrUnquotedIdentifier(token);
@@ -119,8 +115,8 @@ static bool CanSplice(const TokenWithLocation& previous_token,
     return false;
   }
   switch (current_token.kind) {
-    case DECIMAL_INTEGER_LITERAL:
-    case HEX_INTEGER_LITERAL:
+    case Token::DECIMAL_INTEGER_LITERAL:
+    case Token::HEX_INTEGER_LITERAL:
       return true;
     default:
       return TokenCanBeKeywordOrUnquotedIdentifier(current_token);
@@ -237,7 +233,7 @@ absl::StatusOr<TokenWithLocation> MacroExpander::GetNextToken() {
   }
 
   TokenWithLocation token = output_token_buffer_.ConsumeToken();
-  if (token.kind == ';' || token.kind == YYEOF) {
+  if (token.kind == Token::SEMICOLON || token.kind == Token::EOI) {
     at_statement_start_ = true;
     inside_macro_definition_ = false;
     ZETASQL_RET_CHECK(output_token_buffer_.empty());
@@ -265,15 +261,15 @@ static bool CanUnexpandedTokensSplice(bool last_was_macro_invocation,
     return false;
   }
 
-  if (token.kind == MACRO_INVOCATION ||
-      token.kind == MACRO_ARGUMENT_REFERENCE) {
+  if (token.kind == Token::MACRO_INVOCATION ||
+      token.kind == Token::MACRO_ARGUMENT_REFERENCE) {
     // Invocations and macro args can splice with pretty much anything.
     // Safer to always load them.
     return true;
   }
 
-  if (token.kind == DECIMAL_INTEGER_LITERAL ||
-      token.kind == HEX_INTEGER_LITERAL) {
+  if (token.kind == Token::DECIMAL_INTEGER_LITERAL ||
+      token.kind == Token::HEX_INTEGER_LITERAL) {
     // Those will never splice with a previous non-macro token.
     // Otherwise, it'd have already lexed with it.
     return last_was_macro_invocation;
@@ -288,7 +284,7 @@ static bool CanUnexpandedTokensSplice(bool last_was_macro_invocation,
     return false;
   }
   return last_was_macro_invocation ||
-         last_token.kind == MACRO_ARGUMENT_REFERENCE;
+         last_token.kind == Token::MACRO_ARGUMENT_REFERENCE;
 }
 
 static absl::string_view AllocateString(absl::string_view str,
@@ -320,8 +316,8 @@ absl::StatusOr<TokenWithLocation> MacroExpander::ConsumeInputToken() {
   // TODO: jmorcos - Handle '$' here as well since it is also a lenient token.
   // Add a warning if this is a lenient token (Backslash or a generalized
   // identifier that starts with a number, e.g. 30d or 1ab23cd).
-  if (token.kind == BACKSLASH ||
-      (token.kind == IDENTIFIER &&
+  if (token.kind == Token::BACKSLASH ||
+      (token.kind == Token::IDENTIFIER &&
        std::isdigit(token.text.front() && !std::isdigit(token.text.back())))) {
     ZETASQL_RETURN_IF_ERROR(RaiseErrorOrAddWarning(MakeSqlErrorAt(
         token.location.start(),
@@ -339,7 +335,7 @@ absl::Status MacroExpander::LoadPotentiallySplicingTokens() {
   // Skip the leading comment tokens, if any.
   while (true) {
     ZETASQL_ASSIGN_OR_RETURN(TokenWithLocation token, token_provider_->PeekNextToken());
-    if (token.kind != COMMENT) {
+    if (token.kind != Token::COMMENT) {
       break;
     }
     ZETASQL_ASSIGN_OR_RETURN(token, token_provider_->ConsumeNextToken());
@@ -350,15 +346,15 @@ absl::Status MacroExpander::LoadPotentiallySplicingTokens() {
   // expanded.
   if (at_statement_start_ && call_arguments_.empty()) {
     ZETASQL_ASSIGN_OR_RETURN(TokenWithLocation token, token_provider_->PeekNextToken());
-    if (token.kind == KW_DEFINE) {
+    if (token.kind == Token::KW_DEFINE) {
       ZETASQL_ASSIGN_OR_RETURN(token, ConsumeInputToken());
       splicing_buffer_.push(token);
 
       ZETASQL_ASSIGN_OR_RETURN(token, token_provider_->PeekNextToken());
-      if (token.kind == KW_MACRO) {
+      if (token.kind == Token::KW_MACRO) {
         // Mark the leading DEFINE keyword as the special one marking a DEFINE
         // MACRO statement.
-        splicing_buffer_.back().kind = KW_DEFINE_FOR_MACROS;
+        splicing_buffer_.back().kind = Token::KW_DEFINE_FOR_MACROS;
         inside_macro_definition_ = true;
         at_statement_start_ = false;
         return absl::OkStatus();
@@ -381,11 +377,11 @@ absl::Status MacroExpander::LoadPotentiallySplicingTokens() {
     }
     ZETASQL_ASSIGN_OR_RETURN(token, ConsumeInputToken());
     splicing_buffer_.push(token);
-    if (token.kind == YYEOF) {
+    if (token.kind == Token::EOI) {
       return absl::OkStatus();
     }
 
-    if (token.kind == MACRO_INVOCATION) {
+    if (token.kind == Token::MACRO_INVOCATION) {
       ZETASQL_RETURN_IF_ERROR(LoadArgsIfAny());
       last_was_macro_invocation = true;
     } else {
@@ -401,11 +397,11 @@ absl::Status MacroExpander::LoadArgsIfAny() {
   ZETASQL_RET_CHECK(!splicing_buffer_.empty())
       << "Splicing buffer cannot be empty. This method should not be "
          "called except after a macro invocation has been loaded";
-  ZETASQL_RET_CHECK(splicing_buffer_.back().kind == MACRO_INVOCATION)
+  ZETASQL_RET_CHECK(splicing_buffer_.back().kind == Token::MACRO_INVOCATION)
       << "This method should not be called except after a macro invocation "
          "has been loaded";
   ZETASQL_ASSIGN_OR_RETURN(TokenWithLocation token, token_provider_->PeekNextToken());
-  if (token.kind != '(' ||
+  if (token.kind != Token::LPAREN ||
       token.start_offset() > splicing_buffer_.back().end_offset()) {
     // The next token is not an opening parenthesis, or is an open parenthesis
     // that is separated by some whitespace. This means that the current
@@ -420,19 +416,19 @@ absl::Status MacroExpander::LoadArgsIfAny() {
 
 absl::Status MacroExpander::LoadUntilParenthesesBalance() {
   ZETASQL_RET_CHECK(!splicing_buffer_.empty());
-  ZETASQL_RET_CHECK_EQ(splicing_buffer_.back().kind, '(');
+  ZETASQL_RET_CHECK_EQ(splicing_buffer_.back().kind, Token::LPAREN);
   int num_open_parens = 1;
   while (num_open_parens > 0) {
     ZETASQL_ASSIGN_OR_RETURN(TokenWithLocation token, ConsumeInputToken());
     switch (token.kind) {
-      case '(':
+      case Token::LPAREN:
         num_open_parens++;
         break;
-      case ')':
+      case Token::RPAREN:
         num_open_parens--;
         break;
-      case ';':
-      case YYEOF:
+      case Token::SEMICOLON:
+      case Token::EOI:
         // Always an error, even when not in strict mode.
         return MakeSqlErrorAt(
             token.location.start(),
@@ -465,7 +461,7 @@ absl::StatusOr<TokenWithLocation> MacroExpander::Splice(
     const ParseLocationPoint& location) {
   ZETASQL_RET_CHECK(!incoming_token_text.empty());
   ZETASQL_RET_CHECK(!pending_token.text.empty());
-  ZETASQL_RET_CHECK_NE(pending_token.kind, YYUNDEF);
+  ZETASQL_RET_CHECK_NE(pending_token.kind, Token::UNAVAILABLE);
 
   if (diagnostic_options_.warn_on_identifier_splicing || IsStrict()) {
     ZETASQL_RETURN_IF_ERROR(RaiseErrorOrAddWarning(MakeSqlErrorAt(
@@ -481,18 +477,18 @@ absl::StatusOr<TokenWithLocation> MacroExpander::Splice(
   // more characters and not be a keyword. Re-lexing happens at the very end.
   // TODO: strict mode should produce an error when forming keywords through
   // splicing.
-  pending_token.kind = IDENTIFIER;
+  pending_token.kind = Token::IDENTIFIER;
   return pending_token;
 }
 
 absl::StatusOr<TokenWithLocation> MacroExpander::ExpandAndMaybeSpliceMacroItem(
     TokenWithLocation unexpanded_macro_token, TokenWithLocation pending_token) {
   std::vector<TokenWithLocation> expanded_tokens;
-  if (unexpanded_macro_token.kind == MACRO_ARGUMENT_REFERENCE) {
+  if (unexpanded_macro_token.kind == Token::MACRO_ARGUMENT_REFERENCE) {
     ZETASQL_RETURN_IF_ERROR(
         ExpandMacroArgumentReference(unexpanded_macro_token, expanded_tokens));
   } else {
-    ZETASQL_RET_CHECK_EQ(unexpanded_macro_token.kind, MACRO_INVOCATION);
+    ZETASQL_RET_CHECK_EQ(unexpanded_macro_token.kind, Token::MACRO_INVOCATION);
 
     absl::string_view macro_name = GetMacroName(unexpanded_macro_token);
     std::optional<MacroInfo> macro_info = macro_catalog_.Find(macro_name);
@@ -513,7 +509,7 @@ absl::StatusOr<TokenWithLocation> MacroExpander::ExpandAndMaybeSpliceMacroItem(
       << "A proper expansion should have at least the YYEOF token at "
          "the end. Failure was when expanding "
       << unexpanded_macro_token.text;
-  ZETASQL_RET_CHECK(expanded_tokens.back().kind == YYEOF);
+  ZETASQL_RET_CHECK(expanded_tokens.back().kind == Token::EOI);
   // Pop the trailing space at the end of the expansion, which is tacked
   // on to the YYEOF.
   expanded_tokens.pop_back();
@@ -528,7 +524,7 @@ absl::StatusOr<TokenWithLocation> MacroExpander::ExpandAndMaybeSpliceMacroItem(
   //     wouldn't be in the same chunk anyway)
   if (expanded_tokens.empty()) {
     if (!unexpanded_macro_token.preceding_whitespaces.empty()) {
-      ZETASQL_RET_CHECK(pending_token.kind == YYUNDEF);
+      ZETASQL_RET_CHECK(pending_token.kind == Token::UNAVAILABLE);
       pending_token.preceding_whitespaces = MaybeAllocateConcatenation(
           pending_token.preceding_whitespaces,
           unexpanded_macro_token.preceding_whitespaces);
@@ -594,7 +590,7 @@ absl::StatusOr<TokenWithLocation> MacroExpander::ExpandAndMaybeSpliceMacroItem(
 
 absl::StatusOr<TokenWithLocation> MacroExpander::AdvancePendingToken(
     TokenWithLocation pending_token, TokenWithLocation incoming_token) {
-  if (pending_token.kind != YYUNDEF) {
+  if (pending_token.kind != Token::UNAVAILABLE) {
     output_token_buffer_.Push(std::move(pending_token));
   } else {
     ZETASQL_RET_CHECK(pending_token.text.empty());
@@ -608,14 +604,14 @@ absl::StatusOr<TokenWithLocation> MacroExpander::AdvancePendingToken(
 }
 
 static bool IsQuotedLiteral(const TokenWithLocation& token) {
-  return token.kind == STRING_LITERAL || token.kind == BYTES_LITERAL ||
-         IsQuotedIdentifier(token);
+  return token.kind == Token::STRING_LITERAL ||
+         token.kind == Token::BYTES_LITERAL || IsQuotedIdentifier(token);
 }
 
 absl::Status MacroExpander::ExpandPotentiallySplicingTokens() {
   ZETASQL_RET_CHECK(!splicing_buffer_.empty());
   TokenWithLocation pending_token{
-      .kind = YYUNDEF,
+      .kind = Token::UNAVAILABLE,
       .location = ParseLocationRange{},
       .text = "",
       .preceding_whitespaces = pending_whitespaces_};
@@ -631,8 +627,8 @@ absl::Status MacroExpander::ExpandPotentiallySplicingTokens() {
       ZETASQL_ASSIGN_OR_RETURN(
           pending_token,
           AdvancePendingToken(std::move(pending_token), std::move(token)));
-    } else if (token.kind == MACRO_ARGUMENT_REFERENCE ||
-               token.kind == MACRO_INVOCATION) {
+    } else if (token.kind == Token::MACRO_ARGUMENT_REFERENCE ||
+               token.kind == Token::MACRO_INVOCATION) {
       ZETASQL_ASSIGN_OR_RETURN(pending_token,
                        ExpandAndMaybeSpliceMacroItem(std::move(token),
                                                      std::move(pending_token)));
@@ -651,7 +647,7 @@ absl::Status MacroExpander::ExpandPotentiallySplicingTokens() {
   }
 
   ZETASQL_RET_CHECK(pending_whitespaces_.empty());
-  if (pending_token.kind != YYUNDEF) {
+  if (pending_token.kind != Token::UNAVAILABLE) {
     output_token_buffer_.Push(std::move(pending_token));
     pending_whitespaces_ = "";
   } else if (!pending_token.preceding_whitespaces.empty()) {
@@ -679,26 +675,32 @@ absl::Status MacroExpander::ParseAndExpandArgs(
   absl::string_view macro_name =
       GetMacroName(unexpanded_macro_invocation_token);
   expanded_args.push_back(std::vector<TokenWithLocation>{
-      {.kind = IDENTIFIER,
+      {.kind = Token::IDENTIFIER,
        .location = unexpanded_macro_invocation_token.location,
        .text = macro_name,
        .preceding_whitespaces = ""},
-      {.kind = YYEOF,
+      {.kind = Token::EOI,
        .location = unexpanded_macro_invocation_token.location,
        .text = "",
        .preceding_whitespaces = ""}});
 
-  if (splicing_buffer_.empty() || splicing_buffer_.front().kind != '(') {
-    ZETASQL_RETURN_IF_ERROR(RaiseErrorOrAddWarning(MakeSqlErrorAt(
-        unexpanded_macro_invocation_token.location.end(),
-        absl::StrFormat("Invocation of macro '%s' missing argument list.",
-                        macro_name))));
+  if (splicing_buffer_.empty() ||
+      splicing_buffer_.front().kind != Token::LPAREN) {
+    // No arguments for this invocation. Generate any necessary warnings or
+    // errors before returning.
+    if (diagnostic_options_.warn_on_macro_invocation_with_no_parens ||
+        IsStrict()) {
+      ZETASQL_RETURN_IF_ERROR(RaiseErrorOrAddWarning(MakeSqlErrorAt(
+          unexpanded_macro_invocation_token.location.end(),
+          absl::StrFormat("Invocation of macro '%s' missing argument list.",
+                          macro_name))));
+    }
     return absl::OkStatus();
   }
 
   const TokenWithLocation opening_paren = splicing_buffer_.front();
   splicing_buffer_.pop();
-  ZETASQL_RET_CHECK(opening_paren.kind == '(');
+  ZETASQL_RET_CHECK(opening_paren.kind == Token::LPAREN);
   int arg_start_offset = opening_paren.end_offset();
 
   // Parse arguments, each being a sequence of tokens.
@@ -720,10 +722,10 @@ absl::Status MacroExpander::ParseAndExpandArgs(
     //     $m( x(  a  ,  b  ),  y  )
     // The arguments to the invocation of $m are `x(a,b)` and y.
     // The comma between `a` and `b` is internal, not top-level.
-    if (token.kind == '(') {
+    if (token.kind == Token::LPAREN) {
       num_open_parens++;
       has_explicit_unexpanded_arg = true;
-    } else if (token.kind == ',' && num_open_parens == 1) {
+    } else if (token.kind == Token::COMMA && num_open_parens == 1) {
       // Top-level comma means the end of the current argument
       unexpanded_args.push_back(
           {.start_offset = arg_start_offset,
@@ -735,7 +737,7 @@ absl::Status MacroExpander::ParseAndExpandArgs(
       // separating it from the second, it's an explicit signal that there is
       // an intended first argument that just happens to be empty.
       has_explicit_unexpanded_arg = true;
-    } else if (token.kind == ')') {
+    } else if (token.kind == Token::RPAREN) {
       num_open_parens--;
       if (num_open_parens == 0) {
         // This was the last argument.
@@ -749,7 +751,7 @@ absl::Status MacroExpander::ParseAndExpandArgs(
       } else {
         has_explicit_unexpanded_arg = true;
       }
-    } else if (token.kind != COMMENT) {
+    } else if (token.kind != Token::COMMENT) {
       has_explicit_unexpanded_arg = true;
     }
   }
@@ -777,7 +779,7 @@ absl::Status MacroExpander::ParseAndExpandArgs(
         std::max(max_arg_ref_index_, max_arg_ref_index_in_current_arg);
     ZETASQL_RET_CHECK(!expanded_arg.empty()) << "A proper expansion should have at "
                                         "least the YYEOF token at the end";
-    ZETASQL_RET_CHECK(expanded_arg.back().kind == YYEOF);
+    ZETASQL_RET_CHECK(expanded_arg.back().kind == Token::EOI);
     expanded_args.push_back(std::move(expanded_arg));
   }
 
@@ -794,7 +796,7 @@ absl::Status MacroExpander::ExpandMacroArgumentReference(
     // least the macro name as arg #0). This means we just leave the arg ref
     // unexpanded, as opposed to assuming it was passed as if empty.
     expanded_tokens = {token,
-                       {.kind = YYEOF,
+                       {.kind = Token::EOI,
                         .location = token.location,
                         .text = "",
                         .preceding_whitespaces = ""}};
@@ -812,7 +814,7 @@ absl::Status MacroExpander::ExpandMacroArgumentReference(
             "only %d arguments.",
             // call_args.size() - 1 because $0 is the added arg for macro name.
             token.text, call_arguments_.size() - 1))));
-    expanded_tokens = {TokenWithLocation{.kind = YYEOF,
+    expanded_tokens = {TokenWithLocation{.kind = Token::EOI,
                                          .location = token.location,
                                          .text = "",
                                          .preceding_whitespaces = ""}};
@@ -869,7 +871,7 @@ absl::Status MacroExpander::ExpandMacroInvocation(
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   ZETASQL_RET_CHECK(!token.text.empty());
   ZETASQL_RET_CHECK_EQ(token.text.front(), '$');
-  ZETASQL_RET_CHECK(token.kind == MACRO_INVOCATION);
+  ZETASQL_RET_CHECK(token.kind == Token::MACRO_INVOCATION);
 
   // We expand arguments regardless, even if the macro being invoked does not
   // exist.
@@ -1083,7 +1085,7 @@ absl::StatusOr<TokenWithLocation> MacroExpander::ExpandLiteral(
         << "A proper expansion should have at least the YYEOF token at "
            "the end. Failure was when expanding "
         << literal_token.text;
-    ZETASQL_RET_CHECK_EQ(expanded_tokens.back().kind, YYEOF);
+    ZETASQL_RET_CHECK_EQ(expanded_tokens.back().kind, Token::EOI);
     // Pop the trailing space, which is stored on the YYEOF's
     // preceding_whitespaces.
     expanded_tokens.pop_back();
@@ -1126,7 +1128,7 @@ absl::StatusOr<TokenWithLocation> MacroExpander::ExpandLiteral(
           }
           output_token_buffer_.Push(std::move(expanded_token));
 
-          pending_token = {.kind = YYEOF,
+          pending_token = {.kind = Token::EOI,
                            .location = literal_token.location,
                            .text = "",
                            .preceding_whitespaces = ""};
@@ -1162,12 +1164,12 @@ absl::Status MacroExpander::ExpandMacrosInternal(
   expander->location_map_ = location_map;
   while (true) {
     ZETASQL_ASSIGN_OR_RETURN(TokenWithLocation token, expander->GetNextToken());
-    if (drop_comments && token.kind == COMMENT) {
+    if (drop_comments && token.kind == Token::COMMENT) {
       // We only preserve top level comments.
       continue;
     }
     output_token_list.push_back(std::move(token));
-    if (output_token_list.back().kind == YYEOF) {
+    if (output_token_list.back().kind == Token::EOI) {
       break;
     }
   }

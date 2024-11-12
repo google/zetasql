@@ -21,12 +21,11 @@
 #include <utility>
 #include <vector>
 
-#include "zetasql/public/evaluator_table_iterator.h"
-#include "zetasql/public/value.h"
-#include "zetasql/resolved_ast/resolved_node.h"
+#include "zetasql/common/options_utils.h"
 #include "zetasql/tools/execute_query/execute_query_tool.h"
 #include "zetasql/tools/execute_query/execute_query_web_writer.h"
 #include "zetasql/tools/execute_query/execute_query_writer.h"
+#include "zetasql/tools/execute_query/selectable_catalog.h"
 #include "zetasql/tools/execute_query/web/embedded_resources.h"
 #include "absl/flags/flag.h"
 #include "absl/log/log.h"
@@ -37,6 +36,7 @@
 #include "absl/strings/strip.h"
 #include "absl/types/span.h"
 #include "external/mstch/mstch/include/mstch/mstch.hpp"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
@@ -62,21 +62,35 @@ ModeSet ModeSetFromStrings(absl::Span<const std::string> mode_strings) {
 }  // namespace
 
 ExecuteQueryWebRequest::ExecuteQueryWebRequest(
-    const std::vector<std::string> &str_modes, std::string query,
-    std::string catalog)
+    absl::Span<const std::string> str_modes,
+    std::optional<ExecuteQueryConfig::SqlMode> sql_mode, std::string query,
+    std::string catalog, std::string enabled_language_features,
+    std::string enabled_ast_rewrites)
     : modes_(ModeSetFromStrings(str_modes)),
       query_(std::move(query)),
-      catalog_(std::move(catalog)) {
-  // The query input sometimes contains non-breaking spaces (or the HTML entity
-  // &nbsp;). This is 0xA0 (encoded in UTF-8 as \xc2\xa0). A bare 0xa0 is
-  // sometimes seen when a query is copied from an HTML editor.
-  // We explicitly replace these sequences with a normal space character.
-  absl::StrReplaceAll({{"\xc2\xa0", " "}, {"\xa0", " "}}, &query_);
+      catalog_(std::move(catalog)),
+      enabled_language_features_(std::move(enabled_language_features)),
+      enabled_ast_rewrites_(std::move(enabled_ast_rewrites)) {
+  if (sql_mode.has_value()) {
+    sql_mode_ = sql_mode;
+  } else {
+    sql_mode_ =
+        ExecuteQueryConfig::parse_sql_mode(absl::GetFlag(FLAGS_sql_mode))
+            .value_or(ExecuteQueryConfig::SqlMode::kQuery);
+  }
+
+  // TODO: Also default modes_ to flags if not supplied.
 
   if (catalog_.empty()) {
     // Get the value from the flag on the initial page load.
     catalog_ = absl::GetFlag(FLAGS_catalog);
   }
+
+  // The query input sometimes contains non-breaking spaces (or the HTML entity
+  // &nbsp;). This is 0xA0 (encoded in UTF-8 as \xc2\xa0). A bare 0xa0 is
+  // sometimes seen when a query is copied from an HTML editor.
+  // We explicitly replace these sequences with a normal space character.
+  absl::StrReplaceAll({{"\xc2\xa0", " "}, {"\xa0", " "}}, &query_);
 }
 
 bool ExecuteQueryWebHandler::HandleRequest(
@@ -95,8 +109,36 @@ bool ExecuteQueryWebHandler::HandleRequest(
     }
     catalogs.push_back(entry);
   }
-
   template_params.insert(std::pair("catalogs", catalogs));
+
+  std::string selected_feature = request.GetEnabledLanguageFeaturesOptionsStr();
+  if (selected_feature.empty()) {
+    selected_feature = "MAXIMUM";
+  }
+  mstch::array language_features;
+  for (const absl::string_view options_str : {"NONE", "MAXIMUM", "DEV"}) {
+    mstch::map entry = {{"name", std::string(options_str)}};
+    if (options_str == selected_feature) {
+      entry["selected"] = std::string("selected");
+    }
+    language_features.push_back(entry);
+  }
+  template_params.insert(std::pair("language_features", language_features));
+
+  std::string selected_ast_rewrites = request.GetEnabledAstRewritesOptionsStr();
+  if (selected_ast_rewrites.empty()) {
+    selected_ast_rewrites = "ALL_MINUS_DEV";
+  }
+  mstch::array ast_rewrites;
+  for (const absl::string_view options_str :
+       {"NONE", "ALL", "ALL_MINUS_DEV", "DEFAULTS", "DEFAULTS_MINUS_DEV"}) {
+    mstch::map entry = {{"name", std::string(options_str)}};
+    if (options_str == selected_ast_rewrites) {
+      entry["selected"] = std::string("selected");
+    }
+    ast_rewrites.push_back(entry);
+  }
+  template_params.insert(std::pair("ast_rewrites", ast_rewrites));
 
   if (!request.query().empty()) {
     std::string error_msg;
@@ -110,6 +152,11 @@ bool ExecuteQueryWebHandler::HandleRequest(
   for (const auto &mode : request.modes()) {
     template_params[absl::StrCat(
         "mode_", ExecuteQueryConfig::tool_mode_name(mode))] = "1";
+  }
+  if (request.sql_mode().has_value()) {
+    template_params[absl::StrCat(
+        "sql_mode_", ExecuteQueryConfig::sql_mode_name(*request.sql_mode()))] =
+        "1";
   }
 
   // Render the page.
@@ -134,8 +181,39 @@ absl::Status ExecuteQueryWebHandler::ExecuteQueryImpl(
   ZETASQL_RETURN_IF_ERROR(zetasql::InitializeExecuteQueryConfig(config));
 
   config.set_tool_modes(request.modes());
+  if (request.sql_mode().has_value()) {
+    config.set_sql_mode(*request.sql_mode());
+  }
   config.mutable_analyzer_options().set_error_message_mode(
       ERROR_MESSAGE_MULTI_LINE_WITH_CARET);
+
+  const std::string &enabled_language_features =
+      request.GetEnabledLanguageFeaturesOptionsStr();
+  if (!enabled_language_features.empty()) {
+    auto language_features = zetasql::internal::ParseEnabledLanguageFeatures(
+        enabled_language_features);
+    if (!language_features.ok()) {
+      return language_features.status();
+    }
+    ZETASQL_VLOG(1) << "Enabled language features: " << enabled_language_features;
+    config.mutable_analyzer_options()
+        .mutable_language()
+        ->SetEnabledLanguageFeatures({language_features->options.begin(),
+                                      language_features->options.end()});
+  }
+
+  const std::string &enabled_ast_rewrites =
+      request.GetEnabledAstRewritesOptionsStr();
+  if (!enabled_ast_rewrites.empty()) {
+    auto ast_rewrites =
+        zetasql::internal::ParseEnabledAstRewrites(enabled_ast_rewrites);
+    if (!ast_rewrites.ok()) {
+      return ast_rewrites.status();
+    }
+    ZETASQL_VLOG(1) << "Enabled AST rewrites: " << enabled_ast_rewrites;
+    config.mutable_analyzer_options().set_enabled_rewrites(
+        {ast_rewrites->options.begin(), ast_rewrites->options.end()});
+  }
 
   ZETASQL_RETURN_IF_ERROR(config.SetCatalogFromString(request.catalog()));
 

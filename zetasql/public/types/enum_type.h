@@ -130,8 +130,11 @@ class EnumType : public Type {
   // upon success, and false if the number is not found.  For enum numbers
   // that are not unique, this function will return the canonical name
   // for that number.
-  ABSL_MUST_USE_RESULT bool FindName(int number,
-                                     const std::string** name) const;
+  ABSL_MUST_USE_RESULT bool FindName(int number, absl::string_view* name) const;
+
+  ABSL_DEPRECATED("Use the string_view version")
+  ABSL_MUST_USE_RESULT
+  bool FindName(int number, const std::string** name) const;
 
   // Find the enum number given a corresponding name.  Returns true
   // upon success, and false if the name is not found.

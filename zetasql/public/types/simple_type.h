@@ -80,7 +80,6 @@ class SimpleType : public Type {
   static TypeKind GetTypeKindIfSimple(
       absl::string_view type_name, ProductMode mode,
       const LanguageOptions::LanguageFeatureSet* language_features = nullptr);
-
   // Validate and resolve type parameters for SimpleTypes.
   // Resolvable type parameters:
   //   - STRING(L) / BYTES(L)

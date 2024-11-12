@@ -27,6 +27,7 @@
 
 #include <string>
 
+#include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 
 namespace zetasql {
@@ -44,7 +45,7 @@ class JSONParser {
 
   // Parse the entire json string.  The virtual functions below will
   // be called as the parser comes across the respective entities.
-  virtual bool Parse();
+  absl::Status Parse();
 
  protected:
   // Clients implement the following virtual functions.  Since
@@ -89,11 +90,16 @@ class JSONParser {
 
   // Report the type and position of a failure.
   // Returns false for convenience.
-  virtual bool ReportFailure(const std::string& error_message);
+  virtual bool ReportFailure(absl::string_view error_message);
+  virtual bool ReportFailure(absl::string_view error_message,
+                             absl::StatusCode error_code);
 
   // Returns a substring with context at the current reader position.
   // Useful for error messages.
   std::string ContextAtCurrentPosition(int context_length) const;
+
+  // The default context length to use for ContextAtCurrentPosition().
+  static constexpr int kDefaultContextLength = 10;
 
  private:
   enum TokenType {
@@ -112,7 +118,7 @@ class JSONParser {
   };
 
   // Handles any type
-  bool ParseValue();
+  absl::Status ParseValue();
 
   // Expects p_ to point to the beginning of a string.
   bool ParseString();
@@ -163,6 +169,10 @@ class JSONParser {
 
   // Returns true if c contains an Octal digit, false otherwise.
   static bool IsOctalDigit(char c);
+
+  // The status of the parser. If a parsing failure occurs, this should be
+  // updated to an error status and message describing the error.
+  absl::Status status_ = absl::OkStatus();
 
   // The json string encoded in UTF8.
   absl::string_view json_;

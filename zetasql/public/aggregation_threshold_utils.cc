@@ -18,6 +18,10 @@
 
 #include <string>
 
+#include "zetasql/proto/options.pb.h"
+#include "zetasql/public/analyzer_options.h"
+#include "zetasql/public/types/type_factory.h"
+#include "absl/container/flat_hash_map.h"
 #include "zetasql/base/case.h"
 #include "zetasql/base/no_destructor.h"
 

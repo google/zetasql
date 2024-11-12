@@ -18,14 +18,17 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
-#include <limits>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/multiprecision_int.h"
+#include "zetasql/public/numeric_value.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "zetasql/base/mathutil.h"
 #include "zetasql/base/ret_check.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 template <typename T>
@@ -37,9 +40,9 @@ inline absl::Status CheckPercentileArgument(T percentile) {
   return absl::OkStatus();
 }
 
-size_t PercentileHelper<double>::ComputePercentileIndex(
-    size_t max_index, long double* left_weight,
-    long double* right_weight) const {
+template <typename Weight>
+size_t PercentileHelper<double, Weight>::ComputePercentileIndex(
+    size_t max_index, Weight* left_weight, Weight* right_weight) const {
   // Some fast paths for common use cases.
   if (percentile_ == 0.5) {
     *right_weight = 0.5 * (max_index & 1);
@@ -69,12 +72,11 @@ size_t PercentileHelper<double>::ComputePercentileIndex(
     // the integer; the bigger weight can be computed as 1 - smaller weight
     // without further precision loss.
     if (fractional_part > (scale >> 1)) {
-      *left_weight = std::ldexp(
-          static_cast<long double>(scale - fractional_part),
-          percentile_exponent_);
+      *left_weight = std::ldexp(static_cast<Weight>(scale - fractional_part),
+                                percentile_exponent_);
       *right_weight = 1 - *left_weight;
     } else {
-      *right_weight = std::ldexp(static_cast<long double>(fractional_part),
+      *right_weight = std::ldexp(static_cast<Weight>(fractional_part),
                                  percentile_exponent_);
       *left_weight = 1 - *right_weight;
     }
@@ -86,19 +88,20 @@ size_t PercentileHelper<double>::ComputePercentileIndex(
     ABSL_DCHECK_LE(*right_weight, 1);
     return index;
   }
-  *right_weight = std::ldexp(static_cast<long double>(product),
-                             percentile_exponent_);
+  *right_weight =
+      std::ldexp(static_cast<Weight>(product), percentile_exponent_);
   *left_weight = 1 - *right_weight;
   return 0;
 }
 
 // static
-absl::StatusOr<PercentileHelper<double>> PercentileHelper<double>::Create(
-    double percentile) {
+template <typename Weight>
+absl::StatusOr<PercentileHelper<double, Weight>>
+PercentileHelper<double, Weight>::Create(double percentile) {
   ZETASQL_RETURN_IF_ERROR(CheckPercentileArgument(percentile));
   const zetasql_base::MathUtil::DoubleParts parts = zetasql_base::MathUtil::Decompose(percentile);
   ZETASQL_RET_CHECK_GE(parts.mantissa, 0);
-  return PercentileHelper<double>(percentile, parts.mantissa, parts.exponent);
+  return PercentileHelper(percentile, parts.mantissa, parts.exponent);
 }
 
 size_t PercentileHelper<NumericValue>::ComputePercentileIndex(
@@ -114,6 +117,9 @@ size_t PercentileHelper<NumericValue>::ComputePercentileIndex(
   ABSL_DCHECK_EQ(scaled_index.number()[1], 0);
   return scaled_index.number()[0];
 }
+
+template class PercentileHelper<double, double>;
+template class PercentileHelper<double, long double>;
 
 // static
 NumericValue PercentileHelper<NumericValue>::ComputeLinearInterpolation(

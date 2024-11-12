@@ -16,6 +16,7 @@
 
 #include "zetasql/public/function.h"
 
+#include <cstddef>
 #include <memory>
 #include <set>
 #include <string>
@@ -462,6 +463,10 @@ class FunctionSerializationTests : public ::testing::Test {
                                           TypeDeserializer(&factory, pools))
             .value();
     ExpectEqualsIgnoringCallbacks(argument_type, *result);
+  }
+
+  static size_t SizeOfFunctionArgumentTypeOptionsData() {
+    return sizeof(FunctionArgumentTypeOptions::Data);
   }
 };
 

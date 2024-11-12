@@ -1449,6 +1449,134 @@ ARRAY<STRUCT<
  }]
 ==
 [prepare_database]
+[required_features=V_1_4_UUID_TYPE]
+CREATE TABLE UuidTable AS
+SELECT CAST(1 AS int64) as row_id,
+       CAST(-1 AS int64) as int64_val,
+       CAST('2014-01-01' AS DATE) as date_val,
+       CAST('00000000-0000-0000-0000-000000000001' AS UUID) as uuid_val
+UNION ALL
+SELECT CAST(2 AS int64) as row_id,
+       CAST(-1 AS int64) as int64_val,
+       CAST('2014-01-01' AS DATE) as date_val,
+       CAST('00000000-0000-0000-0000-000000000001' AS UUID) as uuid_val
+UNION ALL
+SELECT CAST(3 AS int64) as row_id,
+       CAST(-1 AS int64) as int64_val,
+       CAST('2014-01-01' AS DATE) as date_val,
+       CAST('00000000-0000-0000-0000-000000000001' AS UUID) as uuid_val
+UNION ALL
+SELECT CAST(4 AS int64) as row_id,
+       CAST(-2 AS int64) as int64_val,
+       CAST('2014-01-02' AS DATE) as date_val,
+       CAST('00000000-0000-0000-0000-000000000022' AS UUID) as uuid_val
+UNION ALL
+SELECT CAST(5 AS int64) as row_id,
+       CAST(-2 AS int64) as int64_val,
+       CAST('2014-01-02' AS DATE) as date_val,
+       CAST('00000000-0000-0000-0000-000000000022' AS UUID) as uuid_val
+UNION ALL
+SELECT CAST(6 AS int64) as row_id,
+       CAST(-3 AS int64) as int64_val,
+       CAST('2014-01-03' AS DATE) as date_val,
+       CAST('00000000-0333-0000-0000-000000000333' AS UUID) as uuid_val
+UNION ALL
+SELECT CAST(7 AS int64) as row_id,
+       CAST(-4 AS int64) as int64_val,
+       CAST('2014-01-04' AS DATE) as date_val,
+       CAST('00000000-4444-0000-0000-000000004444' AS UUID) as uuid_val
+UNION ALL
+SELECT CAST(8 AS int64) as row_id,
+       CAST(NULL AS int64) as int64_val,
+       CAST(NULL AS DATE) as date_val,
+       CAST(NULL AS UUID) as uuid_val
+UNION ALL
+SELECT CAST(9 AS int64) as row_id,
+       CAST(NULL AS int64) as int64_val,
+       CAST(NULL AS DATE) as date_val,
+       CAST(NULL AS UUID) as uuid_val
+UNION ALL
+SELECT CAST(10 AS int64) as row_id,
+       CAST(1 AS int64) as int64_val,
+       CAST('2014-01-08' AS DATE) as date_val,
+       CAST('00000000-0005-5555-0000-000000055555' AS UUID) as uuid_val
+UNION ALL
+SELECT CAST(11 AS int64) as row_id,
+       CAST(3 AS int64) as int64_val,
+       CAST('2014-02-01' AS DATE) as date_val,
+       CAST('ffffffff-ffff-ffff-ffff-ffffffffffff' AS UUID) as uuid_val
+UNION ALL
+SELECT CAST(12 AS int64) as row_id,
+       CAST(23 AS int64) as int64_val,
+       CAST('2014-02-01' AS DATE) as date_val,
+       CAST('ffffffff-ffff-ffff-ffff-ffffffffffff' AS UUID) as uuid_val
+--
+ARRAY<STRUCT<row_id INT64, int64_val INT64, date_val DATE, uuid_val UUID>>[
+  {
+    1,
+    -1,
+    2014-01-01,
+    00000000-0000-0000-0000-000000000001
+  },
+  {
+    2,
+    -1,
+    2014-01-01,
+    00000000-0000-0000-0000-000000000001
+  },
+  {
+    3,
+    -1,
+    2014-01-01,
+    00000000-0000-0000-0000-000000000001
+  },
+  {
+    4,
+    -2,
+    2014-01-02,
+    00000000-0000-0000-0000-000000000022
+  },
+  {
+    5,
+    -2,
+    2014-01-02,
+    00000000-0000-0000-0000-000000000022
+  },
+  {
+    6,
+    -3,
+    2014-01-03,
+    00000000-0333-0000-0000-000000000333
+  },
+  {
+    7,
+    -4,
+    2014-01-04,
+    00000000-4444-0000-0000-000000004444
+  },
+  {8, NULL, NULL, NULL},
+  {9, NULL, NULL, NULL},
+  {
+    10,
+    1,
+    2014-01-08,
+    00000000-0005-5555-0000-000000055555
+  },
+  {
+    11,
+    3,
+    2014-02-01,
+    ffffffff-ffff-ffff-ffff-ffffffffffff
+  },
+  {
+    12,
+    23,
+    2014-02-01,
+    ffffffff-ffff-ffff-ffff-ffffffffffff
+  }
+]
+==
+[prepare_database]
 [required_features=RANGE_TYPE]
 CREATE TABLE AllTypesRangeTable AS
 SELECT CAST(1 AS int64) as row_id,
@@ -6791,6 +6919,58 @@ ARRAY<STRUCT<x BIGNUMERIC, POS INT64>>[unknown order:
   }
 ]
 ==
+[required_features=V_1_4_UUID_TYPE]
+[name=orderby_duplicates_single_base_column_uuid_asc]
+SELECT * FROM UNNEST(ARRAY(
+  SELECT uuid_val FROM UuidTable t
+  ORDER BY uuid_val ASC
+)) x WITH OFFSET POS
+--
+ARRAY<STRUCT<x UUID, POS INT64>>[unknown order:
+  {NULL, 0},
+  {NULL, 1},
+  {
+    00000000-0000-0000-0000-000000000001,
+    2
+  },
+  {
+    00000000-0000-0000-0000-000000000001,
+    3
+  },
+  {
+    00000000-0000-0000-0000-000000000001,
+    4
+  },
+  {
+    00000000-0000-0000-0000-000000000022,
+    5
+  },
+  {
+    00000000-0000-0000-0000-000000000022,
+    6
+  },
+  {
+    00000000-0005-5555-0000-000000055555,
+    7
+  },
+  {
+    00000000-0333-0000-0000-000000000333,
+    8
+  },
+  {
+    00000000-4444-0000-0000-000000004444,
+    9
+  },
+  {
+    ffffffff-ffff-ffff-ffff-ffffffffffff,
+    10
+  },
+  {
+    ffffffff-ffff-ffff-ffff-ffffffffffff,
+    11
+  }
+]
+==
 [required_features=RANGE_TYPE]
 [name=orderby_duplicates_single_base_column_range_timestamp_asc]
 SELECT * FROM UNNEST(ARRAY(
@@ -7398,6 +7578,58 @@ ARRAY<STRUCT<x BIGNUMERIC, POS INT64>>[unknown order:
   {NULL, 14},
   {NULL, 15},
   {NULL, 16}
+]
+==
+[required_features=V_1_4_UUID_TYPE]
+[name=orderby_duplicates_single_base_column_uuid_desc]
+SELECT * FROM UNNEST(ARRAY(
+  SELECT uuid_val FROM UuidTable t
+  ORDER BY uuid_val DESC
+)) x WITH OFFSET POS
+--
+ARRAY<STRUCT<x UUID, POS INT64>>[unknown order:
+  {
+    ffffffff-ffff-ffff-ffff-ffffffffffff,
+    0
+  },
+  {
+    ffffffff-ffff-ffff-ffff-ffffffffffff,
+    1
+  },
+  {
+    00000000-4444-0000-0000-000000004444,
+    2
+  },
+  {
+    00000000-0333-0000-0000-000000000333,
+    3
+  },
+  {
+    00000000-0005-5555-0000-000000055555,
+    4
+  },
+  {
+    00000000-0000-0000-0000-000000000022,
+    5
+  },
+  {
+    00000000-0000-0000-0000-000000000022,
+    6
+  },
+  {
+    00000000-0000-0000-0000-000000000001,
+    7
+  },
+  {
+    00000000-0000-0000-0000-000000000001,
+    8
+  },
+  {
+    00000000-0000-0000-0000-000000000001,
+    9
+  },
+  {NULL, 10},
+  {NULL, 11}
 ]
 ==
 [required_features=RANGE_TYPE]

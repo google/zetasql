@@ -885,11 +885,101 @@ CreateTableFunctionStmt
 ==
 
 [language_features=ENABLE_ALTER_ARRAY_OPTIONS]
-CREATE TABLE foo (a STRING OPTIONS (string_array_allow_alter_option += ['str1', 'str2']));
+CREATE {{SCHEMA|TABLE|EXTERNAL TABLE}} foo OPTIONS (string_array_allow_alter_option += ['str1', 'str2']);
+--
+ALTERNATION GROUP: SCHEMA
+--
+ERROR: Operators '+=' and '-=' are not allowed for option string_array_allow_alter_option [at 1:28]
+CREATE SCHEMA foo OPTIONS (string_array_allow_alter_option += ['str1', 'str2']);
+                           ^
+--
+ALTERNATION GROUP: TABLE
+--
+ERROR: Operators '+=' and '-=' are not allowed for option string_array_allow_alter_option [at 1:27]
+CREATE TABLE foo OPTIONS (string_array_allow_alter_option += ['str1', 'str2']);
+                          ^
+--
+ALTERNATION GROUP: EXTERNAL TABLE
+--
+ERROR: Operators '+=' and '-=' are not allowed for option string_array_allow_alter_option [at 1:36]
+CREATE EXTERNAL TABLE foo OPTIONS (string_array_allow_alter_option += ['str1'...
+                                   ^
+==
+
+[language_features=ENABLE_ALTER_ARRAY_OPTIONS,CREATE_TABLE_LIKE]
+CREATE TABLE foo LIKE KeyValue OPTIONS (string_array_allow_alter_option += ['str1', 'str2']) AS SELECT * FROM KeyValue;
+--
+ERROR: Operators '+=' and '-=' are not allowed for option string_array_allow_alter_option [at 1:41]
+CREATE TABLE foo LIKE KeyValue OPTIONS (string_array_allow_alter_option += ['...
+                                        ^
+==
+
+[language_features=ENABLE_ALTER_ARRAY_OPTIONS,CREATE_TABLE_COPY,CREATE_TABLE_CLONE]
+CREATE TABLE foo {{COPY|CLONE}} bar OPTIONS (string_array_allow_alter_option += ['str1', 'str2']);
+--
+ALTERNATION GROUP: COPY
+--
+ERROR: Operators '+=' and '-=' are not allowed for option string_array_allow_alter_option [at 1:36]
+CREATE TABLE foo COPY bar OPTIONS (string_array_allow_alter_option += ['str1'...
+                                   ^
+--
+ALTERNATION GROUP: CLONE
 --
 ERROR: Operators '+=' and '-=' are not allowed for option string_array_allow_alter_option [at 1:37]
-CREATE TABLE foo (a STRING OPTIONS (string_array_allow_alter_option += ['str1...
+CREATE TABLE foo CLONE bar OPTIONS (string_array_allow_alter_option += ['str1...
                                     ^
+==
+
+[language_features=ENABLE_ALTER_ARRAY_OPTIONS,CREATE_SNAPSHOT_TABLE]
+CREATE SNAPSHOT TABLE foo CLONE KeyValue OPTIONS (string_array_allow_alter_option += ['str1', 'str2']);
+--
+ERROR: Operators '+=' and '-=' are not allowed for option string_array_allow_alter_option [at 1:51]
+CREATE SNAPSHOT TABLE foo CLONE KeyValue OPTIONS (string_array_allow_alter_op...
+                                                  ^
+==
+
+[language_features=ENABLE_ALTER_ARRAY_OPTIONS]
+CREATE {{VIEW|MATERIALIZED VIEW}} foo OPTIONS (string_array_allow_alter_option += ['str1', 'str2']) AS SELECT * FROM bar;
+--
+ALTERNATION GROUP: VIEW
+--
+ERROR: Operators '+=' and '-=' are not allowed for option string_array_allow_alter_option [at 1:26]
+CREATE VIEW foo OPTIONS (string_array_allow_alter_option += ['str1', 'str2'])...
+                         ^
+--
+ALTERNATION GROUP: MATERIALIZED VIEW
+--
+ERROR: Operators '+=' and '-=' are not allowed for option string_array_allow_alter_option [at 1:39]
+CREATE MATERIALIZED VIEW foo OPTIONS (string_array_allow_alter_option += ['st...
+                                      ^
+==
+
+[language_features=ENABLE_ALTER_ARRAY_OPTIONS,EXTERNAL_SCHEMA_DDL]
+CREATE EXTERNAL SCHEMA foo WITH CONNECTION connection1 OPTIONS (string_array_allow_alter_option += ['str1', 'str2']);
+--
+ERROR: Operators '+=' and '-=' are not allowed for option string_array_allow_alter_option [at 1:65]
+...SCHEMA foo WITH CONNECTION connection1 OPTIONS (string_array_allow_alter_o...
+                                                   ^
+==
+
+[language_features=ENABLE_ALTER_ARRAY_OPTIONS]
+create FUNCTION foo() as (100) OPTIONS (string_array_allow_alter_option += ['str1', 'str2']) ;
+--
+ERROR: Operators '+=' and '-=' are not allowed for option string_array_allow_alter_option [at 1:41]
+create FUNCTION foo() as (100) OPTIONS (string_array_allow_alter_option += ['...
+                                        ^
+==
+
+[language_features=ENABLE_ALTER_ARRAY_OPTIONS]
+CREATE PROCEDURE foo() OPTIONS(string_array_allow_alter_option += ['str1', 'str2'])
+BEGIN
+  SELECT 1;
+  RETURN;
+END;
+--
+ERROR: Operators '+=' and '-=' are not allowed for option string_array_allow_alter_option [at 1:32]
+CREATE PROCEDURE foo() OPTIONS(string_array_allow_alter_option += ['str1', 's...
+                               ^
 ==
 
 [language_features=ENABLE_ALTER_ARRAY_OPTIONS]
@@ -900,14 +990,15 @@ ALTER TABLE abTable ADD COLUMN c STRING OPTIONS (string_array_allow_alter_opt...
                                                  ^
 ==
 
-ALTER TABLE abTable ALTER COLUMN b SET OPTIONS (string_array_allow_alter_option += ['str1', 'str2']);
+ALTER TABLE abTable ALTER COLUMN b SET OPTIONS (string_array_allow_alter_option {{+=|-=}} ['str1', 'str2']);
+--
+ALTERNATION GROUP: +=
 --
 ERROR: Operator `+=` is not supported [at 1:49]
 ALTER TABLE abTable ALTER COLUMN b SET OPTIONS (string_array_allow_alter_opti...
                                                 ^
-==
-
-ALTER TABLE abTable ALTER COLUMN b SET OPTIONS (string_array_allow_alter_option -= ['str1', 'str2']);
+--
+ALTERNATION GROUP: -=
 --
 ERROR: Operator `-=` is not supported [at 1:49]
 ALTER TABLE abTable ALTER COLUMN b SET OPTIONS (string_array_allow_alter_opti...
@@ -915,7 +1006,9 @@ ALTER TABLE abTable ALTER COLUMN b SET OPTIONS (string_array_allow_alter_opti...
 ==
 
 [language_features=ENABLE_ALTER_ARRAY_OPTIONS]
-ALTER TABLE abTable ALTER COLUMN b SET OPTIONS (string_array_allow_alter_option += ['str1', 'str2']);
+ALTER TABLE abTable ALTER COLUMN b SET OPTIONS (string_array_allow_alter_option {{+=|-=}} ['str1', 'str2']);
+--
+ALTERNATION GROUP: +=
 --
 AlterTableStmt
 +-name_path=abTable
@@ -925,10 +1018,8 @@ AlterTableStmt
     +-option_list=
       +-string_array_allow_alter_option+=
         +-Literal(type=ARRAY<STRING>, value=["str1", "str2"])
-==
-
-[language_features=ENABLE_ALTER_ARRAY_OPTIONS]
-ALTER TABLE abTable ALTER COLUMN b SET OPTIONS (string_array_allow_alter_option -= ['str1', 'str2']);
+--
+ALTERNATION GROUP: -=
 --
 AlterTableStmt
 +-name_path=abTable
@@ -956,15 +1047,15 @@ AlterTableStmt
 ==
 
 [language_features=ENABLE_ALTER_ARRAY_OPTIONS]
-ALTER TABLE abTable ALTER COLUMN b SET OPTIONS (string_array_option += ['str1', 'str2']);
+ALTER TABLE abTable ALTER COLUMN b SET OPTIONS (string_array_option {{+=|-=}} ['str1', 'str2']);
+--
+ALTERNATION GROUP: +=
 --
 ERROR: Operators '+=' and '-=' are not allowed for option string_array_option [at 1:49]
 ALTER TABLE abTable ALTER COLUMN b SET OPTIONS (string_array_option += ['str1...
                                                 ^
-==
-
-[language_features=ENABLE_ALTER_ARRAY_OPTIONS]
-ALTER TABLE abTable ALTER COLUMN b SET OPTIONS (string_array_option -= ['str1', 'str2']);
+--
+ALTERNATION GROUP: -=
 --
 ERROR: Operators '+=' and '-=' are not allowed for option string_array_option [at 1:49]
 ALTER TABLE abTable ALTER COLUMN b SET OPTIONS (string_array_option -= ['str1...
@@ -972,16 +1063,301 @@ ALTER TABLE abTable ALTER COLUMN b SET OPTIONS (string_array_option -= ['str1...
 ==
 
 [language_features=ENABLE_ALTER_ARRAY_OPTIONS]
-ALTER TABLE abTable ALTER COLUMN b SET OPTIONS (string_option += 'str1');
+ALTER TABLE abTable ALTER COLUMN b SET OPTIONS (string_option {{+=|-=}} 'str1');
+--
+ALTERNATION GROUP: +=
 --
 ERROR: Invalid operator += for option string_option with expected type STRING [at 1:49]
 ALTER TABLE abTable ALTER COLUMN b SET OPTIONS (string_option += 'str1');
                                                 ^
-==
-
-[language_features=ENABLE_ALTER_ARRAY_OPTIONS]
-ALTER TABLE abTable ALTER COLUMN b SET OPTIONS (string_option -= 'str1');
+--
+ALTERNATION GROUP: -=
 --
 ERROR: Invalid operator -= for option string_option with expected type STRING [at 1:49]
 ALTER TABLE abTable ALTER COLUMN b SET OPTIONS (string_option -= 'str1');
                                                 ^
+==
+
+ALTER {{SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}} foo SET OPTIONS (string_array_allow_alter_option {{+=|-=}} ['str1', 'str2']);
+--
+ALTERNATION GROUP: SCHEMA,+=
+--
+ERROR: Operator `+=` is not supported [at 1:31]
+ALTER SCHEMA foo SET OPTIONS (string_array_allow_alter_option += ['str1', 'st...
+                              ^
+--
+ALTERNATION GROUP: SCHEMA,-=
+--
+ERROR: Operator `-=` is not supported [at 1:31]
+ALTER SCHEMA foo SET OPTIONS (string_array_allow_alter_option -= ['str1', 'st...
+                              ^
+--
+ALTERNATION GROUP: TABLE,+=
+--
+ERROR: Operator `+=` is not supported [at 1:30]
+ALTER TABLE foo SET OPTIONS (string_array_allow_alter_option += ['str1', 'str...
+                             ^
+--
+ALTERNATION GROUP: TABLE,-=
+--
+ERROR: Operator `-=` is not supported [at 1:30]
+ALTER TABLE foo SET OPTIONS (string_array_allow_alter_option -= ['str1', 'str...
+                             ^
+--
+ALTERNATION GROUP: VIEW,+=
+--
+ERROR: Operator `+=` is not supported [at 1:29]
+ALTER VIEW foo SET OPTIONS (string_array_allow_alter_option += ['str1', 'str2...
+                            ^
+--
+ALTERNATION GROUP: VIEW,-=
+--
+ERROR: Operator `-=` is not supported [at 1:29]
+ALTER VIEW foo SET OPTIONS (string_array_allow_alter_option -= ['str1', 'str2...
+                            ^
+--
+ALTERNATION GROUP: MATERIALIZED VIEW,+=
+--
+ERROR: Operator `+=` is not supported [at 1:42]
+ALTER MATERIALIZED VIEW foo SET OPTIONS (string_array_allow_alter_option += [...
+                                         ^
+--
+ALTERNATION GROUP: MATERIALIZED VIEW,-=
+--
+ERROR: Operator `-=` is not supported [at 1:42]
+ALTER MATERIALIZED VIEW foo SET OPTIONS (string_array_allow_alter_option -= [...
+                                         ^
+==
+
+[language_features=ENABLE_ALTER_ARRAY_OPTIONS]
+ALTER {{SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}} foo SET OPTIONS (string_array_allow_alter_option {{+=|-=}} ['str1', 'str2']);
+--
+ALTERNATION GROUP: SCHEMA,+=
+--
+AlterSchemaStmt
++-name_path=foo
++-alter_action_list=
+  +-SetOptionsAction
+    +-option_list=
+      +-string_array_allow_alter_option+=
+        +-Literal(type=ARRAY<STRING>, value=["str1", "str2"])
+--
+ALTERNATION GROUP: SCHEMA,-=
+--
+AlterSchemaStmt
++-name_path=foo
++-alter_action_list=
+  +-SetOptionsAction
+    +-option_list=
+      +-string_array_allow_alter_option-=
+        +-Literal(type=ARRAY<STRING>, value=["str1", "str2"])
+--
+ALTERNATION GROUP: TABLE,+=
+--
+AlterTableSetOptionsStmt
++-name_path=foo
++-option_list=
+  +-string_array_allow_alter_option+=
+    +-Literal(type=ARRAY<STRING>, value=["str1", "str2"])
+--
+ALTERNATION GROUP: TABLE,-=
+--
+AlterTableSetOptionsStmt
++-name_path=foo
++-option_list=
+  +-string_array_allow_alter_option-=
+    +-Literal(type=ARRAY<STRING>, value=["str1", "str2"])
+--
+ALTERNATION GROUP: VIEW,+=
+--
+AlterViewStmt
++-name_path=foo
++-alter_action_list=
+  +-SetOptionsAction
+    +-option_list=
+      +-string_array_allow_alter_option+=
+        +-Literal(type=ARRAY<STRING>, value=["str1", "str2"])
+--
+ALTERNATION GROUP: VIEW,-=
+--
+AlterViewStmt
++-name_path=foo
++-alter_action_list=
+  +-SetOptionsAction
+    +-option_list=
+      +-string_array_allow_alter_option-=
+        +-Literal(type=ARRAY<STRING>, value=["str1", "str2"])
+--
+ALTERNATION GROUP: MATERIALIZED VIEW,+=
+--
+AlterMaterializedViewStmt
++-name_path=foo
++-alter_action_list=
+  +-SetOptionsAction
+    +-option_list=
+      +-string_array_allow_alter_option+=
+        +-Literal(type=ARRAY<STRING>, value=["str1", "str2"])
+--
+ALTERNATION GROUP: MATERIALIZED VIEW,-=
+--
+AlterMaterializedViewStmt
++-name_path=foo
++-alter_action_list=
+  +-SetOptionsAction
+    +-option_list=
+      +-string_array_allow_alter_option-=
+        +-Literal(type=ARRAY<STRING>, value=["str1", "str2"])
+==
+
+[language_features=ENABLE_ALTER_ARRAY_OPTIONS]
+ALTER {{SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}} foo SET OPTIONS (string_array_allow_alter_option -= ['str1', 'str2'], enum_array_allow_alter_option += array<zetasql_test__.TestEnum>[1,2])
+--
+ALTERNATION GROUP: SCHEMA
+--
+AlterSchemaStmt
++-name_path=foo
++-alter_action_list=
+  +-SetOptionsAction
+    +-option_list=
+      +-string_array_allow_alter_option-=
+      | +-Literal(type=ARRAY<STRING>, value=["str1", "str2"])
+      +-enum_array_allow_alter_option+=
+        +-Literal(type=ARRAY<ENUM<zetasql_test__.TestEnum>>, value=[TESTENUM1, TESTENUM2], has_explicit_type=TRUE)
+--
+ALTERNATION GROUP: TABLE
+--
+AlterTableSetOptionsStmt
++-name_path=foo
++-option_list=
+  +-string_array_allow_alter_option-=
+  | +-Literal(type=ARRAY<STRING>, value=["str1", "str2"])
+  +-enum_array_allow_alter_option+=
+    +-Literal(type=ARRAY<ENUM<zetasql_test__.TestEnum>>, value=[TESTENUM1, TESTENUM2], has_explicit_type=TRUE)
+--
+ALTERNATION GROUP: VIEW
+--
+AlterViewStmt
++-name_path=foo
++-alter_action_list=
+  +-SetOptionsAction
+    +-option_list=
+      +-string_array_allow_alter_option-=
+      | +-Literal(type=ARRAY<STRING>, value=["str1", "str2"])
+      +-enum_array_allow_alter_option+=
+        +-Literal(type=ARRAY<ENUM<zetasql_test__.TestEnum>>, value=[TESTENUM1, TESTENUM2], has_explicit_type=TRUE)
+--
+ALTERNATION GROUP: MATERIALIZED VIEW
+--
+AlterMaterializedViewStmt
++-name_path=foo
++-alter_action_list=
+  +-SetOptionsAction
+    +-option_list=
+      +-string_array_allow_alter_option-=
+      | +-Literal(type=ARRAY<STRING>, value=["str1", "str2"])
+      +-enum_array_allow_alter_option+=
+        +-Literal(type=ARRAY<ENUM<zetasql_test__.TestEnum>>, value=[TESTENUM1, TESTENUM2], has_explicit_type=TRUE)
+==
+
+[language_features=ENABLE_ALTER_ARRAY_OPTIONS]
+ALTER {{SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}} foo SET OPTIONS (string_array_option {{+=|-=}} ['str1', 'str2']);
+--
+ALTERNATION GROUP: SCHEMA,+=
+--
+ERROR: Operators '+=' and '-=' are not allowed for option string_array_option [at 1:31]
+ALTER SCHEMA foo SET OPTIONS (string_array_option += ['str1', 'str2']);
+                              ^
+--
+ALTERNATION GROUP: SCHEMA,-=
+--
+ERROR: Operators '+=' and '-=' are not allowed for option string_array_option [at 1:31]
+ALTER SCHEMA foo SET OPTIONS (string_array_option -= ['str1', 'str2']);
+                              ^
+--
+ALTERNATION GROUP: TABLE,+=
+--
+ERROR: Operators '+=' and '-=' are not allowed for option string_array_option [at 1:30]
+ALTER TABLE foo SET OPTIONS (string_array_option += ['str1', 'str2']);
+                             ^
+--
+ALTERNATION GROUP: TABLE,-=
+--
+ERROR: Operators '+=' and '-=' are not allowed for option string_array_option [at 1:30]
+ALTER TABLE foo SET OPTIONS (string_array_option -= ['str1', 'str2']);
+                             ^
+--
+ALTERNATION GROUP: VIEW,+=
+--
+ERROR: Operators '+=' and '-=' are not allowed for option string_array_option [at 1:29]
+ALTER VIEW foo SET OPTIONS (string_array_option += ['str1', 'str2']);
+                            ^
+--
+ALTERNATION GROUP: VIEW,-=
+--
+ERROR: Operators '+=' and '-=' are not allowed for option string_array_option [at 1:29]
+ALTER VIEW foo SET OPTIONS (string_array_option -= ['str1', 'str2']);
+                            ^
+--
+ALTERNATION GROUP: MATERIALIZED VIEW,+=
+--
+ERROR: Operators '+=' and '-=' are not allowed for option string_array_option [at 1:42]
+ALTER MATERIALIZED VIEW foo SET OPTIONS (string_array_option += ['str1', 'str...
+                                         ^
+--
+ALTERNATION GROUP: MATERIALIZED VIEW,-=
+--
+ERROR: Operators '+=' and '-=' are not allowed for option string_array_option [at 1:42]
+ALTER MATERIALIZED VIEW foo SET OPTIONS (string_array_option -= ['str1', 'str...
+                                         ^
+==
+
+[language_features=ENABLE_ALTER_ARRAY_OPTIONS]
+ALTER {{SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}} foo SET OPTIONS (string_option {{+=|-=}} 'str1');
+--
+ALTERNATION GROUP: SCHEMA,+=
+--
+ERROR: Invalid operator += for option string_option with expected type STRING [at 1:31]
+ALTER SCHEMA foo SET OPTIONS (string_option += 'str1');
+                              ^
+--
+ALTERNATION GROUP: SCHEMA,-=
+--
+ERROR: Invalid operator -= for option string_option with expected type STRING [at 1:31]
+ALTER SCHEMA foo SET OPTIONS (string_option -= 'str1');
+                              ^
+--
+ALTERNATION GROUP: TABLE,+=
+--
+ERROR: Invalid operator += for option string_option with expected type STRING [at 1:30]
+ALTER TABLE foo SET OPTIONS (string_option += 'str1');
+                             ^
+--
+ALTERNATION GROUP: TABLE,-=
+--
+ERROR: Invalid operator -= for option string_option with expected type STRING [at 1:30]
+ALTER TABLE foo SET OPTIONS (string_option -= 'str1');
+                             ^
+--
+ALTERNATION GROUP: VIEW,+=
+--
+ERROR: Invalid operator += for option string_option with expected type STRING [at 1:29]
+ALTER VIEW foo SET OPTIONS (string_option += 'str1');
+                            ^
+--
+ALTERNATION GROUP: VIEW,-=
+--
+ERROR: Invalid operator -= for option string_option with expected type STRING [at 1:29]
+ALTER VIEW foo SET OPTIONS (string_option -= 'str1');
+                            ^
+--
+ALTERNATION GROUP: MATERIALIZED VIEW,+=
+--
+ERROR: Invalid operator += for option string_option with expected type STRING [at 1:42]
+ALTER MATERIALIZED VIEW foo SET OPTIONS (string_option += 'str1');
+                                         ^
+--
+ALTERNATION GROUP: MATERIALIZED VIEW,-=
+--
+ERROR: Invalid operator -= for option string_option with expected type STRING [at 1:42]
+ALTER MATERIALIZED VIEW foo SET OPTIONS (string_option -= 'str1');
+                                         ^

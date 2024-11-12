@@ -3,9 +3,9 @@
 # is supported.
 [default no_run_unparser]
 [default enabled_ast_rewrites=DEFAULTS]
-[default language_features=V_1_4_CORRESPONDING_FULL,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+[default language_features=V_1_4_CORRESPONDING_FULL,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_BY_NAME]
 SELECT COLLATE("b", "und:binary") AS b
-FULL UNION ALL CORRESPONDING
+FULL UNION ALL {{CORRESPONDING|BY NAME}}
 SELECT COLLATE("a", "und:ci") AS a
 --
 QueryStmt
@@ -61,7 +61,7 @@ QueryStmt
 
 # Different collations for the matching columns throws an error.
 SELECT COLLATE("b", "und:binary") AS a
-FULL UNION ALL CORRESPONDING
+FULL UNION ALL {{CORRESPONDING|BY NAME}}
 SELECT COLLATE("a", "und:ci") AS a
 --
 ERROR: Collation conflict: "und:ci" vs. "und:binary"; in column 1, item 2 of set operation scan [at 1:1]
@@ -71,7 +71,7 @@ SELECT COLLATE("b", "und:binary") AS a
 
 # Collation annotation is preserved: collation in the 2nd query.
 SELECT "b" AS col
-FULL UNION ALL CORRESPONDING
+FULL UNION ALL {{CORRESPONDING|BY NAME}}
 SELECT COLLATE("a", "und:ci") AS col
 --
 QueryStmt
@@ -111,7 +111,7 @@ QueryStmt
 # COLLATION annotations are preserved for columns for both columns w/ and w/o
 # padded NULLs.
 SELECT COLLATE("b", "und:binary") AS b, "a" AS a
-FULL UNION ALL CORRESPONDING
+FULL UNION ALL {{CORRESPONDING|BY NAME}}
 SELECT COLLATE("a", "und:ci") AS a
 --
 QueryStmt
@@ -240,11 +240,11 @@ QueryStmt
 ==
 
 # Collation annotation is preserved when merging with literals.
-[language_features=V_1_4_CORRESPONDING_FULL,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_PRESERVE_ANNOTATION_IN_IMPLICIT_CAST_IN_SCAN]
+[language_features=V_1_4_CORRESPONDING_FULL,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_PRESERVE_ANNOTATION_IN_IMPLICIT_CAST_IN_SCAN,V_1_4_BY_NAME]
 SELECT (1, "str") AS a
-FULL UNION ALL CORRESPONDING
+FULL UNION ALL BY NAME
 SELECT 2 AS b
-FULL UNION ALL CORRESPONDING
+FULL UNION ALL BY NAME
 SELECT (CAST(1.0 AS float), COLLATE("str", "und:ci")) AS a
 --
 QueryStmt
@@ -412,7 +412,7 @@ QueryStmt
 # when implicit type cast is used and the language feature
 # FEATURE_V_1_4_PRESERVE_ANNOTATION_IN_IMPLICIT_CAST_IN_SCAN is *ENABLED*.
 # Specifically, the annotations of string_ci of struct_val is preserved.
-[language_features=V_1_4_CORRESPONDING_FULL,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_PRESERVE_ANNOTATION_IN_IMPLICIT_CAST_IN_SCAN]
+[language_features=V_1_4_CORRESPONDING_FULL,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_PRESERVE_ANNOTATION_IN_IMPLICIT_CAST_IN_SCAN,V_1_4_BY_NAME]
 SELECT CAST((1, "str") AS STRUCT<INT64, STRING>) AS a
 FULL UNION ALL CORRESPONDING
 SELECT 2 AS b

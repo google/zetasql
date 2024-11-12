@@ -20,6 +20,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -34,10 +35,11 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
+#include "zetasql/base/ret_check.h"
 
 namespace zetasql {
 
-class ASTAlias;
+class ASTIdentifier;
 class ASTNode;
 class ASTPathExpression;
 class NameList;
@@ -240,6 +242,8 @@ class NamedColumn {
 //   1. A range variable - i.e. a name that references one row of a scan as
 //      we iterate through it.  e.g. A table alias introduced in a FROM clause.
 //      This name points to a NameList giving the names visible in that scan.
+//      A pattern variable in MATCH_RECOGNIZE is also treated as a range
+//      variable.
 //   2. An implicit value, for column names available on scans in the
 //      from clause.
 //   3. An explicit value, for column names that were given an explicit
@@ -290,8 +294,16 @@ class NameTarget {
   NameTarget() : kind_(AMBIGUOUS) {}
 
   // Construct a NameTarget for a range variable pointing at a scan.
+  ABSL_DEPRECATED("Inline me!")
   explicit NameTarget(const NameListPtr& scan_columns)
-      : kind_(RANGE_VARIABLE), scan_columns_(scan_columns) {}
+      : NameTarget(scan_columns, /*is_pattern_variable=*/false) {}
+
+  // Construct a NameTarget for a range variable pointing at a scan, or a
+  // MATCH_RECOGNIZE pattern variable.
+  explicit NameTarget(const NameListPtr& scan_columns, bool is_pattern_variable)
+      : kind_(RANGE_VARIABLE),
+        scan_columns_(scan_columns),
+        is_pattern_variable_(is_pattern_variable) {}
 
   // Construct a NameTarget pointing at a column, implicitly or explicitly.
   NameTarget(const ResolvedColumn& column, bool is_explicit)
@@ -331,6 +343,16 @@ class NameTarget {
   // associated with this NameTarget.
   void SetAccessError(Kind original_kind,
                       absl::string_view access_error_message = "");
+
+  // Marks this NameTarget as a pattern variable.
+  absl::Status SetIsPatternVariable(bool is_pattern_variable) {
+    if (kind_ != RANGE_VARIABLE) {
+      ZETASQL_RET_CHECK_EQ(kind_, ACCESS_ERROR);
+      ZETASQL_RET_CHECK_EQ(original_kind_, RANGE_VARIABLE);
+    }
+    is_pattern_variable_ = is_pattern_variable;
+    return absl::OkStatus();
+  }
 
   Kind kind() const { return kind_; }
 
@@ -385,6 +407,15 @@ class NameTarget {
     ABSL_DCHECK_EQ(kind_, RANGE_VARIABLE);
     return scan_columns_;
   }
+
+  bool is_pattern_variable() const {
+    if (kind_ != RANGE_VARIABLE) {
+      ABSL_DCHECK_EQ(kind_, ACCESS_ERROR);
+      ABSL_DCHECK_EQ(original_kind_, RANGE_VARIABLE);
+    }
+    return is_pattern_variable_;
+  }
+
   const ResolvedColumn& column() const {
     ABSL_DCHECK(IsColumn()) << DebugString();
     return column_;
@@ -428,6 +459,9 @@ class NameTarget {
 
   // Populated if kind_ == RANGE_VARIABLE.
   std::shared_ptr<const NameList> scan_columns_;
+  // True if this is a pattern variable in a MATCH_RECOGNIZE clause, false for
+  // a regular range variable.
+  bool is_pattern_variable_ = false;
 
   // Populated if kind_ is one of:
   //   {IMPLICIT_COLUMN, EXPLICIT_COLUMN, FIELD_OF}.
@@ -561,6 +595,32 @@ class NameScope {
       const IdStringHashMapCase<NameTarget>& overriding_name_targets,
       std::unique_ptr<NameScope>* scope_with_new_names) const;
 
+  // Clones range variables from `other_scope` into this name scope, replacing
+  // old columns in `other_scope` with new columns.
+  // `column_map` maps old columns (by int column_id) to new ResolvedColumns.
+  //
+  // Old columns that are not in `column_map` will be dropped from the
+  // NameLists under copied range variables.
+  //
+  // For example, suppose other_scope contains the following range variable:
+  //   t -> RANGE_VARIABLE<a#1, b#2, c#3>
+  // and the input column_map is:
+  //   #1 -> new_a#4
+  //   #2 -> new_b#5
+  // Then this function will add the following range variables to the this name
+  // scope:
+  //   t -> RANGE_VARIABLE<new_a#4, new_b#5>
+  // Note that column c#3 in the old range variable is skipped since it is not
+  // in the column_map.
+  //
+  // Range variables whose names appear in `excluded_range_variable_set` will
+  // be excluded from cloning.
+  absl::Status CloneRangeVariablesMapped(
+      const NameScope& other_scope,
+      const absl::flat_hash_map<int, ResolvedColumn>& column_map,
+      const ASTNode& ast_location,
+      const IdStringHashSetCase& excluded_range_variable_set);
+
   // Look up a name in this scope, and underlying scopes if necessary.
   // Return true and copy result into <*found> if found.
   //
@@ -599,6 +659,10 @@ class NameScope {
   // up as a column, then a column NameTarget would be returned and
   // 'num_names_consumed' would be set to 4.
   //
+  // `out_referenced_pattern_variable` is set to the pattern variable from which
+  // the column was resolved, if the column was resolved from a pattern
+  // variable, and std::nullopt otherwise.
+  //
   // Note: The current implementation usually only looks up one name and
   // returns the associated NameTarget, but sometimes looks up two names.
   // The current implementation never looks up more than two names.
@@ -608,12 +672,13 @@ class NameScope {
   // to access.  'clause_name' and 'problem_string' are only used for
   // error messaging.
   static const char* const kDefaultProblemString;
-  absl::Status LookupNamePath(const PathExpressionSpan& path_expr,
-                              const char* clause_name,
-                              const char* problem_string, bool in_strict_mode,
-                              CorrelatedColumnsSetList* correlated_columns_sets,
-                              int* num_names_consumed,
-                              NameTarget* target_out) const;
+  absl::Status LookupNamePath(
+      const PathExpressionSpan& path_expr, const char* clause_name,
+      const char* problem_string, bool in_strict_mode,
+      CorrelatedColumnsSetList& correlated_columns_sets,
+      int* num_names_consumed,
+      std::optional<IdString>& out_referenced_pattern_variable,
+      NameTarget* target_out) const;
 
   // Look up a name in this scope, and underlying scopes if necessary.
   // Return true if the name exists, including ambiguous names and field
@@ -813,7 +878,14 @@ class NameScope {
   //
   // Collisions are resolved as described above, with range variables overriding
   // columns. Overriding names in the underlying scope is always allowed.
-  void AddRangeVariable(IdString name, const NameListPtr& scan_columns);
+  void AddRangeVariable(IdString name, const NameListPtr& scan_columns,
+                        bool is_pattern_variable);
+
+  ABSL_DEPRECATED("Inline me!")
+  void AddRangeVariable(IdString name, const NameListPtr& scan_columns) {
+    AddRangeVariable(name, scan_columns, /*is_pattern_variable=*/false);
+  }
+
   void AddColumn(IdString name, const ResolvedColumn& column,
                  bool is_explicit);
 
@@ -1015,6 +1087,19 @@ class NameList {
   absl::Status MergeFrom(const NameList& other, const ASTNode* ast_location,
                          const MergeOptions& options);
 
+  // Create a new NameList as a copy of this one, optionally applying
+  // modifications described in `options`.
+  // Copy without `options` cannot fail, but with `options` it can.
+  // This is equivalent to allocating a new NameList and calling MergeFrom.
+  // Note that these do not propagate `is_value_table`, since that may not
+  // make sense if the new NameList gets mutated after copying.
+  std::shared_ptr<NameList> Copy() const;
+  absl::StatusOr<std::shared_ptr<NameList>> Copy(
+      const ASTNode* ast_location, const MergeOptions& options) const;
+
+  // Copy this NameList, like Copy() above, but also propagate `is_value_table`.
+  std::shared_ptr<NameList> CopyWithIsValueTable() const;
+
   // Clone current NameList, invoking clone_column for each column to create new
   // columns.
   //
@@ -1030,9 +1115,26 @@ class NameList {
   // column to the cloned column.
   absl::StatusOr<std::shared_ptr<NameList>> CloneWithNewColumns(
       const ASTNode* ast_location, absl::string_view value_table_error,
-      const ASTAlias* alias,
+      const ASTIdentifier* alias,
       std::function<ResolvedColumn(const ResolvedColumn&)> clone_column,
       IdStringPool* id_string_pool) const;
+
+  // Clones range variables from `other_scope` to this name list, replacing
+  // old columns in `other_scope` with new columns.
+  // `column_map` maps old columns (by int column_id) to new ResolvedColumns.
+  //
+  // Old columns that are not in `column_map` will be dropped from the
+  // NameLists under copied range variables.
+  //
+  // See NameScope::CloneRangeVariablesMapped() for more details.
+  absl::Status CloneRangeVariablesFromNameScopeMapped(
+      const NameScope& other_scope,
+      const absl::flat_hash_map<int, ResolvedColumn>& column_map,
+      const ASTNode& ast_location,
+      const IdStringHashSetCase& excluded_range_variable_set) {
+    return name_scope_.CloneRangeVariablesMapped(
+        other_scope, column_map, ast_location, excluded_range_variable_set);
+  }
 
   // Get the regular columns in this NameList.  Does not include pseudo-columns.
   int num_columns() const { return columns_.size(); }

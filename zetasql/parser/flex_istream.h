@@ -130,9 +130,6 @@ class StringViewStreamBuf final : public std::basic_streambuf<char> {
   ~StringViewStreamBuf() override = default;
 
  private:
-  // Indicates whether the cursor has passed the sentinel.
-  bool passed_sentinel_ = false;
-
   absl::string_view src_;
 };
 

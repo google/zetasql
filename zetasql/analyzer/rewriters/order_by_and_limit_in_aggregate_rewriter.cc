@@ -690,6 +690,11 @@ OrderByAndLimitInAggregateRewriterVisitor::HandleAggregateFunctionCall(
         "WITH GROUP_ROWS subqueries are not supported in "
         "ORDER_BY_AND_LIMIT_IN_AGGREGATE rewriter");
   }
+  if (!aggregate_function_call->group_by_list().empty()) {
+    return absl::UnimplementedError(
+        "Aggregate functions with GROUP BY modifiers are not supported in "
+        "ORDER_BY_AND_LIMIT_IN_AGGREGATE rewriter");
+  }
 
   // Columns used in the HAVING clause are used in the same context as the
   // original aggregates so we don't need any special handling for the refs they

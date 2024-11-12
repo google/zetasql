@@ -815,3 +815,47 @@ FULL UNION ALL CORRESPONDING BY (A)
 SELECT
   1 AS B,
   1 AS A
+==
+
+# This will be rejected by the analyzer.
+SELECT a FROM A
+INNER UNION ALL CORRESPONDING
+SELECT b FROM B
+--
+QueryStatement [0-61] [SELECT a FROM...ELECT b FROM B]
+  Query [0-61] [SELECT a FROM...ELECT b FROM B]
+    SetOperation(UNION ALL) [0-61] [SELECT a FROM...ELECT b FROM B]
+      SetOperationMetadataList [16-45] [INNER UNION ALL CORRESPONDING]
+        SetOperationMetadata [16-45] [INNER UNION ALL CORRESPONDING]
+          SetOperationType [22-27] [UNION]
+          SetOperationAllOrDistinct [28-31] [ALL]
+          SetOperationColumnMatchMode [32-45] [CORRESPONDING]
+          SetOperationColumnPropagationMode [16-21] [INNER]
+      Select [0-15] [SELECT a FROM A]
+        SelectList [7-8] [a]
+          SelectColumn [7-8] [a]
+            PathExpression [7-8] [a]
+              Identifier(a) [7-8] [a]
+        FromClause [9-15] [FROM A]
+          TablePathExpression [14-15] [A]
+            PathExpression [14-15] [A]
+              Identifier(A) [14-15] [A]
+      Select [46-61] [SELECT b FROM B]
+        SelectList [53-54] [b]
+          SelectColumn [53-54] [b]
+            PathExpression [53-54] [b]
+              Identifier(b) [53-54] [b]
+        FromClause [55-61] [FROM B]
+          TablePathExpression [60-61] [B]
+            PathExpression [60-61] [B]
+              Identifier(B) [60-61] [B]
+--
+SELECT
+  a
+FROM
+  A
+INNER UNION ALL CORRESPONDING
+SELECT
+  b
+FROM
+  B

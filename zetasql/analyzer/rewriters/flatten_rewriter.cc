@@ -293,6 +293,9 @@ FlattenRewriterVisitor::FlattenToScan(
       to_set_input->GetAs<ResolvedGetStructField>()->set_expr(std::move(input));
     } else if (to_set_input->Is<ResolvedGetJsonField>()) {
       to_set_input->GetAs<ResolvedGetJsonField>()->set_expr(std::move(input));
+    } else if (to_set_input->Is<ResolvedGraphGetElementProperty>()) {
+      to_set_input->GetAs<ResolvedGraphGetElementProperty>()->set_expr(
+          std::move(input));
     } else {
       ZETASQL_RET_CHECK_FAIL() << "Unsupported node: " << to_set_input->DebugString();
     }

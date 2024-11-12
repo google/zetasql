@@ -1,0 +1,929 @@
+[default show_unparsed]
+[default no_show_resolved_ast]
+[default language_features=V_1_4_FOR_UPDATE]
+
+# Just a FROM clause with FOR UPDATE.
+select key from KeyValue for update
+--
+[UNPARSED_SQL]
+SELECT
+  KeyValue.Key AS key
+FROM
+  KeyValue
+FOR UPDATE;
+==
+
+# FROM and WHERE clause with FOR UPDATE.
+select key from KeyValue where key > 0 for update
+--
+[UNPARSED_SQL]
+SELECT
+  KeyValue.Key AS key
+FROM
+  KeyValue
+WHERE
+  (KeyValue.Key) > 0
+FOR UPDATE;
+==
+
+# No FOR UPDATE clause in unparsed query as there are no TableScan nodes in the
+# AST.
+select * from unnest ([10,20,30]) as numbers with offset for update
+--
+[UNPARSED_SQL]
+SELECT
+  a_1 AS numbers,
+  a_2 AS offset
+FROM
+  UNNEST(ARRAY< INT64 >[10, 20, 30]) AS a_1 WITH OFFSET AS a_2;
+==
+
+# FOR UPDATE is not propagated to expression subquery in UNNEST even though its
+# in the FROM clause.
+select
+  *
+from
+  unnest(ARRAY(select key from KeyValue))
+for update
+--
+[UNPARSED_SQL]
+SELECT
+  a_2 AS a_2
+FROM
+  UNNEST(ARRAY(
+    SELECT
+      KeyValue.Key AS a_1
+    FROM
+      KeyValue
+  )) AS a_2;
+==
+
+# FOR UPDATE is not propagated to expression subquery in UNNEST even though its
+# in the FROM clause.
+select
+  *
+from
+  KeyValue,
+  unnest(ARRAY(select key from TestTable where KeyValue.key = TestTable.key))
+for update
+--
+[UNPARSED_SQL]
+SELECT
+  keyvalue_3.a_1 AS Key,
+  keyvalue_3.a_2 AS Value,
+  a_5 AS a_5
+FROM
+  (
+    SELECT
+      KeyValue.Key AS a_1,
+      KeyValue.Value AS a_2
+    FROM
+      KeyValue
+    FOR UPDATE
+  ) AS keyvalue_3
+  JOIN
+  UNNEST(ARRAY(
+    SELECT
+      TestTable.key AS a_4
+    FROM
+      TestTable
+    WHERE
+      (keyvalue_3.a_1) = CAST(TestTable.key AS INT64)
+  )) AS a_5;
+==
+
+# FOR UPDATE with GROUP BY
+select key, value from KeyValue group by key, value for update
+--
+[UNPARSED_SQL]
+SELECT
+  keyvalue_3.a_1 AS key,
+  keyvalue_3.a_2 AS value
+FROM
+  (
+    SELECT
+      KeyValue.Key AS a_1,
+      KeyValue.Value AS a_2
+    FROM
+      KeyValue
+    FOR UPDATE
+  ) AS keyvalue_3
+GROUP BY 1, 2;
+==
+
+# FOR UPDATE with GROUB BY and HAVING
+select key, sum(CAST(value AS INT64)) as values
+from KeyValue group by key
+having values > 10
+for update;
+--
+[UNPARSED_SQL]
+SELECT
+  aggregatescan_6.a_4 AS key,
+  aggregatescan_6.a_5 AS values
+FROM
+  (
+    SELECT
+      keyvalue_3.a_1 AS a_4,
+      SUM(CAST(keyvalue_3.a_2 AS INT64)) AS a_5
+    FROM
+      (
+        SELECT
+          KeyValue.Key AS a_1,
+          KeyValue.Value AS a_2
+        FROM
+          KeyValue
+        FOR UPDATE
+      ) AS keyvalue_3
+    GROUP BY 1
+  ) AS aggregatescan_6
+WHERE
+  (aggregatescan_6.a_5) > 10;
+==
+
+# Comma and non-comma CROSS JOIN with FOR UPDATE in query.
+select kv1.key, kv2.key
+from KeyValue kv1{{,| cross join}} KeyValue kv2
+for update
+--
+[UNPARSED_SQL]
+SELECT
+  keyvalue_2.a_1 AS key,
+  keyvalue_4.a_3 AS key
+FROM
+  (
+    SELECT
+      KeyValue.Key AS a_1
+    FROM
+      KeyValue
+    FOR UPDATE
+  ) AS keyvalue_2
+  CROSS JOIN
+  (
+    SELECT
+      KeyValue.Key AS a_3
+    FROM
+      KeyValue
+    FOR UPDATE
+  ) AS keyvalue_4;
+==
+
+# Joins with condition and FOR UPDATE in query.
+select
+  kv1.key
+from
+  KeyValue kv1
+  {{join|left join|right join|full join}}
+  KeyValue kv2
+  on kv1.key = kv2.key
+for update
+--
+ALTERNATION GROUP: join
+--
+[UNPARSED_SQL]
+SELECT
+  keyvalue_2.a_1 AS key
+FROM
+  (
+    SELECT
+      KeyValue.Key AS a_1
+    FROM
+      KeyValue
+    FOR UPDATE
+  ) AS keyvalue_2
+  INNER JOIN
+  (
+    SELECT
+      KeyValue.Key AS a_3
+    FROM
+      KeyValue
+    FOR UPDATE
+  ) AS keyvalue_4
+  ON (keyvalue_2.a_1) = (keyvalue_4.a_3);
+--
+ALTERNATION GROUP: left join
+--
+[UNPARSED_SQL]
+SELECT
+  keyvalue_2.a_1 AS key
+FROM
+  (
+    SELECT
+      KeyValue.Key AS a_1
+    FROM
+      KeyValue
+    FOR UPDATE
+  ) AS keyvalue_2
+  LEFT JOIN
+  (
+    SELECT
+      KeyValue.Key AS a_3
+    FROM
+      KeyValue
+    FOR UPDATE
+  ) AS keyvalue_4
+  ON (keyvalue_2.a_1) = (keyvalue_4.a_3);
+--
+ALTERNATION GROUP: right join
+--
+[UNPARSED_SQL]
+SELECT
+  keyvalue_2.a_1 AS key
+FROM
+  (
+    SELECT
+      KeyValue.Key AS a_1
+    FROM
+      KeyValue
+    FOR UPDATE
+  ) AS keyvalue_2
+  RIGHT JOIN
+  (
+    SELECT
+      KeyValue.Key AS a_3
+    FROM
+      KeyValue
+    FOR UPDATE
+  ) AS keyvalue_4
+  ON (keyvalue_2.a_1) = (keyvalue_4.a_3);
+--
+ALTERNATION GROUP: full join
+--
+[UNPARSED_SQL]
+SELECT
+  keyvalue_2.a_1 AS key
+FROM
+  (
+    SELECT
+      KeyValue.Key AS a_1
+    FROM
+      KeyValue
+    FOR UPDATE
+  ) AS keyvalue_2
+  FULL JOIN
+  (
+    SELECT
+      KeyValue.Key AS a_3
+    FROM
+      KeyValue
+    FOR UPDATE
+  ) AS keyvalue_4
+  ON (keyvalue_2.a_1) = (keyvalue_4.a_3);
+==
+
+# FOR UPDATE on a query with ORDER BY.
+select key, value from KeyValue order by key for update
+--
+[UNPARSED_SQL]
+SELECT
+  keyvalue_3.a_1 AS key,
+  keyvalue_3.a_2 AS value
+FROM
+  (
+    SELECT
+      KeyValue.Key AS a_1,
+      KeyValue.Value AS a_2
+    FROM
+      KeyValue
+    FOR UPDATE
+  ) AS keyvalue_3
+ORDER BY keyvalue_3.a_1;
+==
+
+# FOR UPDATE on a query with LIMIT.
+select key, value from KeyValue limit 3 for update
+--
+[UNPARSED_SQL]
+SELECT
+  KeyValue.Key AS key,
+  KeyValue.Value AS value
+FROM
+  KeyValue
+LIMIT 3
+FOR UPDATE;
+==
+
+# FOR UPDATE on a query with LIMIT and OFFSET.
+select key, value from KeyValue limit 3 offset 1 for update
+--
+[UNPARSED_SQL]
+SELECT
+  KeyValue.Key AS key,
+  KeyValue.Value AS value
+FROM
+  KeyValue
+LIMIT 3 OFFSET 1
+FOR UPDATE;
+==
+
+# FOR UPDATE on a query with LIMIT, OFFSET and ORDER BY.
+select key, value
+from KeyValue
+order by key
+limit 3 offset 1
+for update
+--
+[UNPARSED_SQL]
+SELECT
+  keyvalue_3.a_1 AS key,
+  keyvalue_3.a_2 AS value
+FROM
+  (
+    SELECT
+      KeyValue.Key AS a_1,
+      KeyValue.Value AS a_2
+    FROM
+      KeyValue
+    FOR UPDATE
+  ) AS keyvalue_3
+ORDER BY keyvalue_3.a_1
+LIMIT 3 OFFSET 1;
+==
+
+# Set operation with FOR UPDATE in LHS query.
+(select key from KeyValue kv1 for update)
+union all
+select key from KeyValue kv2
+--
+[UNPARSED_SQL]
+(
+SELECT
+  KeyValue.Key AS key
+FROM
+  KeyValue
+FOR UPDATE) UNION ALL(
+SELECT
+  KeyValue.Key AS a_2
+FROM
+  KeyValue
+);
+==
+
+# Set operation with FOR UPDATE in RHS query.
+select key from KeyValue kv1
+union all
+(select key from KeyValue kv2 for update)
+--
+[UNPARSED_SQL]
+(
+SELECT
+  KeyValue.Key AS key
+FROM
+  KeyValue
+) UNION ALL(
+SELECT
+  KeyValue.Key AS a_2
+FROM
+  KeyValue
+FOR UPDATE);
+==
+
+# Set operation with FOR UPDATE binding to outer query that contains the set
+# operations.
+select key from KeyValue kv1
+union all select key from KeyValue kv2
+for update
+--
+[UNPARSED_SQL]
+(
+SELECT
+  KeyValue.Key AS key
+FROM
+  KeyValue
+FOR UPDATE) UNION ALL(
+SELECT
+  KeyValue.Key AS a_2
+FROM
+  KeyValue
+FOR UPDATE);
+==
+
+# Equivalent to previous query but with explicit paranthesis.
+(
+  select key from KeyValue kv1
+  union all
+  select key from KeyValue kv2
+)
+for update
+--
+[UNPARSED_SQL]
+(
+SELECT
+  KeyValue.Key AS key
+FROM
+  KeyValue
+FOR UPDATE) UNION ALL(
+SELECT
+  KeyValue.Key AS a_2
+FROM
+  KeyValue
+FOR UPDATE);
+==
+
+# FOR UPDATE binding to the outer query representing the set operation but also
+# with ORDER BY and LIMIT.
+select key from KeyValue kv1
+union all
+select key from KeyValue kv2
+order by key
+limit 5
+for update
+--
+[UNPARSED_SQL]
+SELECT
+  setoperationscan_3.a_1 AS key
+FROM
+  ((
+    SELECT
+      KeyValue.Key AS a_1
+    FROM
+      KeyValue
+    FOR UPDATE) UNION ALL(
+    SELECT
+      KeyValue.Key AS a_2
+    FROM
+      KeyValue
+    FOR UPDATE)
+  ) AS setoperationscan_3
+ORDER BY setoperationscan_3.a_1
+LIMIT 5;
+==
+
+# FOR UPDATE binding to the outer query representing three set operations.
+select key from KeyValue kv1
+union all
+select key from KeyValue kv2
+union all
+select key from TestTable
+for update
+--
+[UNPARSED_SQL]
+(
+SELECT
+  KeyValue.Key AS key
+FROM
+  KeyValue
+FOR UPDATE) UNION ALL(
+SELECT
+  KeyValue.Key AS a_2
+FROM
+  KeyValue
+FOR UPDATE) UNION ALL(
+SELECT
+  CAST(projectscan_4.a_3 AS INT64) AS a_5
+FROM
+  (
+    SELECT
+      TestTable.key AS a_3
+    FROM
+      TestTable
+    FOR UPDATE
+  ) AS projectscan_4
+);
+==
+
+# FOR UPDATE binding to the outer query representing three set operations but
+# two are parenthesized.
+(select key from KeyValue kv1
+ union all
+ select key from KeyValue kv2
+)
+except all
+select key from TestTable
+for update
+--
+[UNPARSED_SQL]
+((
+SELECT
+  KeyValue.Key AS key
+FROM
+  KeyValue
+FOR UPDATE) UNION ALL(
+SELECT
+  KeyValue.Key AS a_2
+FROM
+  KeyValue
+FOR UPDATE)) EXCEPT ALL(
+SELECT
+  CAST(projectscan_4.a_3 AS INT64) AS a_5
+FROM
+  (
+    SELECT
+      TestTable.key AS a_3
+    FROM
+      TestTable
+    FOR UPDATE
+  ) AS projectscan_4
+);
+==
+
+# FOR UPDATE binding to the parenthesized query of set operations.
+# The lock mode will appear in all the inner quries of the parenthesized
+# query but not in the set operation in the outer query.
+(select key from KeyValue kv1
+ union all
+ select key from KeyValue kv2
+ for update
+)
+except all
+select key from TestTable
+--
+[UNPARSED_SQL]
+((
+SELECT
+  KeyValue.Key AS key
+FROM
+  KeyValue
+FOR UPDATE) UNION ALL(
+SELECT
+  KeyValue.Key AS a_2
+FROM
+  KeyValue
+FOR UPDATE)) EXCEPT ALL(
+SELECT
+  CAST(projectscan_4.a_3 AS INT64) AS a_5
+FROM
+  (
+    SELECT
+      TestTable.key AS a_3
+    FROM
+      TestTable
+  ) AS projectscan_4
+);
+==
+
+# FOR UPDATE on a query that joins a table to the output of a set operation.
+# The FOR UPDATE in the outer query is propagated to all the subqueries.
+select kv4.key, kv3.key
+from
+  (
+    select key from KeyValue kv1
+    union all
+    select key from KeyValue kv2
+  ) as kv3,
+  KeyValue as kv4
+for update
+--
+[UNPARSED_SQL]
+SELECT
+  keyvalue_5.a_4 AS key,
+  setoperationscan_3.a_1 AS key
+FROM
+  ((
+    SELECT
+      KeyValue.Key AS a_1
+    FROM
+      KeyValue
+    FOR UPDATE) UNION ALL(
+    SELECT
+      KeyValue.Key AS a_2
+    FROM
+      KeyValue
+    FOR UPDATE)
+  ) AS setoperationscan_3
+  CROSS JOIN
+  (
+    SELECT
+      KeyValue.Key AS a_4
+    FROM
+      KeyValue
+    FOR UPDATE
+  ) AS keyvalue_5;
+==
+
+# FOR UPDATE scoped to correlated subquery.
+select key, value
+from KeyValue as kv
+where key >= (
+  select key from KeyValue where key = kv.key for update
+)
+--
+[UNPARSED_SQL]
+SELECT
+  KeyValue.Key AS key,
+  KeyValue.Value AS value
+FROM
+  KeyValue
+WHERE
+  (KeyValue.Key) >= (
+    SELECT
+      KeyValue.Key AS a_3
+    FROM
+      KeyValue
+    WHERE
+      (KeyValue.Key) = (KeyValue.Key)
+    FOR UPDATE);
+==
+
+# FOR UPDATE on the outer query with a correlated subquery.
+select key, value
+from KeyValue as kv
+where key >= (select key from KeyValue where key = kv.key)
+for update
+--
+[UNPARSED_SQL]
+SELECT
+  KeyValue.Key AS key,
+  KeyValue.Value AS value
+FROM
+  KeyValue
+WHERE
+  (KeyValue.Key) >= (
+    SELECT
+      KeyValue.Key AS a_3
+    FROM
+      KeyValue
+    WHERE
+      (KeyValue.Key) = (KeyValue.Key)
+  )
+FOR UPDATE;
+==
+
+# FOR UPDATE scoped to a subquery of a FROM clause.
+select key
+from (
+  select * from KeyValue for update
+  ) as kv
+--
+[UNPARSED_SQL]
+SELECT
+  projectscan_3.a_1 AS key
+FROM
+  (
+    SELECT
+      KeyValue.Key AS a_1,
+      KeyValue.Value AS a_2
+    FROM
+      KeyValue
+    FOR UPDATE
+  ) AS projectscan_3;
+==
+
+# FOR UPDATE scoped to the outer query with a subquery.
+select key
+from (select * from KeyValue) as kv
+for update
+--
+[UNPARSED_SQL]
+SELECT
+  projectscan_3.a_1 AS key
+FROM
+  (
+    SELECT
+      KeyValue.Key AS a_1,
+      KeyValue.Value AS a_2
+    FROM
+      KeyValue
+    FOR UPDATE
+  ) AS projectscan_3;
+==
+
+# FOR UPDATE on the outer query should apply to outer TableScan and
+# also propagate to inner TableScan as it's a table subquery.
+select
+  kv1.key,
+  kv2.key
+from
+  (
+    select key from KeyValue
+  ) as kv1,
+  keyValue kv2
+for update
+--
+[UNPARSED_SQL]
+SELECT
+  projectscan_2.a_1 AS key,
+  keyvalue_4.a_3 AS key
+FROM
+  (
+    SELECT
+      KeyValue.Key AS a_1
+    FROM
+      KeyValue
+    FOR UPDATE
+  ) AS projectscan_2
+  CROSS JOIN
+  (
+    SELECT
+      KeyValue.Key AS a_3
+    FROM
+      KeyValue
+    FOR UPDATE
+  ) AS keyvalue_4;
+==
+
+# FOR UPDATE is scoped to an expression subquery.
+select *
+from KeyValue
+where key = (
+  select key from TestTable where key > 10 for update
+)
+--
+[UNPARSED_SQL]
+SELECT
+  KeyValue.Key AS Key,
+  KeyValue.Value AS Value
+FROM
+  KeyValue
+WHERE
+  (KeyValue.Key) = CAST((
+    SELECT
+      TestTable.key AS a_3
+    FROM
+      TestTable
+    WHERE
+      (TestTable.key) > CAST(10 AS INT32)
+    FOR UPDATE) AS INT64);
+==
+
+# FOR UPDATE is scoped to the outer query with an expression subquery.
+select *
+from KeyValue
+where key = (
+  select key from TestTable where key > 10
+)
+for update
+--
+[UNPARSED_SQL]
+SELECT
+  KeyValue.Key AS Key,
+  KeyValue.Value AS Value
+FROM
+  KeyValue
+WHERE
+  (KeyValue.Key) = CAST((
+    SELECT
+      TestTable.key AS a_3
+    FROM
+      TestTable
+    WHERE
+      (TestTable.key) > CAST(10 AS INT32)
+  ) AS INT64)
+FOR UPDATE;
+==
+
+# FOR UPDATE in outer query shouldn't propagate to expression subquery SELECT
+# clause.
+select
+  key,
+  (select value from TestTable where TestTable.key = KeyValue.key) as value
+from
+  KeyValue
+for update
+--
+[UNPARSED_SQL]
+SELECT
+  keyvalue_3.a_1 AS key,
+  (
+    SELECT
+      keyvalue_3.a_2 AS a_6
+    FROM
+      TestTable
+    WHERE
+      CAST(TestTable.key AS INT64) = (keyvalue_3.a_1)
+  ) AS value
+FROM
+  (
+    SELECT
+      KeyValue.Key AS a_1,
+      KeyValue.Value AS a_2
+    FROM
+      KeyValue
+    FOR UPDATE
+  ) AS keyvalue_3;
+==
+
+# FOR UPDATE in the CTE subquery.
+with t as (
+  select key from KeyValue for update
+)
+select * from t
+--
+[UNPARSED_SQL]
+WITH
+  t AS (
+    SELECT
+      KeyValue.Key AS a_1
+    FROM
+      KeyValue
+    FOR UPDATE
+  )
+SELECT
+  withrefscan_2.a_1 AS key
+FROM
+  t AS withrefscan_2;
+==
+
+# FOR UPDATE in the outer query doesn't propagate down to TableScan nodes so
+# unparsed query doesn't have to have the FOR UPDATE.
+with t as (
+  select key from KeyValue
+)
+select *
+from t
+for update
+--
+[UNPARSED_SQL]
+WITH
+  t AS (
+    SELECT
+      KeyValue.Key AS a_1
+    FROM
+      KeyValue
+  )
+SELECT
+  withrefscan_2.a_1 AS key
+FROM
+  t AS withrefscan_2;
+==
+
+# FOR UPDATE in the CTE query and outer query is equivalent to not having FOR
+# UPDATE in the outer query.
+with t as (
+  select key from KeyValue for update
+)
+select *
+from t
+for update
+--
+[UNPARSED_SQL]
+WITH
+  t AS (
+    SELECT
+      KeyValue.Key AS a_1
+    FROM
+      KeyValue
+    FOR UPDATE
+  )
+SELECT
+  withrefscan_2.a_1 AS key
+FROM
+  t AS withrefscan_2;
+==
+
+# FOR UPDATE should apply to kv2 TableScan but not to the TableScan in the CTE
+# query.
+with kv1 as (
+  select key from KeyValue
+)
+select kv1.key
+from
+  KeyValue kv2
+  join
+  kv1
+  on kv1.key = kv2.key
+for update
+--
+[UNPARSED_SQL]
+WITH
+  kv1 AS (
+    SELECT
+      KeyValue.Key AS a_1
+    FROM
+      KeyValue
+  )
+SELECT
+  withrefscan_4.a_1 AS key
+FROM
+  (
+    SELECT
+      KeyValue.Key AS a_2
+    FROM
+      KeyValue
+    FOR UPDATE
+  ) AS keyvalue_3
+  INNER JOIN
+  (
+    SELECT
+      withrefscan_4.a_1 AS a_1
+    FROM
+      kv1 AS withrefscan_4
+  ) AS withrefscan_4
+  ON (withrefscan_4.a_1) = (keyvalue_3.a_2);
+==
+
+# FOR UPDATE doesn't need to appear in the unparsed query as it shouldn't
+# propagate past the WITH statement.
+[language_features=V_1_4_FOR_UPDATE,V_1_1_WITH_ON_SUBQUERY]
+select *
+from (
+  with kv1 as (
+    select key from KeyValue
+  )
+  select * from kv1
+)
+for update
+--
+[UNPARSED_SQL]
+WITH
+  kv1 AS (
+    SELECT
+      KeyValue.Key AS a_1
+    FROM
+      KeyValue
+  )
+SELECT
+  withrefscan_2.a_1 AS key
+FROM
+  kv1 AS withrefscan_2;
+==

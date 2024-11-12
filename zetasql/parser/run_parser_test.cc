@@ -103,6 +103,8 @@ class RunParserTest : public ::testing::Test {
   // Indicates that QUALIFY is a reserved keyword.
   const std::string kQualifyReserved = "qualify_reserved";
   const std::string kReserveMatchRecognize = "reserve_match_recognize";
+  // Reserves the GRAPH_TABLE keyword.
+  const std::string kReserveGraphTable = "reserve_graph_table";
   // Show the text of the SQL fragment for each parse location, rather than only
   // the integer range.
   const std::string kShowParseLocationText = "show_parse_location_text";
@@ -117,6 +119,7 @@ class RunParserTest : public ::testing::Test {
       test_case_options_.RegisterBool(kTestUnparse, true);
       test_case_options_.RegisterBool(kQualifyReserved, true);
       test_case_options_.RegisterBool(kReserveMatchRecognize, true);
+      test_case_options_.RegisterBool(kReserveGraphTable, false);
       test_case_options_.RegisterString(kSupportedGenericEntityTypes, "");
       test_case_options_.RegisterString(kSupportedGenericSubEntityTypes, "");
       test_case_options_.RegisterBool(kShowParseLocationText, true);
@@ -607,6 +610,9 @@ class RunParserTest : public ::testing::Test {
     if (test_case_options_.GetBool(kReserveMatchRecognize)) {
       ZETASQL_EXPECT_OK(language_options_->EnableReservableKeyword("MATCH_RECOGNIZE"));
     }
+    if (test_case_options_.GetBool(kReserveGraphTable)) {
+      ZETASQL_EXPECT_OK(language_options_->EnableReservableKeyword("GRAPH_TABLE"));
+    }
 
     std::string entity_types_config =
         test_case_options_.GetString(kSupportedGenericEntityTypes);
@@ -748,8 +754,9 @@ class RunParserTest : public ::testing::Test {
         // errors with sources to begin with.
         EXPECT_EQ(mode, "script") << "Error source without script mode";
         ZETASQL_ASSERT_OK_AND_ASSIGN(ParserOptions parser_options, GetParserOptions());
-        out_status = ParseAndValidateScript(test_case, parser_options,
-                                            ERROR_MESSAGE_MULTI_LINE_WITH_CARET)
+        out_status = ParseAndValidateScript(
+                         test_case, parser_options,
+                         {.mode = ERROR_MESSAGE_MULTI_LINE_WITH_CARET}, {})
                          .status();
 
       } else {
@@ -898,11 +905,14 @@ class RunParserTest : public ::testing::Test {
     if (mode == "statement") {
       ZETASQL_RETURN_IF_ERROR(ParseStatement(test_case, parser_options, parser_output));
     } else if (mode == "script") {
-      ZETASQL_RETURN_IF_ERROR(ParseScript(
-          test_case, parser_options, ERROR_MESSAGE_WITH_PAYLOAD,
-          /*keep_error_location_payload=*/ERROR_MESSAGE_WITH_PAYLOAD ==
-              ErrorMessageMode::ERROR_MESSAGE_WITH_PAYLOAD,
-          parser_output));
+      ZETASQL_RETURN_IF_ERROR(
+          ParseScript(test_case, parser_options,
+                      {.mode = ERROR_MESSAGE_WITH_PAYLOAD,
+                       .attach_error_location_payload =
+                           (ERROR_MESSAGE_WITH_PAYLOAD ==
+                            ErrorMessageMode::ERROR_MESSAGE_WITH_PAYLOAD),
+                       .stability = GetDefaultErrorMessageStability()},
+                      parser_output));
     } else if (mode == "expression") {
       ZETASQL_ASSIGN_OR_RETURN(ParserOptions expr_parser_options, GetParserOptions());
       ZETASQL_RETURN_IF_ERROR(

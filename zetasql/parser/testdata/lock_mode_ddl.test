@@ -1,0 +1,64 @@
+# Tests for the FOR UPDATE clause in queries within DDL statements.
+
+[default language_features=V_1_4_FOR_UPDATE]
+
+create {{|or replace }}{{view|materialized view}} v1 as (select * from t where a=1 for update);
+--
+ALTERNATION GROUP: view
+--
+ERROR: Syntax error: Unexpected lock mode in query [at 1:19]
+create view v1 as (select * from t where a=1 for update);
+                  ^
+--
+ALTERNATION GROUP: materialized view
+--
+ERROR: Syntax error: Unexpected lock mode in query [at 1:32]
+create materialized view v1 as (select * from t where a=1 for update);
+                               ^
+--
+ALTERNATION GROUP: or replace ,view
+--
+ERROR: Syntax error: Unexpected lock mode in query [at 1:30]
+create or replace view v1 as (select * from t where a=1 for update);
+                             ^
+--
+ALTERNATION GROUP: or replace ,materialized view
+--
+ERROR: Syntax error: Unexpected lock mode in query [at 1:43]
+create or replace materialized view v1 as (select * from t where a=1 for upda...
+                                          ^
+==
+
+# Invalid syntax to have FOR UPDATE in CREATE TABLE.
+create table t as (select * from t1 where a=1 for update);
+--
+ERROR: Syntax error: Unexpected lock mode in query [at 1:19]
+create table t as (select * from t1 where a=1 for update);
+                  ^
+==
+
+# Invalid syntax to have FOR UPDATE in a query of CREATE TABLE FUNCTION.
+create table function t1() as select * from t2 for update;
+--
+ERROR: Syntax error: Unexpected lock mode in query [at 1:31]
+create table function t1() as select * from t2 for update;
+                              ^
+==
+
+# Invalid syntax to have FOR UPDATE in a query of CREATE MODEL.
+create model t1 as select * from t2 for update;
+--
+ERROR: Syntax error: Unexpected lock mode in query [at 1:20]
+create model t1 as select * from t2 for update;
+                   ^
+==
+
+# Invalid syntax to have FOR UPDATE in a query in a function body.
+create {{|aggregate }}function sql_func(x int32 as type_alias, y type_alias)
+  returns int32 as ((select cast(1 as type_alias) + x - y for update));
+--
+ERROR: Syntax error: Unexpected lock mode in function body query [at 2:20]
+  returns int32 as ((select cast(1 as type_alias) + x - y for update));
+                   ^
+==
+

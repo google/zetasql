@@ -16,14 +16,22 @@
 
 #include "zetasql/scripting/script_executor.h"
 
+#include <cstdint>
 #include <memory>
 #include <optional>
 
+#include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parser.h"
+#include "zetasql/public/analyzer_options.h"
+#include "zetasql/public/value.h"
 #include "zetasql/scripting/error_helpers.h"
+#include "zetasql/scripting/parsed_script.h"
 #include "zetasql/scripting/script_executor_impl.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 

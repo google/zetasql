@@ -842,10 +842,10 @@ AlterRowAccessPolicyStmt
 ==
 
 # Alter row access policy on unknown table.
-alter row access policy p1 on unknown rename to p2;
+alter row access policy p1 on non_existent rename to p2;
 --
-ERROR: Table not found: unknown [at 1:31]
-alter row access policy p1 on unknown rename to p2;
+ERROR: Table not found: non_existent [at 1:31]
+alter row access policy p1 on non_existent rename to p2;
                               ^
 ==
 

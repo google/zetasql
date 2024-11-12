@@ -25,7 +25,7 @@ option cc_enable_arenas = true;
 option java_package = "com.google.zetasql";
 option java_outer_classname = "ZetaSQLType";
 
-// NEXT_ID: 34
+// NEXT_ID: 36
 enum TypeKind {
   // User code that switches on this enum must have a default case so
   // builds won't break if new enums get added.
@@ -47,6 +47,7 @@ enum TypeKind {
   TYPE_BYTES = 9;
   TYPE_DATE = 10;
   TYPE_TIMESTAMP = 19;
+  TYPE_TIMESTAMP_PICOS = 35;
   TYPE_ENUM = 15;
   TYPE_ARRAY = 16;
   TYPE_STRUCT = 17;
@@ -80,11 +81,19 @@ enum TypeKind {
   // RANGE type is controlled by FEATURE_RANGE_TYPE
   TYPE_RANGE = 29;
 
+  // GRAPH_ELEMENT type is controlled by FEATURE_V_1_4_SQL_GRAPH
+  TYPE_GRAPH_ELEMENT = 30;
+  // GRAPH_ELEMENT type is controlled by FEATURE_V_1_4_SQL_GRAPH_PATH_TYPE
+  TYPE_GRAPH_PATH = 33;
+
   // MAP type is controlled by FEATURE_MAP_TYPE
   TYPE_MAP = 31;
 
   // UUID type is controlled by FEATURE_V_1_4_UUID_TYPE
   TYPE_UUID = 32;
+
+  // MEASURE type is controlled by FEATURE_V_1_4_ENABLE_MEASURES
+  TYPE_MEASURE = 34;
 }
 //
 // This represents the serialized form of the zetasql::Type.
@@ -98,7 +107,10 @@ message TypeProto {
   optional ProtoTypeProto proto_type = 4;
   optional EnumTypeProto enum_type = 5;
   optional RangeTypeProto range_type = 8;
+  optional GraphElementTypeProto graph_element_type = 9;
+  optional GraphPathTypeProto graph_path_type = 11;
   optional MapTypeProto map_type = 10;
+  optional MeasureTypeProto measure_type = 12;
 
   // These <file_descriptor_set>s may (optionally) be populated only for
   // the 'outermost' TypeProto when serializing a ZetaSQL Type,
@@ -200,5 +212,35 @@ extend google.protobuf.EnumValueOptions {
   optional OpaqueEnumValueOptions opaque_enum_value_options = 474580774;
 }
 
+message GraphElementTypeProto {
+  enum ElementKind {
+    KIND_INVALID = 0;
+    KIND_NODE = 1;
+    KIND_EDGE = 2;
+  }
+
+  message PropertyTypeProto {
+    optional string name = 1;
+    optional TypeProto value_type = 2;
+  }
+
+  optional ElementKind kind = 1;
+  repeated PropertyTypeProto property_type = 2;
+  reserved 3;  // was graph_full_name.
+  repeated string graph_reference = 4;
+}
+
+message GraphPathTypeProto {
+  // The underlying graph_reference of node_type and edge_type must be the same.
+  // Supertype of all nodes in this path. The node_type's ElementKind must be
+  // KIND_NODE.
+  optional GraphElementTypeProto node_type = 1;
+  // Supertype of all edges in this path. The edge_type's ElementKind must be
+  // KIND_EDGE.
+  optional GraphElementTypeProto edge_type = 2;
+}
+
 message MeasureTypeProto {
+  // Type produced when the measure is evaluated with the `AGGREGATE` function.
+  optional TypeProto result_type = 1;
 }

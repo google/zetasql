@@ -219,7 +219,7 @@ class StructType : public ListBackedType {
   // The key to the map is casefolded (lowercase) normalized representation of
   // the field name so it should not be exposed outside this class.
   mutable absl::Mutex mutex_;
-  mutable absl::flat_hash_map<const std::string, int> field_name_to_index_map_
+  mutable absl::flat_hash_map<std::string, int> field_name_to_index_map_
       ABSL_GUARDED_BY(mutex_);
 
   friend class TypeFactory;

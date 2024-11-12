@@ -23,6 +23,7 @@ import static com.google.zetasql.TypeTestBase.getDescriptorPoolWithTypeProtoAndT
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
 import com.google.common.testing.SerializableTester;
@@ -46,6 +47,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -2253,6 +2255,98 @@ public class ValueTest {
   }
 
   @Test
+  public void testMapValue() {
+    MapType mapType =
+        TypeFactory.createMapType(
+            TypeFactory.createSimpleType(TypeKind.TYPE_STRING),
+            TypeFactory.createSimpleType(TypeKind.TYPE_INT32));
+
+    Map<Value, Value> mapEntriesEmpty = new HashMap<>();
+
+    Map<Value, Value> mapEntries1 = new HashMap<>();
+    mapEntries1.put(Value.createStringValue("foo"), Value.createInt32Value(1));
+    mapEntries1.put(Value.createStringValue("bar"), Value.createInt32Value(2));
+    mapEntries1.put(Value.createStringValue("baz"), Value.createInt32Value(3));
+    mapEntries1.put(
+        Value.createSimpleNullValue(TypeKind.TYPE_STRING),
+        Value.createSimpleNullValue(TypeKind.TYPE_INT32));
+
+    Map<Value, Value> mapEntries2 = new HashMap<>();
+    mapEntries2.put(Value.createStringValue("foo"), Value.createInt32Value(1));
+    mapEntries2.put(Value.createStringValue("bar"), Value.createInt32Value(2));
+    mapEntries2.put(Value.createStringValue("baz"), Value.createInt32Value(3));
+    mapEntries2.put(
+        Value.createSimpleNullValue(TypeKind.TYPE_STRING),
+        Value.createSimpleNullValue(TypeKind.TYPE_INT32));
+
+    Value mapValueNull = Value.createNullValue(mapType);
+    Value mapValueEmpty = Value.createMapValue(mapType, mapEntriesEmpty);
+    Value mapValue1 = Value.createMapValue(mapType, mapEntries1);
+    Value mapValue2 = Value.createMapValue(mapType, mapEntries2);
+
+    assertThat(mapValueNull.isNull()).isTrue();
+    assertThat(mapValueEmpty.isNull()).isFalse();
+
+    assertThat(mapValueNull).isEqualTo(Value.createNullValue(mapType));
+    assertThat(mapValueNull).isNotEqualTo(mapValueEmpty);
+    assertThat(mapValueEmpty.getMapEntriesCount()).isEqualTo(0);
+
+    assertThat(mapValue2.isNull()).isFalse();
+    assertThat(mapValue1).isEqualTo(mapValue2);
+
+    assertThat(mapValue1.getMapEntries()).isEqualTo(mapEntries2);
+    assertThat(mapValue2.getMapEntries()).isEqualTo(mapEntries1);
+    assertThat(mapValue1.getMapEntriesCount()).isEqualTo(4);
+    assertThat(mapValue2.getMapEntriesCount()).isEqualTo(4);
+
+    checkSerializeAndDeserialize(mapValue1, mapValue2);
+    checkSerializeAndDeserialize(mapValueNull);
+    checkSerializeAndDeserialize(mapValueEmpty);
+    checkSerializeAndDeserialize(mapValue1);
+    checkSerializeAndDeserialize(mapValue2);
+  }
+
+  @Test
+  public void testMapValueNested() {
+    StructType structType =
+        TypeFactory.createStructType(
+            ImmutableList.of(
+                new StructType.StructField(
+                    "struct_field", TypeFactory.createSimpleType(TypeKind.TYPE_INT32))));
+    ArrayType arrayType = TypeFactory.createArrayType(structType);
+    MapType innerMapType =
+        TypeFactory.createMapType(TypeFactory.createSimpleType(TypeKind.TYPE_STRING), arrayType);
+    MapType mapType =
+        TypeFactory.createMapType(TypeFactory.createSimpleType(TypeKind.TYPE_STRING), innerMapType);
+
+    ImmutableMap<Value, Value> mapEntriesEmpty = ImmutableMap.of();
+    Value mapValueEmpty = Value.createMapValue(mapType, mapEntriesEmpty);
+
+    ImmutableMap<Value, Value> mapEntries =
+        ImmutableMap.of(
+            Value.createStringValue("foo"),
+            Value.createMapValue(
+                innerMapType,
+                ImmutableMap.of(
+                    Value.createStringValue("bar"),
+                    Value.createArrayValue(
+                        arrayType,
+                        ImmutableList.of(
+                            Value.createStructValue(
+                                structType, ImmutableList.of(Value.createInt32Value(1))))))));
+    Value mapValue = Value.createMapValue(mapType, mapEntries);
+
+    checkSerializeAndDeserialize(mapValueEmpty);
+    checkSerializeAndDeserialize(mapValue);
+
+    assertThat(mapValueEmpty.getMapEntriesCount()).isEqualTo(0);
+    assertThat(mapValue.getMapEntriesCount()).isEqualTo(1);
+
+    assertThat(mapValueEmpty.getMapEntries()).isEqualTo(mapEntriesEmpty);
+    assertThat(mapValue.getMapEntries()).isEqualTo(mapEntries);
+  }
+
+  @Test
   public void testJSONValue() throws IOException {
     Value jsonValue = Value.createJsonValue("123");
 
@@ -2703,6 +2797,11 @@ public class ValueTest {
     assertThat(structNull.getType()).isEqualTo(structType);
     assertThat(valueProtoFromText("")).isEqualTo(structNull.getProto());
 
+    MapType mapType =
+        TypeFactory.createMapType(
+            TypeFactory.createSimpleType(TypeKind.TYPE_STRING),
+            TypeFactory.createSimpleType(TypeKind.TYPE_INT32));
+    Value mapNull = Value.createNullValue(mapType);
     checkSerializeAndDeserialize(int32Null, Value.createNullValue(int32));
     checkSerializeAndDeserialize(enumNull, Value.createNullValue(typeKindEnum));
     checkSerializeAndDeserialize(protoNull, Value.createNullValue(typeProto));
@@ -2712,6 +2811,7 @@ public class ValueTest {
     checkSerializeAndDeserialize(protoNull);
     checkSerializeAndDeserialize(protoNull2);
     checkSerializeAndDeserialize(arrayNull);
+    checkSerializeAndDeserialize(mapNull);
   }
 
   @Test
@@ -2988,6 +3088,51 @@ public class ValueTest {
       fail();
     } catch (IllegalArgumentException expected) {
     }
+
+    MapType testMapType =
+        TypeFactory.createMapType(
+            TypeFactory.createSimpleType(TypeKind.TYPE_STRING),
+            TypeFactory.createSimpleType(TypeKind.TYPE_INT32));
+    {
+      Exception thrown =
+          assertThrows(
+              IllegalArgumentException.class,
+              () -> Value.deserialize(testMapType, valueProtoFromText("int32_value: 1")));
+      assertThat(thrown).hasMessageThat().contains("MAP<STRING, INT32> but proto <int32_value");
+    }
+    {
+      Exception thrown =
+          assertThrows(
+              IllegalArgumentException.class,
+              () ->
+                  Value.deserialize(
+                      testMapType,
+                      valueProtoFromText(
+                          "map_value { entry { key { int64_value: 1 } value { int32_value: 1 }"
+                              + " } }")));
+      assertThat(thrown).hasMessageThat().contains("STRING but proto <int64_value");
+    }
+    {
+      Exception thrown =
+          assertThrows(
+              IllegalArgumentException.class,
+              () ->
+                  Value.deserialize(
+                      testMapType,
+                      valueProtoFromText(
+                          "map_value { entry { key { string_value: 'foo' } value { string_value:"
+                              + " 'bar' } } }")));
+      assertThat(thrown).hasMessageThat().contains("INT32 but proto <string_value");
+    }
+
+    try {
+      Value.deserialize(
+          testMapType,
+          valueProtoFromText(
+              "map_value { entry { key { string_value: 'foo' } value { int32_value: 1 } } }"));
+    } catch (IllegalArgumentException e) {
+      fail(e.toString());
+    }
   }
 
   @Test
@@ -3005,11 +3150,12 @@ public class ValueTest {
 
   @Test
   public void testClassAndProtoSize() {
+    // TODO: Add Java serialization support for TIMESTAMP_PICO type.
     assertWithMessage(
             "The number of fields of ValueProto has changed, "
                 + "please also update the serialization code accordingly.")
         .that(ValueProto.getDescriptor().getFields())
-        .hasSize(26);
+        .hasSize(28);
     assertWithMessage(
             "The number of fields of ValueProto::Array has changed, "
                 + "please also update the serialization code accordingly.")
@@ -3026,10 +3172,20 @@ public class ValueTest {
         .that(ValueProto.Range.getDescriptor().getFields())
         .hasSize(2);
     assertWithMessage(
+            "The number of fields of ValueProto::Map has changed, "
+                + "please also update the serialization code accordingly.")
+        .that(ValueProto.Map.getDescriptor().getFields())
+        .hasSize(1);
+    assertWithMessage(
+            "The number of fields of ValueProto::MapEntry has changed, "
+                + "please also update the serialization code accordingly.")
+        .that(ValueProto.MapEntry.getDescriptor().getFields())
+        .hasSize(2);
+    assertWithMessage(
             "The number of fields in Value class has changed, "
                 + "please also update the proto and serialization code accordingly.")
         .that(TestUtil.getNonStaticFieldCount(Value.class))
-        .isEqualTo(10);
+        .isEqualTo(11);
   }
 
   @Test

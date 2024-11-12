@@ -620,7 +620,7 @@ format_model:
 The format clause can be used in some [`CAST` functions][cast-functions]. You
 use a format clause to provide instructions for how to conduct a
 cast. For example, you could
-instruct a cast to convert a sequence of bytes to a BASE64-encoded string
+instruct a cast to convert a sequence of bytes to a base64-encoded string
 instead of a UTF-8-encoded string.
 
 The format clause includes a format model. The format model can contain
@@ -675,7 +675,7 @@ result is `NULL`. Format elements are case-insensitive.
       <td>BASE64M</td>
       <td>
         Converts a sequence of bytes into a
-        <a href="#about_basex_encoding">BASE64</a>-encoded string based on
+        <a href="#about_basex_encoding">base64</a>-encoded string based on
         <a href="https://tools.ietf.org/html/rfc2045#section-6.8">rfc 2045</a>
         for MIME. Generates a newline character ("\n") every 76 characters.
       </td>
@@ -779,7 +779,7 @@ if the `BASE64` or `BASE64M` format element is used.
         bytes.  X represents one of these numbers: 2, 8, 16, 32, 64. An error
         is returned if the input contains characters that are not part of the
         BASEX encoding alphabet, except whitespace characters if the
-        format element is BASE64.
+        format element is <code>BASE64</code>.
       </td>
       <td>
         Input as BASE8: '00410473'<br />
@@ -789,12 +789,12 @@ if the `BASE64` or `BASE64M` format element is used.
     <tr>
       <td>BASE64M</td>
       <td>
-        Converts a <a href="#about_basex_encoding">BASE64</a>-encoded string to
+        Converts a <a href="#about_basex_encoding">base64</a>-encoded string to
         bytes. If the input contains characters that are not whitespace and not
-        part of the BASE64 encoding alphabet defined at
+        part of the base64 encoding alphabet defined at
         <a href="https://tools.ietf.org/html/rfc2045#section-6.8">rfc 2045</a>,
-        an error is returned. BASE64M and BASE64 decoding have the same
-        behavior.
+        an error is returned. <code>BASE64M</code> and <code>BASE64</code>
+        decoding have the same behavior.
       </td>
       <td>
         Input: '3q2+7w=='<br />
@@ -842,6 +842,8 @@ if the `BASE64` or `BASE64M` format element is used.
 
 ```sql
 SELECT CAST('Hello' AS BYTES FORMAT 'ASCII') AS string_to_bytes
+
+-- Displays the bytes output value (b'\x48\x65\x6c\x6c\x6f').
 
 /*-------------------------*
  | string_to_bytes         |

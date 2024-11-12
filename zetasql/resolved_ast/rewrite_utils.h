@@ -18,20 +18,28 @@
 #define ZETASQL_RESOLVED_AST_REWRITE_UTILS_H_
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
 #include "zetasql/analyzer/annotation_propagator.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/builtin_function.pb.h"
+#include "zetasql/public/catalog.h"
 #include "zetasql/public/coercer.h"
+#include "zetasql/public/function.h"
+#include "zetasql/public/functions/differential_privacy.pb.h"
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/column_factory.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_node.h"
+#include "absl/base/nullability.h"
+#include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
@@ -314,6 +322,19 @@ class FunctionCallBuilder {
       std::vector<std::unique_ptr<const ResolvedExpr>> elements,
       bool cast_elements_if_needed = false);
 
+  // Constructs a ResolvedFunctionCall for ARRAY_FIRST_N function which
+  // returns first `n` elements from `array`.
+  //
+  // Requires:
+  // - `array` is ARRAY<T>.
+  // - `n` is INT64.
+  //
+  // The signature for the built-in function "array_first_n" must be
+  // available in <catalog> or an error status is returned.
+  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> ArrayFirstN(
+      std::unique_ptr<const ResolvedExpr> array,
+      std::unique_ptr<const ResolvedExpr> n);
+
   // Constructs a ResolvedFunctionCall for ARRAY_CONCAT(arrays...)
   //
   // Requires: Each array must have the same type. There must be at least one
@@ -514,6 +535,32 @@ class FunctionCallBuilder {
   NestedBinaryInt64Add(
       std::vector<std::unique_ptr<const ResolvedExpr>> expressions);
 
+  // Construct a ResolvedFunctionCall for
+  //  <node_expr> IS SOURCE|DESTINATION OF <edge_expr>
+  // based on <is_source_node_predicate>.
+  //
+  // Requires: node_expr is of GraphElementType(node) AND
+  //           edge_expr is of GraphElementType(edge)
+  //
+  // The signature for the built-in function "$is_source_node" or
+  // "$is_dest_node" must be available in <catalog> or an error status is
+  // returned.
+  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> IsNodeEndpoint(
+      std::unique_ptr<const ResolvedExpr> node_expr,
+      std::unique_ptr<const ResolvedExpr> edge_expr,
+      bool is_source_node_predicate);
+
+  // Construct a ResolvedFunctionCall for the conjunction of
+  // $equal(expressions[0], x) for x in expressions[1:].
+  //
+  // Requires: N >= 2 and all expressions return GraphElementType.
+  //
+  // The signature for the built-in function "$equal" must be available in
+  // <catalog> or an error status is returned.
+  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>>
+  AreEqualGraphElements(
+      std::vector<std::unique_ptr<const ResolvedExpr>> element_expressions);
+
   // Construct a ResolvedFunctionCall for ARRAY_LENGTH(array_expr).
   //
   // Requires: array_expr is of ARRAY<T> type.
@@ -537,6 +584,21 @@ class FunctionCallBuilder {
   absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> ArrayAtOffset(
       std::unique_ptr<const ResolvedExpr> array_expr,
       std::unique_ptr<const ResolvedExpr> offset_expr);
+
+  // Constructs a ResolvedFunctionCall for
+  // ARRAY_SLICE(array_expr, start_offset_expr, end_offset_expr).
+  //
+  // Requires:
+  // - `array_expr` is ARRAY.
+  // - `start_offset_expr` is INT64.
+  // - `end_offset_expr` is INT64.
+  //
+  // The signature for the built-in function "array_slice" must be
+  // available in <catalog> or an error status is returned.
+  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> ArraySlice(
+      std::unique_ptr<const ResolvedExpr> array_expr,
+      std::unique_ptr<const ResolvedExpr> start_offset_expr,
+      std::unique_ptr<const ResolvedExpr> end_offset_expr);
 
   // Constructs a ResolvedFunctionCall for ARRAY_TO_STRING(array_expr,
   // delimiter_expr).
@@ -634,6 +696,84 @@ class FunctionCallBuilder {
   absl::StatusOr<std::unique_ptr<const ResolvedExpr>> MakeNullIfEmptyArray(
       ColumnFactory& column_factory,
       std::unique_ptr<const ResolvedExpr> array_expr);
+
+  // Constructs a ResolvedFunctionCall for $unchecked_path(components...) where
+  // the returned path has type `path_type`.
+  //
+  // Requires:
+  // - `components` is a list of GraphElementType that can form a path of type
+  //   `path_type`: starting and ending with a node; alternating between nodes
+  //   and edges.
+  // - `components` must have an odd number of elements.
+  //
+  // The signature for the built-in function "$unchecked_path" must be
+  // available in <catalog> or an error status is returned.
+  absl::StatusOr<std::unique_ptr<const ResolvedExpr>> UncheckedPathCreate(
+      const GraphPathType* path_type,
+      std::vector<std::unique_ptr<const ResolvedExpr>> components);
+
+  // Constructs a ResolvedFunctionCall for $unchecked_path_concat(paths...)
+  // where the returned path has type `path_type`.
+  //
+  // Requires:
+  // - `paths` is a list of GraphPathType each of which is coercible to
+  //   `path_type`.
+  //
+  // The signature for the built-in function "$unchecked_path_concat" must be
+  // available in <catalog> or an error status is returned.
+  absl::StatusOr<std::unique_ptr<const ResolvedExpr>> UncheckedPathConcat(
+      const GraphPathType* path_type,
+      std::vector<std::unique_ptr<const ResolvedExpr>> paths);
+
+  // Constructs a ResolvedFunctionCall for PATH_FIRST(path).
+  //
+  // Requires:
+  // - `path` is of GraphPathType.
+  //
+  // The signature for the built-in function "path_first" must be
+  // available in <catalog> or an error status is returned.
+  absl::StatusOr<std::unique_ptr<const ResolvedExpr>> PathFirst(
+      std::unique_ptr<const ResolvedExpr> path);
+
+  // Constructs a ResolvedFunctionCall for PATH_LAST(path).
+  //
+  // Requires:
+  // - `path` is of GraphPathType.
+  //
+  // The signature for the built-in function "path_last" must be
+  // available in <catalog> or an error status is returned.
+  absl::StatusOr<std::unique_ptr<const ResolvedExpr>> PathLast(
+      std::unique_ptr<const ResolvedExpr> path);
+
+  // Constructs a ResolvedFunctionCall for NODES(path).
+  //
+  // Requires:
+  // - `path` is of GraphPathType.
+  //
+  // The signature for the built-in function "nodes" must be
+  // available in <catalog> or an error status is returned.
+  absl::StatusOr<std::unique_ptr<const ResolvedExpr>> PathNodes(
+      absl::Nonnull<std::unique_ptr<const ResolvedExpr>> path);
+
+  // Constructs a ResolvedFunctionCall for EDGES(path).
+  //
+  // Requires:
+  // - `path` is of GraphPathType.
+  //
+  // The signature for the built-in function "edges" must be
+  // available in <catalog> or an error status is returned.
+  absl::StatusOr<std::unique_ptr<const ResolvedExpr>> PathEdges(
+      std::unique_ptr<const ResolvedExpr> path);
+
+  // Constructs a ResolvedFunctionCall for
+  //  `extract_for_dp_approx_count_distinct(partital_merge_result,
+  //  noisy_count_distinct_perivacy_ids_expr) --> report_format`.
+  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>>
+  ExtractForDpApproxCountDistinct(
+      std::unique_ptr<const ResolvedColumnRef> partital_merge_result,
+      std::unique_ptr<const ResolvedExpr> noisy_count_distinct_privacy_ids_expr,
+      std::optional<functions::DifferentialPrivacyEnums::ReportFormat>
+          report_format);
 
  private:
   static AnnotationPropagator BuildAnnotationPropagator(

@@ -728,6 +728,73 @@ TEST(EvaluatorTest, ExecuteAfterPrepareWithPositionalParameters) {
                HasSubstr("Invalid prepared expression")));
 }
 
+// Regression test for b/372558941 where parameters were declared in
+// analyzer_options, but never used in the expression and the algebrizer slotted
+// the system variables at the very beginning of the params schema. However,
+// during execution, the positional params are provided so the system variable
+// reads from the slots of the positional parameters which the algebrizer did
+// not account for.
+TEST(EvaluatorTest,
+     ExecuteAfterPrepareWithPositionalParametersAndSystemVariables) {
+  PreparedExpression expr("CONCAT(col, 'b', @@sys_var)");
+  AnalyzerOptions analyzer_options;
+  analyzer_options.set_parameter_mode(PARAMETER_POSITIONAL);
+  ZETASQL_ASSERT_OK(analyzer_options.AddPositionalQueryParameter(types::DateType()));
+  ZETASQL_ASSERT_OK(analyzer_options.AddPositionalQueryParameter(types::DateType()));
+  ZETASQL_ASSERT_OK(
+      analyzer_options.AddSystemVariable({"sys_var"}, types::StringType()));
+  ZETASQL_ASSERT_OK(analyzer_options.AddExpressionColumn("col", types::StringType()));
+  ZETASQL_ASSERT_OK(expr.Prepare(analyzer_options));
+  EXPECT_TRUE(types::StringType()->Equals(expr.output_type()));
+
+  // Call ExecuteAfterPrepare against a const object: the point of having this
+  // method is so it can be const, and this protects against regressions should
+  // it be changed in future.
+  ExpressionOptions expression_options;
+  expression_options.columns = {{"col", Value::String("aaaa")}};
+  expression_options.system_variables = {
+      {{"sys_var"}, Value::String("google")}};
+  expression_options.ordered_parameters = {Value::Date(1), Value::Date(2)};
+
+  const PreparedExpression* const_expr = &expr;
+  Value result = const_expr->ExecuteAfterPrepare(expression_options).value();
+  EXPECT_EQ(Value::String("aaaabgoogle"), result);
+}
+
+// Regression test for b/372558941 where parameters were declared in
+// analyzer_options, but never used in the expression and the algebrizer slotted
+// the system variables at the very beginning of the params schema. However,
+// during execution, the named params are provided so the system variable reads
+// from the slots of the named parameters which the algebrizer did not account
+// for. Named parameters were always handled correctly but this test protects
+// against future regressions.
+TEST(EvaluatorTest, ExecuteAfterPrepareWithNamedParametersAndSystemVariables) {
+  PreparedExpression expr("CONCAT(col, 'b', @@sys_var)");
+  AnalyzerOptions analyzer_options;
+  analyzer_options.set_parameter_mode(PARAMETER_NAMED);
+  ZETASQL_ASSERT_OK(analyzer_options.AddQueryParameter("p1", types::DateType()));
+  ZETASQL_ASSERT_OK(analyzer_options.AddQueryParameter("p2", types::DateType()));
+  ZETASQL_ASSERT_OK(
+      analyzer_options.AddSystemVariable({"sys_var"}, types::StringType()));
+  ZETASQL_ASSERT_OK(analyzer_options.AddExpressionColumn("col", types::StringType()));
+  ZETASQL_ASSERT_OK(expr.Prepare(analyzer_options));
+  EXPECT_TRUE(types::StringType()->Equals(expr.output_type()));
+
+  // Call ExecuteAfterPrepare against a const object: the point of having this
+  // method is so it can be const, and this protects against regressions should
+  // it be changed in future.
+  ExpressionOptions expression_options;
+  expression_options.columns = {{"col", Value::String("aaaa")}};
+  expression_options.system_variables = {
+      {{"sys_var"}, Value::String("google")}};
+  expression_options.parameters = {{"p1", Value::Date(1)},
+                                   {"p2", Value::Date(2)}};
+
+  const PreparedExpression* const_expr = &expr;
+  Value result = const_expr->ExecuteAfterPrepare(expression_options).value();
+  EXPECT_EQ(Value::String("aaaabgoogle"), result);
+}
+
 TEST(EvaluatorTest, PrepareFailOnAnalysis) {
   PreparedExpression expr("@param + col");
   AnalyzerOptions options;
@@ -3633,7 +3700,8 @@ TEST_F(PreparedModifyTest, PositionalParameter) {
   iter.reset();
   EXPECT_THAT(modify.ExecuteWithPositionalParams({Int64(100)}),
               StatusIs(absl::StatusCode::kInvalidArgument,
-                       HasSubstr("Incorrect number of positional parameters")));
+                       HasSubstr("Too few positional parameters. Expected at "
+                                 "least 2 but found only: 1")));
 }
 
 TEST_F(PreparedModifyTest, UndeclaredPositionalParameter) {
@@ -3765,7 +3833,8 @@ TEST_F(PreparedModifyTest,
   iter.reset();
   EXPECT_THAT(modify.ExecuteWithPositionalParams({Int64(100)}),
               StatusIs(absl::StatusCode::kInvalidArgument,
-                       HasSubstr("Incorrect number of positional parameters")));
+                       HasSubstr("Too few positional parameters. Expected at "
+                                 "least 2 but found only: 1")));
 }
 
 TEST_F(PreparedModifyTest, ExplainAfterPrepareWithoutPrepare) {
@@ -3992,7 +4061,8 @@ TEST_F(PreparedDmlReturningTest, PositionalParameter) {
   EXPECT_THAT(
       modify.ExecuteWithPositionalParams({Int64(100)}, {}, &returning_iter),
       StatusIs(absl::StatusCode::kInvalidArgument,
-               HasSubstr("Incorrect number of positional parameters")));
+               HasSubstr("Too few positional parameters. Expected at least 2 "
+                         "but found only: 1")));
 }
 
 TEST_F(PreparedDmlReturningTest,
@@ -4060,7 +4130,8 @@ TEST_F(PreparedDmlReturningTest,
   EXPECT_THAT(
       modify.ExecuteWithPositionalParams({Int64(100)}, {}, &returning_iter),
       StatusIs(absl::StatusCode::kInvalidArgument,
-               HasSubstr("Incorrect number of positional parameters")));
+               HasSubstr("Too few positional parameters. Expected at least 2 "
+                         "but found only: 1")));
 }
 
 TEST_F(PreparedDmlReturningTest, VerifyReturningIteratorNullForRegularDmls) {
@@ -5176,7 +5247,8 @@ TEST(PreparedQuery, PositionalParameter) {
   iter.reset();
   EXPECT_THAT(query.ExecuteWithPositionalParams({Int64(100)}),
               StatusIs(absl::StatusCode::kInvalidArgument,
-                       HasSubstr("Incorrect number of positional parameters")));
+                       HasSubstr("Too few positional parameters. Expected at "
+                                 "least 2 but found only: 1")));
 }
 
 TEST(PreparedQuery, ExecuteAfterPrepareWithOrderedParamsWithParameter) {

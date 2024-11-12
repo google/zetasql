@@ -166,6 +166,10 @@ static const std::string* const kDistinctOpFnName =
     new std::string("$is_distinct_from");
 static const std::string* const kNotDistinctOpFnName =
     new std::string("$is_not_distinct_from");
+static const std::string* const kIsSourceNodeOpFnName =
+    new std::string("$is_source_node");
+static const std::string* const kIsDestNodeOpFnName =
+    new std::string("$is_dest_node");
 
 static std::string* kInvalidBinaryOperatorStr =
     new std::string("$invalid_binary_operator");
@@ -218,6 +222,10 @@ const std::string& FunctionResolver::BinaryOperatorToFunctionName(
       } else {
         return *kDistinctOpFnName;
       }
+    case ASTBinaryExpression::IS_SOURCE_NODE:
+      return *kIsSourceNodeOpFnName;
+    case ASTBinaryExpression::IS_DEST_NODE:
+      return *kIsDestNodeOpFnName;
   }
 }
 
@@ -271,9 +279,27 @@ absl::Status FunctionResolver::CheckCreateAggregateFunctionProperties(
     const ResolvedExpr& resolved_expr,
     const ASTNode* sql_function_body_location,
     const ExprResolutionInfo* expr_info, QueryResolutionInfo* query_info) {
+  auto sql_error = [sql_function_body_location](std::string message) {
+    if (sql_function_body_location != nullptr) {
+      return MakeSqlErrorAt(sql_function_body_location) << message;
+    } else {
+      return MakeSqlError() << message;
+    }
+  };
   if (expr_info->has_aggregation) {
     ZETASQL_RET_CHECK(query_info->group_by_column_state_list().empty());
     ZETASQL_RET_CHECK(!query_info->aggregate_columns_to_compute().empty());
+    for (const std::unique_ptr<const ResolvedComputedColumnBase>&
+             computed_column : query_info->aggregate_columns_to_compute()) {
+      ZETASQL_RET_CHECK(computed_column->expr()->Is<ResolvedAggregateFunctionCall>());
+      const ResolvedAggregateFunctionCall* aggregate_function_call =
+          computed_column->expr()->GetAs<ResolvedAggregateFunctionCall>();
+      if (!aggregate_function_call->group_by_list().empty()) {
+        return sql_error(
+            "Function body with aggregate functions with GROUP BY modifiers "
+            "are not currently supported");
+      }
+    }
 
     // TODO: If we have an aggregate with ORDER BY inside, we normally
     // make a Project first to create columns, so the ResolvedAggregateScan can
@@ -282,14 +308,9 @@ absl::Status FunctionResolver::CheckCreateAggregateFunctionProperties(
     // now, we detect that case here and give an error.
     if (!query_info->select_list_columns_to_compute_before_aggregation()
              ->empty()) {
-      const std::string message =
-          "Function body with aggregate functions with ORDER BY "
-          "not currently supported";
-      if (sql_function_body_location != nullptr) {
-        return MakeSqlErrorAt(sql_function_body_location) << message;
-      } else {
-        return MakeSqlError() << message;
-      }
+      return sql_error(
+          "Function body with aggregate functions with ORDER BY not currently "
+          "supported");
     }
   }
 
@@ -2123,6 +2144,8 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
 
     if (result_signature->result_type().type()->IsArray()) {
       function_name_path.push_back("array_concat");
+    } else if (result_signature->result_type().type()->IsGraphPath()) {
+      function_name_path.push_back("$path_concat");
     } else {
       function_name_path.push_back("concat");
     }

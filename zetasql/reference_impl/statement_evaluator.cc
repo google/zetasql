@@ -32,6 +32,7 @@
 #include "zetasql/public/coercer.h"
 #include "zetasql/public/error_helpers.h"
 #include "zetasql/public/evaluator.h"
+#include "zetasql/public/id_string.h"
 #include "zetasql/public/multi_catalog.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
@@ -45,11 +46,15 @@
 #include "zetasql/resolved_ast/resolved_ast_deep_copy_visitor.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/scripting/error_helpers.h"
+#include "zetasql/scripting/parsed_script.h"
+#include "zetasql/scripting/type_aliases.h"
 #include "absl/container/flat_hash_map.h"
+#include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
+#include "zetasql/base/status_macros.h"
 #include "zetasql/base/status_payload.h"
 
 namespace zetasql {
@@ -64,10 +69,10 @@ void FilterParameters(
   if (std::holds_alternative<ParameterValueList>(parameters)) {
     const ParameterValueList& current_params =
         std::get<ParameterValueList>(parameters);
-    std::pair<int64_t, int64_t> pos_params =
+    PositionalParameterRange pos_params =
         parsed_script->GetPositionalParameters(range);
-    int64_t start = pos_params.first;
-    int64_t end = start + pos_params.second;
+    int64_t start = pos_params.start_param_index;
+    int64_t end = start + pos_params.num_params;
     ParameterValueList filtered;
     for (int64_t i = start; i < current_params.size() && i < end; i++) {
       filtered.push_back(current_params[i]);
@@ -195,21 +200,20 @@ absl::Status StatementEvaluatorImpl::Evaluation::EvaluateInternal(
   // Create a catalog which supports script variables, alongside whatever
   // user-defined symbols have been provided when the StatementEvaluatorImpl
   // object was created.
-  SimpleCatalog variables_catalog("script_variables",
-                                  evaluator->type_factory());
-  std::vector<std::unique_ptr<SimpleConstant>> constants;
+  ABSL_DCHECK(variables_catalog_ == nullptr);
+  variables_catalog_ = std::make_unique<SimpleCatalog>(
+      "script_variables", evaluator->type_factory());
   const VariableMap& variables = script_executor.GetCurrentVariables();
   for (const std::pair<const IdString, Value>& variable : variables) {
     std::unique_ptr<SimpleConstant> constant;
     ZETASQL_RETURN_IF_ERROR(SimpleConstant::Create({variable.first.ToString()},
                                            variable.second, &constant));
-    variables_catalog.AddConstant(constant.get());
-    constants.push_back(std::move(constant));
+    variables_catalog_->AddOwnedConstant(std::move(constant));
   }
 
   std::unique_ptr<MultiCatalog> combined_catalog;
   ZETASQL_RETURN_IF_ERROR(MultiCatalog::Create(
-      "combined_catalog", {&variables_catalog, evaluator->catalog_},
+      "combined_catalog", {variables_catalog_.get(), evaluator->catalog_},
       &combined_catalog));
 
   // Force usage of ERROR_MESSAGE_WITH_PAYLOAD so that the script executor can

@@ -16,6 +16,7 @@
 
 load("@com_github_grpc_grpc//bazel:cc_grpc_library.bzl", "cc_grpc_library")
 load("@io_grpc_grpc_java//:java_grpc_library.bzl", "java_grpc_library")
+load("@rules_java//java:defs.bzl", "java_library")
 
 package(
     default_visibility = ["//zetasql/base:zetasql_implementation"],

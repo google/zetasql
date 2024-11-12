@@ -255,6 +255,9 @@ SCALAR_BOUNDARY_TYPE = EnumScalarType('BoundaryType', 'ResolvedWindowFrameExpr')
 SCALAR_INSERT_MODE = EnumScalarType('InsertMode', 'ResolvedInsertStmt')
 SCALAR_MERGE_ACTION_TYPE = EnumScalarType('ActionType', 'ResolvedMergeWhen')
 SCALAR_MERGE_MATCH_TYPE = EnumScalarType('MatchType', 'ResolvedMergeWhen')
+SCALAR_CONFLICT_ACTION_TYPE = EnumScalarType(
+    'ConflictAction', 'ResolvedOnConflictClause'
+)
 SCALAR_ARGUMENT_KIND = EnumScalarType('ArgumentKind', 'ResolvedArgumentDef')
 SCALAR_HAVING_MODIFIER_KIND = EnumScalarType('HavingModifierKind',
                                              'ResolvedAggregateHavingModifier')
@@ -277,12 +280,52 @@ SCALAR_GENERATED_MODE = EnumScalarType(
 SCALAR_DROP_MODE = EnumScalarType('DropMode', 'ResolvedDropStmt')
 SCALAR_INSERTION_MODE = EnumScalarType('InsertionMode',
                                        'ResolvedAuxLoadDataStmt')
+SCALAR_MATCH_RECOGNIZE_PATTERN_OPERATION_TYPE = EnumScalarType(
+    'MatchRecognizePatternOperationType',
+    'ResolvedMatchRecognizePatternOperation',
+)
+SCALAR_MATCH_RECOGNIZE_MATCH_MODE = EnumScalarType(
+    'MatchMode', 'ResolvedMatchRecognizeScan'
+)
+SCALAR_MATCH_RECOGNIZE_AFTER_MATCH_SKIP_MODE = EnumScalarType(
+    'AfterMatchSkipMode', 'ResolvedMatchRecognizeScan'
+)
+SCALAR_MATCH_RECOGNIZE_PATTERN_ANCHOR_MODE = EnumScalarType(
+    'Mode', 'ResolvedMatchRecognizePatternAnchor'
+)
+
+SCALAR_PROPERTY_GRAPH = ScalarType('const PropertyGraph*',
+                                   'PropertyGraphRefProto', 'PropertyGraph')
+SCALAR_GRAPH_PROPERTY_DECLARATION = ScalarType(
+    'const GraphPropertyDeclaration*', 'GraphPropertyDeclarationRefProto',
+    'GraphPropertyDeclaration')
+SCALAR_GRAPH_ELEMENT_LABEL = ScalarType('const GraphElementLabel*',
+                                        'GraphElementLabelRefProto',
+                                        'GraphElementLabel')
+SCALAR_GRAPH_LOGICAL_OP_TYPE = EnumScalarType('GraphLogicalOpType',
+                                              'ResolvedGraphLabelNaryExpr')
+SCALAR_EDGE_ORIENTATION = EnumScalarType('EdgeOrientation',
+                                         'ResolvedGraphEdgeScan')
+SCALAR_GRAPH_ELEMENT_TABLE = ScalarType('const GraphElementTable*',
+                                        'GraphElementTableRefProto',
+                                        'GraphElementTable')
+SCALAR_PATH_MODE = EnumScalarType('PathMode', 'ResolvedGraphPathMode')
+SCALAR_PATH_SEARCH_PREFIX = EnumScalarType(
+    'PathSearchPrefixType', 'ResolvedGraphPathSearchPrefix'
+)
+
 SCALAR_INDEX_TYPE = EnumScalarType('IndexType', 'ResolvedDropIndexStmt')
 SCALAR_OPTIONS_ASSIGNMENT_OP = EnumScalarType(
     'AssignmentOp',
     'ResolvedOption',
     cpp_default='DEFAULT_ASSIGN',
     java_default='AssignmentOp.DEFAULT_ASSIGN',
+)
+SCALAR_LOCK_STRENGTH_TYPE = EnumScalarType(
+    'LockStrengthType',
+    'ResolvedLockMode',
+    cpp_default='UPDATE',
+    java_default='LockStrengthType.UPDATE',
 )
 
 
@@ -308,7 +351,7 @@ def Field(name,
            Cannot be a pointer type, and should not include modifiers like
            const.
     tag_id: unique tag number for the proto field. This should never change or
-            be reused.
+            be reused. Start from 2 inside each node.
     vector: True if this field is a vector of ctype. (Not supported for
             scalars.)
     ignorable: one of the IGNORABLE enums above.
@@ -542,6 +585,23 @@ def Field(name,
       'not_serialize_if_default': not_serialize_if_default,
   }
 
+# You can use `tag_id=GetTempTagId()` until doing the final submit.
+# That will avoid merge conflicts when syncing in other changes.
+NEXT_NODE_TAG_ID = 286
+
+
+def GetTempTagId():
+  """Returns a temporary tag_id for a node while a CL is under development.
+
+  This avoids merge conficts when syncing in other changes.
+
+  This must be replaced with a real permanent tag_id before submit.
+  """
+  global NEXT_NODE_TAG_ID
+  tag = NEXT_NODE_TAG_ID
+  NEXT_NODE_TAG_ID += 1
+  return tag
+
 
 class TreeGenerator(object):
   """Generates code to define tree objects.
@@ -561,7 +621,7 @@ class TreeGenerator(object):
   def AddNode(
       self,
       name,
-      tag_id,  # Next tag_id: 265
+      tag_id,
       parent,
       fields,
       is_abstract=False,
@@ -577,6 +637,7 @@ class TreeGenerator(object):
       name: class name for this node
       tag_id: unique tag number for the node as a proto field or an enum value.
         tag_id for each node type is hard coded and should never change.
+        Allocate from NEXT_NODE_TAG_ID above.
       parent: class name of the parent node
       fields: list of fields in this class; created with Field function
       is_abstract: true if this node is an abstract class
@@ -1616,7 +1677,7 @@ def main(unused_argv):
           ),
           Field(
               'group_by_list',
-              'ResolvedComputedColumnBase',
+              'ResolvedComputedColumn',
               tag_id=7,
               ignorable=IGNORABLE_DEFAULT,
               comment="""
@@ -2529,7 +2590,8 @@ value.
               'for_system_time_expr',
               'ResolvedExpr',
               tag_id=3,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'column_index_list',
               SCALAR_INT,
@@ -2538,14 +2600,24 @@ value.
               vector=True,
               is_constructor_arg=False,
               to_string_method='ToStringCommaSeparated',
-              java_to_string_method='toStringCommaSeparatedForInt'),
+              java_to_string_method='toStringCommaSeparatedForInt',
+          ),
           Field(
               'alias',
               SCALAR_STRING,
               is_optional_constructor_arg=True,
               tag_id=5,
-              ignorable=IGNORABLE),
-      ])
+              ignorable=IGNORABLE,
+          ),
+          Field(
+              'lock_mode',
+              'ResolvedLockMode',
+              is_constructor_arg=False,
+              tag_id=6,
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedJoinScan',
@@ -3839,13 +3911,56 @@ value.
       parent='ResolvedArgument',
       use_custom_debug_string=True,
       comment="""
-      This is used in ResolvedQueryStmt to provide a user-visible name
-      for each output column.
+      This is used in ResolvedQueryStmt (and other places) to provide a
+      user-visible name for each output column, and to map from
+      physical ResolvedColumns to user-visible output columns.
               """,
       fields=[
           Field('name', SCALAR_STRING, tag_id=2, ignorable=IGNORABLE),
-          Field('column', SCALAR_RESOLVED_COLUMN, tag_id=3)
-      ])
+          Field('column', SCALAR_RESOLVED_COLUMN, tag_id=3),
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedOutputSchema',
+      tag_id=279,
+      parent='ResolvedArgument',
+      comment="""
+      This describes the output schema for table, like what is produced for
+      a query statement.
+
+      <output_column_list> maps the physical ResolvedColumns available to
+      the user-visible column names that are returned, with their actual
+      column names.  There may be duplicate names, and multiple output columns
+      may reference the same physical ResolvedColumn.
+      The list must be non-empty, since all output tables must have at least
+      one column.
+
+      This node is used in some places, while many other older nodes just
+      have these two fields inlined into a parent object.
+      Ideally, all those cases could be migrated to use ResolvedOutputSchema.
+              """,
+      fields=[
+          Field(
+              'output_column_list',
+              'ResolvedOutputColumn',
+              tag_id=2,
+              vector=True,
+          ),
+          Field(
+              'is_value_table',
+              SCALAR_BOOL,
+              tag_id=3,
+              ignorable=IGNORABLE_DEFAULT,
+              comment="""
+              If true, the result of this query is a value table. Rather than
+              producing rows with named columns, it produces rows with a single
+              unnamed value type.  output_column_list will have exactly one
+              column, with an empty name. See (broken link).
+                      """,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedProjectScan',
@@ -4165,6 +4280,41 @@ value.
       ])
 
   gen.AddNode(
+      name='ResolvedGeneralizedQueryStmt',
+      tag_id=282,
+      parent='ResolvedStatement',
+      comment="""
+      This is a query statement variation that supports generalized queries
+      using operators that might not produce exactly one query result.
+      Queries using these operators can produce multiple output tables, or zero
+      output tables, and can also have statement side-effects like DML actions.
+
+      This is used for any query containing pipe syntax operators like FORK
+      (that splits the query into multiple output tables) or terminal operators
+      like CREATE TABLE (that consume the output without returning a table).
+      See (broken link).
+
+      This node can only occur if:
+      * FEATURE_PIPES is enabled,
+      * Some pipe operator that produces generalized output is enabled,
+      * One of those operators occurs in the query, and
+      * ResolvedGeneralizedQueryStmt is in SupportedStatementKinds in
+        LanguageOptions.
+
+      `output_schema` is nullable, and will be null if the outer `query`
+      doesn't return a table.
+
+      Additional output tables or statement side-effects can be found
+      while traversing `query`, looking at ResolvedGeneralizedQuerySubpipeline
+      nodes.
+              """,
+      fields=[
+          Field('output_schema', 'ResolvedOutputSchema', tag_id=2),
+          Field('query', 'ResolvedScan', tag_id=3),
+      ],
+  )
+
+  gen.AddNode(
       name='ResolvedCreateDatabaseStmt',
       tag_id=95,
       parent='ResolvedStatement',
@@ -4228,10 +4378,21 @@ value.
       comment="""
       Represents one of indexed items in CREATE INDEX statement, with the
       ordering direction specified.
+
+      `option_list` represents the per item options for the index. This is
+      used in both the case where ALL COLUMNS is used and the case where
+      specific items are specified. The list of options for a specific item
+      must not be empty in the case of ALL COLUMNS.
               """,
       fields=[
           Field('column_ref', 'ResolvedColumnRef', tag_id=2),
-          Field('descending', SCALAR_BOOL, tag_id=3)
+          Field('descending', SCALAR_BOOL, tag_id=3),
+          Field(
+              'option_list',
+              'ResolvedOption',
+              tag_id=4,
+              vector=True,
+              ignorable=IGNORABLE_DEFAULT),
       ])
 
   gen.AddNode(
@@ -4565,7 +4726,7 @@ value.
         [OPTIONS (...)]
 
       One of <clone_from> or <copy_from> can be present for CLONE or COPY.
-        <clone_from> specifes the data source to clone from (cheap, typically
+        <clone_from> specifies the data source to clone from (cheap, typically
         O(1) operation); while <copy_from> is intended for a full copy.
 
         ResolvedTableScan will represent the source table, with an optional
@@ -4588,25 +4749,27 @@ value.
               'clone_from',
               'ResolvedScan',
               tag_id=7,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
-              'copy_from',
-              'ResolvedScan',
-              tag_id=8,
-              ignorable=IGNORABLE_DEFAULT),
+              'copy_from', 'ResolvedScan', tag_id=8, ignorable=IGNORABLE_DEFAULT
+          ),
           Field(
               'partition_by_list',
               'ResolvedExpr',
               tag_id=5,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'cluster_by_list',
               'ResolvedExpr',
               tag_id=6,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
-      ])
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedCreateTableAsSelectStmt',
@@ -5054,8 +5217,12 @@ value.
       comment="""
       This statement:
         EXPORT DATA [WITH CONNECTION] <connection> (<option_list>) AS SELECT ...
-      which is used to run a query and export its result somewhere
-      without giving the result a table name.
+      or this pipe operator (without a query, in ResolvedPipeExportDataScan):
+        |> EXPORT DATA [WITH CONNECTION] <connection> (<option_list>)
+
+      This is used to run export a query result somewhere without giving the
+      result a table name.
+
       <connection> connection reference for accessing destination source.
       <option_list> has engine-specific directives for how and where to
                     materialize the query result.
@@ -5063,7 +5230,9 @@ value.
                            the query, and maps from <query>'s column_list
                            to these output columns.  The engine may ignore
                            the column names depending on the output format.
-      <query> is the query to run.
+      <query> is the query to run (when this node is used as a statement).
+              When this node is used as part of ResolvedPipeExportDataScan,
+              <query> is not present.  The input table is the pipe input table.
 
       The query must produce named columns with unique names.
               """,
@@ -5072,18 +5241,21 @@ value.
               'connection',
               'ResolvedConnection',
               tag_id=6,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'option_list',
               'ResolvedOption',
               tag_id=2,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'output_column_list',
               'ResolvedOutputColumn',
               tag_id=3,
-              vector=True),
+              vector=True,
+          ),
           Field(
               'is_value_table',
               SCALAR_BOOL,
@@ -5094,9 +5266,20 @@ value.
               producing rows with named columns, it produces rows with a single
               unnamed value type.  output_column_list will have exactly one
               column, with an empty name. See (broken link).
-                      """),
-          Field('query', 'ResolvedScan', tag_id=5)
-      ])
+                      """,
+          ),
+          Field(
+              'query',
+              'ResolvedScan',
+              tag_id=5,
+              ignorable=IGNORABLE_DEFAULT,
+              comment="""
+                `query` is present when this node is used as a statement.
+                `query` is not present when used in ResolvedPipeExportDataScan.
+                """,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedExportMetadataStmt',
@@ -5886,6 +6069,115 @@ value.
       fields=[Field('rows', 'ResolvedExpr', tag_id=2)])
 
   gen.AddNode(
+      name='ResolvedOnConflictClause',
+      tag_id=281,
+      parent='ResolvedArgument',
+      comment="""
+      This represents the ON CONFLICT clause on an INSERT statement. It
+      specifies the alternate action to be taken if the insert row causes
+      unique constraint violations.
+
+      <conflict_action> is the action to take if the insert row causes unique
+      constraint violations. Either NOTHING to ignore the insert row or UPDATE
+      to update the original table row with the constraint values.
+
+      <conflict_target_column_list> is the list of columns to infer a unique
+      constraint - primary key or UNIQUE columns - for which the uniqueness
+      should be arbitrated. ZetaSQL only resolves them into valid column
+      references. It is the engine's responsibility to validate and infer
+      a unique constraint. See "Conflict target" section in
+      (broken link), http://shortn/_4GrUbFPEKm
+
+      <unique_constraint_name> is the name of the UNIQUE constraint instead of
+      specifying the columns in conflict target. ZetaSQL only resolves it as
+      a valid identifier. It is the engine's responsibility to infer a UNIQUE
+      constraint. See "Conflict target" section in
+      (broken link). http://shortn/_4GrUbFPEKm
+
+      <insert_row_scan> is a ResolvedTableScan on the target table. It returns
+      the new rows that were constructed to be inserted where the insert failed
+      with a conflict, using the underlying Table's columns.
+      The included columns are the columns from insert row referenced
+      in the update SET RHS expression and/or the update WHERE clause using
+      the `excluded` alias. It can also include generated columns or columns not
+      in the INSERT column list.
+      This is applicable only for conflict action UPDATE. It's null if the
+      conflict action is NOTHING.
+
+      <update_item_list> is the list of update items if the conflict action is
+      UPDATE. They are refer columns in both the insert row and original table
+      row.
+
+      <update_where_expression> is used to conditionally update the table row if
+      the conflict action is UPDATE.
+      """,
+      fields=[
+          Field(
+              'conflict_action',
+              SCALAR_CONFLICT_ACTION_TYPE,
+              tag_id=2,
+          ),
+          Field(
+              'conflict_target_column_list',
+              SCALAR_RESOLVED_COLUMN,
+              tag_id=3,
+              vector=True,
+              ignorable=IGNORABLE_DEFAULT,
+              comment="""
+              IGNORABLE_DEFAULT because this is an optional field for NOTHING
+              conflict action. It is also empty if unique constraint name
+              is specified.
+              """,
+          ),
+          Field(
+              'unique_constraint_name',
+              SCALAR_STRING,
+              tag_id=4,
+              ignorable=IGNORABLE_DEFAULT,
+              comment="""
+              IGNORABLE_DEFAULT because this is an optional field for NOTHING
+              conflict action. It is also empty if conflict target is specified.
+              """,
+          ),
+          Field(
+              'insert_row_scan',
+              'ResolvedTableScan',
+              tag_id=5,
+              ignorable=IGNORABLE_DEFAULT,
+              comment="""
+              IGNORABLE_DEFAULT because this is set for UPDATE conflict action
+              only and if update_item_list and/or update_where_expression
+              reference columns from the insert row using `excluded` alias.
+              """,
+          ),
+          Field(
+              'update_item_list',
+              'ResolvedUpdateItem',
+              tag_id=6,
+              vector=True,
+              ignorable=IGNORABLE_DEFAULT,
+              comment="""
+              IGNORABLE_DEFAULT because this is set for UPDATE conflict action
+              only.
+              """,
+          ),
+          Field(
+              'update_where_expression',
+              'ResolvedExpr',
+              tag_id=7,
+              ignorable=IGNORABLE_DEFAULT,
+              comment="""
+              IGNORABLE_DEFAULT because this is set for UPDATE conflict action
+              only.
+              """,
+          ),
+      ],
+      extra_defs="""
+  std::string GetConflictActionString() const;
+  static std::string ConflictActionToString(ConflictAction action);""",
+  )
+
+  gen.AddNode(
       name='ResolvedInsertRow',
       tag_id=62,
       parent='ResolvedArgument',
@@ -5949,7 +6241,13 @@ value.
       whether it was read and/or written. The query engine may also require
       read or write permissions across all columns, including unreferenced
       columns, depending on the operation.
-              """,
+
+      <on_conflict_clause> specifies the alternate action if the insert row
+      causes unique constraint violations. It handles violations in both primary
+      key and UNIQUE constraints. Alternate actions are (1) to do nothing
+      (ignore the insert row), or (2) update the original table row using the
+      specified SET clauses and the optional WHERE clause.
+      """,
       fields=[
           Field(
               'table_scan',
@@ -6012,6 +6310,11 @@ value.
               vector=True,
               is_constructor_arg=False,
               java_to_string_method='toStringObjectAccess'),
+          Field(
+              'on_conflict_clause',
+              'ResolvedOnConflictClause',
+              tag_id=16,
+              ignorable=IGNORABLE_DEFAULT),
           Field(
               'topologically_sorted_generated_column_id_list',
               SCALAR_INT,
@@ -9016,6 +9319,315 @@ ResolvedArgumentRef(y)
       ])
 
   gen.AddNode(
+      name='ResolvedMatchRecognizeScan',
+      tag_id=265,
+      parent='ResolvedScan',
+      comment="""
+      A scan for row pattern recognition (the MATCH_RECOGNIZE clause).
+      See (broken link) for details.
+              """,
+      fields=[
+          Field('input_scan', 'ResolvedScan', tag_id=2),
+          Field(
+              'option_list',
+              'ResolvedOption',
+              tag_id=9,
+              vector=True,
+          ),
+          Field(
+              'partition_by',
+              'ResolvedWindowPartitioning',
+              tag_id=3,
+              comment="""
+              Partitioning columns for this pattern matching operation.
+              Pattern matching occurs on individual partitions, just like
+              windowing functions.
+
+              If this list is empty, the whole input table is a single
+              partition.
+
+              Partitioning columns are always part of the scan's output columns,
+              along with the measures.
+              """,
+          ),
+          Field(
+              'order_by',
+              'ResolvedWindowOrdering',
+              tag_id=4,
+              comment="""
+              The ordering list can never be empty.
+              Collation & hints supported, just like in window specification.
+              However, ordinals are not allowed.
+              """,
+          ),
+          Field(
+              'pattern_variable_definition_list',
+              'ResolvedMatchRecognizeVariableDefinition',
+              tag_id=5,
+              vector=True,
+              comment="""
+              The pattern variable definitions. This list is never empty, and
+              variable names must be unique (ignoring case).
+              """,
+          ),
+          Field(
+              'pattern',
+              'ResolvedMatchRecognizePatternExpr',
+              tag_id=6,
+              comment="""
+              The pattern expression to use when matching rows. All row pattern
+              variables referenced in this expression must be defined in
+              pattern_variable_definition_list.
+              """,
+          ),
+          Field(
+              'after_match_skip_mode',
+              SCALAR_MATCH_RECOGNIZE_AFTER_MATCH_SKIP_MODE,
+              tag_id=8,
+              comment="""
+              Represents the AFTER MATCH SKIP clause. Can never be
+              'UNSPECIFIED'.
+              See (broken link) for details.
+              """,
+          ),
+          Field(
+              'measure_group_list',
+              'ResolvedMeasureGroup',
+              tag_id=7,
+              vector=True,
+              comment="""
+              The outputs as defined in the MEASURES clause.
+              """,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedMeasureGroup',
+      tag_id=280,
+      parent='ResolvedArgument',
+      comment="""
+      Must be contained directly in a ResolvedMatchRecognizeScan. Groups all
+      aggregations ranging over the same pattern variable in the MEASURES clause
+      a MATCH_RECOGNIZE. This is a similar concept to
+      ResolvedAnalyticFunctionGroup.
+
+      For example, for this MEASURES clause:
+        MEASURES max(A.x) - min(b.x - b.y), sum(c.x) - avg(x) - min(A.z)
+      There will be 4 groups:
+        1. (A, [max(A.x), min(A.z)])
+        2. (b, [min(b.x - b.y)])
+        3. (c, sum(c.x))
+        4. [avg(x)] universal group.
+
+      The last group is the universal group. It ranges over all rows in the
+      match. There can only be one such group in the ResolvedMatchRecognizeScan.
+      """,
+      fields=[
+          Field(
+              'pattern_variable_ref',
+              'ResolvedMatchRecognizePatternVariableRef',
+              tag_id=2,
+              comment="""
+              Nullptr for the universal group, or name of the referenced pattern
+              variable, in which case this must match the name exactly as listed
+              in the `pattern_variable_definition_list` of the enclosing
+              ResolvedMatchRecognizeScan.
+              """,
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+          Field(
+              'aggregate_list',
+              'ResolvedComputedColumnBase',
+              tag_id=3,
+              vector=True,
+              comment="""
+              Aggregations that are part of this group, all ranging over rows
+              assigned to the designated pattern variable. If this is the
+              universal group, the aggregations range over all rows in the
+              match.
+              This list is never empty.
+              """,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedMatchRecognizeVariableDefinition',
+      tag_id=266,
+      parent='ResolvedArgument',
+      comment="""
+      Represents a row pattern variable definition.
+      This node can only be used under ResolvedMatchRecognizeScan.
+              """,
+      fields=[
+          Field(
+              'name',
+              SCALAR_STRING,
+              tag_id=2,
+              comment="""
+              The name of the pattern variable. The name cannot be
+              empty and must be unique (case-insensitively) within this
+              ResolvedMatchRecognizeScan, but every place this name is
+              referenced elsewhere (e.g. variable ref), it will be identical,
+              including case.
+              """,
+          ),
+          Field(
+              'predicate',
+              'ResolvedExpr',
+              tag_id=3,
+              comment="""
+              Predicate for this pattern variable. This is a BOOL expression to
+              compute whether or not a given row can be qualified for this
+              pattern variable.
+              """,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedMatchRecognizePatternExpr',
+      tag_id=267,
+      parent='ResolvedArgument',
+      is_abstract=True,
+      fields=[],
+      comment="""
+      Abstract class for row pattern expression.
+      """,
+  )
+
+  gen.AddNode(
+      name='ResolvedMatchRecognizePatternEmpty',
+      tag_id=268,
+      parent='ResolvedMatchRecognizePatternExpr',
+      comment="""
+      Represents an empty pattern.
+      * An empty pattern consumes zero rows and always matches successfully.
+      * An empty pattern on zero input rows will not produce a match, since
+        matches are just searched for at each distinct start row.
+              """,
+      fields=[],
+  )
+
+  gen.AddNode(
+      name='ResolvedMatchRecognizePatternAnchor',
+      tag_id=276,
+      parent='ResolvedMatchRecognizePatternExpr',
+      comment="""
+      Represents a start or end anchor (^ or $, respectively.)
+      * A START anchor requires the match to be at the start of the partition.
+      * An END anchor requires the match to be at the end of the partition.
+      * Just like the empty pattern, anchors consume zero rows and do not
+        produce matches on zero input rows.
+              """,
+      fields=[
+          Field('mode', SCALAR_MATCH_RECOGNIZE_PATTERN_ANCHOR_MODE, tag_id=2),
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedMatchRecognizePatternVariableRef',
+      tag_id=269,
+      parent='ResolvedMatchRecognizePatternExpr',
+      comment="""
+      A reference to a row pattern variable.
+              """,
+      fields=[
+          Field(
+              'name',
+              SCALAR_STRING,
+              tag_id=2,
+              comment="""
+              Name of the referenced pattern variable. This must match the
+              the name exactly as listed in the
+              `pattern_variable_definition_list` of the enclosing
+              ResolvedMatchRecognizeScan.
+              """,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedMatchRecognizePatternOperation',
+      tag_id=270,
+      parent='ResolvedMatchRecognizePatternExpr',
+      comment="""
+      An N-ary operation over row pattern sub-expressions.
+              """,
+      fields=[
+          Field(
+              'op_type', SCALAR_MATCH_RECOGNIZE_PATTERN_OPERATION_TYPE, tag_id=2
+          ),
+          Field(
+              'operand_list',
+              'ResolvedMatchRecognizePatternExpr',
+              tag_id=3,
+              vector=True,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedMatchRecognizePatternQuantification',
+      tag_id=271,
+      parent='ResolvedMatchRecognizePatternExpr',
+      comment="""
+      Quantification on a row pattern expression, e.g. A+, A?, A{n, m}, ..etc.
+      Regardless of the original syntax used, e.g. a symbol or fixed- or custom-
+      bounded, e.g. A+, A{3} or A{1,2}?, the quantifier is represented by the
+      lower and upper bounds, and a boolean indicating whether the quantifier is
+      reluctant or not.
+
+      The upper and lower bounds are represented as ResolvedExprs, but currently
+      must be literals or parameters. Their type is INT64.
+
+      It is a runtime error if the upper bound is present and is smaller than
+      the lower bound.
+      Any pattern expression can be quantified, including already-quantified
+      pattern expressions, For example, the pattern expression
+        ( (A|B){2} ) {2,4}
+      specifies either 2, 3 or 4 *pairs* of rows, each matches A or B.
+      """,
+      fields=[
+          Field(
+              'operand',
+              'ResolvedMatchRecognizePatternExpr',
+              tag_id=2,
+              comment="""
+              The sub-pattern to be repeated according to this quantifier.
+              Cannot be nullptr.
+              """,
+          ),
+          Field(
+              'lower_bound',
+              'ResolvedExpr',
+              tag_id=3,
+              comment="""
+              Lower bound of the quantification. Cannot be nullptr.
+              """,
+          ),
+          Field(
+              'upper_bound',
+              'ResolvedExpr',
+              tag_id=4,
+              comment="""
+              The upper bound of the quantification. Can be nullptr, in which
+              case it means there is no upper bound (i.e., unlimited).
+              """,
+          ),
+          Field(
+              'is_reluctant',
+              SCALAR_BOOL,
+              tag_id=5,
+              comment="""
+              If true, this quantifier is reluctant. If false, it is greedy.
+              """,
+          ),
+      ],
+  )
+
+  gen.AddNode(
       name='ResolvedCloneDataStmt',
       tag_id=177,
       parent='ResolvedStatement',
@@ -9041,8 +9653,9 @@ ResolvedArgumentRef(y)
               """,
       fields=[
           Field('target_table', 'ResolvedTableScan', tag_id=2),
-          Field('clone_from', 'ResolvedScan', tag_id=3)
-      ])
+          Field('clone_from', 'ResolvedScan', tag_id=3),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedTableAndColumnInfo',
@@ -9287,6 +9900,855 @@ ResolvedArgumentRef(y)
       ])
 
   gen.AddNode(
+      name='ResolvedCreatePropertyGraphStmt',
+      tag_id=223,
+      parent='ResolvedCreateStatement',
+      comment="""
+      This statement:
+        CREATE [OR REPLACE] PROPERTY GRAPH [IF NOT EXISTS] <name_path>
+        [OPTIONS (<option_list>)]
+        NODE TABLES(<node_table_list>)
+        [EDGE TABLES(<edge_table_list>)]
+
+      <option_list> is a placeholder for engine-specific directives.
+      <node_table_list> has the list of node table definitions.
+      <edge_table_list> has the list of edge table definitions.
+          """,
+      fields=[
+          Field(
+              'node_table_list',
+              'ResolvedGraphElementTable',
+              tag_id=2,
+              vector=True,
+          ),
+          Field(
+              'edge_table_list',
+              'ResolvedGraphElementTable',
+              tag_id=3,
+              ignorable=IGNORABLE_DEFAULT,
+              vector=True,
+              is_optional_constructor_arg=True,
+          ),
+          Field(
+              'label_list',
+              'ResolvedGraphElementLabel',
+              tag_id=4,
+              vector=True,
+              comment="""
+                All labels defined in this property graph.
+                      """,
+          ),
+          Field(
+              'property_declaration_list',
+              'ResolvedGraphPropertyDeclaration',
+              tag_id=5,
+              vector=True,
+              comment="""
+                All property declarations exposed by labels in this property
+                graph.
+                      """,
+          ),
+          Field(
+              'option_list',
+              'ResolvedOption',
+              ignorable=IGNORABLE_DEFAULT,
+              tag_id=6,
+              vector=True,
+              is_optional_constructor_arg=True,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedGraphElementTable',
+      tag_id=224,
+      parent='ResolvedArgument',
+      comment="""
+      GraphElementTable definition:
+        <name> [AS <alias>]
+        [KEY(<key_list>)]
+        [<source_node_reference>]
+        [<dest_node_reference>]
+        [<label_name_list>]
+        [<property_definition_list]
+
+      <alias> identifier of the element table in the property graph.
+      <key_list> has a set of references to ResolvedColumn from input_scan that
+      can uniquely identify rows in the element table.
+      <source_node_reference> describes how rows in edge table connect to
+      rows in the referenced source node table.
+      <dest_node_reference> describes how rows in edge table connect to
+      rows in the referenced destination node table by same value columns.
+      <label_name_list> is a list of label names.
+      <property_definition_list> is a list of property definitions exposed by
+      labels.
+          """,
+      fields=[
+          Field('alias', SCALAR_STRING, tag_id=2),
+          Field('input_scan',
+                'ResolvedScan',
+                tag_id=3,
+                comment="""
+                ResolvedScan of the underlying table, view etc for column
+                references in key_list and source/dest_node_reference.
+                        """),
+          Field(
+              'key_list',
+              'ResolvedExpr',
+              tag_id=4,
+              vector=True,
+          ),
+          Field(
+              'source_node_reference',
+              'ResolvedGraphNodeTableReference',
+              tag_id=5,
+              ignorable=IGNORABLE_DEFAULT,
+              is_optional_constructor_arg=True,
+          ),
+          Field(
+              'dest_node_reference',
+              'ResolvedGraphNodeTableReference',
+              tag_id=6,
+              ignorable=IGNORABLE_DEFAULT,
+              is_optional_constructor_arg=True,
+          ),
+          Field(
+              'label_name_list',
+              SCALAR_STRING,
+              tag_id=7,
+              vector=True,
+              to_string_method='ToStringCommaSeparated',
+              java_to_string_method='toStringCommaSeparated',
+          ),
+          Field(
+              'property_definition_list',
+              'ResolvedGraphPropertyDefinition',
+              tag_id=8,
+              ignorable=IGNORABLE_DEFAULT,
+              is_optional_constructor_arg=True,
+              vector=True,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedGraphNodeTableReference',
+      tag_id=225,
+      parent='ResolvedArgument',
+      comment="""
+      GraphNodeTableReference definition:
+        SOURCE|DESTINATION KEY(<edge_table_column_list>) REFERENCES
+        <node_table_identifier>(<node_table_column_list>)
+
+      <node_table_identifier> must be a defined node table's alias.
+      <edge_table_column_list> contains columns from the edge table referencing
+      corresponding node table columns at the same ordinal position in
+      <node_table_column_list>.
+          """,
+      fields=[
+          Field(
+              'node_table_identifier',
+              SCALAR_STRING,
+              tag_id=2,
+          ),
+          Field(
+              'edge_table_column_list',
+              'ResolvedExpr',
+              tag_id=3,
+              vector=True,
+          ),
+          Field(
+              'node_table_column_list',
+              'ResolvedExpr',
+              tag_id=4,
+              ignorable=IGNORABLE_DEFAULT,
+              vector=True,
+              is_optional_constructor_arg=True,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedGraphElementLabel',
+      tag_id=230,
+      parent='ResolvedArgument',
+      comment="""
+      <name> is the name of the label.
+      <property_declaration_name_list> is a list of property declarations
+      exposed by the label.
+          """,
+      fields=[
+          Field(
+              'name',
+              SCALAR_STRING,
+              tag_id=2,
+          ),
+          Field(
+              'property_declaration_name_list',
+              SCALAR_STRING,
+              tag_id=3,
+              ignorable=IGNORABLE_DEFAULT,
+              is_optional_constructor_arg=True,
+              vector=True,
+              to_string_method='ToStringCommaSeparated',
+              java_to_string_method='toStringCommaSeparated',
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedGraphPropertyDeclaration',
+      tag_id=231,
+      parent='ResolvedArgument',
+      comment="""
+        Represents a property name and type exposed by a GraphElementLabel.
+    """,
+      fields=[
+          Field('name', SCALAR_STRING, tag_id=2),
+          Field('type', SCALAR_TYPE, tag_id=3),
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedGraphPropertyDefinition',
+      tag_id=232,
+      parent='ResolvedArgument',
+      comment="""
+        Represents a property exposed by a GraphElementLabel on a specific
+        GraphElementTable.
+        <expr> [ AS <property_declaration_name> ]
+
+        <expr> is the property definition, a ResolvedExpression to identify a
+        column.
+        <sql> is the original sql string of the property definition.
+        <property_declaration_name> refers to a property declaration.
+    """,
+      fields=[
+          Field('expr', 'ResolvedExpr', tag_id=2),
+          Field('sql', SCALAR_STRING, tag_id=3),
+          Field('property_declaration_name', SCALAR_STRING, tag_id=4),
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedGraphScanBase',
+      tag_id=245,
+      parent='ResolvedScan',
+      comment="""Base scan class for graph scans""",
+      is_abstract=True,
+      fields=[],
+  )
+
+  gen.AddNode(
+      name='ResolvedGraphRefScan',
+      tag_id=246,
+      parent='ResolvedScan',
+      comment="""
+      A reference scan that can be used as input by a scan op
+      to its previous scan op within the same parent GraphLinearScan.
+      """,
+      fields=[],
+  )
+
+  gen.AddNode(
+      name='ResolvedGraphLinearScan',
+      tag_id=247,
+      parent='ResolvedGraphScanBase',
+      comment="""GraphLinearScan consists of multiple child scans executed in
+    order and outputs the last scan""",
+      fields=[
+          Field('scan_list', 'ResolvedScan', tag_id=2, vector=True),
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedGraphTableScan',
+      tag_id=208,
+      parent='ResolvedScan',
+      comment="""
+      A scan produced by <graph table> as described in
+      (broken link):graph-table-syntax, or gql enabled <graph table>,
+      as described in (broken link):gql-graph-table.
+
+      It produces columns of non-graph SQL type, either defined by
+      <shape_expr_list> or from <input_scan> directly.
+      When FEATURE_V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT is enabled it may
+      produce columns of graph element type.
+
+      If <shape_expr_list> is not empty, it defines the output columns of
+      ResolvedGraphTableScan, it can only access columns produced from
+      <input_scan>.
+      """,
+      fields=[
+          Field('property_graph', SCALAR_PROPERTY_GRAPH, tag_id=2),
+          Field('input_scan', 'ResolvedGraphScanBase', tag_id=3),
+          Field(
+              'shape_expr_list',
+              'ResolvedComputedColumn',
+              tag_id=4,
+              vector=True,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedGraphScan',
+      tag_id=229,
+      parent='ResolvedGraphScanBase',
+      comment="""
+      A scan produced by a <graph pattern> in <graph table>. It represents the
+      cross product of input ResolvedGraphPathScans, each represents a matching
+      sequences of graph elements (i.e. paths) in the property graph.
+
+      The <column_list> will contain columns from the <column_list>s of the
+      input path scans.
+
+      <filter_expr> contains expressions resolved from
+      graph pattern where clause, and possible equalities for joining path scans
+      on multiply-declared variables. It further filters the set of matched
+      paths.
+
+      When <input_scan> exists, the natural join semantics mentioned in
+      (broken link):gql-linear-comp would be applied to the <graph pattern> scan and
+      this <input_scan>.
+
+      When <optional> is true and <input_scan> exists, LEFT OUTER JOIN semantics
+      mentioned in (broken link):optional-match would be applied to <input_scan> and
+      scan produced from <graph pattern>.
+      """,
+      fields=[
+          Field(
+              'input_scan_list',
+              'ResolvedGraphPathScan',
+              tag_id=2,
+              vector=True,
+              comment="""
+              path pattern list contained in the graph pattern
+                      """,
+          ),
+          Field(
+              'filter_expr',
+              'ResolvedExpr',
+              tag_id=3,
+              is_optional_constructor_arg=True,
+          ),
+          Field(
+              'input_scan',
+              'ResolvedScan',
+              tag_id=4,
+              is_optional_constructor_arg=True,
+              comment="""
+              current tabular result in the graph query to be joined with.
+              See (broken link):gql-linear-comp for more details. This can only be a
+              ResolvedGraphRefScan after resolution, and would become a
+              ProjectScan / other GraphScan when linear query is rewritten into
+              a nested tree structure.
+                      """,
+          ),
+          Field(
+              'optional',
+              SCALAR_BOOL,
+              tag_id=5,
+              is_optional_constructor_arg=True,
+              ignorable=IGNORABLE_DEFAULT,
+              comment="""
+              this is the result of an OPTIONAL MATCH. See
+              (broken link):optional-match for more details. Corresponds to a left
+              outer join.
+              """,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedGraphPathPatternQuantifier',
+      tag_id=245,
+      parent='ResolvedArgument',
+      comment="""
+        A graph path pattern quantifier is used to represent the repetition of
+        a path pattern.
+      """,
+      fields=[
+          Field('lower_bound', 'ResolvedExpr', tag_id=2),
+          Field('upper_bound', 'ResolvedExpr', tag_id=3),
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedGraphPathSearchPrefix',
+      tag_id=260,
+      parent='ResolvedArgument',
+      comment="""
+        A graph path pattern search prefix, which restricts the result from a
+        graph pattern match by grouping the resulting paths by their
+        endpoints (the first and last vertices) and makes a selection of
+        paths from each group.
+      """,
+      fields=[
+          Field('type', SCALAR_PATH_SEARCH_PREFIX, tag_id=2),
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedGraphPathScanBase',
+      tag_id=244,
+      parent='ResolvedScan',
+      is_abstract=True,
+      comment="""
+      Common base class for path scan and element scan.
+      This is needed to support parenthesized path pattern.
+      """,
+      fields=[],
+  )
+
+  gen.AddNode(
+      name='ResolvedGraphElementScan',
+      tag_id=215,
+      parent='ResolvedGraphPathScanBase',
+      is_abstract=True,
+      comment="""
+      A base scan produced by a <element pattern>.
+      Outputs a stream of single-columned rows where <filter_expr> evaluates
+      to true and <label_expr> is satisfied. Column is of
+      GraphElementType(kind=Node|Edge).
+      Element tables matching the label expression and the element kind
+      are accessible in <target_element_table_list>.
+      """,
+      fields=[
+          Field('filter_expr', 'ResolvedExpr', tag_id=2),
+          Field(
+              'label_expr',
+              'ResolvedGraphLabelExpr',
+              tag_id=3,
+              comment="""
+              This is a logical combination of individual labels belonging
+              to a property graph using conjunctions (&), disjunctions (|),
+              negations (!), and grouping parentheses. During query evaluation,
+              relevant graph element tables are retrieved that satisfy
+              <label_expr>.
+                      """),
+          Field(
+              'target_element_table_list',
+              SCALAR_GRAPH_ELEMENT_TABLE,
+              tag_id=4,
+              comment="""
+                This is a vector of element tables of kind Node or Edge that
+                were found to satisfy <labelexpr> during resolution.
+                """,
+              vector=True,
+              java_to_string_method='toStringCommaSeparatedForGraphElementTable'
+          ),
+      ])
+
+  gen.AddNode(
+      name='ResolvedGraphNodeScan',
+      tag_id=209,
+      parent='ResolvedGraphElementScan',
+      comment="""
+      A ResolvedGraphElementScan produced by <node pattern>, whose the single
+      output column is of GraphElementType(kind=Node).
+      """,
+      fields=[])
+
+  gen.AddNode(
+      name='ResolvedGraphEdgeScan',
+      tag_id=216,
+      parent='ResolvedGraphElementScan',
+      comment="""
+      A ResolvedGraphElementScan produced by <edge pattern>, whose the single
+      output column is of GraphElementType(kind=Edge).
+
+      The edge scan also specifies the orientation requirement: only edges
+      matches the orientation should be returned.
+      """,
+      fields=[
+          Field('orientation', SCALAR_EDGE_ORIENTATION, tag_id=2),
+          Field(
+              'lhs_hint_list',
+              'ResolvedOption',
+              tag_id=3,
+              ignorable=IGNORABLE,
+              is_constructor_arg=False,
+              vector=True,
+          ),
+          Field(
+              'rhs_hint_list',
+              'ResolvedOption',
+              tag_id=4,
+              ignorable=IGNORABLE,
+              is_constructor_arg=False,
+              vector=True,
+          ),
+      ])
+
+  gen.AddNode(
+      name='ResolvedGraphGetElementProperty',
+      tag_id=210,
+      parent='ResolvedExpr',
+      comment="""
+      Get property <property_name> from the graph element in <expr>. <expr> must
+      be of GraphElementType.
+              """,
+      fields=[
+          Field('expr', 'ResolvedExpr', tag_id=2),
+          Field(
+              'property', SCALAR_GRAPH_PROPERTY_DECLARATION, tag_id=3),
+      ])
+
+  gen.AddNode(
+      name='ResolvedGraphLabelExpr',
+      tag_id=211,
+      parent='ResolvedArgument',
+      comment="""
+      A label is an element of a graph that declares what properties
+      are exposed by some node/edge table.
+      A label expression is an arbitrarily complex expression of labels with the
+      operators &, |, and ! as well as grouping parentheses.
+              """,
+      fields=[],
+      is_abstract=True,
+  )
+
+  gen.AddNode(
+      name='ResolvedGraphLabelNaryExpr',
+      tag_id=212,
+      parent='ResolvedGraphLabelExpr',
+      comment="""
+      This represents a logical operation performed on a set of individual
+      labels, where <op> specifies the type of operation (&, |, !) and
+      <operand_list> contains the operands of type ResolvedGraphLabelExpr. Note
+      that & and | are N-ary instead of binary to flatten the expressions
+      and avoid deep stacks. Note that ! is unary and therefore expects
+      that <operand_list> has 1 element.
+              """,
+      fields=[
+          Field(
+              'op',
+              SCALAR_GRAPH_LOGICAL_OP_TYPE,
+              tag_id=2,
+              to_string_method='GraphLogicalOpTypeToString',
+              java_to_string_method='toStringImpl'),
+          Field(
+              'operand_list',
+              'ResolvedGraphLabelExpr',
+              tag_id=3,
+              ignorable=IGNORABLE_DEFAULT,
+              vector=True)
+      ],
+      extra_defs="""
+  std::string GetGraphLogicalOpTypeString() const;
+  static std::string
+  GraphLogicalOpTypeToString(GraphLogicalOpType logical_op_type);""")
+
+  gen.AddNode(
+      name='ResolvedGraphLabel',
+      tag_id=213,
+      parent='ResolvedGraphLabelExpr',
+      comment="""
+      This represents a single resolved graph label. A label is an element
+      belonging to a property graph that has a unique name identifier and
+      references a set of property declarations. An element table with
+      a given label exposes all the properties declared by that label.
+              """,
+      fields=[
+          Field(
+              'label',
+              SCALAR_GRAPH_ELEMENT_LABEL,
+              tag_id=2,
+              comment='Points to a label in the catalog')
+      ])
+
+  gen.AddNode(
+      name='ResolvedGraphWildCardLabel',
+      tag_id=214,
+      parent='ResolvedGraphLabelExpr',
+      comment="""
+      This represents the wildcard label % that matches any label in the graph.
+              """,
+      fields=[])
+
+  gen.AddNode(
+      name='ResolvedGraphElementIdentifier',
+      tag_id=217,
+      parent='ResolvedArgument',
+      comment="""
+          Represents the identifier of a graph element within a graph.
+          See (broken link):graph-element-identifiers for more details.
+
+          <element_table>: the ElementTable that produced this graph element;
+          <key_list>: references to the key columns of the <element_table>;
+          <source/dest_node_identifier>: identifiers of source/destination node
+             of an edge: must be set if the element is an edge; must be null if
+             the element is a node.
+      """,
+      fields=[
+          Field('element_table', SCALAR_GRAPH_ELEMENT_TABLE, tag_id=2),
+          Field('key_list', 'ResolvedExpr', tag_id=3, vector=True),
+          Field(
+              'source_node_identifier',
+              'ResolvedGraphElementIdentifier',
+              tag_id=4,
+              is_optional_constructor_arg=True),
+          Field(
+              'dest_node_identifier',
+              'ResolvedGraphElementIdentifier',
+              tag_id=5,
+              is_optional_constructor_arg=True),
+      ])
+
+  gen.AddNode(
+      name='ResolvedGraphElementProperty',
+      tag_id=218,
+      parent='ResolvedArgument',
+      comment="""
+          Represents a graph element property of a graph element.
+
+          <declaration> refers to the property declaration catalog object;
+          <expr> is the value expression for the <declaration>.
+      """,
+      fields=[
+          Field('declaration', SCALAR_GRAPH_PROPERTY_DECLARATION, tag_id=2),
+          Field('expr', 'ResolvedExpr', tag_id=3),
+      ])
+
+  gen.AddNode(
+      name='ResolvedGraphMakeElement',
+      tag_id=219,
+      parent='ResolvedExpr',
+      comment="""
+          Constructs a graph element. <type> is always a GraphElementType.
+
+          <identifier> uniquely identifies a graph element in the graph;
+          <property_list> contains a list of properties and their definitions;
+          <label_list> contains a list of label catalog objects that are exposed
+            by the graph element.
+      """,
+      fields=[
+          Field('identifier', 'ResolvedGraphElementIdentifier', tag_id=2),
+          Field(
+              'property_list',
+              'ResolvedGraphElementProperty',
+              tag_id=3,
+              vector=True),
+          Field(
+              'label_list',
+              SCALAR_GRAPH_ELEMENT_LABEL,
+              tag_id=4,
+              vector=True,
+              java_to_string_method='toStringCommaSeparatedForGraphElementLabel'
+          ),
+      ])
+
+  gen.AddNode(
+      name='ResolvedArrayAggregate',
+      tag_id=257,
+      parent='ResolvedExpr',
+      comment="""
+          Computes an aggregate over the elements of an array.
+
+          For each element in <array>, produce an input row for the aggregate
+          as follows:
+           - Let <element_column> be the array element.
+           - Compute the expressions in <pre_aggregate_computed_column_list>,
+             which may refer to <element_column> and <array>.
+          Then evaluate <aggregate> over these rows.  It may reference these
+          new columns, or any other columns in scope for this node.
+
+          The aggregate input rows use the original <array>'s order unless
+          <aggregate> has an ORDER BY modifier.
+
+          <element_column> and the columns in
+          <pre_aggregate_computed_column_list> are not visible outside this node.
+
+          <array> can be any ResolvedExpr. Today it's always a ResolvedColumnRef
+          because the only user is graph's horizontal aggregation and that is
+          baked into the SQLBuilder implementation.
+     """,
+      fields=[
+          Field('array', 'ResolvedExpr', tag_id=2),
+          Field('element_column', SCALAR_RESOLVED_COLUMN, tag_id=3),
+          Field(
+              'pre_aggregate_computed_column_list',
+              'ResolvedComputedColumn',
+              vector=True,
+              tag_id=4,
+          ),
+          Field('aggregate', 'ResolvedAggregateFunctionCall', tag_id=5),
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedGraphMakeArrayVariable',
+      tag_id=258,
+      parent='ResolvedArgument',
+      comment="""
+          ResolvedGraphMakeArrayVariable populates the newly created <array>
+          column with the values that <element> takes across iterations of the
+          quantified path. For example, the resolved path `((a) - (b)){3}` will
+          contain two ResolvedGraphMakeArrayVariables, one creating the
+          array-typed column with the three values that `a` takes along the
+          quantified path; same for `b`.
+
+          The type of <array> must be an array with element type <scalar>.
+     """,
+      fields=[
+          Field('element', SCALAR_RESOLVED_COLUMN, tag_id=2),
+          Field('array', SCALAR_RESOLVED_COLUMN, tag_id=3),
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedGraphPathMode',
+      tag_id=259,
+      parent='ResolvedArgument',
+      comment="""
+      Path mode specifies ways to restrict the nodes and edges on a particular
+      path. It currently provides the ability to prevent duplicate edges with
+      TRAIL, duplicate nodes with ACYCLIC, and duplicate nodes except possibly
+      the head and the tail of the path with SIMPLE.
+      """,
+      fields=[
+          Field('path_mode', SCALAR_PATH_MODE, tag_id=2),
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedGraphPathScan',
+      tag_id=220,
+      parent='ResolvedGraphPathScanBase',
+      comment="""
+          ResolvedGraphPathScan represents a scan of matching sequences of
+          sub-paths or graph elements (i.e. paths) from the graph.
+
+          ResolvedGraphPathScan matches paths that: for the sequence of elements
+          along the path:
+            1) node/edge output from successive node pattern and edge pattern
+               satisfy edge pattern's orientation constraint:
+               the matching node must be the source or the destination of the
+               matching edge;
+            2) <filter_expr> evaluates true for the matching graph elements.
+            3) <path_hint_list> denotes a hint on a traversal between the
+               previous path to this path, so the first path in a graph pattern
+               will not contain a 'path hint'. Note that this is different from
+               the parent ResolvedScan node's 'hint_list' which belongs to the
+               scan itself.
+
+
+          <head> and <tail> are the first and last graph node of the path
+          respectively.
+
+          Consecutive paths match when the <tail> of the first path is the same
+          as the <head> of the second path.
+
+          A path is either quantified or not. If quantified:
+            1) <quantifier> and <group_variable_list> must be present.
+            2) <group_variable_list> is a list of (<element>, <array>) columns.
+               For each <element> column, this scan will populate the
+               corresponding <array> column with an array of all the values
+               that <scalar> column took across the iterations of the
+               quantified path in iteration order. Every <element> column comes
+               from <input_scan_list>. <column_list> contains the <head>,
+               <tail>, and all of the <array> columns from <group_variable_list>
+
+
+          If the path is not quantified:
+            1) <quantifier> and <group_variable_list> must not be present.
+            2) The <column_list> will contain columns from the <column_list>s of
+               the input scans, which represents elements in the path.
+
+          If <path> is present, it must be a path-typed column that can be
+          constructed from the paths and graph elements in <input_scan_list>.
+          This scan will populate <path> with the nodes and edges that are
+          matched along the path. If <path> is set on a ResolvedGraphPathScan it
+          must be set on all descendant ResolvedGraphPathScans. <path> must be a
+          new column.
+      """,
+      fields=[
+          Field(
+              'input_scan_list',
+              'ResolvedGraphPathScanBase',
+              tag_id=2,
+              vector=True,
+          ),
+          Field('filter_expr', 'ResolvedExpr', tag_id=3),
+          Field(
+              'path',
+              'ResolvedColumnHolder',
+              tag_id=11,
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+          Field('head', SCALAR_RESOLVED_COLUMN, tag_id=4),
+          Field('tail', SCALAR_RESOLVED_COLUMN, tag_id=5),
+          Field(
+              'path_hint_list',
+              'ResolvedOption',
+              tag_id=6,
+              ignorable=IGNORABLE,
+              is_constructor_arg=False,
+              vector=True,
+          ),
+          Field(
+              'quantifier',
+              'ResolvedGraphPathPatternQuantifier',
+              tag_id=7,
+              ignorable=IGNORABLE_DEFAULT,
+              is_optional_constructor_arg=True,
+              comment="""
+              """,
+          ),
+          Field(
+              'group_variable_list',
+              'ResolvedGraphMakeArrayVariable',
+              tag_id=8,
+              ignorable=IGNORABLE_DEFAULT,
+              vector=True,
+          ),
+          Field(
+              'path_mode',
+              'ResolvedGraphPathMode',
+              tag_id=9,
+          ),
+          Field(
+              'search_prefix',
+              'ResolvedGraphPathSearchPrefix',
+              tag_id=10,
+              is_optional_constructor_arg=True,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedGraphIsLabeledPredicate',
+      tag_id=262,
+      parent='ResolvedExpr',
+      comment="""
+      Represents IS LABELED predicate for graph elements, a boolean expression
+      that evaluates to true if the graph element satisfies the given
+      label expression.
+      <expr> represents the LHS which should always be a column reference of
+      GraphElementType.
+      <label_expr> represents the RHS which should always be a
+      ResolvedGraphLabelExpr.
+      <is_not> is true if the predicate is negated.
+      """,
+      fields=[
+          Field(
+              'is_not',
+              SCALAR_BOOL,
+              tag_id=2,
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+          Field('expr', 'ResolvedExpr', tag_id=3, ignorable=NOT_IGNORABLE),
+          Field(
+              'label_expr',
+              'ResolvedGraphLabelExpr',
+              tag_id=4,
+              ignorable=NOT_IGNORABLE,
+          ),
+      ],
+  )
+
+  gen.AddNode(
       name='ResolvedUndropStmt',
       tag_id=227,
       parent='ResolvedStatement',
@@ -9421,6 +10883,247 @@ ResolvedArgumentRef(y)
   )
 
   gen.AddNode(
+      name='ResolvedLogScan',
+      tag_id=272,
+      parent='ResolvedScan',
+      comment="""
+      This represents the pipe ABSL_LOG operator, which is controlled by
+      FEATURE_PIPE_LOG.
+
+      Execute `subpipeline` over `input_scan` and send its output to an
+      implementation-defined log.
+
+      `output_schema` describes the visible schema of the output to send to
+      the log. (This is not the output of the ResolvedLogScan in the query.)
+
+      In the main query flow, ResolvedLogScan is a no-op and just returns
+      the result from `input_scan` unchanged.
+      """,
+      fields=[
+          Field('input_scan', 'ResolvedScan', tag_id=2, propagate_order=True),
+          Field('subpipeline', 'ResolvedSubpipeline', tag_id=3),
+          Field('output_schema', 'ResolvedOutputSchema', tag_id=4),
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedPipeIfScan',
+      tag_id=277,
+      parent='ResolvedScan',
+      comment="""
+      This represents the pipe IF operator, which is controlled by
+      FEATURE_PIPE_IF.  See (broken link).
+
+      `if_case_list` must have at least one element with a `condition`.
+      If there's an ELSE case, if will be last and will have no `condition`.
+
+      `selected_case` indicates the chosen case and must be a valid index into
+      `if_case_list`.  `selected_case` is -1 if no case is selected and there's
+      no ELSE case.
+
+      The constant `condition` for `selected_case` must evaluate to true unless
+      it's the ELSE case.  All preceding `condition` expressions must evaluate
+      to non-true values.  (Later `condition` expressions could return errors.)
+
+      The selected case includes a valid resolved `subpipeline` that takes
+      `input_scan` as its input table.
+
+      Execution semantics:
+      Only the selected case runs.  The condition expressions have already been
+      evaluated statically at analysis time so are not evaluated at runtime.
+      If `selected_case` is -1, this scan is a no-op.
+
+      The subpipeline for the selected case runs over `input_scan`.
+      Its output is this node's output.
+      This node's `column_list` must be a subset of the subpipeline's final
+      column list.
+
+      `if_case_list` is ignorable because if `selected_case` is -1, it's
+      not necessary to look at any cases.
+      """,
+      fields=[
+          Field('input_scan', 'ResolvedScan', tag_id=2),
+          Field('selected_case', SCALAR_INT, tag_id=3),
+          Field(
+              'if_case_list',
+              'ResolvedPipeIfCase',
+              tag_id=4,
+              vector=True,
+              ignorable=IGNORABLE,
+          ),
+      ],
+      extra_defs="""
+  // Get the ResolvedScan for the case that was selected.
+  // When no case is selected (and there's no ELSE), this will be `input_scan`.
+  const ResolvedScan* GetSelectedCaseScan() const;""",
+  )
+
+  gen.AddNode(
+      name='ResolvedPipeIfCase',
+      tag_id=278,
+      parent='ResolvedArgument',
+      comment="""
+      This represents one case in a ResolvedPipeIf.
+
+      `condition` and `subpipeline_sql` must be present for all cases except
+      the last case (if it's an ELSE case).
+      `condition` must be present except on the ELSE case.
+      `subpipeline_sql` must be present for all cases.
+
+      Where `condition` is present, it must be a valid boolean constant
+      expression.
+
+      `subpipeline_sql` gives the SQL for the subpipeline, including the
+      wrapping parentheses.  This is required even for the selected case
+      because the SQLBuilder currently relies on it.
+
+      `subpipeline_sql` for non-selected cases doesn't have to be resolvable
+      but should be parsable.
+
+      `subpipeline` must be present for the selected case, and can optionally
+      be present for other cases (only when the SQL is valid).
+
+      `condition` is ignorable because conditions are evaluated at analysis time
+      and the case to run has already been chosen.
+
+      `subpipeline` is ignorable because it doesn't need to be consumed in the
+      non-selected cases.
+      """,
+      fields=[
+          Field('condition', 'ResolvedExpr', tag_id=2, ignorable=IGNORABLE),
+          Field(
+              'subpipeline_sql', SCALAR_STRING, tag_id=3, ignorable=IGNORABLE
+          ),
+          Field(
+              'subpipeline',
+              'ResolvedSubpipeline',
+              tag_id=4,
+              ignorable=IGNORABLE,
+          ),
+      ],
+      extra_defs="""
+  bool IsElse() const { return condition() == nullptr; }""",
+  )
+
+  gen.AddNode(
+      name='ResolvedPipeForkScan',
+      tag_id=283,
+      parent='ResolvedScan',
+      comment="""
+      This represents the pipe FORK operator, which is controlled by
+      FEATURE_PIPE_FORK.  See (broken link).
+
+      This only occurs inside ResolvedGeneralizedQueryStmts, so that statement
+      must be enabled in SupportedStatementKinds.
+      """,
+      fields=[
+          Field('input_scan', 'ResolvedScan', tag_id=2),
+          Field(
+              'subpipeline_list',
+              'ResolvedGeneralizedQuerySubpipeline',
+              tag_id=3,
+              vector=True,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedPipeExportDataScan',
+      tag_id=285,
+      parent='ResolvedScan',
+      comment="""
+      This represents the pipe EXPORT DATA operator, which is controlled by
+      FEATURE_PIPE_EXPORT_DATA.  See (broken link).
+
+      This only occurs inside ResolvedGeneralizedQueryStmts, so that statement
+      must be enabled in SupportedStatementKinds.
+      """,
+      fields=[
+          Field('input_scan', 'ResolvedScan', tag_id=2),
+          Field(
+              'export_data_stmt',
+              'ResolvedExportDataStmt',
+              tag_id=3,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedSubpipeline',
+      tag_id=273,
+      parent='ResolvedArgument',
+      comment="""
+      This represents a subpipeline.
+      These occur inside various pipe operators, expressing a subpipeline of
+      pipe operators to apply on some input table.
+      See (broken link).
+
+      The operator that contains this ResolvedSubpipeline defines how it's
+      being used and what table is passed in.  Most commonly, this is used
+      inside pipe operator scans, and is passed the `input_scan` of the
+      containing ResolvedScan.  When some other intermediate table is passed to
+      the subpipeline, that will be documented in the containing node.
+
+      Inside `scan`, there must be exactly one instance of
+      ResolvedSubpipelineInputScan as a leaf scan receiving the subpipeline's
+      input table.  That scan's column_list includes a subset of columns
+      available from the input table provided to this ResolvedSubpipeline.
+
+      ResolvedSubpipeline is like the final subquery in a ResolvedWithScan.
+      The ResolvedSubpipelineInputScan is like the ResolvedWithRefScan.
+      The node containing this ResolvedSubpipeline is like the ResolvedWithScan
+      and has to define the CTE-like table that will be referenced.
+      """,
+      fields=[
+          Field('scan', 'ResolvedScan', tag_id=2),
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedSubpipelineInputScan',
+      tag_id=274,
+      parent='ResolvedScan',
+      comment="""
+      This is the scan inside a ResolvedSubpipeline representing the initial
+      input table passed into the subpipeline.  This works like a CTE in WITH.
+
+      The node containing the ResolvedSubpipeline (which is like a
+      ResolvedWithScan) specifies what table this is. Often it's a table that
+      just gets a copy of the node's `input_scan`, to pass through to the
+      subpipeline.
+
+      The ResolvedSubpipelineInputScan is like a ResolvedWithRefScan, doing the
+      scan of that specified table inside the subpupline query.
+
+      The `column_list` columns are a subset of columns available on that
+      input table.
+      """,
+      fields=[],
+  )
+
+  gen.AddNode(
+      name='ResolvedGeneralizedQuerySubpipeline',
+      tag_id=284,
+      parent='ResolvedArgument',
+      comment="""
+      This represents a subpipeline that is part of a ResolvedGeneralizedQueryStmt
+      and could produce an output table or a statement side-effect.
+      This node can only occur inside a ResolvedGeneralizedQueryStmt.
+
+      These subpipelines occur inside operators like FORK that create
+      generalized query shapes.  See (broken link).
+
+      `output_schema` is present if this subpipeline produces a final output
+      table to be returned as part of the ResolvedGeneralizedQueryStmt, and
+      provides the schema of that table.
+      """,
+      fields=[
+          Field('subpipeline', 'ResolvedSubpipeline', tag_id=2),
+          Field('output_schema', 'ResolvedOutputSchema', tag_id=3),
+      ],
+  )
+
+  gen.AddNode(
       name='ResolvedBarrierScan',
       tag_id=261,
       parent='ResolvedScan',
@@ -9479,6 +11182,25 @@ ResolvedArgumentRef(y)
         ALTER CONNECTION [IF EXISTS] <name_path> SET OPTIONS(...)
               """,
       fields=[],
+  )
+
+  gen.AddNode(
+      name='ResolvedLockMode',
+      tag_id=275,
+      parent='ResolvedArgument',
+      comment="""
+      ResolvedLockMode optionally indicates whether locks should be
+      acquired on the data accessed during a ResolvedTableScan.
+
+      `strength` specifies the strength of the locks to be acquired.
+      """,
+      fields=[
+          Field(
+              'strength',
+              SCALAR_LOCK_STRENGTH_TYPE,
+              tag_id=2,
+          ),
+      ],
   )
 
   gen.Generate(

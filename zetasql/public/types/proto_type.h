@@ -135,7 +135,7 @@ class ProtoType : public Type {
     return GetFieldTypeByTagNumber(
         number, factory, /*use_obsolete_timestamp=*/false, type, name);
   }
-  absl::Status GetFieldTypeByName(const std::string& name, TypeFactory* factory,
+  absl::Status GetFieldTypeByName(absl::string_view name, TypeFactory* factory,
                                   const Type** type,
                                   int* number = nullptr) const {
     return GetFieldTypeByName(name, factory,
@@ -211,7 +211,7 @@ class ProtoType : public Type {
   // Case insensitive version of google::protobuf::Descriptor::FindFieldByName.
   // Returns NULL if the name is not found.
   static const google::protobuf::FieldDescriptor* FindFieldByNameIgnoreCase(
-      const google::protobuf::Descriptor* descriptor, const std::string& name);
+      const google::protobuf::Descriptor* descriptor, absl::string_view name);
 
   // Get the zetasql Format from a FieldDescriptor.
   // Note that if a deprecated Encoding annotation exists and is valid,
@@ -495,19 +495,21 @@ absl::Status ProtoType::ValidateTypeAnnotations(
         break;
       case google::protobuf::FieldDescriptor::TYPE_BYTES:
         {
-          if (field_format != FieldFormat::ST_GEOGRAPHY_ENCODED &&
-              field_format != FieldFormat::NUMERIC &&
-              field_format != FieldFormat::BIGNUMERIC &&
-              field_format != FieldFormat::TOKENLIST &&
-              field_format != FieldFormat::RANGE_DATES_ENCODED &&
-              field_format != FieldFormat::RANGE_DATETIMES_ENCODED &&
-              field_format != FieldFormat::RANGE_TIMESTAMPS_ENCODED &&
-              field_format != FieldFormat::INTERVAL) {
-            return MakeSqlError()
-                   << "Proto " << field->containing_type()->full_name()
-                   << " has invalid zetasql.format for BYTES field: "
-                   << field->DebugString();
-          }
+        if (field_format != FieldFormat::ST_GEOGRAPHY_ENCODED &&
+            field_format != FieldFormat::NUMERIC &&
+            field_format != FieldFormat::BIGNUMERIC &&
+            field_format != FieldFormat::TIMESTAMP_PICOS &&
+            field_format != FieldFormat::TOKENLIST &&
+            field_format != FieldFormat::RANGE_DATES_ENCODED &&
+            field_format != FieldFormat::RANGE_DATETIMES_ENCODED &&
+            field_format != FieldFormat::RANGE_TIMESTAMPS_ENCODED &&
+            field_format != FieldFormat::INTERVAL &&
+            field_format != FieldFormat::UUID) {
+          return MakeSqlError()
+                 << "Proto " << field->containing_type()->full_name()
+                 << " has invalid zetasql.format for BYTES field: "
+                 << field->DebugString();
+        }
       } break;
       case google::protobuf::FieldDescriptor::TYPE_STRING:
         {

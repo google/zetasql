@@ -37,5 +37,6 @@ message PlaceholderDescriptorProto {
   extend google.protobuf.MessageOptions {
     optional PlaceholderDescriptorProto placeholder_descriptor = 14004;
   }
+
   optional bool is_placeholder = 1;
 }

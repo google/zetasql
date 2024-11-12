@@ -20,9 +20,9 @@
 #include <string>
 #include <vector>
 
-#include "zetasql/parser/bison_token_codes.h"
 #include "zetasql/parser/macros/token_splicing_utils.h"
-#include "zetasql/parser/macros/token_with_location.h"
+#include "zetasql/parser/tm_token.h"
+#include "zetasql/parser/token_with_location.h"
 #include "zetasql/base/check.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
@@ -33,20 +33,23 @@ namespace parser {
 namespace macros {
 
 static bool IsIntegerOrFloatingPointLiteral(const TokenWithLocation& token) {
-  ABSL_DCHECK(token.kind != INTEGER_LITERAL)
+  ABSL_DCHECK(token.kind != Token::INTEGER_LITERAL)
       << "Macor expander should not see INTEGER_LITERAL directly. Instead it "
          "should see DECIMAL_INTEGER_LITERAL or HEX_INTEGER_LITERAL";
-  return token.kind == DECIMAL_INTEGER_LITERAL ||
-         token.kind == HEX_INTEGER_LITERAL ||
-         token.kind == FLOATING_POINT_LITERAL;
+  return token.kind == Token::DECIMAL_INTEGER_LITERAL ||
+         token.kind == Token::HEX_INTEGER_LITERAL ||
+         token.kind == Token::FLOATING_POINT_LITERAL;
 }
 
 static bool SplicingTokensCouldStartComment(
     const TokenWithLocation& previous_token,
     const TokenWithLocation& current_token) {
-  return (previous_token.kind == '-' && current_token.kind == '-') ||
-         (previous_token.kind == '/' && current_token.kind == '/') ||
-         (previous_token.kind == '/' && current_token.kind == '*');
+  return (previous_token.kind == Token::MINUS &&
+          current_token.kind == Token::MINUS) ||
+         (previous_token.kind == Token::DIV &&
+          current_token.kind == Token::DIV) ||
+         (previous_token.kind == Token::DIV &&
+          current_token.kind == Token::MULT);
 }
 
 static bool TokensRequireExplicitSeparation(
@@ -59,14 +62,14 @@ static bool TokensRequireExplicitSeparation(
 
   // Macro invocation, keyword or unquoted identifier followed by a character
   // that can continue it.
-  if (previous_token.kind == MACRO_INVOCATION ||
-      previous_token.kind == STANDALONE_EXPONENT_SIGN ||
-      previous_token.kind == EXP_IN_FLOAT_NO_SIGN ||
+  if (previous_token.kind == Token::MACRO_INVOCATION ||
+      previous_token.kind == Token::STANDALONE_EXPONENT_SIGN ||
+      previous_token.kind == Token::EXP_IN_FLOAT_NO_SIGN ||
       IsKeywordOrUnquotedIdentifier(previous_token)) {
     return IsIdentifierCharacter(current_token.text.front());
   }
   // Macro argument reference followed by a decimal digit.
-  if (previous_token.kind == MACRO_ARGUMENT_REFERENCE) {
+  if (previous_token.kind == Token::MACRO_ARGUMENT_REFERENCE) {
     return std::isdigit(current_token.text.front());
   }
 
@@ -85,7 +88,7 @@ static bool TokensRequireExplicitSeparation(
   // Two ">"s should not be fused together. For example with
   // `DEFINE MACRO gt >`, `$gt()$gt()` should not be printed as ">>" (one right
   // shift) but "> >" (two greater than symbols).
-  if (previous_token.kind == '>' && current_token.kind == '>') {
+  if (previous_token.kind == Token::GT && current_token.kind == Token::GT) {
     return true;
   }
 

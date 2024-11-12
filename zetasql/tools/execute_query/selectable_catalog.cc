@@ -29,6 +29,7 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
 
@@ -86,7 +87,7 @@ std::string GetSelectableCatalogDescriptionsForFlag() {
 }
 
 absl::StatusOr<SelectableCatalog*> FindSelectableCatalog(
-    const std::string& name) {
+    absl::string_view name) {
   for (SelectableCatalog* catalog : GetSelectableCatalogs()) {
     if (catalog->name() == name) {
       return catalog;

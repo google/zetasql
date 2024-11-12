@@ -38,6 +38,7 @@ import com.google.zetasql.SimpleCatalogProtos.SimpleCatalogProto.NamedTypeProto;
 import com.google.zetasql.SimpleConnectionProtos.SimpleConnectionProto;
 import com.google.zetasql.SimpleConstantProtos.SimpleConstantProto;
 import com.google.zetasql.SimpleModelProtos.SimpleModelProto;
+import com.google.zetasql.SimplePropertyGraphProtos.SimplePropertyGraphProto;
 import com.google.zetasql.SimpleTableProtos.SimpleTableProto;
 import io.grpc.StatusRuntimeException;
 import java.util.HashMap;
@@ -82,9 +83,10 @@ public class SimpleCatalog extends Catalog {
   private final Map<String, Function> functionsByFullName = new HashMap<>();
   private final Map<String, Procedure> procedures = new HashMap<>();
   // globalNames is used to avoid naming conflict of top tier objects including
-  // tables.
-  // When inserting into tables, insert the name into global_names as well.
+  // tables and property graphs.
+  // When inserting into them, insert the name into global_names as well.
   private final Set<String> globalNames = new HashSet<>();
+  private final Map<String, SimplePropertyGraph> propertyGraphs = new HashMap<>();
   private final Map<String, SimpleConnection> connections = new HashMap<>();
   private final Map<String, SimpleModel> models = new HashMap<>();
   private final Map<Long, SimpleModel> modelsById = new HashMap<>();
@@ -271,6 +273,10 @@ public class SimpleCatalog extends Catalog {
       builder.addProcedure(procedure.getValue().serialize(fileDescriptorSetsBuilder));
     }
 
+    for (Entry<String, SimplePropertyGraph> propertyGraph : propertyGraphs.entrySet()) {
+      builder.addPropertyGraph(propertyGraph.getValue().serialize(fileDescriptorSetsBuilder));
+    }
+
     if (descriptorPool != null) {
       builder.setFileDescriptorSetIndex(
           fileDescriptorSetsBuilder.addAllFileDescriptors(descriptorPool));
@@ -413,6 +419,36 @@ public class SimpleCatalog extends Catalog {
     Preconditions.checkArgument(models.containsKey(nameInLowerCase), "missing key: %s", name);
     SimpleModel model = models.remove(nameInLowerCase);
     modelsById.remove(model.getId());
+  }
+
+  /** Add property graph into this catalog. Property graph names are case insensitive. */
+  public void addSimplePropertyGraph(SimplePropertyGraph propertyGraph) {
+    String nameInLowerCase = Ascii.toLowerCase(propertyGraph.getName());
+    Preconditions.checkState(!registered);
+    Preconditions.checkArgument(!globalNames.contains(nameInLowerCase), "duplicate key: %s", name);
+    Preconditions.checkArgument(
+        !propertyGraphs.containsKey(nameInLowerCase), "duplicate key: %s", name);
+    propertyGraphs.put(nameInLowerCase, propertyGraph);
+    globalNames.add(nameInLowerCase);
+  }
+
+  /** Removes a property graph from this catalog. */
+  public void removePropertyGraph(PropertyGraph propertyGraph) {
+    removePropertyGraph(propertyGraph.getName());
+  }
+
+  /**
+   * Removes a simple property graph from this catalog. Property graph names are case insensitive.
+   */
+  public void removePropertyGraph(String name) {
+    String nameInLowerCase = Ascii.toLowerCase(name);
+    Preconditions.checkState(!registered);
+    Preconditions.checkState(!registered);
+    Preconditions.checkArgument(!globalNames.contains(nameInLowerCase), "missing key: %s", name);
+    Preconditions.checkArgument(
+        propertyGraphs.containsKey(nameInLowerCase), "missing key: %s", name);
+    propertyGraphs.remove(nameInLowerCase);
+    globalNames.remove(nameInLowerCase);
   }
 
   /**
@@ -637,6 +673,13 @@ public class SimpleCatalog extends Catalog {
     return ImmutableList.copyOf(tables.values());
   }
 
+  public ImmutableList<String> getPropertyGraphNameList() {
+    return ImmutableList.copyOf(propertyGraphs.keySet());
+  }
+
+  public ImmutableList<PropertyGraph> getPropertyGraphList() {
+    return ImmutableList.copyOf(propertyGraphs.values());
+  }
   public ImmutableList<Type> getTypeList() {
     return ImmutableList.copyOf(types.values());
   }
@@ -753,6 +796,11 @@ public class SimpleCatalog extends Catalog {
     return tvfs.get(Ascii.toLowerCase(name));
   }
 
+  @Override
+  public PropertyGraph getPropertyGraph(String name, FindOptions options) {
+    return propertyGraphs.get(Ascii.toLowerCase(name));
+  }
+
   public SimpleTable getTableById(long serializationId) {
     SimpleTable table = tablesById.get(serializationId);
     if (table == null) {
@@ -847,6 +895,11 @@ public class SimpleCatalog extends Catalog {
 
     for (ProcedureProto procedureProto : proto.getProcedureList()) {
       catalog.addProcedure(Procedure.deserialize(procedureProto, pools));
+    }
+
+    for (SimplePropertyGraphProto propertyGraphProto : proto.getPropertyGraphList()) {
+      catalog.addSimplePropertyGraph(
+          SimplePropertyGraph.deserialize(propertyGraphProto, pools, catalog));
     }
 
     if (proto.hasBuiltinFunctionOptions()) {

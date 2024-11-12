@@ -23,11 +23,12 @@
 #include "zetasql/base/arena.h"
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/parser/bison_parser_mode.h"
-#include "zetasql/parser/bison_token_codes.h"
 #include "zetasql/parser/macros/macro_catalog.h"
-#include "zetasql/parser/macros/token_with_location.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parser.h"
+#include "zetasql/parser/tm_token.h"
+#include "zetasql/parser/token_codes.h"
+#include "zetasql/parser/token_with_location.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/parse_location.h"
 #include "zetasql/public/parse_resume_location.h"
@@ -41,7 +42,6 @@
 
 namespace zetasql::parser {
 
-using ::zetasql::parser::macros::TokenWithLocation;
 using ::testing::ContainerEq;
 using ::testing::ElementsAre;
 using ::testing::ElementsAreArray;
@@ -53,27 +53,25 @@ using ::testing::Optional;
 using ::zetasql_base::testing::IsOkAndHolds;
 using ::zetasql_base::testing::StatusIs;
 
-using Token = TokenKinds;
-using TokenKind = int;
 using Location = ParseLocationRange;
 
 // This class is a friend of the tokenizer so that it can help us test the
 // private API.
 class TokenTestThief {
  public:
-  static TokenKind Lookahead1(LookaheadTransformer& lookahead_transformer) {
+  static Token Lookahead1(LookaheadTransformer& lookahead_transformer) {
     return lookahead_transformer.Lookahead1();
   }
-  static TokenKind Lookahead2(LookaheadTransformer& lookahead_transformer) {
+  static Token Lookahead2(LookaheadTransformer& lookahead_transformer) {
     return lookahead_transformer.Lookahead2();
   }
-  static TokenKind Lookahead3(LookaheadTransformer& lookahead_transformer) {
+  static Token Lookahead3(LookaheadTransformer& lookahead_transformer) {
     return lookahead_transformer.Lookahead3();
   }
-  static TokenKind Lookback1(LookaheadTransformer& lookahead_transformer) {
+  static Token Lookback1(LookaheadTransformer& lookahead_transformer) {
     return lookahead_transformer.Lookback1();
   }
-  static TokenKind Lookback2(LookaheadTransformer& lookahead_transformer) {
+  static Token Lookback2(LookaheadTransformer& lookahead_transformer) {
     return lookahead_transformer.Lookback2();
   }
 
@@ -90,18 +88,17 @@ class TokenTestThief {
 
 class LookaheadTransformerTest : public ::testing::Test {
  public:
-  std::vector<TokenKind> GetAllTokens(BisonParserMode mode,
-                                      absl::string_view sql) {
+  std::vector<Token> GetAllTokens(BisonParserMode mode, absl::string_view sql) {
     auto tokenizer = LookaheadTransformer::Create(
         mode, "fake_file", sql, 0, options_, /*macro_catalog=*/nullptr,
         /*arena=*/nullptr);
     ZETASQL_DCHECK_OK(tokenizer);
     Location location;
-    std::vector<TokenKind> tokens;
+    std::vector<Token> tokens;
     do {
       absl::string_view text;
       tokens.emplace_back(tokenizer.value()->GetNextToken(&text, &location));
-    } while (tokens.back() != Token::YYEOF);
+    } while (tokens.back() != Token::EOI);
     return tokens;
   }
 
@@ -110,47 +107,49 @@ class LookaheadTransformerTest : public ::testing::Test {
 };
 
 TEST_F(LookaheadTransformerTest, ParameterKeywordStatementMode) {
-  EXPECT_THAT(GetAllTokens(BisonParserMode::kStatement, "a @select c"),
-              ElementsAre(Token::MODE_STATEMENT, Token::IDENTIFIER, '@',
-                          Token::IDENTIFIER, Token::IDENTIFIER, Token::YYEOF));
+  EXPECT_THAT(
+      GetAllTokens(BisonParserMode::kStatement, "a @select c"),
+      ElementsAre(Token::MODE_STATEMENT, Token::IDENTIFIER, Token::ATSIGN,
+                  Token::IDENTIFIER, Token::IDENTIFIER, Token::EOI));
 }
 
 TEST_F(LookaheadTransformerTest, ParameterKeywordTokenizerMode) {
   EXPECT_THAT(GetAllTokens(BisonParserMode::kTokenizer, "a @select c"),
-              ElementsAre(Token::IDENTIFIER, '@', Token::IDENTIFIER,
-                          Token::IDENTIFIER, Token::YYEOF));
+              ElementsAre(Token::IDENTIFIER, Token::ATSIGN, Token::IDENTIFIER,
+                          Token::IDENTIFIER, Token::EOI));
 }
 
 TEST_F(LookaheadTransformerTest, SysvarKeywordStatementMode) {
   EXPECT_THAT(
       GetAllTokens(BisonParserMode::kStatement, "a @@where c"),
       ElementsAre(Token::MODE_STATEMENT, Token::IDENTIFIER, Token::KW_DOUBLE_AT,
-                  Token::IDENTIFIER, Token::IDENTIFIER, Token::YYEOF));
+                  Token::IDENTIFIER, Token::IDENTIFIER, Token::EOI));
 }
 
 TEST_F(LookaheadTransformerTest, SysvarKeywordTokenizerMode) {
   EXPECT_THAT(GetAllTokens(BisonParserMode::kTokenizer, "a @@where c"),
               ElementsAre(Token::IDENTIFIER, Token::KW_DOUBLE_AT,
-                          Token::IDENTIFIER, Token::IDENTIFIER, Token::YYEOF));
+                          Token::IDENTIFIER, Token::IDENTIFIER, Token::EOI));
 }
 
 TEST_F(LookaheadTransformerTest, QueryParamCurrentDate) {
-  EXPECT_THAT(GetAllTokens(BisonParserMode::kStatement, "a @current_date c"),
-              ElementsAre(Token::MODE_STATEMENT, Token::IDENTIFIER, '@',
-                          Token::IDENTIFIER, Token::IDENTIFIER, Token::YYEOF));
+  EXPECT_THAT(
+      GetAllTokens(BisonParserMode::kStatement, "a @current_date c"),
+      ElementsAre(Token::MODE_STATEMENT, Token::IDENTIFIER, Token::ATSIGN,
+                  Token::IDENTIFIER, Token::IDENTIFIER, Token::EOI));
 }
 
 TEST_F(LookaheadTransformerTest, SysvarWithDotId) {
   EXPECT_THAT(
       GetAllTokens(BisonParserMode::kStatement, "SELECT @@ORDER.WITH.c"),
       ElementsAre(Token::MODE_STATEMENT, Token::KW_SELECT, Token::KW_DOUBLE_AT,
-                  Token::IDENTIFIER, '.',
-                  Token::IDENTIFIER, '.', Token::IDENTIFIER, Token::YYEOF));
+                  Token::IDENTIFIER, Token::DOT, Token::IDENTIFIER, Token::DOT,
+                  Token::IDENTIFIER, Token::EOI));
 }
 
-absl::StatusOr<TokenKind> GetNextToken(LookaheadTransformer& tokenizer,
-                                       Location& location) {
-  TokenKind token_kind;
+absl::StatusOr<Token> GetNextToken(LookaheadTransformer& tokenizer,
+                                   Location& location) {
+  Token token_kind;
   ZETASQL_RETURN_IF_ERROR(tokenizer.GetNextToken(&location, &token_kind));
   return token_kind;
 }
@@ -179,13 +178,13 @@ TEST_F(LookaheadTransformerTest, Lookahead1) {
 
   EXPECT_THAT(GetNextToken(tokenizer, location),
               IsOkAndHolds(Token::KW_SELECT));
-  EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer), Token::YYEOF);
+  EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer), Token::EOI);
 
-  EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::YYEOF));
+  EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::EOI));
 
   // Then even after YYEOF
-  EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer), Token::YYEOF);
-  EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::YYEOF));
+  EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer), Token::EOI);
+  EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::EOI));
 }
 
 TEST_F(LookaheadTransformerTest, Lookahead1WithForceTerminate) {
@@ -207,12 +206,12 @@ TEST_F(LookaheadTransformerTest, Lookahead1WithForceTerminate) {
             Token::DECIMAL_INTEGER_LITERAL);
 
   tokenizer.SetForceTerminate(/*end_byte_offset=*/nullptr);
-  EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::YYEOF));
-  EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::YYEOF));
+  EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::EOI));
+  EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::EOI));
 
   // Then even after YYEOF
-  EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer), Token::YYEOF);
-  EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::YYEOF));
+  EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer), Token::EOI);
+  EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::EOI));
 }
 
 TEST_F(LookaheadTransformerTest, Lookahead2) {
@@ -239,16 +238,16 @@ TEST_F(LookaheadTransformerTest, Lookahead2) {
   EXPECT_THAT(GetNextToken(tokenizer, location),
               IsOkAndHolds(Token::INTEGER_LITERAL));
   EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer), Token::KW_SELECT);
-  EXPECT_EQ(TokenTestThief::Lookahead2(tokenizer), Token::YYEOF);
+  EXPECT_EQ(TokenTestThief::Lookahead2(tokenizer), Token::EOI);
 
   EXPECT_THAT(GetNextToken(tokenizer, location),
               IsOkAndHolds(Token::KW_SELECT));
-  EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer), Token::YYEOF);
-  EXPECT_EQ(TokenTestThief::Lookahead2(tokenizer), Token::YYEOF);
+  EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer), Token::EOI);
+  EXPECT_EQ(TokenTestThief::Lookahead2(tokenizer), Token::EOI);
 
-  EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::YYEOF));
-  EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer), Token::YYEOF);
-  EXPECT_EQ(TokenTestThief::Lookahead2(tokenizer), Token::YYEOF);
+  EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::EOI));
+  EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer), Token::EOI);
+  EXPECT_EQ(TokenTestThief::Lookahead2(tokenizer), Token::EOI);
 }
 
 TEST_F(LookaheadTransformerTest, Lookahead2BeforeLookahead1) {
@@ -285,18 +284,18 @@ TEST_F(LookaheadTransformerTest, Lookahead2NoEnoughTokens) {
 
   EXPECT_THAT(GetNextToken(tokenizer, location),
               IsOkAndHolds(Token::MODE_STATEMENT));
-  EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer), Token::YYEOF);
-  EXPECT_EQ(TokenTestThief::Lookahead2(tokenizer), Token::YYEOF);
+  EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer), Token::EOI);
+  EXPECT_EQ(TokenTestThief::Lookahead2(tokenizer), Token::EOI);
 
-  EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::YYEOF));
-  EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer), Token::YYEOF);
-  EXPECT_EQ(TokenTestThief::Lookahead2(tokenizer), Token::YYEOF);
+  EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::EOI));
+  EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer), Token::EOI);
+  EXPECT_EQ(TokenTestThief::Lookahead2(tokenizer), Token::EOI);
 
   // Fetching more tokens returns YYEOF.
-  EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::YYEOF));
-  EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::YYEOF));
-  EXPECT_EQ(TokenTestThief::Lookahead2(tokenizer), Token::YYEOF);
-  EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer), Token::YYEOF);
+  EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::EOI));
+  EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::EOI));
+  EXPECT_EQ(TokenTestThief::Lookahead2(tokenizer), Token::EOI);
+  EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer), Token::EOI);
 }
 
 TEST_F(LookaheadTransformerTest, Lookahead2ForceTerminate) {
@@ -317,13 +316,13 @@ TEST_F(LookaheadTransformerTest, Lookahead2ForceTerminate) {
   tokenizer.SetForceTerminate(/*end_byte_offset=*/nullptr);
 
   // After the force termination both lookaheads return YYEOF.
-  EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer), Token::YYEOF);
-  EXPECT_EQ(TokenTestThief::Lookahead2(tokenizer), Token::YYEOF);
+  EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer), Token::EOI);
+  EXPECT_EQ(TokenTestThief::Lookahead2(tokenizer), Token::EOI);
 
   // Fetching more tokens returns YYEOF.
-  EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::YYEOF));
-  EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer), Token::YYEOF);
-  EXPECT_EQ(TokenTestThief::Lookahead2(tokenizer), Token::YYEOF);
+  EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::EOI));
+  EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer), Token::EOI);
+  EXPECT_EQ(TokenTestThief::Lookahead2(tokenizer), Token::EOI);
 }
 
 TEST_F(LookaheadTransformerTest, Lookahead2ForceTerminateLookahead2First) {
@@ -344,13 +343,13 @@ TEST_F(LookaheadTransformerTest, Lookahead2ForceTerminateLookahead2First) {
   tokenizer.SetForceTerminate(/*end_byte_offset=*/nullptr);
 
   // After the force termination both lookaheads return YYEOF.
-  EXPECT_EQ(TokenTestThief::Lookahead2(tokenizer), Token::YYEOF);
-  EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer), Token::YYEOF);
+  EXPECT_EQ(TokenTestThief::Lookahead2(tokenizer), Token::EOI);
+  EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer), Token::EOI);
 
   // Fetching more tokens returns YYEOF.
-  EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::YYEOF));
-  EXPECT_EQ(TokenTestThief::Lookahead2(tokenizer), Token::YYEOF);
-  EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer), Token::YYEOF);
+  EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::EOI));
+  EXPECT_EQ(TokenTestThief::Lookahead2(tokenizer), Token::EOI);
+  EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer), Token::EOI);
 }
 
 TEST_F(LookaheadTransformerTest, LookaheadTransformerReturnsYyeofWhenErrors) {
@@ -367,9 +366,9 @@ TEST_F(LookaheadTransformerTest, LookaheadTransformerReturnsYyeofWhenErrors) {
               IsOkAndHolds(Token::MODE_STATEMENT));
   EXPECT_THAT(GetNextToken(tokenizer, location),
               IsOkAndHolds(Token::KW_SELECT));
-  EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds('*'));
+  EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::MULT));
 
-  int token_kind;
+  Token token_kind;
   absl::Status status = tokenizer.GetNextToken(&location, &token_kind);
   EXPECT_THAT(
       status,
@@ -378,7 +377,7 @@ TEST_F(LookaheadTransformerTest, LookaheadTransformerReturnsYyeofWhenErrors) {
           R"err_msg(EXCEPT must be followed by ALL, DISTINCT, or "(")err_msg"));
   // The returned token should be YYEOF rather than KW_EXCEPT because an error
   // is produced.
-  EXPECT_EQ(token_kind, Token::YYEOF);
+  EXPECT_EQ(token_kind, Token::EOI);
 }
 
 static void AdvanceLexer(LookaheadTransformer& tokenizer, Location& location) {
@@ -389,7 +388,7 @@ static void AdvanceLexer(LookaheadTransformer& tokenizer, Location& location) {
 MATCHER_P2(TokenIs, expected_kind, status_matcher, "") {
   return ExplainMatchResult(
       Optional(FieldsAre(Field(&TokenWithLocation::kind, Eq(expected_kind)),
-                         Eq(kNoToken), status_matcher)),
+                         Eq(Token::UNAVAILABLE), status_matcher)),
       arg, result_listener);
 }
 
@@ -446,21 +445,21 @@ TEST_F(LookaheadTransformerTest,
               TokenIs(Token::KW_SELECT));
 
   AdvanceLexer(tokenizer, location);
-  EXPECT_THAT(TokenTestThief::GetCurrentToken(tokenizer), TokenIs('*'));
+  EXPECT_THAT(TokenTestThief::GetCurrentToken(tokenizer), TokenIs(Token::MULT));
 
   constexpr absl::string_view error_message =
       R"(EXCEPT must be followed by ALL, DISTINCT, or "(")";
 
   AdvanceLexer(tokenizer, location);
   EXPECT_THAT(TokenTestThief::GetCurrentToken(tokenizer),
-              TokenIs(Token::YYEOF, StatusIs(absl::StatusCode::kInvalidArgument,
-                                             HasSubstr(error_message))));
+              TokenIs(Token::EOI, StatusIs(absl::StatusCode::kInvalidArgument,
+                                           HasSubstr(error_message))));
 
   // Further advancing the lexer returns the same token and error.
   AdvanceLexer(tokenizer, location);
   EXPECT_THAT(TokenTestThief::GetCurrentToken(tokenizer),
-              TokenIs(Token::YYEOF, StatusIs(absl::StatusCode::kInvalidArgument,
-                                             HasSubstr(error_message))));
+              TokenIs(Token::EOI, StatusIs(absl::StatusCode::kInvalidArgument,
+                                           HasSubstr(error_message))));
 }
 
 constexpr int kFurtherLookaheadBeyondEof = 5;
@@ -481,12 +480,12 @@ TEST_F(LookaheadTransformerTest,
               IsOkAndHolds(Token::MODE_STATEMENT));
   EXPECT_THAT(GetNextToken(tokenizer, location),
               IsOkAndHolds(Token::KW_SELECT));
-  EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds('*'));
-  EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::YYEOF));
+  EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::MULT));
+  EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::EOI));
 
   // Keep calling GetNextToken should always return YYEOF.
   for (int i = 0; i < kFurtherLookaheadBeyondEof; ++i) {
-    EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::YYEOF));
+    EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::EOI));
   }
 }
 
@@ -506,7 +505,7 @@ TEST_F(LookaheadTransformerTest,
               IsOkAndHolds(Token::MODE_STATEMENT));
   EXPECT_THAT(GetNextToken(tokenizer, location),
               IsOkAndHolds(Token::KW_SELECT));
-  EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds('*'));
+  EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::MULT));
 
   constexpr absl::string_view error_message =
       R"(EXCEPT must be followed by ALL, DISTINCT, or "(")";
@@ -537,7 +536,7 @@ TEST_F(LookaheadTransformerTest,
   tokenizer.SetForceTerminate(/*end_byte_offset=*/nullptr);
   // Keep calling GetNextToken should always return YYEOF with no errors.
   for (int i = 0; i < kFurtherLookaheadBeyondEof; ++i) {
-    EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::YYEOF));
+    EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::EOI));
   }
 }
 
@@ -559,7 +558,7 @@ TEST_F(LookaheadTransformerTest,
 
   // Keep calling GetNextToken should always return YYEOF with no errors.
   for (int i = 0; i < kFurtherLookaheadBeyondEof; ++i) {
-    EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::YYEOF));
+    EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::EOI));
   }
 }
 
@@ -579,7 +578,7 @@ TEST_F(LookaheadTransformerTest,
               IsOkAndHolds(Token::MODE_STATEMENT));
   EXPECT_THAT(GetNextToken(tokenizer, location),
               IsOkAndHolds(Token::KW_SELECT));
-  EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds('*'));
+  EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::MULT));
 
   constexpr absl::string_view error_message =
       R"(EXCEPT must be followed by ALL, DISTINCT, or "(")";
@@ -617,15 +616,15 @@ TEST_F(LookaheadTransformerTest,
                   Token::LB_BEGIN_AT_STATEMENT_START),
               StatusIs(absl::StatusCode::kInternal));
 
-  EXPECT_THAT(TokenTestThief::Lookback1(tokenizer), Eq(kNoToken));
-  EXPECT_THAT(TokenTestThief::Lookback2(tokenizer), Eq(kNoToken));
+  EXPECT_THAT(TokenTestThief::Lookback1(tokenizer), Eq(Token::UNAVAILABLE));
+  EXPECT_THAT(TokenTestThief::Lookback2(tokenizer), Eq(Token::UNAVAILABLE));
   EXPECT_THAT(GetNextToken(tokenizer, location),
               IsOkAndHolds(Token::MODE_SCRIPT));
-  EXPECT_THAT(TokenTestThief::Lookback1(tokenizer), Eq(kNoToken));
-  EXPECT_THAT(TokenTestThief::Lookback2(tokenizer), Eq(kNoToken));
+  EXPECT_THAT(TokenTestThief::Lookback1(tokenizer), Eq(Token::UNAVAILABLE));
+  EXPECT_THAT(TokenTestThief::Lookback2(tokenizer), Eq(Token::UNAVAILABLE));
   EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::KW_BEGIN));
   EXPECT_THAT(TokenTestThief::Lookback1(tokenizer), Eq(Token::MODE_SCRIPT));
-  EXPECT_THAT(TokenTestThief::Lookback2(tokenizer), Eq(kNoToken));
+  EXPECT_THAT(TokenTestThief::Lookback2(tokenizer), Eq(Token::UNAVAILABLE));
   // Signal a lookback override of an irrelevant token. This should be ignored
   ZETASQL_ASSERT_OK(tokenizer.OverrideNextTokenLookback(
       /*parser_lookahead_is_empty=*/true, Token::KW_LOOP,
@@ -646,7 +645,7 @@ TEST_F(LookaheadTransformerTest,
   EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::KW_END));
   EXPECT_THAT(TokenTestThief::Lookback1(tokenizer), Eq(Token::KW_END));
   EXPECT_THAT(TokenTestThief::Lookback2(tokenizer), Eq(Token::KW_BEGIN));
-  EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::YYEOF));
+  EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::EOI));
   EXPECT_THAT(TokenTestThief::Lookback1(tokenizer), Eq(Token::KW_END));
   EXPECT_THAT(TokenTestThief::Lookback2(tokenizer), Eq(Token::KW_END));
 }
@@ -662,14 +661,14 @@ TEST_F(LookaheadTransformerTest,
   Location location;
   LookaheadTransformer& tokenizer = *lexer;
 
-  EXPECT_THAT(TokenTestThief::Lookback1(tokenizer), Eq(kNoToken));
+  EXPECT_THAT(TokenTestThief::Lookback1(tokenizer), Eq(Token::UNAVAILABLE));
   EXPECT_THAT(GetNextToken(tokenizer, location),
               IsOkAndHolds(Token::MODE_SCRIPT));
-  EXPECT_THAT(TokenTestThief::Lookback1(tokenizer), Eq(kNoToken));
-  EXPECT_THAT(TokenTestThief::Lookback2(tokenizer), Eq(kNoToken));
+  EXPECT_THAT(TokenTestThief::Lookback1(tokenizer), Eq(Token::UNAVAILABLE));
+  EXPECT_THAT(TokenTestThief::Lookback2(tokenizer), Eq(Token::UNAVAILABLE));
   EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::KW_BEGIN));
   EXPECT_THAT(TokenTestThief::Lookback1(tokenizer), Eq(Token::MODE_SCRIPT));
-  EXPECT_THAT(TokenTestThief::Lookback2(tokenizer), Eq(kNoToken));
+  EXPECT_THAT(TokenTestThief::Lookback2(tokenizer), Eq(Token::UNAVAILABLE));
   // Now signal that the next token (the second BEGIN) is the first token in a
   // statement.
   ZETASQL_ASSERT_OK(tokenizer.OverrideNextTokenLookback(
@@ -691,7 +690,7 @@ TEST_F(LookaheadTransformerTest,
   // And this is where we first see the effect in lookback2
   EXPECT_THAT(TokenTestThief::Lookback2(tokenizer),
               Eq(Token::LB_BEGIN_AT_STATEMENT_START));
-  EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::YYEOF));
+  EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::EOI));
   EXPECT_THAT(TokenTestThief::Lookback1(tokenizer), Eq(Token::KW_END));
   EXPECT_THAT(TokenTestThief::Lookback2(tokenizer), Eq(Token::KW_END));
 }
@@ -707,10 +706,10 @@ TEST_F(LookaheadTransformerTest,
   Location location;
   LookaheadTransformer& tokenizer = *lexer;
 
-  EXPECT_THAT(TokenTestThief::Lookback1(tokenizer), Eq(kNoToken));
+  EXPECT_THAT(TokenTestThief::Lookback1(tokenizer), Eq(Token::UNAVAILABLE));
   EXPECT_THAT(GetNextToken(tokenizer, location),
               IsOkAndHolds(Token::MODE_SCRIPT));
-  EXPECT_THAT(TokenTestThief::Lookback1(tokenizer), Eq(kNoToken));
+  EXPECT_THAT(TokenTestThief::Lookback1(tokenizer), Eq(Token::UNAVAILABLE));
   EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::KW_BEGIN));
   EXPECT_THAT(TokenTestThief::Lookback1(tokenizer), Eq(Token::MODE_SCRIPT));
   // Now signal that the previously consumed token (the first BEGIN) is the
@@ -726,7 +725,7 @@ TEST_F(LookaheadTransformerTest,
   EXPECT_THAT(TokenTestThief::Lookback1(tokenizer), Eq(Token::KW_BEGIN));
   EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::KW_END));
   EXPECT_THAT(TokenTestThief::Lookback1(tokenizer), Eq(Token::KW_END));
-  EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::YYEOF));
+  EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::EOI));
   EXPECT_THAT(TokenTestThief::Lookback1(tokenizer), Eq(Token::KW_END));
 }
 
@@ -742,26 +741,26 @@ TEST_F(LookaheadTransformerTest,
   EXPECT_THAT(GetNextToken(*lexer, location),
               IsOkAndHolds(Token::MODE_STATEMENT));
 
-  std::vector<TokenKind> seen_tokens, seen_lookbacks;
+  std::vector<Token> seen_tokens, seen_lookbacks;
   do {
     seen_tokens.push_back(*GetNextToken(*lexer, location));
     seen_lookbacks.push_back(TokenTestThief::Lookback1(*lexer));
-  } while (seen_lookbacks.back() != Token::YYEOF);
-  EXPECT_THAT(seen_tokens, ContainerEq(std::vector<TokenKind>{
+  } while (seen_lookbacks.back() != Token::EOI);
+  EXPECT_THAT(seen_tokens, ContainerEq(std::vector<Token>{
                                Token::KW_EXPLAIN,
                                Token::KW_EXPLAIN,
                                Token::KW_SELECT,
                                Token::INTEGER_LITERAL,
-                               Token::YYEOF,
-                               Token::YYEOF,
+                               Token::EOI,
+                               Token::EOI,
                            }));
-  EXPECT_THAT(seen_lookbacks, ContainerEq(std::vector<TokenKind>{
+  EXPECT_THAT(seen_lookbacks, ContainerEq(std::vector<Token>{
                                   Token::MODE_STATEMENT,
                                   Token::LB_EXPLAIN_SQL_STATEMENT,
                                   Token::LB_EXPLAIN_SQL_STATEMENT,
                                   Token::KW_SELECT,
                                   Token::INTEGER_LITERAL,
-                                  Token::YYEOF,
+                                  Token::EOI,
                               }));
 }
 
@@ -777,7 +776,7 @@ TEST_F(LookaheadTransformerTest,
   EXPECT_THAT(GetNextToken(*lexer, location),
               IsOkAndHolds(Token::MODE_STATEMENT));
 
-  std::vector<TokenKind> seen_tokens, seen_lookbacks, seen_lookback2s;
+  std::vector<Token> seen_tokens, seen_lookbacks, seen_lookback2s;
   int i = 0;
   do {
     seen_tokens.push_back(*GetNextToken(*lexer, location));
@@ -789,49 +788,49 @@ TEST_F(LookaheadTransformerTest,
     }
     seen_lookbacks.push_back(TokenTestThief::Lookback1(*lexer));
     seen_lookback2s.push_back(TokenTestThief::Lookback2(*lexer));
-  } while (seen_lookbacks.back() != Token::YYEOF);
-  EXPECT_THAT(seen_tokens, ContainerEq(std::vector<TokenKind>{
+  } while (seen_lookbacks.back() != Token::EOI);
+  EXPECT_THAT(seen_tokens, ContainerEq(std::vector<Token>{
                                Token::KW_OPEN_INTEGER_HINT,
                                Token::INTEGER_LITERAL,
                                Token::KW_EXPLAIN,
                                Token::KW_OPEN_HINT,
-                               '{',
+                               Token::LBRACE,
                                Token::IDENTIFIER,
-                               '=',
+                               Token::ASSIGN,
                                Token::INTEGER_LITERAL,
-                               '}',
+                               Token::RBRACE,
                                Token::KW_EXPLAIN,
                                Token::KW_SELECT,
                                Token::INTEGER_LITERAL,
-                               Token::YYEOF,
-                               Token::YYEOF,
+                               Token::EOI,
+                               Token::EOI,
                            }));
-  EXPECT_THAT(seen_lookbacks, ContainerEq(std::vector<TokenKind>{
+  EXPECT_THAT(seen_lookbacks, ContainerEq(std::vector<Token>{
                                   Token::MODE_STATEMENT,
                                   Token::KW_OPEN_INTEGER_HINT,
                                   Token::LB_END_OF_STATEMENT_LEVEL_HINT,
                                   Token::LB_EXPLAIN_SQL_STATEMENT,
                                   Token::KW_OPEN_HINT,
-                                  '{',
+                                  Token::LBRACE,
                                   Token::IDENTIFIER,
-                                  '=',
+                                  Token::ASSIGN,
                                   Token::INTEGER_LITERAL,
                                   Token::LB_END_OF_STATEMENT_LEVEL_HINT,
                                   Token::LB_EXPLAIN_SQL_STATEMENT,
                                   Token::KW_SELECT,
                                   Token::INTEGER_LITERAL,
-                                  Token::YYEOF,
+                                  Token::EOI,
                               }));
-  EXPECT_THAT(seen_lookback2s, ContainerEq(std::vector<TokenKind>{
-                                   kNoToken,
+  EXPECT_THAT(seen_lookback2s, ContainerEq(std::vector<Token>{
+                                   Token::UNAVAILABLE,
                                    Token::MODE_STATEMENT,
                                    Token::KW_OPEN_INTEGER_HINT,
                                    Token::LB_END_OF_STATEMENT_LEVEL_HINT,
                                    Token::LB_EXPLAIN_SQL_STATEMENT,
                                    Token::KW_OPEN_HINT,
-                                   '{',
+                                   Token::LBRACE,
                                    Token::IDENTIFIER,
-                                   '=',
+                                   Token::ASSIGN,
                                    Token::INTEGER_LITERAL,
                                    Token::LB_END_OF_STATEMENT_LEVEL_HINT,
                                    Token::LB_EXPLAIN_SQL_STATEMENT,
@@ -844,14 +843,14 @@ static TokenWithOverrideError GetTokenKindAndError(
     LookaheadTransformer& tokenizer) {
   absl::string_view unused_text;
   Location unused_location;
-  TokenKind token_kind = tokenizer.GetNextToken(&unused_text, &unused_location);
+  Token token_kind = tokenizer.GetNextToken(&unused_text, &unused_location);
   return {.token = {.kind = token_kind}, .error = tokenizer.GetOverrideError()};
 }
 
 MATCHER_P2(TokenKindIs, expected_kind, status_matcher, "") {
   return ExplainMatchResult(
       FieldsAre(Field(&TokenWithLocation::kind, Eq(expected_kind)),
-                Eq(kNoToken), status_matcher),
+                Eq(Token::UNAVAILABLE), status_matcher),
       arg, result_listener);
 }
 
@@ -877,7 +876,7 @@ TEST_F(LookaheadTransformerTest, SetForceTerminateBeforeFetchingTokens) {
 
   // Fetching more tokens always return YYEOF without errors.
   for (int i = 0; i < kFurtherLookaheadBeyondEof; ++i) {
-    EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::YYEOF));
+    EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::EOI));
   }
 }
 
@@ -900,7 +899,7 @@ TEST_F(LookaheadTransformerTest, SetForceTerminateNoTokens) {
 
   // Fetching more tokens always return YYEOF without errors.
   for (int i = 0; i < kFurtherLookaheadBeyondEof; ++i) {
-    EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::YYEOF));
+    EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::EOI));
   }
 }
 
@@ -920,8 +919,8 @@ TEST_F(LookaheadTransformerTest, SetForceTerminateLastTokenErrors) {
       "Syntax error: Unclosed identifier literal";
   EXPECT_THAT(
       GetTokenKindAndError(tokenizer),
-      TokenKindIs(Token::YYEOF, StatusIs(absl::StatusCode::kInvalidArgument,
-                                         HasSubstr(error_message))));
+      TokenKindIs(Token::EOI, StatusIs(absl::StatusCode::kInvalidArgument,
+                                       HasSubstr(error_message))));
 
   int end_byte_offset;
   tokenizer.SetForceTerminate(&end_byte_offset);
@@ -934,8 +933,8 @@ TEST_F(LookaheadTransformerTest, SetForceTerminateLastTokenErrors) {
   for (int i = 0; i < kFurtherLookaheadBeyondEof; ++i) {
     EXPECT_THAT(
         GetTokenKindAndError(tokenizer),
-        TokenKindIs(Token::YYEOF, StatusIs(absl::StatusCode::kInvalidArgument,
-                                           HasSubstr(error_message))));
+        TokenKindIs(Token::EOI, StatusIs(absl::StatusCode::kInvalidArgument,
+                                         HasSubstr(error_message))));
   }
 }
 
@@ -952,7 +951,7 @@ TEST_F(LookaheadTransformerTest, SetForceTerminateLastTokenIsYyeof) {
 
   EXPECT_THAT(GetTokenKindAndError(tokenizer),
               TokenKindIs(Token::MODE_STATEMENT));
-  EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::YYEOF));
+  EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::EOI));
 
   int end_byte_offset;
   tokenizer.SetForceTerminate(&end_byte_offset);
@@ -964,7 +963,7 @@ TEST_F(LookaheadTransformerTest, SetForceTerminateLastTokenIsYyeof) {
   // Fetching more tokens should always return YYEOF with no errors because
   // the last token does not have errors.
   for (int i = 0; i < kFurtherLookaheadBeyondEof; ++i) {
-    EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::YYEOF));
+    EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::EOI));
   }
 }
 
@@ -993,7 +992,7 @@ TEST_F(LookaheadTransformerTest, SetForceTerminateLookahead1IsYyeof) {
   // Fetching more tokens should always return YYEOF with no errors because the
   // last token does not have errors.
   for (int i = 0; i < kFurtherLookaheadBeyondEof; ++i) {
-    EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::YYEOF));
+    EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::EOI));
   }
 }
 
@@ -1022,7 +1021,7 @@ TEST_F(LookaheadTransformerTest, SetForceTerminateLookahead1Errors) {
   // Fetching more tokens should always return YYEOF with no errors because the
   // last token does not have errors.
   for (int i = 0; i < kFurtherLookaheadBeyondEof; ++i) {
-    EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::YYEOF));
+    EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::EOI));
   }
 }
 
@@ -1051,7 +1050,7 @@ TEST_F(LookaheadTransformerTest, SetForceTerminateLookahead1IsNonYyeof) {
   // Fetching more tokens should always return YYEOF with no errors because the
   // last token does not have errors.
   for (int i = 0; i < kFurtherLookaheadBeyondEof; ++i) {
-    EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::YYEOF));
+    EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::EOI));
   }
 }
 
@@ -1072,7 +1071,7 @@ TEST_F(LookaheadTransformerTest, GetNextTokenContinuesToReturnYyeof) {
   // Fetching more tokens should always return YYEOF with no errors because the
   // last token is YYEOF without errors.
   for (int i = 0; i < kFurtherLookaheadBeyondEof; ++i) {
-    EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::YYEOF));
+    EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::EOI));
   }
 }
 
@@ -1093,15 +1092,15 @@ TEST_F(LookaheadTransformerTest, GetNextTokenContinuesToReturnTheSameError) {
   EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::KW_SELECT));
   EXPECT_THAT(
       GetTokenKindAndError(tokenizer),
-      TokenKindIs(Token::YYEOF, StatusIs(absl::StatusCode::kInvalidArgument,
-                                         HasSubstr(kError))));
+      TokenKindIs(Token::EOI, StatusIs(absl::StatusCode::kInvalidArgument,
+                                       HasSubstr(kError))));
 
   // Fetching more tokens should always return YYEOF with the same error.
   for (int i = 0; i < kFurtherLookaheadBeyondEof; ++i) {
     EXPECT_THAT(
         GetTokenKindAndError(tokenizer),
-        TokenKindIs(Token::YYEOF, StatusIs(absl::StatusCode::kInvalidArgument,
-                                           HasSubstr(kError))));
+        TokenKindIs(Token::EOI, StatusIs(absl::StatusCode::kInvalidArgument,
+                                         HasSubstr(kError))));
   }
 }
 
@@ -1145,7 +1144,7 @@ TEST_F(LookaheadTransformerTest, PreviousTokensAreCorrectNoErrors) {
     Location unused_location;
     AdvanceLexer(tokenizer, unused_location);
   } while (TokenTestThief::GetCurrentToken(tokenizer)->token.kind !=
-           Token::YYEOF);
+           Token::EOI);
 
   EXPECT_THAT(TokenTestThief::GetPreviousToken(tokenizer),
               IsSameOptionalToken(previous_current_token));
@@ -1155,7 +1154,7 @@ TEST_F(LookaheadTransformerTest, PreviousTokensAreCorrectNoErrors) {
   for (int i = 0; i < kFurtherLookaheadBeyondEof; ++i) {
     AdvanceLexer(tokenizer, unused_location);
     EXPECT_THAT(TokenTestThief::GetPreviousToken(tokenizer),
-                TokenIs(Token::YYEOF));
+                TokenIs(Token::EOI));
   }
 }
 
@@ -1179,7 +1178,7 @@ TEST_F(LookaheadTransformerTest, PreviousTokensAreCorrectWithErrors) {
     Location unused_location;
     AdvanceLexer(tokenizer, unused_location);
   } while (TokenTestThief::GetCurrentToken(tokenizer)->token.kind !=
-           Token::YYEOF);
+           Token::EOI);
 
   EXPECT_THAT(TokenTestThief::GetPreviousToken(tokenizer),
               IsSameOptionalToken(previous_current_token));
@@ -1189,10 +1188,9 @@ TEST_F(LookaheadTransformerTest, PreviousTokensAreCorrectWithErrors) {
   Location unused_location;
   for (int i = 0; i < kFurtherLookaheadBeyondEof; ++i) {
     AdvanceLexer(tokenizer, unused_location);
-    EXPECT_THAT(
-        TokenTestThief::GetPreviousToken(tokenizer),
-        TokenIs(Token::YYEOF, StatusIs(absl::StatusCode::kInvalidArgument,
-                                       HasSubstr(kError))));
+    EXPECT_THAT(TokenTestThief::GetPreviousToken(tokenizer),
+                TokenIs(Token::EOI, StatusIs(absl::StatusCode::kInvalidArgument,
+                                             HasSubstr(kError))));
   }
 }
 
@@ -1227,16 +1225,13 @@ TEST_F(LookaheadTransformerTest,
   EXPECT_THAT(TokenTestThief::GetPreviousToken(tokenizer),
               TokenIs(Token::KW_SELECT));
 
-  // Starts to return YYEOF consistently.
+  // Starts to return Token::EOI consistently.
   AdvanceLexer(tokenizer, unused_location);
-  EXPECT_THAT(TokenTestThief::GetPreviousToken(tokenizer),
-              TokenIs(Token::YYEOF));
+  EXPECT_THAT(TokenTestThief::GetPreviousToken(tokenizer), TokenIs(Token::EOI));
   AdvanceLexer(tokenizer, unused_location);
-  EXPECT_THAT(TokenTestThief::GetPreviousToken(tokenizer),
-              TokenIs(Token::YYEOF));
+  EXPECT_THAT(TokenTestThief::GetPreviousToken(tokenizer), TokenIs(Token::EOI));
   AdvanceLexer(tokenizer, unused_location);
-  EXPECT_THAT(TokenTestThief::GetPreviousToken(tokenizer),
-              TokenIs(Token::YYEOF));
+  EXPECT_THAT(TokenTestThief::GetPreviousToken(tokenizer), TokenIs(Token::EOI));
 }
 
 TEST_F(LookaheadTransformerTest, TokenFusion) {
@@ -1252,7 +1247,7 @@ TEST_F(LookaheadTransformerTest, TokenFusion) {
               TokenKindIs(Token::MODE_STATEMENT));
   EXPECT_THAT(GetTokenKindAndError(tokenizer),
               TokenKindIs(Token::KW_SHIFT_RIGHT));
-  EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::YYEOF));
+  EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::EOI));
 }
 
 TEST_F(LookaheadTransformerTest, TokensWithWhitespacesInBetweenCannotFuse) {
@@ -1266,9 +1261,9 @@ TEST_F(LookaheadTransformerTest, TokensWithWhitespacesInBetweenCannotFuse) {
 
   EXPECT_THAT(GetTokenKindAndError(tokenizer),
               TokenKindIs(Token::MODE_STATEMENT));
-  EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs('>'));
-  EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs('>'));
-  EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::YYEOF));
+  EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::GT));
+  EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::GT));
+  EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::EOI));
 }
 
 static constexpr absl::string_view kDefsFileName = "defs.sql";
@@ -1312,40 +1307,40 @@ TEST_F(LookaheadTransformerTest, TokensFromDifferentFilesCannotFuse) {
 
   EXPECT_THAT(GetTokenKindAndError(tokenizer),
               TokenKindIs(Token::MODE_STATEMENT));
-  EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs('>'));
-  EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs('>'));
-  EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::YYEOF));
+  EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::GT));
+  EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::GT));
+  EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::EOI));
 }
 
 TEST_F(LookaheadTransformerTest, RightShiftIsAllowedAfterParentheses) {
   EXPECT_THAT(
       GetAllTokens(BisonParserMode::kStatement, "ARRAY<TYPEOF(1 >> 2)>"),
-      ElementsAreArray(std::vector<TokenKind>{
+      ElementsAreArray(std::vector<Token>{
           Token::MODE_STATEMENT,
           Token::KW_ARRAY,
-          '<',
+          Token::LT,
           Token::IDENTIFIER,
-          '(',
+          Token::LPAREN,
           Token::INTEGER_LITERAL,
           Token::KW_SHIFT_RIGHT,
           Token::INTEGER_LITERAL,
-          ')',
-          '>',
-          Token::YYEOF,
+          Token::RPAREN,
+          Token::GT,
+          Token::EOI,
       }));
 }
 
 TEST_F(LookaheadTransformerTest, RightShiftIsAllowedAfterUnpairedParentheses) {
   EXPECT_THAT(GetAllTokens(BisonParserMode::kStatement, "ARRAY<)>>>>>"),
-              ElementsAreArray(std::vector<TokenKind>{
+              ElementsAreArray(std::vector<Token>{
                   Token::MODE_STATEMENT,
                   Token::KW_ARRAY,
-                  '<',
-                  ')',
+                  Token::LT,
+                  Token::RPAREN,
                   Token::KW_SHIFT_RIGHT,
                   Token::KW_SHIFT_RIGHT,
-                  '>',
-                  Token::YYEOF,
+                  Token::GT,
+                  Token::EOI,
               }));
 }
 
@@ -1365,12 +1360,12 @@ TEST_F(LookaheadTransformerTest, Lookahead3) {
   EXPECT_EQ(TokenTestThief::Lookahead3(tokenizer), Token::KW_SELECT);
 
   AdvanceLexer(tokenizer, location);
-  EXPECT_EQ(TokenTestThief::Lookahead3(tokenizer), Token::YYEOF);
+  EXPECT_EQ(TokenTestThief::Lookahead3(tokenizer), Token::EOI);
 
   // Continue fetching tokens returns the same YYEOF.
   for (int i = 0; i < kFurtherLookaheadBeyondEof; ++i) {
     AdvanceLexer(tokenizer, location);
-    EXPECT_EQ(TokenTestThief::Lookahead3(tokenizer), Token::YYEOF);
+    EXPECT_EQ(TokenTestThief::Lookahead3(tokenizer), Token::EOI);
   }
 }
 
@@ -1389,12 +1384,12 @@ TEST_F(LookaheadTransformerTest, Lookahead3SetForceTerminate) {
   tokenizer.SetForceTerminate(/*end_byte_offset=*/nullptr);
 
   // Lookahead3() becomes YYEOF after force termination.
-  EXPECT_EQ(TokenTestThief::Lookahead3(tokenizer), Token::YYEOF);
+  EXPECT_EQ(TokenTestThief::Lookahead3(tokenizer), Token::EOI);
 
   // Continue fetching tokens returns the same YYEOF.
   for (int i = 0; i < kFurtherLookaheadBeyondEof; ++i) {
     AdvanceLexer(tokenizer, location);
-    EXPECT_EQ(TokenTestThief::Lookahead3(tokenizer), Token::YYEOF);
+    EXPECT_EQ(TokenTestThief::Lookahead3(tokenizer), Token::EOI);
   }
 }
 

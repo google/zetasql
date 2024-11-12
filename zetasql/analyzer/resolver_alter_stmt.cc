@@ -215,7 +215,7 @@ absl::Status Resolver::ResolveAlterActions(
         std::vector<std::unique_ptr<const ResolvedOption>> resolved_options;
         ZETASQL_RETURN_IF_ERROR(ResolveOptionsList(
             action->GetAsOrDie<ASTSetOptionsAction>()->options_list(),
-            /*allow_alter_array_operators=*/false, &resolved_options));
+            /*allow_alter_array_operators=*/true, &resolved_options));
         alter_actions->push_back(
             MakeResolvedSetOptionsAction(std::move(resolved_options)));
       } break;
@@ -655,7 +655,7 @@ absl::Status Resolver::ResolveAlterTableStatement(
     for (const ASTAlterAction* const action : action_list->actions()) {
       ZETASQL_RETURN_IF_ERROR(ResolveOptionsList(
           action->GetAsOrDie<ASTSetOptionsAction>()->options_list(),
-          /*allow_alter_array_operators=*/false, &resolved_options));
+          /*allow_alter_array_operators=*/true, &resolved_options));
     }
     *output = MakeResolvedAlterTableSetOptionsStmt(
         alter_statement->name_path(), std::move(resolved_options),

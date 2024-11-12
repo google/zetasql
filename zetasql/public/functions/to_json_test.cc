@@ -131,6 +131,132 @@ TEST(ToJsonTest, LegacyCanonicalizeZeroFloat) {
             values::Json(JSONValue(-0.0)));
 }
 
+TEST(ToJsonTest, GraphNode) {
+  zetasql::LanguageOptions language_options;
+  const Value p0_value = Value::String("v0");
+  const Value p1_value = Value::Int32(1);
+  const Value node = test_values::GraphNode(
+      {"graph_name"}, "id", {{"P0", p0_value}, {"p1", p1_value}},
+      {"label_2", "label_1"}, "ElementTable");
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      JSONValue output,
+      ToJson(node, /*stringify_wide_numbers=*/false, language_options,
+             /*canonicalize_zero=*/false, kUnsupportFieldsDefault));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(JSONValue expectation,
+                       JSONValue::ParseJSONString(absl::Substitute(
+                           R"json({
+    "identifier": "$0",
+    "kind": "node",
+    "labels": ["label_1", "label_2"],
+    "properties": {
+      "P0": "v0",
+      "p1": 1
+    }
+  })json",
+                           absl::Base64Escape("id"))));
+  EXPECT_EQ(values::Json(std::move(output)),
+            values::Json(std::move(expectation)));
+}
+
+TEST(ToJsonTest, GraphEdge) {
+  LanguageOptions language_options;
+  const Value p0_value = Value::String("v0");
+  const Value p1_value = Value::Int32(1);
+  const Value edge = test_values::GraphEdge(
+      {"graph_name"}, "id", {{"P0", p0_value}, {"p1", p1_value}},
+      {"label_2", "label_1"}, "ElementTable", "src_node_id", "dst_node_id");
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      JSONValue output,
+      ToJson(edge, /*stringify_wide_numbers=*/false, language_options,
+             /*canonicalize_zero=*/false, kUnsupportFieldsDefault));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      JSONValue expectation,
+      JSONValue::ParseJSONString(absl::Substitute(
+          R"json({
+    "identifier": "$0",
+    "kind": "edge",
+    "labels": ["label_1", "label_2"],
+    "properties": {
+      "P0": "v0",
+      "p1": 1
+    },
+    "source_node_identifier": "$1",
+    "destination_node_identifier": "$2"
+  })json",
+          absl::Base64Escape("id"), absl::Base64Escape("src_node_id"),
+          absl::Base64Escape("dst_node_id"))));
+  EXPECT_EQ(values::Json(std::move(output)),
+            values::Json(std::move(expectation)));
+}
+
+TEST(ToJsonTest, GraphPath) {
+  LanguageOptions language_options;
+  const Value p0_value = Value::String("v0");
+  const Value p1_value = Value::Int32(1);
+  const Value node1 = test_values::GraphNode(
+      {"graph_name"}, "src_node_id", {{"P0", p0_value}, {"p1", p1_value}},
+      {"label_2", "label_1"}, "ElementTable");
+  const Value edge = test_values::GraphEdge(
+      {"graph_name"}, "id", {{"P0", p0_value}, {"p1", p1_value}},
+      {"label_2", "label_1"}, "ElementTable", "src_node_id", "dst_node_id");
+  const Value node2 = test_values::GraphNode(
+      {"graph_name"}, "dst_node_id", {{"P0", p0_value}, {"p1", p1_value}},
+      {"label_2", "label_1"}, "ElementTable");
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Value path,
+                       Value::MakeGraphPath(test_values::MakeGraphPathType(
+                                                node1.type()->AsGraphElement(),
+                                                edge.type()->AsGraphElement()),
+                                            {node1, edge, node2}));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      JSONValue output,
+      ToJson(path, /*stringify_wide_numbers=*/false, language_options,
+             /*canonicalize_zero=*/false, kUnsupportFieldsDefault));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      JSONValue expectation,
+      JSONValue::ParseJSONString(absl::Substitute(
+          R"json([
+    {
+      "identifier": "$0",
+      "kind": "node",
+      "labels": ["label_1", "label_2"],
+      "properties": {
+        "P0": "v0",
+        "p1": 1
+      }
+    },
+    {
+      "identifier": "$1",
+      "kind": "edge",
+      "labels": ["label_1", "label_2"],
+      "properties": {
+        "P0": "v0",
+        "p1": 1
+      },
+      "source_node_identifier": "$2",
+      "destination_node_identifier": "$3"
+    },
+    {
+      "identifier": "$4",
+      "kind": "node",
+      "labels": ["label_1", "label_2"],
+      "properties": {
+        "P0": "v0",
+        "p1": 1
+      }
+    }
+  ])json",
+          absl::Base64Escape("src_node_id"), absl::Base64Escape("id"),
+          absl::Base64Escape("src_node_id"), absl::Base64Escape("dst_node_id"),
+          absl::Base64Escape("dst_node_id"))));
+
+  EXPECT_EQ(values::Json(std::move(output)),
+            values::Json(std::move(expectation)));
+}
+
 }  // namespace
 }  // namespace functions
 }  // namespace zetasql

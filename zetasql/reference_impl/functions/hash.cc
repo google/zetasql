@@ -19,10 +19,18 @@
 #include <memory>
 
 #include "zetasql/public/functions/hash.h"
+#include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/type.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
+#include "zetasql/reference_impl/evaluation.h"
 #include "zetasql/reference_impl/function.h"
+#include "zetasql/reference_impl/tuple.h"
 #include "absl/log/log.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
+#include "absl/types/span.h"
+#include "zetasql/base/ret_check.h"
 
 namespace zetasql {
 namespace {

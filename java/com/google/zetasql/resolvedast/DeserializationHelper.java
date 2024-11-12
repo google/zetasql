@@ -30,11 +30,19 @@ import com.google.zetasql.ConstantRefProto;
 import com.google.zetasql.DescriptorPool;
 import com.google.zetasql.Function;
 import com.google.zetasql.FunctionRefProto;
+import com.google.zetasql.GraphElementLabel;
+import com.google.zetasql.GraphElementLabelRefProto;
+import com.google.zetasql.GraphElementTable;
+import com.google.zetasql.GraphElementTableRefProto;
+import com.google.zetasql.GraphPropertyDeclaration;
+import com.google.zetasql.GraphPropertyDeclarationRefProto;
 import com.google.zetasql.Model;
 import com.google.zetasql.ModelRefProto;
 import com.google.zetasql.NotFoundException;
 import com.google.zetasql.Procedure;
 import com.google.zetasql.ProcedureRefProto;
+import com.google.zetasql.PropertyGraph;
+import com.google.zetasql.PropertyGraphRefProto;
 import com.google.zetasql.Sequence;
 import com.google.zetasql.SequenceRefProto;
 import com.google.zetasql.SimpleCatalog;
@@ -143,6 +151,59 @@ public final class DeserializationHelper extends AbstractDeserializationHelper {
           proto.getName());
     }
     return null;
+  }
+
+  @Override
+  PropertyGraph deserialize(PropertyGraphRefProto proto) {
+    PropertyGraph propertyGraph;
+    ImmutableList<String> path = ImmutableList.copyOf(Splitter.on('.').split(proto.getFullName()));
+    // the full path has the current catalog name as first element.
+    // use subpath to find below the current catalog.
+    ImmutableList<String> subPath = path.subList(1, path.size());
+    try {
+      propertyGraph = catalog.findPropertyGraph(subPath);
+    } catch (NotFoundException e) {
+      propertyGraph = null;
+    }
+    return checkNotNull(
+        propertyGraph, "Could not find PropertyGraph '%s' in catalog.", proto.getFullName());
+  }
+
+  @Override
+  GraphPropertyDeclaration deserialize(GraphPropertyDeclarationRefProto proto) {
+    PropertyGraph propertyGraph = deserialize(proto.getPropertyGraph());
+    GraphPropertyDeclaration propertyDeclaration =
+        propertyGraph.findPropertyDeclarationByName(proto.getName());
+
+    return checkNotNull(
+        propertyDeclaration,
+        "Could not find PropertyDeclaration '%s' in PropertyGraph '%s'.",
+        proto.getName(),
+        proto.getPropertyGraph().getFullName());
+  }
+
+  @Override
+  GraphElementLabel deserialize(GraphElementLabelRefProto proto) {
+    PropertyGraph propertyGraph = deserialize(proto.getPropertyGraph());
+    GraphElementLabel graphElementLabel = propertyGraph.findLabelByName(proto.getName());
+
+    return checkNotNull(
+        graphElementLabel,
+        "Could not find Graph Element Label '%s' in PropertyGraph '%s'.",
+        proto.getName(),
+        proto.getPropertyGraph().getFullName());
+  }
+
+  @Override
+  GraphElementTable deserialize(GraphElementTableRefProto proto) {
+    PropertyGraph propertyGraph = deserialize(proto.getPropertyGraph());
+    GraphElementTable graphElementTable = propertyGraph.findElementTableByName(proto.getName());
+
+    return checkNotNull(
+        graphElementTable,
+        "Could not find Graph Element Table'%s' in PropertyGraph '%s'.",
+        proto.getName(),
+        proto.getPropertyGraph().getFullName());
   }
 
 }

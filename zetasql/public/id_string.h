@@ -330,6 +330,8 @@ inline bool operator==(IdString a, IdString b) {
   return a.Equals(b);
 }
 
+inline bool operator!=(IdString a, IdString b) { return !(a == b); }
+
 inline bool operator<(IdString a, IdString b) {
   return a.LessThan(b);
 }

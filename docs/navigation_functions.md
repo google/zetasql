@@ -16,7 +16,7 @@ current row. The `OVER` clause syntax varies across navigation functions.
 For all navigation functions, the result data type is the same type as
 `value_expression`.
 
-### Function list
+## Function list
 
 <table>
   <thead>
@@ -28,73 +28,73 @@ For all navigation functions, the result data type is the same type as
   <tbody>
 
 <tr>
-  <td><a href="#first_value"><code>FIRST_VALUE</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/navigation_functions.md#first_value"><code>FIRST_VALUE</code></a>
 </td>
   <td>
     Gets a value for the first row in the current window frame.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#lag"><code>LAG</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/navigation_functions.md#lag"><code>LAG</code></a>
 </td>
   <td>
     Gets a value for a preceding row.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#last_value"><code>LAST_VALUE</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/navigation_functions.md#last_value"><code>LAST_VALUE</code></a>
 </td>
   <td>
     Gets a value for the last row in the current window frame.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#lead"><code>LEAD</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/navigation_functions.md#lead"><code>LEAD</code></a>
 </td>
   <td>
     Gets a value for a subsequent row.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#nth_value"><code>NTH_VALUE</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/navigation_functions.md#nth_value"><code>NTH_VALUE</code></a>
 </td>
   <td>
     Gets a value for the Nth row of the current window frame.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#percentile_cont"><code>PERCENTILE_CONT</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/navigation_functions.md#percentile_cont"><code>PERCENTILE_CONT</code></a>
 </td>
   <td>
     Computes the specified percentile for a value, using
     linear interpolation.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#percentile_disc"><code>PERCENTILE_DISC</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/navigation_functions.md#percentile_disc"><code>PERCENTILE_DISC</code></a>
 </td>
   <td>
     Computes the specified percentile for a discrete value.
+    
   </td>
 </tr>
 
   </tbody>
 </table>
 
-### `FIRST_VALUE`
+## `FIRST_VALUE`
 
 ```sql
 FIRST_VALUE (value_expression [{RESPECT | IGNORE} NULLS])
@@ -185,7 +185,7 @@ FROM (
  *-----------------+-------------+----------+--------------+------------------*/
 ```
 
-### `LAG`
+## `LAG`
 
 ```sql
 LAG (value_expression[, offset [, default_expression]])
@@ -352,7 +352,7 @@ FROM finishers;
  *-----------------+-------------+----------+-------------------*/
 ```
 
-### `LAST_VALUE`
+## `LAST_VALUE`
 
 ```sql
 LAST_VALUE (value_expression [{RESPECT | IGNORE} NULLS])
@@ -443,7 +443,7 @@ FROM (
  *-----------------+-------------+----------+--------------+------------------*/
 ```
 
-### `LEAD`
+## `LEAD`
 
 ```sql
 LEAD (value_expression[, offset [, default_expression]])
@@ -610,7 +610,7 @@ FROM finishers;
  *-----------------+-------------+----------+------------------*/
 ```
 
-### `NTH_VALUE`
+## `NTH_VALUE`
 
 ```sql
 NTH_VALUE (value_expression, constant_integer_expression [{RESPECT | IGNORE} NULLS])
@@ -707,7 +707,7 @@ FROM (
  *-----------------+-------------+----------+--------------+----------------*/
 ```
 
-### `PERCENTILE_CONT`
+## `PERCENTILE_CONT`
 
 ```sql
 PERCENTILE_CONT (value_expression, percentile [{RESPECT | IGNORE} NULLS])
@@ -816,7 +816,7 @@ FROM UNNEST([0, 3, NULL, 1, 2]) AS x LIMIT 1;
 
 [dp-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md
 
-### `PERCENTILE_DISC`
+## `PERCENTILE_DISC`
 
 ```sql
 PERCENTILE_DISC (value_expression, percentile [{RESPECT | IGNORE} NULLS])

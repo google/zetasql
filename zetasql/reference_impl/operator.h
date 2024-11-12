@@ -51,6 +51,9 @@
 #include "zetasql/base/logging.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/evaluator_table_iterator.h"
+#include "zetasql/public/function_signature.h"
+#include "zetasql/public/property_graph.h"
+#include "zetasql/public/functions/match_recognize/compiled_pattern.h"
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
@@ -121,14 +124,21 @@ class AlgebraArg {
   bool has_variable() const { return variable_.is_valid(); }
   const VariableId& variable() const { return variable_; }
 
-  // Convenience method, returns node()->AsValueExpr() or nullptr.
+  // Whether the underlying AlgebraNode is a ValueExpr. If true, it is safe to
+  // call value_expr().
+  bool has_value_expr() const;
   const ValueExpr* value_expr() const;
   ValueExpr* mutable_value_expr();
   std::unique_ptr<ValueExpr> release_value_expr();
-  // Convenience method, returns node()->AsRelationalOp() or nullptr.
+
+  // Whether the underlying AlgebraNode is a RelationalOp. If true, it is safe
+  // to call relational_op().
   const RelationalOp* relational_op() const;
   RelationalOp* mutable_relational_op();
-  // Convenience method, returns InlineLambdaExpr or nullptr.
+
+  // Whether the underlying AlgebraNode is an InlineLambdaExpr. If true, it is
+  // safe to call inline_lambda_expr().
+  bool has_inline_lambda_expr() const;
   const InlineLambdaExpr* inline_lambda_expr() const;
   InlineLambdaExpr* mutable_inline_lambda_expr();
 
@@ -235,6 +245,10 @@ class ExprArg : public AlgebraArg {
  private:
   const Type* type_;
 };
+
+// Makes value exprs into ExprArgs.
+std::vector<std::unique_ptr<ExprArg>> MakeExprArgList(
+    std::vector<std::unique_ptr<ValueExpr>> value_expr_list);
 
 // Representing a lambda function argument.
 class InlineLambdaArg : public AlgebraArg {
@@ -672,6 +686,8 @@ class AggregateArg final : public ExprArg {
       std::vector<std::unique_ptr<KeyArg>> order_by_keys = {},
       std::unique_ptr<ValueExpr> limit = nullptr,
       std::unique_ptr<RelationalOp> group_rows_subquery = {},
+      std::vector<std::unique_ptr<KeyArg>> inner_grouping_keys = {},
+      std::vector<std::unique_ptr<AggregateArg>> inner_aggregators = {},
       ResolvedFunctionCallBase::ErrorMode error_mode =
           ResolvedFunctionCallBase::DEFAULT_ERROR_MODE,
       std::unique_ptr<ValueExpr> filter = nullptr,
@@ -711,6 +727,8 @@ class AggregateArg final : public ExprArg {
                std::vector<std::unique_ptr<KeyArg>> order_by_keys,
                std::unique_ptr<ValueExpr> limit,
                std::unique_ptr<RelationalOp> group_rows_subquery,
+               std::vector<std::unique_ptr<KeyArg>> inner_grouping_keys,
+               std::vector<std::unique_ptr<AggregateArg>> inner_aggregators,
                ResolvedFunctionCallBase::ErrorMode error_mode,
                std::unique_ptr<ValueExpr> filter,
                const std::vector<ResolvedCollation>& collation_list,
@@ -768,6 +786,8 @@ class AggregateArg final : public ExprArg {
   zetasql_base::ElementDeleter order_by_keys_deleter_;
   const std::unique_ptr<ValueExpr> limit_;
   std::unique_ptr<RelationalOp> group_rows_subquery_;
+  std::vector<std::unique_ptr<KeyArg>> inner_grouping_keys_;
+  std::vector<std::unique_ptr<AggregateArg>> inner_aggregators_;
   const ResolvedFunctionCallBase::ErrorMode error_mode_;
   // Set by SetSchemasForEvaluation().
   std::unique_ptr<const TupleSchema> group_schema_;
@@ -1048,10 +1068,12 @@ class AlgebraNode {
   virtual ~AlgebraNode();
 
   // Downcast methods, return nullptr if downcast is invalid.
+  virtual bool IsValueExpr() const;
   virtual const ValueExpr* AsValueExpr() const;
   virtual ValueExpr* AsMutableValueExpr();
   virtual const RelationalOp* AsRelationalOp() const;
   virtual RelationalOp* AsMutableRelationalOp();
+  virtual bool IsInlineLambdaExpr() const;
   virtual const InlineLambdaExpr* AsInlineLambdaExpr() const;
   virtual InlineLambdaExpr* AsMutableInlineLambdaExpr();
 
@@ -1181,6 +1203,7 @@ class ValueExpr : public AlgebraNode {
     return Eval(params, context, &virtual_slot, status);
   }
 
+  bool IsValueExpr() const override { return true; }
   const ValueExpr* AsValueExpr() const override { return this; }
   ValueExpr* AsMutableValueExpr() override { return this; }
 
@@ -2353,6 +2376,95 @@ class SampleScanOp final : public RelationalOp {
   const Method method_;
 };
 
+// Represents a MATCH_RECOGNIZE operation. This operator only handles the
+// matching itself, but does not generate the MEASURES. The operator adds
+// columns to capture the match number, row number, and assigned label.
+//
+// Just like AnalyticOp, this operator expects the input to be sorted by the
+// partition keys, followed by the order keys.
+//
+// For each match, all rows from the match are returned, along with an extra
+// sentinel row. Sentinel rows are useful to represent empty matches. Note that
+// an input row may participate in multiple matches, and will appear separately
+// in the output as part of each match, with the correct match_id noted.
+//
+// The output schema is the same as the input (which includes partitioning &
+// ordering keys), plus 4 variables to represent the match results:
+//   * match_id:       id of the match this row belongs to. Unique only within
+//                     the partition, i.e., Use (PartitionKeys + Match_id) to
+//                     uniquely identify a match.
+//   * row_number:     relative to the partition.
+//   * assigned_label: the label assigned to the row in the match.
+//   * is_sentinel:    true for sentinel rows, false otherwise.
+//
+// Rows contain the same data as the input. Sentinel rows only have the
+// partition keys and match_id set. Non-partitioning columns, row_number and
+// assigned_label are all set to invalid values, since they shouldn't be
+// accessed.
+//
+// Returning all rows means that the MEASURES have access to
+// pre-aggregated match results, and that this operator can also support
+// ALL ROWS PER MATCH. Downstream operators (e.g. the MEASURES) need to be
+// mindful of sentinel rows.
+class PatternMatchingOp final : public RelationalOp {
+ public:
+  PatternMatchingOp(const PatternMatchingOp&) = delete;
+  PatternMatchingOp& operator=(const PatternMatchingOp&) = delete;
+
+  static std::string GetIteratorDebugString(
+      absl::string_view input_iter_debug_string);
+
+  static absl::StatusOr<std::unique_ptr<PatternMatchingOp>> Create(
+      std::vector<std::unique_ptr<KeyArg>> partition_keys,
+      std::vector<VariableId> match_result_variables,
+      std::vector<std::string> pattern_variable_names,
+      std::vector<std::unique_ptr<ValueExpr>> predicates,
+      std::unique_ptr<const functions::match_recognize::CompiledPattern>
+          pattern,
+      std::unique_ptr<RelationalOp> input);
+
+  absl::Status SetSchemasForEvaluation(
+      absl::Span<const TupleSchema* const> params_schemas) override;
+
+  absl::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
+      absl::Span<const TupleData* const> params, int num_extra_slots,
+      EvaluationContext* context) const override;
+
+  // Returns the schema consisting of the variables for the input, followed by
+  // the partition keys, then the order keys, then the analytic arguments.
+  std::unique_ptr<TupleSchema> CreateOutputSchema() const override;
+
+  std::string IteratorDebugString() const override;
+
+  std::string DebugInternal(const std::string& indent,
+                            bool verbose) const override;
+
+ private:
+  enum ArgKind { kInput, kPartitionKey, kPredicate };
+
+  using CompiledPattern = functions::match_recognize::CompiledPattern;
+
+  PatternMatchingOp(std::vector<std::unique_ptr<KeyArg>> partition_keys,
+                    std::vector<VariableId> match_result_variables,
+                    std::vector<std::string> pattern_variable_names,
+                    std::vector<std::unique_ptr<ValueExpr>> predicates,
+                    std::unique_ptr<const CompiledPattern> pattern,
+                    std::unique_ptr<RelationalOp> input);
+
+  absl::Span<const KeyArg* const> partition_keys() const;
+  absl::Span<KeyArg* const> mutable_partition_keys();
+
+  absl::Span<const ExprArg* const> predicates() const;
+  absl::Span<ExprArg* const> mutable_predicates();
+
+  const RelationalOp* input() const;
+  RelationalOp* mutable_input();
+
+  std::vector<VariableId> match_result_variables_;
+  std::vector<std::string> pattern_variable_names_;
+  std::unique_ptr<const CompiledPattern> pattern_;
+};
+
 // Relation with no columns emitting N rows. N specified as an integer
 // expression. If N is negative, returns 0 rows. This operator is used to
 // represent a single-row relation (e.g., in SELECT 1) and N-row relations in
@@ -3518,6 +3630,8 @@ class InlineLambdaExpr : public AlgebraNode {
   static std::unique_ptr<InlineLambdaExpr> Create(
       absl::Span<const VariableId> arguments, std::unique_ptr<ValueExpr> body);
 
+  bool IsInlineLambdaExpr() const override { return true; }
+
   const InlineLambdaExpr* AsInlineLambdaExpr() const override { return this; }
 
   InlineLambdaExpr* AsMutableInlineLambdaExpr() override { return this; }
@@ -4149,7 +4263,7 @@ class DMLUpdateValueExpr final : public DMLValueExpr {
       const ResolvedDeleteStmt* nested_delete,
       absl::Span<const TupleData* const> tuples_for_row,
       const ResolvedColumn& element_column,
-      const std::vector<Value>& original_elements, EvaluationContext* context,
+      absl::Span<const Value> original_elements, EvaluationContext* context,
       std::vector<UpdatedElement>* new_elements) const;
 
   // Applies 'nested_update' to a vector whose values were originally
@@ -4291,6 +4405,470 @@ class DMLInsertValueExpr final : public DMLValueExpr {
       const std::vector<std::vector<Value>>& dml_returning_rows,
       EvaluationContext* context) const;
 };
+
+// -------------------------------------------------------
+// Graph operators
+// -------------------------------------------------------
+
+// Constructs a graph element.
+class NewGraphElementExpr : public ValueExpr {
+ public:
+  NewGraphElementExpr(const NewGraphElementExpr&) = delete;
+  NewGraphElementExpr& operator=(const NewGraphElementExpr&) = delete;
+
+  struct Property {
+    std::string name;
+    std::unique_ptr<ValueExpr> definition;
+  };
+
+  static absl::StatusOr<std::unique_ptr<NewGraphElementExpr>> Create(
+      const Type* graph_element_type, const GraphElementTable* table,
+      std::vector<std::unique_ptr<ValueExpr>> key,
+      std::vector<Property> properties,
+      std::optional<std::vector<std::unique_ptr<ValueExpr>>> src_node_key,
+      std::optional<std::vector<std::unique_ptr<ValueExpr>>> dest_node_key);
+
+  absl::Status SetSchemasForEvaluation(
+      absl::Span<const TupleSchema* const> params_schemas) override;
+
+  bool Eval(absl::Span<const TupleData* const> params,
+            EvaluationContext* context, VirtualTupleSlot* result,
+            absl::Status* status) const override;
+
+  std::string DebugInternal(const std::string& indent,
+                            bool verbose) const override;
+
+ private:
+  enum ArgKind { kKey, kProperty, kSrcNodeReference, kDstNodeReference };
+
+  // The table this element is coming from.
+  const GraphElementTable* table_;
+
+  // Subclass of ExprArg with an additional name. Used to store property which
+  // has both a name and a value.
+  class PropertyArg;
+
+  NewGraphElementExpr(
+      const Type* graph_element_type, const GraphElementTable* table,
+      std::vector<std::unique_ptr<ValueExpr>> key,
+      std::vector<Property> properties,
+      std::optional<std::vector<std::unique_ptr<ValueExpr>>> src_node_key,
+      std::optional<std::vector<std::unique_ptr<ValueExpr>>> dest_node_key);
+
+  template <ArgKind kArgKind, typename ExprArgType = ExprArg>
+  absl::Span<ExprArgType* const> mutable_args() {
+    return GetMutableArgs<ExprArgType>(kArgKind);
+  }
+
+  template <ArgKind kArgKind, typename ExprArgType = ExprArg>
+  absl::Span<const ExprArgType* const> args() const {
+    return GetArgs<ExprArgType>(kArgKind);
+  }
+
+  bool IsNode() const { return output_type()->AsGraphElement()->IsNode(); }
+  bool IsEdge() const { return output_type()->AsGraphElement()->IsEdge(); }
+
+  // Sets schema for <mutable_args>.
+  absl::Status SetArgsSchema(
+      absl::Span<const TupleSchema* const> params_schemas,
+      absl::Span<ExprArg* const> mutable_args) const;
+
+  // Evaluates <args>.
+  bool Evaluate(absl::Span<const ExprArg* const> args,
+                absl::Span<const TupleData* const> params,
+                EvaluationContext* context, absl::Status* status,
+                uint64_t* values_size, std::vector<Value>* values) const;
+
+  // Evaluates arguments with kind kProperty.
+  bool EvaluateProperties(
+      absl::Span<const TupleData* const> params, EvaluationContext* context,
+      absl::Status* status, uint64_t* values_size,
+      std::vector<std::pair<std::string, Value>>* properties) const;
+
+  // Returns debug string for <args>.
+  std::string ArgsDebugString(absl::Span<const ExprArg* const> args,
+                              const std::string& indent, bool verbose) const;
+
+  // Returns debug string for args with kind kProperty.
+  std::string PropertiesDebugString(const std::string& indent,
+                                    bool verbose) const;
+
+  // Makes named value exprs into PropertyArgs.
+  static std::vector<std::unique_ptr<PropertyArg>> MakeExprArgList(
+      std::vector<Property> properties);
+
+  // Generates an opaque key for an element in `element_table` with given
+  // `key_values`.
+  static absl::StatusOr<std::string> MakeOpaqueKey(
+      const GraphElementTable* element_table,
+      absl::Span<const Value> key_values);
+};
+
+// Returns field the given 'property' from the graph element 'expr'.
+// Currently, 'expr' is always a column reference whose type is a graph element.
+class GraphGetElementPropertyExpr final : public ValueExpr {
+ public:
+  GraphGetElementPropertyExpr(const GraphGetElementPropertyExpr&) = delete;
+  GraphGetElementPropertyExpr& operator=(const GraphGetElementPropertyExpr&) =
+      delete;
+
+  static absl::StatusOr<std::unique_ptr<GraphGetElementPropertyExpr>> Create(
+      absl::string_view property_name, std::unique_ptr<ValueExpr> expr);
+
+  absl::Status SetSchemasForEvaluation(
+      absl::Span<const TupleSchema* const> params_schemas) override;
+
+  bool Eval(absl::Span<const TupleData* const> params,
+            EvaluationContext* context, VirtualTupleSlot* result,
+            absl::Status* status) const override;
+
+  std::string DebugInternal(const std::string& indent,
+                            bool verbose) const override;
+
+ private:
+  enum ArgKind { kGraphElement };
+
+  GraphGetElementPropertyExpr(absl::string_view property_name,
+                              std::unique_ptr<ValueExpr> expr);
+
+  const ValueExpr* input() const;
+  ValueExpr* mutable_input();
+
+  absl::string_view property_name() const { return property_name_; }
+  std::string property_name_;
+};
+
+struct GraphPathFactorOpInfo {
+  const std::vector<VariableId> variables;
+  std::unique_ptr<RelationalOp> rel_op;
+  std::optional<ResolvedGraphEdgeScan::EdgeOrientation> orientation;
+};
+
+// Executes a single graph path.
+class GraphPathOp final : public RelationalOp {
+ public:
+  static absl::StatusOr<std::unique_ptr<GraphPathOp>> Create(
+      std::vector<GraphPathFactorOpInfo> path_factor_ops, VariableId path,
+      const GraphPathType* path_type);
+
+  absl::Status SetSchemasForEvaluation(
+      absl::Span<const TupleSchema* const> params_schemas) override;
+
+  absl::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
+      absl::Span<const TupleData* const> params, int num_extra_slots,
+      EvaluationContext* context) const override;
+
+  std::unique_ptr<TupleSchema> CreateOutputSchema() const override;
+
+  std::string IteratorDebugString() const override;
+
+  std::string DebugInternal(const std::string& indent,
+                            bool verbose) const override;
+
+ private:
+  explicit GraphPathOp(std::vector<GraphPathFactorOpInfo> path_factor_ops,
+                       VariableId path, const GraphPathType* path_type);
+
+  std::vector<VariableId> variables_;
+  std::vector<std::optional<ResolvedGraphEdgeScan::EdgeOrientation>>
+      edge_orientations_;
+
+  // If nonnull, materialize a path with this type.
+  const GraphPathType* path_type_;
+
+  const RelationalOp* rel(int i) const;
+  RelationalOp* mutable_rel(int i);
+
+  int num_rel() const { return num_rel_; }
+  const int num_rel_;
+};
+
+// Executes a graph quantified path
+class QuantifiedGraphPathOp final : public RelationalOp {
+ public:
+  struct GroupVariableInfo {
+    // The group variable
+    VariableId group_variable;
+    // Its type
+    const ArrayType* array_type = nullptr;
+    // The slot index for its corresponding singleton variable in the tuple
+    // created by `path_primary_op`.
+    int singleton_slot_index = 0;
+  };
+
+  struct VariablesInfo {
+    VariableId head;
+    VariableId tail;
+    std::vector<GroupVariableInfo> group_variables;
+    VariableId path;
+  };
+
+  static absl::StatusOr<std::unique_ptr<QuantifiedGraphPathOp>> Create(
+      std::unique_ptr<RelationalOp> path_primary_op, VariablesInfo variables,
+      std::unique_ptr<ValueExpr> lower_bound,
+      std::unique_ptr<ValueExpr> upper_bound, const GraphPathType* path_type);
+
+  absl::Status SetSchemasForEvaluation(
+      absl::Span<const TupleSchema* const> params_schemas) override;
+
+  absl::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
+      absl::Span<const TupleData* const> params, int num_extra_slots,
+      EvaluationContext* context) const override;
+
+  std::unique_ptr<TupleSchema> CreateOutputSchema() const override;
+
+  std::string IteratorDebugString() const override;
+
+  std::string DebugInternal(const std::string& indent,
+                            bool verbose) const override;
+
+ private:
+  explicit QuantifiedGraphPathOp(std::unique_ptr<RelationalOp> path_primary_op,
+                                 VariablesInfo variables,
+                                 std::unique_ptr<ValueExpr> lower_bound,
+                                 std::unique_ptr<ValueExpr> upper_bound,
+                                 const GraphPathType* path_type);
+
+  // The operator representing the contained path primary.
+  std::unique_ptr<RelationalOp> path_primary_op_;
+
+  // If nonnull, materialize a path with this type.
+  const GraphPathType* path_type_;
+
+  // Output variables for the quantified path.
+  VariablesInfo variables_;
+
+  // Lower and upper bounds of the quantified path.
+  std::unique_ptr<ValueExpr> lower_bound_;
+  std::unique_ptr<ValueExpr> upper_bound_;
+};
+
+// Computes the aggregate over all the elements of an array
+class ArrayAggregateExpr final : public ValueExpr {
+ public:
+  static absl::StatusOr<std::unique_ptr<ArrayAggregateExpr>> Create(
+      std::unique_ptr<ValueExpr> array, const VariableId& element_variable,
+      const VariableId& position,
+      std::vector<std::unique_ptr<ExprArg>> expr_list,
+      std::unique_ptr<AggregateArg> aggregate);
+
+  ArrayAggregateExpr(const ArrayAggregateExpr&) = delete;
+  ArrayAggregateExpr& operator=(const ArrayAggregateExpr&) = delete;
+
+  absl::Status SetSchemasForEvaluation(
+      absl::Span<const TupleSchema* const> params_schemas) override;
+
+  bool Eval(absl::Span<const TupleData* const> params,
+            EvaluationContext* context, VirtualTupleSlot* result,
+            absl::Status* status) const override;
+
+  std::string DebugInternal(const std::string& indent,
+                            bool verbose) const override;
+
+ private:
+  enum ArgKind {
+    kArray,
+    // An element from the array.
+    kElement,
+    // Integral position of the element in the array.
+    kPosition,
+    // A list of ExprArgs to compute before the aggregate.
+    kExprList,
+  };
+
+  ArrayAggregateExpr(std::unique_ptr<ValueExpr> array,
+                     const VariableId& element_variable,
+                     const VariableId& position,
+                     std::vector<std::unique_ptr<ExprArg>> expr_list,
+                     std::unique_ptr<AggregateArg> aggregate);
+
+  const ValueExpr* array() const;
+  ValueExpr* mutable_array();
+
+  VariableId element_variable() const;
+  VariableId position_variable() const;
+
+  absl::Span<const ExprArg* const> expr_list() const;
+  absl::Span<ExprArg* const> mutable_expr_list();
+
+  std::unique_ptr<AggregateArg> aggregate_;
+};
+
+// Base class for conducting path search.
+class GraphPathSearchOp : public RelationalOp {
+ public:
+  // Stores the intermediate selection result for the group, including paths
+  // with the same head & tail.
+  struct SelectedPathInGroup {
+    // SelectedPathInGroup(const TupleData* input_path);
+    // The current selected path in its group (of paths with the same head &
+    // tail).
+    std::unique_ptr<TupleData> path;
+    // Path length.
+    int path_len;
+    // Number of paths with the same `path_len` in the group.
+    int tie_count;
+  };
+
+  absl::Status SetSchemasForEvaluation(
+      absl::Span<const TupleSchema* const> params_schemas) override;
+
+  absl::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
+      absl::Span<const TupleData* const> params, int num_extra_slots,
+      EvaluationContext* context) const override;
+
+  std::unique_ptr<TupleSchema> CreateOutputSchema() const override;
+
+  std::string IteratorDebugString() const override;
+
+ protected:
+  explicit GraphPathSearchOp(std::unique_ptr<RelationalOp> path_op);
+  std::string DebugInternalHelper(absl::string_view child_op_name,
+                                  const std::string& indent,
+                                  bool verbose) const;
+
+ private:
+  enum ArgKind { kInput };
+  const RelationalOp* input() const;
+  RelationalOp* mutable_input();
+  // Updates `selected_path` for this group using `next_input`.
+  virtual absl::Status MaybeUpdateSelectedPath(
+      GraphPathSearchOp::SelectedPathInGroup& selected_path,
+      const TupleData* next_input, EvaluationContext* context) const = 0;
+};
+
+// Derived classes for different path search types: ANY, ANY SHORTEST.
+class GraphShortestPathSearchOp final : public GraphPathSearchOp {
+ public:
+  static absl::StatusOr<std::unique_ptr<GraphPathSearchOp>> Create(
+      std::unique_ptr<RelationalOp> path_op);
+  std::string DebugInternal(const std::string& indent,
+                            bool verbose) const override;
+
+ private:
+  explicit GraphShortestPathSearchOp(std::unique_ptr<RelationalOp> path_op)
+      : GraphPathSearchOp(std::move(path_op)) {}
+  absl::Status MaybeUpdateSelectedPath(
+      GraphPathSearchOp::SelectedPathInGroup& selected_path,
+      const TupleData* next_input, EvaluationContext* context) const override;
+};
+
+class GraphAnyPathSearchOp final : public GraphPathSearchOp {
+ public:
+  static absl::StatusOr<std::unique_ptr<GraphPathSearchOp>> Create(
+      std::unique_ptr<RelationalOp> path_op);
+  std::string DebugInternal(const std::string& indent,
+                            bool verbose) const override;
+
+ private:
+  explicit GraphAnyPathSearchOp(std::unique_ptr<RelationalOp> path_op)
+      : GraphPathSearchOp(std::move(path_op)) {}
+  absl::Status MaybeUpdateSelectedPath(
+      GraphPathSearchOp::SelectedPathInGroup& selected_path,
+      const TupleData* next_input, EvaluationContext* context) const override;
+};
+
+class GraphPathModeOp : public RelationalOp {
+ public:
+  static absl::StatusOr<std::unique_ptr<RelationalOp>> Create(
+      ResolvedGraphPathMode::PathMode, std::unique_ptr<RelationalOp> path_op);
+
+  static std::string GetIteratorDebugString(
+      absl::string_view input_iter_debug_string);
+
+  absl::Status SetSchemasForEvaluation(
+      absl::Span<const TupleSchema* const> params_schemas) override;
+  std::unique_ptr<TupleSchema> CreateOutputSchema() const override;
+
+  std::string IteratorDebugString() const override;
+  std::string DebugInternal(const std::string& indent,
+                            bool verbose) const override;
+
+ protected:
+  explicit GraphPathModeOp(std::unique_ptr<RelationalOp> path_op);
+  const RelationalOp* input() const;
+  RelationalOp* mutable_input();
+
+ private:
+  enum ArgKind { kInput };
+  virtual absl::string_view path_mode_str() const = 0;
+};
+
+class GraphTrailPathModeOp final : public GraphPathModeOp {
+ public:
+  absl::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
+      absl::Span<const TupleData* const> params, int num_extra_slots,
+      EvaluationContext* context) const override;
+
+ private:
+  friend GraphPathModeOp;  // Allows base class factory to call constructor.
+
+  explicit GraphTrailPathModeOp(std::unique_ptr<RelationalOp> path_op)
+      : GraphPathModeOp(std::move(path_op)) {}
+  absl::string_view path_mode_str() const override { return "Trail"; }
+};
+
+class GraphSimplePathModeOp : public GraphPathModeOp {
+ public:
+  absl::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
+      absl::Span<const TupleData* const> params, int num_extra_slots,
+      EvaluationContext* context) const override;
+
+ private:
+  friend GraphPathModeOp;  // Allows base class factory to call constructor.
+
+  explicit GraphSimplePathModeOp(std::unique_ptr<RelationalOp> path_op)
+      : GraphPathModeOp(std::move(path_op)) {}
+
+  absl::string_view path_mode_str() const override { return "Simple"; }
+};
+
+class GraphAcyclicPathModeOp final : public GraphPathModeOp {
+ public:
+  absl::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
+      absl::Span<const TupleData* const> params, int num_extra_slots,
+      EvaluationContext* context) const override;
+
+ private:
+  friend GraphPathModeOp;  // Allows base class factory to call constructor.
+
+  explicit GraphAcyclicPathModeOp(std::unique_ptr<RelationalOp> path_op)
+      : GraphPathModeOp(std::move(path_op)) {}
+  absl::string_view path_mode_str() const override { return "Acyclic"; }
+};
+
+// Returns true if the graph element satisfies the given label expression.
+class GraphIsLabeledExpr final : public ValueExpr {
+ public:
+  static absl::StatusOr<std::unique_ptr<GraphIsLabeledExpr>> Create(
+      std::unique_ptr<ValueExpr> element,
+      const ResolvedGraphLabelExpr* label_expr, bool is_negated);
+
+  GraphIsLabeledExpr(const GraphIsLabeledExpr&) = delete;
+  GraphIsLabeledExpr& operator=(const GraphIsLabeledExpr&) = delete;
+
+  absl::Status SetSchemasForEvaluation(
+      absl::Span<const TupleSchema* const> params_schemas) override;
+
+  bool Eval(absl::Span<const TupleData* const> params,
+            EvaluationContext* context, VirtualTupleSlot* result,
+            absl::Status* status) const override;
+
+  std::string DebugInternal(const std::string& indent,
+                            bool verbose) const override;
+
+ private:
+  enum ArgKind { kInput };
+  GraphIsLabeledExpr(std::unique_ptr<ValueExpr> element,
+                     const ResolvedGraphLabelExpr* label_expr, bool is_negated);
+
+  const ValueExpr* element() const;
+  ValueExpr* mutable_element();
+
+  const ResolvedGraphLabelExpr* label_expr_;
+  const bool is_negated_;
+};
+
 }  // namespace zetasql
 
 #endif  // ZETASQL_REFERENCE_IMPL_OPERATOR_H_

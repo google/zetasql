@@ -30,6 +30,7 @@
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output_properties.h"
 #include "zetasql/public/id_string.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/proto/logging.pb.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
@@ -162,8 +163,7 @@ class AnalyzerOutput {
       const std::vector<absl::Status>& deprecation_warnings,
       const QueryParametersMap& undeclared_parameters,
       const std::vector<const Type*>& undeclared_positional_parameters,
-      int max_column_id
-  );
+      int max_column_id, bool has_graph_references = false);
   AnalyzerOutput(
       std::shared_ptr<IdStringPool> id_string_pool,
       std::shared_ptr<zetasql_base::UnsafeArena> arena,
@@ -173,8 +173,7 @@ class AnalyzerOutput {
       const std::vector<absl::Status>& deprecation_warnings,
       const QueryParametersMap& undeclared_parameters,
       const std::vector<const Type*>& undeclared_positional_parameters,
-      int max_column_id
-  );
+      int max_column_id, bool has_graph_references = false);
   AnalyzerOutput(const AnalyzerOutput&) = delete;
   AnalyzerOutput& operator=(const AnalyzerOutput&) = delete;
   ~AnalyzerOutput();
@@ -226,6 +225,8 @@ class AnalyzerOutput {
     return undeclared_positional_parameters_;
   }
 
+  bool has_graph_references() const { return has_graph_references_; }
+
   // Returns the IdStringPool that stores IdStrings allocated for the
   // resolved AST.  This was propagated from AnalyzerOptions.
   std::shared_ptr<IdStringPool> id_string_pool() const {
@@ -270,6 +271,7 @@ class AnalyzerOutput {
   QueryParametersMap undeclared_parameters_;
   std::vector<const Type*> undeclared_positional_parameters_;
   int max_column_id_;
+  bool has_graph_references_ = false;
   AnalyzerRuntimeInfo runtime_info_;
 };
 }  // namespace zetasql

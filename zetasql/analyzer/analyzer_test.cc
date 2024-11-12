@@ -16,6 +16,7 @@
 
 #include "zetasql/public/analyzer.h"
 
+#include <cstddef>
 #include <map>
 #include <memory>
 #include <set>
@@ -125,6 +126,10 @@ class AnalyzerOptionsTest : public ::testing::Test {
     const QueryParametersMap& query_parameters = options_.query_parameters();
     EXPECT_TRUE(zetasql_base::ContainsKey(query_parameters, key));
     EXPECT_EQ(query_parameters.find(key)->second, type);
+  }
+
+  static size_t SizeOfAnalyzerOptionsData() {
+    return sizeof(AnalyzerOptions::Data);
   }
 
  private:
@@ -1373,15 +1378,6 @@ TEST_F(AnalyzerOptionsTest, Deserialize) {
               IsNull());
 }
 
-TEST_F(AnalyzerOptionsTest, ClassAndProtoSize) {
-  EXPECT_EQ(8, sizeof(AnalyzerOptions))
-      << "The size of AnalyzerOptions class has changed, please also update "
-      << "the proto and serialization code if you added/removed fields in it.";
-  EXPECT_EQ(25, AnalyzerOptionsProto::descriptor()->field_count())
-      << "The number of fields in AnalyzerOptionsProto has changed, please "
-      << "also update the serialization code accordingly.";
-}
-
 TEST_F(AnalyzerOptionsTest, AllowedHintsAndOptionsSerializeAndDeserialize) {
   TypeFactory factory;
 
@@ -1821,10 +1817,61 @@ static void ExpectExpressionHasAnonymization(absl::string_view sql,
 }
 
 TEST(AnalyzerTest, TestExpressionHasAnonymization) {
-  // Note that AnalyzeExpression only works for scalar expressions, not
-  // aggregate expressions.
+  // Note that AnalyzeExpression works only for scalar expressions, not
+  // aggregate expressions, unless analyzer_options has
+  // set_allow_aggregate_standalone_expression set to true.
   ExpectExpressionHasAnonymization("concat('a', 'b')", false);
   ExpectExpressionHasAnonymization("5 IN (SELECT ANON_COUNT(*) FROM KeyValue)");
+}
+
+TEST(AnalyzerTest, StandaloneAggregateExpression) {
+  AnalyzerOptions options;
+  SimpleCatalog catalog("catalog");
+  catalog.AddBuiltinFunctions(
+      zetasql::BuiltinFunctionOptions::AllReleasedFunctions());
+  TypeFactory type_factory;
+  std::unique_ptr<const AnalyzerOutput> output;
+
+  ZETASQL_EXPECT_OK(options.AddExpressionColumn("number", type_factory.get_int32()));
+
+  // Verify an error is given for calling an aggregate function in a standalone
+  // expression if `allow_aggregate_standalone_expression` is not set to true.
+  EXPECT_THAT(AnalyzeExpression("SUM(number)", options, &catalog, &type_factory,
+                                &output),
+              HasInvalidArgumentError("Aggregate function SUM not allowed in "
+                                      "standalone expression [at 1:1]"));
+
+  // Verify the call is ok when `allow_aggregate_standalone_expression` is true.
+  options.set_allow_aggregate_standalone_expression(true);
+  ZETASQL_ASSERT_OK(AnalyzeExpression("SUM(number)", options, &catalog, &type_factory,
+                              &output));
+  EXPECT_EQ(RESOLVED_AGGREGATE_FUNCTION_CALL,
+            output->resolved_expr()->node_kind());
+
+  // Verify an error is correctly given for an invalid nested aggregation.
+  EXPECT_THAT(AnalyzeExpression("SUM(SUM(number))", options, &catalog,
+                                &type_factory, &output),
+              HasInvalidArgumentError(
+                  "Aggregations of aggregations are not allowed [at 1:1]"));
+
+  // Verify that analytic functions remain disallowed in standalone expressions.
+  options.mutable_language()->EnableLanguageFeature(FEATURE_ANALYTIC_FUNCTIONS);
+  EXPECT_THAT(
+      AnalyzeExpression("ROW_NUMBER() OVER ()", options, &catalog,
+                        &type_factory, &output),
+      HasInvalidArgumentError(
+          "Analytic function not allowed in standalone expression [at 1:1]"));
+
+  // Test a complex aggregate expression that calls two aggregate functions.
+  ZETASQL_ASSERT_OK(AnalyzeExpression("SUM(number) + COUNT(*)", options, &catalog,
+                              &type_factory, &output));
+  EXPECT_EQ(RESOLVED_FUNCTION_CALL, output->resolved_expr()->node_kind());
+
+  // Test that nested aggregations are valid within a standalone aggregation.
+  ZETASQL_ASSERT_OK(AnalyzeExpression("COUNT((SELECT COUNT(*) FROM UNNEST([number])))",
+                              options, &catalog, &type_factory, &output));
+  EXPECT_EQ(RESOLVED_AGGREGATE_FUNCTION_CALL,
+            output->resolved_expr()->node_kind());
 }
 
 TEST(AnalyzerTest, AstRewriting) {
@@ -2550,4 +2597,46 @@ FROM
             formatted_sql);
 }
 
+// Test fixture for verifying that error messages are correct in actual analyzer
+// errors when partial redaction is enabled. If a test fails due to a changed
+// error message, the GetRedactedErrorMessage() in error_helpers.cc needs
+// updating.
+class AnalyzerErrorRedactionTest : public ::testing::Test {
+ public:
+  void SetUp() override {
+    analyzer_options_.set_error_message_stability(
+        ERROR_MESSAGE_STABILITY_TEST_REDACTED);
+    analyzer_options_.set_enhanced_error_redaction(true);
+  }
+
+ protected:
+  AnalyzerOptions analyzer_options_;
+  std::unique_ptr<const AnalyzerOutput> analyzer_output_;
+  SampleCatalog catalog_;
+};
+
+TEST_F(AnalyzerErrorRedactionTest, MismatchedSignatureOnNestedFunction) {
+  absl::string_view sql = "SELECT nested_catalog.nested_function(1,2,3,4)";
+  ASSERT_THAT(AnalyzeStatement(sql, analyzer_options_, catalog_.catalog(),
+                               catalog_.type_factory(), &analyzer_output_),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       "FUNCTION_SIGNATURE_MISMATCH: NESTED_FUNCTION"));
+}
+
+TEST_F(AnalyzerErrorRedactionTest, MismatchedSignatureOnTopLevelFunction) {
+  absl::string_view sql = "SELECT fn_overloaded_bytes_and_date(1,2,3,4)";
+  ASSERT_THAT(
+      AnalyzeStatement(sql, analyzer_options_, catalog_.catalog(),
+                       catalog_.type_factory(), &analyzer_output_),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               "FUNCTION_SIGNATURE_MISMATCH: FN_OVERLOADED_BYTES_AND_DATE"));
+}
+
+TEST_F(AnalyzerErrorRedactionTest, MismatchedSignatureOnBuiltinFunction) {
+  absl::string_view sql = "SELECT TIMESTAMP(1,2,3,4)";
+  ASSERT_THAT(AnalyzeStatement(sql, analyzer_options_, catalog_.catalog(),
+                               catalog_.type_factory(), &analyzer_output_),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       "FUNCTION_SIGNATURE_MISMATCH: TIMESTAMP"));
+}
 }  // namespace zetasql

@@ -22,7 +22,6 @@ import "zetasql/public/type.proto";
 import "zetasql/public/type_parameters.proto";
 import "zetasql/public/value.proto";
 
-option cc_enable_arenas = true;
 option java_package = "com.google.zetasql";
 option java_outer_classname = "ZetaSQLVariable";
 

@@ -24,7 +24,6 @@
 #include <type_traits>
 #include <utility>
 
-#include "zetasql/base/arena.h"
 #include "zetasql/base/logging.h"
 #include "zetasql/analyzer/all_rewriters.h"
 #include "zetasql/analyzer/analyzer_impl.h"
@@ -38,7 +37,6 @@
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/common/timer_util.h"
 #include "zetasql/parser/parse_tree.h"
-#include "zetasql/parser/parse_tree_errors.h"
 #include "zetasql/parser/parser.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
@@ -46,20 +44,22 @@
 #include "zetasql/public/cycle_detector.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_helpers.h"
+#include "zetasql/public/parse_location.h"
 #include "zetasql/public/parse_resume_location.h"
 #include "zetasql/public/table_name_resolver.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/resolved_ast/column_factory.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_node_kind.h"
+#include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/resolved_ast/validator.h"
-#include "absl/base/attributes.h"
+#include "absl/flags/declare.h"
 #include "absl/flags/flag.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
-#include "zetasql/base/map_util.h"
-#include "zetasql/base/source_location.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
@@ -242,24 +242,46 @@ absl::Status AnalyzeNextStatement(ParseResumeLocation* resume_location,
       options.error_message_options(), resume_location->input(), status);
 }
 
+// All AnalyzeStatement* APIs eventually call through this method, so this
+// is the right place to do any required setup of per-request AnalyzerOptions.
+// This takes an `owned_options` which is an owned pointer for `options`, used
+// if `options` has already been copied, so we can avoid copying it again if we
+// need to mutate it further here.
 static absl::Status AnalyzeStatementHelper(
-    const ASTStatement& ast_statement, const AnalyzerOptions& options,
-    absl::string_view sql, Catalog* catalog, TypeFactory* type_factory,
+    const ASTStatement& ast_statement, const AnalyzerOptions* options,
+    std::unique_ptr<AnalyzerOptions> owned_options, absl::string_view sql,
+    Catalog* catalog, TypeFactory* type_factory,
     std::unique_ptr<ParserOutput>* statement_parser_output,
     bool take_parser_output_ownership_on_success,
     std::unique_ptr<AnalyzerOutput>* output) {
   output->reset();
+  if (owned_options != nullptr) {
+    ZETASQL_RET_CHECK_EQ(options, owned_options.get());
+  }
+
   AnalyzerRuntimeInfo analyzer_runtime_info;
   {
+    std::unique_ptr<CycleDetector> local_cycle_detector;
+    if (options->find_options().cycle_detector() == nullptr) {
+      if (owned_options == nullptr) {
+        owned_options = std::make_unique<AnalyzerOptions>(*options);
+        options = owned_options.get();
+      }
+
+      local_cycle_detector = std::make_unique<CycleDetector>();
+      owned_options->mutable_find_options()->set_cycle_detector(
+          local_cycle_detector.get());
+    }
+
     internal::ScopedTimer scoped_overall_timer =
         internal::MakeScopedTimerStarted(
             &analyzer_runtime_info.overall_timed_value());
 
-    ZETASQL_RET_CHECK(options.AllArenasAreInitialized());
+    ZETASQL_RET_CHECK(options->AllArenasAreInitialized());
     std::unique_ptr<const ResolvedStatement> resolved_statement;
-    auto resolver = std::make_unique<Resolver>(catalog, type_factory, &options);
+    auto resolver = std::make_unique<Resolver>(catalog, type_factory, options);
     absl::Status status = FinishResolveStatementImpl(
-        sql, ast_statement, resolver.get(), options, catalog, type_factory,
+        sql, ast_statement, resolver.get(), *options, catalog, type_factory,
         &analyzer_runtime_info, &resolved_statement);
 
     const absl::StatusOr<QueryParametersMap>& type_assignments =
@@ -268,7 +290,7 @@ static absl::Status AnalyzeStatementHelper(
     internal::UpdateStatus(&status, type_assignments.status());
     if (!status.ok()) {
       return ConvertInternalErrorLocationAndAdjustErrorString(
-          options.error_message_options(), sql, status);
+          options->error_message_options(), sql, status);
     }
 
     std::unique_ptr<ParserOutput> owned_parser_output;
@@ -279,18 +301,17 @@ static absl::Status AnalyzeStatementHelper(
     }
 
     *output = std::make_unique<AnalyzerOutput>(
-        options.id_string_pool(), options.arena(),
+        options->id_string_pool(), options->arena(),
         std::move(resolved_statement), resolver->analyzer_output_properties(),
         std::move(owned_parser_output),
         ConvertInternalErrorLocationsAndAdjustErrorStrings(
-            options.error_message_options(), sql,
+            options->error_message_options(), sql,
             resolver->deprecation_warnings()),
         *type_assignments, resolver->undeclared_positional_parameters(),
-        resolver->max_column_id()
-    );
+        resolver->max_column_id(), resolver->has_graph_references());
     ZETASQL_RETURN_IF_ERROR(
-        RewriteResolvedAstImpl(options, sql, catalog, type_factory, **output));
-    if (options.fields_accessed_mode() ==
+        RewriteResolvedAstImpl(*options, sql, catalog, type_factory, **output));
+    if (options->fields_accessed_mode() ==
         AnalyzerOptions::FieldsAccessedMode::CLEAR_FIELDS) {
       // Always clear fields before return.
       AnalyzerOutputMutator(*output).resolved_node()->ClearFieldsAccessed();
@@ -303,28 +324,34 @@ static absl::Status AnalyzeStatementHelper(
 
 static absl::Status AnalyzeStatementFromParserOutputImpl(
     std::unique_ptr<ParserOutput>* statement_parser_output,
-    bool take_ownership_on_success, const AnalyzerOptions& options,
+    bool take_ownership_on_success, const AnalyzerOptions& input_options,
     absl::string_view sql, Catalog* catalog, TypeFactory* type_factory,
     std::unique_ptr<AnalyzerOutput>* output) {
-  auto local_options = std::make_unique<AnalyzerOptions>(options);
+  const AnalyzerOptions* options = &input_options;
+  std::unique_ptr<AnalyzerOptions> local_options;
 
-  // If the arena and IdStringPool are not set in <options>, use the
-  // arena and IdStringPool from the parser output by default.
-  if (local_options->arena() == nullptr) {
-    ZETASQL_RET_CHECK((*statement_parser_output)->arena() != nullptr);
-    local_options->set_arena((*statement_parser_output)->arena());
+  // Only copy the AnalyzerOptions if necessary so we can mutate it.
+  if (options->arena() == nullptr || options->id_string_pool() == nullptr) {
+    local_options = std::make_unique<AnalyzerOptions>(*options);
+
+    // If the arena and IdStringPool are not set in <options>, use the
+    // arena and IdStringPool from the parser output by default.
+    if (options->arena() == nullptr) {
+      ZETASQL_RET_CHECK((*statement_parser_output)->arena() != nullptr);
+      local_options->set_arena((*statement_parser_output)->arena());
+    }
+    if (options->id_string_pool() == nullptr) {
+      ZETASQL_RET_CHECK((*statement_parser_output)->id_string_pool() != nullptr);
+      local_options->set_id_string_pool(
+          (*statement_parser_output)->id_string_pool());
+    }
+    options = local_options.get();
   }
-  if (local_options->id_string_pool() == nullptr) {
-    ZETASQL_RET_CHECK((*statement_parser_output)->id_string_pool() != nullptr);
-    local_options->set_id_string_pool(
-        (*statement_parser_output)->id_string_pool());
-  }
-  ZETASQL_RET_CHECK(local_options->find_options().cycle_detector() != nullptr);
 
   const ASTStatement* ast_statement = (*statement_parser_output)->statement();
-  return AnalyzeStatementHelper(*ast_statement, *local_options, sql, catalog,
-                                type_factory, statement_parser_output,
-                                take_ownership_on_success, output);
+  return AnalyzeStatementHelper(
+      *ast_statement, options, std::move(local_options), sql, catalog,
+      type_factory, statement_parser_output, take_ownership_on_success, output);
 }
 
 absl::Status AnalyzeStatementFromParserOutputOwnedOnSuccess(
@@ -357,12 +384,13 @@ absl::Status AnalyzeStatementFromParserAST(
     const ASTStatement& statement, const AnalyzerOptions& options,
     absl::string_view sql, Catalog* catalog, TypeFactory* type_factory,
     std::unique_ptr<const AnalyzerOutput>* output) {
-  std::unique_ptr<AnalyzerOptions> copy;
+  std::unique_ptr<AnalyzerOptions> local_options;
   const AnalyzerOptions& options_with_arenas =
-      GetOptionsWithArenas(&options, &copy);
+      GetOptionsWithArenas(&options, &local_options);
   std::unique_ptr<AnalyzerOutput> mutable_output;
   ZETASQL_RETURN_IF_ERROR(AnalyzeStatementHelper(
-      statement, options_with_arenas, sql, catalog, type_factory,
+      statement, &options_with_arenas, std::move(local_options), sql, catalog,
+      type_factory,
       /*statement_parser_output=*/nullptr,
       /*take_parser_output_ownership_on_success=*/false, &mutable_output));
   ZETASQL_ASSIGN_OR_RETURN(*output, AnalyzerOutputMutator::FinalizeAnalyzerOutput(
@@ -704,8 +732,7 @@ absl::StatusOr<std::unique_ptr<const AnalyzerOutput>> RewriteForAnonymization(
         /*parser_output=*/nullptr, analyzer_output.deprecation_warnings(),
         analyzer_output.undeclared_parameters(),
         analyzer_output.undeclared_positional_parameters(),
-        column_factory.max_column_id()
-    );
+        column_factory.max_column_id(), analyzer_output.has_graph_references());
     if (analyzer_options.fields_accessed_mode() ==
         AnalyzerOptions::FieldsAccessedMode::CLEAR_FIELDS) {
       AnalyzerOutputMutator(ret).resolved_node()->ClearFieldsAccessed();

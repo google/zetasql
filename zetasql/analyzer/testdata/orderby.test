@@ -3219,3 +3219,80 @@ QueryStmt
         +-column_ref=
         | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
         +-null_order=NULLS_LAST
+==
+
+# Related to b/373412424, make user ORDER BY ordinal cannot see pseudo-columns.
+SELECT * FROM EnumTable
+ORDER BY {{3|4}}
+--
+ALTERNATION GROUP: 3
+--
+QueryStmt
++-output_column_list=
+| +-EnumTable.key#1 AS key [INT32]
+| +-EnumTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+| +-EnumTable.AnotherTestEnum#3 AS AnotherTestEnum [ENUM<zetasql_test__.AnotherTestEnum>]
++-query=
+  +-OrderByScan
+    +-column_list=EnumTable.[key#1, TestEnum#2, AnotherTestEnum#3]
+    +-is_ordered=TRUE
+    +-input_scan=
+    | +-TableScan(column_list=EnumTable.[key#1, TestEnum#2, AnotherTestEnum#3], table=EnumTable, column_index_list=[0, 1, 2])
+    +-order_by_item_list=
+      +-OrderByItem
+        +-column_ref=
+          +-ColumnRef(type=ENUM<zetasql_test__.AnotherTestEnum>, column=EnumTable.AnotherTestEnum#3)
+--
+ALTERNATION GROUP: 4
+--
+ERROR: ORDER BY is out of SELECT column number range: 4 [at 2:10]
+ORDER BY 4
+         ^
+==
+
+# Related to b/373412424, make user ORDER BY ordinal cannot see pseudo-columns.
+SELECT * FROM EnumTable
+UNION ALL
+SELECT * FROM EnumTable
+ORDER BY {{3|4}}
+--
+ALTERNATION GROUP: 3
+--
+QueryStmt
++-output_column_list=
+| +-$union_all.key#11 AS key [INT32]
+| +-$union_all.TestEnum#12 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+| +-$union_all.AnotherTestEnum#13 AS AnotherTestEnum [ENUM<zetasql_test__.AnotherTestEnum>]
++-query=
+  +-OrderByScan
+    +-column_list=$union_all.[key#11, TestEnum#12, AnotherTestEnum#13]
+    +-is_ordered=TRUE
+    +-input_scan=
+    | +-SetOperationScan
+    |   +-column_list=$union_all.[key#11, TestEnum#12, AnotherTestEnum#13]
+    |   +-op_type=UNION_ALL
+    |   +-input_item_list=
+    |     +-SetOperationItem
+    |     | +-scan=
+    |     | | +-ProjectScan
+    |     | |   +-column_list=EnumTable.[key#1, TestEnum#2, AnotherTestEnum#3]
+    |     | |   +-input_scan=
+    |     | |     +-TableScan(column_list=EnumTable.[key#1, TestEnum#2, AnotherTestEnum#3], table=EnumTable, column_index_list=[0, 1, 2])
+    |     | +-output_column_list=EnumTable.[key#1, TestEnum#2, AnotherTestEnum#3]
+    |     +-SetOperationItem
+    |       +-scan=
+    |       | +-ProjectScan
+    |       |   +-column_list=EnumTable.[key#6, TestEnum#7, AnotherTestEnum#8]
+    |       |   +-input_scan=
+    |       |     +-TableScan(column_list=EnumTable.[key#6, TestEnum#7, AnotherTestEnum#8], table=EnumTable, column_index_list=[0, 1, 2])
+    |       +-output_column_list=EnumTable.[key#6, TestEnum#7, AnotherTestEnum#8]
+    +-order_by_item_list=
+      +-OrderByItem
+        +-column_ref=
+          +-ColumnRef(type=ENUM<zetasql_test__.AnotherTestEnum>, column=$union_all.AnotherTestEnum#13)
+--
+ALTERNATION GROUP: 4
+--
+ERROR: ORDER BY is out of SELECT column number range: 4 [at 4:10]
+ORDER BY 4
+         ^

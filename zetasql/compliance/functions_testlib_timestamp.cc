@@ -3796,19 +3796,19 @@ static std::vector<FormatTimestampTest> GetFormatTimestampTests() {
       kCommonTestTimestamp, kCommonTestTimezone, kMicroseconds, &timestamp));
 
   std::vector<FormatTimestampTest> tests = {
-    {"%Y-%m-%d %H:%M:%S", epoch_timestamp, "UTC", "1970-01-01 00:00:00"},
+      {"%Y-%m-%d %H:%M:%S", epoch_timestamp, "UTC", "1970-01-01 00:00:00"},
 
-    // Test the hour in different time zones.
-    {"%H", timestamp, "America/Los_Angeles", "01"},
-    {"%H", timestamp, "Asia/Rangoon",        "14"},
-    {"%H", timestamp, "UTC",                 "08"},
+      // Test the hour in different time zones.
+      {"%H", timestamp, "America/Los_Angeles", "01"},
+      {"%H", timestamp, "Asia/Yangon", "14"},
+      {"%H", timestamp, "UTC", "08"},
 
-    // Basic test of full timestamp format.
-    {"%Y-%m-%d %H:%M:%E6S%z", timestamp, timezone,
-     "2015-07-08 01:02:03.456789-0700"},
+      // Basic test of full timestamp format.
+      {"%Y-%m-%d %H:%M:%E6S%z", timestamp, timezone,
+       "2015-07-08 01:02:03.456789-0700"},
 
-    // Multiple percents.
-    {"%%%%%H", timestamp, timezone, "%%01"},
+      // Multiple percents.
+      {"%%%%%H", timestamp, timezone, "%%01"},
   };
 
   // Adds all the common tests.
@@ -3835,7 +3835,7 @@ static std::vector<FormatTimestampTest> GetFormatTimestampTests() {
   // the time zone offset to only include the hour and minute parts.
   tests.push_back({"%4Y-%m-%d %H:%M:%E6S%Ez", timestamp, timezone,
                    "0000-12-31 16:08:00.000000-07:52"});
-  tests.push_back({"%4Y-%m-%d %H:%M:%E6S%Ez", timestamp, "Asia/Rangoon",
+  tests.push_back({"%4Y-%m-%d %H:%M:%E6S%Ez", timestamp, "Asia/Yangon",
                    "0001-01-01 06:24:00.000000+06:24"});
 
   ZETASQL_CHECK_OK(ConvertStringToTimestamp(
@@ -3844,13 +3844,13 @@ static std::vector<FormatTimestampTest> GetFormatTimestampTests() {
                    "9999-12-31 23:59:59.999999+00:00"});
   tests.push_back({"%Y-%m-%d %H:%M:%E6S%Ez", timestamp, timezone,
                    "9999-12-31 15:59:59.999999-08:00"});
-  tests.push_back({"%Y-%m-%d %H:%M:%E6S%Ez", timestamp, "Asia/Rangoon",
+  tests.push_back({"%Y-%m-%d %H:%M:%E6S%Ez", timestamp, "Asia/Yangon",
                    "10000-01-01 06:29:59.999999+06:30"});
   // Same test as before, but with %4Y instead of %Y.  As per FormatTime()
   // comments, %Y produces as many characters as it takes to fully render
   // the year.  A year outside of [-999:9999] when formatted with %E4Y will
   // produce more than four characters, just like %Y.
-  tests.push_back({"%4Y-%m-%d %H:%M:%E6S%Ez", timestamp, "Asia/Rangoon",
+  tests.push_back({"%4Y-%m-%d %H:%M:%E6S%Ez", timestamp, "Asia/Yangon",
                    "10000-01-01 06:29:59.999999+06:30"});
 
   // Check that FormatTimestamp removes subsecond timezone offset
@@ -5453,7 +5453,7 @@ static std::vector<ParseTimestampTest> GetParseTimestampSpecificTests() {
       {"%Y-%m-%d %H:%M:%E6S", "0000-12-31 16:08:00.000000", "-07:52",
        "0001-01-01 00:00:00+0"},
 
-      {"%Y-%m-%d %H:%M:%E6S", "10000-01-01 06:29:59.999999", "Asia/Rangoon",
+      {"%Y-%m-%d %H:%M:%E6S", "10000-01-01 06:29:59.999999", "Asia/Yangon",
        "9999-12-31 23:59:59.999999+0"},
 
       // Invalid time zones.
@@ -8159,6 +8159,65 @@ std::vector<FunctionTestCall> GetFunctionTestsTimestampConversion() {
           FunctionTestCall("timestamp_from_unix_micros", test.params));
     }
   }
+
+  std::vector<FunctionTestCall> uint64_tests{
+      // TIMESTAMP_FROM_UNIX_SECONDS(<UINT64>)
+      {"timestamp_from_unix_seconds",
+       {Uint64(std::numeric_limits<uint64_t>::min())},
+       TimestampFromUnixMicros(0)},
+      {"timestamp_from_unix_seconds",
+       {Uint64(1438939541)},
+       TimestampFromUnixMicros(1438939541000000)},
+      {"timestamp_from_unix_seconds",
+       {Uint64(types::kTimestampMax / 1000000 + 1)},
+       NullTimestamp(),
+       OUT_OF_RANGE},
+      {"timestamp_from_unix_seconds",
+       {Uint64(std::numeric_limits<uint64_t>::max())},
+       NullTimestamp(),
+       OUT_OF_RANGE},
+
+      // TIMESTAMP_FROM_UNIX_MILLIS(<UINT64>)
+      {"timestamp_from_unix_millis",
+       {Uint64(std::numeric_limits<uint64_t>::min())},
+       TimestampFromUnixMicros(0)},
+      {"timestamp_from_unix_millis",
+       {Uint64(1438939541123)},
+       TimestampFromUnixMicros(1438939541123000)},
+      {"timestamp_from_unix_millis",
+       {Uint64(types::kTimestampMax / 1000 + 1)},
+       NullTimestamp(),
+       OUT_OF_RANGE},
+      {"timestamp_from_unix_millis",
+       {Uint64(std::numeric_limits<uint64_t>::max())},
+       NullTimestamp(),
+       OUT_OF_RANGE},
+
+      // TIMESTAMP_FROM_UNIX_MICROS(<UINT64>)
+      {"timestamp_from_unix_micros",
+       {Uint64(std::numeric_limits<uint64_t>::min())},
+       TimestampFromUnixMicros(0)},
+      {"timestamp_from_unix_micros",
+       {Uint64(1438939541123456)},
+       TimestampFromUnixMicros(1438939541123456)},
+      {"timestamp_from_unix_micros",
+       {Uint64(types::kTimestampMax)},
+       TimestampFromUnixMicros(types::kTimestampMax)},
+      {"timestamp_from_unix_micros",
+       {Uint64(types::kTimestampMax + 1)},
+       NullTimestamp(),
+       OUT_OF_RANGE},
+      {"timestamp_from_unix_micros",
+       {Uint64(std::numeric_limits<uint64_t>::max())},
+       NullTimestamp(),
+       OUT_OF_RANGE},
+  };
+  // Require the language feature for all uint64_t tests.
+  for (FunctionTestCall& uint64_test : uint64_tests) {
+    uint64_test.params.AddRequiredFeature(
+        FEATURE_TIMESTAMP_FROM_UNIX_FUNCTIONS_WITH_UINT64);
+    tests.push_back(uint64_test);
+  }
   return tests;
 }
 
@@ -8702,7 +8761,7 @@ static std::vector<FormatTimestampTest> GetCastFormatTimestampTests() {
 
       // Test the hour in different time zones.
       {"HH24", timestamp, "America/Los_Angeles", "01"},
-      {"HH24", timestamp, "Asia/Rangoon", "14"},
+      {"HH24", timestamp, "Asia/Yangon", "14"},
       {"HH24", timestamp, "UTC", "08"},
   };
 
@@ -8731,8 +8790,8 @@ static std::vector<FormatTimestampTest> GetCastFormatTimestampTests() {
                    "9999-12-31 23:59:59.999999+00:00"});
   tests.push_back({"YYYY-MM-DD HH24:MI:SS.FF6TZH:TZM", timestamp, timezone,
                    "9999-12-31 15:59:59.999999-08:00"});
-  tests.push_back({"YYYY-MM-DD HH24:MI:SS.FF6TZH:TZM", timestamp,
-                   "Asia/Rangoon", "10000-01-01 06:29:59.999999+06:30"});
+  tests.push_back({"YYYY-MM-DD HH24:MI:SS.FF6TZH:TZM", timestamp, "Asia/Yangon",
+                   "10000-01-01 06:29:59.999999+06:30"});
 
   // Check that CastFormatTimestamp removes subsecond timezone offset
   // (before 1884 PST timezone had offset of 7h 52m 58s, but FormatTimestamp

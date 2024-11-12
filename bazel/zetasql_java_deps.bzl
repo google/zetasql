@@ -16,33 +16,33 @@
 
 """ Load ZetaSQL Java Dependencies. """
 
-load("@rules_jvm_external//:defs.bzl", "maven_install")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load("@bazel_tools//tools/build_defs/repo:java.bzl", "java_import_external")
 load("@io_grpc_grpc_java//:repositories.bzl", "IO_GRPC_GRPC_JAVA_ARTIFACTS")
+load("@rules_jvm_external//:defs.bzl", "maven_install")
 
 ZETASQL_MAVEN_ARTIFACTS = [
-    "com.google.api.grpc:proto-google-common-protos:2.21.0",
+    "com.google.api.grpc:proto-google-common-protos:2.29.0",
     "com.google.code.findbugs:jsr305:3.0.2",
-    "com.google.errorprone:error_prone_annotations:2.11.0",
-    "com.google.guava:guava:32.1.1-jre",
-    "com.google.guava:guava-testlib:32.1.1-jre",
-    "io.grpc:grpc-context:1.56.0",
-    "io.grpc:grpc-core:1.56.0",
-    "io.grpc:grpc-api:1.56.0",
-    "io.grpc:grpc-netty:1.56.0",
-    "io.grpc:grpc-protobuf-lite:1.56.0",
-    "io.grpc:grpc-protobuf:1.56.0",
-    "io.grpc:grpc-stub:1.56.0",
-    "io.netty:netty-common:4.1.34.Final",
-    "io.netty:netty-transport:4.1.34.Final",
-    "io.opencensus:opencensus-api:0.21.0",
-    "io.opencensus:opencensus-contrib-grpc-metrics:0.21.0",
+    "com.google.errorprone:error_prone_annotations:2.23.0",
+    "com.google.guava:guava:32.1.3-jre",
+    "com.google.guava:guava-testlib:32.1.3-jre",
+    "io.grpc:grpc-context:1.64.2",
+    "io.grpc:grpc-core:1.64.2",
+    "io.grpc:grpc-api:1.64.2",
+    "io.grpc:grpc-netty:1.64.2",
+    "io.grpc:grpc-protobuf-lite:1.64.2",
+    "io.grpc:grpc-protobuf:1.64.2",
+    "io.grpc:grpc-stub:1.64.2",
+    "io.netty:netty-common:4.1.100.Final",
+    "io.netty:netty-transport:4.1.100.Final",
+    "io.opencensus:opencensus-api:0.31.0",
+    "io.opencensus:opencensus-contrib-grpc-metrics:0.31.0",
     "javax.annotation:javax.annotation-api:1.2",
     "joda-time:joda-time:2.10.13",
-    "com.google.code.gson:gson:jar:2.8.9",
+    "com.google.code.gson:gson:jar:2.10.1",
     "com.google.protobuf:protobuf-java:3.23.1",
-    "com.google.truth:truth:1.1.3",
+    "com.google.truth:truth:1.1.5",
     "com.google.truth.extensions:truth-proto-extension:1.1.3",
     "junit:junit:4.13.2",
 ]

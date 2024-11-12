@@ -141,11 +141,6 @@ Value EvaluationContext::GetFunctionArgumentRef(std::string arg_name) {
   return Value();
 }
 
-bool EvaluationContext::HasFunctionArgumentRef(std::string arg_name) {
-  const auto it = udf_argument_references_.find(arg_name);
-  return it != udf_argument_references_.end();
-}
-
 absl::Status EvaluationContext::AddFunctionArgumentRef(std::string arg_name,
                                                        Value value) {
   ZETASQL_RET_CHECK(value.is_valid());

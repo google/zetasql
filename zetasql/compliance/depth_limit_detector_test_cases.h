@@ -34,8 +34,9 @@
 
 namespace zetasql {
 class DepthLimitDetectorTemplate;
-class DepthLimitDetectorTestResult;
-class DepthLimitDetectorTestCase;
+
+struct DepthLimitDetectorTestCase;
+struct DepthLimitDetectorTestResult;
 
 LanguageOptions DepthLimitDetectorTestCaseLanguageOptions(
     const DepthLimitDetectorTestCase& depth_case);
@@ -62,8 +63,13 @@ DepthLimitDetectorTestResult RunDepthLimitDetectorTestCase(
     DepthLimitDetectorTestCase const& depth_limit_case,
     absl::FunctionRef<absl::Status(std::string_view)> test_driver_function);
 
+// SQL test cases.
 absl::Span<const std::reference_wrapper<const DepthLimitDetectorTestCase>>
 AllDepthLimitDetectorTestCases();
+
+// JSON test cases.
+absl::Span<const std::reference_wrapper<const DepthLimitDetectorTestCase>>
+JSONDepthLimitDetectorTestCases();
 
 std::string DepthLimitDetectorTemplateToString(
     const DepthLimitDetectorTemplate& depth_limit_template, int depth);

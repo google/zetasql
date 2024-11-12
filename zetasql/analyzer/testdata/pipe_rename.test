@@ -297,3 +297,28 @@ FROM KeyValue
 ERROR: Name in pipe RENAME is present but is not a column on the pipe input table; RENAME can only rename columns: key [at 3:22]
            |> RENAME key AS zzz)
                      ^
+==
+
+# After RENAME on a column, the old range variable still points to the
+# original row.
+FROM KeyValue kv
+|> RENAME key AS key2
+|> SELECT key2, kv.key, kv
+--
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS key2 [INT64]
+| +-KeyValue.Key#1 AS key [INT64]
+| +-$pipe_select.kv#4 AS kv [STRUCT<Key INT64, Value STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[KeyValue.Key#1, KeyValue.Key#1, $pipe_select.kv#4]
+    +-expr_list=
+    | +-kv#4 :=
+    |   +-MakeStruct
+    |     +-type=STRUCT<Key INT64, Value STRING>
+    |     +-field_list=
+    |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    |       +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+    +-input_scan=
+      +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1], alias="kv")

@@ -75,23 +75,49 @@ class RegExp {
   // and looks for the specified `occurrence_index`.
   // If `occurrence_index` is greater than the number of matches found returns
   // true with *is_null set to true.
+  // If `use_legacy_position_behavior` is true, the `position` arg is used to
+  // left-truncate the input string before matching.
   // If a match was extracted, returns true with *is_null set to false.
   // If a match was not extracted, returns true with *is_null set to true.
   // If extraction failed for some other reason, returns false with a non-OK
   // status in *error.
-  // Note: Both `position` and `occurrence_index` are one-based indices rather
-  // than zero-based indices.
+  // Note: Both `position` and `occurrence_index` are one-based indices
+  // rather than zero-based indices.
   bool Extract(absl::string_view str, PositionUnit position_unit,
                int64_t position, int64_t occurrence_index,
-               absl::string_view* out, bool* is_null,
-               absl::Status* error) const;
+               bool use_legacy_position_behavior, absl::string_view* out,
+               bool* is_null, absl::Status* error) const;
 
-  inline bool Extract(absl::string_view str, absl::string_view* out,
-                      bool* is_null, absl::Status* error) const {
+  // TODO: b/328210654 - Remove this signature once all callers are migrated
+  // to pass `use_legacy_position_behavior` explicitly.
+  ABSL_DEPRECATED("Use Extract method without optional args instead")
+  bool Extract(absl::string_view str, PositionUnit position_unit,
+               int64_t position, int64_t occurrence_index,
+               absl::string_view* out, bool* is_null, absl::Status* error,
+               bool use_legacy_position_behavior = true) const {
+    return Extract(str, position_unit, position, occurrence_index,
+                   use_legacy_position_behavior, out, is_null, error);
+  }
+
+  inline bool Extract(absl::string_view str, bool use_legacy_position_behavior,
+                      absl::string_view* out, bool* is_null,
+                      absl::Status* error) const {
     // Position unit doesn't matter here since both the `position` and
     // `occurrence_index` are 1 so we set a no-op value.
     return Extract(str, /*position_unit=*/PositionUnit::kBytes, /*position=*/1,
-                   /*occurrence_index=*/1, out, is_null, error);
+                   /*occurrence_index=*/1, use_legacy_position_behavior, out,
+                   is_null, error);
+  }
+
+  // TODO: b/328210654 - Remove this signature once all callers are migrated
+  // to pass `use_legacy_position_behavior` explicitly.
+  ABSL_DEPRECATED("Use Extract method without optional args instead")
+  inline bool Extract(absl::string_view str, absl::string_view* out,
+                      bool* is_null, absl::Status* error,
+                      bool use_legacy_position_behavior = true) const {
+    return Extract(str, /*position_unit=*/PositionUnit::kBytes, /*position=*/1,
+                   /*occurrence_index=*/1, use_legacy_position_behavior, out,
+                   is_null, error);
   }
 
   // REGEXP_EXTRACT_ALL
@@ -120,7 +146,7 @@ class RegExp {
     bool Next(absl::string_view* out, absl::Status* error);
 
    private:
-    ExtractAllIterator(const RE2* re, absl::string_view str);
+    ExtractAllIterator(const RE2* re, absl::string_view str, int64_t offset);
     // Necessary for construction, as well as accessing extract_all_position_,
     // and capture_group_position_.
     friend class RegExp;
@@ -130,14 +156,19 @@ class RegExp {
     absl::string_view extract_all_input_;
     // Position of the next byte inside extract_all_input_ that will be matched
     // by Next().
-    int extract_all_position_ = 0;
+    int64_t extract_all_position_ = 0;
     // Position of the next byte after last match of capture group
-    int capture_group_position_ = 0;
+    int64_t capture_group_position_ = 0;
     // Keeps track whether match was the last one. It is needed to prevent
     // infinite loop when input is empty and regexp matches empty string.
     bool last_match_ = false;
   };
-  ExtractAllIterator CreateExtractAllIterator(absl::string_view str) const;
+
+  // Creates an ExtractAllIterator for the given string.
+  // The `offset` is the position of the first byte/char to be matched.
+  // By default, `offset` is 0 and the match starts at the beginning of str.
+  ExtractAllIterator CreateExtractAllIterator(absl::string_view str,
+                                              int64_t offset = 0) const;
 
   enum ReturnPosition {
     // Returns the position of the start of the match
@@ -182,7 +213,8 @@ class RegExp {
   // If position is greater than str length, 0 is returned.
   // If occurrence is greater than the number of matches found, 0 is returned.
   // If either position or occurrence is NULL, return true with NULL result
-  //
+  // If `legacy_position_behavior` is true, the position is used to
+  // left-truncate the input string before matching.
   // If the regular expression regexp_value contains a capturing group, the
   // function returns the position of the substring matched by that capturing
   // group based on occurrence (default to 1). If the expression does not
@@ -201,7 +233,16 @@ class RegExp {
   // Examples:
   // REGEX_INSTR("-2020-jack-class1", "-[^.-]*", 2, 1, 0) -> 6
   // REGEX_INSTR("-2020-jack-class1", "-[^.-]*", 2, 1, 1) -> 11
-  bool Instr(const InstrParams& options, absl::Status* error) const;
+  bool Instr(const InstrParams& options, bool use_legacy_position_behavior,
+             absl::Status* error) const;
+
+  // TODO: b/328210654 - Remove this signature once all callers are migrated
+  // to pass `use_legacy_position_behavior` explicitly.
+  ABSL_DEPRECATED("Use Instr method without optional args instead")
+  bool Instr(const InstrParams& options, absl::Status* error,
+             bool legacy_position_behavior = true) const {
+    return Instr(options, legacy_position_behavior, error);
+  }
 
   // REGEXP_REPLACE
   // Replaces all matching substrings in str with newsub and returns result

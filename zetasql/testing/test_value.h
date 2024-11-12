@@ -30,6 +30,7 @@
 #include "zetasql/compliance/test_driver.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/types/graph_element_type.h"
 #include "zetasql/public/types/value_equality_check_options.h"
 #include "zetasql/public/value.h"
 #include "gmock/gmock.h"
@@ -251,6 +252,8 @@ Value Struct(absl::Span<const std::pair<std::string, Value>> pairs,
 // All values must agree on the type. If type_factory is not provided the
 // function will use the default static type factory (see:
 // static_type_factory()).
+// NOTE: If providing a type factory explicitly, the order_kind must also be
+// provided to avoid pointer coercion to bool.
 Value Array(absl::Span<const ValueConstructor> values,
             OrderPreservationKind order_kind = kPreservesOrder,
             TypeFactory* type_factory = nullptr);
@@ -259,6 +262,8 @@ Value Array(absl::Span<const ValueConstructor> values,
 // the values in 'structs'. All vectors of values must agree on the type. If
 // type_factory is not provided the function will use the default static type
 // factory (see: static_type_factory()).
+// NOTE: If providing a type factory explicitly, the order_kind must also be
+// provided to avoid pointer coercion to bool.
 Value StructArray(absl::Span<const std::string> names,
                   absl::Span<const std::vector<ValueConstructor>> structs,
                   OrderPreservationKind order_kind = kPreservesOrder,
@@ -266,6 +271,27 @@ Value StructArray(absl::Span<const std::string> names,
 
 // Creates a range with values 'start' and 'end'.
 Value Range(ValueConstructor start, ValueConstructor end);
+
+// Creates a graph node with identifier, definition name, properties and labels
+// for graph identified by graph_reference.
+Value GraphNode(absl::Span<const std::string> graph_reference,
+                absl::string_view identifier,
+                absl::Span<const std::pair<std::string, Value>> properties,
+                absl::Span<const std::string> labels,
+                absl::string_view definition_name,
+                TypeFactory* type_factory = nullptr);
+
+// Creates a graph edge with identifier, definition name, properties, labels,
+// source and destination node identifiers for graph identified by
+// graph_reference.
+Value GraphEdge(absl::Span<const std::string> graph_reference,
+                absl::string_view identifier,
+                absl::Span<const std::pair<std::string, Value>> properties,
+                absl::Span<const std::string> labels,
+                absl::string_view definition_name,
+                absl::string_view source_node_identifier,
+                absl::string_view dest_node_identifier,
+                TypeFactory* type_factory = nullptr);
 
 // Creates a map with key/value pairs from 'elements'.
 Value Map(
@@ -297,6 +323,20 @@ const EnumType* MakeEnumType(const google::protobuf::EnumDescriptor* descriptor,
 // factory (see: static_type_factory())
 const RangeType* MakeRangeType(const Type* element_type,
                                TypeFactory* type_factory = nullptr);
+
+// If type_factory is not provided the function will use the default static type
+// factory (see: static_type_factory())
+const GraphElementType* MakeGraphElementType(
+    absl::Span<const std::string> graph_reference,
+    GraphElementType::ElementKind element_kind,
+    absl::Span<const GraphElementType::PropertyType> property_types,
+    TypeFactory* type_factory = nullptr);
+
+// If type_factory is not provided the function will use the default static type
+// factory (see: static_type_factory())
+const GraphPathType* MakeGraphPathType(const GraphElementType* node_type,
+                                       const GraphElementType* edge_type,
+                                       TypeFactory* type_factory = nullptr);
 
 // If type_factory is not provided the function will use the default static type
 // factory (see: static_type_factory())

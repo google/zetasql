@@ -23,7 +23,7 @@
 
 #include "zetasql/parser/flex_tokenizer.h"
 #include "zetasql/parser/macros/token_provider_base.h"
-#include "zetasql/parser/macros/token_with_location.h"
+#include "zetasql/parser/token_with_location.h"
 #include "zetasql/public/parse_location.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
@@ -68,7 +68,7 @@ class FlexTokenProvider : public TokenProviderBase {
   absl::StatusOr<TokenWithLocation> GetFlexToken();
 
   // The ZetaSQL tokenizer which gives us all the tokens.
-  std::unique_ptr<ZetaSqlFlexTokenizer> tokenizer_;
+  std::unique_ptr<ZetaSqlTokenizer> tokenizer_;
 
   // Used as a buffer when we need a lookahead from the tokenizer.
   // Any tokens here are still unprocessed by the expander.

@@ -79,6 +79,22 @@ ORDER BY x
 --
 ARRAY<STRUCT<INT64>>[known order:{3}, {3}, {2}]
 ==
+[required_features=V_1_4_UUID_TYPE]
+[name=case_statement_uuid]
+SELECT
+  CASE x
+    WHEN CAST('9d3da323-4c20-360f-bd9b-ec54feec54f0' AS UUID) THEN 1
+    WHEN CAST('9d4da323-4c20-360f-bd9b-ec54feec54f0' AS UUID) THEN 2
+  ELSE 3 END
+FROM (
+  SELECT CAST('9d3da323-4c20-360f-bd9b-ec54feec54f0' AS UUID) AS x UNION ALL
+  SELECT CAST('9d4da323-4c20-360f-bd9b-ec54feec54f0' AS UUID) AS x UNION ALL
+  SELECT CAST(NULL AS UUID) AS x
+)
+ORDER BY x
+--
+ARRAY<STRUCT<INT64>>[known order:{3}, {1}, {2}]
+==
 [required_features=RANGE_TYPE]
 [name=case_statement_range_of_dates]
 SELECT

@@ -79,6 +79,16 @@ absl::StatusOr<uint64_t> ParseHexBlock(absl::string_view& str,
 }
 }  // namespace
 
+UuidValue UuidValue::MaxValue() {
+  return UuidValue(std::numeric_limits<uint64_t>::max(),
+                   std::numeric_limits<uint64_t>::max());
+}
+
+UuidValue UuidValue::MinValue() {
+  return UuidValue(std::numeric_limits<uint64_t>::min(),
+                   std::numeric_limits<uint64_t>::min());
+}
+
 absl::StatusOr<UuidValue> UuidValue::FromString(absl::string_view str) {
   constexpr int kMaxUuidNumberOfHexDigits = 32;
   // Early checks for invalid length or leading hyphen
@@ -140,19 +150,31 @@ bool UuidValue::operator!=(const UuidValue& rh) const {
 }
 
 bool UuidValue::operator<(const UuidValue& rh) const {
-  return as_packed_int() < rh.as_packed_int();
+  if (high_bits_ == rh.high_bits_) {
+    return low_bits_ < rh.low_bits_;
+  }
+  return high_bits_ < rh.high_bits_;
 }
 
 bool UuidValue::operator>(const UuidValue& rh) const {
-  return as_packed_int() > rh.as_packed_int();
+  if (high_bits_ == rh.high_bits_) {
+    return low_bits_ > rh.low_bits_;
+  }
+  return high_bits_ > rh.high_bits_;
 }
 
 bool UuidValue::operator>=(const UuidValue& rh) const {
-  return as_packed_int() >= rh.as_packed_int();
+  if (high_bits_ == rh.high_bits_) {
+    return low_bits_ >= rh.low_bits_;
+  }
+  return high_bits_ >= rh.high_bits_;
 }
 
 bool UuidValue::operator<=(const UuidValue& rh) const {
-  return as_packed_int() <= rh.as_packed_int();
+  if (high_bits_ == rh.high_bits_) {
+    return low_bits_ <= rh.low_bits_;
+  }
+  return high_bits_ <= rh.high_bits_;
 }
 
 __int128 UuidValue::as_packed_int() const {

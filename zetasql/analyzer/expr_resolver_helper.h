@@ -151,6 +151,12 @@ class FlattenState {
   ResolvedFlatten* active_flatten_ = nullptr;
 };
 
+struct HorizontalAggregationInfo {
+  ResolvedColumn array;
+  bool array_is_correlated = false;
+  ResolvedColumn element;
+};
+
 // These are options for field values that can be overridden when constructing
 // an initial ExprResolutionInfo, or creating a child ExprResolutionInfo
 // with these fields overridden.
@@ -183,6 +189,10 @@ struct ExprResolutionInfoOptions {
   // These two should only be set together.
   const ASTExpression* top_level_ast_expr = nullptr;
   IdString column_alias = IdString();
+
+  std::optional<bool> allows_horizontal_aggregation;
+  std::optional<HorizontalAggregationInfo> horizontal_aggregation_info;
+  std::optional<bool> in_horizontal_aggregation;
 };
 
 // This contains common info needed to resolve and validate an expression.
@@ -212,15 +222,15 @@ struct ExprResolutionInfo {
   ExprResolutionInfo(QueryResolutionInfo* query_resolution_info,
                      const NameScope* name_scope_in,
                      const NameScope* aggregate_name_scope_in,
-                     const NameScope* analyic_name_scope_in,
+                     const NameScope* analytic_name_scope_in,
                      ExprResolutionInfoOptions options);
 
   // Construct an ExprResolutionInfo inheriting default options from
   // a parent expression, with overrides in `options`.
   // has_aggregation and has_analytic will be updated in parent on destruction.
   explicit ExprResolutionInfo(ExprResolutionInfo* parent);
-  explicit ExprResolutionInfo(ExprResolutionInfo* parent,
-                              ExprResolutionInfoOptions options);
+  ExprResolutionInfo(ExprResolutionInfo* parent,
+                     ExprResolutionInfoOptions options);
 
   // Construct an ExprResolutionInfo with this common set of args, used
   // for resolving clauses in many places is resolver_query.cc.
@@ -256,6 +266,17 @@ struct ExprResolutionInfo {
                      const ASTExpression* top_level_ast_expr_in = nullptr,
                      IdString column_alias_in = IdString(),
                      const char* clause_name_in = nullptr);
+
+  // Construct a ExprResolutionInfo from `parent`, setting the namescope to
+  // `post_grouping_name_scope` and the `QueryResolutionInfo` to
+  // `new_query_resolution_info`. In general, `ExprResolutionInfo` should have
+  // the same `QueryResolutionInfo*` as its parent, but in the case of
+  // multi-level aggregation, we need to create a new `QueryResolutionInfo` to
+  // hold nested resolved aggregate functions.
+  static std::unique_ptr<ExprResolutionInfo> MakeChildForMultiLevelAggregation(
+      ExprResolutionInfo* parent,
+      QueryResolutionInfo* new_query_resolution_info,
+      const NameScope* post_grouping_name_scope);
 
   ExprResolutionInfo(const ExprResolutionInfo&) = delete;
   ExprResolutionInfo& operator=(const ExprResolutionInfo&) = delete;
@@ -338,12 +359,26 @@ struct ExprResolutionInfo {
   // See FlattenState for details.
   FlattenState flatten_state;
 
-  // Used to track the enclosing aggregate function when resolving arguments to
-  // an aggregate function that uses multi-level aggregation. Only the immediate
-  // enclosing aggregate function is tracked; `MultiLevelAggregateInfo` is
-  // responsible for tracking the entire set of enclosing aggregate functions.
-  // See `MultiLevelAggregateInfo` for more details.
-  const ASTFunctionCall* enclosing_aggregate_function = nullptr;
+  // True if this expression allows horizontal aggregation.
+  const bool allows_horizontal_aggregation = false;
+
+  // If present, we've seen a horizontal aggregation and we record the array and
+  // element column that this horizontal aggregation can use. If not present, we
+  // haven't seen an array variable in a horizontal aggregation or horizontal
+  // aggregation is not allowed.
+  std::optional<HorizontalAggregationInfo> horizontal_aggregation_info;
+
+  // True if the current expression is part of a horizontal aggregation
+  // expression. It can be a child or part of an argument.
+  bool in_horizontal_aggregation = false;
+
+ private:
+  // Specialized constructor where the `QueryResolutionInfo` is not the same as
+  // the parent's. This is currently only used for resolving arguments for
+  // multi-level aggregate functions, and should NOT be used anywhere else.
+  ExprResolutionInfo(ExprResolutionInfo* parent,
+                     QueryResolutionInfo* new_query_resolution_info,
+                     ExprResolutionInfoOptions options);
 };
 
 // Create a vector<const ASTNode*> from another container.

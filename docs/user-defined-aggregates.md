@@ -78,13 +78,7 @@ This syntax consists of the following components:
   omitted.
 + `function_body`: The SQL expression that defines the function body.
 
-You can create a public or privately-scoped
-UDA in a module. To learn more,
-see [Modules][modules].
-
 [quoted-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#quoted_literals
-
-[modules]: https://github.com/google/zetasql/blob/master/docs/modules.md
 
 ## Call a SQL UDA
 

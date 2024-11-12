@@ -347,3 +347,9 @@ known_errors {
   reason: "TODO: Reference implementation reports non-determinism and in the rewritten resolved AST there is none"
   label: "pivot_test:pivot_array_agg_ignore_nulls"
 }
+
+known_errors {
+  mode: ALLOW_ERROR_OR_WRONG_ANSWER
+  reason: "TODO: Reference implementation reports non-determinism and in the rewritten resolved AST there is none"
+  label: "graph_table_test:window_function_over_graph_table"
+}

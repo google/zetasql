@@ -37,6 +37,9 @@ using zetasql::test_values::OrderPreservationKind;
 using zetasql::test_values::Range;
 using zetasql::test_values::Struct;
 using zetasql::test_values::StructArray;
+using zetasql::test_values::GraphEdge;
+using zetasql::test_values::GraphNode;
+using zetasql::test_values::MakeGraphElementType;
 
 using zetasql::types::BigNumericType;
 using zetasql::types::BoolType;
@@ -52,6 +55,7 @@ using zetasql::types::Int64Type;
 using zetasql::types::IntervalType;
 using zetasql::types::JsonType;
 using zetasql::types::NumericType;
+using zetasql::types::UuidType;
 using zetasql::types::StringType;
 using zetasql::types::TimestampType;
 using zetasql::types::TimeType;
@@ -89,6 +93,7 @@ using zetasql::values::Int64;
 using zetasql::values::Interval;
 using zetasql::values::Json;
 using zetasql::values::Numeric;
+using zetasql::values::Uuid;
 inline zetasql::Value NumericFromDouble(double v) {
   return Numeric(zetasql::NumericValue::FromDouble(v).value());
 }
@@ -121,6 +126,7 @@ using zetasql::values::NullInt64;
 using zetasql::values::NullInterval;
 using zetasql::values::NullJson;
 using zetasql::values::NullNumeric;
+using zetasql::values::NullUuid;
 using zetasql::values::NullString;
 using zetasql::values::NullTime;
 using zetasql::values::NullTimestamp;

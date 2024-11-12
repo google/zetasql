@@ -1,0 +1,230 @@
+# Simple query
+select 1;
+--
+query:select 1;
+
+mode_execute
+sql_mode_query
+table:<table>
+  <thead>
+    <tr>
+        <th>&zwnj;</th>
+    </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>1</td>
+      </tr>
+  </tbody>
+</table>
+==
+
+# Parse a simple procedural script
+[mode=parse]
+[sql_mode=script]
+DECLARE x INT64 DEFAULT 100;
+--
+query:DECLARE x INT64 DEFAULT 100;
+
+mode_parse
+sql_mode_script
+result_parsed:Script [0-28]
+  StatementList [0-28]
+    VariableDeclaration [0-27]
+      IdentifierList [8-9]
+        Identifier(x) [8-9]
+      SimpleType [10-15]
+        PathExpression [10-15]
+          Identifier(INT64) [10-15]
+      IntLiteral(100) [24-27]
+\
+==
+
+# Parse a procedural script loop
+[mode=parse]
+[sql_mode=script]
+DECLARE x INT64 DEFAULT 0;
+WHILE x < 3
+DO
+  SELECT x as num, x * x as num_square;
+  SET x = x + 1;
+END WHILE;
+--
+query:DECLARE x INT64 DEFAULT 0;
+WHILE x &lt; 3
+DO
+  SELECT x as num, x * x as num_square;
+  SET x = x + 1;
+END WHILE;
+
+mode_parse
+sql_mode_script
+result_parsed:Script [0-109]
+  StatementList [0-109]
+    VariableDeclaration [0-25]
+      IdentifierList [8-9]
+        Identifier(x) [8-9]
+      SimpleType [10-15]
+        PathExpression [10-15]
+          Identifier(INT64) [10-15]
+      IntLiteral(0) [24-25]
+    WhileStatement [27-108]
+      BinaryExpression(&lt;) [33-38]
+        PathExpression [33-34]
+          Identifier(x) [33-34]
+        IntLiteral(3) [37-38]
+      StatementList [44-98]
+        QueryStatement [44-80]
+          Query [44-80]
+            Select [44-80]
+              SelectList [51-80]
+                SelectColumn [51-59]
+                  PathExpression [51-52]
+                    Identifier(x) [51-52]
+                  Alias [53-59]
+                    Identifier(num) [56-59]
+                SelectColumn [61-80]
+                  BinaryExpression(*) [61-66]
+                    PathExpression [61-62]
+                      Identifier(x) [61-62]
+                    PathExpression [65-66]
+                      Identifier(x) [65-66]
+                  Alias [67-80]
+                    Identifier(num_square) [70-80]
+        SingleAssignment [84-97]
+          Identifier(x) [88-89]
+          BinaryExpression(+) [92-97]
+            PathExpression [92-93]
+              Identifier(x) [92-93]
+            IntLiteral(1) [96-97]
+\
+==
+
+# Execute a procedural script loop
+[mode=execute analyze]
+[sql_mode=script]
+DECLARE x INT64 DEFAULT 0;
+WHILE x < 3
+DO
+  SELECT x as num, x * x as num_square;
+  SET x = x + 1;
+END WHILE;
+--
+query:DECLARE x INT64 DEFAULT 0;
+WHILE x &lt; 3
+DO
+  SELECT x as num, x * x as num_square;
+  SET x = x + 1;
+END WHILE;
+
+mode_execute
+mode_analyze
+sql_mode_script
+statement_text:SELECT x as num, x * x as num_square
+table:<table>
+  <thead>
+    <tr>
+        <th>num&zwnj;</th>
+        <th>num_square&zwnj;</th>
+    </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>0</td>
+          <td>0</td>
+      </tr>
+  </tbody>
+</table>
+result_analyzed:QueryStmt
++-output_column_list=
+| +-$query.num#1 AS num [INT64]
+| +-$query.num_square#2 AS num_square [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[num#1, num_square#2]
+    +-expr_list=
+    | +-num#1 := Constant(x, type=INT64, value=0)
+    | +-num_square#2 :=
+    |   +-FunctionCall(ZetaSQL:$multiply(INT64, INT64) -&gt; INT64)
+    |     +-Constant(x, type=INT64, value=0)
+    |     +-Constant(x, type=INT64, value=0)
+    +-input_scan=
+      +-SingleRowScan
+
+statement_text:SELECT x as num, x * x as num_square
+table:<table>
+  <thead>
+    <tr>
+        <th>num&zwnj;</th>
+        <th>num_square&zwnj;</th>
+    </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>1</td>
+          <td>1</td>
+      </tr>
+  </tbody>
+</table>
+result_analyzed:QueryStmt
++-output_column_list=
+| +-$query.num#1 AS num [INT64]
+| +-$query.num_square#2 AS num_square [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[num#1, num_square#2]
+    +-expr_list=
+    | +-num#1 := Constant(x, type=INT64, value=1)
+    | +-num_square#2 :=
+    |   +-FunctionCall(ZetaSQL:$multiply(INT64, INT64) -&gt; INT64)
+    |     +-Constant(x, type=INT64, value=1)
+    |     +-Constant(x, type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+
+statement_text:SELECT x as num, x * x as num_square
+table:<table>
+  <thead>
+    <tr>
+        <th>num&zwnj;</th>
+        <th>num_square&zwnj;</th>
+    </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>2</td>
+          <td>4</td>
+      </tr>
+  </tbody>
+</table>
+result_analyzed:QueryStmt
++-output_column_list=
+| +-$query.num#1 AS num [INT64]
+| +-$query.num_square#2 AS num_square [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[num#1, num_square#2]
+    +-expr_list=
+    | +-num#1 := Constant(x, type=INT64, value=2)
+    | +-num_square#2 :=
+    |   +-FunctionCall(ZetaSQL:$multiply(INT64, INT64) -&gt; INT64)
+    |     +-Constant(x, type=INT64, value=2)
+    |     +-Constant(x, type=INT64, value=2)
+    +-input_scan=
+      +-SingleRowScan
+\
+==
+
+# Execute a procedural script loop with error
+[mode=execute]
+[sql_mode=script]
+SET x = x + 1;
+--
+query:SET x = x + 1;
+
+mode_execute
+sql_mode_script
+error:Undeclared variable: x [at 1:5]
+SET x = x + 1;
+    ^
+==

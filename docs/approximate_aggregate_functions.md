@@ -23,7 +23,7 @@ sketches. If you would like to specify precision with sketches, see:
 
 +  [HyperLogLog++ functions][hll-functions] to estimate cardinality.
 
-### Function list
+## Function list
 
 <table>
   <thead>
@@ -35,46 +35,46 @@ sketches. If you would like to specify precision with sketches, see:
   <tbody>
 
 <tr>
-  <td><a href="#approx_count_distinct"><code>APPROX_COUNT_DISTINCT</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/approximate_aggregate_functions.md#approx_count_distinct"><code>APPROX_COUNT_DISTINCT</code></a>
 </td>
   <td>
     Gets the approximate result for <code>COUNT(DISTINCT expression)</code>.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#approx_quantiles"><code>APPROX_QUANTILES</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/approximate_aggregate_functions.md#approx_quantiles"><code>APPROX_QUANTILES</code></a>
 </td>
   <td>
     Gets the approximate quantile boundaries.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#approx_top_count"><code>APPROX_TOP_COUNT</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/approximate_aggregate_functions.md#approx_top_count"><code>APPROX_TOP_COUNT</code></a>
 </td>
   <td>
     Gets the approximate top elements and their approximate count.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#approx_top_sum"><code>APPROX_TOP_SUM</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/approximate_aggregate_functions.md#approx_top_sum"><code>APPROX_TOP_SUM</code></a>
 </td>
   <td>
     Gets the approximate top elements and sum, based on the approximate sum
     of an assigned weight.
+    
   </td>
 </tr>
 
   </tbody>
 </table>
 
-### `APPROX_COUNT_DISTINCT`
+## `APPROX_COUNT_DISTINCT`
 
 ```sql
 APPROX_COUNT_DISTINCT(
@@ -115,7 +115,7 @@ FROM UNNEST([0, 1, 1, 2, 3, 5]) as x;
  *-----------------*/
 ```
 
-### `APPROX_QUANTILES`
+## `APPROX_QUANTILES`
 
 ```sql
 APPROX_QUANTILES(
@@ -217,7 +217,7 @@ FROM UNNEST([NULL, NULL, 1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
  *------------------*/
 ```
 
-### `APPROX_TOP_COUNT`
+## `APPROX_TOP_COUNT`
 
 ```sql
 APPROX_TOP_COUNT(
@@ -284,7 +284,7 @@ FROM UNNEST([NULL, "pear", "pear", "pear", "apple", NULL]) as x;
  *------------------------*/
 ```
 
-### `APPROX_TOP_SUM`
+## `APPROX_TOP_SUM`
 
 ```sql
 APPROX_TOP_SUM(
@@ -295,9 +295,9 @@ APPROX_TOP_SUM(
 
 **Description**
 
-Returns the approximate top elements of `expression`, based on the sum of an
-assigned `weight`. The `number` parameter specifies the number of elements
-returned.
+Returns the approximate top elements of `expression`, ordered by the sum of the
+`weight` values provided for each unique value of `expression`. The `number`
+parameter specifies the number of elements returned.
 
 If the `weight` input is negative or `NaN`, this function returns an error.
 

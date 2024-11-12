@@ -39,6 +39,7 @@
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/array_type.h"
 #include "zetasql/public/types/map_type.h"
+#include "zetasql/public/types/measure_type.h"
 #include "zetasql/public/types/range_type.h"
 #include "zetasql/public/types/simple_type.h"
 #include "zetasql/public/types/struct_type.h"
@@ -191,6 +192,12 @@ constexpr TypeKindInfoList MakeTypeKindInfoList() {
       .specificity = 2,
       .simple = true,
   };
+  kinds[TYPE_TIMESTAMP_PICOS] = {
+      .name = "TIMESTAMP_PICOS",
+      .cost = 35,
+      .specificity = 35,
+      .simple = true,
+  };
   kinds[TYPE_TIME] = {
       .name = "TIME",
       .cost = 2,
@@ -251,6 +258,18 @@ constexpr TypeKindInfoList MakeTypeKindInfoList() {
       .specificity = 29,
       .simple = false,
   };
+  kinds[TYPE_GRAPH_ELEMENT] = {
+      .name = "GRAPH_ELEMENT",
+      .cost = 30,
+      .specificity = 30,
+      .simple = false,
+  };
+  kinds[TYPE_GRAPH_PATH] = {
+      .name = "GRAPH_PATH",
+      .cost = 33,
+      .specificity = 33,
+      .simple = false,
+  };
   kinds[TYPE_MAP] = {
       .name = "MAP",
       .cost = 31,
@@ -262,6 +281,12 @@ constexpr TypeKindInfoList MakeTypeKindInfoList() {
       .cost = 32,
       .specificity = 32,
       .simple = true,
+  };
+  kinds[TYPE_MEASURE] = {
+      .name = "MEASURE",
+      .cost = 34,
+      .specificity = 34,
+      .simple = false,
   };
 
   return kinds;
@@ -536,6 +561,8 @@ std::string Type::CapitalizedName() const {
       return "Date";
     case TYPE_TIMESTAMP:
       return "Timestamp";
+    case TYPE_TIMESTAMP_PICOS:
+      return "Timestamp_picos";
     case TYPE_TIME:
       return "Time";
     case TYPE_DATETIME:
@@ -580,8 +607,15 @@ std::string Type::CapitalizedName() const {
     case TYPE_PROTO:
       ABSL_CHECK(AsProto()->descriptor() != nullptr);
       return absl::StrCat("Proto<", AsProto()->descriptor()->full_name(), ">");
+    case TYPE_GRAPH_ELEMENT:
+      return AsGraphElement()->IsNode() ? "GraphNode" : "GraphEdge";
+    case TYPE_GRAPH_PATH:
+      return "GraphPath";
     case TYPE_UUID:
       return "Uuid";
+    case TYPE_MEASURE:
+      return absl::StrCat("Measure<",
+                          AsMeasure()->result_type()->CapitalizedName(), ">");
     case TYPE_EXTENDED:
       // TODO: move this logic into an appropriate function of
       // Type's interface.
@@ -712,6 +746,20 @@ bool Type::SupportsReturning(const LanguageOptions& language_options,
                                                     type_description) &&
              GetMapValueType(this)->SupportsReturning(language_options,
                                                       type_description);
+    case TYPE_GRAPH_ELEMENT:
+    case TYPE_GRAPH_PATH:
+      if (type_description != nullptr) {
+        *type_description =
+            TypeKindToString(this->kind(), language_options.product_mode(),
+                             !language_options.LanguageFeatureEnabled(
+                                 FEATURE_V_1_4_DISABLE_FLOAT32));
+      }
+      return false;
+    case TYPE_MEASURE:
+      // TODO: b/350555383 - We probably want to allow returning Measure in some
+      // places which are disallowed when SupportsReturning() is false, for
+      // example in the output column list from a TVF or View.
+      return false;
     default:
       return true;
   }

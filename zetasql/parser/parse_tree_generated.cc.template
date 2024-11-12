@@ -27,16 +27,21 @@ namespace zetasql {
 
 // Creates a map of ASTNodeKind to a string representation of the node type's
 // name. Access this map through GetNodeNamesMap().
-static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
-  absl::flat_hash_map<ASTNodeKind, std::string> map;
-  map[AST_FAKE] = "Fake";  // For testing purposes only.
-
+static absl::flat_hash_map<ASTNodeKind, absl::string_view>
+CreateNodeNamesMap() {
+  static constexpr std::pair<ASTNodeKind, absl::string_view> kMap[] = {
+      {AST_FAKE, "Fake"},  // For testing purposes only.
 # for node in nodes
   # if not node.is_abstract
-  map[{{node.node_kind}}] = "{{node.name[3:]}}";
+      { {{node.node_kind}}, "{{node.name[3:]}}" },
   # endif
 # endfor
+  };
+
 {{blank_line}}
+  auto map = absl::flat_hash_map<ASTNodeKind, absl::string_view>(
+                std::begin(kMap), std::end(kMap));
+
   for (int kind = kFirstASTNodeKind; kind <= kLastASTNodeKind;
        ++kind) {
     ABSL_DCHECK(map.contains(static_cast<ASTNodeKind>(kind))) << "kind=" << kind;
@@ -46,8 +51,9 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
 
 // Returns a map of ASTNodeKind to a string representation of the node type's
 // name.
-static const absl::flat_hash_map<ASTNodeKind, std::string>& GetNodeNamesMap() {
-  static const absl::flat_hash_map<ASTNodeKind, std::string>& map =
+static const absl::flat_hash_map<ASTNodeKind, absl::string_view>&
+GetNodeNamesMap() {
+  static const absl::flat_hash_map<ASTNodeKind, absl::string_view>& map =
       *new auto(CreateNodeNamesMap());
   return map;
 }
@@ -55,11 +61,11 @@ static const absl::flat_hash_map<ASTNodeKind, std::string>& GetNodeNamesMap() {
 std::string ASTNode::NodeKindToString(ASTNodeKind node_kind) {
   // Subtle: we must ensure that default_value outlives the FindWithDefault
   // call.
-  const std::string default_value = "<UNKNOWN NODE KIND>";
+  absl::string_view default_value = "<UNKNOWN NODE KIND>";
 
-  return
+  return std::string(
 zetasql_base::FindWithDefault(
-      GetNodeNamesMap(), node_kind, default_value);
+      GetNodeNamesMap(), node_kind, default_value));
 }
 
 }  // namespace zetasql

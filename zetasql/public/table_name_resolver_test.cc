@@ -340,4 +340,102 @@ TEST(TableNameResolver, ExtractTableNamesFromASTScript) {
                                    ElementsAre("g")));
 }
 
+TEST(TableNameResolver,
+     ExtractTableNamesFromCreatePropertyGraphQueryNodesOnly) {
+  AnalyzerOptions analyzer_options;
+  analyzer_options.CreateDefaultArenasIfNotSet();
+  analyzer_options.mutable_language()->AddSupportedStatementKind(
+      RESOLVED_CREATE_PROPERTY_GRAPH_STMT);
+  analyzer_options.mutable_language()->EnableLanguageFeature(
+      FEATURE_V_1_4_SQL_GRAPH);
+  std::string sql =
+      R"sql(CREATE PROPERTY GRAPH pg1
+              NODE TABLES (
+                pg_data_node1 as node1
+              );
+      )sql";
+  std::set<std::vector<std::string>> table_names;
+  std::set<std::vector<std::string>> tvf_names;
+  ZETASQL_ASSERT_OK(zetasql::ExtractTableNamesFromScript(sql, analyzer_options,
+                                                   &table_names, &tvf_names));
+  EXPECT_THAT(table_names, UnorderedElementsAre(ElementsAre("pg_data_node1")));
+  EXPECT_THAT(tvf_names, IsEmpty());
+}
+
+TEST(TableNameResolver,
+     ExtractTableNamesFromCreatePropertyGraphQueryNodesAndEdges) {
+  AnalyzerOptions analyzer_options;
+  analyzer_options.CreateDefaultArenasIfNotSet();
+  analyzer_options.mutable_language()->AddSupportedStatementKind(
+      RESOLVED_CREATE_PROPERTY_GRAPH_STMT);
+  analyzer_options.mutable_language()->EnableLanguageFeature(
+      FEATURE_V_1_4_SQL_GRAPH);
+  std::string sql =
+      R"sql(CREATE PROPERTY GRAPH pg1
+              NODE TABLES (
+                Singers AS node1,
+                Albums AS node2
+              )
+              EDGE TABLES (
+                SingerAlbums AS edge1
+                  SOURCE KEY(SingerId) REFERENCES node1(SingerId)
+                  DESTINATION KEY(AlbumId) REFERENCES node2(AlbumId)
+              );
+      )sql";
+  std::set<std::vector<std::string>> table_names;
+  std::set<std::vector<std::string>> tvf_names;
+  ZETASQL_ASSERT_OK(zetasql::ExtractTableNamesFromScript(sql, analyzer_options,
+                                                   &table_names, &tvf_names));
+  EXPECT_THAT(table_names, UnorderedElementsAre(ElementsAre("Singers"),
+                                                ElementsAre("Albums"),
+                                                ElementsAre("SingerAlbums")));
+  EXPECT_THAT(tvf_names, IsEmpty());
+}
+
+TEST(TableNameResolver, ExtractTableNamesFromGraphQuery) {
+  AnalyzerOptions analyzer_options;
+  analyzer_options.CreateDefaultArenasIfNotSet();
+  analyzer_options.mutable_language()->EnableLanguageFeature(
+      FEATURE_V_1_4_SQL_GRAPH);
+  ZETASQL_ASSERT_OK(analyzer_options.mutable_language()->EnableReservableKeyword(
+      "GRAPH_TABLE"));
+
+  std::string sql =
+      R"sql(SELECT * FROM GRAPH_TABLE(gph1
+                MATCH (p) WHERE p.name IN (SELECT name FROM T)
+                COLUMNS(p.name)
+            ) INNER JOIN tvf1();
+      )sql";
+
+  std::set<std::vector<std::string>> table_names;
+  std::set<std::vector<std::string>> tvf_names;
+  ZETASQL_ASSERT_OK(zetasql::ExtractTableNamesFromScript(sql, analyzer_options,
+                                                   &table_names, &tvf_names));
+  EXPECT_THAT(table_names, UnorderedElementsAre(ElementsAre("T")));
+  EXPECT_THAT(tvf_names, UnorderedElementsAre(ElementsAre("tvf1")));
+}
+
+TEST(TableNameResolver, ExtractTableNamesFromStandaloneGqlQuery) {
+  AnalyzerOptions analyzer_options;
+  analyzer_options.CreateDefaultArenasIfNotSet();
+  analyzer_options.mutable_language()->EnableLanguageFeature(
+      FEATURE_V_1_4_SQL_GRAPH);
+  analyzer_options.mutable_language()->EnableLanguageFeature(
+      FEATURE_V_1_4_SQL_GRAPH_ADVANCED_QUERY);
+
+  std::string sql =
+      R"sql(GRAPH gph1
+            MATCH (p)
+            FILTER p.name IN (SELECT name FROM T)
+            RETURN p.name
+      )sql";
+
+  std::set<std::vector<std::string>> table_names;
+  std::set<std::vector<std::string>> tvf_names;
+  ZETASQL_ASSERT_OK(zetasql::ExtractTableNamesFromScript(sql, analyzer_options,
+                                                   &table_names, &tvf_names));
+  EXPECT_THAT(table_names, UnorderedElementsAre(ElementsAre("T")));
+  EXPECT_THAT(tvf_names, IsEmpty());
+}
+
 }  // namespace zetasql

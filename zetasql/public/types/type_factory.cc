@@ -48,8 +48,10 @@
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/array_type.h"
 #include "zetasql/public/types/enum_type.h"
+#include "zetasql/public/types/graph_element_type.h"
 #include "zetasql/public/types/internal_utils.h"
 #include "zetasql/public/types/map_type.h"
+#include "zetasql/public/types/measure_type.h"
 #include "zetasql/public/types/proto_type.h"
 #include "zetasql/public/types/range_type.h"
 #include "zetasql/public/types/simple_type.h"
@@ -199,6 +201,7 @@ static const auto* StaticTypeSet() {
       types::StringType(),
       types::BytesType(),
       types::TimestampType(),
+      types::TimestampPicosType(),
       types::DateType(),
       types::DatetimeType(),
       types::TimeType(),
@@ -222,9 +225,11 @@ static TypeFactory* s_type_factory() {
 TypeFactory::TypeFactory(const TypeFactoryOptions& options)
     : store_(new internal::TypeStore(
           options.keep_alive_while_referenced_from_value)),
-      nesting_depth_limit_(
-          absl::GetFlag(FLAGS_zetasql_type_factory_nesting_depth_limit)),
+      nesting_depth_limit_(options.nesting_depth_limit),
       estimated_memory_used_by_types_(0) {
+  // We don't want to have to check the depth for simple types, so a depth of
+  // 0 must be allowed.
+  ABSL_DCHECK_GE(nesting_depth_limit_, 0);
   ZETASQL_VLOG(2) << "Created TypeFactory " << store_ << ":\n"
           ;
 }
@@ -244,18 +249,7 @@ TypeFactory::~TypeFactory() {
   store_->Unref();
 }
 
-int TypeFactory::nesting_depth_limit() const {
-  absl::MutexLock l(&store_->mutex_);
-  return nesting_depth_limit_;
-}
-
-void TypeFactory::set_nesting_depth_limit(int value) {
-  // We don't want to have to check the depth for simple types, so a depth of
-  // 0 must be allowed.
-  ABSL_DCHECK_GE(value, 0);
-  absl::MutexLock l(&store_->mutex_);
-  nesting_depth_limit_ = value;
-}
+int TypeFactory::nesting_depth_limit() const { return nesting_depth_limit_; }
 
 int64_t TypeFactory::GetEstimatedOwnedMemoryBytesSize() const {
   // While we don't promise exact size (only estimation), we still lock a
@@ -329,6 +323,9 @@ const Type* TypeFactory::get_float() { return types::FloatType(); }
 const Type* TypeFactory::get_double() { return types::DoubleType(); }
 const Type* TypeFactory::get_date() { return types::DateType(); }
 const Type* TypeFactory::get_timestamp() { return types::TimestampType(); }
+const Type* TypeFactory::get_timestamp_picos() {
+  return types::TimestampPicosType();
+}
 const Type* TypeFactory::get_time() { return types::TimeType(); }
 const Type* TypeFactory::get_datetime() { return types::DatetimeType(); }
 const Type* TypeFactory::get_interval() { return types::IntervalType(); }
@@ -660,6 +657,117 @@ absl::StatusOr<const Type*> TypeFactory::MakeMapType(
   return MakeMapTypeImpl(key_type, value_type);
 }
 
+absl::Status TypeFactory::MakeGraphElementType(
+    absl::Span<const std::string> graph_reference,
+    GraphElementType::ElementKind element_kind,
+    absl::Span<const GraphElementType::PropertyType> property_types,
+    const GraphElementType** result) {
+  return MakeGraphElementTypeFromVector(
+      graph_reference, element_kind,
+      {property_types.begin(), property_types.end()}, result);
+}
+
+absl::Status TypeFactory::MakeGraphElementTypeFromVector(
+    absl::Span<const std::string> graph_reference,
+    GraphElementType::ElementKind element_kind,
+    std::vector<GraphElementType::PropertyType> property_types,
+    const GraphElementType** result) {
+  *result = nullptr;
+  if (graph_reference.empty()) {
+    return absl::InvalidArgumentError("Graph reference cannot be empty");
+  }
+  absl::flat_hash_set<GraphElementType::PropertyType> property_type_set;
+  absl::flat_hash_set<std::string, zetasql_base::StringViewCaseHash, zetasql_base::StringViewCaseEqual>
+      property_type_names;
+  const int depth_limit = nesting_depth_limit();
+  int max_nesting_depth = 0;
+  for (GraphElementType::PropertyType& property_type : property_types) {
+    const int nesting_depth = property_type.value_type->nesting_depth();
+    max_nesting_depth = std::max(max_nesting_depth, nesting_depth);
+    if (ABSL_PREDICT_FALSE(nesting_depth + 1 > depth_limit)) {
+      return zetasql_base::InvalidArgumentErrorBuilder()
+             << "Graph element type would exceed nesting depth limit of "
+             << depth_limit;
+    }
+    if (property_type.name.empty()) {
+      return absl::InvalidArgumentError("Property type name cannot be empty");
+    }
+    const auto [itr, inserted] =
+        property_type_set.insert(std::move(property_type));
+    if (inserted && !property_type_names.emplace(itr->name).second) {
+      return zetasql_base::InvalidArgumentErrorBuilder()
+             << "Inconsistent property: " << itr->name;
+    }
+    AddDependency(itr->value_type);
+  }
+
+  absl::MutexLock lock(&store_->mutex_);
+  const internal::GraphReference* cached_graph_reference =
+      FindOrCreateCatalogName(graph_reference);
+  *result = TakeOwnershipLocked(new GraphElementType(
+      cached_graph_reference, element_kind, this, std::move(property_type_set),
+      max_nesting_depth + 1));
+  return absl::OkStatus();
+}
+
+absl::Status TypeFactory::MakeGraphPathType(const GraphElementType* node_type,
+                                            const GraphElementType* edge_type,
+                                            const GraphPathType** result) {
+  if (node_type == nullptr) {
+    return absl::InvalidArgumentError("Node type cannot be null");
+  }
+  if (edge_type == nullptr) {
+    return absl::InvalidArgumentError("Edge type cannot be null");
+  }
+  if (node_type->element_kind() != GraphElementType::kNode) {
+    return absl::InvalidArgumentError("Node type must be a node");
+  }
+  if (edge_type->element_kind() != GraphElementType::kEdge) {
+    return absl::InvalidArgumentError("Edge type must be an edge");
+  }
+  ZETASQL_RET_CHECK(absl::c_equal(node_type->graph_reference(),
+                          edge_type->graph_reference(), zetasql_base::CaseEqual))
+      << "Node and edge types must have the same graph reference";
+  *result = nullptr;
+  const int depth_limit = nesting_depth_limit();
+  int max_nesting_depth = 0;
+  max_nesting_depth = std::max(max_nesting_depth, node_type->nesting_depth());
+  AddDependency(node_type);
+  max_nesting_depth = std::max(max_nesting_depth, edge_type->nesting_depth());
+  AddDependency(edge_type);
+
+  if (ABSL_PREDICT_FALSE(max_nesting_depth + 1 > depth_limit)) {
+    return zetasql_base::InvalidArgumentErrorBuilder()
+           << "Graph path type would exceed nesting depth limit of "
+           << depth_limit;
+  }
+
+  absl::MutexLock lock(&store_->mutex_);
+  *result = TakeOwnershipLocked(
+      new GraphPathType(this, node_type, edge_type, max_nesting_depth + 1));
+  return absl::OkStatus();
+}
+
+absl::StatusOr<const Type*> TypeFactory::MakeMeasureType(
+    const Type* result_type) {
+  const int depth_limit = nesting_depth_limit();
+  if (result_type->nesting_depth() + 1 > depth_limit) {
+    return ::zetasql_base::InvalidArgumentErrorBuilder()
+           << "Measure type would exceed nesting depth limit of "
+           << depth_limit;
+  }
+
+  if (this != s_type_factory() && StaticTypeSet()->contains(result_type)) {
+    return s_type_factory()->MakeMeasureType(result_type);
+  }
+
+  AddDependency(result_type);
+
+  // Not cached as every MeasureType is unique for now.
+  absl::MutexLock l(&store_->mutex_);
+  return TakeOwnershipLocked(new MeasureType(this, result_type));
+}
+
 absl::StatusOr<const ExtendedType*> TypeFactory::InternalizeExtendedType(
     std::unique_ptr<const ExtendedType> extended_type) {
   ZETASQL_RET_CHECK(extended_type);
@@ -773,12 +881,12 @@ absl::Status TypeFactory::MakeUnwrappedTypeFromProtoImpl(
         field_type = unwrapped_field_type;
       }
 
-      std::string name = proto_field->name();
+      absl::string_view name = proto_field->name();
       if (ProtoType::HasStructFieldName(proto_field)) {
         name = ProtoType::GetStructFieldName(proto_field);
       }
 
-      struct_fields.emplace_back(name, field_type);
+      struct_fields.emplace_back(std::string(name), field_type);
     }
     return_status = MakeStructType(struct_fields, result_type);
   } else if (existing_message_type != nullptr) {
@@ -1007,6 +1115,12 @@ static const Type* s_timestamp_type() {
   return s_timestamp_type;
 }
 
+static const Type* s_timestamp_picos_type() {
+  static const Type* s_timestamp_picos_type =
+      new SimpleType(s_type_factory(), TYPE_TIMESTAMP_PICOS);
+  return s_timestamp_picos_type;
+}
+
 static const Type* s_date_type() {
   static const Type* s_date_type = new SimpleType(s_type_factory(), TYPE_DATE);
   return s_date_type;
@@ -1144,6 +1258,24 @@ static const EnumType* GetDifferentialPrivacyGroupSelectionStrategyEnumType() {
   return s_differential_privacy_group_selection_strategy_enum_type;
 }
 
+static absl::StatusOr<const EnumType*>
+GetDifferentialPrivacyCountDistinctContributionBoundingStrategyEnumType() {
+  // Need a pointer, because `StatusOr` is not trivially deconstructible.
+  static const absl::StatusOr<const EnumType*>*
+      s_count_distinct_contribution_bounding_strategy_enum_type =
+          new absl::StatusOr<const EnumType*>(
+              []() -> absl::StatusOr<const EnumType*> {
+                const EnumType* enum_type;
+                ZETASQL_RETURN_IF_ERROR(internal::TypeFactoryHelper::MakeOpaqueEnumType(
+                    s_type_factory(),
+                    functions::DifferentialPrivacyEnums::
+                        CountDistinctContributionBoundingStrategy_descriptor(),
+                    &enum_type, {}));
+                return enum_type;
+              }());
+  return *s_count_distinct_contribution_bounding_strategy_enum_type;
+}
+
 static const EnumType* GetRangeSessionizeModeEnumType() {
   static const EnumType* s_range_sessionize_option_enum_type = [] {
     const EnumType* enum_type;
@@ -1229,6 +1361,12 @@ static const ArrayType* s_timestamp_array_type() {
   static const ArrayType* s_timestamp_array_type =
       MakeArrayType(s_type_factory()->get_timestamp());
   return s_timestamp_array_type;
+}
+
+static const ArrayType* s_timestamp_picos_array_type() {
+  static const ArrayType* s_timestamp_picos_array_type =
+      MakeArrayType(s_type_factory()->get_timestamp_picos());
+  return s_timestamp_picos_array_type;
 }
 
 static const ArrayType* s_date_array_type() {
@@ -1317,6 +1455,7 @@ const Type* StringType() { return s_string_type(); }
 const Type* BytesType() { return s_bytes_type(); }
 const Type* DateType() { return s_date_type(); }
 const Type* TimestampType() { return s_timestamp_type(); }
+const Type* TimestampPicosType() { return s_timestamp_picos_type(); }
 const Type* TimeType() { return s_time_type(); }
 const Type* DatetimeType() { return s_datetime_type(); }
 const Type* IntervalType() { return s_interval_type(); }
@@ -1335,6 +1474,10 @@ const EnumType* DifferentialPrivacyReportFormatEnumType() {
 }
 const EnumType* DifferentialPrivacyGroupSelectionStrategyEnumType() {
   return GetDifferentialPrivacyGroupSelectionStrategyEnumType();
+}
+absl::StatusOr<const EnumType*>
+DifferentialPrivacyCountDistinctContributionBoundingStrategyEnumType() {
+  return GetDifferentialPrivacyCountDistinctContributionBoundingStrategyEnumType();  // NOLINT
 }
 const EnumType* RangeSessionizeModeEnumType() {
   return GetRangeSessionizeModeEnumType();
@@ -1355,6 +1498,9 @@ const ArrayType* StringArrayType() { return s_string_array_type(); }
 const ArrayType* BytesArrayType() { return s_bytes_array_type(); }
 
 const ArrayType* TimestampArrayType() { return s_timestamp_array_type(); }
+const ArrayType* TimestampPicosArrayType() {
+  return s_timestamp_picos_array_type();
+}
 const ArrayType* DateArrayType() { return s_date_array_type(); }
 
 const ArrayType* DatetimeArrayType() { return s_datetime_array_type(); }
@@ -1397,6 +1543,8 @@ const Type* TypeFromSimpleTypeKind(TypeKind type_kind) {
       return BytesType();
     case TYPE_TIMESTAMP:
       return TimestampType();
+    case TYPE_TIMESTAMP_PICOS:
+      return TimestampPicosType();
     case TYPE_DATE:
       return DateType();
     case TYPE_TIME:
@@ -1446,6 +1594,8 @@ const ArrayType* ArrayTypeFromSimpleTypeKind(TypeKind type_kind) {
       return BytesArrayType();
     case TYPE_TIMESTAMP:
       return TimestampArrayType();
+    case TYPE_TIMESTAMP_PICOS:
+      return TimestampPicosArrayType();
     case TYPE_DATE:
       return DateArrayType();
     case TYPE_TIME:

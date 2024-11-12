@@ -71,6 +71,21 @@ message ValueProto {
     optional ValueProto end = 2;
   }
 
+  // A single entry in a Map, representing the mapping between `key` and
+  // `value`.
+  message MapEntry {
+    // Represents the serialized map key for the entry.
+    optional ValueProto key = 1;
+    // Represents the serialized map value of the entry.
+    optional ValueProto value = 2;
+  }
+
+  // An unordered mapping from key to value, represented as a collection of
+  // map entries.
+  message Map {
+    repeated MapEntry entry = 1;
+  }
+
   // Each non-null value will have exactly one of these fields specified.
   // Null values will have no fields set.
   oneof value {
@@ -91,6 +106,9 @@ message ValueProto {
     // Stores a serialized protocol message.
     bytes proto_value = 15 [ctype = CORD];
     google.protobuf.Timestamp timestamp_value = 16;
+    // Encoded timestamp_pico value. For the encoding format see documentation
+    // for zetasql::TimestampPico::SerializeAsBytes().
+    bytes timestamp_pico_value = 29;
     Datetime datetime_value = 17;
     // Bit field encoding of hour/minute/second/nanos. See TimeValue class for
     // details.
@@ -116,6 +134,8 @@ message ValueProto {
     // Encoded uuid value. For the encoding format see documentation for
     // UuidValue::SerializeAsBytes().
     bytes uuid_value = 27;
+    // Encoded map value. See (broken link).
+    Map map_value = 28;
     // User code that switches on this oneoff enum must have a default case so
     // builds won't break when new fields are added.
     bool __ValueProto__switch_must_have_a_default = 255;

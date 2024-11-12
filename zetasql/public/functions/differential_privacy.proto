@@ -59,6 +59,22 @@ message DifferentialPrivacyEnums {
     LAPLACE_THRESHOLD = 1;
     PUBLIC_GROUPS = 2;
   }
+
+  // Enum that represents the contribution_bounding strategy for differentially
+  // private count distinct. For details, see
+  // (broken link).
+  enum CountDistinctContributionBoundingStrategy {
+    option (opaque_enum_type_options).sql_opaque_enum_name =
+        "DIFFERENTIAL_PRIVACY_COUNT_DISTINCT_CONTRIBUTION_BOUNDING_STRATEGY";
+
+    DIFFERENTIAL_PRIVACY_COUNT_DISTINCT_CONTRIBUTION_BOUNDING_STRATEGY_INVALID =
+        0 [(opaque_enum_value_options).invalid_enum_value = true];
+
+    AUTO = 1;
+    SAMPLING = 2;
+    GREEDY = 3;
+    MATCHING = 4;
+  }
 }
 
 // Contains output from a ZetaSQL differential privacy function.
@@ -68,7 +84,11 @@ message DifferentialPrivacyOutputWithReport {
     DifferentialPrivacyOutputValues values = 2;
   }
 
-  optional DifferentialPrivacyBoundingReport bounding_report = 3;
+  oneof report {
+    DifferentialPrivacyBoundingReport bounding_report = 3;
+    DifferentiallyPrivateCountDistinctBoundingReport
+        count_distinct_bounding_report = 4;
+  }
 }
 
 // When ApproxBounds is called by bounded algorithms, the BoundingReport can
@@ -86,6 +106,30 @@ message DifferentialPrivacyBoundingReport {
   optional double num_inputs = 3;
   // Noisy number of inputs lying outside the bounds.
   optional double num_outside = 4;
+}
+
+message DifferentiallyPrivateCountDistinctBoundingReport {
+  // The contribution strategy that was used to bound the contribution of each
+  // user. If the contribution bounding strategy is set to `SAMPLING`, `GREEDY`
+  // or `MATCHING` in the input, then this field will be set to the same value.
+  // If the contribution bounding strategy is set to `AUTO`, then this field
+  // will be set to the contribution bounding strategy that was chosen by the
+  // algorithm.
+  optional DifferentialPrivacyEnums.CountDistinctContributionBoundingStrategy
+      contribution_bounding_strategy = 1;
+  // The upper bound is either explicitly specified in the query, or is the
+  // implicit (noisy) bound derived by the algorithm. There is no lower bound,
+  // because it is always zero. In that regard, note that there is no good way
+  // to clamp a user to have more distinct values than they have.
+  optional int64 upper_bound = 2;
+
+  // The noisy number of inputs to the bounding algorithm. This is the same as
+  // the noisy number of privacy units that contributed to the given
+  // partition/group.
+  optional double num_inputs = 3;
+
+  // There is no `num_outside` field, because it is unclear how to define it,
+  // because some of the bounding algorithms operate aross users.
 }
 
 message DifferentialPrivacyOutputValues {

@@ -18,22 +18,20 @@
 
 #include <ctype.h>
 
-#include <cstddef>
+#include <new>
 #include <set>
 #include <string>
-#include <utility>
-#include <vector>
 
 #include "zetasql/common/thread_stack.h"
 #include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/parse_tree.h"
-#include "zetasql/public/id_string.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/type.h"
-#include "zetasql/base/case.h"
+#include "absl/flags/declare.h"
 #include "absl/flags/flag.h"
 #include "zetasql/base/check.h"
+#include "absl/log/log.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
@@ -337,6 +335,9 @@ void Unparser::visitASTTableClause(const ASTTableClause* node, void* data) {
   }
   if (node->tvf() != nullptr) {
     node->tvf()->Accept(this, data);
+  }
+  if (node->where_clause() != nullptr) {
+    node->where_clause()->Accept(this, data);
   }
 }
 
@@ -1067,13 +1068,14 @@ void Unparser::visitASTExportDataStatement(const ASTExportDataStatement* node,
   if (node->with_connection_clause() != nullptr) {
     node->with_connection_clause()->Accept(this, data);
   }
-
   if (node->options_list() != nullptr) {
     print("OPTIONS");
     node->options_list()->Accept(this, data);
   }
-  println("AS");
-  node->query()->Accept(this, data);
+  if (node->query() != nullptr) {
+    println("AS");
+    node->query()->Accept(this, data);
+  }
 }
 
 void Unparser::visitASTExportModelStatement(const ASTExportModelStatement* node,
@@ -1488,6 +1490,18 @@ void Unparser::visitASTFromQuery(const ASTFromQuery* node, void* data) {
   visitASTChildren(node, data);
 }
 
+void Unparser::visitASTSubpipeline(const ASTSubpipeline* node, void* data) {
+  print("(");
+  {
+    Formatter::Indenter indenter(&formatter_);
+    visitASTChildren(node, data);
+  }
+  if (node->num_children() > 0) {
+    println();
+  }
+  print(")");
+}
+
 Formatter::PipeAndIndent::PipeAndIndent(Formatter* formatter)
     : formatter_(formatter) {
   formatter_->FormatLine("");
@@ -1618,6 +1632,21 @@ void Unparser::visitASTPipeAssert(const ASTPipeAssert* node, void* data) {
   UnparseChildrenWithSeparator(node, data, ",");
 }
 
+void Unparser::visitASTPipeLog(const ASTPipeLog* node, void* data) {
+  Formatter::PipeAndIndent pipe_and_indent(&formatter_);
+  print("LOG");
+  if (node->hint() != nullptr) {
+    node->hint()->Accept(this, data);
+  }
+  if (node->subpipeline() != nullptr) {
+    // Add a space between ABSL_LOG and the subpipeline so it doesn't look
+    // like a function call. This ends up printing a double space before
+    // the "(" because of details somewhere else. One space would be preferred.
+    print(" ");
+    node->subpipeline()->Accept(this, data);
+  }
+}
+
 void Unparser::visitASTPipeDrop(const ASTPipeDrop* node, void* data) {
   Formatter::PipeAndIndent pipe_and_indent(&formatter_);
   print("DROP");
@@ -1646,39 +1675,59 @@ void Unparser::visitASTPipeUnpivot(const ASTPipeUnpivot* node, void* data) {
   visitASTChildren(node, data);
 }
 
+void Unparser::visitASTPipeIf(const ASTPipeIf* node, void* data) {
+  Formatter::PipeAndIndent pipe_and_indent(&formatter_);
+  print("IF");
+  if (node->hint() != nullptr) {
+    node->hint()->Accept(this, data);
+  }
+
+  UnparseVectorWithSeparator(node->if_cases(), data, /*separator=*/"ELSEIF");
+
+  if (node->else_subpipeline() != nullptr) {
+    println();
+    print("ELSE");
+    node->else_subpipeline()->Accept(this, data);
+  }
+}
+
+void Unparser::visitASTPipeIfCase(const ASTPipeIfCase* node, void* data) {
+  // The IF or ELSEIF keyword has been emitted already.
+  node->condition()->Accept(this, data);
+  // Add a space so it doesn't format as "THEN(" like a function.
+  print("THEN ");
+  node->subpipeline()->Accept(this, data);
+  println();
+}
+
 void Unparser::visitASTSetOperation(const ASTSetOperation* node, void* data) {
   PrintOpenParenIfNeeded(node);
-  if (node->metadata() == nullptr) {
-    // `node` uses the legacy node structure with one single set operation.
-    int start = node->hint() == nullptr ? 0 : 1;
-
-    for (int i = start; i < node->num_children(); ++i) {
-      if (i > start) {
-        if (i == start + 1) {
-          const auto& pair = node->GetSQLForOperationPair();
-          print(pair.first);
-          if (node->hint()) {
-            node->hint()->Accept(this, data);
-          }
-          print(pair.second);
-        } else {
-          print(node->GetSQLForOperation());
-        }
-      }
-      node->child(i)->Accept(this, data);
+  for (int i = 0; i < node->inputs().size(); ++i) {
+    if (i > 0) {
+      // The i-th query is preceded by the (i-1)-th operator.
+      node->metadata()->set_operation_metadata_list(i - 1)->Accept(this, data);
     }
-  } else {
-    // `node` uses the new node structure with metadata list for set operations.
-    for (int i = 0; i < node->inputs().size(); ++i) {
-      if (i > 0) {
-        // The i-th query is preceded by the (i-1)-th operator.
-        node->metadata()->set_operation_metadata_list(i - 1)->Accept(this,
-                                                                     data);
-      }
-      node->inputs(i)->Accept(this, data);
-    }
+    node->inputs(i)->Accept(this, data);
   }
   PrintCloseParenIfNeeded(node);
+}
+
+void Unparser::visitASTPipeFork(const ASTPipeFork* node, void* data) {
+  Formatter::PipeAndIndent pipe_and_indent(&formatter_);
+  // Add a space after FORK so it doesn't look like a function call. This ends
+  // up printing a double space before the "(" because of details somewhere
+  // else. One space would be preferred.
+  print("FORK ");
+  if (node->hint() != nullptr) {
+    node->hint()->Accept(this, data);
+  }
+  UnparseVectorWithSeparator(node->subpipeline_list(), data, ",");
+}
+
+void Unparser::visitASTPipeExportData(const ASTPipeExportData* node,
+                                      void* data) {
+  Formatter::PipeAndIndent pipe_and_indent(&formatter_);
+  visitASTChildren(node, data);
 }
 
 void Unparser::visitASTSetAsAction(const ASTSetAsAction* node, void* data) {
@@ -2656,6 +2705,17 @@ void Unparser::visitASTBitwiseShiftExpression(
 struct Parens {
   std::string left = "(";
   std::string right = ")";
+  static Parens GetParensOrBraces(const ASTQuery* query) {
+    Parens parens;
+    const auto node_kind = query->query_expr()->node_kind();
+    if (node_kind == AST_GQL_QUERY ||
+        node_kind == AST_GQL_GRAPH_PATTERN_QUERY ||
+        node_kind == AST_GQL_LINEAR_OPS_QUERY) {
+      parens.left = "{";
+      parens.right = "}";
+    }
+    return parens;
+  }
 };
 
 void Unparser::visitASTInExpression(const ASTInExpression* node, void* data) {
@@ -2667,6 +2727,7 @@ void Unparser::visitASTInExpression(const ASTInExpression* node, void* data) {
   }
   if (node->query() != nullptr) {
     Parens parens;
+    parens = Parens::GetParensOrBraces(node->query());
     print(parens.left);
     {
       Formatter::Indenter indenter(&formatter_);
@@ -2828,6 +2889,7 @@ void Unparser::visitASTExpressionSubquery(const ASTExpressionSubquery* node,
     node->hint()->Accept(this, data);
   }
   Parens parens;
+  parens = Parens::GetParensOrBraces(node->query());
   print(parens.left);
   {
     Formatter::Indenter indenter(&formatter_);
@@ -3318,7 +3380,17 @@ void Unparser::visitASTInsertStatement(const ASTInsertStatement* node,
   }
 
   if (node->query() != nullptr) {
-    node->query()->Accept(this, data);
+    if (node->on_conflict() != nullptr) {
+      print("(");
+      node->query()->Accept(this, data);
+      print(")");
+    } else {
+      node->query()->Accept(this, data);
+    }
+  }
+
+  if (node->on_conflict() != nullptr) {
+    node->on_conflict()->Accept(this, data);
   }
 
   if (node->assert_rows_modified() != nullptr) {
@@ -3327,6 +3399,38 @@ void Unparser::visitASTInsertStatement(const ASTInsertStatement* node,
 
   if (node->returning() != nullptr) {
     node->returning()->Accept(this, data);
+  }
+}
+
+void Unparser::visitASTOnConflictClause(const ASTOnConflictClause* node,
+                                        void* data) {
+  println();
+  print("ON CONFLICT");
+  if (node->conflict_target() != nullptr) {
+    {
+      Formatter::Indenter indenter(&formatter_);
+      node->conflict_target()->Accept(this, data);
+    }
+  } else if (node->unique_constraint_name() != nullptr) {
+    print("ON UNIQUE CONSTRAINT");
+    node->unique_constraint_name()->Accept(this, data);
+  }
+
+  print("DO");
+  print(node->GetSQLForConflictAction());
+  if (node->conflict_action() == ASTOnConflictClause::UPDATE) {
+    println();
+    print("SET");
+  }
+
+  if (node->update_item_list() != nullptr) {
+    node->update_item_list()->Accept(this, data);
+  }
+
+  if (node->update_where_clause() != nullptr) {
+    println();
+    print("WHERE");
+    node->update_where_clause()->Accept(this, data);
   }
 }
 
@@ -3715,10 +3819,16 @@ void Unparser::visitASTMatchRecognizeClause(const ASTMatchRecognizeClause* node,
     node->order_by()->Accept(this, data);
     println();
 
-    ABSL_DCHECK(node->measures() != nullptr);
-    print("MEASURES");
-    node->measures()->Accept(this, data);
-    println();
+    if (node->measures() != nullptr) {
+      print("MEASURES");
+      node->measures()->Accept(this, data);
+      println();
+    }
+
+    if (node->after_match_skip_clause() != nullptr) {
+      node->after_match_skip_clause()->Accept(this, data);
+      println();
+    }
 
     ABSL_DCHECK(node->pattern() != nullptr);
     print("PATTERN (");
@@ -3726,25 +3836,51 @@ void Unparser::visitASTMatchRecognizeClause(const ASTMatchRecognizeClause* node,
     println(")");
 
     ABSL_DCHECK(node->pattern_variable_definition_list() != nullptr);
-    print("DEFINE ");
+    print("DEFINE");
+
     bool is_first = true;
     for (const auto& var :
          node->pattern_variable_definition_list()->columns()) {
       if (is_first) {
         is_first = false;
       } else {
-        print(", ");
+        print(",");
       }
       // We accept the identifier here rather than alias to prevent "AS" from
       // being incorrectly printed before the alias.
+      println();
+      Formatter::Indenter indenter(&formatter_);
       var->alias()->identifier()->Accept(this, data);
       print("AS");
       var->expression()->Accept(this, data);
     }
+    println();
+    if (node->options_list() != nullptr) {
+      print("OPTIONS");
+      node->options_list()->Accept(this, data);
+    }
   }
+  println();
   println(")");
   if (node->output_alias() != nullptr) {
     node->output_alias()->Accept(this, data);
+  }
+}
+
+void Unparser::visitASTAfterMatchSkipClause(const ASTAfterMatchSkipClause* node,
+                                            void* data) {
+  print("AFTER MATCH SKIP ");
+  switch (node->target_type()) {
+    case ASTAfterMatchSkipClauseEnums::PAST_LAST_ROW:
+      print("PAST LAST ROW");
+      break;
+    case ASTAfterMatchSkipClauseEnums::TO_NEXT_ROW:
+      print("TO NEXT ROW");
+      break;
+    case ASTAfterMatchSkipClauseEnums::AFTER_MATCH_SKIP_TARGET_UNSPECIFIED:
+      ABSL_LOG(ERROR) << "After match skip target type is not set";
+      print("<unspecified after match skip target type>");
+      break;
   }
 }
 
@@ -3779,6 +3915,104 @@ void Unparser::visitASTRowPatternOperation(const ASTRowPatternOperation* node,
 
   if (node->parenthesized()) {
     print(")");
+  }
+}
+
+void Unparser::visitASTEmptyRowPattern(const ASTEmptyRowPattern* node,
+                                       void* data) {
+  if (node->parenthesized()) {
+    print("(");
+  }
+
+  // Empty: nothing to print. We could consider printing a comment.
+  print(" ");
+
+  if (node->parenthesized()) {
+    print(")");
+  }
+}
+
+void Unparser::visitASTRowPatternAnchor(const ASTRowPatternAnchor* node,
+                                        void* data) {
+  if (node->parenthesized()) {
+    print("(");
+  }
+  switch (node->anchor()) {
+    case ASTRowPatternAnchorEnums::START:
+      print("^");
+      break;
+    case ASTRowPatternAnchorEnums::END:
+      print("$");
+      break;
+    case ASTRowPatternAnchorEnums::ANCHOR_UNSPECIFIED:
+      ABSL_LOG(ERROR) << "Row pattern anchor is not set";
+      break;
+  }
+  if (node->parenthesized()) {
+    print(")");
+  }
+}
+
+void Unparser::visitASTRowPatternQuantification(
+    const ASTRowPatternQuantification* node, void* data) {
+  if (node->parenthesized()) {
+    print("(");
+  }
+
+  node->operand()->Accept(this, data);
+  node->quantifier()->Accept(this, data);
+
+  if (node->parenthesized()) {
+    print(")");
+  }
+}
+
+void Unparser::visitASTSymbolQuantifier(const ASTSymbolQuantifier* node,
+                                        void* data) {
+  switch (node->symbol()) {
+    case ASTSymbolQuantifier::QUESTION_MARK:
+      print("?");
+      break;
+    case ASTSymbolQuantifier::PLUS:
+      print("+");
+      break;
+    case ASTSymbolQuantifier::STAR:
+      print("*");
+      break;
+    case ASTSymbolQuantifier::SYMBOL_UNSPECIFIED:
+      ABSL_LOG(ERROR) << "Quantifier symbol is not set";
+      print("<unspecified quantifier symbol>");
+      break;
+  }
+
+  if (node->is_reluctant()) {
+    print("?");
+  }
+}
+
+void Unparser::visitASTFixedQuantifier(const ASTFixedQuantifier* node,
+                                       void* data) {
+  print("{");
+  node->bound()->Accept(this, data);
+  print("}");
+}
+
+void Unparser::visitASTBoundedQuantifier(const ASTBoundedQuantifier* node,
+                                         void* data) {
+  print("{");
+  node->lower_bound()->Accept(this, data);
+  print(", ");
+  node->upper_bound()->Accept(this, data);
+  print("}");
+  if (node->is_reluctant()) {
+    print("?");
+  }
+}
+
+void Unparser::visitASTQuantifierBound(const ASTQuantifierBound* node,
+                                       void* data) {
+  if (node->bound() != nullptr) {
+    node->bound()->Accept(this, data);
   }
 }
 
@@ -4756,6 +4990,618 @@ void Unparser::visitASTSpannerSetOnDeleteAction(
   print(ASTForeignKeyActions::GetSQLForAction(node->action()));
 }
 
+void Unparser::visitASTCreatePropertyGraphStatement(
+    const ASTCreatePropertyGraphStatement* node, void* data) {
+  print("CREATE");
+  if (node->is_or_replace()) {
+    print("OR REPLACE");
+  }
+  print("PROPERTY GRAPH");
+  if (node->is_if_not_exists()) {
+    print("IF NOT EXISTS");
+  }
+  visitASTPathExpression(node->name(), data);
+  println();
+
+  if (node->options_list() != nullptr) {
+    print("OPTIONS");
+    node->options_list()->Accept(this, data);
+    println();
+  }
+
+  {
+    Formatter::Indenter indenter(&formatter_);
+    println("NODE TABLES(");
+    {
+      Formatter::Indenter indenter(&formatter_);
+      node->node_table_list()->Accept(this, data);
+    }
+    println();
+    println(")");
+  }
+  if (node->edge_table_list() != nullptr) {
+    Formatter::Indenter indenter(&formatter_);
+    println("EDGE TABLES(");
+    {
+      Formatter::Indenter indenter(&formatter_);
+      node->edge_table_list()->Accept(this, data);
+    }
+    println();
+    println(")");
+  }
+}
+
+void Unparser::visitASTGraphElementTableList(
+    const ASTGraphElementTableList* node, void* data) {
+  UnparseChildrenWithSeparator(node, data, ",\n", true);
+}
+
+void Unparser::visitASTGraphElementTable(const ASTGraphElementTable* node,
+                                         void* data) {
+  visitASTPathExpression(node->name(), data);
+  if (node->alias() != nullptr) {
+    visitASTAlias(node->alias(), data);
+  }
+  if (node->key_list() != nullptr) {
+    println();
+    Formatter::Indenter indenter(&formatter_);
+    print("KEY");
+    visitASTColumnList(node->key_list(), data);
+  }
+  if (node->source_node_reference() != nullptr) {
+    println();
+    node->source_node_reference()->Accept(this, data);
+  }
+  if (node->dest_node_reference() != nullptr) {
+    println();
+    node->dest_node_reference()->Accept(this, data);
+  }
+
+  println();
+  visitASTGraphElementLabelAndPropertiesList(node->label_properties_list(),
+                                             data);
+}
+
+void Unparser::visitASTGraphNodeTableReference(
+    const ASTGraphNodeTableReference* node, void* data) {
+  Formatter::Indenter indenter(&formatter_);
+  switch (node->node_reference_type()) {
+    case ASTGraphNodeTableReference::SOURCE:
+      print("SOURCE KEY");
+      break;
+    case ASTGraphNodeTableReference::DESTINATION:
+      print("DESTINATION KEY");
+      break;
+    case ASTGraphNodeTableReference::NODE_REFERENCE_TYPE_UNSPECIFIED:
+      ABSL_LOG(FATAL) << "Node reference type is not set";  // Crash OK
+      break;
+  }
+  visitASTColumnList(node->edge_table_columns(), data);
+  print("REFERENCES");
+  visitASTIdentifier(node->node_table_identifier(), data);
+  if (node->node_table_columns() != nullptr) {
+    node->node_table_columns()->Accept(this, data);
+  }
+}
+
+void Unparser::visitASTGraphElementLabelAndPropertiesList(
+    const ASTGraphElementLabelAndPropertiesList* node, void* data) {
+  UnparseChildrenWithSeparator(node, data, "", true);
+}
+
+void Unparser::visitASTGraphElementLabelAndProperties(
+    const ASTGraphElementLabelAndProperties* node, void* data) {
+  if (node->label_name() != nullptr) {
+    Formatter::Indenter indenter(&formatter_);
+    print("LABEL");
+    visitASTIdentifier(node->label_name(), data);
+  } else {
+    Formatter::Indenter indenter(&formatter_);
+    print("DEFAULT LABEL");
+  }
+
+  visitASTGraphProperties(node->properties(), data);
+}
+
+void Unparser::visitASTGraphProperties(const ASTGraphProperties* node,
+                                       void* data) {
+  if (node->no_properties()) {
+    print("NO PROPERTIES");
+    return;
+  }
+  if (node->derived_property_list() == nullptr) {
+    print("PROPERTIES ALL COLUMNS");
+    if (node->all_except_columns() != nullptr) {
+      print("EXCEPT");
+      visitASTColumnList(node->all_except_columns(), data);
+    }
+    return;
+  }
+  print("PROPERTIES(");
+  {
+    Formatter::Indenter indenter(&formatter_);
+    visitASTSelectList(node->derived_property_list(), data);
+  }
+  print(")");
+}
+
+void Unparser::visitASTGqlMatch(const ASTGqlMatch* node, void* data) {
+  if (node->optional()) {
+    print("OPTIONAL ");
+  }
+  print("MATCH");
+  if (node->hint() != nullptr) {
+    node->hint()->Accept(this, data);
+  }
+  println();
+  {
+    Formatter::Indenter indenter(&formatter_);
+    node->graph_pattern()->Accept(this, data);
+  }
+}
+
+void Unparser::visitASTGqlReturn(const ASTGqlReturn* node, void* data) {
+  print("RETURN");
+  if (node->select()->hint() != nullptr) {
+    node->select()->hint()->Accept(this, data);
+  }
+  if (node->select()->distinct()) {
+    print("DISTINCT");
+  }
+  node->select()->select_list()->Accept(this, data);
+  if (node->select()->group_by() != nullptr) {
+    node->select()->group_by()->Accept(this, data);
+  }
+  if (node->order_by_page() != nullptr) {
+    println();
+    node->order_by_page()->Accept(this, data);
+  }
+}
+
+void Unparser::visitASTGqlWith(const ASTGqlWith* node, void* data) {
+  print("WITH");
+  if (node->select()->hint() != nullptr) {
+    node->select()->hint()->Accept(this, data);
+  }
+  node->select()->select_list()->Accept(this, data);
+}
+
+void Unparser::visitASTGqlFor(const ASTGqlFor* node, void* data) {
+  print("FOR");
+  node->identifier()->Accept(this, data);
+  print("IN ");
+  node->expression()->Accept(this, data);
+  if (node->with_offset() != nullptr) {
+    print("WITH OFFSET");
+    if (node->with_offset()->alias() != nullptr) {
+      node->with_offset()->alias()->Accept(this, data);
+    }
+  }
+}
+
+void Unparser::visitASTGqlLet(const ASTGqlLet* node, void* data) {
+  print("LET");
+  println();
+  node->variable_definition_list()->Accept(this, data);
+}
+
+void Unparser::visitASTGqlQuery(const ASTGqlQuery* node, void* data) {
+  println();
+  if (node->graph_table()->graph_reference() != nullptr) {
+    print("GRAPH ");
+    node->graph_table()->graph_reference()->Accept(this, data);
+    println();
+  } else {
+    const auto node_kind =
+        node->parent()->GetAsOrDie<ASTQuery>()->parent()->node_kind();
+    // only a subuqery can omit the graph reference
+    ABSL_DCHECK(node_kind == AST_EXPRESSION_SUBQUERY ||
+           node_kind == AST_IN_EXPRESSION);
+  }
+  ABSL_DCHECK(node->graph_table()->graph_op()->Is<ASTGqlOperatorList>());
+  node->graph_table()->graph_op()->Accept(this, data);
+  println();
+}
+
+void Unparser::visitASTGqlGraphPatternQuery(const ASTGqlGraphPatternQuery* node,
+                                            void* data) {
+  println();
+  if (node->graph_reference() != nullptr) {
+    print("GRAPH ");
+    node->graph_reference()->Accept(this, data);
+    println();
+  }
+  node->graph_pattern()->Accept(this, data);
+  println();
+}
+
+void Unparser::visitASTGqlLinearOpsQuery(const ASTGqlLinearOpsQuery* node,
+                                         void* data) {
+  println();
+  if (node->graph_reference() != nullptr) {
+    print("GRAPH ");
+    node->graph_reference()->Accept(this, data);
+    println();
+  }
+  node->linear_ops()->Accept(this, data);
+  println();
+}
+
+void Unparser::visitASTGqlLetVariableDefinitionList(
+    const ASTGqlLetVariableDefinitionList* node, void* data) {
+  Formatter::Indenter indenter(&formatter_);
+  UnparseVectorWithSeparator(node->variable_definitions(), data,
+                             /*separator=*/",", /*break_line=*/true);
+}
+
+void Unparser::visitASTGqlLetVariableDefinition(
+    const ASTGqlLetVariableDefinition* node, void* data) {
+  node->identifier()->Accept(this, data);
+  print("= ");
+  node->expression()->Accept(this, data);
+}
+
+void Unparser::visitASTGqlFilter(const ASTGqlFilter* node, void* data) {
+  print("FILTER");
+
+  {
+    Formatter::Indenter indenter(&formatter_);
+    node->condition()->Accept(this, data);
+  }
+}
+
+void Unparser::visitASTGqlPageLimit(const ASTGqlPageLimit* node, void* data) {
+  print("LIMIT");
+  node->limit()->Accept(this, data);
+}
+
+void Unparser::visitASTGqlPageOffset(const ASTGqlPageOffset* node, void* data) {
+  print("OFFSET");
+  node->offset()->Accept(this, data);
+}
+
+void Unparser::visitASTGqlPage(const ASTGqlPage* node, void* data) {
+  if (node->offset() != nullptr) {
+    node->offset()->Accept(this, data);
+  }
+  if (node->limit() != nullptr) {
+    node->limit()->Accept(this, data);
+  }
+}
+
+void Unparser::visitASTGqlOrderByAndPage(const ASTGqlOrderByAndPage* node,
+                                         void* data) {
+  if (node->order_by() != nullptr) {
+    node->order_by()->Accept(this, data);
+  }
+  if (node->page() != nullptr) {
+    node->page()->Accept(this, data);
+  }
+}
+
+void Unparser::visitASTGraphTableQuery(const ASTGraphTableQuery* node,
+                                       void* data) {
+  print("GRAPH_TABLE(");
+  println();
+  {
+    Formatter::Indenter indenter(&formatter_);
+    node->graph_reference()->Accept(this, data);
+    println();
+    node->graph_op()->Accept(this, data);
+    println();
+    if (node->graph_table_shape() != nullptr) {
+      ABSL_DCHECK(!node->graph_op()->Is<ASTGqlOperatorList>());
+      print("COLUMNS(");
+      node->graph_table_shape()->Accept(this, data);
+      println();
+      println(")");
+    }
+  }
+  print(")");
+  if (node->alias() != nullptr) {
+    node->alias()->Accept(this, data);
+  }
+  for (const auto* op : node->postfix_operators()) {
+    op->Accept(this, data);
+  }
+}
+
+static bool IsLinearOrCompositeQuery(const ASTGqlOperator* node) {
+  return node->Is<ASTGqlOperatorList>() || node->Is<ASTGqlSetOperation>();
+}
+
+void Unparser::visitASTGqlOperatorList(const ASTGqlOperatorList* node,
+                                       void* data) {
+  ABSL_DCHECK(!node->operators().empty());
+  if (IsLinearOrCompositeQuery(node->operators()[0])) {
+    for (auto it = node->operators().begin(); it != node->operators().end();
+         ++it) {
+      if (it != node->operators().begin()) {
+        println("NEXT");
+      }
+      ABSL_DCHECK(IsLinearOrCompositeQuery(*it));
+      (*it)->Accept(this, data);
+      println();
+    }
+  } else {
+    UnparseChildrenWithSeparator(node, data, "", /*break_line=*/true);
+  }
+}
+
+void Unparser::visitASTGqlSetOperation(const ASTGqlSetOperation* node,
+                                       void* data) {
+  ABSL_DCHECK_GE(node->inputs().size(), 2);
+  ABSL_DCHECK(node->metadata() != nullptr);
+  for (int i = 0; i < node->inputs().size(); ++i) {
+    if (i > 0) {
+      println();
+      // The i-th query is preceded by the (i-1)-th operator.
+      node->metadata()->set_operation_metadata_list(i - 1)->Accept(this, data);
+      println();
+    }
+    node->inputs(i)->Accept(this, data);
+  }
+}
+
+void Unparser::visitASTGqlSample(const ASTGqlSample* node, void* data) {
+  node->sample()->Accept(this, data);
+}
+
+void Unparser::visitASTGraphElementPatternFiller(
+    const ASTGraphElementPatternFiller* node, void* data) {
+  if (node->hint() != nullptr) {
+    node->hint()->Accept(this, data);
+  }
+  if (node->variable_name() != nullptr) {
+    node->variable_name()->Accept(this, data);
+  }
+  if (node->label_filter() != nullptr) {
+    node->label_filter()->Accept(this, data);
+  }
+  if (node->where_clause() != nullptr) {
+    ABSL_DCHECK(node->property_specification() == nullptr);
+    node->where_clause()->Accept(this, data);
+  } else if (node->property_specification() != nullptr) {
+    ABSL_DCHECK(node->where_clause() == nullptr);
+    node->property_specification()->Accept(this, data);
+  }
+}
+
+void Unparser::visitASTGraphNodePattern(const ASTGraphNodePattern* node,
+                                        void* data) {
+  print("(");
+  if (node->filler() != nullptr) {
+    node->filler()->Accept(this, data);
+  }
+  print(")");
+}
+
+void Unparser::visitASTGraphPathMode(const ASTGraphPathMode* node, void* data) {
+  switch (node->path_mode()) {
+    case ASTGraphPathMode::WALK:
+      println("WALK");
+      break;
+    case ASTGraphPathMode::TRAIL:
+      println("TRAIL");
+      break;
+    case ASTGraphPathMode::SIMPLE:
+      println("SIMPLE");
+      break;
+    case ASTGraphPathMode::ACYCLIC:
+      println("ACYCLIC");
+      break;
+    case ASTGraphPathMode::PATH_MODE_UNSPECIFIED:
+      ABSL_LOG(ERROR) << "Path mode is not set";
+      break;
+  }
+}
+
+void Unparser::visitASTGraphEdgePattern(const ASTGraphEdgePattern* node,
+                                        void* data) {
+  std::string left, right, abbreviated;
+  if (node->lhs_hint() != nullptr) {
+    node->lhs_hint()->Accept(this, data);
+  }
+  switch (node->orientation()) {
+    case ASTGraphEdgePattern::ANY:
+      left = "-[";
+      right = "]-";
+      abbreviated = "-";
+      break;
+    case ASTGraphEdgePattern::LEFT:
+      left = "<-[";
+      right = "]-";
+      abbreviated = "<-";
+      break;
+    case ASTGraphEdgePattern::RIGHT:
+      left = "-[";
+      right = "]->";
+      abbreviated = "->";
+      break;
+    case ASTGraphEdgePattern::EDGE_ORIENTATION_NOT_SET:
+      ABSL_LOG(FATAL) << "Edge orientation is not set";  // Crash OK
+      break;
+  }
+
+  // Abbreviated edge pattern has null filler.
+  if (node->filler() != nullptr) {
+    print(left);
+    node->filler()->Accept(this, data);
+    print(right);
+  } else {
+    print(abbreviated);
+  }
+
+  if (node->rhs_hint() != nullptr) {
+    node->rhs_hint()->Accept(this, data);
+  }
+  if (node->quantifier() != nullptr) {
+    node->quantifier()->Accept(this, data);
+  }
+}
+
+void Unparser::visitASTGraphLhsHint(const ASTGraphLhsHint* node, void* data) {
+  node->hint()->Accept(this, data);
+}
+
+void Unparser::visitASTGraphRhsHint(const ASTGraphRhsHint* node, void* data) {
+  node->hint()->Accept(this, data);
+}
+
+void Unparser::visitASTGraphLabelFilter(const ASTGraphLabelFilter* node,
+                                        void* data) {
+  println();
+  print("IS ");
+  node->label_expression()->Accept(this, data);
+}
+
+void Unparser::visitASTGraphElementLabel(const ASTGraphElementLabel* node,
+                                         void* data) {
+  node->name()->Accept(this, data);
+}
+
+void Unparser::visitASTGraphWildcardLabel(const ASTGraphWildcardLabel* node,
+                                          void* data) {
+  print("%");
+}
+
+void Unparser::visitASTGraphLabelOperation(const ASTGraphLabelOperation* node,
+                                           void* data) {
+  // We never need to parenthesize a label expression except if it is an
+  // operation, so these parentheses are not needed for any other concrete
+  // class (simple or wildcard)
+  if (node->parenthesized()) {
+    print("(");
+  }
+
+  switch (node->op_type()) {
+    case ASTGraphLabelOperation::NOT:
+      print("!");
+      ABSL_DCHECK_EQ(node->inputs().size(), 1);
+      node->inputs().front()->Accept(this, data);
+      break;
+    case ASTGraphLabelOperation::AND:
+      ABSL_DCHECK_GE(node->inputs().size(), 2);
+      UnparseChildrenWithSeparator(node, data, "&");
+      break;
+    case ASTGraphLabelOperation::OR:
+      ABSL_DCHECK_GE(node->inputs().size(), 2);
+      UnparseChildrenWithSeparator(node, data, "|");
+      break;
+    case ASTGraphLabelOperation::OPERATION_TYPE_UNSPECIFIED:
+      ABSL_LOG(ERROR) << "Graph label operation type is not set";
+      break;
+  }
+
+  if (node->parenthesized()) {
+    print(")");
+  }
+}
+
+void Unparser::visitASTGraphIsLabeledPredicate(
+    const ASTGraphIsLabeledPredicate* node, void* data) {
+  PrintOpenParenIfNeeded(node);
+  std::string separator = node->is_not() ? "IS NOT LABELED" : "IS LABELED";
+  UnparseChildrenWithSeparator(node, data, separator);
+  PrintCloseParenIfNeeded(node);
+}
+
+void Unparser::visitASTGraphPathPattern(const ASTGraphPathPattern* node,
+                                        void* data) {
+  // Only parenthesized path patterns can have WHERE clauses.
+  ABSL_DCHECK(node->parenthesized() || node->where_clause() == nullptr);
+  if (node->hint() != nullptr) {
+    // Path-path hint
+    node->hint()->Accept(this, data);
+    println();
+  }
+
+  auto unparse_path_mode_and_input_patterns = [&]() {
+    if (node->path_name() != nullptr) {
+      node->path_name()->Accept(this, data);
+      print("= ");
+    }
+    if (node->search_prefix() != nullptr) {
+      node->search_prefix()->Accept(this, data);
+    }
+    if (node->path_mode() != nullptr) {
+      node->path_mode()->Accept(this, data);
+    }
+    UnparseVectorWithSeparator(node->input_pattern_list(), data,
+                               /*separator=*/"", /*break_line=*/true);
+  };
+
+  if (!node->parenthesized()) {
+    unparse_path_mode_and_input_patterns();
+  } else {
+    println("(");
+    {
+      Formatter::Indenter indenter(&formatter_);
+      unparse_path_mode_and_input_patterns();
+      if (node->where_clause() != nullptr) {
+        node->where_clause()->Accept(this, data);
+      }
+    }
+    println();
+    print(")");
+  }
+  if (node->quantifier() != nullptr) {
+    node->quantifier()->Accept(this, data);
+  }
+}
+
+void Unparser::visitASTGraphPathSearchPrefix(
+    const ASTGraphPathSearchPrefix* node, void* data) {
+  switch (node->type()) {
+    case ASTGraphPathSearchPrefix::PathSearchPrefixType::SHORTEST: {
+      print("ANY SHORTEST ");
+      break;
+    }
+    case ASTGraphPathSearchPrefix::PathSearchPrefixType::ANY: {
+      print("ANY ");
+      break;
+    }
+    case ASTGraphPathSearchPrefix::PathSearchPrefixType::ALL: {
+      print("ALL ");
+      break;
+    }
+    case ASTGraphPathSearchPrefix::PathSearchPrefixType::ALL_SHORTEST: {
+      print("ALL SHORTEST ");
+      break;
+    }
+    default: {
+      ABSL_LOG(ERROR) << "Path search prefix type is not recognized: "
+                  << node->type();
+      break;
+    }
+  }
+}
+
+void Unparser::visitASTGraphPattern(const ASTGraphPattern* node, void* data) {
+  UnparseVectorWithSeparator(node->paths(), data, ",\n");
+  println();
+  if (node->where_clause() != nullptr) {
+    node->where_clause()->Accept(this, data);
+  }
+}
+
+void Unparser::visitASTGraphPropertySpecification(
+    const ASTGraphPropertySpecification* node, void* data) {
+  ABSL_DCHECK(!node->property_name_and_value().empty());
+  print("{");
+  UnparseVectorWithSeparator(node->property_name_and_value(), data, ", ");
+  print("}");
+}
+
+void Unparser::visitASTGraphPropertyNameAndValue(
+    const ASTGraphPropertyNameAndValue* node, void* data) {
+  ABSL_DCHECK(node->property_name() != nullptr);
+  ABSL_DCHECK(node->value() != nullptr);
+  visitASTIdentifier(node->property_name(), data);
+  print(":");
+  node->value()->Accept(this, data);
+}
+
 void Unparser::visitASTDefineMacroStatement(const ASTDefineMacroStatement* node,
                                             void* data) {
   print("DEFINE MACRO ");
@@ -4829,6 +5675,12 @@ void Unparser::visitASTSetOperationColumnMatchMode(
     case ASTSetOperation::CORRESPONDING_BY:
       print("CORRESPONDING BY");
       break;
+    case ASTSetOperation::BY_NAME:
+      print("BY NAME");
+      break;
+    case ASTSetOperation::BY_NAME_ON:
+      print("BY NAME ON");
+      break;
     case ASTSetOperation::BY_POSITION:
       break;
   }
@@ -4847,6 +5699,7 @@ void Unparser::visitASTSetOperationColumnPropagationMode(
       print("STRICT");
       break;
     case ASTSetOperation::INNER:
+      print("INNER");
       break;
   }
 }
@@ -4870,5 +5723,24 @@ void Unparser::visitASTMapType(const ASTMapType* node, void* data) {
   node->value_type()->Accept(this, data);
   print(">");
 }
+
+void Unparser::visitASTLockMode(const ASTLockMode* node, void* data) {
+  switch (node->strength()) {
+    case ASTLockMode::UPDATE:
+      println();
+      print("FOR UPDATE");
+      break;
+    case ASTLockMode::NOT_SET:
+      break;
+  }
+}
+
+void Unparser::visitASTPipeRecursiveUnion(const ASTPipeRecursiveUnion* node,
+                                          void* data) {
+  Formatter::PipeAndIndent pipe_and_indent(&formatter_);
+  print("RECURSIVE");
+  visitASTChildren(node, data);
+}
+
 }  // namespace parser
 }  // namespace zetasql

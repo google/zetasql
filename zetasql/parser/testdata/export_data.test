@@ -242,3 +242,32 @@ SELECT
   *
 FROM
   q2
+==
+
+# EXPORT DATA without an AS query only parses in pipe EXPORT DATA.
+EXPORT DATA
+--
+ERROR: Syntax error: Expected keyword AS but got end of statement [at 1:12]
+EXPORT DATA
+           ^
+==
+
+EXPORT DATA OPTIONS()
+--
+ERROR: Syntax error: Expected keyword AS but got end of statement [at 1:22]
+EXPORT DATA OPTIONS()
+                     ^
+==
+
+EXPORT DATA AS
+--
+ERROR: Syntax error: Unexpected end of statement [at 1:15]
+EXPORT DATA AS
+              ^
+==
+
+EXPORT DATA OPTIONS () AS
+--
+ERROR: Syntax error: Unexpected end of statement [at 1:26]
+EXPORT DATA OPTIONS () AS
+                         ^

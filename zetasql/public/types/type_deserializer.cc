@@ -53,6 +53,12 @@ absl::Status ValidateTypeProto(const TypeProto& type_proto) {
       (type_proto.type_kind() == TYPE_STRUCT) != type_proto.has_struct_type() ||
       (type_proto.type_kind() == TYPE_RANGE) != type_proto.has_range_type() ||
       (type_proto.type_kind() == TYPE_MAP) != type_proto.has_map_type() ||
+      (type_proto.type_kind() == TYPE_GRAPH_ELEMENT) !=
+          type_proto.has_graph_element_type() ||
+      (type_proto.type_kind() == TYPE_GRAPH_PATH) !=
+          type_proto.has_graph_path_type() ||
+      (type_proto.type_kind() == TYPE_MEASURE) !=
+          type_proto.has_measure_type() ||
       type_proto.type_kind() == __TypeKind__switch_must_have_a_default__) {
     if (type_proto.type_kind() != TYPE_GEOGRAPHY) {
       std::string type_proto_debug_str;
@@ -70,6 +76,46 @@ absl::Status ValidateTypeProto(const TypeProto& type_proto) {
 }
 
 }  // namespace
+
+absl::StatusOr<const GraphElementType*>
+TypeDeserializer::DeserializeGraphElementType(
+    const GraphElementTypeProto& graph_element_type_proto) const {
+  if (graph_element_type_proto.graph_reference_size() == 0) {
+    return zetasql_base::InvalidArgumentErrorBuilder()
+           << "GraphElementType must have a non-empty graph reference";
+  }
+  GraphElementType::ElementKind element_kind;
+  switch (graph_element_type_proto.kind()) {
+    case GraphElementTypeProto::KIND_NODE:
+      element_kind = GraphElementType::ElementKind::kNode;
+      break;
+    case GraphElementTypeProto::KIND_EDGE:
+      element_kind = GraphElementType::ElementKind::kEdge;
+      break;
+    default:
+      return zetasql_base::InvalidArgumentErrorBuilder()
+             << "Invalid element kind: " << graph_element_type_proto.kind();
+  }
+  std::vector<GraphElementType::PropertyType> property_types;
+  property_types.reserve(graph_element_type_proto.property_type_size());
+  for (const auto& property_type_proto :
+       graph_element_type_proto.property_type()) {
+    ZETASQL_ASSIGN_OR_RETURN(const Type* value_type,
+                     Deserialize(property_type_proto.value_type()));
+    if (value_type->IsGraphElement()) {
+      return zetasql_base::InvalidArgumentErrorBuilder()
+             << "Property value type cannot be GraphElementType";
+    }
+    property_types.emplace_back(property_type_proto.name(), value_type);
+  }
+  const GraphElementType* graph_element_type;
+  ZETASQL_RETURN_IF_ERROR(type_factory_->MakeGraphElementTypeFromVector(
+      std::vector<std::string>{
+          graph_element_type_proto.graph_reference().begin(),
+          graph_element_type_proto.graph_reference().end()},
+      element_kind, std::move(property_types), &graph_element_type));
+  return graph_element_type;
+}
 
 absl::StatusOr<const Type*> TypeDeserializer::Deserialize(
     const TypeProto& type_proto) const {
@@ -197,12 +243,34 @@ absl::StatusOr<const Type*> TypeDeserializer::Deserialize(
       return range_type;
     }
 
+    case TYPE_GRAPH_ELEMENT: {
+      return DeserializeGraphElementType(type_proto.graph_element_type());
+    }
+    case TYPE_GRAPH_PATH: {
+      ZETASQL_ASSIGN_OR_RETURN(
+          auto node_type,
+          DeserializeGraphElementType(type_proto.graph_path_type().node_type()),
+          _ << "while deserializing the node type");
+      ZETASQL_ASSIGN_OR_RETURN(
+          auto edge_type,
+          DeserializeGraphElementType(type_proto.graph_path_type().edge_type()),
+          _ << "while deserializing the edge type");
+      const GraphPathType* graph_path_type;
+      ZETASQL_RETURN_IF_ERROR(type_factory_->MakeGraphPathType(node_type, edge_type,
+                                                       &graph_path_type));
+      return graph_path_type;
+    }
     case TYPE_MAP: {
       ZETASQL_ASSIGN_OR_RETURN(const Type* key_type,
                        Deserialize(type_proto.map_type().key_type()));
       ZETASQL_ASSIGN_OR_RETURN(const Type* value_type,
                        Deserialize(type_proto.map_type().value_type()));
       return type_factory_->MakeMapType(key_type, value_type);
+    }
+    case TYPE_MEASURE: {
+      ZETASQL_ASSIGN_OR_RETURN(const Type* result_type,
+                       Deserialize(type_proto.measure_type().result_type()));
+      return type_factory_->MakeMeasureType(result_type);
     }
     default:
       return ::zetasql_base::UnimplementedErrorBuilder()

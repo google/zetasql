@@ -176,6 +176,19 @@ QueryParamsWithResult& QueryParamsWithResult::AddRequiredFeatures(
   return *this;
 }
 
+QueryParamsWithResult& QueryParamsWithResult::RemoveRequiredFeature(
+    LanguageFeature feature) {
+  return RemoveRequiredFeatures({feature});
+}
+
+QueryParamsWithResult& QueryParamsWithResult::RemoveRequiredFeatures(
+    const FeatureSet& features) {
+  for (LanguageFeature feature : features) {
+    required_features_.erase(feature);
+  }
+  return *this;
+}
+
 QueryParamsWithResult& QueryParamsWithResult::AddProhibitedFeature(
     LanguageFeature feature) {
   ABSL_DCHECK(!zetasql_base::ContainsKey(required_features_, feature));
@@ -208,16 +221,16 @@ FunctionTestCall::FunctionTestCall(absl::string_view function_name,
                                    FloatMargin float_margin)
     : function_name(function_name), params(arguments, result, float_margin) {}
 
-FunctionTestCall::FunctionTestCall(
-    absl::string_view function_name,
-    const std::vector<ValueConstructor>& arguments,
-    const ValueConstructor& result, absl::StatusCode code)
+FunctionTestCall::FunctionTestCall(absl::string_view function_name,
+                                   absl::Span<const ValueConstructor> arguments,
+                                   const ValueConstructor& result,
+                                   absl::StatusCode code)
     : function_name(function_name), params(arguments, result, code) {}
 
-FunctionTestCall::FunctionTestCall(
-    absl::string_view function_name,
-    const std::vector<ValueConstructor>& arguments,
-    const ValueConstructor& result, absl::Status status)
+FunctionTestCall::FunctionTestCall(absl::string_view function_name,
+                                   absl::Span<const ValueConstructor> arguments,
+                                   const ValueConstructor& result,
+                                   absl::Status status)
     : function_name(function_name), params(arguments, result, status) {}
 
 FunctionTestCall::FunctionTestCall(absl::string_view function_name_in,

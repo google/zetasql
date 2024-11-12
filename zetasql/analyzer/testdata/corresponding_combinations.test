@@ -2,14 +2,14 @@
 # Specifically, the test dimensions are:
 # - set operator: UNION, INTERSECT, EXCEPT
 # - all or distinct: ALL, DISTINCT
-# - column match mode: BY_POSITION, CORRESPONDING
+# - column match mode: BY_POSITION, CORRESPONDING, BY NAME
 # - column propagation mode: INNER, FULL
 
-[default language_features=V_1_4_CORRESPONDING_FULL]
+[default language_features=V_1_4_CORRESPONDING_FULL,V_1_4_BY_NAME]
 [default enabled_ast_rewrites=DEFAULTS]
 
 SELECT int64, int32, double FROM SimpleTypes
-{{FULL|}} {{UNION|INTERSECT|EXCEPT}} {{ALL|DISTINCT}}{{| CORRESPONDING}}
+{{FULL|INNER|}} {{UNION|INTERSECT|EXCEPT}} {{ALL|DISTINCT}}{{| CORRESPONDING| BY NAME}}
 SELECT int32, int64, float FROM SimpleTypes
 --
 ALTERNATION GROUP: FULL,UNION,ALL,
@@ -18,7 +18,9 @@ ERROR: FULL in set operations cannot be used without CORRESPONDING [at 2:1]
 FULL UNION ALL
 ^
 --
-ALTERNATION GROUP: FULL,UNION,ALL, CORRESPONDING
+ALTERNATION GROUPS:
+    FULL,UNION,ALL, CORRESPONDING
+    FULL,UNION,ALL, BY NAME
 --
 QueryStmt
 +-output_column_list=
@@ -66,7 +68,9 @@ ERROR: FULL in set operations cannot be used without CORRESPONDING [at 2:1]
 FULL UNION DISTINCT
 ^
 --
-ALTERNATION GROUP: FULL,UNION,DISTINCT, CORRESPONDING
+ALTERNATION GROUPS:
+    FULL,UNION,DISTINCT, CORRESPONDING
+    FULL,UNION,DISTINCT, BY NAME
 --
 QueryStmt
 +-output_column_list=
@@ -114,7 +118,9 @@ ERROR: FULL in set operations cannot be used without CORRESPONDING [at 2:1]
 FULL INTERSECT ALL
 ^
 --
-ALTERNATION GROUP: FULL,INTERSECT,ALL, CORRESPONDING
+ALTERNATION GROUPS:
+    FULL,INTERSECT,ALL, CORRESPONDING
+    FULL,INTERSECT,ALL, BY NAME
 --
 QueryStmt
 +-output_column_list=
@@ -162,7 +168,9 @@ ERROR: FULL in set operations cannot be used without CORRESPONDING [at 2:1]
 FULL INTERSECT DISTINCT
 ^
 --
-ALTERNATION GROUP: FULL,INTERSECT,DISTINCT, CORRESPONDING
+ALTERNATION GROUPS:
+    FULL,INTERSECT,DISTINCT, CORRESPONDING
+    FULL,INTERSECT,DISTINCT, BY NAME
 --
 QueryStmt
 +-output_column_list=
@@ -210,7 +218,9 @@ ERROR: FULL in set operations cannot be used without CORRESPONDING [at 2:1]
 FULL EXCEPT ALL
 ^
 --
-ALTERNATION GROUP: FULL,EXCEPT,ALL, CORRESPONDING
+ALTERNATION GROUPS:
+    FULL,EXCEPT,ALL, CORRESPONDING
+    FULL,EXCEPT,ALL, BY NAME
 --
 QueryStmt
 +-output_column_list=
@@ -258,7 +268,9 @@ ERROR: FULL in set operations cannot be used without CORRESPONDING [at 2:1]
 FULL EXCEPT DISTINCT
 ^
 --
-ALTERNATION GROUP: FULL,EXCEPT,DISTINCT, CORRESPONDING
+ALTERNATION GROUPS:
+    FULL,EXCEPT,DISTINCT, CORRESPONDING
+    FULL,EXCEPT,DISTINCT, BY NAME
 --
 QueryStmt
 +-output_column_list=
@@ -299,6 +311,276 @@ QueryStmt
     |   +-output_column_list=[SimpleTypes.int64#21, SimpleTypes.int32#20, $null_column_for_outer_set_op.double#44, SimpleTypes.float#27]
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=FULL
+--
+ALTERNATION GROUP: INNER,UNION,ALL,
+--
+ERROR: INNER in set operations cannot be used without CORRESPONDING [at 2:1]
+INNER UNION ALL
+^
+--
+ALTERNATION GROUPS:
+    INNER,UNION,ALL, CORRESPONDING
+    INNER,UNION,ALL, BY NAME
+    UNION,ALL, CORRESPONDING
+--
+QueryStmt
++-output_column_list=
+| +-$union_all.int64#39 AS int64 [INT64]
+| +-$union_all.int32#40 AS int32 [INT32]
++-query=
+  +-SetOperationScan
+    +-column_list=$union_all.[int64#39, int32#40]
+    +-op_type=UNION_ALL
+    +-input_item_list=
+    | +-SetOperationItem
+    | | +-scan=
+    | | | +-ProjectScan
+    | | |   +-column_list=SimpleTypes.[int64#2, int32#1]
+    | | |   +-node_source="resolver_set_operation_corresponding"
+    | | |   +-input_scan=
+    | | |     +-ProjectScan
+    | | |       +-column_list=SimpleTypes.[int64#2, int32#1, double#9]
+    | | |       +-input_scan=
+    | | |         +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, double#9], table=SimpleTypes, column_index_list=[0, 1, 8])
+    | | +-output_column_list=SimpleTypes.[int64#2, int32#1]
+    | +-SetOperationItem
+    |   +-scan=
+    |   | +-ProjectScan
+    |   |   +-column_list=SimpleTypes.[int64#21, int32#20]
+    |   |   +-node_source="resolver_set_operation_corresponding"
+    |   |   +-input_scan=
+    |   |     +-ProjectScan
+    |   |       +-column_list=SimpleTypes.[int32#20, int64#21, float#27]
+    |   |       +-input_scan=
+    |   |         +-TableScan(column_list=SimpleTypes.[int32#20, int64#21, float#27], table=SimpleTypes, column_index_list=[0, 1, 7])
+    |   +-output_column_list=SimpleTypes.[int64#21, int32#20]
+    +-column_match_mode=CORRESPONDING
+    +-column_propagation_mode=INNER
+--
+ALTERNATION GROUP: INNER,UNION,DISTINCT,
+--
+ERROR: INNER in set operations cannot be used without CORRESPONDING [at 2:1]
+INNER UNION DISTINCT
+^
+--
+ALTERNATION GROUPS:
+    INNER,UNION,DISTINCT, CORRESPONDING
+    INNER,UNION,DISTINCT, BY NAME
+    UNION,DISTINCT, CORRESPONDING
+--
+QueryStmt
++-output_column_list=
+| +-$union_distinct.int64#39 AS int64 [INT64]
+| +-$union_distinct.int32#40 AS int32 [INT32]
++-query=
+  +-SetOperationScan
+    +-column_list=$union_distinct.[int64#39, int32#40]
+    +-op_type=UNION_DISTINCT
+    +-input_item_list=
+    | +-SetOperationItem
+    | | +-scan=
+    | | | +-ProjectScan
+    | | |   +-column_list=SimpleTypes.[int64#2, int32#1]
+    | | |   +-node_source="resolver_set_operation_corresponding"
+    | | |   +-input_scan=
+    | | |     +-ProjectScan
+    | | |       +-column_list=SimpleTypes.[int64#2, int32#1, double#9]
+    | | |       +-input_scan=
+    | | |         +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, double#9], table=SimpleTypes, column_index_list=[0, 1, 8])
+    | | +-output_column_list=SimpleTypes.[int64#2, int32#1]
+    | +-SetOperationItem
+    |   +-scan=
+    |   | +-ProjectScan
+    |   |   +-column_list=SimpleTypes.[int64#21, int32#20]
+    |   |   +-node_source="resolver_set_operation_corresponding"
+    |   |   +-input_scan=
+    |   |     +-ProjectScan
+    |   |       +-column_list=SimpleTypes.[int32#20, int64#21, float#27]
+    |   |       +-input_scan=
+    |   |         +-TableScan(column_list=SimpleTypes.[int32#20, int64#21, float#27], table=SimpleTypes, column_index_list=[0, 1, 7])
+    |   +-output_column_list=SimpleTypes.[int64#21, int32#20]
+    +-column_match_mode=CORRESPONDING
+    +-column_propagation_mode=INNER
+--
+ALTERNATION GROUP: INNER,INTERSECT,ALL,
+--
+ERROR: INNER in set operations cannot be used without CORRESPONDING [at 2:1]
+INNER INTERSECT ALL
+^
+--
+ALTERNATION GROUPS:
+    INNER,INTERSECT,ALL, CORRESPONDING
+    INNER,INTERSECT,ALL, BY NAME
+    INTERSECT,ALL, CORRESPONDING
+--
+QueryStmt
++-output_column_list=
+| +-$intersect_all.int64#39 AS int64 [INT64]
+| +-$intersect_all.int32#40 AS int32 [INT32]
++-query=
+  +-SetOperationScan
+    +-column_list=$intersect_all.[int64#39, int32#40]
+    +-op_type=INTERSECT_ALL
+    +-input_item_list=
+    | +-SetOperationItem
+    | | +-scan=
+    | | | +-ProjectScan
+    | | |   +-column_list=SimpleTypes.[int64#2, int32#1]
+    | | |   +-node_source="resolver_set_operation_corresponding"
+    | | |   +-input_scan=
+    | | |     +-ProjectScan
+    | | |       +-column_list=SimpleTypes.[int64#2, int32#1, double#9]
+    | | |       +-input_scan=
+    | | |         +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, double#9], table=SimpleTypes, column_index_list=[0, 1, 8])
+    | | +-output_column_list=SimpleTypes.[int64#2, int32#1]
+    | +-SetOperationItem
+    |   +-scan=
+    |   | +-ProjectScan
+    |   |   +-column_list=SimpleTypes.[int64#21, int32#20]
+    |   |   +-node_source="resolver_set_operation_corresponding"
+    |   |   +-input_scan=
+    |   |     +-ProjectScan
+    |   |       +-column_list=SimpleTypes.[int32#20, int64#21, float#27]
+    |   |       +-input_scan=
+    |   |         +-TableScan(column_list=SimpleTypes.[int32#20, int64#21, float#27], table=SimpleTypes, column_index_list=[0, 1, 7])
+    |   +-output_column_list=SimpleTypes.[int64#21, int32#20]
+    +-column_match_mode=CORRESPONDING
+    +-column_propagation_mode=INNER
+--
+ALTERNATION GROUP: INNER,INTERSECT,DISTINCT,
+--
+ERROR: INNER in set operations cannot be used without CORRESPONDING [at 2:1]
+INNER INTERSECT DISTINCT
+^
+--
+ALTERNATION GROUPS:
+    INNER,INTERSECT,DISTINCT, CORRESPONDING
+    INNER,INTERSECT,DISTINCT, BY NAME
+    INTERSECT,DISTINCT, CORRESPONDING
+--
+QueryStmt
++-output_column_list=
+| +-$intersect_distinct.int64#39 AS int64 [INT64]
+| +-$intersect_distinct.int32#40 AS int32 [INT32]
++-query=
+  +-SetOperationScan
+    +-column_list=$intersect_distinct.[int64#39, int32#40]
+    +-op_type=INTERSECT_DISTINCT
+    +-input_item_list=
+    | +-SetOperationItem
+    | | +-scan=
+    | | | +-ProjectScan
+    | | |   +-column_list=SimpleTypes.[int64#2, int32#1]
+    | | |   +-node_source="resolver_set_operation_corresponding"
+    | | |   +-input_scan=
+    | | |     +-ProjectScan
+    | | |       +-column_list=SimpleTypes.[int64#2, int32#1, double#9]
+    | | |       +-input_scan=
+    | | |         +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, double#9], table=SimpleTypes, column_index_list=[0, 1, 8])
+    | | +-output_column_list=SimpleTypes.[int64#2, int32#1]
+    | +-SetOperationItem
+    |   +-scan=
+    |   | +-ProjectScan
+    |   |   +-column_list=SimpleTypes.[int64#21, int32#20]
+    |   |   +-node_source="resolver_set_operation_corresponding"
+    |   |   +-input_scan=
+    |   |     +-ProjectScan
+    |   |       +-column_list=SimpleTypes.[int32#20, int64#21, float#27]
+    |   |       +-input_scan=
+    |   |         +-TableScan(column_list=SimpleTypes.[int32#20, int64#21, float#27], table=SimpleTypes, column_index_list=[0, 1, 7])
+    |   +-output_column_list=SimpleTypes.[int64#21, int32#20]
+    +-column_match_mode=CORRESPONDING
+    +-column_propagation_mode=INNER
+--
+ALTERNATION GROUP: INNER,EXCEPT,ALL,
+--
+ERROR: INNER in set operations cannot be used without CORRESPONDING [at 2:1]
+INNER EXCEPT ALL
+^
+--
+ALTERNATION GROUPS:
+    INNER,EXCEPT,ALL, CORRESPONDING
+    INNER,EXCEPT,ALL, BY NAME
+    EXCEPT,ALL, CORRESPONDING
+--
+QueryStmt
++-output_column_list=
+| +-$except_all.int64#39 AS int64 [INT64]
+| +-$except_all.int32#40 AS int32 [INT32]
++-query=
+  +-SetOperationScan
+    +-column_list=$except_all.[int64#39, int32#40]
+    +-op_type=EXCEPT_ALL
+    +-input_item_list=
+    | +-SetOperationItem
+    | | +-scan=
+    | | | +-ProjectScan
+    | | |   +-column_list=SimpleTypes.[int64#2, int32#1]
+    | | |   +-node_source="resolver_set_operation_corresponding"
+    | | |   +-input_scan=
+    | | |     +-ProjectScan
+    | | |       +-column_list=SimpleTypes.[int64#2, int32#1, double#9]
+    | | |       +-input_scan=
+    | | |         +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, double#9], table=SimpleTypes, column_index_list=[0, 1, 8])
+    | | +-output_column_list=SimpleTypes.[int64#2, int32#1]
+    | +-SetOperationItem
+    |   +-scan=
+    |   | +-ProjectScan
+    |   |   +-column_list=SimpleTypes.[int64#21, int32#20]
+    |   |   +-node_source="resolver_set_operation_corresponding"
+    |   |   +-input_scan=
+    |   |     +-ProjectScan
+    |   |       +-column_list=SimpleTypes.[int32#20, int64#21, float#27]
+    |   |       +-input_scan=
+    |   |         +-TableScan(column_list=SimpleTypes.[int32#20, int64#21, float#27], table=SimpleTypes, column_index_list=[0, 1, 7])
+    |   +-output_column_list=SimpleTypes.[int64#21, int32#20]
+    +-column_match_mode=CORRESPONDING
+    +-column_propagation_mode=INNER
+--
+ALTERNATION GROUP: INNER,EXCEPT,DISTINCT,
+--
+ERROR: INNER in set operations cannot be used without CORRESPONDING [at 2:1]
+INNER EXCEPT DISTINCT
+^
+--
+ALTERNATION GROUPS:
+    INNER,EXCEPT,DISTINCT, CORRESPONDING
+    INNER,EXCEPT,DISTINCT, BY NAME
+    EXCEPT,DISTINCT, CORRESPONDING
+--
+QueryStmt
++-output_column_list=
+| +-$except_distinct.int64#39 AS int64 [INT64]
+| +-$except_distinct.int32#40 AS int32 [INT32]
++-query=
+  +-SetOperationScan
+    +-column_list=$except_distinct.[int64#39, int32#40]
+    +-op_type=EXCEPT_DISTINCT
+    +-input_item_list=
+    | +-SetOperationItem
+    | | +-scan=
+    | | | +-ProjectScan
+    | | |   +-column_list=SimpleTypes.[int64#2, int32#1]
+    | | |   +-node_source="resolver_set_operation_corresponding"
+    | | |   +-input_scan=
+    | | |     +-ProjectScan
+    | | |       +-column_list=SimpleTypes.[int64#2, int32#1, double#9]
+    | | |       +-input_scan=
+    | | |         +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, double#9], table=SimpleTypes, column_index_list=[0, 1, 8])
+    | | +-output_column_list=SimpleTypes.[int64#2, int32#1]
+    | +-SetOperationItem
+    |   +-scan=
+    |   | +-ProjectScan
+    |   |   +-column_list=SimpleTypes.[int64#21, int32#20]
+    |   |   +-node_source="resolver_set_operation_corresponding"
+    |   |   +-input_scan=
+    |   |     +-ProjectScan
+    |   |       +-column_list=SimpleTypes.[int32#20, int64#21, float#27]
+    |   |       +-input_scan=
+    |   |         +-TableScan(column_list=SimpleTypes.[int32#20, int64#21, float#27], table=SimpleTypes, column_index_list=[0, 1, 7])
+    |   +-output_column_list=SimpleTypes.[int64#21, int32#20]
+    +-column_match_mode=CORRESPONDING
+    +-column_propagation_mode=INNER
 --
 ALTERNATION GROUP: UNION,ALL,
 --
@@ -344,41 +626,11 @@ QueryStmt
         |         +-TableScan(column_list=SimpleTypes.[int32#20, int64#21, float#27], table=SimpleTypes, column_index_list=[0, 1, 7])
         +-output_column_list=[$union_all2_cast.int32#43, SimpleTypes.int64#21, $union_all2_cast.float#44]
 --
-ALTERNATION GROUP: UNION,ALL, CORRESPONDING
+ALTERNATION GROUP: UNION,ALL, BY NAME
 --
-QueryStmt
-+-output_column_list=
-| +-$union_all.int64#39 AS int64 [INT64]
-| +-$union_all.int32#40 AS int32 [INT32]
-+-query=
-  +-SetOperationScan
-    +-column_list=$union_all.[int64#39, int32#40]
-    +-op_type=UNION_ALL
-    +-input_item_list=
-    | +-SetOperationItem
-    | | +-scan=
-    | | | +-ProjectScan
-    | | |   +-column_list=SimpleTypes.[int64#2, int32#1]
-    | | |   +-node_source="resolver_set_operation_corresponding"
-    | | |   +-input_scan=
-    | | |     +-ProjectScan
-    | | |       +-column_list=SimpleTypes.[int64#2, int32#1, double#9]
-    | | |       +-input_scan=
-    | | |         +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, double#9], table=SimpleTypes, column_index_list=[0, 1, 8])
-    | | +-output_column_list=SimpleTypes.[int64#2, int32#1]
-    | +-SetOperationItem
-    |   +-scan=
-    |   | +-ProjectScan
-    |   |   +-column_list=SimpleTypes.[int64#21, int32#20]
-    |   |   +-node_source="resolver_set_operation_corresponding"
-    |   |   +-input_scan=
-    |   |     +-ProjectScan
-    |   |       +-column_list=SimpleTypes.[int32#20, int64#21, float#27]
-    |   |       +-input_scan=
-    |   |         +-TableScan(column_list=SimpleTypes.[int32#20, int64#21, float#27], table=SimpleTypes, column_index_list=[0, 1, 7])
-    |   +-output_column_list=SimpleTypes.[int64#21, int32#20]
-    +-column_match_mode=CORRESPONDING
-    +-column_propagation_mode=INNER
+ERROR: BY NAME requires all input queries to have identical column names, but query 1 has [int64, int32, double] and query 2 has [int32, int64, float] [at 2:2]
+ UNION ALL BY NAME
+ ^
 --
 ALTERNATION GROUP: UNION,DISTINCT,
 --
@@ -424,41 +676,11 @@ QueryStmt
         |         +-TableScan(column_list=SimpleTypes.[int32#20, int64#21, float#27], table=SimpleTypes, column_index_list=[0, 1, 7])
         +-output_column_list=[$union_distinct2_cast.int32#43, SimpleTypes.int64#21, $union_distinct2_cast.float#44]
 --
-ALTERNATION GROUP: UNION,DISTINCT, CORRESPONDING
+ALTERNATION GROUP: UNION,DISTINCT, BY NAME
 --
-QueryStmt
-+-output_column_list=
-| +-$union_distinct.int64#39 AS int64 [INT64]
-| +-$union_distinct.int32#40 AS int32 [INT32]
-+-query=
-  +-SetOperationScan
-    +-column_list=$union_distinct.[int64#39, int32#40]
-    +-op_type=UNION_DISTINCT
-    +-input_item_list=
-    | +-SetOperationItem
-    | | +-scan=
-    | | | +-ProjectScan
-    | | |   +-column_list=SimpleTypes.[int64#2, int32#1]
-    | | |   +-node_source="resolver_set_operation_corresponding"
-    | | |   +-input_scan=
-    | | |     +-ProjectScan
-    | | |       +-column_list=SimpleTypes.[int64#2, int32#1, double#9]
-    | | |       +-input_scan=
-    | | |         +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, double#9], table=SimpleTypes, column_index_list=[0, 1, 8])
-    | | +-output_column_list=SimpleTypes.[int64#2, int32#1]
-    | +-SetOperationItem
-    |   +-scan=
-    |   | +-ProjectScan
-    |   |   +-column_list=SimpleTypes.[int64#21, int32#20]
-    |   |   +-node_source="resolver_set_operation_corresponding"
-    |   |   +-input_scan=
-    |   |     +-ProjectScan
-    |   |       +-column_list=SimpleTypes.[int32#20, int64#21, float#27]
-    |   |       +-input_scan=
-    |   |         +-TableScan(column_list=SimpleTypes.[int32#20, int64#21, float#27], table=SimpleTypes, column_index_list=[0, 1, 7])
-    |   +-output_column_list=SimpleTypes.[int64#21, int32#20]
-    +-column_match_mode=CORRESPONDING
-    +-column_propagation_mode=INNER
+ERROR: BY NAME requires all input queries to have identical column names, but query 1 has [int64, int32, double] and query 2 has [int32, int64, float] [at 2:2]
+ UNION DISTINCT BY NAME
+ ^
 --
 ALTERNATION GROUP: INTERSECT,ALL,
 --
@@ -504,41 +726,11 @@ QueryStmt
         |         +-TableScan(column_list=SimpleTypes.[int32#20, int64#21, float#27], table=SimpleTypes, column_index_list=[0, 1, 7])
         +-output_column_list=[$intersect_all2_cast.int32#43, SimpleTypes.int64#21, $intersect_all2_cast.float#44]
 --
-ALTERNATION GROUP: INTERSECT,ALL, CORRESPONDING
+ALTERNATION GROUP: INTERSECT,ALL, BY NAME
 --
-QueryStmt
-+-output_column_list=
-| +-$intersect_all.int64#39 AS int64 [INT64]
-| +-$intersect_all.int32#40 AS int32 [INT32]
-+-query=
-  +-SetOperationScan
-    +-column_list=$intersect_all.[int64#39, int32#40]
-    +-op_type=INTERSECT_ALL
-    +-input_item_list=
-    | +-SetOperationItem
-    | | +-scan=
-    | | | +-ProjectScan
-    | | |   +-column_list=SimpleTypes.[int64#2, int32#1]
-    | | |   +-node_source="resolver_set_operation_corresponding"
-    | | |   +-input_scan=
-    | | |     +-ProjectScan
-    | | |       +-column_list=SimpleTypes.[int64#2, int32#1, double#9]
-    | | |       +-input_scan=
-    | | |         +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, double#9], table=SimpleTypes, column_index_list=[0, 1, 8])
-    | | +-output_column_list=SimpleTypes.[int64#2, int32#1]
-    | +-SetOperationItem
-    |   +-scan=
-    |   | +-ProjectScan
-    |   |   +-column_list=SimpleTypes.[int64#21, int32#20]
-    |   |   +-node_source="resolver_set_operation_corresponding"
-    |   |   +-input_scan=
-    |   |     +-ProjectScan
-    |   |       +-column_list=SimpleTypes.[int32#20, int64#21, float#27]
-    |   |       +-input_scan=
-    |   |         +-TableScan(column_list=SimpleTypes.[int32#20, int64#21, float#27], table=SimpleTypes, column_index_list=[0, 1, 7])
-    |   +-output_column_list=SimpleTypes.[int64#21, int32#20]
-    +-column_match_mode=CORRESPONDING
-    +-column_propagation_mode=INNER
+ERROR: BY NAME requires all input queries to have identical column names, but query 1 has [int64, int32, double] and query 2 has [int32, int64, float] [at 2:2]
+ INTERSECT ALL BY NAME
+ ^
 --
 ALTERNATION GROUP: INTERSECT,DISTINCT,
 --
@@ -584,41 +776,11 @@ QueryStmt
         |         +-TableScan(column_list=SimpleTypes.[int32#20, int64#21, float#27], table=SimpleTypes, column_index_list=[0, 1, 7])
         +-output_column_list=[$intersect_distinct2_cast.int32#43, SimpleTypes.int64#21, $intersect_distinct2_cast.float#44]
 --
-ALTERNATION GROUP: INTERSECT,DISTINCT, CORRESPONDING
+ALTERNATION GROUP: INTERSECT,DISTINCT, BY NAME
 --
-QueryStmt
-+-output_column_list=
-| +-$intersect_distinct.int64#39 AS int64 [INT64]
-| +-$intersect_distinct.int32#40 AS int32 [INT32]
-+-query=
-  +-SetOperationScan
-    +-column_list=$intersect_distinct.[int64#39, int32#40]
-    +-op_type=INTERSECT_DISTINCT
-    +-input_item_list=
-    | +-SetOperationItem
-    | | +-scan=
-    | | | +-ProjectScan
-    | | |   +-column_list=SimpleTypes.[int64#2, int32#1]
-    | | |   +-node_source="resolver_set_operation_corresponding"
-    | | |   +-input_scan=
-    | | |     +-ProjectScan
-    | | |       +-column_list=SimpleTypes.[int64#2, int32#1, double#9]
-    | | |       +-input_scan=
-    | | |         +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, double#9], table=SimpleTypes, column_index_list=[0, 1, 8])
-    | | +-output_column_list=SimpleTypes.[int64#2, int32#1]
-    | +-SetOperationItem
-    |   +-scan=
-    |   | +-ProjectScan
-    |   |   +-column_list=SimpleTypes.[int64#21, int32#20]
-    |   |   +-node_source="resolver_set_operation_corresponding"
-    |   |   +-input_scan=
-    |   |     +-ProjectScan
-    |   |       +-column_list=SimpleTypes.[int32#20, int64#21, float#27]
-    |   |       +-input_scan=
-    |   |         +-TableScan(column_list=SimpleTypes.[int32#20, int64#21, float#27], table=SimpleTypes, column_index_list=[0, 1, 7])
-    |   +-output_column_list=SimpleTypes.[int64#21, int32#20]
-    +-column_match_mode=CORRESPONDING
-    +-column_propagation_mode=INNER
+ERROR: BY NAME requires all input queries to have identical column names, but query 1 has [int64, int32, double] and query 2 has [int32, int64, float] [at 2:2]
+ INTERSECT DISTINCT BY NAME
+ ^
 --
 ALTERNATION GROUP: EXCEPT,ALL,
 --
@@ -664,41 +826,11 @@ QueryStmt
         |         +-TableScan(column_list=SimpleTypes.[int32#20, int64#21, float#27], table=SimpleTypes, column_index_list=[0, 1, 7])
         +-output_column_list=[$except_all2_cast.int32#43, SimpleTypes.int64#21, $except_all2_cast.float#44]
 --
-ALTERNATION GROUP: EXCEPT,ALL, CORRESPONDING
+ALTERNATION GROUP: EXCEPT,ALL, BY NAME
 --
-QueryStmt
-+-output_column_list=
-| +-$except_all.int64#39 AS int64 [INT64]
-| +-$except_all.int32#40 AS int32 [INT32]
-+-query=
-  +-SetOperationScan
-    +-column_list=$except_all.[int64#39, int32#40]
-    +-op_type=EXCEPT_ALL
-    +-input_item_list=
-    | +-SetOperationItem
-    | | +-scan=
-    | | | +-ProjectScan
-    | | |   +-column_list=SimpleTypes.[int64#2, int32#1]
-    | | |   +-node_source="resolver_set_operation_corresponding"
-    | | |   +-input_scan=
-    | | |     +-ProjectScan
-    | | |       +-column_list=SimpleTypes.[int64#2, int32#1, double#9]
-    | | |       +-input_scan=
-    | | |         +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, double#9], table=SimpleTypes, column_index_list=[0, 1, 8])
-    | | +-output_column_list=SimpleTypes.[int64#2, int32#1]
-    | +-SetOperationItem
-    |   +-scan=
-    |   | +-ProjectScan
-    |   |   +-column_list=SimpleTypes.[int64#21, int32#20]
-    |   |   +-node_source="resolver_set_operation_corresponding"
-    |   |   +-input_scan=
-    |   |     +-ProjectScan
-    |   |       +-column_list=SimpleTypes.[int32#20, int64#21, float#27]
-    |   |       +-input_scan=
-    |   |         +-TableScan(column_list=SimpleTypes.[int32#20, int64#21, float#27], table=SimpleTypes, column_index_list=[0, 1, 7])
-    |   +-output_column_list=SimpleTypes.[int64#21, int32#20]
-    +-column_match_mode=CORRESPONDING
-    +-column_propagation_mode=INNER
+ERROR: BY NAME requires all input queries to have identical column names, but query 1 has [int64, int32, double] and query 2 has [int32, int64, float] [at 2:2]
+ EXCEPT ALL BY NAME
+ ^
 --
 ALTERNATION GROUP: EXCEPT,DISTINCT,
 --
@@ -744,38 +876,8 @@ QueryStmt
         |         +-TableScan(column_list=SimpleTypes.[int32#20, int64#21, float#27], table=SimpleTypes, column_index_list=[0, 1, 7])
         +-output_column_list=[$except_distinct2_cast.int32#43, SimpleTypes.int64#21, $except_distinct2_cast.float#44]
 --
-ALTERNATION GROUP: EXCEPT,DISTINCT, CORRESPONDING
+ALTERNATION GROUP: EXCEPT,DISTINCT, BY NAME
 --
-QueryStmt
-+-output_column_list=
-| +-$except_distinct.int64#39 AS int64 [INT64]
-| +-$except_distinct.int32#40 AS int32 [INT32]
-+-query=
-  +-SetOperationScan
-    +-column_list=$except_distinct.[int64#39, int32#40]
-    +-op_type=EXCEPT_DISTINCT
-    +-input_item_list=
-    | +-SetOperationItem
-    | | +-scan=
-    | | | +-ProjectScan
-    | | |   +-column_list=SimpleTypes.[int64#2, int32#1]
-    | | |   +-node_source="resolver_set_operation_corresponding"
-    | | |   +-input_scan=
-    | | |     +-ProjectScan
-    | | |       +-column_list=SimpleTypes.[int64#2, int32#1, double#9]
-    | | |       +-input_scan=
-    | | |         +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, double#9], table=SimpleTypes, column_index_list=[0, 1, 8])
-    | | +-output_column_list=SimpleTypes.[int64#2, int32#1]
-    | +-SetOperationItem
-    |   +-scan=
-    |   | +-ProjectScan
-    |   |   +-column_list=SimpleTypes.[int64#21, int32#20]
-    |   |   +-node_source="resolver_set_operation_corresponding"
-    |   |   +-input_scan=
-    |   |     +-ProjectScan
-    |   |       +-column_list=SimpleTypes.[int32#20, int64#21, float#27]
-    |   |       +-input_scan=
-    |   |         +-TableScan(column_list=SimpleTypes.[int32#20, int64#21, float#27], table=SimpleTypes, column_index_list=[0, 1, 7])
-    |   +-output_column_list=SimpleTypes.[int64#21, int32#20]
-    +-column_match_mode=CORRESPONDING
-    +-column_propagation_mode=INNER
+ERROR: BY NAME requires all input queries to have identical column names, but query 1 has [int64, int32, double] and query 2 has [int32, int64, float] [at 2:2]
+ EXCEPT DISTINCT BY NAME
+ ^

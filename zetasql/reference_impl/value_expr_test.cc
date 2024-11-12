@@ -42,6 +42,7 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/proto_util.h"
 #include "zetasql/public/simple_catalog.h"
+#include "zetasql/public/simple_property_graph.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/value.h"
@@ -151,7 +152,7 @@ struct NaryFunctionTemplate {
   QueryParamsWithResult params;
 
   NaryFunctionTemplate(FunctionKind kind,
-                       const std::vector<ValueConstructor>& arguments,
+                       absl::Span<const ValueConstructor> arguments,
                        const ValueConstructor& result,
                        absl::string_view error_message)
       : kind(kind), params(arguments, result, error_message) {}
@@ -452,6 +453,243 @@ TEST_F(EvalTest, NewArrayExpr) {
   EXPECT_THAT(status,
               StatusIs(absl::StatusCode::kResourceExhausted,
                        HasSubstr("Cannot construct array Value larger than")));
+}
+
+SimpleGraphNodeTable MakeSimpleGraphNodeTable() {
+  return SimpleGraphNodeTable(
+      "node_table1", std::vector<std::string>{"graph0"},
+      /*input_table=*/nullptr, /*key_cols=*/{},
+      /*labels=*/absl::flat_hash_set<const GraphElementLabel*>(),
+      /*property_definitions=*/{});
+}
+
+SimpleGraphEdgeTable MakeSimpleGraphEdgeTable(
+    const GraphNodeTable* source_node_table,
+    const GraphNodeTable* dest_node_table) {
+  return SimpleGraphEdgeTable(
+      "edge_table1", std::vector<std::string>{"graph0"},
+      /*input_table=*/nullptr, /*key_cols=*/{},
+      /*labels=*/absl::flat_hash_set<const GraphElementLabel*>(),
+      /*property_definitions=*/{},
+      std::make_unique<const SimpleGraphNodeTableReference>(
+          source_node_table, /*edge_table_columns=*/std::vector<int>{},
+          /*node_table_columns=*/std::vector<int>{}),
+      std::make_unique<const SimpleGraphNodeTableReference>(
+          dest_node_table, /*edge_table_columns=*/std::vector<int>{},
+          /*node_table_columns=*/std::vector<int>{}));
+}
+
+absl::StatusOr<std::vector<std::unique_ptr<ValueExpr>>> MakeValueExprs(
+    absl::Span<const Value> values) {
+  std::vector<std::unique_ptr<ValueExpr>> exprs;
+  exprs.reserve(values.size());
+  for (const auto& val : values) {
+    ZETASQL_ASSIGN_OR_RETURN(auto expr, ConstExpr::Create(val));
+    exprs.push_back(std::move(expr));
+  }
+  return exprs;
+}
+
+absl::StatusOr<std::unique_ptr<NewGraphElementExpr>> MakeGraphElementOp(
+    std::vector<Value> key_vals, const GraphElementTable* element_table,
+    std::vector<Value> src_node_key_vals = {},
+    std::vector<Value> dst_node_key_vals = {}) {
+  std::vector<PropertyType> property_types;
+  property_types.emplace_back("a", Int64Type());
+  property_types.emplace_back("b", StringType());
+  property_types.emplace_back("c", DateType());
+
+  ZETASQL_ASSIGN_OR_RETURN(auto one_expr, ConstExpr::Create(Int64(1)));
+  ZETASQL_ASSIGN_OR_RETURN(auto foo_expr, ConstExpr::Create(String("foo")));
+  ZETASQL_ASSIGN_OR_RETURN(auto null_date_expr, ConstExpr::Create(Value::NullDate()));
+
+  std::vector<NewGraphElementExpr::Property> properties;
+  properties.push_back({.name = "a", .definition = std::move(one_expr)});
+  properties.push_back({.name = "b", .definition = std::move(foo_expr)});
+  properties.push_back({.name = "c", .definition = std::move(null_date_expr)});
+
+  ZETASQL_ASSIGN_OR_RETURN(std::vector<std::unique_ptr<ValueExpr>> key_exprs,
+                   MakeValueExprs(key_vals));
+  std::optional<std::vector<std::unique_ptr<ValueExpr>>> src_node_key_exprs,
+      dst_node_key_exprs;
+
+  if (!src_node_key_vals.empty()) {
+    ZETASQL_ASSIGN_OR_RETURN(src_node_key_exprs, MakeValueExprs(src_node_key_vals));
+  }
+  if (!dst_node_key_vals.empty()) {
+    ZETASQL_ASSIGN_OR_RETURN(dst_node_key_exprs, MakeValueExprs(dst_node_key_vals));
+  }
+
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::unique_ptr<NewGraphElementExpr> new_graph_element_op,
+      NewGraphElementExpr::Create(
+          MakeGraphElementType({"graph0"},
+                               src_node_key_exprs.has_value()
+                                   ? GraphElementType::ElementKind::kEdge
+                                   : GraphElementType::ElementKind::kNode,
+                               property_types),
+          element_table, std::move(key_exprs), std::move(properties),
+          std::move(src_node_key_exprs), std::move(dst_node_key_exprs)));
+  return new_graph_element_op;
+}
+
+TEST_F(EvalTest, NewGraphNodeExpr) {
+  SimpleGraphNodeTable element_table = MakeSimpleGraphNodeTable();
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<NewGraphElementExpr> new_graph_element_op,
+      MakeGraphElementOp({Value::Int64(1), Value::String("key")},
+                         &element_table));
+
+  ZETASQL_ASSERT_OK(
+      new_graph_element_op->SetSchemasForEvaluation(EmptyParamsSchemas()));
+  EXPECT_EQ(new_graph_element_op->DebugString(),
+            "NewGraphElementExpr(\n"
+            "  +-type: GRAPH_NODE(graph0)<a INT64, b STRING, c DATE>\n"
+            "  +-table=graph0.node_table1\n"
+            "  +-key=(\n"
+            "  +- ConstExpr(1),\n"
+            "  +- ConstExpr(\"key\"),\n"
+            "  +-)\n"
+            "  +-properties=(\n"
+            "  +- a: ConstExpr(1),\n"
+            "  +- b: ConstExpr(\"foo\"),\n"
+            "  +- c: ConstExpr(NULL),\n"
+            "  +-)");
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(Value graph_element_value,
+                       EvalExpr(*new_graph_element_op, EmptyParams()));
+  EXPECT_FALSE(graph_element_value.is_null());
+  EXPECT_EQ(graph_element_value.DebugString(), "{a:1, b:\"foo\", c:NULL}");
+  EXPECT_EQ(graph_element_value.type(), new_graph_element_op->output_type());
+  EXPECT_EQ(graph_element_value.GetIdentifier(), "14380458541578279397");
+
+  // Test that we can't create an element that is too large.
+  EvaluationOptions value_size_options;
+  value_size_options.max_value_byte_size = 1;
+  EvaluationContext value_size_context(value_size_options);
+  EXPECT_THAT(
+      EvalExpr(*new_graph_element_op, EmptyParams(), &value_size_context),
+      StatusIs(absl::StatusCode::kOutOfRange,
+               HasSubstr("Cannot construct graph element Value larger than ")));
+}
+
+TEST_F(EvalTest, NewGraphEdgeExpr) {
+  SimpleGraphNodeTable node_table = MakeSimpleGraphNodeTable();
+  SimpleGraphEdgeTable edge_table =
+      MakeSimpleGraphEdgeTable(&node_table, &node_table);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<NewGraphElementExpr> edge_op,
+      MakeGraphElementOp({Value::Int64(1), Value::String("ek")}, &edge_table,
+                         {Value::Int64(2), Value::String("nk2")},
+                         {Value::Int64(3), Value::String("nk3")}));
+
+  ZETASQL_ASSERT_OK(edge_op->SetSchemasForEvaluation(EmptyParamsSchemas()));
+  EXPECT_EQ(edge_op->DebugString(),
+            "NewGraphElementExpr(\n"
+            "  +-type: GRAPH_EDGE(graph0)<a INT64, b STRING, c DATE>\n"
+            "  +-table=graph0.edge_table1\n"
+            "  +-key=(\n"
+            "  +- ConstExpr(1),\n"
+            "  +- ConstExpr(\"ek\"),\n"
+            "  +-)\n"
+            "  +-src_node_key=(\n"
+            "  +- ConstExpr(2),\n"
+            "  +- ConstExpr(\"nk2\"),\n"
+            "  +-)\n"
+            "  +-dst_node_key=(\n"
+            "  +- ConstExpr(3),\n"
+            "  +- ConstExpr(\"nk3\"),\n"
+            "  +-)\n"
+            "  +-properties=(\n"
+            "  +- a: ConstExpr(1),\n"
+            "  +- b: ConstExpr(\"foo\"),\n"
+            "  +- c: ConstExpr(NULL),\n"
+            "  +-)");
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(Value edge_value, EvalExpr(*edge_op, EmptyParams()));
+  EXPECT_FALSE(edge_value.is_null());
+  EXPECT_EQ(edge_value.DebugString(), "{a:1, b:\"foo\", c:NULL}");
+  EXPECT_EQ(edge_value.type(), edge_op->output_type());
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<NewGraphElementExpr> src_node_op,
+      MakeGraphElementOp({Value::Int64(2), Value::String("nk2")}, &node_table));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(Value src_node_value,
+                       EvalExpr(*src_node_op, EmptyParams()));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<NewGraphElementExpr> reverse_edge_op,
+      MakeGraphElementOp({Value::Int64(1), Value::String("key")}, &edge_table,
+                         {Value::Int64(3), Value::String("nk3")},
+                         {Value::Int64(2), Value::String("nk2")}));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(Value reverse_edge_value,
+                       EvalExpr(*reverse_edge_op, EmptyParams()));
+  EXPECT_EQ(edge_value.GetIdentifier(), "6127173980150649373");
+  EXPECT_NE(edge_value.GetIdentifier(), reverse_edge_value.GetIdentifier());
+  EXPECT_EQ(edge_value.GetSourceNodeIdentifier(),
+            src_node_value.GetIdentifier());
+  EXPECT_NE(edge_value.GetDestNodeIdentifier(), src_node_value.GetIdentifier());
+  EXPECT_EQ(reverse_edge_value.GetDestNodeIdentifier(),
+            src_node_value.GetIdentifier());
+  EXPECT_NE(reverse_edge_value.GetSourceNodeIdentifier(),
+            src_node_value.GetIdentifier());
+}
+
+TEST_F(EvalTest, GraphElementPropertyAccessTest) {
+  SimpleGraphNodeTable element_table = MakeSimpleGraphNodeTable();
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<NewGraphElementExpr> new_graph_element_op,
+      MakeGraphElementOp({Value::Int64(1)}, &element_table));
+
+  // Attempt a property access on the new element.
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<GraphGetElementPropertyExpr>
+                           graph_element_property_access_op,
+                       GraphGetElementPropertyExpr::Create(
+                           "b", std::move(new_graph_element_op)));
+
+  EXPECT_EQ(graph_element_property_access_op->DebugString(),
+            "GraphGetElementPropertyExpr(b, NewGraphElementExpr(\n"
+            "  +-type: GRAPH_NODE(graph0)<a INT64, b STRING, c DATE>\n"
+            "  +-table=graph0.node_table1\n"
+            "  +-key=(\n"
+            "  +- ConstExpr(1),\n"
+            "  +-)\n"
+            "  +-properties=(\n"
+            "  +- a: ConstExpr(1),\n"
+            "  +- b: ConstExpr(\"foo\"),\n"
+            "  +- c: ConstExpr(NULL),\n"
+            "  +-))");
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      Value property_access_value,
+      EvalExpr(*graph_element_property_access_op, EmptyParams()));
+  EXPECT_EQ(property_access_value.DebugString(), "\"foo\"");
+  EXPECT_TRUE(property_access_value.Equals(String("foo")));
+}
+
+TEST_F(EvalTest, NullGraphElementPropertyAccessTest) {
+  SimpleGraphNodeTable element_table = MakeSimpleGraphNodeTable();
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<NewGraphElementExpr> new_graph_element_op,
+      MakeGraphElementOp({Value::Int64(1)}, &element_table));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<ConstExpr> null_graph_element_op,
+      ConstExpr::Create(Value::Null(new_graph_element_op->output_type())));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<GraphGetElementPropertyExpr>
+                           graph_element_property_access_op,
+                       GraphGetElementPropertyExpr::Create(
+                           "b", std::move(null_graph_element_op)));
+
+  EXPECT_EQ(graph_element_property_access_op->DebugString(),
+            "GraphGetElementPropertyExpr(b, ConstExpr(NULL))");
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      Value property_access_value,
+      EvalExpr(*graph_element_property_access_op, EmptyParams()));
+  EXPECT_TRUE(property_access_value.is_null());
+  EXPECT_TRUE(property_access_value.Equals(Value::NullString()));
 }
 
 TEST_F(EvalTest, FieldValueExpr) {
@@ -980,7 +1218,8 @@ TEST_F(DMLValueExprEvalTest, DMLInsertValueExpr) {
                       zetasql::IdString::MakeGlobal("str_val"),
                       StringType()}},
       /*query_parameter_list=*/{}, /*query=*/nullptr,
-      /*query_output_column_list=*/{}, std::move(row_list));
+      /*query_output_column_list=*/{}, std::move(row_list),
+      /*on_conflict_clause=*/nullptr);
 
   // Create output types.
   ZETASQL_ASSERT_OK_AND_ASSIGN(
@@ -1111,7 +1350,8 @@ TEST_F(DMLValueExprEvalTest,
                       zetasql::IdString::MakeGlobal("str_val"),
                       StringType()}},
       /*query_parameter_list=*/{}, /*query=*/nullptr,
-      /*query_output_column_list=*/{}, std::move(row_list));
+      /*query_output_column_list=*/{}, std::move(row_list),
+      /*on_conflict_clause=*/nullptr);
 
   // Create output types.
   ZETASQL_ASSERT_OK_AND_ASSIGN(
@@ -1288,7 +1528,7 @@ TEST_F(DMLValueExprEvalTest, DMLDeleteValueExpr) {
       BuiltinScalarFunction::CreateCall(
           function_kind, LanguageOptions{},
           stmt->where_expr()->GetAs<ResolvedFunctionCall>()->type(),
-          std::move(arguments),
+          ConvertValueExprsToAlgebraArgs(std::move(arguments)),
           stmt->where_expr()->GetAs<ResolvedFunctionCall>()->error_mode()));
   (*resolved_expr_map)[stmt->where_expr()] = std::move(function_call_expr);
 
@@ -1431,7 +1671,7 @@ TEST_F(DMLValueExprEvalTest, DMLUpdateValueExpr) {
       BuiltinScalarFunction::CreateCall(
           function_kind, LanguageOptions{},
           stmt->where_expr()->GetAs<ResolvedFunctionCall>()->type(),
-          std::move(arguments),
+          ConvertValueExprsToAlgebraArgs(std::move(arguments)),
           stmt->where_expr()->GetAs<ResolvedFunctionCall>()->error_mode()));
   (*resolved_expr_map)[stmt->where_expr()] = std::move(function_call_expr);
   ZETASQL_ASSERT_OK_AND_ASSIGN(
@@ -1602,7 +1842,7 @@ TEST_F(DMLValueExprEvalTest,
       BuiltinScalarFunction::CreateCall(
           function_kind, LanguageOptions{},
           stmt->where_expr()->GetAs<ResolvedFunctionCall>()->type(),
-          std::move(arguments),
+          ConvertValueExprsToAlgebraArgs(std::move(arguments)),
           stmt->where_expr()->GetAs<ResolvedFunctionCall>()->error_mode()));
   (*resolved_expr_map)[stmt->where_expr()] = std::move(function_call_expr);
   ZETASQL_ASSERT_OK_AND_ASSIGN(
@@ -1771,7 +2011,7 @@ TEST_F(DMLValueExprEvalTest,
       BuiltinScalarFunction::CreateCall(
           function_kind, LanguageOptions{},
           stmt->where_expr()->GetAs<ResolvedFunctionCall>()->type(),
-          std::move(arguments),
+          ConvertValueExprsToAlgebraArgs(std::move(arguments)),
           stmt->where_expr()->GetAs<ResolvedFunctionCall>()->error_mode()));
   (*resolved_expr_map)[stmt->where_expr()] = std::move(function_call_expr);
   ZETASQL_ASSERT_OK_AND_ASSIGN(

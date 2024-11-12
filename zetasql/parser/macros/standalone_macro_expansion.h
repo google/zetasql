@@ -20,7 +20,7 @@
 #include <string>
 #include <vector>
 
-#include "zetasql/parser/macros/token_with_location.h"
+#include "zetasql/parser/token_with_location.h"
 #include "absl/base/macros.h"
 #include "absl/types/span.h"
 

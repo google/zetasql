@@ -225,6 +225,41 @@ public class FunctionArgumentTypeTest {
   }
 
   @Test
+  public void testNotFixedGraphTypes() {
+    FunctionArgumentType graphNode =
+        new FunctionArgumentType(
+            SignatureArgumentKind.ARG_TYPE_GRAPH_NODE, ArgumentCardinality.REPEATED, 0);
+    assertThat(graphNode.isConcrete()).isFalse();
+    assertThat(graphNode.getType()).isNull();
+    assertThat(graphNode.isRepeated()).isTrue();
+    assertThat(graphNode.debugString()).isEqualTo("repeated <graph_node>");
+
+    FunctionArgumentType graphEdge =
+        new FunctionArgumentType(
+            SignatureArgumentKind.ARG_TYPE_GRAPH_EDGE, ArgumentCardinality.REPEATED, 0);
+    assertThat(graphEdge.isConcrete()).isFalse();
+    assertThat(graphEdge.getType()).isNull();
+    assertThat(graphEdge.isRepeated()).isTrue();
+    assertThat(graphEdge.debugString()).isEqualTo("repeated <graph_edge>");
+
+    FunctionArgumentType graphElement =
+        new FunctionArgumentType(
+            SignatureArgumentKind.ARG_TYPE_GRAPH_ELEMENT, ArgumentCardinality.REPEATED, 0);
+    assertThat(graphElement.isConcrete()).isFalse();
+    assertThat(graphElement.getType()).isNull();
+    assertThat(graphElement.isRepeated()).isTrue();
+    assertThat(graphElement.debugString()).isEqualTo("repeated <graph_element>");
+
+    FunctionArgumentType graphPath =
+        new FunctionArgumentType(
+            SignatureArgumentKind.ARG_TYPE_GRAPH_PATH, ArgumentCardinality.REPEATED, 0);
+    assertThat(graphPath.isConcrete()).isFalse();
+    assertThat(graphPath.getType()).isNull();
+    assertThat(graphPath.isRepeated()).isTrue();
+    assertThat(graphPath.debugString()).isEqualTo("repeated <graph_path>");
+  }
+
+  @Test
   public void testLambdaArgumentType() {
     SimpleType boolType = TypeFactory.createSimpleType(TypeKind.TYPE_BOOL);
     FunctionArgumentType boolArgType = new FunctionArgumentType(boolType);

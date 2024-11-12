@@ -29,6 +29,12 @@
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_visitor.h"
 #include "zetasql/parser/parser.h"
+#include "zetasql/public/analyzer.h"
+#include "zetasql/public/analyzer_options.h"
+#include "zetasql/public/evaluator.h"
+#include "zetasql/public/evaluator_table_iterator.h"
+#include "zetasql/public/function_signature.h"
+#include "zetasql/public/id_string.h"
 #include "zetasql/public/parse_location.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/type_parameters.h"
@@ -37,10 +43,17 @@
 #include "zetasql/scripting/parsed_script.h"
 #include "zetasql/scripting/script_executor.h"
 #include "zetasql/scripting/script_executor_state.pb.h"
+#include "zetasql/scripting/script_segment.h"
 #include "zetasql/scripting/stack_frame.h"
+#include "zetasql/scripting/type_aliases.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
+#include "absl/time/time.h"
 #include "absl/types/span.h"
+#include "google/protobuf/descriptor.h"
 #include "zetasql/base/flat_set.h"
 #include "zetasql/base/status.h"
 
@@ -109,7 +122,7 @@ class ScriptExecutorImpl : public ScriptExecutor {
     return callstack_.back().parsed_script()->GetNamedParameters(
         callstack_.back().parsed_script()->script()->GetParseLocationRange());
   }
-  const std::pair<int64_t, int64_t> GetCurrentPositionalParameters() const {
+  PositionalParameterRange GetCurrentPositionalParameters() const {
     return callstack_.back().parsed_script()->GetPositionalParameters(
         callstack_.back().parsed_script()->script()->GetParseLocationRange());
   }

@@ -70,9 +70,6 @@ column_declaration:
     as `js` for JavaScript. `string_literal` represents the code that defines
     the function body.
 
-You can create a public or privately-scoped TVF in a module. To learn more,
-see [Modules][modules].
-
 ## Specify TVF arguments {#tvf_arguments}
 
 When a TVF with function parameters is called, arguments must be passed in for
@@ -203,8 +200,6 @@ valid for that argument type.
 [data-types-struct]: https://github.com/google/zetasql/blob/master/docs/data-types.md#struct_type
 
 [datamodel-value-tables]: https://github.com/google/zetasql/blob/master/docs/data-model.md#value_tables
-
-[modules]: https://github.com/google/zetasql/blob/master/docs/modules.md
 
 <!-- mdlint on -->
 

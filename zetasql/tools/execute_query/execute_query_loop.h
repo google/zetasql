@@ -36,7 +36,6 @@ using ExecuteQueryLoopStatusHandler =
 
 // Returns status without modification.
 absl::Status ExecuteQueryLoopNoOpStatusHandler(absl::Status status);
-absl::Status ExecuteQueryLoopPrintErrorHandler(absl::Status status);
 
 // Read queries from prompt and execute them until either the end of input is
 // reached (see ExecuteQueryPrompt::Read) or an error occurs.

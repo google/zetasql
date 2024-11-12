@@ -1686,9 +1686,13 @@ FROM
 # "TABLE path" is not currently supported as a stand-alone query.
 table keyvalue;
 --
-ERROR: Syntax error: Unexpected keyword TABLE [at 1:1]
-table keyvalue;
-^
+QueryStatement [0-14] [table keyvalue]
+  Query [0-14] [table keyvalue]
+    TableClause [0-14] [table keyvalue]
+      PathExpression [6-14] [keyvalue]
+        Identifier(keyvalue) [6-14] [keyvalue]
+--
+TABLE keyvalue
 ==
 
 # "MODEL path" is not currently supported as a stand-alone query.
@@ -1710,9 +1714,24 @@ connection keyvalue;
 # "TABLE path" is not currently supported directly in the FROM clause.
 select * from (table keyvalue);
 --
-ERROR: Syntax error: Expected keyword JOIN but got ")" [at 1:30]
-select * from (table keyvalue);
-                             ^
+QueryStatement [0-30] [select * from (table keyvalue)]
+  Query [0-30] [select * from (table keyvalue)]
+    Select [0-30] [select * from (table keyvalue)]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-30] [from (table keyvalue)]
+        TableSubquery [14-30] [(table keyvalue)]
+          Query [15-29] [table keyvalue]
+            TableClause [15-29] [table keyvalue]
+              PathExpression [21-29] [keyvalue]
+                Identifier(keyvalue) [21-29] [keyvalue]
+--
+SELECT
+  *
+FROM
+  (TABLE keyvalue
+  )
 ==
 
 # "MODEL path" is not currently supported directly in the FROM clause.
@@ -1932,24 +1951,6 @@ SELECT
   *
 FROM
   tvf_one_relation_arg_with_fixed_output(TABLE table)
-==
-
-# Invalid "TABLE path" syntax for table-valued function arguments: table path
-# should not be in parentheses (for a single-element path).
-select * from tvf_one_relation_arg_with_fixed_output((table keyvalue))
---
-ERROR: Syntax error: Table arguments for table-valued function calls written as "TABLE path" must not be enclosed in parentheses. To fix this, replace (TABLE path) with TABLE path [at 1:54]
-select * from tvf_one_relation_arg_with_fixed_output((table keyvalue))
-                                                     ^
-==
-
-# Invalid "TABLE path" syntax for table-valued function arguments: table path
-# should not be in parentheses (for a multi-element path).
-select * from tvf_one_relation_arg_with_fixed_output((table a.b.c))
---
-ERROR: Syntax error: Table arguments for table-valued function calls written as "TABLE path" must not be enclosed in parentheses. To fix this, replace (TABLE path) with TABLE path [at 1:54]
-select * from tvf_one_relation_arg_with_fixed_output((table a.b.c))
-                                                     ^
 ==
 
 # Valid "TABLE path(arguments...)" syntax for table-valued function call:

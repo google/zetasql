@@ -1145,6 +1145,120 @@ FunctionCall(ZetaSQL:$array_at_offset(ARRAY<STRING>, INT64) -> STRING)
 )"));
 }
 
+TEST_F(FunctionCallBuilderTest, ArraySliceTest) {
+  std::vector<std::unique_ptr<const ResolvedExpr>> args;
+  args.push_back(MakeResolvedLiteral(Value::Int64(100)));
+  args.push_back(MakeResolvedLiteral(Value::Int64(101)));
+  args.push_back(MakeResolvedLiteral(Value::Int64(102)));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedExpr> array_expr,
+      fn_builder_.MakeArray(types::Int64Type(), std::move(args)));
+  std::unique_ptr<const ResolvedExpr> start_offset_expr =
+      MakeResolvedLiteral(Value::Int64(1));
+  std::unique_ptr<const ResolvedExpr> end_offset_expr =
+      MakeResolvedLiteral(Value::Int64(2));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedFunctionCall> resolved_fn,
+                       fn_builder_.ArraySlice(std::move(array_expr),
+                                              std::move(start_offset_expr),
+                                              std::move(end_offset_expr)));
+
+  EXPECT_EQ(resolved_fn->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+FunctionCall(ZetaSQL:array_slice(ARRAY<INT64> array_to_slice, INT64 start_offset, INT64 end_offset) -> ARRAY<INT64>)
++-FunctionCall(ZetaSQL:$make_array(repeated(3) INT64) -> ARRAY<INT64>)
+| +-Literal(type=INT64, value=100)
+| +-Literal(type=INT64, value=101)
+| +-Literal(type=INT64, value=102)
++-Literal(type=INT64, value=1)
++-Literal(type=INT64, value=2)
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest, ArraySliceWithSameCollationTest) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::vector<std::unique_ptr<const ResolvedExpr>> args,
+                       testing::BuildResolvedLiteralsWithCollationForTest(
+                           {{"foo", "und:ci"}, {"bar", "und:ci"}},
+                           analyzer_options_, catalog_, type_factory_));
+  const Type* type = args[0]->type();
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedExpr> array_expr,
+                       fn_builder_.MakeArray(type, std::move(args)));
+  std::unique_ptr<const ResolvedExpr> start_offset_expr =
+      MakeResolvedLiteral(Value::Int64(0));
+  std::unique_ptr<const ResolvedExpr> end_offset_expr =
+      MakeResolvedLiteral(Value::Int64(1));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedFunctionCall> resolved_fn,
+                       fn_builder_.ArraySlice(std::move(array_expr),
+                                              std::move(start_offset_expr),
+                                              std::move(end_offset_expr)));
+
+  EXPECT_EQ(resolved_fn->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+FunctionCall(ZetaSQL:array_slice(ARRAY<STRING> array_to_slice, INT64 start_offset, INT64 end_offset) -> ARRAY<STRING>)
++-type_annotation_map=[{Collation:"und:ci"}]
++-FunctionCall(ZetaSQL:$make_array(repeated(2) STRING) -> ARRAY<STRING>)
+| +-type_annotation_map=[{Collation:"und:ci"}]
+| +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+| | +-type_annotation_map={Collation:"und:ci"}
+| | +-Literal(type=STRING, value="foo", has_explicit_type=TRUE)
+| | +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+| +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+|   +-type_annotation_map={Collation:"und:ci"}
+|   +-Literal(type=STRING, value="bar", has_explicit_type=TRUE)
+|   +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
++-Literal(type=INT64, value=0)
++-Literal(type=INT64, value=1)
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest, ArraySliceWithMixedCollationTest) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::vector<std::unique_ptr<const ResolvedExpr>> args,
+                       testing::BuildResolvedLiteralsWithCollationForTest(
+                           {{"foo", "und:ci"}, {"FOO", "binary"}},
+                           analyzer_options_, catalog_, type_factory_));
+  const Type* type = args[0]->type();
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedExpr> array_expr,
+                       fn_builder_.MakeArray(type, std::move(args)));
+  std::unique_ptr<const ResolvedExpr> start_offset_expr =
+      MakeResolvedLiteral(Value::Int64(0));
+  std::unique_ptr<const ResolvedExpr> end_offset_expr =
+      MakeResolvedLiteral(Value::Int64(1));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedFunctionCall> resolved_fn,
+                       fn_builder_.ArraySlice(std::move(array_expr),
+                                              std::move(start_offset_expr),
+                                              std::move(end_offset_expr)));
+
+  EXPECT_EQ(resolved_fn->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+FunctionCall(ZetaSQL:array_slice(ARRAY<STRING> array_to_slice, INT64 start_offset, INT64 end_offset) -> ARRAY<STRING>)
++-FunctionCall(ZetaSQL:$make_array(repeated(2) STRING) -> ARRAY<STRING>)
+| +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+| | +-type_annotation_map={Collation:"und:ci"}
+| | +-Literal(type=STRING, value="foo", has_explicit_type=TRUE)
+| | +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+| +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+|   +-type_annotation_map={Collation:"binary"}
+|   +-Literal(type=STRING, value="FOO", has_explicit_type=TRUE)
+|   +-Literal(type=STRING, value="binary", preserve_in_literal_remover=TRUE)
++-Literal(type=INT64, value=0)
++-Literal(type=INT64, value=1)
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest, ArraySliceWithInvalidArgumentsTest) {
+  std::vector<std::unique_ptr<const ResolvedExpr>> args;
+  args.push_back(MakeResolvedLiteral(Value::Int64(100)));
+  args.push_back(MakeResolvedLiteral(Value::Int64(101)));
+  args.push_back(MakeResolvedLiteral(Value::Int64(102)));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedExpr> array_expr,
+      fn_builder_.MakeArray(types::Int64Type(), std::move(args)));
+  std::unique_ptr<const ResolvedExpr> start_offset_expr =
+      MakeResolvedLiteral(Value::Int64(1));
+  std::unique_ptr<const ResolvedExpr> end_offset_expr =
+      MakeResolvedLiteral(Value::String("foo"));
+  EXPECT_THAT(fn_builder_.ArraySlice(std::move(array_expr),
+                                     std::move(start_offset_expr),
+                                     std::move(end_offset_expr)),
+              StatusIs(absl::StatusCode::kInternal));
+}
+
 TEST_F(FunctionCallBuilderTest, ModInt64Test) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<const ResolvedFunctionCall> resolved_fn,

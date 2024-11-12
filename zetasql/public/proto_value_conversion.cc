@@ -35,6 +35,7 @@
 #include "zetasql/public/proto/wire_format_annotation.pb.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/uuid_value.h"
 #include "zetasql/public/value.h"
 #include "zetasql/public/value.pb.h"
 #include "absl/status/status.h"
@@ -160,6 +161,7 @@ static absl::Status CheckFieldFormat(const Value& value,
     case TYPE_JSON:
     case TYPE_TOKENLIST:
     case TYPE_RANGE:
+    case TYPE_UUID:
       break;
 
     default:
@@ -189,6 +191,16 @@ static absl::StatusOr<functions::TimestampScale> FormatToScale(
                        << FieldFormat::Format_Name(field_format)
                        << " for TIMESTAMP";
   }
+}
+
+static absl::string_view ExtractValue(const absl::Cord& value_bytes,
+                                      std::string& copy_value) {
+  std::optional<absl::string_view> flat_value = value_bytes.TryFlat();
+  if (flat_value.has_value()) {
+    return *flat_value;
+  }
+  absl::CopyCordToString(value_bytes, &copy_value);
+  return copy_value;
 }
 
 absl::Status MergeValueToProtoField(const Value& value,
@@ -394,6 +406,17 @@ absl::Status MergeValueToProtoField(const Value& value,
       ZETASQL_RET_CHECK_EQ(field->type(), google::protobuf::FieldDescriptor::TYPE_BYTES);
       const std::string serialized_value =
           value.interval_value().SerializeAsBytes();
+      if (field->is_repeated()) {
+        reflection->AddString(proto_out, field, serialized_value);
+      } else {
+        reflection->SetString(proto_out, field, serialized_value);
+      }
+      return absl::OkStatus();
+    }
+    case TYPE_UUID: {
+      ZETASQL_RET_CHECK_EQ(field->type(), google::protobuf::FieldDescriptor::TYPE_BYTES);
+      ZETASQL_ASSIGN_OR_RETURN(UuidValue uuid_value, value.uuid_value());
+      const std::string serialized_value = uuid_value.SerializeAsBytes();
       if (field->is_repeated()) {
         reflection->AddString(proto_out, field, serialized_value);
       } else {
@@ -620,7 +643,7 @@ absl::Status ProtoFieldToValue(const google::protobuf::Message& proto,
       !type->IsTime() && !type->IsDatetime() && !type->IsGeography() &&
       !type->IsNumericType() && !type->IsBigNumericType() &&
       !type->IsTokenList() && !type->IsRange() && !type->IsInterval() &&
-      !type->IsJsonType()) {
+      !type->IsJsonType() && !type->IsUuid()) {
     ZETASQL_RET_CHECK_EQ(FieldFormat::DEFAULT_FORMAT, field_format)
         << "Format " << FieldFormat::Format_Name(field_format)
         << " not supported for zetasql type " << type->DebugString();
@@ -1010,6 +1033,18 @@ absl::Status ProtoFieldToValue(const google::protobuf::Message& proto,
           ZETASQL_RET_CHECK_FAIL() << "Unsupported RANGE field format: "
                            << FieldFormat::Format_Name(field_format);
       }
+      return absl::OkStatus();
+    }
+    case TypeKind::TYPE_UUID: {
+      ZETASQL_RET_CHECK_EQ(google::protobuf::FieldDescriptor::CPPTYPE_STRING, field->cpp_type())
+          << field->DebugString();
+      std::string value =
+          field->is_repeated() ?
+          reflection->GetRepeatedString(proto, field, index) :
+          reflection->GetString(proto, field);
+      ZETASQL_ASSIGN_OR_RETURN(UuidValue uuid_value,
+                       UuidValue::DeserializeFromBytes(value));
+      *value_out = Value::Uuid(uuid_value);
       return absl::OkStatus();
     }
     default:

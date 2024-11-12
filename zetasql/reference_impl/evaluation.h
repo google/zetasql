@@ -143,9 +143,6 @@ class EvaluationContext {
 
   // Returns the `value` associated with `arg_name` or an invalid Value.
   Value GetFunctionArgumentRef(std::string arg_name);
-  // Returns true if there is a `value` associated with `arg_name` already
-  // in `udf_argument_references_`.
-  bool HasFunctionArgumentRef(std::string arg_name);
   // Makes the given `value` accessible under `arg_name`. Fails if there is
   // already an existing key `arg_name` in the underlying map. This is used
   // in the execution of user defined entities.

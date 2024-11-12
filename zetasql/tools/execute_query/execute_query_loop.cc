@@ -41,28 +41,6 @@ absl::Status ExecuteQueryLoopNoOpStatusHandler(absl::Status status) {
   return status;
 }
 
-absl::Status ExecuteQueryLoopPrintErrorHandler(absl::Status status) {
-  if (status.ok()) {
-    return status;
-  }
-  ErrorLocation location;
-  if (!zetasql::GetErrorLocation(status, &location)) {
-    return status;
-  }
-  if (internal::HasPayloadWithType<ParserErrorContext>(status)) {
-    // Best case, we have the source and the error.
-    auto context = internal::GetPayload<ParserErrorContext>(status);
-    std::cerr << zetasql::FormatErrorLocation(
-                     location, context.text(),
-                     ERROR_MESSAGE_MULTI_LINE_WITH_CARET)
-              << '\n';
-  } else {
-    // We can produce a nice error message at least...
-    std::cerr << FormatErrorLocation(location) << '\n';
-  }
-  return status;
-}
-
 absl::Status ExecuteQueryLoop(
     ExecuteQueryPrompt& prompt, ExecuteQueryConfig& config,
     ExecuteQueryWriter& writer,

@@ -574,7 +574,7 @@ absl::Status ParsedScript::PopulateQueryParameters() {
   return absl::OkStatus();
 }
 
-std::pair<int64_t, int64_t> ParsedScript::GetPositionalParameters(
+PositionalParameterRange ParsedScript::GetPositionalParameters(
     const ParseLocationRange& range) const {
   auto lower = positional_query_parameters_.lower_bound(range.start());
   auto upper = positional_query_parameters_.upper_bound(range.end());

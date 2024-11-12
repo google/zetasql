@@ -26,7 +26,7 @@ option java_outer_classname = "ZetaSQLFunction";
 // A unique ID for ZetaSQL function signatures.  Resolved ZetaSQL functions
 // will provide one of these enums, and ZetaSQL implementations should map
 // them to something they can evaluate.
-// Next id: 1949
+// Next id: 1950
 enum FunctionSignatureId {
   // User code that switches on this enum must have a default case so
   // builds won't break if new enums get added.
@@ -48,7 +48,7 @@ enum FunctionSignatureId {
   // 1500-1599 Analytic functions             (NextId: 1513)
   // 1600-1699 Misc functions                 (Fully used)
   // 1700-1799 Net functions                  (NextId: 1716)
-  // 1800-1899 More time functions            (NextId: 1864)
+  // 1800-1899 More time functions            (NextId: 1867)
   // 1900-1999 Hashing/encryption functions   (NextId: 1938)
   // 2000-2199 Geography functions            (NextId: 2096)
   // 2200-2231 Anonymization functions        (NextId: 2232)
@@ -56,7 +56,7 @@ enum FunctionSignatureId {
   // 2500-2599 Array and proto map functions  (NextId: 2561)
   // 2600-2699 More misc functions.           (NextId: 2675)
   // 2700-2799 Aggregate functions II         (NextId: 2780)
-  // 2800-2899 Differential Privacy functions (NextId: 2832)
+  // 2800-2899 Differential Privacy functions (NextId: 2840)
   // 2900-2999 Range functions                (NextId: 2921)
   // 3000-3100 Map functions                  (NextId: 3001)
 
@@ -374,12 +374,15 @@ enum FunctionSignatureId {
   FN_TIMESTAMP_FROM_INT64_SECONDS = 1289;  // timestamp_seconds
   FN_TIMESTAMP_FROM_INT64_MILLIS = 1290;   // timestamp_millis
   FN_TIMESTAMP_FROM_INT64_MICROS = 1291;   // timestamp_micros
-  FN_TIMESTAMP_FROM_UNIX_SECONDS_INT64 = 1827;  // timestamp_from_unix_seconds
+  FN_TIMESTAMP_FROM_UNIX_SECONDS_INT64 = 1827;   // timestamp_from_unix_seconds
+  FN_TIMESTAMP_FROM_UNIX_SECONDS_UINT64 = 1864;  // timestamp_from_unix_seconds
   FN_TIMESTAMP_FROM_UNIX_SECONDS_TIMESTAMP =
-      1828;                                    // timestamp_from_unix_seconds
-  FN_TIMESTAMP_FROM_UNIX_MILLIS_INT64 = 1829;  // timestamp_from_unix_millis
+      1828;                                     // timestamp_from_unix_seconds
+  FN_TIMESTAMP_FROM_UNIX_MILLIS_INT64 = 1829;   // timestamp_from_unix_millis
+  FN_TIMESTAMP_FROM_UNIX_MILLIS_UINT64 = 1865;  // timestamp_from_unix_millis
   FN_TIMESTAMP_FROM_UNIX_MILLIS_TIMESTAMP = 1830;  // timestamp_from_unix_millis
   FN_TIMESTAMP_FROM_UNIX_MICROS_INT64 = 1831;      // timestamp_from_unix_micros
+  FN_TIMESTAMP_FROM_UNIX_MICROS_UINT64 = 1866;     // timestamp_from_unix_micros
   FN_TIMESTAMP_FROM_UNIX_MICROS_TIMESTAMP = 1832;  // timestamp_from_unix_micros
   FN_UNIX_DATE = 1230;                             // unix_date
   FN_UNIX_SECONDS_FROM_TIMESTAMP = 1268;
@@ -830,8 +833,9 @@ enum FunctionSignatureId {
   FN_TO_JSON_STRING = 1622;         // to_json_string(any[, bool]) -> string
   FN_TO_JSON = 1697;                // to_json(any[, bool]) -> json
   FN_TO_JSON_UNSUPPORTED_FIELDS =
-      1948;              // to_json(any[, bool][, unsupported_fields]) -> json
-  FN_JSON_QUERY = 1623;  // json_query(string, string) -> string
+      1948;                // to_json(any[, bool][, unsupported_fields]) -> json
+  FN_SAFE_TO_JSON = 1949;  // safe_to_json(any) -> json
+  FN_JSON_QUERY = 1623;    // json_query(string, string) -> string
   FN_JSON_QUERY_JSON = 1686;  // json_query(json, string) -> json
   FN_JSON_VALUE = 1624;       // json_value(string[, string]) -> string
   FN_JSON_VALUE_JSON = 1687;  // json_value(json[, string]) -> string
@@ -1212,6 +1216,27 @@ enum FunctionSignatureId {
   FN_DIFFERENTIAL_PRIVACY_QUANTILES_DOUBLE_ARRAY_REPORT_PROTO = 2829;
   FN_DIFFERENTIAL_PRIVACY_AVG_DOUBLE_REPORT_JSON = 2830;
   FN_DIFFERENTIAL_PRIVACY_AVG_DOUBLE_REPORT_PROTO = 2831;
+  // Functions 2832 to 2839 are meant for the implementation of the
+  // differentially private approx count distinct function. Although the query
+  // syntax contains the function `approx_count_distinct`, this function is
+  // always rewritten into three functions: `init_for_dp_approx_count_distinct`,
+  // `merge_partial_for_dp_approx_count_distinct`, and
+  // `extract_for_dp_approx_count_distinct`.
+  //
+  // Thus, the functions 2832, 2833 and 2834 are used as part of the language
+  // syntax, but they don't need to be implemented by engines. This is exactly
+  // opposite to function 2835-2839. These functions are implemented by engines,
+  // but they are not part of the language syntax.
+  FN_DIFFERENTIAL_PRIVACY_APPROX_COUNT_DISTINCT = 2832;
+  FN_DIFFERENTIAL_PRIVACY_APPROX_COUNT_DISTINCT_REPORT_JSON = 2833;
+  FN_DIFFERENTIAL_PRIVACY_APPROX_COUNT_DISTINCT_REPORT_PROTO = 2834;
+  FN_DIFFERENTIAL_PRIVACY_INIT_FOR_DP_APPROX_COUNT_DISTINCT = 2835;
+  FN_DIFFERENTIAL_PRIVACY_MERGE_PARTIAL_FOR_DP_APPROX_COUNT_DISTINCT = 2836;
+  FN_DIFFERENTIAL_PRIVACY_EXTRACT_FOR_DP_APPROX_COUNT_DISTINCT = 2837;
+  FN_DIFFERENTIAL_PRIVACY_EXTRACT_FOR_DP_APPROX_COUNT_DISTINCT_REPORT_JSON =
+      2838;
+  FN_DIFFERENTIAL_PRIVACY_EXTRACT_FOR_DP_APPROX_COUNT_DISTINCT_REPORT_PROTO =
+      2839;
 
   // Array and proto map functions.
   FN_FLATTEN = 2500;  // flatten(array path) -> array
@@ -1466,6 +1491,50 @@ enum FunctionSignatureId {
   // l2_norm(array<DOUBLE>) -> DOUBLE
   FN_L2_NORM_DOUBLE = 2380;
 
+  // Graph functions
+  FN_IS_SOURCE_NODE = 2610;               // node IS SOURCE [ OF ] edge
+  FN_IS_DEST_NODE = 2611;                 // node IS DESTINATION [ OF ] edge
+  FN_SAME_GRAPH_ELEMENT = 2612;           // SAME(elements...)
+  FN_ALL_DIFFERENT_GRAPH_ELEMENT = 2622;  // ALL_DIFFERENT(elements...)
+  FN_PROPERTY_EXISTS = 2613;       // PROPERTY_EXISTS(element, property_name)
+  FN_EQUAL_GRAPH_NODE = 2623;      // $equal
+  FN_EQUAL_GRAPH_EDGE = 2624;      // $equal
+  FN_NOT_EQUAL_GRAPH_NODE = 2625;  // $not_equal
+  FN_NOT_EQUAL_GRAPH_EDGE = 2626;  // $not_equal
+  reserved "FN_TO_JSON_GRAPH_ELEMENT";
+  reserved 2652;                   // FN_TO_JSON_GRAPH_ELEMENT
+  FN_LABELS_GRAPH_ELEMENT = 2653;  // labels(element) -> ARRAY<STRING>
+  FN_PROPERTY_NAMES_GRAPH_ELEMENT =
+      2654;                        // property_names(element) -> ARRAY<STRING>
+  FN_TYPEOF_GRAPH_ELEMENT = 2655;  // typeof(element)
+  FN_ELEMENT_ID_GRAPH_ELEMENT = 2658;  // element_id(element) -> STRING
+  FN_SOURCE_NODE_ID = 2659;            // source_node_id(edge) -> STRING
+  FN_DESTINATION_NODE_ID = 2660;       // destination_node_id(edge) -> STRING
+  FN_ELEMENT_DEFINITION_NAME = 2661;
+  // element_definition_name(element) -> STRING
+  FN_PATH_LENGTH = 2662;     // PATH_LENGTH(p)
+  FN_PATH_NODES = 2663;      // NODES(p)
+  FN_PATH_EDGES = 2664;      // EDGES(p)
+  FN_PATH_FIRST = 2665;      // PATH_FIRST(p)
+  FN_PATH_LAST = 2666;       // PATH_LAST(p)
+  FN_CONCAT_PATH = 2667;     // concat(repeated path) -> path
+  FN_CONCAT_OP_PATH = 2668;  // concat(path, path) -> path
+  FN_PATH_CREATE = 2669;     // PATH(elements...) -> path
+  FN_IS_ACYCLIC = 2672;      // IS_ACYCLIC(path) -> bool
+  FN_IS_TRAIL = 2673;        // IS_TRAIL(path) -> bool
+  FN_IS_SIMPLE = 2674;       // IS_SIMPLE(path) -> bool
+  // Unchecked versions of FN_CONCAT_PATH and FN_PATH_CREATE that are used in
+  // the resolver since the paths created by MATCH statements automatically
+  // satisfy the requirements of the checked versions.
+  // $unchecked_path_concat(repeated path) -> path
+  // The same as $path_concat but we don't check that adjacent paths overlap on
+  // the start and end node.
+  FN_UNCHECKED_CONCAT_PATH = 2670;
+  // $unchecked_path(elements...) -> path
+  // The same as PATH but we don't check that each edge is either "forward" or
+  // "backward" when we look at the neighboring nodes.
+  FN_UNCHECKED_PATH_CREATE = 2671;
+
   // bool_array(JSON) -> array<BOOL>
   FN_JSON_TO_BOOL_ARRAY = 2627;
   // lax_bool_array(JSON) -> array<BOOL>
@@ -1545,4 +1614,8 @@ enum FunctionSignatureId {
   FN_MAP_REPLACE_KV_PAIRS = 3015;
   // map_replace(map<K, V>, K[, ...], (V)->V) -> map<k, V>
   FN_MAP_REPLACE_K_REPEATED_V_LAMBDA = 3016;
+
+  FN_MAP_CARDINALITY = 3017;  // map_cardinality(map<K, V>) -> int64
+  FN_MAP_DELETE = 3018;       // map_delete(map<K, V>, K[, ...]) -> map<K, V>
+  FN_MAP_FILTER = 3019;  // map_filter(map<K, V>, (K, V) -> bool) -> map<K, V>
 }

@@ -1072,6 +1072,48 @@ select * from a cross join b on cond1 join c join d join e on cond2 on cond3
                              ^
 ==
 
+# Test consecutive join with conflict non-reserved keyword added for INSERT...ON CONFLICT clause
+select * from T join T2 join T3 on conflict on conflict;
+--
+QueryStatement [0-55] [select * from...on conflict]
+  Query [0-55] [select * from...on conflict]
+    Select [0-55] [select * from...on conflict]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-55] [from T join...on conflict]
+        Join [14-55] [T join T2...on conflict]
+          TablePathExpression [14-15] [T]
+            PathExpression [14-15] [T]
+              Identifier(T) [14-15] [T]
+          Location [16-20] [join]
+          Join [14-43] [T join T2 join T3 on conflict]
+            TablePathExpression [21-23] [T2]
+              PathExpression [21-23] [T2]
+                Identifier(T2) [21-23] [T2]
+            Location [24-28] [join]
+            TablePathExpression [29-31] [T3]
+              PathExpression [29-31] [T3]
+                Identifier(T3) [29-31] [T3]
+            OnClause [32-43] [on conflict]
+              PathExpression [35-43] [conflict]
+                Identifier(conflict) [35-43] [conflict]
+          OnClause [44-55] [on conflict]
+            PathExpression [47-55] [conflict]
+              Identifier(conflict) [47-55] [conflict]
+--
+SELECT
+  *
+FROM
+  T
+  JOIN
+  T2
+  JOIN
+  T3
+  ON conflict
+  ON conflict
+==
+
 # Test the case when allow_consecutive_on is turned off
 [language_features=]
 select * from t1 join t2 join t3 on c1 on c2
@@ -1079,3 +1121,36 @@ select * from t1 join t2 join t3 on c1 on c2
 ERROR: Syntax error: Expected end of input but got keyword ON [at 1:40]
 select * from t1 join t2 join t3 on c1 on c2
                                        ^
+==
+
+# Test regular join with conflict non-reserved keyword added for INSERT...ON CONFLICT clause
+select * from T join T2 on conflict;
+--
+QueryStatement [0-35] [select * from...on conflict]
+  Query [0-35] [select * from...on conflict]
+    Select [0-35] [select * from...on conflict]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-35] [from T join T2 on conflict]
+        Join [14-35] [T join T2 on conflict]
+          TablePathExpression [14-15] [T]
+            PathExpression [14-15] [T]
+              Identifier(T) [14-15] [T]
+          Location [16-20] [join]
+          TablePathExpression [21-23] [T2]
+            PathExpression [21-23] [T2]
+              Identifier(T2) [21-23] [T2]
+          OnClause [24-35] [on conflict]
+            PathExpression [27-35] [conflict]
+              Identifier(conflict) [27-35] [conflict]
+--
+SELECT
+  *
+FROM
+  T
+  JOIN
+  T2
+  ON conflict
+==
+

@@ -1,0 +1,184 @@
+# Tests for the FOR UPDATE clause in combination with set operations.
+
+[default language_features=V_1_4_FOR_UPDATE]
+
+# Set operation with FOR UPDATE in LHS query
+(select a from t1 for update) union all select a from t2;
+--
+QueryStatement [45-101] [(select a...a from t2]
+  Query [45-101] [(select a...a from t2]
+    SetOperation(UNION ALL) [45-101] [(select a...a from t2]
+      SetOperationMetadataList [75-84] [union all]
+        SetOperationMetadata [75-84] [union all]
+          SetOperationType [75-80] [union]
+          SetOperationAllOrDistinct [81-84] [all]
+      Query [46-73] [select a from t1 for update]
+        Select [46-62] [select a from t1]
+          SelectList [53-54] [a]
+            SelectColumn [53-54] [a]
+              PathExpression [53-54] [a]
+                Identifier(a) [53-54] [a]
+          FromClause [55-62] [from t1]
+            TablePathExpression [60-62] [t1]
+              PathExpression [60-62] [t1]
+                Identifier(t1) [60-62] [t1]
+        LockMode [63-73] [for update]
+      Select [85-101] [select a from t2]
+        SelectList [92-93] [a]
+          SelectColumn [92-93] [a]
+            PathExpression [92-93] [a]
+              Identifier(a) [92-93] [a]
+        FromClause [94-101] [from t2]
+          TablePathExpression [99-101] [t2]
+            PathExpression [99-101] [t2]
+              Identifier(t2) [99-101] [t2]
+--
+(
+SELECT
+  a
+FROM
+  t1
+FOR UPDATE) UNION ALL
+SELECT
+  a
+FROM
+  t2
+==
+
+# Set operation with FOR UPDATE in RHS query
+select a from t1 union all (select a from t2 for update);
+--
+QueryStatement [0-56] [select a from...for update)]
+  Query [0-56] [select a from...for update)]
+    SetOperation(UNION ALL) [0-56] [select a from...for update)]
+      SetOperationMetadataList [17-26] [union all]
+        SetOperationMetadata [17-26] [union all]
+          SetOperationType [17-22] [union]
+          SetOperationAllOrDistinct [23-26] [all]
+      Select [0-16] [select a from t1]
+        SelectList [7-8] [a]
+          SelectColumn [7-8] [a]
+            PathExpression [7-8] [a]
+              Identifier(a) [7-8] [a]
+        FromClause [9-16] [from t1]
+          TablePathExpression [14-16] [t1]
+            PathExpression [14-16] [t1]
+              Identifier(t1) [14-16] [t1]
+      Query [28-55] [select a from t2 for update]
+        Select [28-44] [select a from t2]
+          SelectList [35-36] [a]
+            SelectColumn [35-36] [a]
+              PathExpression [35-36] [a]
+                Identifier(a) [35-36] [a]
+          FromClause [37-44] [from t2]
+            TablePathExpression [42-44] [t2]
+              PathExpression [42-44] [t2]
+                Identifier(t2) [42-44] [t2]
+        LockMode [45-55] [for update]
+--
+SELECT
+  a
+FROM
+  t1
+UNION ALL(
+SELECT
+  a
+FROM
+  t2
+FOR UPDATE)
+==
+
+# Set operation with FOR UPDATE binding to output of the operation.
+select a from t1 union all select a from t2 for update;
+--
+QueryStatement [0-54] [select a from...for update]
+  Query [0-54] [select a from...for update]
+    SetOperation(UNION ALL) [0-43] [select a from...a from t2]
+      SetOperationMetadataList [17-26] [union all]
+        SetOperationMetadata [17-26] [union all]
+          SetOperationType [17-22] [union]
+          SetOperationAllOrDistinct [23-26] [all]
+      Select [0-16] [select a from t1]
+        SelectList [7-8] [a]
+          SelectColumn [7-8] [a]
+            PathExpression [7-8] [a]
+              Identifier(a) [7-8] [a]
+        FromClause [9-16] [from t1]
+          TablePathExpression [14-16] [t1]
+            PathExpression [14-16] [t1]
+              Identifier(t1) [14-16] [t1]
+      Select [27-43] [select a from t2]
+        SelectList [34-35] [a]
+          SelectColumn [34-35] [a]
+            PathExpression [34-35] [a]
+              Identifier(a) [34-35] [a]
+        FromClause [36-43] [from t2]
+          TablePathExpression [41-43] [t2]
+            PathExpression [41-43] [t2]
+              Identifier(t2) [41-43] [t2]
+    LockMode [44-54] [for update]
+--
+SELECT
+  a
+FROM
+  t1
+UNION ALL
+SELECT
+  a
+FROM
+  t2
+FOR UPDATE
+==
+
+# Equivalent to previous query but with explicit paranthesis.
+(select a from t1 union all select a from t2) for update;
+--
+QueryStatement [0-56] [(select a...for update]
+  Query [0-56] [(select a...for update]
+    Query [1-44] [select a from...a from t2]
+      SetOperation(UNION ALL) [1-44] [select a from...a from t2]
+        SetOperationMetadataList [18-27] [union all]
+          SetOperationMetadata [18-27] [union all]
+            SetOperationType [18-23] [union]
+            SetOperationAllOrDistinct [24-27] [all]
+        Select [1-17] [select a from t1]
+          SelectList [8-9] [a]
+            SelectColumn [8-9] [a]
+              PathExpression [8-9] [a]
+                Identifier(a) [8-9] [a]
+          FromClause [10-17] [from t1]
+            TablePathExpression [15-17] [t1]
+              PathExpression [15-17] [t1]
+                Identifier(t1) [15-17] [t1]
+        Select [28-44] [select a from t2]
+          SelectList [35-36] [a]
+            SelectColumn [35-36] [a]
+              PathExpression [35-36] [a]
+                Identifier(a) [35-36] [a]
+          FromClause [37-44] [from t2]
+            TablePathExpression [42-44] [t2]
+              PathExpression [42-44] [t2]
+                Identifier(t2) [42-44] [t2]
+    LockMode [46-56] [for update]
+--
+(
+SELECT
+  a
+FROM
+  t1
+UNION ALL
+SELECT
+  a
+FROM
+  t2
+)
+FOR UPDATE
+==
+
+# Invalid syntax where FOR UPDATE is not scoped.
+select a from t1 for update union all select a from t2;
+--
+ERROR: Syntax error: Expected end of input but got keyword UNION [at 1:29]
+select a from t1 for update union all select a from t2;
+                            ^
+==

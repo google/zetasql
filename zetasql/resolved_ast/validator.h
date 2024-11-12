@@ -32,6 +32,7 @@
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
 #include "zetasql/resolved_ast/resolved_column.h"
+#include "zetasql/base/case.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
@@ -83,6 +84,12 @@ class Validator {
   absl::Status ValidateResolvedStatementInternal(
       const ResolvedStatement* statement);
   absl::Status ValidateResolvedQueryStmt(const ResolvedQueryStmt* query);
+  absl::Status ValidateResolvedGeneralizedQueryStmt(
+      const ResolvedGeneralizedQueryStmt* query);
+  absl::Status ValidateResolvedGeneralizedQuerySubpipeline(
+      const ResolvedGeneralizedQuerySubpipeline* subpipeline,
+      const ResolvedScan* input_scan,
+      const std::set<ResolvedColumn>& visible_parameters);
   absl::Status ValidateResolvedCreateDatabaseStmt(
       const ResolvedCreateDatabaseStmt* stmt);
   absl::Status ValidateResolvedIndexStmt(const ResolvedCreateIndexStmt* stmt);
@@ -131,7 +138,8 @@ class Validator {
       const ResolvedAlterEntityStmt* stmt);
   absl::Status ValidateResolvedCloneDataStmt(const ResolvedCloneDataStmt* stmt);
   absl::Status ValidateResolvedExportDataStmt(
-      const ResolvedExportDataStmt* stmt);
+      const ResolvedExportDataStmt* stmt,
+      const ResolvedScan* pipe_input_scan = nullptr);
   absl::Status ValidateResolvedExportModelStmt(
       const ResolvedExportModelStmt* stmt);
   absl::Status ValidateResolvedExportMetadataStmt(
@@ -321,6 +329,10 @@ class Validator {
   absl::Status ValidateResolvedReturningClause(
       const ResolvedReturningClause* returning,
       std::set<ResolvedColumn>& visible_columns);
+
+  absl::Status ValidateResolvedOnConflictClause(
+      const ResolvedOnConflictClause* on_conflict_clause,
+      const std::set<ResolvedColumn>& visible_columns);
 
   absl::Status ValidateOrderByAndLimitClausesOfAggregateFunctionCall(
       const std::set<ResolvedColumn>& input_scan_visible_columns,
@@ -583,6 +595,16 @@ class Validator {
       const std::set<ResolvedColumn>& input_visible_columns,
       const std::set<ResolvedColumn>& visible_parameters);
 
+  absl::Status ValidateResolvedWindowPartitioning(
+      const ResolvedWindowPartitioning* partition_by,
+      const std::set<ResolvedColumn>& visible_columns,
+      const std::set<ResolvedColumn>& visible_parameters);
+
+  absl::Status ValidateResolvedWindowOrdering(
+      const ResolvedWindowOrdering* order_by,
+      const std::set<ResolvedColumn>& visible_columns,
+      const std::set<ResolvedColumn>& visible_parameters);
+
   absl::Status ValidateResolvedWindowFrame(
       const std::set<ResolvedColumn>& visible_columns,
       const std::set<ResolvedColumn>& visible_parameters,
@@ -620,6 +642,24 @@ class Validator {
       const ResolvedRecursionDepthModifier* modifier,
       const ResolvedColumnList& recursion_column_list);
 
+  absl::Status ValidateResolvedMatchRecognizeScan(
+      const ResolvedMatchRecognizeScan* scan,
+      const std::set<ResolvedColumn>& visible_parameters);
+
+  absl::Status ValidateMatchRecognizeVariableName(absl::string_view name);
+
+  absl::Status ValidateResolvedMatchRecognizePatternExpr(
+      const ResolvedMatchRecognizePatternExpr* pattern,
+      const absl::flat_hash_set<absl::string_view>& available_variable_names);
+
+  absl::Status ValidateResolvedMatchRecognizePatternOperation(
+      const ResolvedMatchRecognizePatternOperation* operation,
+      const absl::flat_hash_set<absl::string_view>& available_variable_names);
+
+  absl::Status ValidateResolvedMatchRecognizePatternQuantification(
+      const ResolvedMatchRecognizePatternQuantification* quantification,
+      const absl::flat_hash_set<absl::string_view>& available_variable_names);
+
   absl::Status ValidateResolvedPivotScan(
       const ResolvedPivotScan* scan,
       const std::set<ResolvedColumn>& visible_parameters);
@@ -634,6 +674,31 @@ class Validator {
 
   absl::Status ValidateResolvedAssertScan(
       const ResolvedAssertScan* scan,
+      const std::set<ResolvedColumn>& visible_parameters);
+
+  absl::Status ValidateResolvedLogScan(
+      const ResolvedLogScan* scan,
+      const std::set<ResolvedColumn>& visible_parameters);
+
+  absl::Status ValidateResolvedPipeIfScan(
+      const ResolvedPipeIfScan* scan,
+      const std::set<ResolvedColumn>& visible_parameters);
+
+  absl::Status ValidateResolvedPipeForkScan(
+      const ResolvedPipeForkScan* scan,
+      const std::set<ResolvedColumn>& visible_parameters);
+
+  absl::Status ValidateResolvedPipeExportDataScan(
+      const ResolvedPipeExportDataScan* scan,
+      const std::set<ResolvedColumn>& visible_parameters);
+
+  absl::Status ValidateResolvedSubpipeline(
+      const ResolvedSubpipeline* subpipeline,
+      absl::Span<const ResolvedColumn> visible_columns, bool input_is_ordered,
+      const std::set<ResolvedColumn>& visible_parameters);
+
+  absl::Status ValidateResolvedSubpipelineInputScan(
+      const ResolvedSubpipelineInputScan* scan,
       const std::set<ResolvedColumn>& visible_parameters);
 
   absl::Status ValidateResolvedWithPartitionColumns(
@@ -660,6 +725,143 @@ class Validator {
 
   absl::Status ValidateResolvedAuxLoadDataStmt(
       const ResolvedAuxLoadDataStmt* stmt);
+  // Start of Graph related validations.
+  // Note that all names are treated as case-insensitive within graph queries.
+
+  absl::Status ValidateResolvedCreatePropertyGraphStmt(
+      const ResolvedCreatePropertyGraphStmt* stmt);
+
+  // REQUIRES: The underlying string_views for 'node_table_scan_map',
+  // 'all_label_name_set' and 'all_property_name_set' must be valid for the
+  // lifetime of the call. Similar for the remaining functions below.
+  absl::Status ValidateResolvedGraphElementTable(
+      const ResolvedGraphElementTable* element_table,
+      const absl::flat_hash_map<absl::string_view, const ResolvedScan*,
+                                zetasql_base::StringViewCaseHash,
+                                zetasql_base::StringViewCaseEqual>&
+          node_table_scan_map,
+      const absl::flat_hash_set<
+          absl::string_view, zetasql_base::StringViewCaseHash,
+          zetasql_base::StringViewCaseEqual>& all_label_name_set,
+      const absl::flat_hash_set<
+          absl::string_view, zetasql_base::StringViewCaseHash,
+          zetasql_base::StringViewCaseEqual>& all_property_name_set);
+
+  absl::Status ValidateResolvedGraphNodeTableReference(
+      const ResolvedGraphNodeTableReference* node_reference,
+      const std::set<ResolvedColumn>& edge_visible_columns,
+      const absl::flat_hash_map<absl::string_view, const ResolvedScan*,
+                                zetasql_base::StringViewCaseHash,
+                                zetasql_base::StringViewCaseEqual>&
+          node_table_scan_map);
+
+  absl::Status ValidateResolvedGraphElementLabel(
+      const ResolvedGraphElementLabel* label,
+      const absl::flat_hash_set<
+          absl::string_view, zetasql_base::StringViewCaseHash,
+          zetasql_base::StringViewCaseEqual>& property_dcl_name_set);
+
+  absl::Status ValidateResolvedGraphPropertyDefinition(
+      const ResolvedGraphPropertyDefinition* property_definition,
+      const std::set<ResolvedColumn>& visible_columns,
+      const absl::flat_hash_set<
+          absl::string_view, zetasql_base::StringViewCaseHash,
+          zetasql_base::StringViewCaseEqual>& all_property_name_set);
+
+  absl::Status ValidateResolvedGraphTableScan(
+      const ResolvedGraphTableScan* scan,
+      const std::set<ResolvedColumn>& visible_parameters);
+
+  absl::Status ValidateResolvedGraphElementScan(
+      const ResolvedGraphElementScan* scan,
+      const std::set<ResolvedColumn>& visible_parameters);
+
+  absl::Status ValidateResolvedGraphNodeScan(
+      const ResolvedGraphNodeScan* scan,
+      const std::set<ResolvedColumn>& visible_parameters);
+
+  absl::Status ValidateResolvedGraphEdgeScan(
+      const ResolvedGraphEdgeScan* scan,
+      const std::set<ResolvedColumn>& visible_parameters);
+
+  absl::Status ValidateResolvedGraphPathScan(
+      const ResolvedGraphPathScan* scan,
+      const std::set<ResolvedColumn>& visible_parameters);
+
+  absl::Status ValidateResolvedGraphScan(
+      const ResolvedGraphScan* scan,
+      const std::set<ResolvedColumn>& visible_parameters);
+
+  absl::Status ValidateResolvedGraphLinearScan(
+      const ResolvedGraphLinearScan* scan,
+      const std::set<ResolvedColumn>& visible_parameters);
+
+  absl::Status ValidateGraphReturnOperator(const ResolvedScan* scan);
+
+  absl::Status ValidateTopLevelGraphLinearScanStructure(
+      const ResolvedGraphLinearScan* scan);
+
+  absl::Status ValidateInnerGraphLinearScanStructure(
+      const ResolvedGraphLinearScan* scan);
+
+  absl::Status ValidateGraphSetOperationScanStructure(
+      const ResolvedSetOperationScan* scan);
+
+  absl::Status ValidateResolvedGraphRefScan(
+      const ResolvedGraphRefScan* scan,
+      const std::set<ResolvedColumn>& visible_parameters);
+
+  absl::Status ValidateResolvedGraphGetElementProperty(
+      const std::set<ResolvedColumn>& visible_columns,
+      const std::set<ResolvedColumn>& visible_parameters,
+      const ResolvedGraphGetElementProperty* get_element_prop_expr);
+
+  absl::Status ValidateResolvedGraphPathPatternQuantifier(
+      const ResolvedGraphPathPatternQuantifier* quantifier,
+      const std::set<ResolvedColumn>& visible_parameters);
+
+  absl::Status ValidateResolvedGraphPathSearchPrefix(
+      const ResolvedGraphPathSearchPrefix* search_prefix);
+
+  absl::Status ValidateResolvedGraphLabelExpr(
+      const ResolvedGraphLabelExpr* expr);
+
+  absl::Status ValidateResolvedGraphLabel(const ResolvedGraphLabel* expr);
+
+  absl::Status ValidateResolvedGraphWildCardLabel(
+      const ResolvedGraphWildCardLabel* expr);
+
+  absl::Status ValidateResolvedGraphLabelNaryExpr(
+      const ResolvedGraphLabelNaryExpr* expr);
+
+  absl::Status ValidateResolvedGraphElementIdentifier(
+      const std::set<ResolvedColumn>& visible_columns,
+      const std::set<ResolvedColumn>& visible_parameters,
+      const ResolvedGraphElementIdentifier* argument, bool is_edge);
+
+  absl::Status ValidateResolvedGraphElementProperty(
+      const std::set<ResolvedColumn>& visible_columns,
+      const std::set<ResolvedColumn>& visible_parameters,
+      const ResolvedGraphElementProperty* argument);
+
+  absl::Status ValidateResolvedGraphMakeElement(
+      const std::set<ResolvedColumn>& visible_columns,
+      const std::set<ResolvedColumn>& visible_parameters,
+      const ResolvedGraphMakeElement* make_graph_element);
+
+  absl::Status ValidateResolvedArrayAggregate(
+      const std::set<ResolvedColumn>& visible_columns,
+      const std::set<ResolvedColumn>& visible_parameters,
+      const ResolvedArrayAggregate* array_aggregate);
+
+  absl::Status ValidateResolvedGraphIsLabeledPredicate(
+      const std::set<ResolvedColumn>& visible_columns,
+      const std::set<ResolvedColumn>& visible_parameters,
+      const ResolvedGraphIsLabeledPredicate* predicate);
+
+  absl::Status ValidateGraphPathMode(const ResolvedGraphPathMode* path_mode);
+
+  // End of Graph related validations.
 
   absl::Status ValidateResolvedBarrierScan(
       const ResolvedBarrierScan* scan,
@@ -818,10 +1020,28 @@ class Validator {
 
   const LanguageOptions language_options_;
 
+  // True if we are validating a ResolvedGeneralizedQueryStmt.
+  bool in_generalized_query_stmt_ = false;
+
   // A stack of ResolvedRecursiveScans we are currently inside the recursive
   // term of. Used to ensure that each ResolvedRecursiveRefScan matches up
   // with a ResolvedRecursiveScan.
   std::vector<RecursiveScanInfo> nested_recursive_scans_;
+
+  // State used while validating a ResolvedSubpipeline.
+  struct SubpipelineInfo {
+    explicit SubpipelineInfo(absl::Span<const ResolvedColumn> input_column_list,
+                             bool input_is_ordered)
+        : column_list(input_column_list.begin(), input_column_list.end()),
+          is_ordered(input_is_ordered) {}
+
+    ResolvedColumnList column_list;
+    bool is_ordered;
+    bool saw_subpipeline_input_scan = false;
+  };
+
+  // Stack of subpipelines being validated.
+  std::vector<SubpipelineInfo> subpipeline_info_stack_;
 
   // Pre-aggregation columns, reflecting the columns available from the related
   // FROM clause. Captured by WITH GROUP ROWS expression, to be used by
@@ -848,6 +1068,13 @@ class Validator {
   //
   // If no validation error has yet occurred, this value is nullptr.
   const ResolvedNode* error_context_ = nullptr;
+
+  // A stack set by the current GraphLinearScan(s) under validation to track
+  // their current scan that can be referenced by its child scan as input scan.
+  // The stack size increases whenever there is a new level of nested graph
+  // linear scan.
+  std::vector<const ResolvedScan*>
+      current_input_scan_in_graph_linear_scan_stack_;
 };
 
 }  // namespace zetasql

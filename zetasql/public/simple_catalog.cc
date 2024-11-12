@@ -36,9 +36,11 @@
 #include "zetasql/public/constant.h"
 #include "zetasql/public/evaluator_table_iterator.h"
 #include "zetasql/public/procedure.h"
+#include "zetasql/public/property_graph.h"
 #include "zetasql/public/simple_connection.pb.h"
 #include "zetasql/public/simple_constant.pb.h"
 #include "zetasql/public/simple_model.pb.h"
+#include "zetasql/public/simple_property_graph.h"
 #include "zetasql/public/simple_table.pb.h"
 #include "zetasql/public/sql_view.h"
 #include "zetasql/public/strings.h"
@@ -175,6 +177,15 @@ absl::Status SimpleCatalog::GetConstant(const std::string& name,
                                         const FindOptions& options) {
   absl::ReaderMutexLock l(&mutex_);
   *constant = zetasql_base::FindPtrOrNull(constants_, absl::AsciiStrToLower(name));
+  return absl::OkStatus();
+}
+
+absl::Status SimpleCatalog::GetPropertyGraph(
+    absl::string_view name, const PropertyGraph*& property_graph,
+    const FindOptions& options) {
+  absl::ReaderMutexLock l(&mutex_);
+  property_graph =
+      zetasql_base::FindPtrOrNull(property_graphs_, absl::AsciiStrToLower(name));
   return absl::OkStatus();
 }
 
@@ -324,6 +335,60 @@ std::string SimpleCatalog::SuggestConstant(
   return "";
 }
 
+std::string SimpleCatalog::SuggestPropertyGraph(
+    absl::Span<const std::string> mistyped_path) {
+  if (mistyped_path.empty()) {
+    // Nothing to suggest here.
+    return "";
+  }
+
+  const std::string& name = mistyped_path.front();
+  if (mistyped_path.length() > 1) {
+    Catalog* catalog = nullptr;
+    if (GetCatalog(name, &catalog).ok() && catalog != nullptr) {
+      absl::Span<const std::string> mistyped_path_suffix =
+          mistyped_path.subspan(1, mistyped_path.length());
+      const std::string closest_name =
+          catalog->SuggestPropertyGraph(mistyped_path_suffix);
+      if (!closest_name.empty()) {
+        return absl::StrCat(catalog->FullName(), ".", closest_name);
+      }
+    }
+    return "";
+  }
+  const FindOptions& find_options = FindOptions();
+  const PropertyGraph* property_graph = nullptr;
+  if (FindPropertyGraph({name}, property_graph, find_options).ok()) {
+    return property_graph->Name();
+  }
+
+  std::vector<Catalog*> sub_catalogs = catalogs();
+  std::string closest_name;
+  for (auto sub_catalog : sub_catalogs) {
+    if ((sub_catalog->FindPropertyGraph({name}, property_graph, find_options)
+             .ok())) {
+      const std::string result =
+          absl::StrCat(sub_catalog->FullName(), ".", property_graph->Name());
+      // We choose the name which occurs lexicographically first to keep the
+      // result deterministic and independent of the order of sub-catalogs.
+      if (closest_name.empty() || closest_name.compare(result) > 0) {
+        closest_name = result;
+      }
+    }
+  }
+  if (!closest_name.empty()) {
+    return closest_name;
+  }
+  closest_name =
+      ClosestName(absl::AsciiStrToLower(name), property_graph_names());
+  if (!closest_name.empty() &&
+      FindPropertyGraph({closest_name}, property_graph).ok()) {
+    return property_graph->Name();
+  }
+
+  // No suggestion obtained.
+  return "";
+}
 void SimpleCatalog::AddTable(absl::string_view name, const Table* table) {
   absl::MutexLock l(&mutex_);
   const std::string canonical_name = absl::AsciiStrToLower(name);
@@ -405,6 +470,19 @@ void SimpleCatalog::AddConstant(absl::string_view name,
 void SimpleCatalog::AddConstantLocked(absl::string_view name,
                                       const Constant* constant) {
   zetasql_base::InsertOrDie(&constants_, absl::AsciiStrToLower(name), constant);
+}
+
+void SimpleCatalog::AddPropertyGraph(absl::string_view name,
+                                     const PropertyGraph* property_graph) {
+  absl::MutexLock l(&mutex_);
+  AddPropertyGraphLocked(name, property_graph);
+}
+
+void SimpleCatalog::AddPropertyGraphLocked(
+    absl::string_view name, const PropertyGraph* property_graph) {
+  const std::string canonical_name = absl::AsciiStrToLower(name);
+  zetasql_base::InsertOrDie(&global_names_, canonical_name);
+  zetasql_base::InsertOrDie(&property_graphs_, canonical_name, property_graph);
 }
 
 void SimpleCatalog::AddOwnedTable(absl::string_view name,
@@ -523,6 +601,18 @@ void SimpleCatalog::AddOwnedConstant(const std::string& name,
 void SimpleCatalog::AddOwnedConstant(const std::string& name,
                                      const Constant* constant) {
   AddOwnedConstant(name, absl::WrapUnique(constant));
+}
+
+void SimpleCatalog::AddPropertyGraph(const PropertyGraph* property_graph) {
+  AddPropertyGraph(property_graph->Name(), property_graph);
+}
+
+void SimpleCatalog::AddOwnedPropertyGraph(
+    absl::string_view name,
+    std::unique_ptr<const PropertyGraph> property_graph) {
+  absl::MutexLock l(&mutex_);
+  AddPropertyGraphLocked(name, property_graph.get());
+  owned_property_graphs_.push_back(std::move(property_graph));
 }
 
 void SimpleCatalog::AddTable(const Table* table) {
@@ -748,6 +838,28 @@ bool SimpleCatalog::AddOwnedConnectionIfNotPresent(
   return true;
 }
 
+void SimpleCatalog::AddOwnedPropertyGraph(
+    std::unique_ptr<const PropertyGraph> property_graph) {
+  absl::MutexLock l(&mutex_);
+  AddPropertyGraphLocked(property_graph->Name(), property_graph.get());
+  owned_property_graphs_.push_back(std::move(property_graph));
+}
+
+bool SimpleCatalog::AddOwnedPropertyGraphIfNotPresent(
+    absl::string_view name,
+    std::unique_ptr<const PropertyGraph> property_graph) {
+  const std::string canonical_name = absl::AsciiStrToLower(name);
+  absl::MutexLock l(&mutex_);
+
+  if (!zetasql_base::InsertIfNotPresent(&global_names_, canonical_name) ||
+      !zetasql_base::InsertIfNotPresent(&property_graphs_, canonical_name,
+                               property_graph.get())) {
+    return false;
+  }
+  owned_property_graphs_.push_back(std::move(property_graph));
+  return true;
+}
+
 SimpleCatalog* SimpleCatalog::MakeOwnedSimpleCatalog(absl::string_view name) {
   SimpleCatalog* new_catalog = new SimpleCatalog(name, type_factory());
   AddOwnedCatalog(new_catalog);
@@ -795,7 +907,11 @@ void SimpleCatalog::AddZetaSQLFunctions(
                 .second);
       }
     }
-    catalog->AddFunctionLocked(path.back(), function);
+    if (catalog == this) {
+      AddFunctionLocked(path.back(), function);
+    } else {
+      catalog->AddFunction(path.back(), function);
+    }
   }
 }
 
@@ -1108,6 +1224,18 @@ absl::Status SimpleCatalog::DeserializeImpl(
         type_deserializer
             .descriptor_pools()[proto.file_descriptor_set_index()]);
   }
+  for (const SimplePropertyGraphProto& property_graph_proto :
+       proto.property_graph()) {
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<SimplePropertyGraph> property_graph,
+                     SimplePropertyGraph::Deserialize(
+                         property_graph_proto, type_deserializer, catalog));
+    const std::string name = property_graph->Name();
+    if (!AddOwnedPropertyGraphIfNotPresent(name, std::move(property_graph))) {
+      return ::zetasql_base::InvalidArgumentErrorBuilder()
+             << "Duplicate property graph '" << name
+             << "' in serialized catalog";
+    }
+  }
 
   return absl::OkStatus();
 }
@@ -1145,14 +1273,11 @@ absl::StatusOr<std::unique_ptr<SimpleCatalog>> SimpleCatalog::Deserialize(
 }
 
 absl::Status SimpleCatalog::Serialize(
-    FileDescriptorSetMap* file_descriptor_set_map,
-    SimpleCatalogProto* proto,
-    bool ignore_builtin,
-    bool ignore_recursive) const {
+    FileDescriptorSetMap* file_descriptor_set_map, SimpleCatalogProto* proto,
+    bool ignore_builtin, bool ignore_recursive) const {
   absl::flat_hash_set<const Catalog*> seen;
-  return SerializeImpl(
-      &seen, file_descriptor_set_map, proto,
-      ignore_builtin, ignore_recursive);
+  return SerializeImpl(&seen, file_descriptor_set_map, proto, ignore_builtin,
+                       ignore_recursive);
 }
 
 absl::Status SimpleCatalog::SerializeImpl(
@@ -1272,8 +1397,8 @@ absl::Status SimpleCatalog::SerializeImpl(
              << "Cannot serialize non-SimpleCatalog " << catalog_name;
     }
     const SimpleCatalog* const simple_catalog = catalog->GetAs<SimpleCatalog>();
-    ZETASQL_RETURN_IF_ERROR(simple_catalog->Serialize(file_descriptor_set_map,
-                                              proto->add_catalog()));
+    ZETASQL_RETURN_IF_ERROR(simple_catalog->Serialize(
+        file_descriptor_set_map, proto->add_catalog(), ignore_builtin));
   }
 
   for (const auto& entry : constants) {
@@ -1313,6 +1438,20 @@ absl::Status SimpleCatalog::SerializeImpl(
         simple_model->Serialize(file_descriptor_set_map, proto->add_model()));
   }
 
+  const absl::flat_hash_map<std::string, const PropertyGraph*> property_graphs(
+      property_graphs_.begin(), property_graphs_.end());
+  for (const auto& entry : property_graphs) {
+    std::string_view graph_name = entry.first;
+    const PropertyGraph* const property_graph = entry.second;
+    if (!property_graph->Is<SimplePropertyGraph>()) {
+      return ::zetasql_base::UnknownErrorBuilder()
+             << "Cannot serialize non-SimplePropertyGraph " << graph_name;
+    }
+    const SimplePropertyGraph* const simple_property_graph =
+        property_graph->GetAs<SimplePropertyGraph>();
+    ZETASQL_RETURN_IF_ERROR(simple_property_graph->Serialize(
+        file_descriptor_set_map, proto->add_property_graph()));
+  }
   return absl::OkStatus();
 }
 
@@ -1483,6 +1622,20 @@ std::vector<const Connection*> SimpleCatalog::connections() const {
   return connections;
 }
 
+std::vector<std::string> SimpleCatalog::property_graph_names() const {
+  absl::MutexLock l(&mutex_);
+  std::vector<std::string> property_graph_names;
+  zetasql_base::AppendKeysFromMap(property_graphs_, &property_graph_names);
+  return property_graph_names;
+}
+
+std::vector<const PropertyGraph*> SimpleCatalog::property_graphs() const {
+  absl::MutexLock l(&mutex_);
+  std::vector<const PropertyGraph*> property_graphs;
+  zetasql_base::AppendValuesFromMap(property_graphs_, &property_graphs);
+  return property_graphs;
+}
+
 SimpleTable::SimpleTable(absl::string_view name,
                          absl::Span<const NameAndType> columns,
                          const int64_t serialization_id)
@@ -1565,12 +1718,27 @@ absl::Status SimpleTable::AddColumn(const Column* column, bool is_owned) {
 
 absl::Status SimpleTable::SetPrimaryKey(std::vector<int> primary_key) {
   for (int column_index : primary_key) {
-    if (column_index >= NumColumns()) {
+    if (column_index < 0 || column_index >= NumColumns()) {
       return ::zetasql_base::InvalidArgumentErrorBuilder()
              << "Invalid column index " << column_index << "in primary key";
     }
   }
   primary_key_.emplace(primary_key);
+  return absl::OkStatus();
+}
+
+absl::Status SimpleTable::SetRowIdentityColumns(std::vector<int> row_identity) {
+  if (row_identity.empty()) {
+    return ::zetasql_base::InvalidArgumentErrorBuilder()
+           << "Row identity must not be empty";
+  }
+  for (int column_index : row_identity) {
+    if (column_index < 0 || column_index >= NumColumns()) {
+      return ::zetasql_base::InvalidArgumentErrorBuilder()
+             << "Invalid column index " << column_index << "in row identity";
+    }
+  }
+  row_identity_.emplace(row_identity);
   return absl::OkStatus();
 }
 
@@ -1673,6 +1841,11 @@ absl::Status SimpleTable::Serialize(
       proto->add_primary_key_column_index(column_index);
     }
   }
+  if (row_identity_.has_value()) {
+    for (int column_index : row_identity_.value()) {
+      proto->add_row_identity_column_index(column_index);
+    }
+  }
   if (allow_anonymous_column_name_) {
     proto->set_allow_anonymous_column_name(true);
   }
@@ -1712,6 +1885,13 @@ absl::StatusOr<std::unique_ptr<SimpleTable>> SimpleTable::Deserialize(
     }
     ZETASQL_RETURN_IF_ERROR(table->SetPrimaryKey(primary_key));
   }
+  if (proto.row_identity_column_index_size() > 0) {
+    std::vector<int> row_identity;
+    for (int column_index : proto.row_identity_column_index()) {
+      row_identity.push_back(column_index);
+    }
+    ZETASQL_RETURN_IF_ERROR(table->SetRowIdentityColumns(row_identity));
+  }
 
   if (proto.has_anonymization_info()) {
     ZETASQL_RET_CHECK(!proto.anonymization_info().userid_column_name().empty());
@@ -1738,9 +1918,6 @@ SimpleColumn::SimpleColumn(absl::string_view table_name, absl::string_view name,
       full_name_(absl::StrCat(table_name, ".", name)),
       annotated_type_(annotated_type),
       attributes_(attributes) {}
-
-SimpleColumn::~SimpleColumn() {
-}
 
 absl::Status SimpleColumn::Serialize(
     FileDescriptorSetMap* file_descriptor_set_map,

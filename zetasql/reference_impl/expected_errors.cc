@@ -97,6 +97,9 @@ std::unique_ptr<MatcherCollection<absl::Status>> ReferenceExpectedErrorMatcher(
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
       absl::StatusCode::kInvalidArgument,
       "Type not found: `zetasql.functions."));
+  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "Type not found: UNSUPPORTED_FIELDS"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kInvalidArgument,
       ".*(Unrecognized name|Function not found): "
@@ -164,6 +167,11 @@ std::unique_ptr<MatcherCollection<absl::Status>> ReferenceExpectedErrorMatcher(
   // failed assertions to test the ASSERT logic.
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange, "Assert failed:"));
+
+  // WITH on subquery does not work with DML statement yet.
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kUnimplemented,
+      "WITH clauses under subquery in DML statement is not supported yet."));
 
   return std::make_unique<MatcherCollection<absl::Status>>(
       matcher_name, std::move(error_matchers));

@@ -23,6 +23,7 @@
 #include <limits>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -84,6 +85,10 @@ enum class SelectForm {
   kPipeAggregate,
   // An ASTSelect representing a pipe WINDOW operator.
   kPipeWindow,
+  // An ASTSelect representing the graph query RETURN operator.
+  kGqlReturn,
+  // An ASTSelect representing the graph query WITH operator.
+  kGqlWith,
 };
 
 struct GroupingSetInfo {
@@ -253,122 +258,6 @@ struct GroupByColumnState {
   }
 };
 
-// Stores (and mutates) information needed to resolve multi-level aggregate
-// expressions.
-//
-// A Multi-level aggregate function (i.e. an aggregate function with one or more
-// GROUP BY modifiers) is resolved in 2 passes. 2-pass resolution is required to
-// determine if column references in scalar expression arguments are valid to
-// access. For instance, consider this expression:
-//
-//   SUM(k2 + v2 + ANY_VALUE(k1 + MIN(v1) GROUP BY k1) GROUP BY k2)
-//
-// 'k1' is valid to access within the ANY_VALUE function since it is a grouping
-// key for the 'k1 + MIN(v1)' expression. 'k2' is valid to access within the
-// SUM function since it is a grouping key for the 'k2 + v2' expression.
-// But 'v2' is not valid to access within the SUM function since it is not a
-// grouping key within the 'k2 + v2 + ANY_VALUE(...)' expression.
-//
-// The 1st pass resolves the arguments to the aggregate function. This pass also
-// computes grouping key information and stores it in `MultiLevelAggregateInfo`.
-// The 2nd pass uses the computed grouping keys to creates a namescope which
-// marks non-grouping key columns as target access errors, and re-resolves the
-// arguments against this new namescope.
-class MultiLevelAggregateInfo {
- public:
-  MultiLevelAggregateInfo() = default;
-  MultiLevelAggregateInfo(const MultiLevelAggregateInfo&) = delete;
-  MultiLevelAggregateInfo& operator=(const MultiLevelAggregateInfo&) = delete;
-
-  // Add an aggregate function to `MultiLevelAggregateInfo`, along with its
-  // enclosing aggregate function (nullptr if no enclosing aggregate function).
-  absl::Status AddAggregateFunction(
-      const ASTFunctionCall* aggregate_function,
-      const ASTFunctionCall* enclosing_aggregate_function);
-
- private:
-  // Populate `aggregate_function_argument_grouping_keys_map_` with grouping
-  // items in the GROUP BY modifier of the `aggregate_function`, as well as all
-  // enclosing aggregate functions.
-  absl::Status AddAllGroupingItems(const ASTFunctionCall* aggregate_function);
-
-  // Return the enclosing aggregate function of the given aggregate function,
-  // or nullptr if there is no enclosing aggregate function.
-  const ASTFunctionCall* GetEnclosingAggregateFunction(
-      const ASTFunctionCall* aggregate_function) const;
-
-  // Populate `aggregate_function_argument_grouping_keys_map_` with grouping
-  // items from all enclosing aggregate functions. Since resolution order will
-  // have fully populated all the grouping items for the immediate enclosing
-  // aggregate function, we can just copy the grouping items from the enclosing
-  // aggregate function in the map.
-  absl::Status AddGroupingItemsFromAllEnclosingAggregateFunctions(
-      const ASTFunctionCall* aggregate_function);
-
-  // Maps an aggregate function in a multi-level aggregate expression to
-  // aggregate functions nested within it.
-  //
-  // For example, given the expression:
-  //
-  //   SUM(ANY_VALUE(MIN(value1) GROUP BY key3) + MAX(value2) GROUP BY key2)
-  //
-  // - SUM would be mapped to ANY_VALUE and MAX aggregate functions
-  // - ANY_VALUE would be mapped to MIN
-  // - MIN and MAX would not be present in the map
-  // TODO: The use `flat_hash_set` results in a non-deterministic
-  // resolution order when multiple nested aggregate functions are present at
-  // the same level in multi-level aggregate expr (e.g. SUM(MAX(...)+MIN(...)))
-  // This breaks multi-level aggregation analyzer tests and should be fixed.
-  absl::flat_hash_map<const ASTFunctionCall*,
-                      absl::flat_hash_set<const ASTFunctionCall*>>
-      directly_nested_aggregate_functions_map_;
-
-  // Map an aggregate function in a multi-level aggregate expression to
-  // the grouping items that form the grouping key for **arguments to the**
-  // the aggregate function (not the grouping key for the aggregate function
-  // itself). Only maps aggregate functions that have a GROUP BY modifier.
-  //
-  // This information is used during the 2nd-pass resolution of an aggregate
-  // function with a GROUP BY modifier.
-  //
-  // For example, given this query:
-  //
-  //  SELECT
-  //    SUM(ANY_VALUE(MIN(value1) GROUP BY key3) + MAX(value2) GROUP BY key2)
-  //  FROM Table
-  //  GROUP BY key1
-  //
-  // - SUM would be mapped to key1, key2
-  // - ANY_VALUE would be mapped to key1, key2, key3
-  // - MIN and MAX would not be present in the map.
-  // TODO: The use `flat_hash_map` results in a non-deterministic
-  // resolution order when multiple (and/or nested) GROUP BY modifiers are
-  // present in the multi-level aggregate expr. This breaks multi-level
-  // aggregation analyzer tests and should be fixed.
-  absl::flat_hash_map<
-      const ASTFunctionCall*,
-      absl::flat_hash_map<const ASTGroupingItem*,
-                          std::unique_ptr<const ResolvedComputedColumnBase>>>
-      aggregate_function_argument_grouping_keys_map_;
-
-  // Stores ResolvedComputedColumns for aggregate functions nested within an
-  // outer aggregate function. These ResolvedComputedColumns are used when
-  // finishing resolution of the outer aggregate function.
-  //
-  // For example, given the expression:
-  //
-  //   SUM(ANY_VALUE(MIN(value1) GROUP BY key3) GROUP BY key2)
-  //
-  // MIN would have it's resolved expression (R1) stored in this map. When
-  // finishing resolution of ANY_VALUE, R1 will be moved out of this map and
-  // into the resolved expr for ANY_VALUE (R2), and R2 will be stored in this
-  // map. When finishing resolution of SUM, R2 will be moved out of this map
-  // and into the resolved expr for SUM (R3).
-  absl::flat_hash_map<const ASTFunctionCall*,
-                      std::unique_ptr<const ResolvedComputedColumnBase>>
-      resolved_nested_aggregate_functions_map_;
-};
-
 // QueryGroupByAndAggregateInfo is used (and mutated) to store info related
 // to grouping/distinct and aggregation analysis for a single SELECT query
 // block.
@@ -411,6 +300,15 @@ struct QueryGroupByAndAggregateInfo {
   // output column to be referenced in column lists.
   std::vector<std::unique_ptr<const ResolvedGroupingCall>> grouping_call_list;
 
+  // Aggregations to compute that are scoped by a MATCH_RECOGNIZE pattern
+  // variable. This is like `aggregate_columns_to_compute` but maintains the
+  // pattern variable representing the rows in the match over which these
+  // aggregations are computed.  Only applicable for aggregate functions in the
+  // MEASURE clause of a MATCH_RECOGNIZE clause.
+  IdStringHashMapCase<
+      std::vector<std::unique_ptr<const ResolvedComputedColumnBase>>>
+      match_recognize_aggregate_columns_to_compute;
+
   // Aggregate function calls that must be computed.
   // This is built up as expressions are resolved.  During expression
   // resolution, aggregate functions are moved into <aggregate_columns_> and
@@ -423,11 +321,6 @@ struct QueryGroupByAndAggregateInfo {
   // up when the aggregate scan is built.
   std::vector<std::unique_ptr<const ResolvedComputedColumn>>
       grouping_output_columns;
-
-  // TODO: Consider moving this to `ExprResolutionInfo`.
-  // Stores (and mutates) information needed to resolve multi-level aggregate
-  // expressions.
-  MultiLevelAggregateInfo multi_level_aggregate_info;
 
   // Stores information about STRUCT or PROTO fields that appear in the
   // GROUP BY.
@@ -665,6 +558,48 @@ struct PipeExtraSelectItem {
   const ResolvedColumn column;
 };
 
+// Tracks the detected scope of the input range variable while resolving an
+// AggregateFunctionCall. If a MATCH_RECOGNIZE pattern variable is detected,
+// e.g. when resolving A.x in MAX(A.x) where A is one of the defined variables,
+// the `target_pattern_variable_ref` will be set to indicate that the current
+// aggregation is ranging only over rows assigned to A in each match.
+// `row_range_determined` is set to true during query resolution when the
+// aggregate function resolves its *first* non-correlated column. This column
+// determines the range of rows the aggregate function operates over. If the
+// column is referenced from a pattern variable, then
+// `target_pattern_variable_ref` is updated with the pattern variable name and
+// the range of rows is determined by the given pattern variable. Else,
+// `target_pattern_variable_ref` is empty and the range of rows is all the input
+// rows to the aggregate function.
+
+// Once `row_range_determined` is set, the resolver requires that all remaining
+// non-correlated column references for the aggregate function match
+// `target_pattern_variable_ref`.
+//
+// If no uncorrelated, pre-grouping columns are referenced yet, and still no
+// pattern variable is detected, the state is still unknown and can change to
+// either upon detection.
+struct MatchRecognizeAggregationState {
+  // The MATCH_RECOGNIZE pattern variable ref indicating the rows this
+  // expression is ranging against, nullopt if it's not scoped to a pattern
+  // variable. For example, when resolving the measures in:
+  //   MEASURES avg(a.x - a.y) AS m1, avg(x - y) AS m2
+  //   .. DEFINE a AS ..
+  // * For m1, this field will indicate "a"
+  // * For m2, this field will be nullopt.
+  std::optional<IdString> target_pattern_variable_ref = std::nullopt;
+
+  // True if this expression references any uncorrelated, pre-grouping columns.
+  // When true, this means the expression already determined the range of rows
+  // it will operate over (all input rows if `target_pattern_variable_ref` is
+  // not set, or rows assigned to that variable if it is set).
+  //
+  // When false, it means the expression is only referencing correlated columns
+  // or grouping constants, and the choice for the range is still an open
+  // decision.
+  bool row_range_determined = false;
+};
+
 // QueryResolutionInfo is used (and mutated) to store info related to
 // the analysis of a single SELECT query block.  It stores information
 // related to SELECT list entries, grouping and aggregation, and analytic
@@ -675,19 +610,26 @@ struct PipeExtraSelectItem {
 class QueryResolutionInfo {
  public:
   // Constructor. Does not take ownership of <resolver>.
-  explicit QueryResolutionInfo(Resolver* resolver);
+  explicit QueryResolutionInfo(Resolver* resolver)
+      : QueryResolutionInfo(resolver, /*parent=*/nullptr) {}
+  // Constructor used when resolving nested aggregates within a multi-level
+  // aggregate function.
+  explicit QueryResolutionInfo(Resolver* resolver,
+                               const QueryResolutionInfo* parent);
+
   QueryResolutionInfo(const QueryResolutionInfo&) = delete;
   QueryResolutionInfo& operator=(const QueryResolutionInfo&) = delete;
   ~QueryResolutionInfo();
 
-  // Adds group by column <column>, which is computed from <expr>, and the
-  // pre-group-by format of <expr> from the select list. If a field path
-  // expression that is equivalent to <expr> is already present in the list of
-  // group by computed columns, the column is not added to the list. Returns an
-  // unowned pointer to the ResolvedComputedColumn for this expression.
+  // Adds group by column `column`, which is computed from `expr`, and the
+  // pre-group-by format of `expr` from the select list. If a field path
+  // expression that is equivalent to `expr` is already present in the list of
+  // group by computed columns AND `override_existing_column` is set to false,
+  // the column is not added to the list. Returns an unowned pointer to the
+  // ResolvedComputedColumn for this expression.
   const ResolvedComputedColumn* AddGroupByComputedColumnIfNeeded(
       const ResolvedColumn& column, std::unique_ptr<const ResolvedExpr> expr,
-      const ResolvedExpr* pre_group_by_expr);
+      const ResolvedExpr* pre_group_by_expr, bool override_existing_column);
 
   // Returns a pointer to an existing equivalent ResolvedComputedColumn in
   // group_by_columns_to_compute(), as determined by IsSameFieldPath(), or
@@ -726,6 +668,8 @@ class QueryResolutionInfo {
   // Adds <column> to <aggregate_columns_>. If <ast_function_call> is non-NULL
   // adds a map entry in <aggregate_expr_map_> from <ast_function_call> to
   // <column>.
+  // If the range is determined (to be either all rows or to a pattern variable)
+  // the computed column is added to the appropriate list.
   void AddAggregateComputedColumn(
       const ASTFunctionCall* ast_function_call,
       std::unique_ptr<const ResolvedComputedColumnBase> column);
@@ -826,17 +770,58 @@ class QueryResolutionInfo {
     return group_by_info_.grouping_call_list;
   }
 
+  // Counts all aggregate columns to compute, including scoped aggregate
+  // columns.
+  size_t num_aggregate_columns_to_compute_across_all_scopes() const {
+    size_t count = group_by_info_.aggregate_columns_to_compute.size();
+    for (const auto& [name, aggs] :
+         group_by_info_.match_recognize_aggregate_columns_to_compute) {
+      count += aggs.size();
+    }
+    return count;
+  }
+
   const std::vector<std::unique_ptr<const ResolvedComputedColumnBase>>&
-  aggregate_columns_to_compute() const {
+  unscoped_aggregate_columns_to_compute() const {
     return group_by_info_.aggregate_columns_to_compute;
   }
 
   // Transfer ownership of aggregate_columns_to_compute, clearing the
   // internal storage.
   std::vector<std::unique_ptr<const ResolvedComputedColumnBase>>
-  release_aggregate_columns_to_compute() {
+  release_unscoped_aggregate_columns_to_compute() {
     std::vector<std::unique_ptr<const ResolvedComputedColumnBase>> tmp;
     group_by_info_.aggregate_columns_to_compute.swap(tmp);
+    return tmp;
+  }
+
+  const std::vector<std::unique_ptr<const ResolvedComputedColumnBase>>&
+  aggregate_columns_to_compute() const {
+    ABSL_DCHECK(!scoped_aggregation_state_->target_pattern_variable_ref.has_value());
+    return unscoped_aggregate_columns_to_compute();
+  }
+
+  // Transfer ownership of aggregate_columns_to_compute, clearing the
+  // internal storage.
+  std::vector<std::unique_ptr<const ResolvedComputedColumnBase>>
+  release_aggregate_columns_to_compute() {
+    ABSL_DCHECK(!scoped_aggregation_state_->target_pattern_variable_ref.has_value());
+    return release_unscoped_aggregate_columns_to_compute();
+  }
+
+  const IdStringHashMapCase<
+      std::vector<std::unique_ptr<const ResolvedComputedColumnBase>>>&
+  scoped_aggregate_columns_to_compute() const {
+    return group_by_info_.match_recognize_aggregate_columns_to_compute;
+  }
+
+  IdStringHashMapCase<
+      std::vector<std::unique_ptr<const ResolvedComputedColumnBase>>>
+  release_scoped_aggregate_columns_to_compute() {
+    IdStringHashMapCase<
+        std::vector<std::unique_ptr<const ResolvedComputedColumnBase>>>
+        tmp;
+    group_by_info_.match_recognize_aggregate_columns_to_compute.swap(tmp);
     return tmp;
   }
 
@@ -891,10 +876,6 @@ class QueryResolutionInfo {
 
   SelectColumnStateList* select_column_state_list() {
     return select_column_state_list_.get();
-  }
-
-  MultiLevelAggregateInfo* multi_level_aggregate_info() {
-    return &group_by_info_.multi_level_aggregate_info;
   }
 
   // This is the list of extra items to prepend on the output column list and
@@ -984,6 +965,12 @@ class QueryResolutionInfo {
     return tmp;
   }
 
+  MatchRecognizeAggregationState* scoped_aggregation_state() {
+    return scoped_aggregation_state_.get();
+  }
+
+  bool is_nested_aggregation() const { return is_nested_aggregation_; }
+
   std::string DebugString() const;
 
   void set_has_group_by(bool has_group_by) {
@@ -1004,6 +991,8 @@ class QueryResolutionInfo {
   }
   bool IsPipeOp() const;  // True for any pipe operator.
 
+  bool IsGqlReturn() const { return select_form() == SelectForm::kGqlReturn; }
+  bool IsGqlWith() const { return select_form() == SelectForm::kGqlWith; }
   // Tests for conditions that depend on SelectForm.
   bool SelectFormAllowsSelectStar() const;
   bool SelectFormAllowsAggregation() const;
@@ -1173,6 +1162,20 @@ class QueryResolutionInfo {
   // WITH GROUP ROWS aggregate processing, as the GROUP_ROWS() TVF within the
   // GROUP ROWS subquery produces this NameList as its result.
   std::shared_ptr<const NameList> from_clause_name_list_ = nullptr;
+
+  // Tracks the current scope of the input range variables while resolving an
+  // aggregate expression. A single expression may create multiple child
+  // `ExprResolutionInfo` which are unable to share this global
+  // information, so we place it here instead.
+  // This is a shared_ptr because in multi-level aggregates, the child QRIs
+  // share the same ScopedAggregationState with the parent because they still
+  // must have the same input range, across all modifiers and nested aggs.
+  std::shared_ptr<MatchRecognizeAggregationState> scoped_aggregation_state_ =
+      std::make_shared<MatchRecognizeAggregationState>();
+
+  // Indicates that this QRI is used to resolve nested aggregations and
+  // modifiers in a multi-level aggregation.
+  bool is_nested_aggregation_ = false;
 };
 
 // A class for lazily identifying untyped literal expressions produced by
@@ -1207,12 +1210,12 @@ class UntypedLiteralMap {
 // See `ResolveDeferredFirstPassSelectListExprs` for details.
 struct DeferredResolutionSelectColumnInfo {
   // If true, the `ASTSelectColumn` contains a function with a GROUP ROWS
-  // expression or GROUP BY modifiers, and the function does not lie within an
-  // expression subquery.
+  // expression or GROUP BY modifiers, and the function does not lie within a
+  // subquery.
   bool has_outer_group_rows_or_group_by_modifiers = false;
   // If true, the `ASTSelectColumn` contains an analytic function (i.e. a
-  // function with an OVER clause), and the function does not lie within an
-  // expression subquery.
+  // function with an OVER clause), and the function does not lie within a
+  // subquery.
   bool has_outer_analytic_function = false;
 };
 

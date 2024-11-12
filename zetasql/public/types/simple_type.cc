@@ -41,6 +41,7 @@
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/strings.h"
+#include "zetasql/public/timestamp_pico_value.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/type_parameters.pb.h"
 #include "zetasql/public/types/internal_utils.h"
@@ -124,6 +125,7 @@ const std::map<absl::string_view, TypeNameInfo>& SimpleTypeNameInfoMap() {
       {"string", {TYPE_STRING}},
       {"date", {TYPE_DATE}},
       {"timestamp", {TYPE_TIMESTAMP}},
+      {"timestamp_picos", {TYPE_TIMESTAMP_PICOS}},
       {"time", {TYPE_TIME}},
       {"datetime", {TYPE_DATETIME}},
       {"interval", {TYPE_INTERVAL}},
@@ -207,6 +209,8 @@ const std::map<TypeKind, TypeKindInfo>& SimpleTypeKindInfoMap() {
       {TYPE_STRING, TypeKindInfo::Build()},
       {TYPE_DATE, TypeKindInfo::Build()},
       {TYPE_TIMESTAMP, TypeKindInfo::Build()},
+      {TYPE_TIMESTAMP_PICOS,
+       TypeKindInfo::BuildWithTypeFeature(FEATURE_TIMESTAMP_PICO_TYPE)},
       {TYPE_TIME, TypeKindInfo::BuildWithTypeFeature(FEATURE_V_1_2_CIVIL_TIME)},
       {TYPE_DATETIME,
        TypeKindInfo::BuildWithTypeFeature(FEATURE_V_1_2_CIVIL_TIME)},
@@ -296,6 +300,10 @@ const UuidValue& GetUuidValue(const ValueContent& value) {
 std::string AddTypePrefix(absl::string_view value, const Type* type,
                           ProductMode mode) {
   return absl::StrCat(type->TypeName(mode), " ", ToStringLiteral(value));
+}
+
+const TimestampPicoValue& GetTimestampPicoValue(const ValueContent& value) {
+  return value.GetAs<internal::TimestampPicoRef*>()->value();
 }
 
 template <typename ContentT>
@@ -477,6 +485,9 @@ void SimpleType::CopyValueContent(TypeKind kind, const ValueContent& from,
     case TYPE_BIGNUMERIC:
       from.GetAs<internal::BigNumericRef*>()->Ref();
       break;
+    case TYPE_TIMESTAMP_PICOS:
+      from.GetAs<internal::TimestampPicoRef*>()->Ref();
+      break;
     case TYPE_INTERVAL:
       from.GetAs<internal::IntervalRef*>()->Ref();
       break;
@@ -516,6 +527,9 @@ void SimpleType::ClearValueContent(TypeKind kind, const ValueContent& value) {
     case TYPE_BIGNUMERIC:
       value.GetAs<internal::BigNumericRef*>()->Unref();
       return;
+    case TYPE_TIMESTAMP_PICOS:
+      value.GetAs<internal::TimestampPicoRef*>()->Unref();
+      return;
     case TYPE_INTERVAL:
       value.GetAs<internal::IntervalRef*>()->Unref();
       return;
@@ -549,6 +563,8 @@ uint64_t SimpleType::GetValueContentExternallyAllocatedByteSize(
       return sizeof(internal::NumericRef);
     case TYPE_BIGNUMERIC:
       return sizeof(internal::BigNumericRef);
+    case TYPE_TIMESTAMP_PICOS:
+      return sizeof(internal::TimestampPicoRef);
     case TYPE_JSON:
       return value.GetAs<internal::JSONRef*>()->physical_byte_size();
     case TYPE_TOKENLIST:
@@ -616,6 +632,9 @@ absl::HashState SimpleType::HashValueContent(const ValueContent& value,
       return absl::HashState::combine(std::move(state),
                                       value.GetAs<TimestampValueContentType>(),
                                       value.simple_type_extended_content_);
+    case TYPE_TIMESTAMP_PICOS:
+      return absl::HashState::combine(std::move(state),
+                                      GetTimestampPicoValue(value).HashCode());
     case TYPE_TIME:
       return absl::HashState::combine(std::move(state),
                                       value.GetAs<TimeValueContentType>(),
@@ -682,6 +701,8 @@ bool SimpleType::ValueContentEquals(
     case TYPE_TIMESTAMP:
       return ContentEquals<TimestampValueContentType>(x, y) &&
              x.simple_type_extended_content_ == y.simple_type_extended_content_;
+    case TYPE_TIMESTAMP_PICOS:
+      return ReferencedValueEquals<internal::TimestampPicoRef>(x, y);
     case TYPE_TIME:
       return ContentEquals<TimeValueContentType>(x, y) &&
              x.simple_type_extended_content_ == y.simple_type_extended_content_;
@@ -752,6 +773,8 @@ bool SimpleType::ValueContentLess(const ValueContent& x, const ValueContent& y,
              (ContentEquals<TimestampValueContentType>(x, y) &&
               x.simple_type_extended_content_ <
                   y.simple_type_extended_content_);
+    case TYPE_TIMESTAMP_PICOS:
+      return ReferencedValueLess<internal::TimestampPicoRef>(x, y);
     case TYPE_TIME:
       return ContentLess<TimeValueContentType>(x, y) ||
              (ContentEquals<TimeValueContentType>(x, y) &&
@@ -777,12 +800,41 @@ bool SimpleType::ValueContentLess(const ValueContent& x, const ValueContent& y,
   }
 }
 
+namespace {
+// Formats 'token' into 'out'.
+void FormatToken(std::string& out, absl::string_view text, uint64_t attribute) {
+  absl::StrAppendFormat(&out, "'%s':%d", absl::Utf8SafeCEscape(text),
+                        attribute);
+}
+
+// Sorts and returns the data in 'tokens'.
+std::vector<std::pair<std::string_view, uint64_t>> SortedTokens(
+    absl::Span<const tokens::Token> tokens) {
+  std::vector<std::pair<std::string_view, uint64_t>> token_info;
+  for (const tokens::Token& t : tokens) {
+    token_info.emplace_back(t.text(), t.attribute());
+  }
+  std::sort(token_info.begin(), token_info.end());
+  return token_info;
+}
+}  // namespace
+
 // Formats 'token' into 'out'.
 void SimpleType::FormatTextToken(std::string& out,
                                  const tokens::TextToken& token,
                                  const FormatValueContentOptions& options) {
-  absl::StrAppendFormat(&out, "{text: '%s', is_display_only: true}",
+  absl::StrAppend(&out, "{");
+  absl::StrAppendFormat(&out, "text: '%s'",
                         absl::Utf8SafeCEscape(token.text()));
+  absl::StrAppendFormat(&out, ", attribute: %lu", token.attribute());
+  absl::StrAppendFormat(&out, ", index_tokens: [%s]",
+                        absl::StrJoin(SortedTokens(token.index_tokens()),
+                                      ", ",
+                                      [](std::string* out, auto t) {
+                                        FormatToken(*out, std::get<0>(t),
+                                                    std::get<1>(t));
+                                      }));
+  absl::StrAppend(&out, "}");
 }
 
 std::string SimpleType::FormatTokenList(
@@ -872,6 +924,13 @@ std::string SimpleType::FormatValueContent(
                                                    "+0" /* timezone */, &s));
       return options.add_simple_type_prefix()
                  ? AddTypePrefix(s, this, options.product_mode)
+                 : s;
+    }
+    case TYPE_TIMESTAMP_PICOS: {
+      std::string s = GetTimestampPicoValue(value).ToString();
+      return options.add_simple_type_prefix()
+                 ? internal::GetCastExpressionString(ToStringLiteral(s), this,
+                                                     options.product_mode)
                  : s;
     }
     case TYPE_TIME: {
@@ -1042,6 +1101,11 @@ absl::Status SimpleType::SerializeValueContent(const ValueContent& value,
           GetTimestampValue(value), value_proto->mutable_timestamp_value()));
       break;
     }
+    case TYPE_TIMESTAMP_PICOS: {
+      value_proto->set_timestamp_pico_value(
+          GetTimestampPicoValue(value).SerializeAsProtoBytes());
+      break;
+    }
     case TYPE_DATETIME: {
       auto* datetime_proto = value_proto->mutable_datetime_value();
       datetime_proto->set_bit_field_datetime_seconds(
@@ -1181,6 +1245,16 @@ absl::Status SimpleType::DeserializeValueContent(const ValueProto& value_proto,
 
       absl::Time t = time_or.value();
       ZETASQL_RETURN_IF_ERROR(SetTimestampValue(t, value));
+      break;
+    }
+    case TYPE_TIMESTAMP_PICOS: {
+      if (!value_proto.has_timestamp_pico_value()) {
+        return TypeMismatchError(value_proto);
+      }
+      ZETASQL_ASSIGN_OR_RETURN(TimestampPicoValue t,
+                       TimestampPicoValue::DeserializeFromProtoBytes(
+                           value_proto.timestamp_pico_value()));
+      value->set(new internal::TimestampPicoRef(t));
       break;
     }
     case TYPE_DATETIME: {

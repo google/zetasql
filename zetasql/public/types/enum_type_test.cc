@@ -28,6 +28,7 @@
 #include "zetasql/testdata/test_schema.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/strings/string_view.h"
 #include "google/protobuf/descriptor.h"
 
 namespace zetasql {
@@ -85,10 +86,9 @@ TEST(EnumTypeTest, EnumTypeFromCompiledEnumAndDescriptor) {
   EXPECT_EQ("ARRAY<`zetasql_test__.TestEnum`>",
             array_type->TypeName(PRODUCT_INTERNAL));
 
-  const std::string* name = nullptr;
+  absl::string_view name;
   EXPECT_TRUE(enum_type->FindName(1, &name));
-  EXPECT_THAT(name, NotNull());
-  EXPECT_EQ("TESTENUM1", *name);
+  EXPECT_EQ("TESTENUM1", name);
   EXPECT_FALSE(enum_type->FindName(777, &name));
 
   int number = 777;

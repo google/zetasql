@@ -946,9 +946,16 @@ denied from exercising these privileges on the object.
     interpreted as having an empty ACL, in which case no users can exercise the
     privileges.
 
+## `CREATE PROPERTY GRAPH`
+
+Creates a property graph. For more information, see
+[`CREATE PROPERTY GRAPH`][create-property-graph] in the GQL reference.
+
+[create-property-graph]: https://github.com/google/zetasql/blob/master/docs/graph-schema-statements.md#create_property_graph
+
 ## `CREATE TABLE FUNCTION`
 
-A table function, also known as a table value function (TVF), returns a table. A
+A table function, also known as a table-valued function (TVF), returns a table. A
 TVF is called in the `FROM` clause like a table subquery. To create a TVF, see
 [TVFs][tvfs].
 
@@ -1081,6 +1088,13 @@ object to drop.
 
 +   `IF EXISTS`: If no object exists at `object_path`, the `DROP` statement will
     have no effect.
+
+## `DROP PROPERTY GRAPH`
+
+Deletes a property graph. For more information, see
+[`DROP PROPERTY GRAPH`][drop-property-graph] in the GQL reference.
+
+[drop-property-graph]: https://github.com/google/zetasql/blob/master/docs/graph-schema-statements.md#drop_property_graph
 
 ## Terminology
 

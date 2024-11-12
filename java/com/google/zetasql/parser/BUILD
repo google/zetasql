@@ -17,6 +17,8 @@
 # Description:
 #   ZetaSQL AST Java library.
 
+load("@rules_java//java:defs.bzl", "java_library")
+
 package(
     default_visibility = ["//zetasql/base:zetasql_implementation"],
 )

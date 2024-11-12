@@ -38,6 +38,7 @@
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/type.pb.h"
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
@@ -225,7 +226,8 @@ absl::Status AnalyticFunctionResolver::ResolveOverClauseAndCreateAnalyticColumn(
   WindowExprInfoList* partition_by_info = nullptr;  // Not owned.
   if (ast_partition_by != nullptr) {
     ZETASQL_RETURN_IF_ERROR(ResolveWindowPartitionByPreAggregation(
-        ast_partition_by, &over_expr_resolution_info, &partition_by_info));
+        ast_partition_by, &over_expr_resolution_info, /*allow_ordinals=*/true,
+        "PARTITION BY", &partition_by_info));
   }
 
   WindowExprInfoList* order_by_info = nullptr;  // Not owned.
@@ -244,7 +246,7 @@ absl::Status AnalyticFunctionResolver::ResolveOverClauseAndCreateAnalyticColumn(
 
     ZETASQL_RETURN_IF_ERROR(ResolveWindowOrderByPreAggregation(
         ast_order_by, is_in_range_window, &over_expr_resolution_info,
-        &order_by_info));
+        /*allow_ordinals=*/true, "Window ORDER BY", &order_by_info));
   }
 
   // Resolve window frame.
@@ -321,6 +323,8 @@ absl::Status AnalyticFunctionResolver::ResolveOverClauseAndCreateAnalyticColumn(
       resolved_function_call->release_generic_argument_list(),
       resolved_function_call->error_mode(), is_distinct,
       resolved_null_handling_modifier_kind, std::move(resolved_window_frame));
+  resolver_->MaybeRecordParseLocation(ast_analytic_function_call,
+                                      resolved_analytic_function_call.get());
   ZETASQL_RETURN_IF_ERROR(resolver_->MaybeResolveCollationForFunctionCallBase(
       /*error_location=*/ast_analytic_function_call,
       resolved_analytic_function_call.get()));
@@ -428,8 +432,8 @@ absl::Status AnalyticFunctionResolver::CheckWindowSupport(
 
 absl::Status AnalyticFunctionResolver::ResolveWindowPartitionByPreAggregation(
     const ASTPartitionBy* ast_partition_by,
-    ExprResolutionInfo* expr_resolution_info,
-    WindowExprInfoList** partition_by_info_out) {
+    ExprResolutionInfo* expr_resolution_info, bool allow_ordinals,
+    const char* clause_name, WindowExprInfoList** partition_by_info_out) {
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
 
   const std::unique_ptr<WindowExprInfoList>* existing_partition_by_info =
@@ -443,16 +447,14 @@ absl::Status AnalyticFunctionResolver::ResolveWindowPartitionByPreAggregation(
       new WindowExprInfoList);
   for (const ASTExpression* ast_partition_expr :
        ast_partition_by->partitioning_expressions()) {
-    static const char clause_name[] = "PARTITION BY";
     ExprResolutionInfo partitioning_resolution_info(
         expr_resolution_info, {.clause_name = clause_name});
     std::unique_ptr<WindowExprInfo> partitioning_expr_info;
     const Type* partitioning_expr_type;
 
     ZETASQL_RETURN_IF_ERROR(ResolveWindowExpression(
-        clause_name, ast_partition_expr,
-        &partitioning_resolution_info, &partitioning_expr_info,
-        &partitioning_expr_type));
+        ast_partition_expr, &partitioning_resolution_info, allow_ordinals,
+        &partitioning_expr_info, &partitioning_expr_type));
     partition_by_info->emplace_back(partitioning_expr_info.release());
 
     std::string no_partitioning_type;
@@ -473,8 +475,8 @@ absl::Status AnalyticFunctionResolver::ResolveWindowPartitionByPreAggregation(
 
 absl::Status AnalyticFunctionResolver::ResolveWindowOrderByPreAggregation(
     const ASTOrderBy* ast_order_by, bool is_in_range_window,
-    ExprResolutionInfo* expr_resolution_info,
-    WindowExprInfoList** order_by_info_out) {
+    ExprResolutionInfo* expr_resolution_info, bool allow_ordinals,
+    const char* clause_name, WindowExprInfoList** order_by_info_out) {
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   const std::unique_ptr<WindowExprInfoList>* existing_order_by_info =
       zetasql_base::FindOrNull(ast_to_resolved_info_map_, ast_order_by);
@@ -485,7 +487,6 @@ absl::Status AnalyticFunctionResolver::ResolveWindowOrderByPreAggregation(
 
   std::unique_ptr<WindowExprInfoList> order_by_info(
       new WindowExprInfoList);
-  static const char clause_name[] = "Window ORDER BY";
   for (const ASTOrderingExpression* ast_ordering_expr :
        ast_order_by->ordering_expressions()) {
     ResolvedColumn resolved_ordering_column;
@@ -495,8 +496,8 @@ absl::Status AnalyticFunctionResolver::ResolveWindowOrderByPreAggregation(
     ExprResolutionInfo ordering_resolution_info(expr_resolution_info,
                                                 {.clause_name = clause_name});
     ZETASQL_RETURN_IF_ERROR(ResolveWindowExpression(
-        clause_name, ast_ordering_expr->expression(),
-        &ordering_resolution_info, &ordering_expr_info, &ordering_expr_type));
+        ast_ordering_expr->expression(), &ordering_resolution_info,
+        allow_ordinals, &ordering_expr_info, &ordering_expr_type));
     ZETASQL_RET_CHECK(ordering_expr_type != nullptr);
     order_by_info->emplace_back(ordering_expr_info.release());
 
@@ -530,15 +531,23 @@ absl::Status AnalyticFunctionResolver::ResolveWindowOrderByPreAggregation(
 }
 
 absl::Status AnalyticFunctionResolver::ResolveWindowExpression(
-    const char* clause_name, const ASTExpression* ast_expr,
-    ExprResolutionInfo* expr_resolution_info,
-    std::unique_ptr<WindowExprInfo>* resolved_item_out,
+    const ASTExpression* ast_expr, ExprResolutionInfo* expr_resolution_info,
+    bool allow_ordinals, std::unique_ptr<WindowExprInfo>* resolved_item_out,
     const Type** expr_type_out) {
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
 
   std::unique_ptr<const ResolvedExpr> tmp_resolved_expr;
   ZETASQL_RETURN_IF_ERROR(resolver_->ResolveExpr(ast_expr, expr_resolution_info,
                                          &tmp_resolved_expr));
+
+  if (!allow_ordinals && tmp_resolved_expr->Is<ResolvedLiteral>() &&
+      !tmp_resolved_expr->GetAs<ResolvedLiteral>()->has_explicit_type() &&
+      tmp_resolved_expr->GetAs<ResolvedLiteral>()->value().type_kind() ==
+          TYPE_INT64 &&
+      !tmp_resolved_expr->GetAs<ResolvedLiteral>()->value().is_null()) {
+    return MakeSqlErrorAt(ast_expr) << "Ordinals are not allowed in "
+                                    << expr_resolution_info->clause_name;
+  }
 
   *expr_type_out = tmp_resolved_expr->type();
   *resolved_item_out =
@@ -614,7 +623,7 @@ absl::Status AnalyticFunctionResolver::ValidateOrderByInRangeBasedWindow(
 absl::Status AnalyticFunctionResolver::ResolveWindowFrame(
     const ASTWindowFrame* ast_window_frame, const Type* target_expr_type,
     ExprResolutionInfo* expr_resolution_info,
-    std::unique_ptr<const ResolvedWindowFrame>* resolved_window_frame) {
+    std::unique_ptr<const ResolvedWindowFrame>* resolved_window_frame_out) {
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
 
   ResolvedWindowFrame::FrameUnit frame_unit;
@@ -637,12 +646,15 @@ absl::Status AnalyticFunctionResolver::ResolveWindowFrame(
         ResolvedWindowFrameExpr::CURRENT_ROW, nullptr);
   }
 
-  *resolved_window_frame = MakeResolvedWindowFrame(
-      frame_unit, std::move(start_window_frame_expr),
-      std::move(end_window_frame_expr));
+  std::unique_ptr<ResolvedWindowFrame> resolved_window_frame =
+      MakeResolvedWindowFrame(frame_unit, std::move(start_window_frame_expr),
+                              std::move(end_window_frame_expr));
+  resolver_->MaybeRecordParseLocation(ast_window_frame,
+                                      resolved_window_frame.get());
+  *resolved_window_frame_out = std::move(resolved_window_frame);
 
   return ValidateWindowFrameSize(ast_window_frame,
-                                 resolved_window_frame->get());
+                                 resolved_window_frame_out->get());
 }
 
 absl::Status AnalyticFunctionResolver::ResolveWindowFrameUnit(
@@ -664,10 +676,9 @@ absl::Status AnalyticFunctionResolver::ResolveWindowFrameUnit(
 absl::Status AnalyticFunctionResolver::ResolveWindowFrameExpr(
     const ASTWindowFrameExpr* ast_frame_expr,
     const ResolvedWindowFrame::FrameUnit frame_unit,
-    const Type* target_expr_type,
-    ExprResolutionInfo* expr_resolution_info,
+    const Type* target_expr_type, ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedWindowFrameExpr>*
-        resolved_window_frame_expr) {
+        resolved_window_frame_expr_out) {
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
 
   // Only OFFSET_PRECEDING and OFFSET_FOLLOWING boundaries have a non-NULL
@@ -679,35 +690,37 @@ absl::Status AnalyticFunctionResolver::ResolveWindowFrameExpr(
         &resolved_expr));
   }
 
+  std::unique_ptr<ResolvedWindowFrameExpr> resolved_window_frame_expr;
   switch (ast_frame_expr->boundary_type()) {
     case ASTWindowFrameExpr::UNBOUNDED_PRECEDING:
       ZETASQL_RET_CHECK(resolved_expr == nullptr);
-      *resolved_window_frame_expr = MakeResolvedWindowFrameExpr(
-          ResolvedWindowFrameExpr::UNBOUNDED_PRECEDING,
-          nullptr);
+      resolved_window_frame_expr = MakeResolvedWindowFrameExpr(
+          ResolvedWindowFrameExpr::UNBOUNDED_PRECEDING, nullptr);
       break;
     case ASTWindowFrameExpr::OFFSET_PRECEDING:
       ZETASQL_RET_CHECK(resolved_expr != nullptr);
-      *resolved_window_frame_expr = MakeResolvedWindowFrameExpr(
+      resolved_window_frame_expr = MakeResolvedWindowFrameExpr(
           ResolvedWindowFrameExpr::OFFSET_PRECEDING, std::move(resolved_expr));
       break;
     case ASTWindowFrameExpr::CURRENT_ROW:
       ZETASQL_RET_CHECK(resolved_expr == nullptr);
-      *resolved_window_frame_expr = MakeResolvedWindowFrameExpr(
+      resolved_window_frame_expr = MakeResolvedWindowFrameExpr(
           ResolvedWindowFrameExpr::CURRENT_ROW, nullptr);
       break;
     case ASTWindowFrameExpr::OFFSET_FOLLOWING:
       ZETASQL_RET_CHECK(resolved_expr != nullptr);
-      *resolved_window_frame_expr = MakeResolvedWindowFrameExpr(
+      resolved_window_frame_expr = MakeResolvedWindowFrameExpr(
           ResolvedWindowFrameExpr::OFFSET_FOLLOWING, std::move(resolved_expr));
       break;
     case ASTWindowFrameExpr::UNBOUNDED_FOLLOWING:
       ZETASQL_RET_CHECK(resolved_expr == nullptr);
-      *resolved_window_frame_expr = MakeResolvedWindowFrameExpr(
-          ResolvedWindowFrameExpr::UNBOUNDED_FOLLOWING,
-          nullptr);
+      resolved_window_frame_expr = MakeResolvedWindowFrameExpr(
+          ResolvedWindowFrameExpr::UNBOUNDED_FOLLOWING, nullptr);
       break;
   }
+  resolver_->MaybeRecordParseLocation(ast_frame_expr,
+                                      resolved_window_frame_expr.get());
+  *resolved_window_frame_expr_out = std::move(resolved_window_frame_expr);
   return absl::OkStatus();
 }
 
@@ -836,6 +849,63 @@ bool AnalyticFunctionResolver::HasAnalytic() const {
   return !analytic_function_groups_.empty();
 }
 
+absl::StatusOr<std::unique_ptr<const ResolvedWindowPartitioning>>
+AnalyticFunctionResolver::ResolveStandalonePartitionBy(
+    const ASTPartitionBy* ast_partition_by, bool force_rename_columns,
+    ExprResolutionInfo* expr_resolution_info) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
+  WindowExprInfoList* partition_by_info = nullptr;  // Not owned.
+  ZETASQL_RETURN_IF_ERROR(ResolveWindowPartitionByPreAggregation(
+      ast_partition_by, expr_resolution_info, /*allow_ordinals=*/false,
+      expr_resolution_info->clause_name, &partition_by_info));
+
+  std::unique_ptr<const ResolvedWindowPartitioning>
+      resolved_window_partitioning;
+  ZETASQL_RETURN_IF_ERROR(ResolveWindowPartitionByPostAggregation(
+      ast_partition_by, expr_resolution_info->query_resolution_info,
+      force_rename_columns, &resolved_window_partitioning));
+  return resolved_window_partitioning;
+}
+
+absl::StatusOr<std::unique_ptr<const ResolvedWindowOrdering>>
+AnalyticFunctionResolver::ResolveStandaloneOrderBy(
+    const ASTOrderBy* ast_order_by, ExprResolutionInfo* expr_resolution_info) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
+
+  WindowExprInfoList* order_by_info = nullptr;  // Not owned.
+  ZETASQL_RETURN_IF_ERROR(ResolveWindowOrderByPreAggregation(
+      ast_order_by, /*is_in_range_window=*/false, expr_resolution_info,
+      /*allow_ordinals=*/false, expr_resolution_info->clause_name,
+      &order_by_info));
+
+  std::unique_ptr<const ResolvedWindowOrdering> resolved_window_ordering;
+  ZETASQL_RETURN_IF_ERROR(ResolveWindowOrderByPostAggregation(
+      ast_order_by, expr_resolution_info->query_resolution_info,
+      &resolved_window_ordering));
+  return resolved_window_ordering;
+}
+
+// Add a wrapper scan if there are any computed columns for partitioning or
+// ordering expressions.
+absl::StatusOr<std::unique_ptr<const ResolvedScan>>
+AnalyticFunctionResolver::AddMissingPartitioningAndOrderingExpressions(
+    std::unique_ptr<const ResolvedScan> input_scan) {
+  if (window_columns_to_compute_.empty()) {
+    return input_scan;
+  }
+
+  ResolvedColumnList wrapper_column_list(input_scan->column_list());
+  for (const std::unique_ptr<const ResolvedComputedColumn>& computed_column :
+       window_columns_to_compute_) {
+    wrapper_column_list.emplace_back(computed_column->column());
+  }
+  std::vector<std::unique_ptr<const ResolvedComputedColumn>> computed_columns;
+  std::swap(window_columns_to_compute_, computed_columns);
+
+  return MakeResolvedProjectScan(
+      wrapper_column_list, std::move(computed_columns), std::move(input_scan));
+}
+
 absl::Status AnalyticFunctionResolver::CreateAnalyticScan(
     QueryResolutionInfo* query_resolution_info,
     std::unique_ptr<const ResolvedScan>* scan) {
@@ -862,6 +932,9 @@ absl::Status AnalyticFunctionResolver::CreateAnalyticScan(
 
   // Add a wrapper scan if there are any computed columns for partitioning or
   // ordering expressions.
+  ZETASQL_ASSIGN_OR_RETURN(
+      *scan, AddMissingPartitioningAndOrderingExpressions(std::move(*scan)));
+
   if (!window_columns_to_compute_.empty()) {
     ResolvedColumnList wrapper_column_list((*scan)->column_list());
     for (const std::unique_ptr<const ResolvedComputedColumn>& computed_column :
@@ -897,7 +970,7 @@ absl::Status AnalyticFunctionResolver::ResolveAnalyticFunctionGroup(
   if (function_group_info->ast_partition_by != nullptr) {
     ZETASQL_RETURN_IF_ERROR(ResolveWindowPartitionByPostAggregation(
         function_group_info->ast_partition_by, query_resolution_info,
-        &resolved_window_partitioning));
+        /*force_rename_columns=*/false, &resolved_window_partitioning));
   }
 
   // Finish resolving ORDER BY.
@@ -928,7 +1001,7 @@ absl::Status AnalyticFunctionResolver::ResolveAnalyticFunctionGroup(
 
 absl::Status AnalyticFunctionResolver::ResolveWindowPartitionByPostAggregation(
     const ASTPartitionBy* ast_partition_by,
-    QueryResolutionInfo* query_resolution_info,
+    QueryResolutionInfo* query_resolution_info, bool force_rename_columns,
     std::unique_ptr<const ResolvedWindowPartitioning>*
         resolved_window_partitioning_out) {
   std::unique_ptr<WindowExprInfoList>* partition_by_info =
@@ -951,9 +1024,10 @@ absl::Status AnalyticFunctionResolver::ResolveWindowPartitionByPostAggregation(
           kPartitionById,
           resolver_->MakeIdString(
               absl::StrCat("$partitionbycol", ++num_partitioning_exprs_)),
-          query_resolution_info, partitioning_expr_info.get()));
+          force_rename_columns, query_resolution_info,
+          partitioning_expr_info.get()));
     }
-    resolved_partition_by_exprs.emplace_back(resolver_->CopyColumnRef(
+    resolved_partition_by_exprs.emplace_back(Resolver::CopyColumnRef(
         partitioning_expr_info->resolved_column_ref.get()));
   }
 
@@ -991,6 +1065,8 @@ absl::Status AnalyticFunctionResolver::ResolveWindowPartitionByPostAggregation(
     resolved_window_partitioning->set_hint_list(
         std::move(resolved_partition_by_hints));
   }
+  resolver_->MaybeRecordParseLocation(ast_partition_by,
+                                      resolved_window_partitioning.get());
 
   *resolved_window_partitioning_out = std::move(resolved_window_partitioning);
   return absl::OkStatus();
@@ -1025,7 +1101,8 @@ absl::Status AnalyticFunctionResolver::ResolveWindowOrderByPostAggregation(
           kOrderById,
           resolver_->MakeIdString(
               absl::StrCat("$orderbycol", ++num_ordering_items_)),
-          query_resolution_info, (*order_by_info)[i].get()));
+          /*force_rename_columns=*/false, query_resolution_info,
+          (*order_by_info)[i].get()));
     }
 
     std::unique_ptr<const ResolvedColumnRef> resolved_column_ref =
@@ -1046,6 +1123,8 @@ absl::Status AnalyticFunctionResolver::ResolveWindowOrderByPostAggregation(
     auto resolved_order_by_item = MakeResolvedOrderByItem(
         std::move(resolved_column_ref), std::move(resolved_collation_name),
         ast_ordering_exprs[i]->descending(), null_order);
+    resolver_->MaybeRecordParseLocation(ast_ordering_exprs[i],
+                                        resolved_order_by_item.get());
 
     if (resolver_->language().LanguageFeatureEnabled(
             FEATURE_V_1_3_COLLATION_SUPPORT)) {
@@ -1065,13 +1144,15 @@ absl::Status AnalyticFunctionResolver::ResolveWindowOrderByPostAggregation(
         resolver_->ResolveHintAndAppend(ast_order_by->hint(), &order_by_hints));
     resolved_window_ordering->set_hint_list(std::move(order_by_hints));
   }
+  resolver_->MaybeRecordParseLocation(ast_order_by,
+                                      resolved_window_ordering.get());
 
   *resolved_window_ordering_out = std::move(resolved_window_ordering);
   return absl::OkStatus();
 }
 
 absl::Status AnalyticFunctionResolver::AddColumnForWindowExpression(
-    IdString query_alias, IdString column_alias,
+    IdString query_alias, IdString column_alias, bool force_rename_columns,
     QueryResolutionInfo* query_resolution_info,
     WindowExprInfo* window_expr_info) {
   ZETASQL_RET_CHECK(window_expr_info->resolved_column_ref == nullptr);
@@ -1093,7 +1174,8 @@ absl::Status AnalyticFunctionResolver::AddColumnForWindowExpression(
     resolved_column_ref =
         resolver_->MakeColumnRef(select_column_state->resolved_select_column);
   } else if (window_expr_info->resolved_expr->node_kind() ==
-             RESOLVED_COLUMN_REF) {
+                 RESOLVED_COLUMN_REF &&
+             !force_rename_columns) {
     resolved_column_ref = resolver_->CopyColumnRef(
         window_expr_info->resolved_expr->GetAs<ResolvedColumnRef>());
   } else {

@@ -47,6 +47,7 @@
 #include "zetasql/public/multi_catalog.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
+#include "zetasql/public/property_graph.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/simple_catalog_util.h"
 #include "zetasql/public/types/annotation.h"
@@ -118,6 +119,8 @@ namespace zetasql {
 LanguageOptions ReferenceDriver::DefaultLanguageOptions() {
   LanguageOptions options;
   options.EnableMaximumLanguageFeatures();
+  absl::Status status = options.EnableReservableKeyword("GRAPH_TABLE");
+  ZETASQL_DCHECK_OK(status);  // This status is not ok if "GRAPH_TABLE" is not a keyword
   options.SetSupportedStatementKinds(Algebrizer::GetSupportedStatementKinds());
   return options;
 }
@@ -222,7 +225,7 @@ void ReferenceDriver::AddTableInternal(const std::string& table_name,
   ABSL_CHECK(array_value.type()->IsArray()) << table_name << " "
                                        << array_value.DebugString(true);
   const Table* catalog_table;
-  ZETASQL_CHECK_OK(catalog_.catalog()->FindTable({table_name}, &catalog_table));
+  ZETASQL_CHECK_OK(catalog_.FindTable({table_name}, &catalog_table));
 
   TableInfo table_info;
   table_info.table_name = table_name;
@@ -238,7 +241,7 @@ void ReferenceDriver::AddTableInternal(const std::string& table_name,
 
 absl::Status ReferenceDriver::CreateDatabase(const TestDatabase& test_db) {
   ZETASQL_RETURN_IF_ERROR(catalog_.SetTestDatabase(test_db));
-  catalog_.SetLanguageOptions(language_options_);
+  ZETASQL_RETURN_IF_ERROR(catalog_.SetLanguageOptions(language_options_));
 
   // Replace tables to the catalog.
   tables_.clear();
@@ -248,6 +251,9 @@ absl::Status ReferenceDriver::CreateDatabase(const TestDatabase& test_db) {
     AddTableInternal(table_name, test_table);
   }
 
+  for (const auto& [_, graph_ddl] : test_db.property_graph_defs) {
+    ZETASQL_RETURN_IF_ERROR(AddPropertyGraphs({graph_ddl}));
+  }
   return absl::OkStatus();
 }
 
@@ -269,7 +275,11 @@ absl::Status ReferenceDriver::SetStatementEvaluationTimeout(
 
 void ReferenceDriver::SetLanguageOptions(const LanguageOptions& options) {
   language_options_ = options;
-  catalog_.SetLanguageOptions(options);
+  absl::Status status = catalog_.SetLanguageOptions(options);
+  if (!status.ok()) {
+    ABSL_LOG(WARNING) << "Failed to set TestDatabaseCatalog language options: "
+                 << status;
+  }
 }
 
 absl::Status ReferenceDriver::AddSqlUdfs(
@@ -286,8 +296,6 @@ absl::Status ReferenceDriver::AddSqlUdfs(
   language.EnableLanguageFeature(FEATURE_CREATE_AGGREGATE_FUNCTION);
   AnalyzerOptions analyzer_options(language);
   analyzer_options.set_default_time_zone(default_time_zone_);
-  // Don't pre-rewrite function bodies.
-  // TODO: In RQG mode, apply a random subset of rewriters.
   analyzer_options.set_enabled_rewrites({});
   for (const std::string& create_function : create_function_stmts) {
     artifacts_.emplace_back();
@@ -314,6 +322,24 @@ absl::Status ReferenceDriver::AddViews(
                                           /*allow_non_temp=*/false,
                                           artifacts_.emplace_back(),
                                           *catalog_.catalog()));
+  }
+  return absl::OkStatus();
+}
+
+absl::Status ReferenceDriver::AddPropertyGraphs(
+    absl::Span<const std::string> create_property_graph_stmts) {
+  // Ensure the language options used allow CREATE PROPERTY GRAPH
+  LanguageOptions language = language_options_;
+  language.AddSupportedStatementKind(RESOLVED_CREATE_PROPERTY_GRAPH_STMT);
+  AnalyzerOptions analyzer_options(language);
+  analyzer_options.set_default_time_zone(default_time_zone_);
+  // Don't pre-rewrite the DDL statement.
+  // TODO: In RQG mode, apply a random subset of rewriters.
+  analyzer_options.set_enabled_rewrites({});
+  for (const std::string& create_property_graph : create_property_graph_stmts) {
+    ZETASQL_RETURN_IF_ERROR(AddPropertyGraphFromCreatePropertyGraphStmt(
+        create_property_graph, analyzer_options, artifacts_,
+        *catalog_.catalog()));
   }
   return absl::OkStatus();
 }
@@ -514,7 +540,13 @@ ReferenceDriver::ExecuteStatementForReferenceDriverInternal(
     // If provide, uses this instead of calling analyzer.
     const AnalyzerOutput* analyzed_input,
     ExecuteStatementAuxOutput& aux_output) {
-  ABSL_CHECK(catalog_.catalog() != nullptr) << "Call CreateDatabase() first";
+  absl::Status catalog_status = catalog_.IsInitialized();
+  if (absl::IsFailedPrecondition(catalog_status)) {
+    return absl::FailedPreconditionError(
+        "Call ReferenceDriver::CreateDatabase() first");
+  } else if (!catalog_status.ok()) {
+    return catalog_status;
+  }
 
   std::unique_ptr<SimpleCatalog> internal_catalog;
   ZETASQL_ASSIGN_OR_RETURN(

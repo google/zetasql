@@ -31,6 +31,7 @@
 #include "zetasql/analyzer/rewriters/nulliferror_function_rewriter.h"
 #include "zetasql/analyzer/rewriters/order_by_and_limit_in_aggregate_rewriter.h"
 #include "zetasql/analyzer/rewriters/pipe_assert_rewriter.h"
+#include "zetasql/analyzer/rewriters/pipe_if_rewriter.h"
 #include "zetasql/analyzer/rewriters/pivot_rewriter.h"
 #include "zetasql/analyzer/rewriters/registration.h"
 #include "zetasql/analyzer/rewriters/sql_function_inliner.h"
@@ -94,6 +95,7 @@ void RegisterBuiltinRewriters() {
                GetMultiwayUnnestRewriter());
     r.Register(ResolvedASTRewrite::REWRITE_PIPE_ASSERT,
                GetPipeAssertRewriter());
+    r.Register(ResolvedASTRewrite::REWRITE_PIPE_IF, GetPipeIfRewriter());
     r.Register(ResolvedASTRewrite::REWRITE_ORDER_BY_AND_LIMIT_IN_AGGREGATE,
                GetOrderByAndLimitInAggregateRewriter());
 

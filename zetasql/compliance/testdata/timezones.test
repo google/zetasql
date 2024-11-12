@@ -11,7 +11,7 @@ SELECT  3 as id, 'Antarctica/Syowa' as tz    -- +03:00
 union all
 SELECT  4 as id, 'Asia/Dubai' as tz          -- +04:00
 union all
-SELECT  5 as id, 'Asia/Calcutta' as tz       -- +05:30
+SELECT  5 as id, 'Asia/Kolkata' as tz       -- +05:30
 union all
 SELECT  6 as id, 'Australia/Eucla' as tz     -- +08:45
 union all
@@ -34,7 +34,7 @@ ARRAY<STRUCT<id INT64, tz STRING>>[
   {2, "Europe/Amsterdam"},
   {3, "Antarctica/Syowa"},
   {4, "Asia/Dubai"},
-  {5, "Asia/Calcutta"},
+  {5, "Asia/Kolkata"},
   {6, "Australia/Eucla"},
   {7, NULL},
   {8, "Pacific/Norfolk"},
@@ -96,7 +96,7 @@ ARRAY<STRUCT<tz STRING, TIMESTAMP>>[unknown order:
     2010-10-19 21:00:00+00
   },
   {
-    "Asia/Calcutta",
+    "Asia/Kolkata",
     2010-10-19 18:30:00+00
   },
   {NULL, NULL},
@@ -127,7 +127,7 @@ ARRAY<STRUCT<tz STRING, DATE>>[unknown order:
   {"Pacific/Honolulu", 1999-12-31},
   {"Etc/Greenwich", 2000-01-01},
   {"Antarctica/Syowa", 2000-01-01},
-  {"Asia/Calcutta", 2000-01-01},
+  {"Asia/Kolkata", 2000-01-01},
   {NULL, NULL},
   {"NZ-CHAT", 2000-01-01},
   {"America/Vancouver", 2000-01-01},
@@ -148,7 +148,7 @@ ARRAY<STRUCT<tz STRING, TIME>>[unknown order:
   {"Pacific/Honolulu", 22:00:00},
   {"Etc/Greenwich", 08:00:00},
   {"Antarctica/Syowa", 11:00:00},
-  {"Asia/Calcutta", 13:30:00},
+  {"Asia/Kolkata", 13:30:00},
   {NULL, NULL},
   {"NZ-CHAT", 21:45:00},
   {"America/Vancouver", 00:00:00},
@@ -169,7 +169,7 @@ ARRAY<STRUCT<tz STRING, DATETIME>>[unknown order:
   {"Pacific/Honolulu", 1999-12-31 22:00:00},
   {"Etc/Greenwich", 2000-01-01 08:00:00},
   {"Antarctica/Syowa", 2000-01-01 11:00:00},
-  {"Asia/Calcutta", 2000-01-01 13:30:00},
+  {"Asia/Kolkata", 2000-01-01 13:30:00},
   {NULL, NULL},
   {"NZ-CHAT", 2000-01-01 21:45:00},
   {"America/Vancouver", 2000-01-01 00:00:00},
@@ -214,7 +214,7 @@ ARRAY<STRUCT<tz STRING, TIMESTAMP>>[unknown order:
     1999-12-31 21:00:00+00
   },
   {
-    "Asia/Calcutta",
+    "Asia/Kolkata",
     1999-12-31 18:30:00+00
   },
   {NULL, NULL},
@@ -245,7 +245,7 @@ ARRAY<STRUCT<tz STRING, STRING>>[unknown order:
   {"Pacific/Honolulu", "99"},
   {"Etc/Greenwich", "00"},
   {"Antarctica/Syowa", "00"},
-  {"Asia/Calcutta", "00"},
+  {"Asia/Kolkata", "00"},
   {NULL, NULL},
   {"NZ-CHAT", "00"},
   {"America/Vancouver", "00"},
@@ -290,7 +290,7 @@ ARRAY<STRUCT<tz STRING, STRING>>[unknown order:
     "2014-02-28 21:20:30+03"
   },
   {
-    "Asia/Calcutta",
+    "Asia/Kolkata",
     "2014-02-28 23:50:30+05:30"
   },
   {NULL, NULL},

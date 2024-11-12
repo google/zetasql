@@ -1,0 +1,728 @@
+
+# Tests for the ON CONFLICT clause in INSERT DML statement.
+[default language_features=V_1_4_INSERT_ON_CONFLICT_CLAUSE]
+
+INSERT OR IGNORE INTO T(a, b) VALUES(1, 2) ON CONFLICT DO NOTHING;
+--
+InsertStatement(insert_mode=IGNORE) [0-65] [INSERT OR...DO NOTHING]
+  PathExpression [22-23] [T]
+    Identifier(T) [22-23] [T]
+  ColumnList [23-29] [(a, b)]
+    Identifier(a) [24-25] [a]
+    Identifier(b) [27-28] [b]
+  InsertValuesRowList [30-42] [VALUES(1, 2)]
+    InsertValuesRow [36-42] [(1, 2)]
+      IntLiteral(1) [37-38] [1]
+      IntLiteral(2) [40-41] [2]
+  OnConflictClause(conflict_action=NOTHING) [43-65] [ON CONFLICT DO NOTHING]
+--
+INSERT OR IGNORE INTO T(a, b)
+VALUES
+  (1, 2)
+ON CONFLICT DO NOTHING
+==
+
+INSERT INTO T(a, b) SELECT * from S ON CONFLICT DO NOTHING;
+--
+ERROR: Syntax error: Expected end of input but got keyword ON [at 1:37]
+INSERT INTO T(a, b) SELECT * from S ON CONFLICT DO NOTHING;
+                                    ^
+==
+
+INSERT INTO T(a, b) SELECT * from S ON CONFLICT DO UPDATE SET b = 1;
+--
+ERROR: Syntax error: Expected end of input but got keyword ON [at 1:37]
+INSERT INTO T(a, b) SELECT * from S ON CONFLICT DO UPDATE SET b = 1;
+                                    ^
+==
+
+INSERT INTO T(a, b) SELECT * from S JOIN ON conflict ON CONFLICT DO NOTHING;
+--
+ERROR: Syntax error: Unexpected keyword ON [at 1:42]
+INSERT INTO T(a, b) SELECT * from S JOIN ON conflict ON CONFLICT DO NOTHING;
+                                         ^
+==
+
+INSERT INTO T(a, b) SELECT * from S JOIN ON conflict ON CONFLICT DO UPDATE SET b = 1;
+--
+ERROR: Syntax error: Unexpected keyword ON [at 1:42]
+INSERT INTO T(a, b) SELECT * from S JOIN ON conflict ON CONFLICT DO UPDATE SE...
+                                         ^
+==
+
+INSERT INTO T(a, b) VALUES(1, 2) ON CONFLICT(T.a) DO UPDATE SET b = 1;
+--
+ERROR: Syntax error: Expected ")" but got "." [at 1:47]
+INSERT INTO T(a, b) VALUES(1, 2) ON CONFLICT(T.a) DO UPDATE SET b = 1;
+                                              ^
+==
+
+INSERT INTO T(a, b) VALUES(1, 2) ON CONFLICT ON UNIQUE CONSTRAINT T.indexname DO UPDATE SET b = 1;
+--
+ERROR: Syntax error: Expected keyword DO but got "." [at 1:68]
+...b) VALUES(1, 2) ON CONFLICT ON UNIQUE CONSTRAINT T.indexname DO UPDATE SET...
+                                                     ^
+==
+
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN NOT MATCHED THEN
+INSERT ROW ON CONFLICT DO NOTHING
+--
+ERROR: Syntax error: Expected end of input but got keyword ON [at 5:12]
+INSERT ROW ON CONFLICT DO NOTHING
+           ^
+==
+
+# DO NOTHING without conflict target
+INSERT INTO T(a, b) VALUES(1, 2) ON CONFLICT DO NOTHING;
+--
+InsertStatement [0-55] [INSERT INTO...DO NOTHING]
+  PathExpression [12-13] [T]
+    Identifier(T) [12-13] [T]
+  ColumnList [13-19] [(a, b)]
+    Identifier(a) [14-15] [a]
+    Identifier(b) [17-18] [b]
+  InsertValuesRowList [20-32] [VALUES(1, 2)]
+    InsertValuesRow [26-32] [(1, 2)]
+      IntLiteral(1) [27-28] [1]
+      IntLiteral(2) [30-31] [2]
+  OnConflictClause(conflict_action=NOTHING) [33-55] [ON CONFLICT DO NOTHING]
+--
+INSERT INTO T(a, b)
+VALUES
+  (1, 2)
+ON CONFLICT DO NOTHING
+==
+
+# DO UPDATE without conflict target and only SET clause
+INSERT INTO T(a, b) VALUES(1, 2) ON CONFLICT DO UPDATE SET a = a + excluded.a;
+--
+InsertStatement [0-77] [INSERT INTO...excluded.a]
+  PathExpression [12-13] [T]
+    Identifier(T) [12-13] [T]
+  ColumnList [13-19] [(a, b)]
+    Identifier(a) [14-15] [a]
+    Identifier(b) [17-18] [b]
+  InsertValuesRowList [20-32] [VALUES(1, 2)]
+    InsertValuesRow [26-32] [(1, 2)]
+      IntLiteral(1) [27-28] [1]
+      IntLiteral(2) [30-31] [2]
+  OnConflictClause(conflict_action=UPDATE) [33-77] [ON CONFLICT...excluded.a]
+    UpdateItemList [59-77] [a = a + excluded.a]
+      UpdateItem [59-77] [a = a + excluded.a]
+        UpdateSetValue [59-77] [a = a + excluded.a]
+          PathExpression [59-60] [a]
+            Identifier(a) [59-60] [a]
+          BinaryExpression(+) [63-77] [a + excluded.a]
+            PathExpression [63-64] [a]
+              Identifier(a) [63-64] [a]
+            PathExpression [67-77] [excluded.a]
+              Identifier(excluded) [67-75] [excluded]
+              Identifier(a) [76-77] [a]
+--
+INSERT INTO T(a, b)
+VALUES
+  (1, 2)
+ON CONFLICT DO UPDATE
+SET a = a + excluded.a
+==
+
+# DO UPDATE without conflict target and with WHERE clause
+INSERT INTO T(a, b) VALUES(1, 2) ON CONFLICT DO UPDATE SET a = a + excluded.a WHERE b > 10;
+--
+InsertStatement [0-90] [INSERT INTO...WHERE b > 10]
+  PathExpression [12-13] [T]
+    Identifier(T) [12-13] [T]
+  ColumnList [13-19] [(a, b)]
+    Identifier(a) [14-15] [a]
+    Identifier(b) [17-18] [b]
+  InsertValuesRowList [20-32] [VALUES(1, 2)]
+    InsertValuesRow [26-32] [(1, 2)]
+      IntLiteral(1) [27-28] [1]
+      IntLiteral(2) [30-31] [2]
+  OnConflictClause(conflict_action=UPDATE) [33-90] [ON CONFLICT...WHERE b > 10]
+    UpdateItemList [59-77] [a = a + excluded.a]
+      UpdateItem [59-77] [a = a + excluded.a]
+        UpdateSetValue [59-77] [a = a + excluded.a]
+          PathExpression [59-60] [a]
+            Identifier(a) [59-60] [a]
+          BinaryExpression(+) [63-77] [a + excluded.a]
+            PathExpression [63-64] [a]
+              Identifier(a) [63-64] [a]
+            PathExpression [67-77] [excluded.a]
+              Identifier(excluded) [67-75] [excluded]
+              Identifier(a) [76-77] [a]
+    BinaryExpression(>) [84-90] [b > 10]
+      PathExpression [84-85] [b]
+        Identifier(b) [84-85] [b]
+      IntLiteral(10) [88-90] [10]
+--
+INSERT INTO T(a, b)
+VALUES
+  (1, 2)
+ON CONFLICT DO UPDATE
+SET a = a + excluded.a
+WHERE b > 10
+==
+
+# DO NOTHING with conflict target
+INSERT INTO T(a, b) VALUES(1, 2) ON CONFLICT(a) DO NOTHING;
+--
+InsertStatement [0-58] [INSERT INTO...DO NOTHING]
+  PathExpression [12-13] [T]
+    Identifier(T) [12-13] [T]
+  ColumnList [13-19] [(a, b)]
+    Identifier(a) [14-15] [a]
+    Identifier(b) [17-18] [b]
+  InsertValuesRowList [20-32] [VALUES(1, 2)]
+    InsertValuesRow [26-32] [(1, 2)]
+      IntLiteral(1) [27-28] [1]
+      IntLiteral(2) [30-31] [2]
+  OnConflictClause(conflict_action=NOTHING) [33-58] [ON CONFLICT(a) DO NOTHING]
+    ColumnList [44-47] [(a)]
+      Identifier(a) [45-46] [a]
+--
+INSERT INTO T(a, b)
+VALUES
+  (1, 2)
+ON CONFLICT(a) DO NOTHING
+==
+
+# DO NOTHING with conflict target as column list
+INSERT INTO T(a, b) VALUES(1, 2) ON CONFLICT(a, b) DO NOTHING;
+--
+InsertStatement [0-61] [INSERT INTO...DO NOTHING]
+  PathExpression [12-13] [T]
+    Identifier(T) [12-13] [T]
+  ColumnList [13-19] [(a, b)]
+    Identifier(a) [14-15] [a]
+    Identifier(b) [17-18] [b]
+  InsertValuesRowList [20-32] [VALUES(1, 2)]
+    InsertValuesRow [26-32] [(1, 2)]
+      IntLiteral(1) [27-28] [1]
+      IntLiteral(2) [30-31] [2]
+  OnConflictClause(conflict_action=NOTHING) [33-61] [ON CONFLICT(a, b) DO NOTHING]
+    ColumnList [44-50] [(a, b)]
+      Identifier(a) [45-46] [a]
+      Identifier(b) [48-49] [b]
+--
+INSERT INTO T(a, b)
+VALUES
+  (1, 2)
+ON CONFLICT(a, b) DO NOTHING
+==
+
+# DO NOTHING with conflict target as unique constraint
+INSERT INTO T(a, b) VALUES(1, 2) ON CONFLICT ON UNIQUE CONSTRAINT index DO NOTHING;
+--
+InsertStatement [0-82] [INSERT INTO...DO NOTHING]
+  PathExpression [12-13] [T]
+    Identifier(T) [12-13] [T]
+  ColumnList [13-19] [(a, b)]
+    Identifier(a) [14-15] [a]
+    Identifier(b) [17-18] [b]
+  InsertValuesRowList [20-32] [VALUES(1, 2)]
+    InsertValuesRow [26-32] [(1, 2)]
+      IntLiteral(1) [27-28] [1]
+      IntLiteral(2) [30-31] [2]
+  OnConflictClause(conflict_action=NOTHING) [33-82] [ON CONFLICT...DO NOTHING]
+    Identifier(index) [66-71] [index]
+--
+INSERT INTO T(a, b)
+VALUES
+  (1, 2)
+ON CONFLICT ON UNIQUE CONSTRAINT index DO NOTHING
+==
+
+# DO UPDATE with conflict target as unique constraint
+INSERT INTO T(a, b) VALUES(1, 2) ON CONFLICT ON UNIQUE CONSTRAINT index DO UPDATE SET a = a + excluded.a;
+--
+InsertStatement [0-104] [INSERT INTO...excluded.a]
+  PathExpression [12-13] [T]
+    Identifier(T) [12-13] [T]
+  ColumnList [13-19] [(a, b)]
+    Identifier(a) [14-15] [a]
+    Identifier(b) [17-18] [b]
+  InsertValuesRowList [20-32] [VALUES(1, 2)]
+    InsertValuesRow [26-32] [(1, 2)]
+      IntLiteral(1) [27-28] [1]
+      IntLiteral(2) [30-31] [2]
+  OnConflictClause(conflict_action=UPDATE) [33-104] [ON CONFLICT...excluded.a]
+    Identifier(index) [66-71] [index]
+    UpdateItemList [86-104] [a = a + excluded.a]
+      UpdateItem [86-104] [a = a + excluded.a]
+        UpdateSetValue [86-104] [a = a + excluded.a]
+          PathExpression [86-87] [a]
+            Identifier(a) [86-87] [a]
+          BinaryExpression(+) [90-104] [a + excluded.a]
+            PathExpression [90-91] [a]
+              Identifier(a) [90-91] [a]
+            PathExpression [94-104] [excluded.a]
+              Identifier(excluded) [94-102] [excluded]
+              Identifier(a) [103-104] [a]
+--
+INSERT INTO T(a, b)
+VALUES
+  (1, 2)
+ON CONFLICT ON UNIQUE CONSTRAINT index DO UPDATE
+SET a = a + excluded.a
+==
+
+# Both conflict target and unique constraint
+INSERT INTO T(a, b) VALUES(1, 2) ON CONFLICT(a) ON UNIQUE CONSTRAINT index DO UPDATE SET a = a + excluded.a;
+--
+ERROR: Syntax error: Expected keyword DO but got keyword ON [at 1:49]
+INSERT INTO T(a, b) VALUES(1, 2) ON CONFLICT(a) ON UNIQUE CONSTRAINT index DO...
+                                                ^
+==
+
+# DO NOTHING with returning clause
+INSERT INTO T(a, b) VALUES(1, 2) ON CONFLICT(a) DO NOTHING THEN RETURN WITH ACTION as myaction a, b;
+--
+InsertStatement [0-99] [INSERT INTO...myaction a, b]
+  PathExpression [12-13] [T]
+    Identifier(T) [12-13] [T]
+  ColumnList [13-19] [(a, b)]
+    Identifier(a) [14-15] [a]
+    Identifier(b) [17-18] [b]
+  InsertValuesRowList [20-32] [VALUES(1, 2)]
+    InsertValuesRow [26-32] [(1, 2)]
+      IntLiteral(1) [27-28] [1]
+      IntLiteral(2) [30-31] [2]
+  OnConflictClause(conflict_action=NOTHING) [33-58] [ON CONFLICT(a) DO NOTHING]
+    ColumnList [44-47] [(a)]
+      Identifier(a) [45-46] [a]
+  ReturningClause [59-99] [THEN RETURN...myaction a, b]
+    SelectList [95-99] [a, b]
+      SelectColumn [95-96] [a]
+        PathExpression [95-96] [a]
+          Identifier(a) [95-96] [a]
+      SelectColumn [98-99] [b]
+        PathExpression [98-99] [b]
+          Identifier(b) [98-99] [b]
+    Alias [59-99] [THEN RETURN...myaction a, b]
+      Identifier(myaction) [86-94] [myaction]
+--
+INSERT INTO T(a, b)
+VALUES
+  (1, 2)
+ON CONFLICT(a) DO NOTHING
+THEN RETURN WITH ACTION AS myaction
+  a,
+  b
+==
+
+# DO NOTHING with assert rows modified
+INSERT INTO T(a, b) VALUES(1, 2) ON CONFLICT(a) DO NOTHING ASSERT_ROWS_MODIFIED 1;
+--
+InsertStatement [0-81] [INSERT INTO..._ROWS_MODIFIED 1]
+  PathExpression [12-13] [T]
+    Identifier(T) [12-13] [T]
+  ColumnList [13-19] [(a, b)]
+    Identifier(a) [14-15] [a]
+    Identifier(b) [17-18] [b]
+  InsertValuesRowList [20-32] [VALUES(1, 2)]
+    InsertValuesRow [26-32] [(1, 2)]
+      IntLiteral(1) [27-28] [1]
+      IntLiteral(2) [30-31] [2]
+  OnConflictClause(conflict_action=NOTHING) [33-58] [ON CONFLICT(a) DO NOTHING]
+    ColumnList [44-47] [(a)]
+      Identifier(a) [45-46] [a]
+  AssertRowsModified [59-81] [ASSERT_ROWS_MODIFIED 1]
+    IntLiteral(1) [80-81] [1]
+--
+INSERT INTO T(a, b)
+VALUES
+  (1, 2)
+ON CONFLICT(a) DO NOTHING
+ASSERT_ROWS_MODIFIED 1
+==
+
+# DO NOTHING with returning clause and assert rows modified
+INSERT INTO T(a, b) VALUES(1, 2) ON CONFLICT DO NOTHING ASSERT_ROWS_MODIFIED 1 THEN RETURN WITH ACTION a, b;
+--
+InsertStatement [0-107] [INSERT INTO...ACTION a, b]
+  PathExpression [12-13] [T]
+    Identifier(T) [12-13] [T]
+  ColumnList [13-19] [(a, b)]
+    Identifier(a) [14-15] [a]
+    Identifier(b) [17-18] [b]
+  InsertValuesRowList [20-32] [VALUES(1, 2)]
+    InsertValuesRow [26-32] [(1, 2)]
+      IntLiteral(1) [27-28] [1]
+      IntLiteral(2) [30-31] [2]
+  OnConflictClause(conflict_action=NOTHING) [33-55] [ON CONFLICT DO NOTHING]
+  AssertRowsModified [56-78] [ASSERT_ROWS_MODIFIED 1]
+    IntLiteral(1) [77-78] [1]
+  ReturningClause [79-107] [THEN RETURN WITH ACTION a, b]
+    SelectList [103-107] [a, b]
+      SelectColumn [103-104] [a]
+        PathExpression [103-104] [a]
+          Identifier(a) [103-104] [a]
+      SelectColumn [106-107] [b]
+        PathExpression [106-107] [b]
+          Identifier(b) [106-107] [b]
+    Alias [79-107] [THEN RETURN WITH ACTION a, b]
+      Identifier(ACTION) [96-102] [ACTION]
+--
+INSERT INTO T(a, b)
+VALUES
+  (1, 2)
+ON CONFLICT DO NOTHING
+ASSERT_ROWS_MODIFIED 1
+THEN RETURN WITH ACTION AS ACTION
+  a,
+  b
+==
+
+# DO UPDATE with returning clause and assert rows modified
+INSERT INTO T(a, b) VALUES(1, 2) ON CONFLICT(a) DO UPDATE SET a = a + excluded.a WHERE b < 10 ASSERT_ROWS_MODIFIED 5 THEN RETURN WITH ACTION a, b;
+--
+InsertStatement [0-145] [INSERT INTO...ACTION a, b]
+  PathExpression [12-13] [T]
+    Identifier(T) [12-13] [T]
+  ColumnList [13-19] [(a, b)]
+    Identifier(a) [14-15] [a]
+    Identifier(b) [17-18] [b]
+  InsertValuesRowList [20-32] [VALUES(1, 2)]
+    InsertValuesRow [26-32] [(1, 2)]
+      IntLiteral(1) [27-28] [1]
+      IntLiteral(2) [30-31] [2]
+  OnConflictClause(conflict_action=UPDATE) [33-93] [ON CONFLICT...WHERE b < 10]
+    ColumnList [44-47] [(a)]
+      Identifier(a) [45-46] [a]
+    UpdateItemList [62-80] [a = a + excluded.a]
+      UpdateItem [62-80] [a = a + excluded.a]
+        UpdateSetValue [62-80] [a = a + excluded.a]
+          PathExpression [62-63] [a]
+            Identifier(a) [62-63] [a]
+          BinaryExpression(+) [66-80] [a + excluded.a]
+            PathExpression [66-67] [a]
+              Identifier(a) [66-67] [a]
+            PathExpression [70-80] [excluded.a]
+              Identifier(excluded) [70-78] [excluded]
+              Identifier(a) [79-80] [a]
+    BinaryExpression(<) [87-93] [b < 10]
+      PathExpression [87-88] [b]
+        Identifier(b) [87-88] [b]
+      IntLiteral(10) [91-93] [10]
+  AssertRowsModified [94-116] [ASSERT_ROWS_MODIFIED 5]
+    IntLiteral(5) [115-116] [5]
+  ReturningClause [117-145] [THEN RETURN WITH ACTION a, b]
+    SelectList [141-145] [a, b]
+      SelectColumn [141-142] [a]
+        PathExpression [141-142] [a]
+          Identifier(a) [141-142] [a]
+      SelectColumn [144-145] [b]
+        PathExpression [144-145] [b]
+          Identifier(b) [144-145] [b]
+    Alias [117-145] [THEN RETURN WITH ACTION a, b]
+      Identifier(ACTION) [134-140] [ACTION]
+--
+INSERT INTO T(a, b)
+VALUES
+  (1, 2)
+ON CONFLICT(a) DO UPDATE
+SET a = a + excluded.a
+WHERE b < 10
+ASSERT_ROWS_MODIFIED 5
+THEN RETURN WITH ACTION AS ACTION
+  a,
+  b
+==
+
+# DO UPDATE with assert rows modified
+INSERT INTO T(a, b) VALUES(1, 2) ON CONFLICT(a) DO UPDATE SET a = a + excluded.a WHERE b < 10 ASSERT_ROWS_MODIFIED 5;
+--
+InsertStatement [0-116] [INSERT INTO..._ROWS_MODIFIED 5]
+  PathExpression [12-13] [T]
+    Identifier(T) [12-13] [T]
+  ColumnList [13-19] [(a, b)]
+    Identifier(a) [14-15] [a]
+    Identifier(b) [17-18] [b]
+  InsertValuesRowList [20-32] [VALUES(1, 2)]
+    InsertValuesRow [26-32] [(1, 2)]
+      IntLiteral(1) [27-28] [1]
+      IntLiteral(2) [30-31] [2]
+  OnConflictClause(conflict_action=UPDATE) [33-93] [ON CONFLICT...WHERE b < 10]
+    ColumnList [44-47] [(a)]
+      Identifier(a) [45-46] [a]
+    UpdateItemList [62-80] [a = a + excluded.a]
+      UpdateItem [62-80] [a = a + excluded.a]
+        UpdateSetValue [62-80] [a = a + excluded.a]
+          PathExpression [62-63] [a]
+            Identifier(a) [62-63] [a]
+          BinaryExpression(+) [66-80] [a + excluded.a]
+            PathExpression [66-67] [a]
+              Identifier(a) [66-67] [a]
+            PathExpression [70-80] [excluded.a]
+              Identifier(excluded) [70-78] [excluded]
+              Identifier(a) [79-80] [a]
+    BinaryExpression(<) [87-93] [b < 10]
+      PathExpression [87-88] [b]
+        Identifier(b) [87-88] [b]
+      IntLiteral(10) [91-93] [10]
+  AssertRowsModified [94-116] [ASSERT_ROWS_MODIFIED 5]
+    IntLiteral(5) [115-116] [5]
+--
+INSERT INTO T(a, b)
+VALUES
+  (1, 2)
+ON CONFLICT(a) DO UPDATE
+SET a = a + excluded.a
+WHERE b < 10
+ASSERT_ROWS_MODIFIED 5
+==
+
+# DO UPDATE with returning
+INSERT INTO T(a, b) VALUES(1, 2) ON CONFLICT(a) DO UPDATE SET a = a + excluded.a WHERE b < 10 THEN RETURN a, excluded.a;
+--
+InsertStatement [0-119] [INSERT INTO...excluded.a]
+  PathExpression [12-13] [T]
+    Identifier(T) [12-13] [T]
+  ColumnList [13-19] [(a, b)]
+    Identifier(a) [14-15] [a]
+    Identifier(b) [17-18] [b]
+  InsertValuesRowList [20-32] [VALUES(1, 2)]
+    InsertValuesRow [26-32] [(1, 2)]
+      IntLiteral(1) [27-28] [1]
+      IntLiteral(2) [30-31] [2]
+  OnConflictClause(conflict_action=UPDATE) [33-93] [ON CONFLICT...WHERE b < 10]
+    ColumnList [44-47] [(a)]
+      Identifier(a) [45-46] [a]
+    UpdateItemList [62-80] [a = a + excluded.a]
+      UpdateItem [62-80] [a = a + excluded.a]
+        UpdateSetValue [62-80] [a = a + excluded.a]
+          PathExpression [62-63] [a]
+            Identifier(a) [62-63] [a]
+          BinaryExpression(+) [66-80] [a + excluded.a]
+            PathExpression [66-67] [a]
+              Identifier(a) [66-67] [a]
+            PathExpression [70-80] [excluded.a]
+              Identifier(excluded) [70-78] [excluded]
+              Identifier(a) [79-80] [a]
+    BinaryExpression(<) [87-93] [b < 10]
+      PathExpression [87-88] [b]
+        Identifier(b) [87-88] [b]
+      IntLiteral(10) [91-93] [10]
+  ReturningClause [94-119] [THEN RETURN a, excluded.a]
+    SelectList [106-119] [a, excluded.a]
+      SelectColumn [106-107] [a]
+        PathExpression [106-107] [a]
+          Identifier(a) [106-107] [a]
+      SelectColumn [109-119] [excluded.a]
+        PathExpression [109-119] [excluded.a]
+          Identifier(excluded) [109-117] [excluded]
+          Identifier(a) [118-119] [a]
+--
+INSERT INTO T(a, b)
+VALUES
+  (1, 2)
+ON CONFLICT(a) DO UPDATE
+SET a = a + excluded.a
+WHERE b < 10
+THEN RETURN
+  a,
+  excluded.a
+==
+
+# DO NOTHING with subquery
+INSERT INTO T(a, b) (SELECT a, b FROM otherT) ON CONFLICT DO NOTHING;
+--
+InsertStatement [0-68] [INSERT INTO...DO NOTHING]
+  PathExpression [12-13] [T]
+    Identifier(T) [12-13] [T]
+  ColumnList [13-19] [(a, b)]
+    Identifier(a) [14-15] [a]
+    Identifier(b) [17-18] [b]
+  Query [21-44] [SELECT a, b FROM otherT]
+    Select [21-44] [SELECT a, b FROM otherT]
+      SelectList [28-32] [a, b]
+        SelectColumn [28-29] [a]
+          PathExpression [28-29] [a]
+            Identifier(a) [28-29] [a]
+        SelectColumn [31-32] [b]
+          PathExpression [31-32] [b]
+            Identifier(b) [31-32] [b]
+      FromClause [33-44] [FROM otherT]
+        TablePathExpression [38-44] [otherT]
+          PathExpression [38-44] [otherT]
+            Identifier(otherT) [38-44] [otherT]
+  OnConflictClause(conflict_action=NOTHING) [46-68] [ON CONFLICT DO NOTHING]
+--
+INSERT INTO T(a, b)
+(
+SELECT
+  a,
+  b
+FROM
+  otherT
+)
+ON CONFLICT DO NOTHING
+==
+
+# DO UPDATE with subquery
+INSERT INTO T(a, b) (SELECT a, b FROM otherT JOIN T ON T.a = otherT.a) ON CONFLICT(a) DO UPDATE SET a = a + excluded.a WHERE b < 10;
+--
+InsertStatement [0-131] [INSERT INTO...WHERE b < 10]
+  PathExpression [12-13] [T]
+    Identifier(T) [12-13] [T]
+  ColumnList [13-19] [(a, b)]
+    Identifier(a) [14-15] [a]
+    Identifier(b) [17-18] [b]
+  Query [21-69] [SELECT a,...= otherT.a]
+    Select [21-69] [SELECT a,...= otherT.a]
+      SelectList [28-32] [a, b]
+        SelectColumn [28-29] [a]
+          PathExpression [28-29] [a]
+            Identifier(a) [28-29] [a]
+        SelectColumn [31-32] [b]
+          PathExpression [31-32] [b]
+            Identifier(b) [31-32] [b]
+      FromClause [33-69] [FROM otherT...= otherT.a]
+        Join [38-69] [otherT JOIN...= otherT.a]
+          TablePathExpression [38-44] [otherT]
+            PathExpression [38-44] [otherT]
+              Identifier(otherT) [38-44] [otherT]
+          Location [45-49] [JOIN]
+          TablePathExpression [50-51] [T]
+            PathExpression [50-51] [T]
+              Identifier(T) [50-51] [T]
+          OnClause [52-69] [ON T.a = otherT.a]
+            BinaryExpression(=) [55-69] [T.a = otherT.a]
+              PathExpression [55-58] [T.a]
+                Identifier(T) [55-56] [T]
+                Identifier(a) [57-58] [a]
+              PathExpression [61-69] [otherT.a]
+                Identifier(otherT) [61-67] [otherT]
+                Identifier(a) [68-69] [a]
+  OnConflictClause(conflict_action=UPDATE) [71-131] [ON CONFLICT...WHERE b < 10]
+    ColumnList [82-85] [(a)]
+      Identifier(a) [83-84] [a]
+    UpdateItemList [100-118] [a = a + excluded.a]
+      UpdateItem [100-118] [a = a + excluded.a]
+        UpdateSetValue [100-118] [a = a + excluded.a]
+          PathExpression [100-101] [a]
+            Identifier(a) [100-101] [a]
+          BinaryExpression(+) [104-118] [a + excluded.a]
+            PathExpression [104-105] [a]
+              Identifier(a) [104-105] [a]
+            PathExpression [108-118] [excluded.a]
+              Identifier(excluded) [108-116] [excluded]
+              Identifier(a) [117-118] [a]
+    BinaryExpression(<) [125-131] [b < 10]
+      PathExpression [125-126] [b]
+        Identifier(b) [125-126] [b]
+      IntLiteral(10) [129-131] [10]
+--
+INSERT INTO T(a, b)
+(
+SELECT
+  a,
+  b
+FROM
+  otherT
+  JOIN
+  T
+  ON T.a = otherT.a
+)
+ON CONFLICT(a) DO UPDATE
+SET a = a + excluded.a
+WHERE b < 10
+==
+
+# Unique constraint as conflict target
+INSERT INTO T(a, b) VALUES(1, 2) ON CONFLICT ON UNIQUE CONSTRAINT index DO NOTHING THEN RETURN a;
+--
+InsertStatement [0-96] [INSERT INTO...THEN RETURN a]
+  PathExpression [12-13] [T]
+    Identifier(T) [12-13] [T]
+  ColumnList [13-19] [(a, b)]
+    Identifier(a) [14-15] [a]
+    Identifier(b) [17-18] [b]
+  InsertValuesRowList [20-32] [VALUES(1, 2)]
+    InsertValuesRow [26-32] [(1, 2)]
+      IntLiteral(1) [27-28] [1]
+      IntLiteral(2) [30-31] [2]
+  OnConflictClause(conflict_action=NOTHING) [33-82] [ON CONFLICT...DO NOTHING]
+    Identifier(index) [66-71] [index]
+  ReturningClause [83-96] [THEN RETURN a]
+    SelectList [95-96] [a]
+      SelectColumn [95-96] [a]
+        PathExpression [95-96] [a]
+          Identifier(a) [95-96] [a]
+--
+INSERT INTO T(a, b)
+VALUES
+  (1, 2)
+ON CONFLICT ON UNIQUE CONSTRAINT index DO NOTHING
+THEN RETURN
+  a
+==
+
+
+# DO UPDATE with subquery and column name conflict
+INSERT INTO T(a, b) (SELECT a, b FROM otherT JOIN T ON conflict = conflict2) ON CONFLICT(a) DO UPDATE SET a = a + excluded.a;
+--
+InsertStatement [0-124] [INSERT INTO...excluded.a]
+  PathExpression [12-13] [T]
+    Identifier(T) [12-13] [T]
+  ColumnList [13-19] [(a, b)]
+    Identifier(a) [14-15] [a]
+    Identifier(b) [17-18] [b]
+  Query [21-75] [SELECT a,...conflict2]
+    Select [21-75] [SELECT a,...conflict2]
+      SelectList [28-32] [a, b]
+        SelectColumn [28-29] [a]
+          PathExpression [28-29] [a]
+            Identifier(a) [28-29] [a]
+        SelectColumn [31-32] [b]
+          PathExpression [31-32] [b]
+            Identifier(b) [31-32] [b]
+      FromClause [33-75] [FROM otherT...conflict2]
+        Join [38-75] [otherT JOIN...conflict2]
+          TablePathExpression [38-44] [otherT]
+            PathExpression [38-44] [otherT]
+              Identifier(otherT) [38-44] [otherT]
+          Location [45-49] [JOIN]
+          TablePathExpression [50-51] [T]
+            PathExpression [50-51] [T]
+              Identifier(T) [50-51] [T]
+          OnClause [52-75] [ON conflict = conflict2]
+            BinaryExpression(=) [55-75] [conflict = conflict2]
+              PathExpression [55-63] [conflict]
+                Identifier(conflict) [55-63] [conflict]
+              PathExpression [66-75] [conflict2]
+                Identifier(conflict2) [66-75] [conflict2]
+  OnConflictClause(conflict_action=UPDATE) [77-124] [ON CONFLICT...excluded.a]
+    ColumnList [88-91] [(a)]
+      Identifier(a) [89-90] [a]
+    UpdateItemList [106-124] [a = a + excluded.a]
+      UpdateItem [106-124] [a = a + excluded.a]
+        UpdateSetValue [106-124] [a = a + excluded.a]
+          PathExpression [106-107] [a]
+            Identifier(a) [106-107] [a]
+          BinaryExpression(+) [110-124] [a + excluded.a]
+            PathExpression [110-111] [a]
+              Identifier(a) [110-111] [a]
+            PathExpression [114-124] [excluded.a]
+              Identifier(excluded) [114-122] [excluded]
+              Identifier(a) [123-124] [a]
+--
+INSERT INTO T(a, b)
+(
+SELECT
+  a,
+  b
+FROM
+  otherT
+  JOIN
+  T
+  ON conflict = conflict2
+)
+ON CONFLICT(a) DO UPDATE
+SET a = a + excluded.a
+==
+

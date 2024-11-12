@@ -20,6 +20,11 @@
 #include <memory>
 
 #include "zetasql/base/testing/status_matchers.h"  
+#include "zetasql/public/function.h"
+#include "zetasql/public/function_signature.h"
+#include "zetasql/public/parse_resume_location.h"
+#include "zetasql/public/types/type.h"
+#include "zetasql/public/types/type_factory.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 

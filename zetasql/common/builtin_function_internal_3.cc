@@ -42,6 +42,7 @@
 #include "zetasql/public/proto_util.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/array_type.h"
+#include "zetasql/public/types/graph_element_type.h"
 #include "zetasql/public/types/struct_type.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
@@ -74,6 +75,52 @@ static FunctionSignatureOptions SetDefinitionForInlining(absl::string_view sql,
           .set_enabled(enabled)
           .set_rewriter(REWRITE_BUILTIN_FUNCTION_INLINER)
           .set_sql(sql));
+}
+
+// Generates a good error message when concatenating paths that should
+// not be concatenated because they have no common properties or are defined on
+// different graphs. If executed, this concatenation would produce an error.
+//
+// This is a pre-resolution constraint because we want these checks before we
+// coerce the arguments to the same type.
+static absl::Status CheckPreResolutionPathConcatConstraints(
+    const std::vector<InputArgumentType>& arguments,
+    const LanguageOptions& language_options) {
+  if (absl::c_all_of(arguments, [](const InputArgumentType& argument) {
+        return argument.type() != nullptr && argument.type()->IsGraphPath();
+      })) {
+    std::optional<absl::Span<const std::string>> previous_graph_reference;
+    absl::flat_hash_set<PropertyType> previous_properties;
+    bool first_argument = true;
+    for (const InputArgumentType& argument : arguments) {
+      absl::flat_hash_set<PropertyType> properties;
+      bool any_property_overlap = false;
+      if (previous_graph_reference.has_value()) {
+        if (!absl::c_equal(
+                argument.type()->AsGraphPath()->node_type()->graph_reference(),
+                *previous_graph_reference, zetasql_base::CaseEqual)) {
+          return absl::InvalidArgumentError(
+              "Cannot concatenate paths from different graphs");
+        }
+      }
+      previous_graph_reference =
+          argument.type()->AsGraphPath()->node_type()->graph_reference();
+      for (const PropertyType& property :
+           argument.type()->AsGraphPath()->node_type()->property_types()) {
+        properties.insert(property);
+        any_property_overlap =
+            any_property_overlap || previous_properties.contains(property);
+      }
+      previous_properties = std::move(properties);
+      if (!first_argument && !any_property_overlap) {
+        return absl::InvalidArgumentError(
+            "Cannot concatenate paths where the tail of the first path and the "
+            "head of the second path have no shared properties");
+      }
+      first_argument = false;
+    }
+  }
+  return absl::OkStatus();
 }
 
 void GetStringFunctions(TypeFactory* type_factory,
@@ -964,20 +1011,25 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
 
   InsertFunction(
       functions, options, "$concat_op", SCALAR,
-      {
-          {string_type,
-           {{string_type, concat_option}, {string_type, concat_option}},
-           FN_CONCAT_OP_STRING},
-          {bytes_type, {bytes_type, bytes_type}, FN_CONCAT_OP_BYTES},
-          {ARG_ARRAY_TYPE_ANY_1,
-           {ARG_ARRAY_TYPE_ANY_1, ARG_ARRAY_TYPE_ANY_1},
-           FN_ARRAY_CONCAT_OP}
-      },
+      {{string_type,
+        {{string_type, concat_option}, {string_type, concat_option}},
+        FN_CONCAT_OP_STRING},
+       {bytes_type, {bytes_type, bytes_type}, FN_CONCAT_OP_BYTES},
+       {ARG_ARRAY_TYPE_ANY_1,
+        {ARG_ARRAY_TYPE_ANY_1, ARG_ARRAY_TYPE_ANY_1},
+        FN_ARRAY_CONCAT_OP},
+       {ARG_TYPE_GRAPH_PATH,
+        {ARG_TYPE_GRAPH_PATH, ARG_TYPE_GRAPH_PATH},
+        FN_CONCAT_OP_PATH,
+        FunctionSignatureOptions()
+            .AddRequiredLanguageFeature(FEATURE_V_1_4_SQL_GRAPH)
+            .AddRequiredLanguageFeature(FEATURE_V_1_4_SQL_GRAPH_PATH_TYPE)}},
       FunctionOptions()
           .set_supports_safe_error_mode(false)
           .set_sql_name("||")
           .set_get_sql_callback(absl::bind_front(&InfixFunctionSQL, "||"))
-  );
+          .set_pre_resolution_argument_constraint(
+              CheckPreResolutionPathConcatConstraints));
 
   // RANGE_BUCKET: returns the bucket of the item in the array.
   InsertFunction(
@@ -1399,7 +1451,10 @@ absl::Status GetJSONFunctions(TypeFactory* type_factory,
         InsertFunction(functions, options, "to_json", SCALAR, signatures);
       }
     }
-
+    InsertFunction(
+        functions, options, "safe_to_json", SCALAR,
+        {{json_type, {ARG_TYPE_ANY_1}, FN_SAFE_TO_JSON}},
+        FunctionOptions().AddRequiredLanguageFeature(FEATURE_JSON_TYPE));
     InsertFunction(
         functions, options, "parse_json", SCALAR,
         {{json_type,
@@ -3040,6 +3095,14 @@ void GetTypeOfFunction(TypeFactory* type_factory,
              FN_TYPEOF,
              SetRewriter(REWRITE_TYPEOF_FUNCTION)
                  .set_propagates_collation(false)},
+            // TODO: Remove these signatures.
+            {type_factory->get_string(),
+             {ARG_TYPE_GRAPH_ELEMENT},
+             FN_TYPEOF_GRAPH_ELEMENT,
+             SetRewriter(REWRITE_TYPEOF_FUNCTION)
+                 .set_propagates_collation(false)
+                 .set_is_hidden(true)
+                 .AddRequiredLanguageFeature(FEATURE_V_1_4_SQL_GRAPH)}
         });
   }
 }

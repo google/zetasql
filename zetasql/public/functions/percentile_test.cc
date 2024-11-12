@@ -53,13 +53,13 @@ constexpr absl::string_view kBigNumericMax =
     "578960446186580977117854925043439539266"
     ".34992332820282019728792003956564819967";
 
-template <typename PercentileType>
+template <typename PercentileType, typename Weight = PercentileType>
 struct PercentileIndexTestItem {
   PercentileType percentile;
   size_t max_index;
   size_t expected_index;
-  typename PercentileEvaluator<PercentileType>::Weight expected_left_weight;
-  typename PercentileEvaluator<PercentileType>::Weight expected_right_weight;
+  Weight expected_left_weight;
+  Weight expected_right_weight;
 };
 
 inline std::string ToString(double value) {
@@ -81,17 +81,16 @@ inline NumericType operator-(NumericType lhs, NumericType rhs) {
   return lhs.Subtract(rhs).value();
 }
 
-template <typename PercentileType>
+template <typename PercentileType, typename Weight = PercentileType>
 void TestComputePercentileIndex(
-    const PercentileIndexTestItem<PercentileType>& item) {
-  using Weight = typename PercentileEvaluator<PercentileType>::Weight;
+    const PercentileIndexTestItem<PercentileType, Weight>& item) {
   SCOPED_TRACE(absl::StrCat(" percentile=", ToString(item.percentile),
                             " max_index=", item.max_index));
   Weight left_weight = Weight(-1);
   Weight right_weight = Weight(-1);
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      PercentileEvaluator<PercentileType> percentile_evalutor,
-      PercentileEvaluator<PercentileType>::Create(item.percentile));
+  using Evaluator = PercentileEvaluator<PercentileType, Weight>;
+  ZETASQL_ASSERT_OK_AND_ASSIGN(Evaluator percentile_evalutor,
+                       Evaluator::Create(item.percentile));
   EXPECT_EQ(item.expected_index,
             percentile_evalutor.ComputePercentileIndex(
                 item.max_index, &left_weight, &right_weight));
@@ -106,9 +105,8 @@ void TestComputePercentileIndex(
   // When item.percentile is too small, then 1 - item.percentile = 1,
   // and we can't test the complement.
   if (PercentileType(1) - complement_percentile == item.percentile) {
-    ZETASQL_ASSERT_OK_AND_ASSIGN(
-        PercentileEvaluator<PercentileType> complement_percentile_evalutor,
-        PercentileEvaluator<PercentileType>::Create(complement_percentile));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(Evaluator complement_percentile_evalutor,
+                         Evaluator::Create(complement_percentile));
     const size_t index = complement_percentile_evalutor.ComputePercentileIndex(
         item.max_index, &left_weight, &right_weight);
     if (item.expected_right_weight > Weight(0)) {
@@ -123,12 +121,13 @@ void TestComputePercentileIndex(
   }
 }
 
-TEST(DoublePercentileTest, ComputePercentileIndex) {
-  constexpr long double kTwoToMinus65 = 0.25 / kTwoTo63;
-  constexpr long double kTwoToMinus64 = 0.5 / kTwoTo63;
-  constexpr long double kTwoToMinus63 = 1.0 / kTwoTo63;
-  constexpr long double kTwoToMinus52 = 1.0 / (1ULL << 52);  // double epsilon
-  static constexpr PercentileIndexTestItem<double> kTestItems[] = {
+template <typename Weight>
+void TestComputeDoublePercentileIndex() {
+  constexpr Weight kTwoToMinus65 = 0.25 / kTwoTo63;
+  constexpr Weight kTwoToMinus64 = 0.5 / kTwoTo63;
+  constexpr Weight kTwoToMinus63 = 1.0 / kTwoTo63;
+  constexpr Weight kTwoToMinus52 = 1.0 / (1ULL << 52);  // double epsilon
+  static constexpr PercentileIndexTestItem<double, Weight> kTestItems[] = {
       // {percentile, max_index, expected_index, expected_left_weight,
       // expected_right_weight}
       {1, 0, 0, 1, 0},
@@ -196,8 +195,8 @@ TEST(DoublePercentileTest, ComputePercentileIndex) {
        1 - kTwoToMinus52, kTwoToMinus52},
   };
 
-  for (const PercentileIndexTestItem<double>& item : kTestItems) {
-    TestComputePercentileIndex(item);
+  for (const PercentileIndexTestItem<double, Weight>& item : kTestItems) {
+    TestComputePercentileIndex<double, Weight>(item);
   }
 
   // Test percentile values so small that the returned index is always 0.
@@ -210,22 +209,28 @@ TEST(DoublePercentileTest, ComputePercentileIndex) {
   static const size_t kUint64Maxes[] = {0,        1,         100, kTwoTo63 - 1,
                                         kTwoTo63, kUint64Max};
   for (double percentile : kSmallPercnetiles) {
-    ZETASQL_ASSERT_OK_AND_ASSIGN(PercentileEvaluator<double> percentile_evalutor,
-                         PercentileEvaluator<double>::Create(percentile));
+    using Evaluator = PercentileEvaluator<double, Weight>;
+    ZETASQL_ASSERT_OK_AND_ASSIGN(Evaluator percentile_evalutor,
+                         Evaluator::Create(percentile));
     for (size_t max_index : kUint64Maxes) {
       SCOPED_TRACE(
           absl::StrCat("percentile=", RoundTripDoubleToString(percentile),
                        " max_index=", max_index));
-      long double left_weight = -1;
-      long double right_weight = -1;
+      Weight left_weight = -1;
+      Weight right_weight = -1;
       EXPECT_EQ(0, percentile_evalutor.ComputePercentileIndex(
           max_index, &left_weight, &right_weight));
-      long double expected_right_weight =
-          percentile * static_cast<long double>(max_index);
+      Weight expected_right_weight =
+          percentile * static_cast<Weight>(max_index);
       EXPECT_EQ(expected_right_weight, right_weight);
-      EXPECT_EQ(1 - expected_right_weight, left_weight);
+      EXPECT_EQ(1, left_weight + right_weight);
     }
   }
+}
+
+TEST(DoublePercentileTest, ComputePercentileIndex) {
+  TestComputeDoublePercentileIndex<double>();
+  TestComputeDoublePercentileIndex<long double>();
 }
 
 TEST(DoublePercentileTest, InvalidPercentiles) {

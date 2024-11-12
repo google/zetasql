@@ -1139,9 +1139,10 @@ absl::Status ReadProtoFields(
         }
       } else if (values.empty()) {
         if (ABSL_PREDICT_FALSE(info->descriptor->is_required())) {
-          new_value = absl::Status(absl::StatusCode::kOutOfRange,
-                                   "Protocol buffer missing required field " +
-                                       info->descriptor->full_name());
+          new_value = absl::Status(
+              absl::StatusCode::kOutOfRange,
+              absl::StrCat("Protocol buffer missing required field ",
+                           info->descriptor->full_name()));
         } else {
           new_value = info->default_value;
         }

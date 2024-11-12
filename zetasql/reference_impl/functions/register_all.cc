@@ -23,10 +23,13 @@
 #include "zetasql/reference_impl/functions/string_with_collation.h"
 #include "zetasql/reference_impl/functions/uuid.h"
 
+#include "zetasql/reference_impl/functions/graph.h"
+
 namespace zetasql {
 
 void RegisterAllOptionalBuiltinFunctions() {
   RegisterBuiltinJsonFunctions();
+  RegisterBuiltinGraphFunctions();
   RegisterBuiltinUuidFunctions();
   RegisterBuiltinHashFunctions();
   RegisterBuiltinStringWithCollationFunctions();

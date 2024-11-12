@@ -17,7 +17,9 @@
 #ifndef ZETASQL_PARSER_MACROS_TOKEN_SPLICING_UTILS_H_
 #define ZETASQL_PARSER_MACROS_TOKEN_SPLICING_UTILS_H_
 
-#include "zetasql/parser/macros/token_with_location.h"
+#include "zetasql/parser/tm_token.h"
+#include "zetasql/parser/token_codes.h"
+#include "zetasql/parser/token_with_location.h"
 #include "absl/strings/string_view.h"
 
 namespace zetasql {
@@ -36,7 +38,7 @@ bool IsQuotedIdentifier(const TokenWithLocation& token);
 bool IsIdentifierCharacter(char c);
 
 // Returns true if the token's text is a keyword or an unquoted identifier.
-bool IsKeywordOrUnquotedIdentifier(int token_kind,
+bool IsKeywordOrUnquotedIdentifier(Token token_kind,
                                    absl::string_view token_text);
 
 // Returns true if the token's text is a keyword or an unquoted identifier.

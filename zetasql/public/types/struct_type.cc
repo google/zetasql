@@ -534,9 +534,11 @@ absl::Status StructType::SerializeValueContent(const ValueContent& value,
 
 absl::Status StructType::DeserializeValueContent(const ValueProto& value_proto,
                                                  ValueContent* value) const {
+  // TODO: b/365163099 - Implement the deserialization logic here, instead of in
+  // Value.
   return absl::FailedPreconditionError(
-      "DeserializeValueContent should never be called for StructType, since "
-      "its value content is maintained in the Value class");
+      "DeserializeValueContent should not be called for STRUCT. The "
+      "deserialization logic is implemented directly in the Value class.");
 }
 
 void StructType::FormatValueContentDebugModeImpl(

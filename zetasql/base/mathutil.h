@@ -21,14 +21,13 @@
 // mathematical functions, properly coded (by consulting numerical
 // recipes or another authoritative source first).
 
-// #include <math.h>  // Needed for old-fashioned ::isinf calls.
-
+#include <cmath>
 #include <cstdint>
+#include <limits>
 #include <type_traits>
 
 #include "zetasql/base/check.h"
 #include "zetasql/base/bits.h"
-#include "zetasql/base/mathlimits.h"
 
 namespace zetasql_base {
 
@@ -78,8 +77,10 @@ class MathUtil {
   // --------------------------------------------------------------------
   template <class IntOut, class FloatIn>
   static IntOut Round(FloatIn x) {
-    static_assert(!MathLimits<FloatIn>::kIsInteger, "FloatIn is integer");
-    static_assert(MathLimits<IntOut>::kIsInteger, "IntOut is not integer");
+    static_assert(!std::numeric_limits<FloatIn>::is_integer,
+                  "FloatIn is integer");
+    static_assert(std::numeric_limits<IntOut>::is_integer,
+                  "IntOut is not integer");
 
     // Note that there are specialized faster versions of this function for
     // Intel, ARM and PPC processors at the bottom of this file.
@@ -98,7 +99,7 @@ class MathUtil {
   // rounding_value must be greater than zero.
   template <typename IntType>
   static IntType RoundUpTo(IntType input_value, IntType rounding_value) {
-    static_assert(MathLimits<IntType>::kIsInteger,
+    static_assert(std::numeric_limits<IntType>::is_integer,
                   "RoundUpTo() operation type is not integer");
     ABSL_DCHECK_GE(input_value, 0);
     ABSL_DCHECK_GT(rounding_value, 0);
@@ -300,7 +301,7 @@ class MathUtil {
   // which should be OK: see the comment for Max above.
   template<typename T>
   static T Min(const T x, const T y) {
-    return MathLimits<T>::IsNaN(x) || x < y ? x : y;
+    return std::isnan(x) || x < y ? x : y;
   }
 
   // Absolute value of x
@@ -313,12 +314,22 @@ class MathUtil {
     return x > T(0) ? x : -x;
   }
 
-  // Absolute value of the difference between two numbers.
-  // Works correctly for signed types and special floating point values.
-  template<typename T>
-  static typename MathLimits<T>::UnsignedType AbsDiff(const T x, const T y) {
+  // Absolute value of the difference between two floating point numbers.
+  // Works correctly for special floating point values.
+  template <typename T,
+            std::enable_if_t<std::is_floating_point_v<T>, bool> = true>
+  static T AbsDiff(const T x, const T y) {
+    return std::abs(x - y);
+  }
+
+  // Absolute value of the difference between two signed or unsigned integers.
+  // The return type is always unsigned.
+  template <typename T,
+            std::enable_if_t<std::is_integral_v<T> && !std::is_same_v<T, bool>,
+                             bool> = true>
+  static std::make_unsigned_t<T> AbsDiff(const T x, const T y) {
     // Carries out arithmetic as unsigned to avoid overflow.
-    typedef typename MathLimits<T>::UnsignedType R;
+    using R = std::make_unsigned_t<T>;
     return x > y ? R(x) - R(y) : R(y) - R(x);
   }
 
@@ -466,11 +477,11 @@ inline int64_t MathUtil::Round<int64_t, double>(double x) {
 template<typename IntegralType, bool ceil>
 IntegralType MathUtil::CeilOrFloorOfRatio(IntegralType numerator,
                                           IntegralType denominator) {
-  static_assert(MathLimits<IntegralType>::kIsInteger,
+  static_assert(std::numeric_limits<IntegralType>::is_integer,
                 "CeilOfRatio is only defined for integral types");
   ABSL_DCHECK_NE(0, denominator) << "Division by zero is not supported.";
-  ABSL_DCHECK(!MathLimits<IntegralType>::kIsSigned ||
-         numerator != MathLimits<IntegralType>::kMin ||
+  ABSL_DCHECK(!std::numeric_limits<IntegralType>::is_signed ||
+         numerator != std::numeric_limits<IntegralType>::lowest() ||
          denominator != -1)
       << "Dividing " << numerator << "by -1 is not supported: it would SIGFPE";
 

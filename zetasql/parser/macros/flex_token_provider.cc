@@ -22,7 +22,8 @@
 
 #include "zetasql/parser/flex_tokenizer.h"
 #include "zetasql/parser/macros/token_provider_base.h"
-#include "zetasql/parser/macros/token_with_location.h"
+#include "zetasql/parser/tm_token.h"
+#include "zetasql/parser/token_with_location.h"
 #include "zetasql/public/parse_location.h"
 #include "zetasql/base/check.h"
 #include "absl/status/statusor.h"
@@ -46,7 +47,7 @@ FlexTokenProvider::FlexTokenProvider(absl::string_view filename,
                                      absl::string_view input, int start_offset,
                                      std::optional<int> end_offset)
     : TokenProviderBase(filename, input, start_offset, end_offset),
-      tokenizer_(std::make_unique<ZetaSqlFlexTokenizer>(
+      tokenizer_(std::make_unique<ZetaSqlTokenizer>(
           filename, input.substr(0, this->end_offset()), start_offset)),
       location_(ParseLocationPoint::FromByteOffset(filename, -1),
                 ParseLocationPoint::FromByteOffset(filename, -1)) {}
@@ -75,7 +76,7 @@ absl::StatusOr<TokenWithLocation> FlexTokenProvider::GetFlexToken() {
     last_token_end_offset = start_offset();
   }
 
-  ZETASQL_ASSIGN_OR_RETURN(int token_kind, tokenizer_->GetNextToken(&location_));
+  ZETASQL_ASSIGN_OR_RETURN(Token token_kind, tokenizer_->GetNextToken(&location_));
 
   absl::string_view prev_whitespaces;
   prev_whitespaces = GetTextBetween(input(), last_token_end_offset,

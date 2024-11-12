@@ -632,7 +632,7 @@ SELECT
 select 1
 |> GROUP BY a, b
 --
-ERROR: Syntax error: GROUP BY should be part of a pipe AGGREGATE operator, without a leading pipe character [at 2:4]
+ERROR: Syntax error: GROUP BY should be part of a pipe AGGREGATE operator, without a leading pipe symbol [at 2:4]
 |> GROUP BY a, b
    ^
 ==
@@ -640,7 +640,7 @@ ERROR: Syntax error: GROUP BY should be part of a pipe AGGREGATE operator, witho
 select 1
 |> group
 --
-ERROR: Syntax error: GROUP BY should be part of a pipe AGGREGATE operator, without a leading pipe character [at 2:4]
+ERROR: Syntax error: GROUP BY should be part of a pipe AGGREGATE operator, without a leading pipe symbol [at 2:4]
 |> group
    ^
 ==
@@ -649,6 +649,6 @@ select 1
 |> AGGREGATE COUNT(*)
 |> GROUP BY x
 --
-ERROR: Syntax error: GROUP BY should be part of a pipe AGGREGATE operator, without a leading pipe character [at 3:4]
+ERROR: Syntax error: GROUP BY should be part of a pipe AGGREGATE operator, without a leading pipe symbol [at 3:4]
 |> GROUP BY x
    ^

@@ -9,13 +9,16 @@ concise alternative to [standard query syntax][query-syntax]. Pipe syntax
 supports many of the same operators as standard syntax, and improves some areas
 of SQL query functionality.
 
+For more background and details on the language design, see the research paper
+[SQL Has Problems. We Can Fix Them: Pipe Syntax In SQL](https://research.google/pubs/sql-has-problems-we-can-fix-them-pipe-syntax-in-sql/).
+
 ## Pipe syntax 
 <a id="pipe_syntax"></a>
 
 Pipe syntax has the following key characteristics:
 
-+   Pipe syntax consists of a pipe and an angle bracket `|>`, an operator name,
-    and any arguments: \
++   Each pipe operator in pipe syntax consists of the pipe symbol, `|>`,
+   an operator name, and any arguments: \
     `|> operator_name argument_list`
 +   Pipe operators can be added to the end of any valid query.
 +   Pipe operators can be applied in any order, any number of times.
@@ -26,30 +29,70 @@ Pipe syntax has the following key characteristics:
 +   A query can [start with a `FROM` clause][from-queries], and pipe
     operators can optionally be added after the `FROM` clause.
 
-Compare the following equivalent queries that count open tickets
-assigned to a user:
+### Query comparison
+
+Consider the following table called `Produce`:
+
+```sql
+CREATE OR REPLACE TABLE Produce AS (
+  SELECT 'apples' AS item, 2 AS sales, 'fruit' AS category
+  UNION ALL
+  SELECT 'carrots' AS item, 8 AS sales, 'vegetable' AS category
+  UNION ALL
+  SELECT 'apples' AS item, 7 AS sales, 'fruit' AS category
+  UNION ALL
+  SELECT 'bananas' AS item, 5 AS sales, 'fruit' AS category
+);
+
+SELECT * FROM Produce;
+
+/*---------+-------+-----------+
+ | item    | sales | category  |
+ +---------+-------+-----------+
+ | apples  | 2     | fruit     |
+ | carrots | 8     | vegetable |
+ | apples  | 7     | fruit     |
+ | bananas | 5     | fruit     |
+ +---------+-------+-----------*/
+```
+
+Compare the following equivalent queries that compute the number and total
+amount of sales for each item in the `Produce` table:
 
 **Standard syntax**
 
 ```sql
-SELECT component_id, COUNT(*)
-FROM ticketing_system_table
+SELECT item, COUNT(*) AS num_items, SUM(sales) AS total_sales
+FROM Produce
 WHERE
-  assignee_user.email = 'username@email.com'
-  AND status IN ('NEW', 'ASSIGNED', 'ACCEPTED')
-GROUP BY component_id
-ORDER BY component_id DESC;
+  item != 'bananas'
+  AND category IN ('fruit', 'nut')
+GROUP BY item
+ORDER BY item DESC;
+
+/*--------+-----------+-------------+
+ | item   | num_items | total_sales |
+ +--------+-----------+-------------+
+ | apples | 2         | 9           |
+ +--------+-----------+-------------*/
 ```
 
 **Pipe syntax**
 
 ```sql
-FROM ticketing_system_table
+FROM Produce
 |> WHERE
-    assignee_user.email = 'username@email.com'
-    AND status IN ('NEW', 'ASSIGNED', 'ACCEPTED')
-|> AGGREGATE COUNT(*)
-   GROUP AND ORDER BY component_id DESC;
+    item != 'bananas'
+    AND category IN ('fruit', 'nut')
+|> AGGREGATE COUNT(*) AS num_items, SUM(sales) AS total_sales
+   GROUP BY item
+|> ORDER BY item DESC;
+
+/*--------+-----------+-------------+
+ | item   | num_items | total_sales |
+ +--------+-----------+-------------+
+ | apples | 2         | 9           |
+ +--------+-----------+-------------*/
 ```
 
 ## Pipe operator semantics 
@@ -59,7 +102,7 @@ Pipe operators have the following semantic behavior:
 
 +   Each pipe operator performs a self-contained operation.
 +   A pipe operator consumes the input table passed to it through the pipe
-    character and produces a new table as output.
+    symbol, `|>`, and produces a new table as output.
 +   A pipe operator can reference only columns from its immediate input table.
     Columns from earlier in the same query aren't visible. Inside subqueries,
     correlated references to outer columns are still allowed.
@@ -69,7 +112,8 @@ Pipe operators have the following semantic behavior:
 
 In pipe syntax, a query can start with a standard [`FROM` clause][from-clause]
 and use any standard `FROM` syntax, including tables, joins, subqueries,
-`UNNEST` operations, and table-valued functions (TVFs). Table aliases can be
+`UNNEST` operations, and
+table-valued functions (TVFs). Table aliases can be
 assigned to each input item using the [`AS alias` clause][using-aliases].
 
 A query with only a `FROM` clause, like `FROM table_name`, is allowed in pipe
@@ -83,19 +127,36 @@ syntax.
 
 **Examples**
 
-<pre class="lang-sql prettyprint">
--- Return a table row that matches a condition.
-FROM table_name
-|> WHERE value_column IS NULL
-|> LIMIT 1;
-</pre>
+The following queries use the [`Produce` table][query-comparison]:
 
-<pre class="lang-sql prettyprint">
+```sql
+FROM Produce;
+
+/*---------+-------+-----------+
+ | item    | sales | category  |
+ +---------+-------+-----------+
+ | apples  | 2     | fruit     |
+ | carrots | 8     | vegetable |
+ | apples  | 7     | fruit     |
+ | bananas | 5     | fruit     |
+ +---------+-------+-----------*/
+```
+
+```sql
 -- Join tables in the FROM clause and then apply pipe operators.
-FROM Table1 AS t1 JOIN Table2 AS t2 USING (key)
-|> AGGREGATE SUM(t2.value)
-   GROUP BY t1.key;
-</pre>
+FROM
+  Produce AS p1
+  JOIN Produce AS p2
+    USING (item)
+|> WHERE item = "bananas"
+|> SELECT p1.item, p2.sales;
+
+/*---------+-------+
+ | item    | sales |
+ +---------+-------+
+ | bananas | 5     |
+ +---------+-------*/
+```
 
 ## Pipe operators
 
@@ -103,6 +164,175 @@ ZetaSQL supports the following pipe operators. For operators that
 correspond or relate to similar operations in standard syntax, the operator
 descriptions highlight similarities and differences and link to more detailed
 documentation on the corresponding syntax.
+
+### Pipe operator list
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+
+<tr>
+  <td><a href="#select_pipe_operator"><code>SELECT</code></a>
+</td>
+  <td>Produces a new table with the listed columns.</td>
+</tr>
+
+<tr>
+  <td><a href="#extend_pipe_operator"><code>EXTEND</code></a>
+</td>
+  <td>Propagates the existing table and adds computed columns.</td>
+</tr>
+
+<tr>
+  <td><a href="#set_pipe_operator"><code>SET</code></a>
+</td>
+  <td>Replaces the values of columns in the current table.</td>
+</tr>
+
+<tr>
+  <td><a href="#drop_pipe_operator"><code>DROP</code></a>
+</td>
+  <td>Removes listed columns from the current table.</td>
+</tr>
+
+<tr>
+  <td><a href="#rename_pipe_operator"><code>RENAME</code></a>
+</td>
+  <td>Renames specified columns.</td>
+</tr>
+
+<tr>
+  <td><a href="#as_pipe_operator"><code>AS</code></a>
+</td>
+  <td>Introduces a table alias for the input table.</td>
+</tr>
+
+<tr>
+  <td><a href="#where_pipe_operator"><code>WHERE</code></a>
+</td>
+  <td>Filters the results of the input table.</td>
+</tr>
+
+<tr>
+  <td><a href="#limit_pipe_operator"><code>LIMIT</code></a>
+</td>
+  <td>
+    Limits the number of rows to return in a query, with an optional
+    <code>OFFSET</code> clause to skip over rows.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#aggregate_pipe_operator"><code>AGGREGATE</code></a>
+</td>
+  <td>
+    Performs aggregation on data across groups of rows or the full
+    input table.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#distinct_pipe_operator"><code>DISTINCT</code></a>
+</td>
+  <td>
+    Returns distinct rows from the input table, while preserving table aliases.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#order_by_pipe_operator"><code>ORDER BY</code></a>
+</td>
+  <td>Sorts results by a list of expressions.</td>
+</tr>
+
+<tr>
+  <td><a href="#union_pipe_operator"><code>UNION</code></a>
+</td>
+  <td>
+    Combines the results of the input queries to the left and right of the pipe operator by pairing columns from the results of each query and vertically concatenating them.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#intersect_pipe_operator"><code>INTERSECT</code></a>
+</td>
+  <td>
+    Returns rows that are found in the results of both the input query to the left
+    of the pipe operator and all input queries to the right of the pipe
+    operator.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#except_pipe_operator"><code>EXCEPT</code></a>
+</td>
+  <td>
+    Returns rows from the input query to the left of the pipe operator that
+    aren't present in any input queries to the right of the pipe operator.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#join_pipe_operator"><code>JOIN</code></a>
+</td>
+  <td>
+    Joins rows from the input table with rows from a second table provided as an
+    argument.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#call_pipe_operator"><code>CALL</code></a>
+</td>
+  <td>
+    Calls a table-valued function (TVF), passing the pipe input table as a
+    table argument.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#window_pipe_operator"><code>WINDOW</code></a>
+</td>
+  <td>
+    Adds columns with the result of computing the function over some window
+    of existing rows
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#tablesample_pipe_operator"><code>TABLESAMPLE</code></a>
+</td>
+  <td>Selects a random sample of rows from the input table.</td>
+</tr>
+
+<tr>
+  <td><a href="#pivot_pipe_operator"><code>PIVOT</code></a>
+</td>
+  <td>Rotates rows into columns.</td>
+</tr>
+
+<tr>
+  <td><a href="#unpivot_pipe_operator"><code>UNPIVOT</code></a>
+</td>
+  <td>Rotates columns into rows.</td>
+</tr>
+
+<tr>
+  <td><a href="#assert_pipe_operator"><code>ASSERT</code></a>
+</td>
+  <td>
+    Evaluates that an expression is true for all input rows, raising an error
+    if not.
+  </td>
+</tr>
+
+  </tbody>
+</table>
 
 ### `SELECT` pipe operator 
 <a id="select_pipe_operator"></a>
@@ -142,15 +372,40 @@ pipe syntax supports other operators:
 
 **Example**
 
-<pre class="lang-sql prettyprint">
-|> SELECT account_id AS Account
-</pre>
+```sql
+FROM (SELECT 'apples' AS item, 2 AS sales)
+|> SELECT item AS fruit_name;
+
+/*------------+
+ | fruit_name |
+ +------------+
+ | apples     |
+ +------------*/
+```
+
+[select-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#select_list
+
+[window-functions]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+[select-star]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#select_
+
+[aggregate-pipe-operator]: #aggregate_pipe_operator
+
+[extend-pipe-operator]: #extend_pipe_operator
+
+[set-pipe-operator]: #set_pipe_operator
+
+[drop-pipe-operator]: #drop_pipe_operator
+
+[rename-pipe-operator]: #rename_pipe_operator
+
+[value-tables]: https://github.com/google/zetasql/blob/master/docs/data-model.md#value_tables
 
 ### `EXTEND` pipe operator 
 <a id="extend_pipe_operator"></a>
 
 <pre class="lang-sql prettyprint no-copy">
-|> EXTEND expression [[AS] alias] [, ...]
+|> <span class="kwd">EXTEND</span> expression [[AS] alias] [, ...]
 </pre>
 
 **Description**
@@ -161,14 +416,45 @@ Propagates the existing table and adds a computed column, similar to
 
 **Examples**
 
-<pre class="lang-sql prettyprint">
-|> EXTEND status IN ('NEW', 'ASSIGNED', 'ACCEPTED') AS is_open
-</pre>
+```sql
+(
+  SELECT 'apples' AS item, 2 AS sales
+  UNION ALL
+  SELECT 'carrots' AS item, 8 AS sales
+)
+|> EXTEND item IN ('carrots', 'oranges') AS is_orange;
 
-<pre class="lang-sql prettyprint">
--- Window function, with OVER
-|> EXTEND SUM(val) OVER (ORDER BY k) AS val_over_k
-</pre>
+/*---------+-------+------------+
+ | item    | sales | is_orange  |
+ +---------+-------+------------+
+ | apples  | 2     | FALSE      |
+ | carrots | 8     | TRUE       |
+ +---------+-------+------------*/
+```
+
+```sql
+-- Window function, with `OVER`
+(
+  SELECT 'apples' AS item, 2 AS sales
+  UNION ALL
+  SELECT 'bananas' AS item, 5 AS sales
+  UNION ALL
+  SELECT 'carrots' AS item, 8 AS sales
+)
+|> EXTEND SUM(sales) OVER() AS total_sales;
+
+/*---------+-------+-------------+
+ | item    | sales | total_sales |
+ +---------+-------+-------------+
+ | apples  | 2     | 15          |
+ | bananas | 5     | 15          |
+ | carrots | 8     | 15          |
+ +---------+-------+-------------*/
+```
+
+[select-star]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#select_
+
+[window-functions]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
 
 ### `SET` pipe operator 
 <a id="set_pipe_operator"></a>
@@ -189,9 +475,35 @@ Therefore, `t.x` will still refer to the original value.
 
 **Example**
 
-<pre class="lang-sql prettyprint">
-|> SET x = 5, y = CAST(y AS INT32)
-</pre>
+```sql
+(
+  SELECT 1 AS x, 11 AS y
+  UNION ALL
+  SELECT 2 AS x, 22 AS y
+)
+|> SET x = x * x, y = 3;
+
+/*---+---+
+ | x | y |
+ +---+---+
+ | 1 | 3 |
+ | 4 | 3 |
+ +---+---*/
+```
+
+```sql
+FROM (SELECT 2 AS x, 3 AS y) AS t
+|> SET x = x * x, y = 8
+|> SELECT t.x AS original_x, x, y;
+
+/*------------+---+---+
+ | original_x | x | y |
+ +------------+---+---+
+ | 2          | 4 | 8 |
+ +------------+---+---*/
+```
+
+[select-replace]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#select_replace
 
 ### `DROP` pipe operator 
 <a id="drop_pipe_operator"></a>
@@ -216,15 +528,38 @@ deletes persistent schema objects.
 
 **Example**
 
-<pre class="lang-sql prettyprint">
-|> DROP account_id, user_id
-</pre>
+```sql
+SELECT 'apples' AS item, 2 AS sales, 'fruit' AS category
+|> DROP sales, category;
+
+/*--------+
+ | item   |
+ +--------+
+ | apples |
+ +--------*/
+```
+
+```sql
+FROM (SELECT 1 AS x, 2 AS y) AS t
+|> DROP x
+|> SELECT t.x AS original_x, y;
+
+/*------------+---+
+ | original_x | y |
+ +------------+---+
+ | 1          | 2 |
+ +------------+---*/
+```
+
+[select-except]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#select_except
+
+[drop-statement]: https://github.com/google/zetasql/blob/master/docs/data-definition-language.md#drop
 
 ### `RENAME` pipe operator 
 <a id="rename_pipe_operator"></a>
 
 <pre class="lang-sql prettyprint no-copy">
-|> RENAME old_column_name [AS] new_column_name [, ...]
+|> <span class="kwd">RENAME</span> old_column_name [AS] new_column_name [, ...]
 </pre>
 
 **Description**
@@ -240,9 +575,18 @@ values. Therefore, `t.x` will still refer to the original value.
 
 **Example**
 
-<pre class="lang-sql prettyprint">
-|> RENAME last_name AS surname
-</pre>
+```sql
+SELECT 1 AS x, 2 AS y, 3 AS z
+|> AS t
+|> RENAME y AS renamed_y
+|> SELECT *, t.y AS t_y;
+
+/*---+-----------+---+-----+
+ | x | renamed_y | z | t_y |
+ +---+-----------+---+-----+
+ | 1 | 2         | 3 | 2   |
+ +---+-----------+---+-----*/
+```
 
 ### `AS` pipe operator 
 <a id="as_pipe_operator"></a>
@@ -261,15 +605,38 @@ all columns in the row.
 The `AS` operator can be useful after operators like
 [`SELECT`][select-pipe-operator], [`EXTEND`][extend-pipe-operator], or
 [`AGGREGATE`][aggregate-pipe-operator] that add columns but can't give table
-aliases to them.
+aliases to them. You can use the table alias to disambiguate columns after the
+`JOIN` operator.
 
 **Example**
 
-<pre class="lang-sql prettyprint">
-|> SELECT x, y, z
-|> AS table_alias
-|> WHERE table_alias.y = 10
-</pre>
+```sql
+(
+  SELECT "000123" AS id, "apples" AS item, 2 AS sales
+  UNION ALL
+  SELECT "000456" AS id, "bananas" AS item, 5 AS sales
+) AS sales_table
+|> AGGREGATE SUM(sales) AS total_sales GROUP BY id, item
+-- The sales_table alias is now out of scope. We must introduce a new one.
+|> AS t1
+|> JOIN (SELECT 456 AS id, "yellow" AS color) AS t2
+   ON CAST(t1.id AS INT64) = t2.id
+|> SELECT t2.id, total_sales, color;
+
+/*-----+-------------+--------+
+ | id  | total_sales | color  |
+ +-----+-------------+--------+
+ | 456 | 5           | yellow |
+ +-----+-------------+--------*/
+```
+
+[using-aliases]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#using_aliases
+
+[select-pipe-operator]: #select_pipe_operator
+
+[extend-pipe-operator]: #extend_pipe_operator
+
+[aggregate-pipe-operator]: #aggregate_pipe_operator
 
 ### `WHERE` pipe operator 
 <a id="where_pipe_operator"></a>
@@ -292,15 +659,39 @@ a `QUALIFY` clause, use window functions inside a `WHERE` clause instead.
 
 **Example**
 
-<pre class="lang-sql prettyprint">
-|> WHERE assignee_user.email = 'username@email.com'
-</pre>
+```sql
+(
+  SELECT 'apples' AS item, 2 AS sales
+  UNION ALL
+  SELECT 'bananas' AS item, 5 AS sales
+  UNION ALL
+  SELECT 'carrots' AS item, 8 AS sales
+)
+|> WHERE sales >= 3;
+
+/*---------+-------+
+ | item    | sales |
+ +---------+-------+
+ | bananas | 5     |
+ | carrots | 8     |
+ +---------+-------*/
+```
+
+[where-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#where_clause
+
+[having-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#having_clause
+
+[qualify-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#qualify_clause
+
+[aggregate-pipe-operator]: #aggregate_pipe_operator
+
+[window-functions]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
 
 ### `LIMIT` pipe operator 
 <a id="limit_pipe_operator"></a>
 
 <pre class="lang-sql prettyprint no-copy">
-|> LIMIT count [OFFSET skip_rows]
+|> <span class="kwd">LIMIT</span> count [OFFSET skip_rows]
 </pre>
 
 **Description**
@@ -311,32 +702,62 @@ to skip over rows. The `LIMIT` operator behaves the same as the
 
 **Examples**
 
-<pre class="lang-sql prettyprint">
-|> LIMIT 10
-</pre>
+```sql
+(
+  SELECT 'apples' AS item, 2 AS sales
+  UNION ALL
+  SELECT 'bananas' AS item, 5 AS sales
+  UNION ALL
+  SELECT 'carrots' AS item, 8 AS sales
+)
+|> ORDER BY item
+|> LIMIT 1;
 
-<pre class="lang-sql prettyprint">
-|> LIMIT 10 OFFSET 2
-</pre>
+/*---------+-------+
+ | item    | sales |
+ +---------+-------+
+ | apples  | 2     |
+ +---------+-------*/
+```
+
+```sql
+(
+  SELECT 'apples' AS item, 2 AS sales
+  UNION ALL
+  SELECT 'bananas' AS item, 5 AS sales
+  UNION ALL
+  SELECT 'carrots' AS item, 8 AS sales
+)
+|> ORDER BY item
+|> LIMIT 1 OFFSET 2;
+
+/*---------+-------+
+ | item    | sales |
+ +---------+-------+
+ | carrots | 8     |
+ +---------+-------*/
+```
+
+[limit-offset-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#limit_and_offset_clause
 
 ### `AGGREGATE` pipe operator 
 <a id="aggregate_pipe_operator"></a>
 
 <pre class="lang-sql prettyprint no-copy">
 -- Full-table aggregation
-|> AGGREGATE aggregate_expression [[AS] alias] [, ...]
+|> <span class="kwd">AGGREGATE</span> aggregate_expression [[AS] alias] [, ...]
 </pre>
 <pre class="lang-sql prettyprint no-copy">
 -- Aggregation with grouping
-|> AGGREGATE [aggregate_expression [[AS] alias] [, ...]]
+|> <span class="kwd">AGGREGATE</span> [aggregate_expression [[AS] alias] [, ...]]
    GROUP BY groupable_items [[AS] alias] [, ...]
 </pre>
 <pre class="lang-sql prettyprint">
 -- Aggregation with grouping and shorthand ordering syntax
-|> AGGREGATE [aggregate_expression [<span class="var">order_suffix</span>] [[AS] alias] [, ...]]
-   GROUP [AND ORDER] BY groupable_item [<span class="var">order_suffix</span>] [[AS] alias] [, ...]
+|> <span class="kwd">AGGREGATE</span> [aggregate_expression [[AS] alias] [<span class="var">order_suffix</span>] [, ...]]
+   GROUP [AND ORDER] BY groupable_item [[AS] alias] [<span class="var">order_suffix</span>] [, ...]
 
-<span class="var">order_suffix</span>: {ASC | DESC} [{NULLS FIRST | NULLS LAST}]
+<span class="var">order_suffix</span>: {ASC | DESC} [{<span class="var">NULLS FIRST</span> | <span class="var">NULLS LAST</span>}]
 </pre>
 
 **Description**
@@ -381,34 +802,63 @@ Because output columns are fully specified by the `AGGREGATE` operator, the
 `SELECT` operator isn't needed after the `AGGREGATE` operator unless
 you want to produce a list of columns different from the default.
 
-**Examples**
-
-<pre class="lang-sql prettyprint">
--- Full-table aggregation
-|> AGGREGATE COUNT(*) AS row_count, SUM(num_users) AS total_users
-</pre>
-<pre class="lang-sql prettyprint">
--- Aggregation with grouping
-|> AGGREGATE COUNT(*) AS row_count, SUM(num_users) AS total_users,
-   GROUP BY org_site, date
-</pre>
-
-The following examples compare aggregation in standard syntax and in pipe
-syntax:
+**Standard syntax**
 
 <pre class="lang-sql prettyprint">
 -- Aggregation in standard syntax
-SELECT id, EXTRACT(MONTH FROM date) AS month, SUM(value) AS total
-FROM table
-GROUP BY id, month
+SELECT SUM(col1) AS total, col2, col3, col4...
+FROM table1
+GROUP BY col2, col3, col4...
 </pre>
+
+**Pipe syntax**
 
 <pre class="lang-sql prettyprint">
 -- The same aggregation in pipe syntax
-FROM table
-|> AGGREGATE SUM(value) AS total
-   GROUP BY id, EXTRACT(MONTH FROM date) AS month
+FROM table1
+|> <span class="kwd">AGGREGATE</span> SUM(col1) AS total
+   GROUP BY col2, col3, col4...
 </pre>
+
+**Examples**
+
+```sql
+-- Full-table aggregation
+(
+  SELECT 'apples' AS item, 2 AS sales
+  UNION ALL
+  SELECT 'bananas' AS item, 5 AS sales
+  UNION ALL
+  SELECT 'apples' AS item, 7 AS sales
+)
+|> AGGREGATE COUNT(*) AS num_items, SUM(sales) AS total_sales;
+
+/*-----------+-------------+
+ | num_items | total_sales |
+ +-----------+-------------+
+ | 3         | 14          |
+ +-----------+-------------*/
+```
+
+```sql
+-- Aggregation with grouping
+(
+  SELECT 'apples' AS item, 2 AS sales
+  UNION ALL
+  SELECT 'bananas' AS item, 5 AS sales
+  UNION ALL
+  SELECT 'apples' AS item, 7 AS sales
+)
+|> AGGREGATE COUNT(*) AS num_items, SUM(sales) AS total_sales
+   GROUP BY item;
+
+/*---------+-----------+-------------+
+ | item    | num_items | total_sales |
+ +---------+-----------+-------------+
+ | apples  | 2         | 9           |
+ | bananas | 1         | 5           |
+ +---------+-----------+-------------*/
+```
 
 #### Shorthand ordering syntax with `AGGREGATE` 
 <a id="shorthand_order_pipe_syntax"></a>
@@ -419,8 +869,8 @@ of the `AGGREGATE` operator without repeating the column list:
 
 <pre class="lang-sql prettyprint">
 -- Aggregation with grouping and shorthand ordering syntax
-|> AGGREGATE [aggregate_expression [<span class="var">order_suffix</span>] [[AS] alias] [, ...]]
-   GROUP [AND ORDER] BY groupable_item [<span class="var">order_suffix</span>] [[AS] alias] [, ...]
+|> <span class="kwd">AGGREGATE</span> [aggregate_expression [[AS] alias] [<span class="var">order_suffix</span>] [, ...]]
+   GROUP [AND ORDER] BY groupable_item [[AS] alias] [<span class="var">order_suffix</span>] [, ...]
 
 <span class="var">order_suffix</span>: {ASC | DESC} [{NULLS FIRST | NULLS LAST}]
 </pre>
@@ -441,23 +891,228 @@ the left-to-right output column order.
 
 **Examples**
 
-<pre class="lang-sql prettyprint">
--- Order by all grouping columns.
-|> AGGREGATE COUNT(*)
-   GROUP AND ORDER BY first_name, last_name DESC
-</pre>
+Consider the following table called `Produce`:
 
-The ordering in the previous example is equivalent to using
-`|> ORDER BY first_name, last_name DESC`.
+```sql
+/*---------+-------+-----------+
+ | item    | sales | category  |
+ +---------+-------+-----------+
+ | apples  | 2     | fruit     |
+ | carrots | 8     | vegetable |
+ | apples  | 7     | fruit     |
+ | bananas | 5     | fruit     |
+ +---------+-------+-----------*/
+```
 
-<pre class="lang-sql prettyprint">
+The following two equivalent examples show you how to order by all grouping
+columns using the `GROUP AND ORDER BY` clause or a separate `ORDER BY` clause:
+
+```sql
+-- Order by all grouping columns using GROUP AND ORDER BY.
+FROM Produce
+|> AGGREGATE SUM(sales) AS total_sales
+   GROUP AND ORDER BY category, item DESC;
+
+/*-----------+---------+-------------+
+ | category  | item    | total_sales |
+ +-----------+---------+-------------+
+ | fruit     | bananas | 5           |
+ | fruit     | apples  | 9           |
+ | vegetable | carrots | 8           |
+ +-----------+---------+-------------*/
+```
+
+```sql
+--Order by columns using ORDER BY after performing aggregation.
+FROM Produce
+|> AGGREGATE SUM(sales) AS total_sales
+   GROUP BY category, item
+|> ORDER BY category, item DESC;
+```
+
+You can add an ordering suffix to a column in the `AGGREGATE` list. Although the
+`AGGREGATE` list appears before the `GROUP BY` list in the query, ordering
+suffixes on columns in the `GROUP BY` list are applied first.
+
+```sql
+FROM Produce
+|> AGGREGATE SUM(sales) AS total_sales ASC
+   GROUP BY item, category DESC;
+
+/*---------+-----------+-------------+
+ | item    | category  | total_sales |
+ +---------+-----------+-------------+
+ | carrots | vegetable | 8           |
+ | bananas | fruit     | 5           |
+ | apples  | fruit     | 9           |
+ +---------+-----------+-------------*/
+```
+
+The previous query is equivalent to the following:
+
+```sql
 -- Order by specified grouping and aggregate columns.
-|> AGGREGATE COUNT(*) DESC
-   GROUP BY first_name, last_name ASC
+FROM Produce
+|> AGGREGATE SUM(sales) AS total_sales
+   GROUP BY item, category
+|> ORDER BY category DESC, total_sales;
+```
+
+[group-by-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#group_by_clause
+
+[aggregate-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md
+
+[as-pipe-operator]: #as_pipe_operator
+
+[extend-pipe-operator]: #extend_pipe_operator
+
+[order-by-pipe-operator]: #order_by_pipe_operator
+
+### `DISTINCT` pipe operator 
+<a id="distinct_pipe_operator"></a>
+
+<pre class="lang-sql prettyprint no-copy">
+|> <span class="kwd">DISTINCT</span>
 </pre>
 
-The ordering in the previous example is equivalent to using
-`|> ORDER BY last_name ASC, COUNT(*) DESC`.
+**Description**
+
+Returns distinct rows from the input table, while preserving table aliases.
+
+Using the `DISTINCT` operator after a `SELECT` or `UNION ALL` clause is similar
+to using a [`SELECT DISTINCT` clause][select-distinct] or
+[`UNION DISTINCT` clause][union-operator] in standard syntax, but the `DISTINCT`
+pipe operator can be applied anywhere. The `DISTINCT` operator computes distinct
+rows based on the values of all visible columns. Pseudo-columns are ignored
+while computing distinct rows and are dropped from the output.
+
+The `DISTINCT` operator is similar to using a `|> SELECT DISTINCT *` clause, but
+doesn't expand value table fields, and preserves table aliases from the input.
+
+**Examples**
+
+```sql
+(
+  SELECT 'apples' AS item, 2 AS sales
+  UNION ALL
+  SELECT 'bananas' AS item, 5 AS sales
+  UNION ALL
+  SELECT 'bananas' AS item, 5 AS sales
+  UNION ALL
+  SELECT 'carrots' AS item, 8 AS sales
+)
+|> DISTINCT
+|> WHERE sales >= 3;
+
+/*---------+-------+
+ | item    | sales |
+ +---------+-------+
+ | bananas | 5     |
+ | carrots | 8     |
+ +---------+-------*/
+```
+
+In the following example, the table alias `Produce` can be used in
+expressions after the `DISTINCT` pipe operator.
+
+```sql
+(
+  SELECT 'apples' AS item, 2 AS sales
+  UNION ALL
+  SELECT 'bananas' AS item, 5 AS sales
+  UNION ALL
+  SELECT 'bananas' AS item, 5 AS sales
+  UNION ALL
+  SELECT 'carrots' AS item, 8 AS sales
+)
+|> AS Produce
+|> DISTINCT
+|> SELECT Produce.item;
+
+/*---------+
+ | item    |
+ +---------+
+ | apples  |
+ | bananas |
+ | carrots |
+ +---------*/
+```
+
+By contrast, the table alias isn't visible after a `|> SELECT DISTINCT *`
+clause.
+
+```sql {.bad}
+-- Error, unrecognnized name: Produce
+(
+  SELECT 'apples' AS item, 2 AS sales
+  UNION ALL
+  SELECT 'bananas' AS item, 5 AS sales
+  UNION ALL
+  SELECT 'bananas' AS item, 5 AS sales
+  UNION ALL
+  SELECT 'carrots' AS item, 8 AS sales
+)
+|> AS Produce
+|> SELECT DISTINCT *
+|> SELECT Produce.item;
+```
+
+In the following examples, the `DISTINCT` operator doesn't expand value table
+fields and retains the `STRUCT` type in the result. By contrast, the
+`|> SELECT DISTINCT *` clause expands the `STRUCT` type into two columns.
+
+```sql
+SELECT AS STRUCT 1 x, 2 y
+|> DISTINCT;
+
+/*---------+
+ | $struct |
+ +---------+
+  {
+    x: 1,
+    y: 2
+  }
+ +----------*/
+```
+
+```sql
+SELECT AS STRUCT 1 x, 2 y
+|> SELECT DISTINCT *;
+
+/*---+---+
+ | x | y |
+ +---+---+
+ | 1 | 2 |
+ +---+---*/
+```
+
+The following examples show equivalent ways to generate the same results with
+distinct values from columns `a`, `b`, and `c`.
+
+```sql
+FROM table
+|> SELECT DISTINCT a, b, c;
+
+FROM table
+|> SELECT a, b, c
+|> DISTINCT;
+
+FROM table
+|> AGGREGATE
+   GROUP BY a, b, c;
+```
+
+[select-distinct]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#select_distinct
+
+[union-operator]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#union
+
+[aggregate-pipe-operator]: https://github.com/google/zetasql/blob/master/docs/pipe-syntax.md#aggregate_pipe_operator
+
+[using-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#using_clause
+
+[full-join]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#full_join
+
+[inner-join]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#inner_join
 
 ### `ORDER BY` pipe operator 
 <a id="order_by_pipe_operator"></a>
@@ -479,9 +1134,419 @@ apply `ORDER BY` behavior more concisely as part of aggregation.
 
 **Example**
 
-<pre class="lang-sql prettyprint">
-|> ORDER BY last_name DESC
+```sql
+(
+  SELECT 1 AS x
+  UNION ALL
+  SELECT 3 AS x
+  UNION ALL
+  SELECT 2 AS x
+)
+|> ORDER BY x DESC;
+
+/*---+
+ | x |
+ +---+
+ | 3 |
+ | 2 |
+ | 1 |
+ +---*/
+```
+
+[order-by-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#order_by_clause
+
+[aggregate-pipe-operator]: #aggregate_pipe_operator
+
+[shorthand-order-pipe-syntax]: #shorthand_order_pipe_syntax
+
+### `UNION` pipe operator 
+<a id="union_pipe_operator"></a>
+
+<pre class="lang-sql prettyprint no-copy">
+query_expression
+|> <span class="kwd">UNION</span> {ALL | DISTINCT} (query_expression) [, (query_expression), ...]
 </pre>
+
+**Description**
+
+Combines the results of the input queries to the left and right of the pipe
+operator by pairing columns from the results of each query and vertically
+concatenating them.
+
+The `UNION` pipe operator behaves the same as the
+[`UNION` set operator][union-operator] in standard syntax. However, in pipe
+syntax, the query expressions after the `UNION` pipe operator are enclosed in
+parentheses and separated by commas instead of by the repeated operator name.
+For example, `UNION ALL SELECT 1 UNION ALL SELECT 2` in standard syntax becomes
+`UNION ALL (SELECT 1), (SELECT 2)` in pipe syntax.
+
+The `UNION` pipe operator supports the same modifiers as the
+`UNION` set operator in standard syntax, such as the
+[`CORRESPONDING` modifier][corresponding-modifier].
+
+**Examples**
+
+```sql
+SELECT * FROM UNNEST(ARRAY<INT64>[1, 2, 3]) AS number
+|> UNION ALL (SELECT 1);
+
+/*--------+
+ | number |
+ +--------+
+ | 1      |
+ | 2      |
+ | 3      |
+ | 1      |
+ +--------*/
+```
+
+```sql
+SELECT * FROM UNNEST(ARRAY<INT64>[1, 2, 3]) AS number
+|> UNION DISTINCT (SELECT 1);
+
+/*--------+
+ | number |
+ +--------+
+ | 1      |
+ | 2      |
+ | 3      |
+ +--------*/
+```
+
+The following example shows multiple input queries to the right of the pipe
+operator:
+
+```sql
+SELECT * FROM UNNEST(ARRAY<INT64>[1, 2, 3]) AS number
+|> UNION DISTINCT (SELECT 1), (SELECT 2);
+
+/*--------+
+ | number |
+ +--------+
+ | 1      |
+ | 2      |
+ | 3      |
+ +--------*/
+```
+
+#### `CORRESPONDING` modifier 
+<a id="corresponding_modifier"></a>
+
+The [`UNION`][union-pipe-operator], [`INTERSECT`][intersect-pipe-operator], and
+[`EXCEPT`][except-pipe-operator] pipe operators support the `CORRESPONDING`
+modifier, which matches columns by name instead of by position in query results:
+
+<pre class="lang-sql prettyprint no-copy">
+query_expression
+|> [{FULL | LEFT}] [OUTER] {UNION | INTERSECT | EXCEPT} {ALL | DISTINCT}
+[STRICT] <span class="kwd">CORRESPONDING</span> [BY (column_list)] (query_expression) [, (query_expression), ...]
+</pre>
+
+The `CORRESPONDING` modifier behaves the same as the
+[`CORRESPONDING` set operation][corresponding-operation] in standard syntax.
+However, in pipe syntax, the query expressions after the `CORRESPONDING`
+modifier are enclosed in parentheses. For example, `CORRESPONDING SELECT
+...` in standard syntax becomes `CORRESPONDING (SELECT ...)` in pipe syntax.
+
+**Examples**
+
+In the following example, the input queries to the left and right of the pipe
+operator specify the same column names in different orders. With the
+`CORRESPONDING` modifier, the results are matched by column name instead of in
+the order the columns were specified in the query.
+
+```sql
+SELECT 1 AS one_digit, 10 AS two_digit
+|> UNION ALL CORRESPONDING (SELECT 20 AS two_digit, 2 AS one_digit);
+
+/*-----------+-----------+
+ | one_digit | two_digit |
+ +-----------+-----------+
+ | 1         | 10        |
+ | 2         | 20        |
+ +-----------+-----------*/
+```
+
+By contrast, the following example without the `CORRESPONDING` modifier shows
+results in the order the columns were listed in the input queries instead of by
+column name.
+
+```sql
+SELECT 1 AS one_digit, 10 AS two_digit
+|> UNION ALL (SELECT 20 AS two_digit, 2 AS one_digit);
+
+/*-----------+-----------+
+ | one_digit | two_digit |
+ +-----------+-----------+
+ | 1         | 10        |
+ | 20        | 2         |
+ +-----------+-----------*/
+```
+
+The following example adds a `three_digit` column to the input query on the left
+of the pipe operator and a `four_digit` column to the input query on the right
+of the pipe operator. Because these columns aren't present in both queries, the
+new columns are excluded from the results.
+
+```sql
+SELECT 1 AS one_digit, 10 AS two_digit, 100 AS three_digit
+|> UNION ALL CORRESPONDING (SELECT 20 AS two_digit, 2 AS one_digit, 1000 AS four_digit);
+
+/*-----------+-----------+
+ | one_digit | two_digit |
+ +-----------+-----------+
+ | 1         | 10        |
+ | 2         | 20        |
+ +-----------+-----------*/
+```
+
+To include these differing columns, the following example uses `FULL OUTER` mode
+to populate `NULL` values for the missing column in each query.
+
+```sql
+SELECT 1 AS one_digit, 10 AS two_digit, 100 AS three_digit
+|> FULL OUTER UNION ALL CORRESPONDING
+   (SELECT 20 AS two_digit, 2 AS one_digit, 1000 AS four_digit);
+
+/*-----------+-----------+-------------+------------+
+ | one_digit | two_digit | three_digit | four_digit |
+ +-----------+-----------+-------------+------------+
+ | 1         | 10        | 100         | NULL       |
+ | 2         | 20        | NULL        | 1000       |
+ +-----------+-----------+-------------+------------*/
+```
+
+Similarly, the following example uses `LEFT OUTER` mode to include the new
+column from only the input query on the left of the pipe operator and populate a
+`NULL` value for the missing column in the input query on the right of the pipe
+operator.
+
+```sql
+SELECT 1 AS one_digit, 10 AS two_digit, 100 AS three_digit
+|> LEFT OUTER UNION ALL CORRESPONDING
+   (SELECT 20 AS two_digit, 2 AS one_digit, 1000 AS four_digit);
+
+/*-----------+-----------+-------------+
+ | one_digit | two_digit | three_digit |
+ +-----------+-----------+-------------+
+ | 1         | 10        | 100         |
+ | 2         | 20        | NULL        |
+ +-----------+-----------+-------------*/
+```
+
+The following example uses the modifier `BY (column_list)` to return only the
+specified columns in the specified order.
+
+```sql
+SELECT 1 AS one_digit, 10 AS two_digit, 100 AS three_digit
+|> FULL OUTER UNION ALL CORRESPONDING BY (three_digit, two_digit)
+   (SELECT 20 AS two_digit, 2 AS one_digit, 1000 AS four_digit);
+
+/*-------------+-----------+
+ | three_digit | two_digit |
+ +-------------+-----------+
+ | 100         | 10        |
+ | NULL        | 20        |
+ +-----------+-------------*/
+```
+
+The following examples use the `CORRESPONDING` modifier with the `INTERSECT` and
+`EXCEPT` pipe operators to likewise match the results by column name. The
+`INTERSECT` pipe operator returns common rows between the input queries, and the
+`EXCEPT` pipe operator returns rows that are present only in the input query to
+the left of the pipe operator.
+
+```sql
+WITH
+  NumbersTable AS (
+    SELECT 1 AS one_digit, 10 AS two_digit
+    UNION ALL
+    SELECT 2, 20
+    UNION ALL
+    SELECT 3, 30
+  )
+SELECT one_digit, two_digit FROM NumbersTable
+|> INTERSECT ALL CORRESPONDING (SELECT 10 AS two_digit, 1 AS one_digit);
+
+/*-----------+-----------+
+ | one_digit | two_digit |
+ +-----------+-----------+
+ | 1         | 10        |
+ +-----------+-----------*/
+```
+
+```sql
+WITH
+  NumbersTable AS (
+    SELECT 1 AS one_digit, 10 AS two_digit
+    UNION ALL
+    SELECT 2, 20
+    UNION ALL
+    SELECT 3, 30
+  )
+SELECT one_digit, two_digit FROM NumbersTable
+|> EXCEPT ALL CORRESPONDING (SELECT 10 AS two_digit, 1 AS one_digit);
+
+/*-----------+-----------+
+ | one_digit | two_digit |
+ +-----------+-----------+
+ | 2         | 20        |
+ | 3         | 30        |
+ +-----------+-----------*/
+```
+
+[union-operator]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#union
+
+[union-pipe-operator]: #union_pipe_operator
+
+[intersect-pipe-operator]: #intersect_pipe_operator
+
+[except-pipe-operator]: #except_pipe_operator
+
+[corresponding-operation]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#corresponding
+
+### `INTERSECT` pipe operator 
+<a id="intersect_pipe_operator"></a>
+
+<pre class="lang-sql prettyprint no-copy">
+query_expression
+|> <span class="kwd">INTERSECT</span> {ALL | DISTINCT} (query_expression) [, (query_expression), ...]
+</pre>
+
+**Description**
+
+Returns rows that are found in the results of both the input query to the left
+of the pipe operator and all input queries to the right of the pipe
+operator.
+
+The `INTERSECT` pipe operator behaves the same as the
+[`INTERSECT` set operator][intersect-operator] in standard syntax. However, in
+pipe syntax, the query expressions after the `INTERSECT` pipe operator are
+enclosed in parentheses and separated by commas instead of by the repeated
+operator name. For example, `INTERSECT ALL SELECT 1 INTERSECT ALL SELECT 2` in
+standard syntax becomes `INTERSECT ALL (SELECT 1), (SELECT 2)` in pipe syntax.
+
+The `INTERSECT` pipe operator supports the same modifiers as the
+`INTERSECT` set operator in standard syntax, such as the
+[`CORRESPONDING` modifier][corresponding-modifier].
+
+**Examples**
+
+```sql
+SELECT * FROM UNNEST(ARRAY<INT64>[1, 2, 3, 3, 4]) AS number
+|> INTERSECT ALL (SELECT * FROM UNNEST(ARRAY<INT64>[2, 3, 3, 5]) AS number);
+
+/*--------+
+ | number |
+ +--------+
+ | 2      |
+ | 3      |
+ | 3      |
+ +--------*/
+```
+
+```sql
+SELECT * FROM UNNEST(ARRAY<INT64>[1, 2, 3, 3, 4]) AS number
+|> INTERSECT DISTINCT (SELECT * FROM UNNEST(ARRAY<INT64>[2, 3, 3, 5]) AS number);
+
+/*--------+
+ | number |
+ +--------+
+ | 2      |
+ | 3      |
+ +--------*/
+```
+
+The following example shows multiple input queries to the right of the pipe
+operator:
+
+```sql
+SELECT * FROM UNNEST(ARRAY<INT64>[1, 2, 3, 3, 4]) AS number
+|> INTERSECT DISTINCT
+   (SELECT * FROM UNNEST(ARRAY<INT64>[2, 3, 3, 5]) AS number),
+   (SELECT * FROM UNNEST(ARRAY<INT64>[3, 3, 4, 5]) AS number);
+
+/*--------+
+ | number |
+ +--------+
+ | 3      |
+ +--------*/
+```
+
+[intersect-operator]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#intersect
+
+[corresponding-modifier]: #corresponding_modifier
+
+### `EXCEPT` pipe operator 
+<a id="except_pipe_operator"></a>
+
+<pre class="lang-sql prettyprint no-copy">
+query_expression
+|> <span class="kwd">EXCEPT</span> {ALL | DISTINCT} (query_expression) [, (query_expression), ...]
+</pre>
+
+**Description**
+
+Returns rows from the input query to the left of the pipe operator that aren't
+present in any input queries to the right of the pipe operator.
+
+The `EXCEPT` pipe operator behaves the same as the
+[`EXCEPT` set operator][except-operator] in standard syntax. However, in pipe
+syntax, the query expressions after the `EXCEPT` pipe operator are enclosed in
+parentheses and separated by commas instead of by the repeated operator name.
+For example, `EXCEPT ALL SELECT 1 EXCEPT ALL SELECT 2` in standard syntax
+becomes `EXCEPT ALL (SELECT 1), (SELECT 2)` in pipe syntax.
+
+The `EXCEPT` pipe operator supports the same modifiers as the
+`EXCEPT` set operator in standard syntax, such as the
+[`CORRESPONDING` modifier][corresponding-modifier].
+
+**Examples**
+
+```sql
+SELECT * FROM UNNEST(ARRAY<INT64>[1, 2, 3, 3, 4]) AS number
+|> EXCEPT ALL (SELECT * FROM UNNEST(ARRAY<INT64>[1, 2]) AS number);
+
+/*--------+
+ | number |
+ +--------+
+ | 3      |
+ | 3      |
+ | 4      |
+ +--------*/
+```
+
+```sql
+SELECT * FROM UNNEST(ARRAY<INT64>[1, 2, 3, 3, 4]) AS number
+|> EXCEPT DISTINCT (SELECT * FROM UNNEST(ARRAY<INT64>[1, 2]) AS number);
+
+/*--------+
+ | number |
+ +--------+
+ | 3      |
+ | 4      |
+ +--------*/
+```
+
+The following example shows multiple input queries to the right of the pipe
+operator:
+
+```sql
+SELECT * FROM UNNEST(ARRAY<INT64>[1, 2, 3, 3, 4]) AS number
+|> EXCEPT DISTINCT
+   (SELECT * FROM UNNEST(ARRAY<INT64>[1, 2]) AS number),
+   (SELECT * FROM UNNEST(ARRAY<INT64>[1, 4]) AS number);
+
+/*--------+
+ | number |
+ +--------+
+ | 3      |
+ +--------*/
+```
+
+[except-operator]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#except
+
+[corresponding-modifier]: #corresponding_modifier
 
 ### `JOIN` pipe operator 
 <a id="join_pipe_operator"></a>
@@ -508,16 +1573,39 @@ input table is needed, perhaps to disambiguate columns in an
 
 **Example**
 
-<pre class="lang-sql prettyprint">
-|> JOIN ticketing_system_table AS components
-     ON bug_table.component_id = CAST(components.component_id AS int64)
-</pre>
+```sql
+(
+  SELECT 'apples' AS item, 2 AS sales
+  UNION ALL
+  SELECT 'bananas' AS item, 5 AS sales
+)
+|> AS produce_sales
+|> LEFT JOIN
+     (
+       SELECT "apples" AS item, 123 AS id
+     ) AS produce_data
+   ON produce_sales.item = produce_data.item
+|> SELECT produce_sales.item, sales, id;
+
+/*---------+-------+------+
+ | item    | sales | id   |
+ +---------+-------+------+
+ | apples  | 2     | 123  |
+ | bananas | 5     | NULL |
+ +---------+-------+------*/
+```
+
+[join-operation]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#join_types
+
+[on-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#on_clause
+
+[as-pipe-operator]: #as_pipe_operator
 
 ### `CALL` pipe operator 
 <a id="call_pipe_operator"></a>
 
 <pre class="lang-sql prettyprint no-copy">
-|> CALL table_function (argument [, ...]) [[AS] alias]
+|> <span class="kwd">CALL</span> table_function (argument [, ...]) [[AS] alias]
 </pre>
 
 **Description**
@@ -537,29 +1625,37 @@ Multiple TVFs can be called sequentially without using nested subqueries.
 
 **Examples**
 
-<pre class="lang-sql prettyprint">
-|> CALL AddSuffix('*')
-|> CALL AddSuffix2(arg1, arg2, arg3)
-</pre>
+Suppose you have TVFs with the following parameters:
 
-The following examples compare a TVF call in standard syntax and in pipe syntax:
++  `tvf1(inputTable1 ANY TABLE, arg1 ANY TYPE)` and
++  `tvf2(arg2 ANY TYPE, arg3 ANY TYPE, inputTable2 ANY TABLE)`.
 
-<pre class="lang-sql prettyprint">
--- Call a TVF in standard syntax.
-FROM tvf( (SELECT * FROM table), arg1, arg2 )
-</pre>
+The following examples compare calling both TVFs on an input table
+by using standard syntax and by using the `CALL` pipe operator:
 
-<pre class="lang-sql prettyprint">
--- Call the same TVF in pipe syntax.
-SELECT * FROM table
-|> CALL tvf(arg1, arg2)
-</pre>
+```sql
+-- Call the TVFs without using the CALL operator.
+SELECT *
+FROM
+  tvf2(arg2, arg3, TABLE tvf1(TABLE input_table, arg1));
+```
+
+```sql
+-- Call the same TVFs with the CALL operator.
+FROM input_table
+|> CALL tvf1(arg1)
+|> CALL tvf2(arg2, arg3);
+```
+
+[tvf]: https://github.com/google/zetasql/blob/master/docs/table-functions.md#tvfs
+
+[table-function-calls]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#table_function_calls
 
 ### `WINDOW` pipe operator 
 <a id="window_pipe_operator"></a>
 
 <pre class="lang-sql prettyprint no-copy">
-|> WINDOW window_expression [[AS] alias] [, ...]
+|> <span class="kwd">WINDOW</span> window_expression [[AS] alias] [, ...]
 </pre>
 
 **Description**
@@ -570,15 +1666,35 @@ existing rows, similar to calling [window functions][window-functions] in a
 window expression must include a window function with an
 [`OVER` clause][over-clause].
 
-The [`EXTEND` operator][extend-pipe-operator] is recommended for window
-functions instead of the `WINDOW` operator because it also supports window
-expressions and covers the same use cases.
+Alternatively, you can use the [`EXTEND` operator][extend-pipe-operator] for
+window functions.
 
 **Example**
 
-<pre class="lang-sql prettyprint">
-|> WINDOW SUM(val) OVER (ORDER BY k)
-</pre>
+```sql
+(
+  SELECT 'apples' AS item, 2 AS sales
+  UNION ALL
+  SELECT 'bananas' AS item, 5 AS sales
+  UNION ALL
+  SELECT 'carrots' AS item, 8 AS sales
+)
+|> WINDOW SUM(sales) OVER() AS total_sales;
+
+/*---------+-------+-------------+
+ | item    | sales | total_sales |
+ +---------+-------+-------------+
+ | apples  | 2     | 15          |
+ | bananas | 5     | 15          |
+ | carrots | 8     | 15          |
+ +---------+-------+-------------*/
+```
+
+[window-functions]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+[over-clause]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md#def_over_clause
+
+[extend-pipe-operator]: #extend_pipe_operator
 
 ### `TABLESAMPLE` pipe operator 
 <a id="tablesample_pipe_operator"></a>
@@ -595,15 +1711,21 @@ standard syntax.
 
 **Example**
 
-<pre class="lang-sql prettyprint">
-|> TABLESAMPLE BERNOULLI (0.1 PERCENT)
-</pre>
+The following example samples approximately 1% of data from a table called
+`LargeTable`:
+
+```sql
+FROM LargeTable
+|> TABLESAMPLE SYSTEM (1 PERCENT);
+```
+
+[tablesample-operator]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#tablesample_operator
 
 ### `PIVOT` pipe operator 
 <a id="pivot_pipe_operator"></a>
 
 <pre class="lang-sql prettyprint no-copy">
-|> PIVOT (aggregate_expression FOR input_column IN (pivot_column [, ...])) [[AS] alias]
+|> <span class="kwd">PIVOT</span> (aggregate_expression FOR input_column IN (pivot_column [, ...])) [[AS] alias]
 </pre>
 
 **Description**
@@ -613,16 +1735,35 @@ Rotates rows into columns. The `PIVOT` pipe operator behaves the same as the
 
 **Example**
 
-<pre class="lang-sql prettyprint">
-|> SELECT year, username, num_users
-|> PIVOT (SUM(num_users) FOR username IN ('Jeff', 'Jeffrey', 'Jeffery'))
-</pre>
+```sql
+(
+  SELECT "kale" AS product, 51 AS sales, "Q1" AS quarter
+  UNION ALL
+  SELECT "kale" AS product, 4 AS sales, "Q1" AS quarter
+  UNION ALL
+  SELECT "kale" AS product, 45 AS sales, "Q2" AS quarter
+  UNION ALL
+  SELECT "apple" AS product, 8 AS sales, "Q1" AS quarter
+  UNION ALL
+  SELECT "apple" AS product, 10 AS sales, "Q2" AS quarter
+)
+|> PIVOT(SUM(sales) FOR quarter IN ('Q1', 'Q2'));
+
+/*---------+----+------+
+ | product | Q1 | Q2   |
+ +---------+-----------+
+ | kale    | 55 | 45   |
+ | apple   | 8  | 10   |
+ +---------+----+------*/
+```
+
+[pivot-operator]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#pivot_operator
 
 ### `UNPIVOT` pipe operator 
 <a id="unpivot_pipe_operator"></a>
 
 <pre class="lang-sql prettyprint no-copy">
-|> UNPIVOT (values_column FOR name_column IN (column_to_unpivot [, ...])) [[AS] alias]
+|> <span class="kwd">UNPIVOT</span> (values_column FOR name_column IN (column_to_unpivot [, ...])) [[AS] alias]
 </pre>
 
 **Description**
@@ -632,10 +1773,25 @@ Rotates columns into rows. The `UNPIVOT` pipe operator behaves the same as the
 
 **Example**
 
-<pre class="lang-sql prettyprint">
-|> UNPIVOT (count FOR user_location IN (London, Bangalore, Madrid))
-|> ORDER BY year, cnt
-</pre>
+```sql
+(
+  SELECT 'kale' as product, 55 AS Q1, 45 AS Q2
+  UNION ALL
+  SELECT 'apple', 8, 10
+)
+|> UNPIVOT(sales FOR quarter IN (Q1, Q2));
+
+/*---------+-------+---------+
+ | product | sales | quarter |
+ +---------+-------+---------+
+ | kale    | 55    | Q1      |
+ | kale    | 45    | Q2      |
+ | apple   | 8     | Q1      |
+ | apple   | 10    | Q2      |
+ +---------+-------+---------*/
+```
+
+[unpivot-operator]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#unpivot_operator
 
 ### `ASSERT` pipe operator 
 <a id="assert_pipe_operator"></a>
@@ -667,13 +1823,13 @@ a related feature that verifies that a single expression is true.
 
 **Example**
 
-<pre class="lang-sql prettyprint">
+```sql
 FROM table
 |> ASSERT count != 0, "Count is zero for user", userId
 |> SELECT total / count AS average
-</pre>
+```
 
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+[assert-statement]: https://github.com/google/zetasql/blob/master/docs/debugging-statements.md#assert
 
 [query-syntax]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md
 
@@ -681,79 +1837,13 @@ FROM table
 
 [from-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#from_clause
 
-[select-as-value]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#select_as_value
-
-[select-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#select_list
+[using-aliases]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#using_aliases
 
 [select-star]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#select_
 
-[select-replace]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#select_replace
-
-[select-except]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#select_except
-
-[set-operators]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#set_operators
-
-[drop-statement]: https://github.com/google/zetasql/blob/master/docs/data-definition-language.md#drop
-
-[where-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#where_clause
-
-[aggregate-pipe-operator]: #aggregate_pipe_operator
-
-[extend-pipe-operator]: #extend_pipe_operator
-
-[select-pipe-operator]: #select_pipe_operator
-
-[set-pipe-operator]: #set_pipe_operator
-
-[drop-pipe-operator]: #drop_pipe_operator
-
-[rename-pipe-operator]: #rename_pipe_operator
-
-[as-pipe-operator]: #as_pipe_operator
-
-[order-by-pipe-operator]: #order_by_pipe_operator
-
-[shorthand-order-pipe-syntax]: #shorthand_order_pipe_syntax
-
-[limit-offset-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#limit_and_offset_clause
-
-[having-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#having_clause
-
-[qualify-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#qualify_clause
-
-[aggregate-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md
-
-[group-by-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#group_by_clause
-
-[order-by-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#order_by_clause
-
-[join-operation]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#join_types
-
-[on-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#on_clause
-
-[window-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#window_clause
-
-[window-functions]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
-
-[over-clause]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md#def_over_clause
-
-[window-pipe-operator]: #window_pipe_operator
-
-[table-function-calls]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#table-function-calls
-
-[tvf]: https://github.com/google/zetasql/blob/master/docs/table-functions.md#tvfs
-
-[tablesample-operator]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#tablesample_operator
-
-[using-aliases]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#using_aliases
-
-[pivot-operator]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#pivot_operator
-
-[unpivot-operator]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#unpivot_operator
-
-[assert-statement]: https://github.com/google/zetasql/blob/master/docs/debugging-statements.md#assert
+[query-comparison]: #query_comparison
 
 [value-tables]: https://github.com/google/zetasql/blob/master/docs/data-model.md#value_tables
 
-<!-- mdlint on -->
+[select-as-value]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#select_as_value
 

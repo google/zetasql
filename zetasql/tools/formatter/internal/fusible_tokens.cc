@@ -78,51 +78,53 @@ FusibleMatchVector FindLongestFusibleMatch(
   int max_token = current_match.EndPosition();
   auto best_match = FusibleMatchVector::EmptyMatch(0);
   int match_pos;
-  for (const auto& [fused_keyword, next_group] : fusible_group.next_tokens) {
-    match_pos = next_token;
-    if (fused_keyword == FusibleTokens::kIdentifier) {
-      // Current token should be a valid identifier start.
-      if (!tokens[match_pos]->MayBeStartOfIdentifier()) {
+  for (const auto& [fused_keyword, next_groups] : fusible_group.next_tokens) {
+    for (const auto& next_group : next_groups) {
+      match_pos = next_token;
+      if (fused_keyword == FusibleTokens::kIdentifier) {
+        // Current token should be a valid identifier start.
+        if (!tokens[match_pos]->MayBeStartOfIdentifier()) {
+          continue;
+        }
+        // Catch further parts of the identifier.
+        while (match_pos + 1 < tokens.size() &&
+               tokens[match_pos + 1]->MayBeIdentifierContinuation(
+                   *tokens[match_pos])) {
+          ++match_pos;
+        }
+      } else if (fused_keyword == FusibleTokens::kAnyWord) {
+        if (!tokens[match_pos]->Is(Token::Type::INVALID_TOKEN) &&
+            !tokens[match_pos]->IsNonPunctuationKeyword() &&
+            !tokens[match_pos]->IsIdentifier()) {
+          // kAny should match any identifier or alphabetic keyword (punctuation
+          // like "(" are also keywords) - no match.
+          continue;
+        }
+      } else if (fused_keyword == FusibleTokens::kString) {
+        if (!tokens[match_pos]->IsStringLiteral()) {
+          continue;
+        }
+      } else if (tokens[match_pos]->GetKeyword() != fused_keyword ||
+                 (next_group.type != Token::Type::UNKNOWN &&
+                  !tokens[match_pos]->Is(next_group.type)) ||
+                 tokens[match_pos]->IsOneOf(
+                     {Token::Type::KEYWORD_AS_IDENTIFIER_FRAGMENT,
+                      Token::Type::COMPLEX_TOKEN_CONTINUATION}) ||
+                 tokens[match_pos]->IsCaseExprKeyword()) {
+        // No match.
         continue;
       }
-      // Catch further parts of the identifier.
-      while (match_pos + 1 < tokens.size() &&
-             tokens[match_pos + 1]->MayBeIdentifierContinuation(
-                 *tokens[match_pos])) {
-        ++match_pos;
-      }
-    } else if (fused_keyword == FusibleTokens::kAnyWord) {
-      if (!tokens[match_pos]->Is(Token::Type::INVALID_TOKEN) &&
-          !tokens[match_pos]->IsNonPunctuationKeyword() &&
-          !tokens[match_pos]->IsIdentifier()) {
-        // kAny should match any identifier or alphabetic keyword (punctuation
-        // like "(" are also keywords) - no match.
-        continue;
-      }
-    } else if (fused_keyword == FusibleTokens::kString) {
-      if (!tokens[match_pos]->IsStringLiteral()) {
-        continue;
-      }
-    } else if (tokens[match_pos]->GetKeyword() != fused_keyword ||
-               (next_group.type != Token::Type::UNKNOWN &&
-                !tokens[match_pos]->Is(next_group.type)) ||
-               tokens[match_pos]->IsOneOf(
-                   {Token::Type::KEYWORD_AS_IDENTIFIER_FRAGMENT,
-                    Token::Type::COMPLEX_TOKEN_CONTINUATION}) ||
-               tokens[match_pos]->IsCaseExprKeyword()) {
-      // No match.
-      continue;
-    }
 
-    FusibleMatchVector match = FindLongestFusibleMatch(
-        tokens, current_match.Append(next_group, match_pos));
-    if (match.EndPosition() > max_token ||
-        // If match length is equal, prefer the match that ends on a specific
-        // keyword or identifier.
-        (match.EndPosition() == max_token && !match.Empty() &&
-         match.CurrentFusibleGroup().token != FusibleTokens::kAnyWord)) {
-      best_match = match;
-      max_token = match.EndPosition();
+      FusibleMatchVector match = FindLongestFusibleMatch(
+          tokens, current_match.Append(next_group, match_pos));
+      if (match.EndPosition() > max_token ||
+          // If match length is equal, prefer the match that ends on a specific
+          // keyword or identifier.
+          (match.EndPosition() == max_token && !match.Empty() &&
+           match.CurrentFusibleGroup().token != FusibleTokens::kAnyWord)) {
+        best_match = match;
+        max_token = match.EndPosition();
+      }
     }
   }
   return best_match.Empty() ? current_match : best_match;
@@ -322,6 +324,7 @@ const std::vector<FusibleTokens>* GetFusibleTokens() {
       {.t{"FULL", kAny, "JOIN"}, .mark_as = kTopLevel},
       {.t{"GENERATED", "AS"}, .start_with = kDdlKeyword},
       {.t{"GRANT", "TO"}},
+      {.t{"GROUP", "AND", "ORDER", "BY"}, .full_match_only = true},
       {.t{"GROUP", "BY"}},
       {.t{"HASH", "JOIN"}, .mark_as = kTopLevel},
       {.t{"HAVING", "MAX"}},
@@ -405,7 +408,9 @@ const std::vector<FusibleTokens>* GetFusibleTokens() {
       {.t{"SET", "AS", kAny}},
       {.t{"SET", "DATA", "TYPE", kAny}},
       {.t{"SET", "OPTIONS"}},
-      {.t{"SET", kId, "="}},
+      {.t{"SET", kId, "="},
+       .start_with = Token::Type::SET_STATEMENT_START,
+       .full_match_only = true},
       {.t{"SHOW", "MATERIALIZED", "VIEWS"}},
       {.t{"SQL", "SECURITY", "DEFINER"}},
       {.t{"SQL", "SECURITY", "INVOKER"}},
@@ -441,13 +446,24 @@ const FusibleGroup* FusibleGroupsFromTokens(
   for (const auto& tokens : fusible_tokens) {
     auto* current_group = root;
     for (const auto& token : tokens.t) {
-      auto& fused_group = current_group->next_tokens[token];
-      fused_group.token = token;
-      fused_group.full_match_only = tokens.full_match_only;
-      if (current_group == root) {
-        fused_group.type = tokens.start_with;
+      std::vector<FusibleGroup>& fused_groups =
+          current_group->next_tokens[token];
+      FusibleGroup* fused_group = nullptr;
+      for (auto& g : fused_groups) {
+        if (g.type == tokens.start_with) {
+          fused_group = &g;
+          break;
+        }
       }
-      current_group = &fused_group;
+      if (fused_group == nullptr) {
+        fused_groups.push_back(FusibleGroup{.token = token});
+        fused_group = &fused_groups.back();
+      }
+      fused_group->full_match_only = tokens.full_match_only;
+      if (current_group == root) {
+        fused_group->type = tokens.start_with;
+      }
+      current_group = fused_group;
     }
     current_group->mark_as = tokens.mark_as;
   }

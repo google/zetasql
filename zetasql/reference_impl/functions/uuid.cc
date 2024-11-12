@@ -17,10 +17,15 @@
 #include "zetasql/reference_impl/functions/uuid.h"
 
 #include "zetasql/public/functions/uuid.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
+#include "zetasql/reference_impl/evaluation.h"
 #include "zetasql/reference_impl/function.h"
+#include "zetasql/reference_impl/tuple.h"
 #include "absl/status/statusor.h"
+#include "absl/types/span.h"
+#include "zetasql/base/ret_check.h"
 
 namespace zetasql {
 namespace {

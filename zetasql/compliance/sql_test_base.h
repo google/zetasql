@@ -139,6 +139,8 @@ struct QueryResultStats {
   int verified_count = 0;
   int nonempty_result_count = 0;
   int ordered_result_count = 0;
+  int verified_graph_count = 0;
+  int verified_graph_nonempty_result_count = 0;
 };
 
 class SQLTestBase : public ::testing::TestWithParam<std::string> {
@@ -281,7 +283,7 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
       const std::set<LanguageFeature>& required_features,
       const std::set<LanguageFeature>& forbidden_features,
       const Value& expected_value, const absl::Status& expected_status,
-      const FloatMargin& float_margin);
+      const FloatMargin& float_margin = zetasql::kDefaultFloatMargin);
 
   // Returns a Catalog that includes the tables specified in the active
   // TestDatabase. Owned by the reference driver internal to this class.
@@ -460,7 +462,7 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   //
   //   ...
   // }
-  void CheckCancellation(const absl::Status& status, const std::string& reason);
+  void CheckCancellation(const absl::Status& status, absl::string_view reason);
 
   // Enables negative testing so a cancelled statement won't really fail the
   // unittest.

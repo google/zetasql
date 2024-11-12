@@ -1235,9 +1235,8 @@ WHERE s.SingerId = 5
 ASSERT_ROWS_MODIFIED 1;
 ```
 
-ZetaSQL treats an array or repeated field inside a row that matches
-an `UPDATE WHERE` clause as a table, with individual elements of the array or
-field treated like rows. These rows can then have nested DML statements run
+ZetaSQL treats an array or a repeated field inside a row that matches
+an `UPDATE WHERE` clause as a table, with individual elements of the array or field treated like rows. These rows can then have nested DML statements run
 against them, allowing you to delete, update, and insert data as needed.
 
 #### Modifying multiple fields

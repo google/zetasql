@@ -77,6 +77,7 @@ absl::StatusOr<std::unique_ptr<const ResolvedNode>>
 TypeofFunctionRewriteVisitor::PostVisitResolvedFunctionCall(
     std::unique_ptr<const ResolvedFunctionCall> node) {
   if (!IsBuiltInFunctionIdEq(node.get(), FN_TYPEOF)
+      && !IsBuiltInFunctionIdEq(node.get(), FN_TYPEOF_GRAPH_ELEMENT)
   ) {
     return node;
   }

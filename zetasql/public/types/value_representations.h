@@ -29,6 +29,7 @@
 #include "zetasql/public/interval_value.h"
 #include "zetasql/public/json_value.h"
 #include "zetasql/public/numeric_value.h"
+#include "zetasql/public/timestamp_pico_value.h"
 #include "zetasql/public/token_list.h"  
 #include "zetasql/public/uuid_value.h"
 #include "zetasql/public/value_content.h"
@@ -53,7 +54,8 @@ namespace zetasql {
 
 class ProtoType;
 class Type;
-class ValueEqualityCheckOptions;
+
+struct ValueEqualityCheckOptions;
 
 namespace internal {  // For ZetaSQL internal use only
 
@@ -105,9 +107,6 @@ class ValueContentMap {
   virtual ~ValueContentMap() = default;
   virtual int64_t num_elements() const = 0;
   virtual uint64_t physical_byte_size() const = 0;
-  virtual std::vector<
-      std::pair<internal::NullableValueContent, internal::NullableValueContent>>
-  value_content_entries() const = 0;
   virtual std::optional<NullableValueContent> GetContentMapValueByKey(
       const NullableValueContent& key, const Type* key_type,
       const ValueEqualityCheckOptions& options) const = 0;
@@ -288,6 +287,21 @@ class BigNumericRef final
   BigNumericValue value_;
 };
 
+class TimestampPicoRef final
+    : public zetasql_base::refcount::CompactReferenceCounted<TimestampPicoRef, int64_t> {
+ public:
+  TimestampPicoRef() = default;
+  explicit TimestampPicoRef(const TimestampPicoValue& value) : value_(value) {}
+
+  TimestampPicoRef(const TimestampPicoRef&) = delete;
+  TimestampPicoRef& operator=(const TimestampPicoRef&) = delete;
+
+  const TimestampPicoValue& value() { return value_; }
+
+ private:
+  TimestampPicoValue value_;
+};
+
 // -------------------------------------------------------------
 // IntervalRef is ref count wrapper around IntervalValue.
 // -------------------------------------------------------------
@@ -424,6 +438,22 @@ class UuidRef final
 
  private:
   UuidValue value_;
+};
+
+class GraphElementContainer : public ValueContentOrderedList {
+ public:
+  // Returns an identifier for graph element.
+  virtual absl::string_view GetIdentifier() const = 0;
+
+  // Returns an identifier for graph edge source/dest node.
+  virtual absl::string_view GetSourceNodeIdentifier() const = 0;
+  virtual absl::string_view GetDestNodeIdentifier() const = 0;
+
+  // Returns the definition name of the graph element.
+  virtual absl::string_view GetDefinitionName() const = 0;
+
+  // Returns all labels for graph element.
+  virtual absl::Span<const std::string> GetLabels() const = 0;
 };
 
 // -------------------------------------------------------

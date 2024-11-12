@@ -434,6 +434,48 @@ SELECT MAP_ENTRIES_UNSORTED(MAP_FROM_ARRAY([("a", "b")]), "extra_arg")
        ^
 ==
 
+[default language_features=V_1_4_MAP_TYPE,V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[no_run_unparser]
+# Unparser explicit casting causes issues, so we must disable it.
+
+select MAP_FROM_ARRAY([(a, 1)]) from graph_table(
+  aml
+  match (a IS Person) -[e]-> (b IS Account)
+)
+--
+ERROR: Returning expressions of type GRAPH_ELEMENT is not allowed [at 3:1]
+select MAP_FROM_ARRAY([(a, 1)]) from graph_table(
+^
+==
+
+[default language_features=V_1_4_MAP_TYPE,V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[no_run_unparser]
+# Unparser explicit casting causes issues, so we must disable it.
+
+select MAP_ENTRIES_SORTED(MAP_FROM_ARRAY([(a, 1)])) from graph_table(
+  aml
+  match (a IS Person) -[e]-> (b IS Account)
+)
+--
+ERROR: MAP_ENTRIES_SORTED map key type must be orderable, but was not: GRAPH_ELEMENT is not orderable [at 3:8]
+select MAP_ENTRIES_SORTED(MAP_FROM_ARRAY([(a, 1)])) from graph_table(
+       ^
+==
+
+[default language_features=V_1_4_MAP_TYPE,V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[no_run_unparser]
+# Unparser explicit casting causes issues, so we must disable it.
+
+select MAP_ENTRIES_UNSORTED(MAP_FROM_ARRAY([(a, 1)])) from graph_table(
+  aml
+  match (a IS Person) -[e]-> (b IS Account)
+)
+--
+ERROR: Returning expressions of type GRAPH_ELEMENT is not allowed [at 3:1]
+select MAP_ENTRIES_UNSORTED(MAP_FROM_ARRAY([(a, 1)])) from graph_table(
+^
+==
+
 SELECT MAP_GET(MAP_FROM_ARRAY([('a', 1.1)]), {{'a'|1|NULL}});
 --
 ALTERNATION GROUP: 'a'
@@ -446,10 +488,11 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-FunctionCall(ZetaSQL:map_get(MAP<STRING, DOUBLE>, STRING, optional(0) DOUBLE) -> DOUBLE)
+    |   +-FunctionCall(ZetaSQL:map_get(MAP<STRING, DOUBLE> input_map, STRING lookup_key, optional(1) DOUBLE default_value) -> DOUBLE)
     |     +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, DOUBLE>>) -> MAP<STRING, DOUBLE>)
     |     | +-Literal(type=ARRAY<STRUCT<STRING, DOUBLE>>, value=[{"a", 1.1}])
     |     +-Literal(type=STRING, value="a")
+    |     +-Literal(type=DOUBLE, value=NULL)
     +-input_scan=
       +-SingleRowScan
 --
@@ -478,10 +521,11 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-FunctionCall(ZetaSQL:map_get(MAP<STRING, DOUBLE>, STRING, optional(0) DOUBLE) -> DOUBLE)
+    |   +-FunctionCall(ZetaSQL:map_get(MAP<STRING, DOUBLE> input_map, STRING lookup_key, optional(1) DOUBLE default_value) -> DOUBLE)
     |     +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, DOUBLE>>) -> MAP<STRING, DOUBLE>)
     |     | +-Literal(type=ARRAY<STRUCT<STRING, DOUBLE>>, value=[{"a", 1.1}])
     |     +-Literal(type=STRING, value=NULL)
+    |     +-Literal(type=DOUBLE, value=NULL)
     +-input_scan=
       +-SingleRowScan
 ==
@@ -498,7 +542,7 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-FunctionCall(ZetaSQL:map_get(MAP<STRING, DOUBLE>, STRING, optional(1) DOUBLE) -> DOUBLE)
+    |   +-FunctionCall(ZetaSQL:map_get(MAP<STRING, DOUBLE> input_map, STRING lookup_key, optional(1) DOUBLE default_value) -> DOUBLE)
     |     +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, DOUBLE>>) -> MAP<STRING, DOUBLE>)
     |     | +-Literal(type=ARRAY<STRUCT<STRING, DOUBLE>>, value=[{"a", 1.1}])
     |     +-Literal(type=STRING, value="a")
@@ -531,7 +575,7 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-FunctionCall(ZetaSQL:map_get(MAP<STRING, DOUBLE>, STRING, optional(1) DOUBLE) -> DOUBLE)
+    |   +-FunctionCall(ZetaSQL:map_get(MAP<STRING, DOUBLE> input_map, STRING lookup_key, optional(1) DOUBLE default_value) -> DOUBLE)
     |     +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, DOUBLE>>) -> MAP<STRING, DOUBLE>)
     |     | +-Literal(type=ARRAY<STRUCT<STRING, DOUBLE>>, value=[{"a", 1.1}])
     |     +-Literal(type=STRING, value="a")
@@ -549,7 +593,7 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-FunctionCall(ZetaSQL:map_get(MAP<STRING, DOUBLE>, STRING, optional(1) DOUBLE) -> DOUBLE)
+    |   +-FunctionCall(ZetaSQL:map_get(MAP<STRING, DOUBLE> input_map, STRING lookup_key, optional(1) DOUBLE default_value) -> DOUBLE)
     |     +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, DOUBLE>>) -> MAP<STRING, DOUBLE>)
     |     | +-Literal(type=ARRAY<STRUCT<STRING, DOUBLE>>, value=[{"a", 1.1}])
     |     +-Literal(type=STRING, value="a")
@@ -562,49 +606,56 @@ SELECT MAP_GET(NULL, {{NULL|'a'|false}});
 --
 ALTERNATION GROUP: NULL
 --
-ERROR: No matching signature for function MAP_GET for argument types: NULL, NULL. Supported signature: MAP_GET(MAP, ANY, [ANY]) [at 1:8]
-SELECT MAP_GET(NULL, NULL);
-       ^
---
-Signature Mismatch Details:
-ERROR: No matching signature for function MAP_GET
-  Argument types: NULL, NULL
-  Signature: MAP_GET(MAP<T1, T2>, T1, [T2])
-    The map type could not be constructed because the value type was not determinable [at 1:8]
-SELECT MAP_GET(NULL, NULL);
-       ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:map_get(MAP<INT64, INT64> input_map, INT64 lookup_key, optional(1) INT64 default_value) -> INT64)
+    |     +-Literal(type=MAP<INT64, INT64>, value=NULL)
+    |     +-Literal(type=INT64, value=NULL)
+    |     +-Literal(type=INT64, value=NULL)
+    +-input_scan=
+      +-SingleRowScan
 --
 ALTERNATION GROUP: 'a'
 --
-ERROR: No matching signature for function MAP_GET for argument types: NULL, STRING. Supported signature: MAP_GET(MAP, ANY, [ANY]) [at 1:8]
-SELECT MAP_GET(NULL, 'a');
-       ^
---
-Signature Mismatch Details:
-ERROR: No matching signature for function MAP_GET
-  Argument types: NULL, STRING
-  Signature: MAP_GET(MAP<T1, T2>, T1, [T2])
-    The map type could not be constructed because the value type was not determinable [at 1:8]
-SELECT MAP_GET(NULL, 'a');
-       ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:map_get(MAP<STRING, INT64> input_map, STRING lookup_key, optional(1) INT64 default_value) -> INT64)
+    |     +-Literal(type=MAP<STRING, INT64>, value=NULL)
+    |     +-Literal(type=STRING, value="a")
+    |     +-Literal(type=INT64, value=NULL)
+    +-input_scan=
+      +-SingleRowScan
 --
 ALTERNATION GROUP: false
 --
-ERROR: No matching signature for function MAP_GET for argument types: NULL, BOOL. Supported signature: MAP_GET(MAP, ANY, [ANY]) [at 1:8]
-SELECT MAP_GET(NULL, false);
-       ^
---
-Signature Mismatch Details:
-ERROR: No matching signature for function MAP_GET
-  Argument types: NULL, BOOL
-  Signature: MAP_GET(MAP<T1, T2>, T1, [T2])
-    The map type could not be constructed because the value type was not determinable [at 1:8]
-SELECT MAP_GET(NULL, false);
-       ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:map_get(MAP<BOOL, INT64> input_map, BOOL lookup_key, optional(1) INT64 default_value) -> INT64)
+    |     +-Literal(type=MAP<BOOL, INT64>, value=NULL)
+    |     +-Literal(type=BOOL, value=false)
+    |     +-Literal(type=INT64, value=NULL)
+    +-input_scan=
+      +-SingleRowScan
 ==
 
-[no_java]
-# TODO: Implement Java support for MAP value serialization.
 SELECT MAP_GET(NULL, {{NULL, NULL|NULL, 'a'|'a', NULL|'a', true}});
 --
 ALTERNATION GROUP: NULL, NULL
@@ -617,7 +668,7 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-FunctionCall(ZetaSQL:map_get(MAP<INT64, INT64>, INT64, optional(1) INT64) -> INT64)
+    |   +-FunctionCall(ZetaSQL:map_get(MAP<INT64, INT64> input_map, INT64 lookup_key, optional(1) INT64 default_value) -> INT64)
     |     +-Literal(type=MAP<INT64, INT64>, value=NULL)
     |     +-Literal(type=INT64, value=NULL)
     |     +-Literal(type=INT64, value=NULL)
@@ -634,7 +685,7 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-FunctionCall(ZetaSQL:map_get(MAP<INT64, STRING>, INT64, optional(1) STRING) -> STRING)
+    |   +-FunctionCall(ZetaSQL:map_get(MAP<INT64, STRING> input_map, INT64 lookup_key, optional(1) STRING default_value) -> STRING)
     |     +-Literal(type=MAP<INT64, STRING>, value=NULL)
     |     +-Literal(type=INT64, value=NULL)
     |     +-Literal(type=STRING, value="a")
@@ -651,7 +702,7 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-FunctionCall(ZetaSQL:map_get(MAP<STRING, INT64>, STRING, optional(1) INT64) -> INT64)
+    |   +-FunctionCall(ZetaSQL:map_get(MAP<STRING, INT64> input_map, STRING lookup_key, optional(1) INT64 default_value) -> INT64)
     |     +-Literal(type=MAP<STRING, INT64>, value=NULL)
     |     +-Literal(type=STRING, value="a")
     |     +-Literal(type=INT64, value=NULL)
@@ -668,7 +719,7 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-FunctionCall(ZetaSQL:map_get(MAP<STRING, BOOL>, STRING, optional(1) BOOL) -> BOOL)
+    |   +-FunctionCall(ZetaSQL:map_get(MAP<STRING, BOOL> input_map, STRING lookup_key, optional(1) BOOL default_value) -> BOOL)
     |     +-Literal(type=MAP<STRING, BOOL>, value=NULL)
     |     +-Literal(type=STRING, value="a")
     |     +-Literal(type=BOOL, value=true)
@@ -688,14 +739,17 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-FunctionCall(ZetaSQL:map_get(MAP<STRING, DOUBLE>, STRING, optional(0) DOUBLE) -> DOUBLE)
+    |   +-FunctionCall(ZetaSQL:map_get(MAP<STRING, DOUBLE> input_map, STRING lookup_key, optional(1) DOUBLE default_value) -> DOUBLE)
     |     +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, DOUBLE>>) -> MAP<STRING, DOUBLE>)
     |     | +-Literal(type=ARRAY<STRUCT<STRING, DOUBLE>>, value=NULL, has_explicit_type=TRUE)
     |     +-Literal(type=STRING, value="a")
+    |     +-Literal(type=DOUBLE, value=NULL)
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: NULL
+ALTERNATION GROUPS:
+    NULL
+    NULL, NULL
 --
 QueryStmt
 +-output_column_list=
@@ -705,10 +759,11 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-FunctionCall(ZetaSQL:map_get(MAP<STRING, DOUBLE>, STRING, optional(0) DOUBLE) -> DOUBLE)
+    |   +-FunctionCall(ZetaSQL:map_get(MAP<STRING, DOUBLE> input_map, STRING lookup_key, optional(1) DOUBLE default_value) -> DOUBLE)
     |     +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, DOUBLE>>) -> MAP<STRING, DOUBLE>)
     |     | +-Literal(type=ARRAY<STRUCT<STRING, DOUBLE>>, value=NULL, has_explicit_type=TRUE)
     |     +-Literal(type=STRING, value=NULL)
+    |     +-Literal(type=DOUBLE, value=NULL)
     +-input_scan=
       +-SingleRowScan
 --
@@ -737,29 +792,11 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-FunctionCall(ZetaSQL:map_get(MAP<STRING, DOUBLE>, STRING, optional(1) DOUBLE) -> DOUBLE)
+    |   +-FunctionCall(ZetaSQL:map_get(MAP<STRING, DOUBLE> input_map, STRING lookup_key, optional(1) DOUBLE default_value) -> DOUBLE)
     |     +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, DOUBLE>>) -> MAP<STRING, DOUBLE>)
     |     | +-Literal(type=ARRAY<STRUCT<STRING, DOUBLE>>, value=NULL, has_explicit_type=TRUE)
     |     +-Literal(type=STRING, value=NULL)
     |     +-Literal(type=DOUBLE, value=1)
-    +-input_scan=
-      +-SingleRowScan
---
-ALTERNATION GROUP: NULL, NULL
---
-QueryStmt
-+-output_column_list=
-| +-$query.$col1#1 AS `$col1` [DOUBLE]
-+-query=
-  +-ProjectScan
-    +-column_list=[$query.$col1#1]
-    +-expr_list=
-    | +-$col1#1 :=
-    |   +-FunctionCall(ZetaSQL:map_get(MAP<STRING, DOUBLE>, STRING, optional(1) DOUBLE) -> DOUBLE)
-    |     +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, DOUBLE>>) -> MAP<STRING, DOUBLE>)
-    |     | +-Literal(type=ARRAY<STRUCT<STRING, DOUBLE>>, value=NULL, has_explicit_type=TRUE)
-    |     +-Literal(type=STRING, value=NULL)
-    |     +-Literal(type=DOUBLE, value=NULL)
     +-input_scan=
       +-SingleRowScan
 --
@@ -773,7 +810,7 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-FunctionCall(ZetaSQL:map_get(MAP<STRING, DOUBLE>, STRING, optional(1) DOUBLE) -> DOUBLE)
+    |   +-FunctionCall(ZetaSQL:map_get(MAP<STRING, DOUBLE> input_map, STRING lookup_key, optional(1) DOUBLE default_value) -> DOUBLE)
     |     +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, DOUBLE>>) -> MAP<STRING, DOUBLE>)
     |     | +-Literal(type=ARRAY<STRUCT<STRING, DOUBLE>>, value=NULL, has_explicit_type=TRUE)
     |     +-Literal(type=STRING, value="a")
@@ -825,10 +862,11 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-FunctionCall(ZetaSQL:map_get(MAP<DOUBLE, STRING>, DOUBLE, optional(0) STRING) -> STRING)
+    |   +-FunctionCall(ZetaSQL:map_get(MAP<DOUBLE, STRING> input_map, DOUBLE lookup_key, optional(1) STRING default_value) -> STRING)
     |     +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<DOUBLE, STRING>>) -> MAP<DOUBLE, STRING>)
     |     | +-Literal(type=ARRAY<STRUCT<DOUBLE, STRING>>, value=[{1.1, "foo"}])
     |     +-Literal(type=DOUBLE, value=1)
+    |     +-Literal(type=STRING, value=NULL)
     +-input_scan=
       +-SingleRowScan
 ==
@@ -843,7 +881,7 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-FunctionCall(ZetaSQL:map_get(MAP<DATE, STRING>, DATE, optional(0) STRING) -> STRING)
+    |   +-FunctionCall(ZetaSQL:map_get(MAP<DATE, STRING> input_map, DATE lookup_key, optional(1) STRING default_value) -> STRING)
     |     +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<DATE, STRING>>) -> MAP<DATE, STRING>)
     |     | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<DATE, STRING>) -> ARRAY<STRUCT<DATE, STRING>>)
     |     |   +-MakeStruct
@@ -853,6 +891,7 @@ QueryStmt
     |     |       | +-Literal(type=TIMESTAMP, value=2020-01-01 08:00:00+00)
     |     |       +-Literal(type=STRING, value="foo")
     |     +-Literal(type=DATE, value=2020-01-01)
+    |     +-Literal(type=STRING, value=NULL)
     +-input_scan=
       +-SingleRowScan
 ==
@@ -868,10 +907,11 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-FunctionCall(ZetaSQL:map_get(MAP<BYTES, INT64>, BYTES, optional(0) INT64) -> INT64)
+    |   +-FunctionCall(ZetaSQL:map_get(MAP<BYTES, INT64> input_map, BYTES lookup_key, optional(1) INT64 default_value) -> INT64)
     |     +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<BYTES, INT64>>) -> MAP<BYTES, INT64>)
     |     | +-Literal(type=ARRAY<STRUCT<BYTES, INT64>>, value=[{b"a", 1}])
     |     +-Literal(type=BYTES, value=b"a")
+    |     +-Literal(type=INT64, value=NULL)
     +-input_scan=
       +-SingleRowScan
 ==
@@ -886,7 +926,7 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-FunctionCall(ZetaSQL:map_get(MAP<STRING, PROTO<zetasql_test__.EmptyMessage>>, STRING, optional(1) PROTO<zetasql_test__.EmptyMessage>) -> PROTO<zetasql_test__.EmptyMessage>)
+    |   +-FunctionCall(ZetaSQL:map_get(MAP<STRING, PROTO<zetasql_test__.EmptyMessage>> input_map, STRING lookup_key, optional(1) PROTO<zetasql_test__.EmptyMessage> default_value) -> PROTO<zetasql_test__.EmptyMessage>)
     |     +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, PROTO<zetasql_test__.EmptyMessage>>>) -> MAP<STRING, PROTO<zetasql_test__.EmptyMessage>>)
     |     | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<STRING, PROTO<zetasql_test__.EmptyMessage>>) -> ARRAY<STRUCT<STRING, PROTO<zetasql_test__.EmptyMessage>>>)
     |     |   +-MakeStruct
@@ -911,7 +951,7 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-FunctionCall(ZetaSQL:map_get(MAP<STRING, JSON>, STRING, optional(1) JSON) -> JSON)
+    |   +-FunctionCall(ZetaSQL:map_get(MAP<STRING, JSON> input_map, STRING lookup_key, optional(1) JSON default_value) -> JSON)
     |     +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, JSON>>) -> MAP<STRING, JSON>)
     |     | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<STRING, JSON>) -> ARRAY<STRUCT<STRING, JSON>>)
     |     |   +-MakeStruct
@@ -926,7 +966,6 @@ QueryStmt
 ==
 
 [language_features=V_1_4_MAP_TYPE,JSON_TYPE]
-[no_java]
 SELECT MAP_GET(MAP_FROM_ARRAY([
        ('a',
            (MAP_FROM_ARRAY([('b', JSON '1')]), new zetasql_test__.EmptyMessage())
@@ -940,7 +979,7 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-FunctionCall(ZetaSQL:map_get(MAP<STRING, STRUCT<MAP<STRING, JSON>, PROTO<zetasql_test__.EmptyMessage>>>, STRING, optional(1) STRUCT<MAP<STRING, JSON>, PROTO<zetasql_test__.EmptyMessage>>) -> STRUCT<MAP<STRING, JSON>, PROTO<zetasql_test__.EmptyMessage>>)
+    |   +-FunctionCall(ZetaSQL:map_get(MAP<STRING, STRUCT<MAP<STRING, JSON>, PROTO<zetasql_test__.EmptyMessage>>> input_map, STRING lookup_key, optional(1) STRUCT<MAP<STRING, JSON>, PROTO<zetasql_test__.EmptyMessage>> default_value) -> STRUCT<MAP<STRING, JSON>, PROTO<zetasql_test__.EmptyMessage>>)
     |     +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, STRUCT<MAP<STRING, JSON>, PROTO<zetasql_test__.EmptyMessage>>>>) -> MAP<STRING, STRUCT<MAP<STRING, JSON>, PROTO<zetasql_test__.EmptyMessage>>>)
     |     | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<STRING, STRUCT<MAP<STRING, JSON>, PROTO<zetasql_test__.EmptyMessage>>>) -> ARRAY<STRUCT<STRING, STRUCT<MAP<STRING, JSON>, PROTO<zetasql_test__.EmptyMessage>>>>)
     |     |   +-MakeStruct
@@ -1167,8 +1206,109 @@ SELECT MAP_FROM_ARRAY([(1, 'a')])[SAFE_ORDINAL(1)];
                                   ^
 ==
 
-[no_java]
-# TODO: Implement Java support for MAP value serialization.
+SELECT MAP_CONTAINS_KEY(MAP_FROM_ARRAY([('a', 1)]), {{'a'|NULL}});
+--
+ALTERNATION GROUP: 'a'
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:map_contains_key(MAP<STRING, INT64> input_map, STRING lookup_key) -> BOOL)
+    |     +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, INT64>>) -> MAP<STRING, INT64>)
+    |     | +-Literal(type=ARRAY<STRUCT<STRING, INT64>>, value=[{"a", 1}])
+    |     +-Literal(type=STRING, value="a")
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: NULL
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:map_contains_key(MAP<STRING, INT64> input_map, STRING lookup_key) -> BOOL)
+    |     +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, INT64>>) -> MAP<STRING, INT64>)
+    |     | +-Literal(type=ARRAY<STRUCT<STRING, INT64>>, value=[{"a", 1}])
+    |     +-Literal(type=STRING, value=NULL)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+SELECT MAP_CONTAINS_KEY(CAST(NULL AS MAP<STRING, INT64>), {{'a'|NULL}});
+--
+ALTERNATION GROUP: 'a'
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:map_contains_key(MAP<STRING, INT64> input_map, STRING lookup_key) -> BOOL)
+    |     +-Literal(type=MAP<STRING, INT64>, value=NULL, has_explicit_type=TRUE)
+    |     +-Literal(type=STRING, value="a")
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: NULL
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:map_contains_key(MAP<STRING, INT64> input_map, STRING lookup_key) -> BOOL)
+    |     +-Literal(type=MAP<STRING, INT64>, value=NULL, has_explicit_type=TRUE)
+    |     +-Literal(type=STRING, value=NULL)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+SELECT MAP_CONTAINS_KEY(NULL, {{'a'|NULL}});
+--
+ALTERNATION GROUP: 'a'
+--
+ERROR: No matching signature for function MAP_CONTAINS_KEY for argument types: NULL, STRING. Supported signature: MAP_CONTAINS_KEY(MAP, ANY) [at 1:8]
+SELECT MAP_CONTAINS_KEY(NULL, 'a');
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function MAP_CONTAINS_KEY
+  Argument types: NULL, STRING
+  Signature: MAP_CONTAINS_KEY(MAP<T1, T2>, T1)
+    The map type could not be constructed because the value type was not determinable [at 1:8]
+SELECT MAP_CONTAINS_KEY(NULL, 'a');
+       ^
+--
+ALTERNATION GROUP: NULL
+--
+ERROR: No matching signature for function MAP_CONTAINS_KEY for argument types: NULL, NULL. Supported signature: MAP_CONTAINS_KEY(MAP, ANY) [at 1:8]
+SELECT MAP_CONTAINS_KEY(NULL, NULL);
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function MAP_CONTAINS_KEY
+  Argument types: NULL, NULL
+  Signature: MAP_CONTAINS_KEY(MAP<T1, T2>, T1)
+    The map type could not be constructed because the value type was not determinable [at 1:8]
+SELECT MAP_CONTAINS_KEY(NULL, NULL);
+       ^
+==
+
 SELECT CAST(NULL AS MAP<STRING, STRING>);
 --
 QueryStmt
@@ -1200,25 +1340,76 @@ QueryStmt
       +-SingleRowScan
 ==
 
-# This is supported in the spec and will be implemented in a followup.
 SELECT
   CAST(MAP_FROM_ARRAY([("a", 1)]) AS MAP<STRING, FLOAT>);
 --
-ERROR: Invalid cast from MAP<STRING, INT64> to MAP<STRING, FLOAT> [at 2:8]
-  CAST(MAP_FROM_ARRAY([("a", 1)]) AS MAP<STRING, FLOAT>);
-       ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [MAP<STRING, FLOAT>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-Cast(MAP<STRING, INT64> -> MAP<STRING, FLOAT>)
+    |     +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, INT64>>) -> MAP<STRING, INT64>)
+    |       +-Literal(type=ARRAY<STRUCT<STRING, INT64>>, value=[{"a", 1}])
+    +-input_scan=
+      +-SingleRowScan
 ==
 
-# This is supported in the spec and will be implemented in a followup.
 SELECT
   CAST(MAP_FROM_ARRAY([(1, "a")]) AS MAP<FLOAT, STRING>);
 --
-ERROR: Invalid cast from MAP<INT64, STRING> to MAP<FLOAT, STRING> [at 2:8]
-  CAST(MAP_FROM_ARRAY([(1, "a")]) AS MAP<FLOAT, STRING>);
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [MAP<FLOAT, STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-Cast(MAP<INT64, STRING> -> MAP<FLOAT, STRING>)
+    |     +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<INT64, STRING>>) -> MAP<INT64, STRING>)
+    |       +-Literal(type=ARRAY<STRUCT<INT64, STRING>>, value=[{1, "a"}])
+    +-input_scan=
+      +-SingleRowScan
+==
+
+SELECT
+  CAST(MAP_FROM_ARRAY([(b"a", 1)]) AS MAP<FLOAT, INT64>);
+--
+ERROR: Invalid cast from MAP<BYTES, INT64> to MAP<FLOAT, INT64> [at 2:8]
+  CAST(MAP_FROM_ARRAY([(b"a", 1)]) AS MAP<FLOAT, INT64>);
        ^
 ==
 
-[no_java]
+SELECT
+  CAST(MAP_FROM_ARRAY([(1, b"a")]) AS MAP<INT64, FLOAT>);
+--
+ERROR: Invalid cast from MAP<INT64, BYTES> to MAP<INT64, FLOAT> [at 2:8]
+  CAST(MAP_FROM_ARRAY([(1, b"a")]) AS MAP<INT64, FLOAT>);
+       ^
+==
+
+SELECT
+  CAST(MAP_FROM_ARRAY([(1.5, "foo")]) AS MAP<INT32, BYTES>);
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [MAP<INT32, BYTES>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-Cast(MAP<DOUBLE, STRING> -> MAP<INT32, BYTES>)
+    |     +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<DOUBLE, STRING>>) -> MAP<DOUBLE, STRING>)
+    |       +-Literal(type=ARRAY<STRUCT<DOUBLE, STRING>>, value=[{1.5, "foo"}])
+    +-input_scan=
+      +-SingleRowScan
+==
+
 SELECT CAST(NULL AS MAP<STRING, MAP<STRING, STRING>>);
 --
 QueryStmt
@@ -1233,7 +1424,6 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[no_java]
 SELECT CAST(NULL AS MAP<STRING, MAP<STRING, STRING> >);
 --
 QueryStmt
@@ -1248,8 +1438,6 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[no_java]
-# TODO: Implement Java support for MAP value serialization.
 # Nested types work without space if just one MAP is present.
 SELECT CAST(NULL AS MAP<STRING, ARRAY<STRUCT<STRING>>>);
 --
@@ -1265,8 +1453,6 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[no_java]
-# TODO: Implement Java support for MAP value serialization.
 SELECT CAST(NULL AS ARRAY<MAP<STRING, STRUCT<STRING>>>);
 --
 QueryStmt
@@ -1281,8 +1467,6 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[no_java]
-# TODO: Implement Java support for MAP value serialization.
 SELECT CAST(NULL AS ARRAY<STRUCT<MAP<STRING, STRING>>>);
 --
 QueryStmt
@@ -1297,8 +1481,6 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[no_java]
-# TODO: Implement Java support for MAP value serialization.
 SELECT CAST(NULL AS MAP<STRING, ARRAY<STRUCT<MAP<STRING, STRING>>>>);
 --
 QueryStmt
@@ -1313,7 +1495,6 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[no_java]
 SELECT CAST(NULL AS MAP<STRING, ARRAY<STRUCT<MAP<STRING, STRING>>> >);
 --
 QueryStmt
@@ -1328,13 +1509,11 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[no_java]
-# TODO: Implement Java support for MAP value serialization.
 SELECT CAST(NULL AS MAP<{{zetasql_test__.EmptyMessage, STRING|STRING, zetasql_test__.EmptyMessage}}>);
 --
 ALTERNATION GROUP: zetasql_test__.EmptyMessage, STRING
 --
-ERROR: MAP key type PROTO is not groupable [at 2:21]
+ERROR: MAP key type PROTO is not groupable [at 1:21]
 SELECT CAST(NULL AS MAP<zetasql_test__.EmptyMessage, STRING>);
                     ^
 --
@@ -1352,9 +1531,21 @@ QueryStmt
       +-SingleRowScan
 ==
 
+SELECT CAST(MAP_FROM_ARRAY(CAST(NULL AS ARRAY<STRUCT<INT64, STRING>>)) AS MAP<BYTES, STRING>);
+--
+ERROR: Invalid cast from MAP<INT64, STRING> to MAP<BYTES, STRING> [at 1:13]
+SELECT CAST(MAP_FROM_ARRAY(CAST(NULL AS ARRAY<STRUCT<INT64, STRING>>)) AS MAP...
+            ^
+==
+
+SELECT CAST(MAP_FROM_ARRAY([("", 1)]) AS MAP<zetasql_test__.EmptyMessage, STRING>);
+--
+ERROR: MAP key type PROTO is not groupable [at 1:42]
+SELECT CAST(MAP_FROM_ARRAY([("", 1)]) AS MAP<zetasql_test__.EmptyMessage, STR...
+                                         ^
+==
+
 [default language_features=V_1_4_MAP_TYPE{{,V_1_2_GROUP_BY_ARRAY,V_1_2_GROUP_BY_STRUCT|,V_1_2_GROUP_BY_ARRAY|}}]
-[no_java]
-# TODO: Implement Java support for MAP value serialization.
 SELECT CAST(NULL AS MAP<ARRAY<STRUCT<STRING>>, STRING>);
 --
 ALTERNATION GROUP: ,V_1_2_GROUP_BY_ARRAY,V_1_2_GROUP_BY_STRUCT
@@ -1372,13 +1563,13 @@ QueryStmt
 --
 ALTERNATION GROUP: ,V_1_2_GROUP_BY_ARRAY
 --
-ERROR: MAP key type ARRAY containing STRUCT is not groupable [at 2:21]
+ERROR: MAP key type ARRAY containing STRUCT is not groupable [at 1:21]
 SELECT CAST(NULL AS MAP<ARRAY<STRUCT<STRING>>, STRING>);
                     ^
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: MAP key type ARRAY is not groupable [at 2:21]
+ERROR: MAP key type ARRAY is not groupable [at 1:21]
 SELECT CAST(NULL AS MAP<ARRAY<STRUCT<STRING>>, STRING>);
                     ^
 ==
@@ -1920,8 +2111,6 @@ SELECT MAP_INSERT_OR_REPLACE(MAP_FROM_ARRAY([('a', 1)]))
        ^
 ==
 
-[no_java]
-# TODO: Implement Java support for MAP value serialization.
 SELECT
   MAP_INSERT(NULL, 'b', 2),
   MAP_INSERT(NULL, 'b', 2, 'c', 3),
@@ -1966,13 +2155,11 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[no_java]
-# TODO: Implement Java support for MAP value serialization.
 SELECT MAP_INSERT{{|_OR_REPLACE}}(NULL, 'b', 2, {{1, 3|'c', 'x'}});
 --
 ALTERNATION GROUP: 1, 3
 --
-ERROR: No matching signature for function MAP_INSERT for argument types: NULL, STRING, INT64, INT64, INT64. Supported signature: MAP_INSERT(MAP, ANY, ANY, [[ANY, ANY], ...]) [at 2:8]
+ERROR: No matching signature for function MAP_INSERT for argument types: NULL, STRING, INT64, INT64, INT64. Supported signature: MAP_INSERT(MAP, ANY, ANY, [[ANY, ANY], ...]) [at 1:8]
 SELECT MAP_INSERT(NULL, 'b', 2, 1, 3);
        ^
 --
@@ -1981,13 +2168,13 @@ ERROR: No matching signature for function MAP_INSERT
   Argument types: NULL, STRING, INT64, INT64, INT64
   Signature: MAP_INSERT(MAP<T1, T2>, T1, T2, [[T1, T2], ...])
     Unable to find common supertype for templated argument <T1>
-      Input types for <T1>: {INT64, STRING} [at 2:8]
+      Input types for <T1>: {INT64, STRING} [at 1:8]
 SELECT MAP_INSERT(NULL, 'b', 2, 1, 3);
        ^
 --
 ALTERNATION GROUP: 'c', 'x'
 --
-ERROR: No matching signature for function MAP_INSERT for argument types: NULL, STRING, INT64, STRING, STRING. Supported signature: MAP_INSERT(MAP, ANY, ANY, [[ANY, ANY], ...]) [at 2:8]
+ERROR: No matching signature for function MAP_INSERT for argument types: NULL, STRING, INT64, STRING, STRING. Supported signature: MAP_INSERT(MAP, ANY, ANY, [[ANY, ANY], ...]) [at 1:8]
 SELECT MAP_INSERT(NULL, 'b', 2, 'c', 'x');
        ^
 --
@@ -1996,13 +2183,13 @@ ERROR: No matching signature for function MAP_INSERT
   Argument types: NULL, STRING, INT64, STRING, STRING
   Signature: MAP_INSERT(MAP<T1, T2>, T1, T2, [[T1, T2], ...])
     Unable to find common supertype for templated argument <T2>
-      Input types for <T2>: {INT64, STRING} [at 2:8]
+      Input types for <T2>: {INT64, STRING} [at 1:8]
 SELECT MAP_INSERT(NULL, 'b', 2, 'c', 'x');
        ^
 --
 ALTERNATION GROUP: _OR_REPLACE,1, 3
 --
-ERROR: No matching signature for function MAP_INSERT_OR_REPLACE for argument types: NULL, STRING, INT64, INT64, INT64. Supported signature: MAP_INSERT_OR_REPLACE(MAP, ANY, ANY, [[ANY, ANY], ...]) [at 2:8]
+ERROR: No matching signature for function MAP_INSERT_OR_REPLACE for argument types: NULL, STRING, INT64, INT64, INT64. Supported signature: MAP_INSERT_OR_REPLACE(MAP, ANY, ANY, [[ANY, ANY], ...]) [at 1:8]
 SELECT MAP_INSERT_OR_REPLACE(NULL, 'b', 2, 1, 3);
        ^
 --
@@ -2011,13 +2198,13 @@ ERROR: No matching signature for function MAP_INSERT_OR_REPLACE
   Argument types: NULL, STRING, INT64, INT64, INT64
   Signature: MAP_INSERT_OR_REPLACE(MAP<T1, T2>, T1, T2, [[T1, T2], ...])
     Unable to find common supertype for templated argument <T1>
-      Input types for <T1>: {INT64, STRING} [at 2:8]
+      Input types for <T1>: {INT64, STRING} [at 1:8]
 SELECT MAP_INSERT_OR_REPLACE(NULL, 'b', 2, 1, 3);
        ^
 --
 ALTERNATION GROUP: _OR_REPLACE,'c', 'x'
 --
-ERROR: No matching signature for function MAP_INSERT_OR_REPLACE for argument types: NULL, STRING, INT64, STRING, STRING. Supported signature: MAP_INSERT_OR_REPLACE(MAP, ANY, ANY, [[ANY, ANY], ...]) [at 2:8]
+ERROR: No matching signature for function MAP_INSERT_OR_REPLACE for argument types: NULL, STRING, INT64, STRING, STRING. Supported signature: MAP_INSERT_OR_REPLACE(MAP, ANY, ANY, [[ANY, ANY], ...]) [at 1:8]
 SELECT MAP_INSERT_OR_REPLACE(NULL, 'b', 2, 'c', 'x');
        ^
 --
@@ -2026,13 +2213,11 @@ ERROR: No matching signature for function MAP_INSERT_OR_REPLACE
   Argument types: NULL, STRING, INT64, STRING, STRING
   Signature: MAP_INSERT_OR_REPLACE(MAP<T1, T2>, T1, T2, [[T1, T2], ...])
     Unable to find common supertype for templated argument <T2>
-      Input types for <T2>: {INT64, STRING} [at 2:8]
+      Input types for <T2>: {INT64, STRING} [at 1:8]
 SELECT MAP_INSERT_OR_REPLACE(NULL, 'b', 2, 'c', 'x');
        ^
 ==
 
-[no_java]
-# TODO: Implement Java support for MAP value serialization.
 SELECT MAP_INSERT{{|_OR_REPLACE}}(
   NULL, {{'a', 1|DATE('2024-01-01'), STRUCT()|NULL, NULL|NULL, NULL, 1.1, true}})
 --
@@ -2665,3 +2850,252 @@ ERROR: No matching signature for function MAP_REPLACE
     Failed to infer type <T2> [at 2:3]
   MAP_REPLACE(NULL, 'a', 'b', 1, v -> 'a');
   ^
+==
+
+SELECT
+  MAP_CARDINALITY(MAP_FROM_ARRAY(CAST({{NULL|[]}} AS ARRAY<STRUCT<STRING, INT64>>)));
+--
+ALTERNATION GROUP: NULL
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:map_cardinality(MAP<STRING, INT64> input_map) -> INT64)
+    |     +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, INT64>>) -> MAP<STRING, INT64>)
+    |       +-Literal(type=ARRAY<STRUCT<STRING, INT64>>, value=NULL, has_explicit_type=TRUE)
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: []
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:map_cardinality(MAP<STRING, INT64> input_map) -> INT64)
+    |     +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, INT64>>) -> MAP<STRING, INT64>)
+    |       +-Literal(type=ARRAY<STRUCT<STRING, INT64>>, value=[], has_explicit_type=TRUE)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+SELECT MAP_CARDINALITY(MAP_FROM_ARRAY([('a', 1), ('b', 2)]));
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:map_cardinality(MAP<STRING, INT64> input_map) -> INT64)
+    |     +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, INT64>>) -> MAP<STRING, INT64>)
+    |       +-Literal(type=ARRAY<STRUCT<STRING, INT64>>, value=[{"a", 1}, {"b", 2}])
+    +-input_scan=
+      +-SingleRowScan
+==
+
+SELECT MAP_DELETE(MAP_FROM_ARRAY([('a', 1), ('b', 2)]), 'a'{{|, 'b'|, 'b', 'c'}});
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [MAP<STRING, INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:map_delete(MAP<STRING, INT64> input_map, STRING, repeated(0) STRING) -> MAP<STRING, INT64>)
+    |     +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, INT64>>) -> MAP<STRING, INT64>)
+    |     | +-Literal(type=ARRAY<STRUCT<STRING, INT64>>, value=[{"a", 1}, {"b", 2}])
+    |     +-Literal(type=STRING, value="a")
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: , 'b'
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [MAP<STRING, INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:map_delete(MAP<STRING, INT64> input_map, STRING, repeated(1) STRING) -> MAP<STRING, INT64>)
+    |     +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, INT64>>) -> MAP<STRING, INT64>)
+    |     | +-Literal(type=ARRAY<STRUCT<STRING, INT64>>, value=[{"a", 1}, {"b", 2}])
+    |     +-Literal(type=STRING, value="a")
+    |     +-Literal(type=STRING, value="b")
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: , 'b', 'c'
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [MAP<STRING, INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:map_delete(MAP<STRING, INT64> input_map, STRING, repeated(2) STRING) -> MAP<STRING, INT64>)
+    |     +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, INT64>>) -> MAP<STRING, INT64>)
+    |     | +-Literal(type=ARRAY<STRUCT<STRING, INT64>>, value=[{"a", 1}, {"b", 2}])
+    |     +-Literal(type=STRING, value="a")
+    |     +-Literal(type=STRING, value="b")
+    |     +-Literal(type=STRING, value="c")
+    +-input_scan=
+      +-SingleRowScan
+==
+
+SELECT MAP_DELETE(MAP_FROM_ARRAY(CAST({{NULL|[]}} AS ARRAY<STRUCT<STRING, INT64>>)), 'a');
+--
+ALTERNATION GROUP: NULL
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [MAP<STRING, INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:map_delete(MAP<STRING, INT64> input_map, STRING, repeated(0) STRING) -> MAP<STRING, INT64>)
+    |     +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, INT64>>) -> MAP<STRING, INT64>)
+    |     | +-Literal(type=ARRAY<STRUCT<STRING, INT64>>, value=NULL, has_explicit_type=TRUE)
+    |     +-Literal(type=STRING, value="a")
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: []
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [MAP<STRING, INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:map_delete(MAP<STRING, INT64> input_map, STRING, repeated(0) STRING) -> MAP<STRING, INT64>)
+    |     +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, INT64>>) -> MAP<STRING, INT64>)
+    |     | +-Literal(type=ARRAY<STRUCT<STRING, INT64>>, value=[], has_explicit_type=TRUE)
+    |     +-Literal(type=STRING, value="a")
+    +-input_scan=
+      +-SingleRowScan
+==
+
+SELECT MAP_DELETE(MAP_FROM_ARRAY([('a', 1), ('b', 2)]));
+--
+ERROR: Number of arguments does not match for function MAP_DELETE. Supported signature: MAP_DELETE(MAP, ANY, [ANY, ...]) [at 1:8]
+SELECT MAP_DELETE(MAP_FROM_ARRAY([('a', 1), ('b', 2)]));
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function MAP_DELETE
+  Argument types: MAP<STRING, INT64>
+  Signature: MAP_DELETE(MAP<T1, T2>, T1, [T1, ...])
+    Signature requires at least 2 arguments, found 1 argument [at 1:8]
+SELECT MAP_DELETE(MAP_FROM_ARRAY([('a', 1), ('b', 2)]));
+       ^
+==
+
+[language_features=V_1_4_MAP_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT MAP_FILTER(MAP_FROM_ARRAY([('a', 1), ('b', 2)]), (k, v) -> v > 1);
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#3 AS `$col1` [MAP<STRING, INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#3]
+    +-expr_list=
+    | +-$col1#3 :=
+    |   +-FunctionCall(ZetaSQL:map_filter(MAP<STRING, INT64> input_map, FUNCTION<(STRING, INT64)->BOOL> condition) -> MAP<STRING, INT64>)
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, INT64>>) -> MAP<STRING, INT64>)
+    |     |     +-Literal(type=ARRAY<STRUCT<STRING, INT64>>, value=[{"a", 1}, {"b", 2}])
+    |     +-FunctionArgument
+    |       +-inline_lambda=
+    |         +-InlineLambda
+    |           +-argument_list=$lambda_arg.[k#1, v#2]
+    |           +-body=
+    |             +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+    |               +-ColumnRef(type=INT64, column=$lambda_arg.v#2)
+    |               +-Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+[language_features=V_1_4_MAP_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT
+  MAP_FILTER(
+    MAP_FROM_ARRAY(CAST({{NULL|[]}} AS ARRAY<STRUCT<STRING, INT64>>)),
+    (k, v) -> v > 1);
+--
+ALTERNATION GROUP: NULL
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#3 AS `$col1` [MAP<STRING, INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#3]
+    +-expr_list=
+    | +-$col1#3 :=
+    |   +-FunctionCall(ZetaSQL:map_filter(MAP<STRING, INT64> input_map, FUNCTION<(STRING, INT64)->BOOL> condition) -> MAP<STRING, INT64>)
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, INT64>>) -> MAP<STRING, INT64>)
+    |     |     +-Literal(type=ARRAY<STRUCT<STRING, INT64>>, value=NULL, has_explicit_type=TRUE)
+    |     +-FunctionArgument
+    |       +-inline_lambda=
+    |         +-InlineLambda
+    |           +-argument_list=$lambda_arg.[k#1, v#2]
+    |           +-body=
+    |             +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+    |               +-ColumnRef(type=INT64, column=$lambda_arg.v#2)
+    |               +-Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: []
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#3 AS `$col1` [MAP<STRING, INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#3]
+    +-expr_list=
+    | +-$col1#3 :=
+    |   +-FunctionCall(ZetaSQL:map_filter(MAP<STRING, INT64> input_map, FUNCTION<(STRING, INT64)->BOOL> condition) -> MAP<STRING, INT64>)
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, INT64>>) -> MAP<STRING, INT64>)
+    |     |     +-Literal(type=ARRAY<STRUCT<STRING, INT64>>, value=[], has_explicit_type=TRUE)
+    |     +-FunctionArgument
+    |       +-inline_lambda=
+    |         +-InlineLambda
+    |           +-argument_list=$lambda_arg.[k#1, v#2]
+    |           +-body=
+    |             +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+    |               +-ColumnRef(type=INT64, column=$lambda_arg.v#2)
+    |               +-Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan

@@ -995,3 +995,75 @@ QueryStmt
         | +-newcol2#6 := Literal(type=INT64, value=NULL)
         +-input_scan=
           +-TableScan(column_list=[CollatedTable.string_ci#1{Collation:"und:ci"}], table=CollatedTable, column_index_list=[0])
+==
+
+# After SET on a column, the range variable still points to the
+# original row.
+FROM KeyValue kv
+|> SET key = 5.0
+|> SELECT key, kv.key, kv
+--
+QueryStmt
++-output_column_list=
+| +-$pipe_set.key#3 AS key [DOUBLE]
+| +-KeyValue.Key#1 AS key [INT64]
+| +-$pipe_select.kv#5 AS kv [STRUCT<Key INT64, Value STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$pipe_set.key#3, KeyValue.Key#1, $pipe_select.kv#5]
+    +-expr_list=
+    | +-kv#5 :=
+    |   +-MakeStruct
+    |     +-type=STRUCT<Key INT64, Value STRING>
+    |     +-field_list=
+    |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    |       +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $pipe_set.key#3]
+        +-expr_list=
+        | +-key#3 := Literal(type=DOUBLE, value=5)
+        +-input_scan=
+          +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1], alias="kv")
+==
+
+# After adding a column and setting it, the range variable for a value table
+# still points at the original value row.
+FROM TestExtraValueTable vt
+|> EXTEND str_value
+|> SET str_value=1.0
+|> SELECT str_value, vt.str_value
+--
+QueryStmt
++-output_column_list=
+| +-$pipe_set.str_value#5 AS str_value [DOUBLE]
+| +-$pipe_select.str_value#6 AS str_value [ARRAY<STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$pipe_set.str_value#5, $pipe_select.str_value#6]
+    +-expr_list=
+    | +-str_value#6 :=
+    |   +-GetProtoField
+    |     +-type=ARRAY<STRING>
+    |     +-expr=
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
+    |     +-field_descriptor=str_value
+    |     +-default_value=[]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[TestExtraValueTable.value#1, $pipe_extend.str_value#4, $pipe_set.str_value#5]
+        +-expr_list=
+        | +-str_value#5 := Literal(type=DOUBLE, value=1)
+        +-input_scan=
+          +-ProjectScan
+            +-column_list=[TestExtraValueTable.value#1, $pipe_extend.str_value#4]
+            +-expr_list=
+            | +-str_value#4 :=
+            |   +-GetProtoField
+            |     +-type=ARRAY<STRING>
+            |     +-expr=
+            |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
+            |     +-field_descriptor=str_value
+            |     +-default_value=[]
+            +-input_scan=
+              +-TableScan(column_list=[TestExtraValueTable.value#1], table=TestExtraValueTable, column_index_list=[0], alias="vt")

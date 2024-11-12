@@ -60,6 +60,14 @@ struct ParsedScriptOptions {
   std::vector<std::string> system_variables_allowed_before_declare = {};
 };
 
+struct PositionalParameterRange {
+  // Start index for the positional query parameters for a given segment.
+  int64_t start_param_index;
+
+  // Number of the positional query parameters for a given segment.
+  int64_t num_params;
+};
+
 class ParsedScript {
  public:
   // Maps an ASTNode pointer to the child index of that node, relative
@@ -165,11 +173,11 @@ class ParsedScript {
 
   StringSet GetNamedParameters(const ParseLocationRange& range) const;
 
-  // Returns a pair denoting the start index and length for the number of
-  // positional parameters in the given range.
+  // Returns the start index and length for the number of positional parameters
+  // in the given range.
   //
   // If no positional parameters are within the range, returns 0 for the length.
-  std::pair<int64_t, int64_t> GetPositionalParameters(
+  PositionalParameterRange GetPositionalParameters(
       const ParseLocationRange& range) const;
 
   // Returns the node in the script which starts at the given position,

@@ -659,7 +659,7 @@ select * from q1
 UNION ALL
 WITH q1 as (select * from q3) select * from q1
 --
-ERROR: Syntax error: Expected "(" or keyword SELECT but got keyword WITH [at 3:1]
+ERROR: Syntax error: Expected "(" or keyword SELECT or keyword TABLE but got keyword WITH [at 3:1]
 WITH q1 as (select * from q3) select * from q1
 ^
 ==

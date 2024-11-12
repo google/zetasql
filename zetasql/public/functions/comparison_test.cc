@@ -22,7 +22,6 @@
 #include <random>
 
 #include "gtest/gtest.h"
-#include "absl/random/random.h"
 
 namespace zetasql {
 namespace functions {

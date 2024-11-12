@@ -55,6 +55,8 @@ class UuidValueTest : public testing::Test {
 };
 
 constexpr absl::string_view kAscendingUuidStrings[] = {
+    "00000000-0000-0000-0000-000000000000",
+    "00000000-0000-4000-8000-000000000000",
     "9d3da3234c20360fbd9bec54feec54f0",
     "9D4DA3234C20360FBD9BEC54FEEC54F0",
     "9d5da323-4c20-360f-bd9b-ec54feec54f0",
@@ -62,6 +64,8 @@ constexpr absl::string_view kAscendingUuidStrings[] = {
     "9D7DA3234C20360fbd9bec54feec54f0",
     "9d8da323-4c20360fbd9bec54feec54f0",
     "9d9da3234c20360f-bd9b-ec54feec54f0",
+    "ffffffff-ffff-4fff-8fff-ffffffffffff",
+    "ffffffff-ffff-ffff-ffff-ffffffffffff",
 };
 
 struct UuidStringTestData {
@@ -119,6 +123,15 @@ void TestComparisonOperators(absl::Span<const absl::string_view> uuid_strings) {
       EXPECT_EQ(values[i] >= values[j], i >= j);
     }
   }
+}
+
+void TestMinMaxValues(absl::Span<const absl::string_view> uuid_strings) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(UuidValue min_value,
+                       UuidValue::FromString(uuid_strings.front()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(UuidValue max_value,
+                       UuidValue::FromString(uuid_strings.back()));
+  EXPECT_EQ(UuidValue::MinValue(), min_value);
+  EXPECT_EQ(UuidValue::MaxValue(), max_value);
 }
 
 void TestHashCode(absl::Span<const absl::string_view> uuid_strings) {
@@ -183,6 +196,8 @@ TEST_F(UuidValueTest, InvalidUuidStringValue) {
 TEST_F(UuidValueTest, OperatorsTest) {
   TestComparisonOperators(kAscendingUuidStrings);
 }
+
+TEST_F(UuidValueTest, MinMaxValues) { TestMinMaxValues(kAscendingUuidStrings); }
 
 TEST_F(UuidValueTest, HashCode) { TestHashCode(kAscendingUuidStrings); }
 

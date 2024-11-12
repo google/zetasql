@@ -28,6 +28,7 @@
 #include "zetasql/public/rewriter_interface.h"
 #include "zetasql/public/sql_view.h"
 #include "zetasql/public/types/type_factory.h"
+#include "zetasql/resolved_ast/column_factory.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_deep_copy_visitor.h"
 #include "zetasql/resolved_ast/resolved_ast_enums.pb.h"

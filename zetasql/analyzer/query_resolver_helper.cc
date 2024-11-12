@@ -34,6 +34,7 @@
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_errors.h"
 #include "zetasql/parser/parse_tree_visitor.h"
+#include "zetasql/parser/visit_result.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/strings.h"
@@ -150,8 +151,8 @@ absl::Status ReleaseLegacyRollupColumnList(
 // the column should have it's first-pass resolution deferred until after the
 // GROUP BY clause is resolved. A column should have it's first-pass resolution
 // deferred if it uses `GROUP ROWS` or a `GROUP BY` aggregate function modifier
-// outside of an expression subquery. See comments in
-// `ResolveSelectListExprsFirstPass` for more details.
+// outside of a subquery. See comments in `ResolveSelectListExprsFirstPass` for
+// more details.
 //
 // For instance, the following expression should have it's resolution deferred:
 //    `1 + SUM(... GROUP BY...) + SUM(X) WITH GROUP ROWS (...)`
@@ -169,8 +170,7 @@ class DeferredResolutionFinder : public NonRecursiveParseTreeVisitor {
     return VisitResult::VisitChildren(node);
   }
 
-  absl::StatusOr<VisitResult> visitASTExpressionSubquery(
-      const ASTExpressionSubquery* node) override {
+  absl::StatusOr<VisitResult> visitASTQuery(const ASTQuery* node) override {
     return VisitResult::Empty();
   }
 
@@ -199,72 +199,6 @@ class DeferredResolutionFinder : public NonRecursiveParseTreeVisitor {
 
 }  // namespace
 
-absl::Status MultiLevelAggregateInfo::AddAggregateFunction(
-    const ASTFunctionCall* aggregate_function,
-    const ASTFunctionCall* enclosing_aggregate_function) {
-  ZETASQL_RET_CHECK(aggregate_function != nullptr);
-  // `enclosing_aggregate_function` can be nullptr if `aggregate_function` is
-  // a top-level aggregate function.
-  if (enclosing_aggregate_function != nullptr) {
-    ZETASQL_RET_CHECK(
-        directly_nested_aggregate_functions_map_[enclosing_aggregate_function]
-            .insert(aggregate_function)
-            .second);
-  }
-  // Only add grouping items for aggregate functions with GROUP BY modifiers.
-  if (aggregate_function->group_by() != nullptr) {
-    ZETASQL_RETURN_IF_ERROR(AddAllGroupingItems(aggregate_function));
-  }
-  return absl::OkStatus();
-};
-
-absl::Status MultiLevelAggregateInfo::AddAllGroupingItems(
-    const ASTFunctionCall* aggregate_function) {
-  ZETASQL_RETURN_IF_ERROR(
-      AddGroupingItemsFromAllEnclosingAggregateFunctions(aggregate_function));
-  for (const ASTGroupingItem* grouping_item :
-       aggregate_function->group_by()->grouping_items()) {
-    ZETASQL_RET_CHECK(aggregate_function_argument_grouping_keys_map_[aggregate_function]
-                  .insert({grouping_item, nullptr})
-                  .second);
-  }
-  return absl::OkStatus();
-}
-
-const ASTFunctionCall* MultiLevelAggregateInfo::GetEnclosingAggregateFunction(
-    const ASTFunctionCall* aggregate_function) const {
-  for (const auto& pair : directly_nested_aggregate_functions_map_) {
-    const ASTFunctionCall* enclosing_aggregate_function = pair.first;
-    const absl::flat_hash_set<const ASTFunctionCall*>&
-        nested_aggregate_functions = pair.second;
-    if (nested_aggregate_functions.contains(aggregate_function)) {
-      return enclosing_aggregate_function;
-    }
-  }
-  return nullptr;
-}
-
-absl::Status
-MultiLevelAggregateInfo::AddGroupingItemsFromAllEnclosingAggregateFunctions(
-    const ASTFunctionCall* aggregate_function) {
-  const ASTFunctionCall* enclosing_aggregate_function =
-      GetEnclosingAggregateFunction(aggregate_function);
-  if (enclosing_aggregate_function == nullptr ||
-      !aggregate_function_argument_grouping_keys_map_.contains(
-          enclosing_aggregate_function)) {
-    return absl::OkStatus();
-  }
-
-  for (const auto& pair : aggregate_function_argument_grouping_keys_map_.at(
-           enclosing_aggregate_function)) {
-    const ASTGroupingItem* grouping_item = pair.first;
-    ZETASQL_RET_CHECK(aggregate_function_argument_grouping_keys_map_[aggregate_function]
-                  .insert({grouping_item, nullptr})
-                  .second);
-  }
-  return absl::OkStatus();
-}
-
 void QueryGroupByAndAggregateInfo::Reset() {
   has_group_by = false;
   has_aggregation = false;
@@ -276,6 +210,7 @@ void QueryGroupByAndAggregateInfo::Reset() {
   grouping_output_columns.clear();
   grouping_set_list.clear();
   aggregate_columns_to_compute.clear();
+  match_recognize_aggregate_columns_to_compute.clear();
   group_by_valid_field_info_map.Clear();
   is_post_distinct = false;
 }
@@ -487,9 +422,14 @@ std::string SelectColumnStateList::DebugString() const {
   return debug_string;
 }
 
-QueryResolutionInfo::QueryResolutionInfo(Resolver* resolver) {
+QueryResolutionInfo::QueryResolutionInfo(Resolver* resolver,
+                                         const QueryResolutionInfo* parent) {
   select_column_state_list_ = std::make_unique<SelectColumnStateList>();
   analytic_resolver_ = std::make_unique<AnalyticFunctionResolver>(resolver);
+  if (parent != nullptr) {
+    scoped_aggregation_state_ = parent->scoped_aggregation_state_;
+    is_nested_aggregation_ = true;
+  }
 }
 
 // Keep destructor impl in .cc to resolve circular deps.
@@ -498,11 +438,11 @@ QueryResolutionInfo::~QueryResolutionInfo() {}
 const ResolvedComputedColumn*
 QueryResolutionInfo::AddGroupByComputedColumnIfNeeded(
     const ResolvedColumn& column, std::unique_ptr<const ResolvedExpr> expr,
-    const ResolvedExpr* pre_group_by_expr) {
+    const ResolvedExpr* pre_group_by_expr, bool override_existing_column) {
   group_by_info_.has_group_by = true;
   const ResolvedComputedColumn*& stored_column =
       group_by_info_.group_by_expr_map[expr.get()];
-  if (stored_column != nullptr) {
+  if (stored_column != nullptr && !override_existing_column) {
     return stored_column;
   }
   auto new_column = MakeResolvedComputedColumn(column, std::move(expr));
@@ -609,7 +549,14 @@ void QueryResolutionInfo::AddAggregateComputedColumn(
     zetasql_base::InsertIfNotPresent(&group_by_info_.aggregate_expr_map,
                             ast_function_call, column.get());
   }
-  group_by_info_.aggregate_columns_to_compute.push_back(std::move(column));
+  if (scoped_aggregation_state_->target_pattern_variable_ref.has_value()) {
+    group_by_info_
+        .match_recognize_aggregate_columns_to_compute
+            [*scoped_aggregation_state_->target_pattern_variable_ref]
+        .push_back(std::move(column));
+  } else {
+    group_by_info_.aggregate_columns_to_compute.push_back(std::move(column));
+  }
 }
 
 absl::Status QueryResolutionInfo::SelectListColumnHasAnalytic(
@@ -700,6 +647,8 @@ bool QueryResolutionInfo::SelectFormAllowsSelectStar() const {
   switch (select_form_) {
     case SelectForm::kClassic:
     case SelectForm::kPipeSelect:
+    case SelectForm::kGqlReturn:
+    case SelectForm::kGqlWith:
       return true;
     default:
       return false;
@@ -710,6 +659,8 @@ bool QueryResolutionInfo::SelectFormAllowsAggregation() const {
   switch (select_form_) {
     case SelectForm::kClassic:
     case SelectForm::kPipeAggregate:
+    case SelectForm::kGqlReturn:
+    case SelectForm::kGqlWith:
       return true;
     default:
       return false;
@@ -722,6 +673,8 @@ bool QueryResolutionInfo::SelectFormAllowsAnalytic() const {
     case SelectForm::kPipeWindow:
     case SelectForm::kPipeSelect:
     case SelectForm::kPipeExtend:
+    case SelectForm::kGqlReturn:
+    case SelectForm::kGqlWith:
       return true;
     default:
       return false;
@@ -742,6 +695,10 @@ const char* QueryResolutionInfo::SelectFormClauseName() const {
       return "pipe AGGREGATE";
     case SelectForm::kPipeWindow:
       return "pipe WINDOW";
+    case SelectForm::kGqlReturn:
+      return "GRAPH RETURN";
+    case SelectForm::kGqlWith:
+      return "GRAPH WITH";
   }
 }
 
@@ -755,6 +712,8 @@ absl::Status QueryResolutionInfo::CheckComputedColumnListsAreEmpty() const {
   ZETASQL_RET_CHECK(select_list_columns_to_compute_.empty());
   ZETASQL_RET_CHECK(group_by_info_.group_by_column_state_list.empty());
   ZETASQL_RET_CHECK(group_by_info_.aggregate_columns_to_compute.empty());
+  ZETASQL_RET_CHECK(
+      group_by_info_.match_recognize_aggregate_columns_to_compute.empty());
   ZETASQL_RET_CHECK(group_by_info_.grouping_set_list.empty());
   ZETASQL_RET_CHECK(order_by_columns_to_compute_.empty());
   ZETASQL_RET_CHECK(!analytic_resolver_->HasWindowColumnsToCompute());
@@ -805,6 +764,33 @@ std::string QueryResolutionInfo::DebugString() const {
                   group_by_info_.aggregate_columns_to_compute.size(), "):\n");
   for (const auto& column : group_by_info_.aggregate_columns_to_compute) {
     absl::StrAppend(&debug_string, "  ", column->DebugString(), "\n");
+  }
+  absl::StrAppend(&debug_string,
+                  "is_nested_aggregation: ", is_nested_aggregation_, "\n");
+  absl::StrAppend(&debug_string, "MatchRecognizeAggregationState {\n");
+  absl::StrAppend(&debug_string, "  row_range_determined: ",
+                  scoped_aggregation_state_->row_range_determined, "\n");
+  absl::StrAppend(
+      &debug_string, "  target_pattern_variable_ref: ",
+      scoped_aggregation_state_->target_pattern_variable_ref.has_value()
+          ? scoped_aggregation_state_->target_pattern_variable_ref
+                ->ToStringView()
+          : "<none>",
+      "\n");
+  absl::StrAppend(&debug_string, "}\n");
+
+  absl::StrAppend(
+      &debug_string, "scoped aggregate_columns(size ",
+      group_by_info_.match_recognize_aggregate_columns_to_compute.size(),
+      " groups):\n");
+  for (const auto& [var, aggs] :
+       group_by_info_.match_recognize_aggregate_columns_to_compute) {
+    absl::StrAppend(&debug_string, "{", ToIdentifierLiteral(var.ToStringView()),
+                    ":[\n");
+    for (const auto& column : aggs) {
+      absl::StrAppend(&debug_string, "  ", column->DebugString(), "\n");
+    }
+    absl::StrAppend(&debug_string, "}\n");
   }
   absl::StrAppend(&debug_string, "grouping_call_list(size ",
                   group_by_info_.grouping_call_list.size(), "):\n");

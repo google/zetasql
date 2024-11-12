@@ -22,6 +22,7 @@
 #include <optional>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/common/utf_util.h"
@@ -32,14 +33,18 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
 #include "zetasql/base/check.h"
+#include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/ascii.h"
 #include "absl/strings/cord.h"  
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
+#include "re2/re2.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
@@ -363,12 +368,52 @@ static bool RedactZetaSqlOwnedPayloads(absl::Status& status) {
   return !internal::HasPayload(status);
 }
 
+static std::string PartiallyRedactIdentifier(absl::string_view identifier) {
+  // To improve stability, convert to uppercase and show only the last part of
+  // a multi-part identifier.
+  std::vector<absl::string_view> dot_parts = absl::StrSplit(identifier, '.');
+  std::vector<absl::string_view> colon_parts =
+      absl::StrSplit(dot_parts.back(), ':');
+  return absl::AsciiStrToUpper(colon_parts.back());
+}
+
+static std::string GetRedactedErrorMessage(
+    const absl::Status& status, bool enable_partial_error_redaction) {
+  if (!enable_partial_error_redaction) {
+    // Full redaction
+    return "SQL ERROR";
+  }
+  std::string function_name;
+  if (RE2::PartialMatch(
+          status.message(),
+          R"re(No\s+matching\s+signature\s+for\s+(?:(?:aggregate|analytic)\s+)?function ([A-Za-z0-9_\.\:]*))re",
+          &function_name)) {
+    return absl::Substitute("FUNCTION_SIGNATURE_MISMATCH: $0",
+                            PartiallyRedactIdentifier(function_name));
+  }
+  if (absl::StrContains(status.message(), "FUNCTION_SIGNATURE_MISMATCH")) {
+    // Sometimes, we are asked to redact a message that has already been
+    // redacted; just return it as is.
+    return std::string(status.message());
+  }
+  std::string message =
+      absl::StrCat("Unable to redact unknown error: ", status.message());
+  // In debug builds, crash if we see a message we don't know how to redact in
+  // order to ensure that the string we return does not accidentally leak into
+  // the expected output of engine tests, which would cause breakage if any
+  // new error messages get supported here in the future.
+  ABSL_DCHECK(false) << message;
+
+  return message;
+}
+
 // Returns a status with the same payloads, but the message changed if needed
 // to apply the given stability_mode. For example: TEST_REDACTED ensures the
 // relevant errors are redacted, usually for file-based tests that depend on
 // ZetaSQL but not about the exact message text.
 static absl::Status ApplyErrorMessageStabilityMode(
-    const absl::Status& status, ErrorMessageStability stability_mode) {
+    const absl::Status& status, ErrorMessageStability stability_mode,
+    bool enable_partial_error_redaction) {
   if (status.ok()) {
     return status;
   }
@@ -391,7 +436,9 @@ static absl::Status ApplyErrorMessageStabilityMode(
             // All of the payloads attached to 'status' are ZetaSQL-owned.
             // Redact the error message from the original status with all
             // payloads to return.
-            return UpdateMessage(status, "SQL ERROR");
+            return UpdateMessage(status,
+                                 GetRedactedErrorMessage(
+                                     status, enable_partial_error_redaction));
           }
           // There are still payloads after removing the ZetaSQL-owned ones,
           // so return the original status.
@@ -414,7 +461,9 @@ static absl::Status ApplyErrorMessageStabilityMode(
             // Redact the message only if there are no other payloads. If there
             // are, it is likely the message comes from a dependency outside of
             // ZetaSQL.
-            redacted = UpdateMessage(redacted, "SQL ERROR");
+            redacted = UpdateMessage(
+                redacted, GetRedactedErrorMessage(
+                              status, enable_partial_error_redaction));
           }
           return redacted;
         }
@@ -439,7 +488,7 @@ absl::Status MaybeUpdateErrorFromPayload(ErrorMessageOptions options,
   return ApplyErrorMessageStabilityMode(
       UpdateErrorFromPayload(status, input_text, options.mode,
                              options.attach_error_location_payload),
-      options.stability);
+      options.stability, options.enhanced_error_redaction);
 }
 
 absl::Status MaybeUpdateErrorFromPayload(ErrorMessageMode mode,

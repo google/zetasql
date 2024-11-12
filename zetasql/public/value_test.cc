@@ -37,7 +37,10 @@
 #include "google/protobuf/dynamic_message.h"
 #include "google/protobuf/text_format.h"
 #include "zetasql/common/float_margin.h"
+#include "zetasql/compliance/functions_testlib_common.h"
+#include "zetasql/public/builtin_function_options.h"
 #include "zetasql/public/civil_time.h"
+#include "zetasql/public/timestamp_pico_value.h"
 #include "zetasql/public/types/value_equality_check_options.h"
 #include "zetasql/public/uuid_value.h"
 #include "zetasql/testdata/test_proto3.pb.h"
@@ -167,7 +170,6 @@ MATCHER_P(MapEntriesWhere, matcher, "") {
 static Value TestGetSQL(const Value& value) {
   // Make all compiled-in proto type names visible.
   SimpleCatalog catalog("type_catalog");
-  catalog.AddBuiltinFunctions(BuiltinFunctionOptions::AllReleasedFunctions());
   catalog.SetDescriptorPool(
       zetasql_test__::KitchenSinkPB::descriptor()->file()->pool());
 
@@ -183,6 +185,16 @@ static Value TestGetSQL(const Value& value) {
       FEATURE_TOKENIZED_SEARCH);
   analyzer_options.mutable_language()->EnableLanguageFeature(
       FEATURE_RANGE_TYPE);
+  analyzer_options.mutable_language()->EnableLanguageFeature(FEATURE_GEOGRAPHY);
+  analyzer_options.mutable_language()->EnableLanguageFeature(
+      FEATURE_V_1_3_EXTENDED_GEOGRAPHY_PARSERS);
+  analyzer_options.mutable_language()->EnableLanguageFeature(
+      FEATURE_NAMED_ARGUMENTS);
+  analyzer_options.mutable_language()->EnableLanguageFeature(
+      FEATURE_V_1_4_MAP_TYPE);
+
+  catalog.AddBuiltinFunctions(
+      BuiltinFunctionOptions(analyzer_options.language()));
 
   const bool testable_type = !value.type()->IsProto();
   // Test round tripping GetSQL for non-legacy types.
@@ -742,6 +754,23 @@ TEST_F(ValueTest, TimestampFormatting) {
   EXPECT_EQ(ts.GetSQL(), R"sql(TIMESTAMP "2022-09-16 19:43:00+00")sql");
 }
 
+TEST_F(ValueTest, TimestampPicos) {
+  absl::TimeZone pst;
+  ASSERT_TRUE(absl::LoadTimeZone("America/Los_Angeles", &pst));
+  const Value ts = Value::TimestampPicos(TimestampPicoValue(
+      absl::FromCivil(absl::CivilSecond(2022, 9, 16, 12, 43, 00), pst)));
+  EXPECT_EQ(ts.DebugString(/*verbose=*/true),
+            "Timestamp_picos(2022-09-16 19:43:00+00)");
+  EXPECT_EQ(ts.DebugString(), "2022-09-16 19:43:00+00");
+  EXPECT_EQ(ts.Format(), "Timestamp_picos(2022-09-16 19:43:00+00)");
+  EXPECT_EQ(ts.Format(/*print_top_level_type=*/false),
+            "2022-09-16 19:43:00+00");
+  EXPECT_EQ(ts.GetSQLLiteral(),
+            R"sql(CAST("2022-09-16 19:43:00+00" AS TIMESTAMP_PICOS))sql");
+  EXPECT_EQ(ts.GetSQL(),
+            R"sql(CAST("2022-09-16 19:43:00+00" AS TIMESTAMP_PICOS))sql");
+}
+
 TEST_F(ValueTest, Interval) {
   EXPECT_TRUE(Value::NullInterval().is_null());
   EXPECT_EQ(TYPE_INTERVAL, Value::NullInterval().type_kind());
@@ -1231,6 +1260,7 @@ TEST_F(ValueTest, HashCode) {
       Value::NullString(),
       Value::NullDate(),
       Value::NullTimestamp(),
+      Value::NullTimestampPicos(),
       Value::NullTime(),
       Value::NullDatetime(),
       Value::NullGeography(),
@@ -1282,6 +1312,12 @@ TEST_F(ValueTest, HashCode) {
       Value::Timestamp(
           absl::FromCivil(absl::CivilSecond(2018, 2, 14, 16, 36, 11), utc) +
           absl::Nanoseconds(2)),
+      Value::TimestampPicos(TimestampPicoValue(
+          absl::FromCivil(absl::CivilSecond(2018, 2, 14, 16, 36, 11), utc) +
+          absl::Nanoseconds(1))),
+      Value::TimestampPicos(TimestampPicoValue(
+          absl::FromCivil(absl::CivilSecond(2018, 2, 14, 16, 36, 11), utc) +
+          absl::Nanoseconds(2))),
       Value::Time(TimeValue::FromHMSAndNanos(16, 36, 11, 1)),
       Value::Time(TimeValue::FromHMSAndNanos(16, 36, 11, 2)),
       Value::Datetime(
@@ -2162,6 +2198,20 @@ TEST_F(ValueTest, TimestampArray) {
   EXPECT_EQ(v1, v2);
 }
 
+TEST_F(ValueTest, TimestampPicosArray) {
+  Value v1 =
+      values::TimestampPicosArray({TimestampPicoValue(ParseTimeHm("12:00")),
+                                   TimestampPicoValue(ParseTimeHm("13:00"))});
+  EXPECT_EQ(v1.DebugString(),
+            "[1970-01-01 12:00:00+00, 1970-01-01 13:00:00+00]");
+  EXPECT_EQ(v1.FullDebugString(),
+            "Array[Timestamp_picos(1970-01-01 12:00:00+00), "
+            "Timestamp_picos(1970-01-01 13:00:00+00)]");
+  TimestampPicoValue t1(ParseTimeHm("12:00")), t2(ParseTimeHm("13:00"));
+  Value v2 = values::TimestampPicosArray({t1, t2});
+  EXPECT_EQ(v1, v2);
+}
+
 TEST_F(ValueTest, JsonArray) {
   Value v1 = TestGetSQL(JsonArray(
       {JSONValue(int64_t{10}), JSONValue(std::string(R"("foo")")),
@@ -2462,8 +2512,12 @@ TEST_F(ValueTest, NestedStructContainerStringFormatting) {
    {{a:1}: [{r:[1970-01-02, 1970-01-03)}]}
  }])");
 
-  // TODO: b/320552039 - Add test for GetSQLLiteral and GetSQL once MAP supports
-  // this.
+  EXPECT_EQ(
+      v.GetSQLLiteral(PRODUCT_EXTERNAL),
+      R"sql([(STRUCT(1), MAP_FROM_ARRAY([(STRUCT(1), [STRUCT(RANGE<DATE> "[1970-01-02, 1970-01-03)")])]))])sql");
+  EXPECT_EQ(
+      v.GetSQL(PRODUCT_EXTERNAL),
+      R"sql(ARRAY<STRUCT<a STRUCT<q INT64>, b MAP<STRUCT<a INT64>, ARRAY<STRUCT<r RANGE<DATE>>>>>>[STRUCT<a STRUCT<q INT64>, b MAP<STRUCT<a INT64>, ARRAY<STRUCT<r RANGE<DATE>>>>>(STRUCT<q INT64>(1), MAP_FROM_ARRAY([(STRUCT<a INT64>(1), ARRAY<STRUCT<r RANGE<DATE>>>[STRUCT<r RANGE<DATE>>(RANGE<DATE> "[1970-01-02, 1970-01-03)")])]))])sql");
 }
 
 TEST_F(ValueTest, NestedRangeContainerStringFormatting) {
@@ -3210,8 +3264,126 @@ TEST_F(ValueTest, MapValueEqualityNestedInContainer) {
   EXPECT_THAT(why, HasSubstr("The value for key {\"k1\"} did not match"));
 }
 
-// A sanity test to make sure EqualsInternal does not blow up in the case
-// where structs have different numbers of fields.
+struct MapPrintingTestParam {
+  Value value;
+  std::string debug_string;
+  std::string verbose_debug_string;
+  std::string sql_string;
+  std::string sql_literal_string;
+};
+
+class MapPrintingTest : public ::testing::TestWithParam<MapPrintingTestParam> {
+};
+
+TEST_P(MapPrintingTest, MapPrinting) {
+  MapPrintingTestParam test_case = GetParam();
+  Value& map = test_case.value;
+
+  EXPECT_EQ(map.DebugString(), test_case.debug_string);
+  EXPECT_EQ(map.DebugString(/*verbose=*/true), test_case.verbose_debug_string);
+  EXPECT_EQ(map.Format(/*print_top_level_type=*/false), test_case.debug_string);
+  EXPECT_EQ(map.Format(/*print_top_level_type=*/true),
+            test_case.verbose_debug_string);
+  EXPECT_EQ(map.GetSQL(PRODUCT_INTERNAL), test_case.sql_string);
+  EXPECT_EQ(map.GetSQL(PRODUCT_EXTERNAL), test_case.sql_string);
+  EXPECT_EQ(map.GetSQLLiteral(PRODUCT_INTERNAL), test_case.sql_literal_string);
+  EXPECT_EQ(map.GetSQLLiteral(PRODUCT_EXTERNAL), test_case.sql_literal_string);
+
+  TestGetSQL(map);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    MapPrinting, MapPrintingTest,
+    ::testing::ValuesIn<MapPrintingTestParam>({
+        {
+            .value = test_values::Map({std::make_pair(Value::Int64(1),
+                                                      Value::Int64(2))}),
+            .debug_string = "{1: 2}",
+            .verbose_debug_string = "Map{Int64(1): Int64(2)}",
+            .sql_string = "MAP_FROM_ARRAY([(1, 2)])",
+            .sql_literal_string = "MAP_FROM_ARRAY([(1, 2)])",
+        },
+        {
+            .value = test_values::Map(
+                {{Value::NullFloat(), Value::Int64(2)},
+                 {Value::Float(std::numeric_limits<float>::quiet_NaN()),
+                  Value::NullInt64()}}),
+            .debug_string = "{NULL: 2, nan: NULL}",
+            .verbose_debug_string =
+                "Map{Float(NULL): Int64(2), Float(nan): Int64(NULL)}",
+            .sql_string =
+                R"(MAP_FROM_ARRAY([(CAST(NULL AS FLOAT), 2), (CAST("nan" AS FLOAT), CAST(NULL AS INT64))]))",
+            .sql_literal_string =
+                R"(MAP_FROM_ARRAY([(NULL, 2), (CAST("nan" AS FLOAT), NULL)]))",
+        },
+        {
+            .value = test_values::Map({
+                {Value::String("foo"),
+                 test_values::Array({test_values::Range(Date(1), Date(3)),
+                                     test_values::Range(Value::NullDate(),
+                                                        Date(3))})},
+            }),
+            .debug_string =
+                R"({"foo": [[1970-01-02, 1970-01-04), [NULL, 1970-01-04)]})",
+            .verbose_debug_string =
+                R"(Map{String("foo"): Array[Range[Date(1970-01-02), Date(1970-01-04)), Range[Date(NULL), Date(1970-01-04))]})",
+            .sql_string =
+                R"sql(MAP_FROM_ARRAY([("foo", ARRAY<RANGE<DATE>>[RANGE<DATE> "[1970-01-02, 1970-01-04)", RANGE<DATE> "[UNBOUNDED, 1970-01-04)"])]))sql",
+            .sql_literal_string =
+                R"sql(MAP_FROM_ARRAY([("foo", [RANGE<DATE> "[1970-01-02, 1970-01-04)", RANGE<DATE> "[UNBOUNDED, 1970-01-04)"])]))sql",
+        },
+    }));
+
+TEST(MapPrintingTest, NullAndEmptyMaps) {
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(FEATURE_V_1_4_MAP_TYPE);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Type* map_type,
+                       type_factory()->MakeMapType(type_factory()->get_string(),
+                                                   type_factory()->get_int64(),
+                                                   language_options));
+  Value null_map = Value::Null(map_type);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(Value empty_map, Value::MakeMap(map_type, {}));
+
+  EXPECT_EQ(null_map.DebugString(), "NULL");
+  EXPECT_EQ(null_map.DebugString(/*verbose=*/true), "Map<String, Int64>(NULL)");
+  EXPECT_EQ(null_map.Format(/*print_top_level_type=*/false), "NULL");
+  EXPECT_EQ(null_map.Format(/*print_top_level_type=*/true),
+            "Map<String, Int64>(NULL)");
+  EXPECT_EQ(null_map.GetSQL(PRODUCT_INTERNAL),
+            "CAST(NULL AS MAP<STRING, INT64>)");
+  EXPECT_EQ(null_map.GetSQL(PRODUCT_EXTERNAL),
+            "CAST(NULL AS MAP<STRING, INT64>)");
+  EXPECT_EQ(null_map.GetSQLLiteral(PRODUCT_INTERNAL), "NULL");
+  EXPECT_EQ(null_map.GetSQLLiteral(PRODUCT_EXTERNAL), "NULL");
+
+  EXPECT_EQ(empty_map.DebugString(), "{}");
+  EXPECT_EQ(empty_map.DebugString(/*verbose=*/true), "Map{}");
+  EXPECT_EQ(empty_map.Format(/*print_top_level_type=*/false), "{}");
+  EXPECT_EQ(empty_map.Format(/*print_top_level_type=*/true), "Map{}");
+  EXPECT_EQ(empty_map.GetSQL(PRODUCT_INTERNAL), "MAP_FROM_ARRAY([])");
+  EXPECT_EQ(empty_map.GetSQL(PRODUCT_EXTERNAL), "MAP_FROM_ARRAY([])");
+  EXPECT_EQ(empty_map.GetSQLLiteral(PRODUCT_INTERNAL), "MAP_FROM_ARRAY([])");
+  EXPECT_EQ(empty_map.GetSQLLiteral(PRODUCT_EXTERNAL), "MAP_FROM_ARRAY([])");
+}
+
+TEST(MapPrintingTest, InternalExternalProductModeDiffers) {
+  Value map = test_values::Map({
+      {Value::Int64(1), Value::NullDouble()},
+      {Value::Int64(2), Value::Double(std::numeric_limits<double>::infinity())},
+  });
+  EXPECT_EQ(
+      map.GetSQL(PRODUCT_INTERNAL),
+      R"(MAP_FROM_ARRAY([(1, CAST(NULL AS DOUBLE)), (2, CAST("inf" AS DOUBLE))]))");
+  EXPECT_EQ(
+      map.GetSQL(PRODUCT_EXTERNAL),
+      R"(MAP_FROM_ARRAY([(1, CAST(NULL AS FLOAT64)), (2, CAST("inf" AS FLOAT64))]))");
+  EXPECT_EQ(map.GetSQLLiteral(PRODUCT_INTERNAL),
+            R"(MAP_FROM_ARRAY([(1, NULL), (2, CAST("inf" AS DOUBLE))]))");
+  EXPECT_EQ(map.GetSQLLiteral(PRODUCT_EXTERNAL),
+            R"(MAP_FROM_ARRAY([(1, NULL), (2, CAST("inf" AS FLOAT64))]))");
+}
+
 TEST_F(ValueTest, InternalEqualsOnDifferentSizedStructs) {
   auto struct_1 = Struct({""}, {Value::Int64(1)});
   auto struct_2 = Struct({"", ""}, {Value::Int64(1), Value::Int64(1)});
@@ -3795,8 +3967,8 @@ TEST_F(ValueTest, ClassAndProtoSize) {
   EXPECT_EQ(16, sizeof(Value))
       << "The size of Value class has changed, please also update the proto "
       << "and serialization code if you added/removed fields in it.";
-  // TODO: Implement serialization/deserialization for RANGE.
-  EXPECT_EQ(26, ValueProto::descriptor()->field_count())
+  // TODO: Add Java serialization test for TIMESTAMP_PICO type.
+  EXPECT_EQ(28, ValueProto::descriptor()->field_count())
       << "The number of fields in ValueProto has changed, please also update "
       << "the serialization code accordingly.";
   EXPECT_EQ(1, ValueProto::Array::descriptor()->field_count())
@@ -3808,6 +3980,12 @@ TEST_F(ValueTest, ClassAndProtoSize) {
   EXPECT_EQ(2, ValueProto::Range::descriptor()->field_count())
       << "The number of fields in ValueProto::Range has changed, please also "
       << "update the serialization code accordingly.";
+  EXPECT_EQ(1, ValueProto::Map::descriptor()->field_count())
+      << "The number of fields in ValueProto::Map has changed, please also "
+      << "update the serialization code accordingly.";
+  EXPECT_EQ(2, ValueProto::MapEntry::descriptor()->field_count())
+      << "The number of fields in ValueProto::MapEntry has changed, please "
+      << "also update the serialization code accordingly.";
 }
 
 TEST_F(ValueTest, HashSet) {
@@ -5205,6 +5383,40 @@ TEST_F(ValueTest, PhysicalByteSize) {
                   Value::UnboundedEndTimestamp())
                 .physical_byte_size());
 
+  const std::string kLabel = "label";
+  const std::string kDefinitionName = "ElementTable";
+  const Value p0_value = Value::String("v0");
+  const Value p1_value = Value::Int32(1);
+  const Value node =
+      GraphNode({"graph_name"}, "id", {{"p0", p0_value}, {"p1", p1_value}},
+                {kLabel}, kDefinitionName);
+  EXPECT_EQ(node.physical_byte_size(),
+            absl::c_accumulate(
+                node.property_values(),
+                sizeof(Value) + sizeof(internal::ValueContentOrderedListRef) +
+                    sizeof(Value::GraphElementValue) +
+                    sizeof(Value::TypedList) + node.GetIdentifier().length() +
+                    kLabel.length() + kDefinitionName.length(),
+                [](int size, const auto& property) {
+                  return size + property.physical_byte_size();
+                }));
+
+  const Value edge =
+      GraphEdge({"graph_nanme"}, "id", {{"p0", p0_value}, {"p1", p1_value}},
+                {kLabel}, kDefinitionName, "src_node_id", "dst_node_id");
+  EXPECT_EQ(edge.physical_byte_size(),
+            absl::c_accumulate(
+                edge.property_values(),
+                sizeof(Value) + sizeof(internal::ValueContentOrderedListRef) +
+                    sizeof(Value::GraphElementValue) +
+                    sizeof(Value::TypedList) + edge.GetIdentifier().length() +
+                    edge.GetSourceNodeIdentifier().length() +
+                    edge.GetDestNodeIdentifier().length() + kLabel.length() +
+                    kDefinitionName.length(),
+                [](int size, const auto& property) {
+                  return size + property.physical_byte_size();
+                }));
+
   // Map type
   ZETASQL_ASSERT_OK_AND_ASSIGN(const Type* map_type,
                        MakeMapType(Int64Type(), Int64Type()));
@@ -5391,6 +5603,15 @@ TEST_F(ValueTest, Serialize) {
       Array({NullTimestamp(),
              TimestampFromUnixMicros(zetasql::types::kTimestampMin),
              TimestampFromUnixMicros(zetasql::types::kTimestampMax)}));
+
+  SerializeDeserialize(Value::NullTimestampPicos());
+  SerializeDeserialize(Value::TimestampPicos(
+      TimestampPicoValue(absl::FromUnixMicros(-5364662400000000))));
+  SerializeDeserialize(Null(types::TimestampPicosArrayType()));
+  SerializeDeserialize(EmptyArray(types::TimestampPicosArrayType()));
+  SerializeDeserialize(Array({Value::NullTimestampPicos(),
+                              Value::TimestampPicos(TimestampPicoValue(
+                                  absl::FromUnixMicros(-5364662400000000)))}));
 
   SerializeDeserialize(NullDatetime());
   SerializeDeserialize(Datetime(
@@ -5591,6 +5812,60 @@ TEST_F(ValueTest, Serialize_StructsOfRangesSucceed) {
              Datetime(DatetimeValue::FromYMDHMSAndNanos(1, 2, 3, 4, 5, 6, 7)))},
       {"c", Range(TimestampFromUnixMicros(1), Value::UnboundedEndTimestamp())},
   }));
+}
+
+TEST_F(ValueTest, Serialize_NullMapSucceeds) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Type* map_string_type,
+                       MakeMapType(types::StringType(), types::StringType()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Type* map_struct_type,
+      MakeMapType(types::StringType(),
+                  MakeStructType({{"a", types::StringType()},
+                                  {"b", types::Int64Type()}})));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Type* map_nested_type,
+                       MakeMapType(types::StringType(), map_struct_type));
+
+  SerializeDeserialize(Null(map_string_type));
+  SerializeDeserialize(Null(map_struct_type));
+  SerializeDeserialize(Null(map_nested_type));
+}
+
+TEST_F(ValueTest, Serialize_EmptyMapSucceeds) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Type* map_string_type,
+                       MakeMapType(types::StringType(), types::StringType()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Type* map_struct_type,
+      MakeMapType(types::StringType(),
+                  MakeStructType({{"a", types::StringType()},
+                                  {"b", types::Int64Type()}})));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Type* map_nested_type,
+                       MakeMapType(types::StringType(), map_struct_type));
+
+  SerializeDeserialize(Value::MakeMap(map_string_type, {}).value());
+  SerializeDeserialize(Value::MakeMap(map_struct_type, {}).value());
+  SerializeDeserialize(Value::MakeMap(map_nested_type, {}).value());
+}
+
+TEST_F(ValueTest, Serialize_MapSucceeds) {
+  SerializeDeserialize(test_values::Map({{"a", "b"}}));
+  SerializeDeserialize(
+      test_values::Map({{Value::NullBool(), Value::NullString()}}));
+  SerializeDeserialize(test_values::Map(
+      {{Value::String("foo"),
+        test_values::Array({Value::String("bar"), Value::String("baz")})}}));
+  SerializeDeserialize(test_values::Map(
+      {{Value::String("foo"),
+        test_values::Map({{Value::Bool(true),
+                           test_values::Array({Value::String("bar"),
+                                               Value::String("baz")})}})}}));
+
+  zetasql_test__::KitchenSinkPB kitchen_sink_proto;
+  kitchen_sink_proto.set_int64_key_1(1);
+  kitchen_sink_proto.set_int64_key_2(2);
+
+  SerializeDeserialize(test_values::Map(
+      {{Value::String("foo"),
+        values::Proto(GetTestProtoType(), kitchen_sink_proto)}}));
 }
 
 TEST_F(ValueTest, Deserialize) {
@@ -6158,6 +6433,53 @@ TEST_P(DeserializeInvalidRangesTest, InvalidRangeValuesFail) {
                        HasSubstr(param.expected_error_message)));
 }
 
+TEST_F(ValueTest, DeserializeValidMapSucceeds) {
+  TypeFactory factory;
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Type* map_type,
+      factory.MakeMapType(types::StringType(), types::StringType()));
+  DeserializeSerialize("", map_type);
+  DeserializeSerialize("map_value {}", map_type);
+  DeserializeSerialize("map_value { entry { key {} value {} } }", map_type);
+  DeserializeSerialize(
+      R"(map_value {
+          entry { key { string_value: "foo" } value { string_value: "bar" } }
+         })",
+      map_type);
+}
+
+TEST_F(ValueTest, DeserializeInvalidMapFails) {
+  TypeFactory factory;
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Type* map_type,
+      factory.MakeMapType(types::StringType(), types::StringType()));
+
+  {
+    ValueProto value_proto;
+    ASSERT_TRUE(google::protobuf::TextFormat::ParseFromString("map_value { entry {} }",
+                                                    &value_proto));
+    EXPECT_THAT(Value::Deserialize(value_proto, map_type),
+                StatusIs(absl::StatusCode::kOutOfRange,
+                         HasSubstr("must set both key and value")));
+  }
+  {
+    ValueProto value_proto;
+    ASSERT_TRUE(google::protobuf::TextFormat::ParseFromString(
+        "map_value { entry { key {} } }", &value_proto));
+    EXPECT_THAT(Value::Deserialize(value_proto, map_type),
+                StatusIs(absl::StatusCode::kOutOfRange,
+                         HasSubstr("must set both key and value")));
+  }
+  {
+    ValueProto value_proto;
+    ASSERT_TRUE(google::protobuf::TextFormat::ParseFromString(
+        "map_value { entry { value {} } }", &value_proto));
+    EXPECT_THAT(Value::Deserialize(value_proto, map_type),
+                StatusIs(absl::StatusCode::kOutOfRange,
+                         HasSubstr("must set both key and value")));
+  }
+}
+
 // Test that Value::DebugString stack overflow cutoffs work and we don't crash.
 static void StackOverflowTest() {
   TypeFactory factory;
@@ -6222,6 +6544,16 @@ bool IsNaN<NumericValue>(const Value& value) {
 
 template <>
 bool IsNaN<BigNumericValue>(const Value& value) {
+  return false;
+}
+
+template <>
+bool IsNaN<UuidValue>(const Value& value) {
+  return false;
+}
+
+template <>
+bool IsNaN<TimestampPicoValue>(const Value& value) {
   return false;
 }
 
@@ -6326,6 +6658,34 @@ void MakeSortedVector<BigNumericValue>(std::vector<zetasql::Value>* values) {
       Value::BigNumeric(BigNumericValue::FromStringStrict("123.4").value()));
   // Highest finite positive number
   values->push_back(Value::BigNumeric(BigNumericValue::MaxValue()));
+}
+
+template <>
+void MakeSortedVector<UuidValue>(std::vector<zetasql::Value>* values) {
+  // NULL
+  values->push_back(NullUuid());
+  // Lowest uuid value
+  values->push_back(Value::Uuid(
+      UuidValue::FromString("00000000-0000-0000-0000-000000000000").value()));
+  // Some uuid value
+  values->push_back(Value::Uuid(
+      UuidValue::FromString("9d5da323-4c20-360f-bd9b-ec54feec54f0").value()));
+  // Highest uuid value
+  values->push_back(Value::Uuid(
+      UuidValue::FromString("ffffffff-ffff-ffff-ffff-ffffffffffff").value()));
+}
+
+template <>
+void MakeSortedVector<TimestampPicoValue>(
+    std::vector<zetasql::Value>* values) {
+  // NULL
+  values->push_back(Value::NullTimestampPicos());
+  // Lowest value
+  values->push_back(Value::TimestampPicos(TimestampPicoValue::MinValue()));
+  // Unix epoch
+  values->push_back(Value::TimestampPicos(TimestampPicoValue()));
+  // Highest value
+  values->push_back(Value::TimestampPicos(TimestampPicoValue::MaxValue()));
 }
 
 // Date ranges.
@@ -6509,6 +6869,8 @@ TEST_F(ValueCompareTest, SortOrder) {
   TestSortOrder<double>();
   TestSortOrder<NumericValue>();
   TestSortOrder<BigNumericValue>();
+  TestSortOrder<TimestampPicoValue>();
+  TestSortOrder<UuidValue>();
   // Date ranges.
   TestSortOrder<std::pair<int32_t, int32_t>>();
   // Datetime ranges.

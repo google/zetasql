@@ -17,8 +17,11 @@
 #include "zetasql/public/analyzer_options.h"
 
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/public/language_options.h"
+#include "zetasql/public/options.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/status/status.h"
 
 namespace zetasql {
 

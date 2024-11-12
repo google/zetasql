@@ -18,9 +18,9 @@
 
 #include <cctype>
 
-#include "zetasql/parser/bison_token_codes.h"
 #include "zetasql/parser/keywords.h"
-#include "zetasql/parser/macros/token_with_location.h"
+#include "zetasql/parser/tm_token.h"
+#include "zetasql/parser/token_with_location.h"
 #include "absl/strings/string_view.h"
 
 namespace zetasql {
@@ -32,17 +32,17 @@ bool CanCharStartAnIdentifier(const char c) {
 }
 
 bool IsQuotedIdentifier(const TokenWithLocation& token) {
-  return token.kind == IDENTIFIER && token.text.front() == '`';
+  return token.kind == Token::IDENTIFIER && token.text.front() == '`';
 }
 
 bool IsIdentifierCharacter(const char c) {
   return CanCharStartAnIdentifier(c) || std::isdigit(c);
 }
 
-bool IsKeywordOrUnquotedIdentifier(int token_kind,
+bool IsKeywordOrUnquotedIdentifier(Token token_kind,
                                    absl::string_view token_text) {
   return GetKeywordInfo(token_text) != nullptr ||
-         (token_kind == IDENTIFIER && token_text.front() != '`');
+         (token_kind == Token::IDENTIFIER && token_text.front() != '`');
 }
 
 bool IsKeywordOrUnquotedIdentifier(const TokenWithLocation& token) {

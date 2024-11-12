@@ -186,6 +186,23 @@ class Coercer {
       const InputArgumentTypeSet& argument_set,
       bool treat_query_parameters_as_literals) const;
 
+  // Returns the common super type of <arguments>. Returns NULL if there is no
+  // common supertype for all the argument types, or if any of the arguments is
+  // a non-GraphElement type.
+  // Supertype of a list of GraphElementTypes has:
+  // - same graph name as all the members;
+  // - same element kind as all the members;
+  // - a union of property types from all the members.
+  absl::StatusOr<const GraphElementType*> GetCommonGraphElementSuperType(
+      const InputArgumentTypeSet& argument_set) const;
+
+  // Returns the common super type of <arguments>. Returns NULL if there is no
+  // common supertype for all the argument types, or if any of the arguments is
+  // a non-GraphPath type.
+  absl::StatusOr<const GraphPathType*> GetCommonGraphPathSuperType(
+      const InputArgumentTypeSet& argument_set) const;
+
+
   // Strips off all the field aliases present inside <struct_type> (including
   // nested structs).
   void StripFieldAliasesFromStructType(const Type** struct_type) const;

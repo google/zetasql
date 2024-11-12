@@ -47,6 +47,8 @@
 #include "zetasql/public/signature_match_result.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/graph_element_type.h"
+#include "zetasql/public/types/graph_path_type.h"
 #include "zetasql/public/uuid_value.h"
 #include "zetasql/public/value.h"
 #include "absl/algorithm/container.h"
@@ -57,7 +59,9 @@
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
+#include "zetasql/base/endian.h"
 #include "zetasql/base/map_util.h"
+#include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -203,6 +207,7 @@ const CastHashMap* InitializeZetaSQLCasts() {
   ADD_TO_MAP(STRING,     BYTES,      EXPLICIT);
   ADD_TO_MAP(STRING,     DATE,       EXPLICIT_OR_LITERAL_OR_PARAMETER);
   ADD_TO_MAP(STRING,     TIMESTAMP,  EXPLICIT_OR_LITERAL_OR_PARAMETER);
+  ADD_TO_MAP(STRING,     TIMESTAMP_PICOS, EXPLICIT);
   ADD_TO_MAP(STRING,     TIME,       EXPLICIT_OR_LITERAL_OR_PARAMETER);
   ADD_TO_MAP(STRING,     DATETIME,   EXPLICIT_OR_LITERAL_OR_PARAMETER);
   ADD_TO_MAP(STRING,     INTERVAL,   EXPLICIT);
@@ -228,6 +233,8 @@ const CastHashMap* InitializeZetaSQLCasts() {
   ADD_TO_MAP(TIMESTAMP,  TIME,       EXPLICIT);
   ADD_TO_MAP(TIMESTAMP,  TIMESTAMP,  IMPLICIT);
   ADD_TO_MAP(TIMESTAMP,  STRING,     EXPLICIT);
+  // TODO: Add the rest of the supported casts and coercions.
+  ADD_TO_MAP(TIMESTAMP_PICOS, TIMESTAMP_PICOS, IMPLICIT);
 
   // TODO: Add relevant tests for TIME and DATETIME.
 
@@ -270,6 +277,8 @@ const CastHashMap* InitializeZetaSQLCasts() {
   ADD_TO_MAP(ARRAY,      ARRAY,      IMPLICIT);
   ADD_TO_MAP(STRUCT,     STRUCT,     IMPLICIT);
   ADD_TO_MAP(RANGE,      RANGE,      IMPLICIT);
+  ADD_TO_MAP(GRAPH_ELEMENT, GRAPH_ELEMENT, IMPLICIT);
+  ADD_TO_MAP(GRAPH_PATH, GRAPH_PATH, IMPLICIT);
   ADD_TO_MAP(MAP,        MAP,        IMPLICIT);
   ADD_TO_MAP(UUID,       UUID,       IMPLICIT);
   ADD_TO_MAP(UUID,       STRING,     EXPLICIT);
@@ -1312,6 +1321,77 @@ absl::StatusOr<Value> CastContext::CastValue(
       return Value::String(absl::StrFormat("[%s, %s)", ValueOrUnbounded(start),
                                            ValueOrUnbounded(end)));
     }
+    case FCT(TYPE_GRAPH_ELEMENT, TYPE_GRAPH_ELEMENT): {
+      // Casts of graph elements are only generated when resolving graph
+      // function calls to satisfy the type signature: there is no behavior
+      // difference. Here we only change the property set and keep the element
+      // identifiers.
+      const auto* to_graph_type = to_type->AsGraphElement();
+      const auto* from_graph_type = v.type()->AsGraphElement();
+      // The coercer currently ensures that they're both node / edge, and from
+      // the same graph reference. Checking here for completeness.
+      if (to_graph_type->IsEdge() != from_graph_type->IsEdge()) {
+        return MakeSqlError()
+               << "Cannot cast graph element type between node and edge type: "
+               << v.type()->ShortTypeName(language_options().product_mode())
+               << " to "
+               << to_type->ShortTypeName(language_options().product_mode());
+      }
+      if (!absl::c_equal(to_graph_type->graph_reference(),
+                         from_graph_type->graph_reference(),
+                         zetasql_base::CaseEqual)) {
+        return MakeSqlError()
+               << "Cannot cast between graph element types with different "
+                  "graph references: "
+               << v.type()->ShortTypeName(language_options().product_mode())
+               << " to "
+               << to_type->ShortTypeName(language_options().product_mode());
+      }
+      std::vector<Value::Property> properties;
+      for (const PropertyType& property_type :
+           to_graph_type->property_types()) {
+        if (absl::StatusOr<Value> current_property_val =
+                v.FindPropertyByName(property_type.name);
+            current_property_val.ok()) {
+          ZETASQL_RET_CHECK(
+              current_property_val->type()->Equals(property_type.value_type))
+              << "In the same graph, property of the same name must have the "
+                 "same value type. Current property type: "
+              << current_property_val->type()->ShortTypeName(
+                     language_options().product_mode())
+              << "; other property type: "
+              << property_type.value_type->ShortTypeName(
+                     language_options().product_mode());
+          properties.push_back(
+              {property_type.name, *std::move(current_property_val)});
+        } else {
+          properties.push_back(
+              {property_type.name, Value::Null(property_type.value_type)});
+        }
+      }
+      return v.IsEdge()
+                 ? Value::MakeGraphEdge(
+                       to_graph_type, v.GetIdentifier(), properties,
+                       v.GetLabels(), v.GetDefinitionName(),
+                       v.GetSourceNodeIdentifier(), v.GetDestNodeIdentifier())
+                 : Value::MakeGraphNode(to_graph_type, v.GetIdentifier(),
+                                        properties, v.GetLabels(),
+                                        v.GetDefinitionName());
+    }
+    case FCT(TYPE_GRAPH_PATH, TYPE_GRAPH_PATH): {
+      const GraphPathType* to_path_type = to_type->AsGraphPath();
+      std::vector<Value> components;
+      components.reserve(v.num_graph_elements());
+      for (int i = 0; i < v.num_graph_elements(); ++i) {
+        ZETASQL_ASSIGN_OR_RETURN(Value component,
+                         CastValue(v.graph_element(i),
+                                   i % 2 == 0 ? to_path_type->node_type()
+                                              : to_path_type->edge_type(),
+                                   format));
+        components.push_back(std::move(component));
+      }
+      return Value::MakeGraphPath(to_path_type, std::move(components));
+    }
     case FCT(TYPE_UUID, TYPE_STRING): {
       ZETASQL_ASSIGN_OR_RETURN(UuidValue uuid, v.uuid_value());
       return Value::String(uuid.ToString());
@@ -1340,14 +1420,32 @@ absl::StatusOr<Value> CastContext::CastValue(
                << "Invalid bytes value size, expected " << sizeof(UuidValue)
                << " bytes, but got " << v.bytes_value().size() << " bytes.";
       }
-      std::string uuid_bytes = v.bytes_value();
-#if defined(ABSL_IS_LITTLE_ENDIAN)
-      // If the UUID is stored in little endian format, then we need to reverse
-      // the bytes order before casting to __int128.
-      std::reverse(uuid_bytes.begin(), uuid_bytes.end());
-#endif
-      return Value::Uuid(UuidValue::FromPackedInt(
-          *reinterpret_cast<const __int128*>(uuid_bytes.data())));
+      __int128 i =
+          static_cast<__int128>(zetasql_base::BigEndian::Load128(v.bytes_value().data()));
+      return Value::Uuid(UuidValue::FromPackedInt(i));
+    }
+    case FCT(TYPE_MAP, TYPE_MAP): {
+      ZETASQL_RETURN_IF_ERROR(ValidateCoercion(v, to_type));
+
+      const Type* to_key_type = to_type->AsMap()->key_type();
+      const Type* to_value_type = to_type->AsMap()->value_type();
+      std::vector<std::pair<Value, Value>> casted_entries;
+      for (auto& [k, v] : v.map_entries()) {
+        Value casted_key;
+        if (k.is_null()) {
+          casted_key = Value::Null(to_key_type);
+        } else {
+          ZETASQL_ASSIGN_OR_RETURN(casted_key, CastValue(k, to_key_type));
+        }
+        Value casted_value;
+        if (v.is_null()) {
+          casted_value = Value::Null(to_value_type);
+        } else {
+          ZETASQL_ASSIGN_OR_RETURN(casted_value, CastValue(v, to_value_type));
+        }
+        casted_entries.push_back(std::make_pair(casted_key, casted_value));
+      }
+      return Value::MakeMap(to_type, std::move(casted_entries));
     }
     default:
       return ::zetasql_base::UnimplementedErrorBuilder()

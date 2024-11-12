@@ -131,12 +131,12 @@ QueryStmt
     |     +-GetProtoField
     |     | +-type=INT64
     |     | +-expr=
-    |     | | +-Constant(TestConstantProto, type=PROTO<zetasql_test__.KitchenSinkPB>, value={<unparseable>})
+    |     | | +-Constant(TestConstantProto, type=PROTO<zetasql_test__.KitchenSinkPB>, value={int64_key_1: 1 int64_key_2: -999})
     |     | +-field_descriptor=int64_key_1
     |     +-GetProtoField
     |       +-type=INT64
     |       +-expr=
-    |       | +-Constant(TestConstantProto, type=PROTO<zetasql_test__.KitchenSinkPB>, value={<unparseable>})
+    |       | +-Constant(TestConstantProto, type=PROTO<zetasql_test__.KitchenSinkPB>, value={int64_key_1: 1 int64_key_2: -999})
     |       +-field_descriptor=int64_key_2
     +-input_scan=
       +-SingleRowScan
@@ -235,12 +235,12 @@ QueryStmt
     +-column_list=$query.[TestConstantProto#1, TestConstantProto#2, int64_key_1#3]
     +-expr_list=
     | +-TestConstantProto#1 := Literal(type=INT64, value=1)
-    | +-TestConstantProto#2 := Constant(TestConstantProto, type=PROTO<zetasql_test__.KitchenSinkPB>, value={<unparseable>})
+    | +-TestConstantProto#2 := Constant(TestConstantProto, type=PROTO<zetasql_test__.KitchenSinkPB>, value={int64_key_1: 1 int64_key_2: -999})
     | +-int64_key_1#3 :=
     |   +-GetProtoField
     |     +-type=INT64
     |     +-expr=
-    |     | +-Constant(TestConstantProto, type=PROTO<zetasql_test__.KitchenSinkPB>, value={<unparseable>})
+    |     | +-Constant(TestConstantProto, type=PROTO<zetasql_test__.KitchenSinkPB>, value={int64_key_1: 1 int64_key_2: -999})
     |     +-field_descriptor=int64_key_1
     +-input_scan=
       +-SingleRowScan

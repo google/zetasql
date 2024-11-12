@@ -104,7 +104,7 @@ struct FusibleGroup {
   // fusible. Otherwise, partial matches will also be fusible.
   bool full_match_only = false;
   // Next tokens that continue the current group.
-  absl::flat_hash_map<absl::string_view, FusibleGroup> next_tokens;
+  absl::flat_hash_map<absl::string_view, std::vector<FusibleGroup>> next_tokens;
 };
 
 // Stores a match location for the token that starts the given fusible group.

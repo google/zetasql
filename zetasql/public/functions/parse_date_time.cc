@@ -20,6 +20,7 @@
 #include <time.h>
 
 #include <cctype>
+#include <cmath>
 #include <cstdint>
 #include <limits>
 #include <optional>
@@ -37,7 +38,6 @@
 #include "absl/base/optimization.h"
 #include "absl/strings/str_format.h"
 #include "absl/time/time.h"
-#include "zetasql/base/mathutil.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
@@ -57,8 +57,8 @@ using parse_date_time_utils::ParseSubSeconds;
 constexpr int64_t kNumMillisPerSecond = 1000;
 
 std::string TimeZoneOffsetToString(int minutes_offset) {
-  const int timezone_hour = zetasql_base::MathUtil::Abs(minutes_offset) / 60;
-  const int timezone_minute = zetasql_base::MathUtil::Abs(minutes_offset) % 60;
+  const int timezone_hour = std::abs(minutes_offset) / 60;
+  const int timezone_minute = std::abs(minutes_offset) % 60;
   std::string offset_string;
   absl::StrAppendFormat(&offset_string, "%c%02d:%02d",
                         (minutes_offset < 0 ? '-' : '+'), timezone_hour,

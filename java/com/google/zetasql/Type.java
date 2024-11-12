@@ -68,6 +68,7 @@ public abstract class Type implements Serializable {
           entry(TypeKind.TYPE_STRUCT, "STRUCT"),
           entry(TypeKind.TYPE_PROTO, "PROTO"),
           entry(TypeKind.TYPE_TIMESTAMP, "TIMESTAMP"),
+          entry(TypeKind.TYPE_TIMESTAMP_PICOS, "TIMESTAMP_PICOS"),
           entry(TypeKind.TYPE_TIME, "TIME"),
           entry(TypeKind.TYPE_DATETIME, "DATETIME"),
           entry(TypeKind.TYPE_GEOGRAPHY, "GEOGRAPHY"),
@@ -77,8 +78,11 @@ public abstract class Type implements Serializable {
           entry(TypeKind.TYPE_JSON, "JSON"),
           entry(TypeKind.TYPE_INTERVAL, "INTERVAL"),
           entry(TypeKind.TYPE_RANGE, "RANGE"),
+          entry(TypeKind.TYPE_GRAPH_ELEMENT, "GRAPH_ELEMENT"),
+          entry(TypeKind.TYPE_GRAPH_PATH, "GRAPH_PATH"),
           entry(TypeKind.TYPE_MAP, "MAP"),
-          entry(TypeKind.TYPE_UUID, "UUID"));
+          entry(TypeKind.TYPE_UUID, "UUID"),
+          entry(TypeKind.TYPE_MEASURE, "MEASURE"));
 
   /** Returns {@code true} if the given {@code date} value is within valid range. */
   @SuppressWarnings("GoodTime") // should accept a java.time.LocalDate (?)
@@ -168,6 +172,10 @@ public abstract class Type implements Serializable {
     return kind == TypeKind.TYPE_TIMESTAMP;
   }
 
+  public boolean isTimestampPicos() {
+    return kind == TypeKind.TYPE_TIMESTAMP_PICOS;
+  }
+
   public boolean isDatetime() {
     return kind == TypeKind.TYPE_DATETIME;
   }
@@ -204,12 +212,24 @@ public abstract class Type implements Serializable {
     return kind == TypeKind.TYPE_RANGE;
   }
 
+  public boolean isGraphElement() {
+    return kind == TypeKind.TYPE_GRAPH_ELEMENT;
+  }
+
+  public boolean isGraphPath() {
+    return kind == TypeKind.TYPE_GRAPH_PATH;
+  }
+
   public boolean isMap() {
     return kind == TypeKind.TYPE_MAP;
   }
 
   public boolean isUuid() {
     return kind == TypeKind.TYPE_UUID;
+  }
+
+  public boolean isMeasure() {
+    return kind == TypeKind.TYPE_MEASURE;
   }
 
   public boolean isStructOrProto() {
@@ -418,8 +438,23 @@ public abstract class Type implements Serializable {
     return null;
   }
 
+  /** Returns {@code this} cast to GraphElementType or null for other types. */
+  public GraphElementType asGraphElement() {
+    return null;
+  }
+
+  /** Returns {@code this} cast to GraphPathType or null for other types. */
+  public GraphPathType asGraphPath() {
+    return null;
+  }
+
   /** Returns {@code this} cast to MapType or null for other types. */
   public MapType asMap() {
+    return null;
+  }
+
+  /** Returns {@code this} cast to MeasureType or null for other types. */
+  public MeasureType asMeasure() {
     return null;
   }
 
@@ -452,8 +487,16 @@ public abstract class Type implements Serializable {
         return ProtoType.equalsImpl(this.asProto(), other.asProto(), equivalent);
       case TYPE_RANGE:
         return RangeType.equalsImpl(this.asRange(), other.asRange(), equivalent);
+      case TYPE_GRAPH_ELEMENT:
+        return GraphElementType.equalsImpl(
+            this.asGraphElement(), other.asGraphElement(), equivalent);
+      case TYPE_GRAPH_PATH:
+        return GraphPathType.equalsImpl(this.asGraphPath(), other.asGraphPath(), equivalent);
       case TYPE_MAP:
         return MapType.equalsImpl(this.asMap(), other.asMap(), equivalent);
+      case TYPE_MEASURE:
+        // Measure types cannot be used interchangeably, and so are not equal or equivalent.
+        return false;
       default:
         throw new IllegalArgumentException("Shouldn't happen: unsupported type " + other);
     }

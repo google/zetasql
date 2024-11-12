@@ -50,6 +50,7 @@ enum SchemaObjectKind {
   kTableFunction = 13;
   kView = 14;
   kSnapshotTable = 15;
+  kPropertyGraph = 16;
   kExternalSchema = 18;
 }
 
@@ -75,6 +76,8 @@ message ASTBinaryExpressionEnums {
     DIVIDE = 16;          // "/"
     CONCAT_OP = 17;       // "||"
     DISTINCT = 18;        // "IS DISTINCT FROM"
+    IS_SOURCE_NODE = 19;  // "IS SOURCE [OF]"
+    IS_DEST_NODE = 20;    // "IS DESTINATION [OF]"
   }
 }
 
@@ -131,7 +134,10 @@ message ASTExpressionSubqueryEnums {
   enum Modifier {
     NONE = 0;    // (select ...)
     ARRAY = 1;   // ARRAY(select ...)
+                 // or ARRAY{graph ...}
     EXISTS = 2;  // EXISTS(select ...)
+                 // or EXISTS{graph ...}
+    VALUE = 3;   // VALUE{graph ...}
   }
 }
 message ASTHavingModifierEnums {
@@ -159,6 +165,8 @@ message ASTSetOperationEnums {
     BY_POSITION = 1;       // Match by index
     CORRESPONDING = 2;     // Match by implicit column names
     CORRESPONDING_BY = 3;  // Match by the provided column name list
+    BY_NAME = 4;           // Match by all column names
+    BY_NAME_ON = 5;        // Match by selected column names
   }
   // Determines how non-matching columns are treated in a set operation: <left
   // query> <set_op> <right_query>
@@ -297,6 +305,13 @@ message ASTInsertStatementEnums {
     kSeenValuesList = 5;
   }
 }
+message ASTOnConflictClauseEnums {
+  enum ConflictAction {
+    NOT_SET = 0;
+    NOTHING = 1;
+    UPDATE = 2;
+  }
+}
 message ASTMergeActionEnums {
   enum ActionType {
     NOT_SET = 0;
@@ -384,6 +399,22 @@ message ASTSpannerInterleaveClauseEnums {
   }
 }
 
+message ASTAfterMatchSkipClauseEnums {
+  enum AfterMatchSkipTargetType {
+    AFTER_MATCH_SKIP_TARGET_UNSPECIFIED = 0;
+    PAST_LAST_ROW = 1;
+    TO_NEXT_ROW = 2;
+  }
+}
+
+message ASTRowPatternAnchorEnums {
+  enum Anchor {
+    ANCHOR_UNSPECIFIED = 0;
+    START = 1;  // The `^` anchor, representing the start of the partition.
+    END = 2;    // The `$` anchor, representing the end of the partition.
+  }
+}
+
 message ASTRowPatternOperationEnums {
   enum OperationType {
     OPERATION_TYPE_UNSPECIFIED = 0;
@@ -391,5 +422,70 @@ message ASTRowPatternOperationEnums {
     ALTERNATE = 2;
     PERMUTE = 3;
     EXCLUDE = 4;  // {- ... -}
+  }
+}
+
+message ASTSymbolQuantifierEnums {
+  enum Symbol {
+    SYMBOL_UNSPECIFIED = 0;
+    QUESTION_MARK = 1;
+    PLUS = 2;
+    STAR = 3;
+  }
+}
+
+message ASTGraphNodeTableReferenceEnums {
+  enum NodeReferenceType {
+    NODE_REFERENCE_TYPE_UNSPECIFIED = 0;
+    SOURCE = 1;
+    DESTINATION = 2;
+  }
+}
+
+message ASTGraphLabelOperationEnums {
+  enum OperationType {
+    OPERATION_TYPE_UNSPECIFIED = 0;
+    NOT = 1;
+    AND = 2;
+    OR = 3;
+  }
+}
+
+message ASTGraphEdgePatternEnums {
+  enum EdgeOrientation {
+    EDGE_ORIENTATION_NOT_SET = 0;
+    ANY = 1;
+    LEFT = 2;
+    RIGHT = 3;
+  }
+}
+
+message ASTGraphPathModeEnums {
+  enum PathMode {
+    PATH_MODE_UNSPECIFIED = 0;
+    WALK = 1;
+    TRAIL = 2;
+    SIMPLE = 3;
+    ACYCLIC = 4;
+  }
+}
+
+message ASTGraphPathSearchPrefixEnums {
+  enum PathSearchPrefixType {
+    PATH_SEARCH_PREFIX_TYPE_UNSPECIFIED = 0;
+    ANY = 1;
+    SHORTEST = 2;
+    ALL = 3;
+    ALL_SHORTEST = 4;
+  }
+}
+
+message ASTLockModeEnums {
+  enum LockStrengthSpec {
+    NOT_SET = 0;
+    // Acquire exclusive locks on the data selected by the query so it can be
+    // updated in a subsequent statement within the same transaction. The scope
+    // of lock acquisition is engine-dependent.
+    UPDATE = 1;
   }
 }

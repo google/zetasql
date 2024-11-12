@@ -20,6 +20,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <limits>
 #include <ostream>
 #include <string>
@@ -321,14 +322,11 @@ IntervalValue::SumAggregator::DeserializeFromProtoBytes(
         "Invalid serialized INTERVAL::SumAggregator size too small");
   }
 
-  const char* ptr = reinterpret_cast<const char*>(bytes.data());
-  aggregator.months_ = static_cast<__int128>(
-      zetasql_base::LittleEndian::ToHost128(*absl::bit_cast<absl::uint128*>(ptr)));
-  ptr += sizeof(absl::uint128);
+  aggregator.months_ =
+      static_cast<__int128>(zetasql_base::LittleEndian::Load128(bytes.data()));
 
   aggregator.days_ = static_cast<__int128>(
-      zetasql_base::LittleEndian::ToHost128(*absl::bit_cast<absl::uint128*>(ptr)));
-  ptr += sizeof(absl::uint128);
+      zetasql_base::LittleEndian::Load128(bytes.data() + sizeof(absl::uint128)));
 
   if (!aggregator.nanos_.DeserializeFromBytes(
           bytes.substr(sizeof(absl::uint128) * 2))) {

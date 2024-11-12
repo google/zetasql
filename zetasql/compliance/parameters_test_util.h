@@ -28,7 +28,7 @@
 
 namespace zetasql {
 class ReferenceDriver;
-class TestDatabase;
+struct TestDatabase;
 
 // Parses query parameters from a string in the format that appears in
 // ZetaSQL compliance test files.

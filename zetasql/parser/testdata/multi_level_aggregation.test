@@ -446,3 +446,11 @@ SELECT
     GROUP BY key2)
 FROM
   T
+==
+
+# GROUP BY ALL is not a valid grouping modifier and is rejected by the parser.
+select sum(avg(value) group by all) from T
+--
+ERROR: Syntax error: Unexpected keyword ALL [at 1:32]
+select sum(avg(value) group by all) from T
+                               ^

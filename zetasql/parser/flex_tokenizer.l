@@ -17,14 +17,15 @@
 
 /* Tokenize the SQL input stream into a series of tokens. */
 
-/* Flex will generate ZetaSqlFlexTokenizer::GetNextTokenFlexImpl(). The
+/* Flex will generate LegacyFlexTokenizer::GetNextTokenFlexImpl(). The
    remainder of the class definition is controlled by us, in
    flex_tokenizer.h. */
-%option prefix="ZetaSql"
+%option prefix="Legacy"
 %option yyclass="FlexTokenizer"
 
 %{
 #include "zetasql/parser/flex_tokenizer.cc.inc"
+#include "zetasql/parser/token_codes.h"
 %}
 
 %option c++ 8bit noyywrap nounput case-insensitive never-interactive
@@ -185,7 +186,7 @@ comment               ({cs_comment}|{dash_comment}|{pound_comment})
     keyword functions in the {identifier} production, but that was significantly
     slower.
  */
- /* BEGIN_KEYWORDS -- Do not remove! */
+ /* KEYWORDS_START */
 
  /* Spanner-specific keywords */
 interleave      return Tokens::KW_INTERLEAVE;
@@ -197,7 +198,9 @@ parent          return Tokens::KW_PARENT;
 abort           return Tokens::KW_ABORT;
 access          return Tokens::KW_ACCESS;
 action          return Tokens::KW_ACTION;
+acyclic         return Tokens::KW_ACYCLIC;
 add             return Tokens::KW_ADD;
+after           return Tokens::KW_AFTER;
 aggregate       return Tokens::KW_AGGREGATE;
 all             return Tokens::KW_ALL;
 alter           return Tokens::KW_ALTER;
@@ -210,6 +213,7 @@ are             return Tokens::KW_ARE;
 array           return Tokens::KW_ARRAY;
 as              return Tokens::KW_AS;
 asc             return Tokens::KW_ASC;
+ascending       return Tokens::KW_ASCENDING;
 assert          return Tokens::KW_ASSERT;
 assert_rows_modified  return Tokens::KW_ASSERT_ROWS_MODIFIED;
 at              return Tokens::KW_AT;
@@ -232,6 +236,7 @@ collate         return Tokens::KW_COLLATE;
 column          return Tokens::KW_COLUMN;
 columns         return Tokens::KW_COLUMNS;
 commit          return Tokens::KW_COMMIT;
+conflict        return Tokens::KW_CONFLICT;
 connection      return Tokens::KW_CONNECTION;
 constant        return Tokens::KW_CONSTANT;
 constraint      return Tokens::KW_CONSTRAINT;
@@ -257,12 +262,15 @@ delete          return Tokens::KW_DELETE;
 deletion        return Tokens::KW_DELETION;
 depth           return Tokens::KW_DEPTH;
 desc            return Tokens::KW_DESC;
+descending      return Tokens::KW_DESCENDING;
 describe        return Tokens::KW_DESCRIBE;
 descriptor      return Tokens::KW_DESCRIPTOR;
+destination     return Tokens::KW_DESTINATION;
 deterministic   return Tokens::KW_DETERMINISTIC;
 distinct        return Tokens::KW_DISTINCT;
 do              return Tokens::KW_DO;
 drop            return Tokens::KW_DROP;
+edge            return Tokens::KW_EDGE;
 else            return Tokens::KW_ELSE;
 elseif          return Tokens::KW_ELSEIF;
 end             return Tokens::KW_END;
@@ -289,12 +297,15 @@ first           return Tokens::KW_FIRST;
 following       return Tokens::KW_FOLLOWING;
 for             return Tokens::KW_FOR;
 foreign         return Tokens::KW_FOREIGN;
+fork            return Tokens::KW_FORK;
 format          return Tokens::KW_FORMAT;
 from            return Tokens::KW_FROM;
 full            return Tokens::KW_FULL;
 function        return Tokens::KW_FUNCTION;
 generated       return Tokens::KW_GENERATED;
 grant           return Tokens::KW_GRANT;
+graph           return Tokens::KW_GRAPH;
+graph_table     return Tokens::KW_GRAPH_TABLE_NONRESERVED;
 group           return Tokens::KW_GROUP;
 group_rows      return Tokens::KW_GROUP_ROWS;
 grouping        return Tokens::KW_GROUPING;
@@ -326,15 +337,19 @@ iterate         return Tokens::KW_ITERATE;
 join            return Tokens::KW_JOIN;
 json            return Tokens::KW_JSON;
 key             return Tokens::KW_KEY;
+label           return Tokens::KW_LABEL;
+labeled           return Tokens::KW_LABELED;
 language        return Tokens::KW_LANGUAGE;
 last            return Tokens::KW_LAST;
 lateral         return Tokens::KW_LATERAL;
 leave           return Tokens::KW_LEAVE;
 left            return Tokens::KW_LEFT;
+let             return Tokens::KW_LET;
 level           return Tokens::KW_LEVEL;
 like            return Tokens::KW_LIKE;
 limit           return Tokens::KW_LIMIT;
 load            return Tokens::KW_LOAD;
+log             return Tokens::KW_LOG;
 lookup          return Tokens::KW_LOOKUP;
 loop            return Tokens::KW_LOOP;
 macro           return Tokens::KW_MACRO;
@@ -353,10 +368,14 @@ min             return Tokens::KW_MIN;
 minvalue        return Tokens::KW_MINVALUE;
 model           return Tokens::KW_MODEL;
 module          return Tokens::KW_MODULE;
+name            return Tokens::KW_NAME;
 natural         return Tokens::KW_NATURAL;
 new             return Tokens::KW_NEW;
+next            return Tokens::KW_NEXT;
 no              return Tokens::KW_NO;
+node            return Tokens::KW_NODE;
 not             return Tokens::KW_NOT;
+nothing         return Tokens::KW_NOTHING;
 null            return Tokens::KW_NULL;
 nulls           return Tokens::KW_NULLS;
 numeric         return Tokens::KW_NUMERIC;
@@ -364,6 +383,7 @@ of              return Tokens::KW_OF;
 offset          return Tokens::KW_OFFSET;
 on              return Tokens::KW_ON;
 only            return Tokens::KW_ONLY;
+optional        return Tokens::KW_OPTIONAL;
 options         return Tokens::KW_OPTIONS;
 or              return Tokens::KW_OR;
 order           return Tokens::KW_ORDER;
@@ -374,6 +394,9 @@ over            return Tokens::KW_OVER;
 overwrite       return Tokens::KW_OVERWRITE;
 partition       return Tokens::KW_PARTITION;
 partitions      return Tokens::KW_PARTITIONS;
+past            return Tokens::KW_PAST;
+path            return Tokens::KW_PATH;
+paths           return Tokens::KW_PATHS;
 pattern         return Tokens::KW_PATTERN;
 percent         return Tokens::KW_PERCENT;
 pivot           return Tokens::KW_PIVOT;
@@ -386,6 +409,8 @@ privilege       return Tokens::KW_PRIVILEGE;
 privileges      return Tokens::KW_PRIVILEGES;
 procedure       return Tokens::KW_PROCEDURE;
 project         return Tokens::KW_PROJECT;
+properties      return Tokens::KW_PROPERTIES;
+property        return Tokens::KW_PROPERTY;
 proto           return Tokens::KW_PROTO;
 public          return Tokens::KW_PUBLIC;
 qualify         return Tokens::KW_QUALIFY_NONRESERVED;
@@ -423,8 +448,10 @@ select          return Tokens::KW_SELECT;
 sequence        return Tokens::KW_SEQUENCE;
 set             return Tokens::KW_SET;
 sets            return Tokens::KW_SETS;
+shortest        return Tokens::KW_SHORTEST;
 show            return Tokens::KW_SHOW;
 simple          return Tokens::KW_SIMPLE;
+skip            return Tokens::KW_SKIP;
 snapshot        return Tokens::KW_SNAPSHOT;
 some            return Tokens::KW_SOME;
 source          return Tokens::KW_SOURCE;
@@ -448,6 +475,7 @@ then            return Tokens::KW_THEN;
 time            return Tokens::KW_TIME;
 timestamp       return Tokens::KW_TIMESTAMP;
 to              return Tokens::KW_TO;
+trail           return Tokens::KW_TRAIL;
 transaction     return Tokens::KW_TRANSACTION;
 transform       return Tokens::KW_TRANSFORM;
 treat           return Tokens::KW_TREAT;
@@ -470,6 +498,7 @@ vector          return Tokens::KW_VECTOR;
 view            return Tokens::KW_VIEW;
 views           return Tokens::KW_VIEWS;
 volatile        return Tokens::KW_VOLATILE;
+walk            return Tokens::KW_WALK;
 weight          return Tokens::KW_WEIGHT;
 when            return Tokens::KW_WHEN;
 where           return Tokens::KW_WHERE;
@@ -480,7 +509,7 @@ within          return Tokens::KW_WITHIN;
 write           return Tokens::KW_WRITE;
 zone            return Tokens::KW_ZONE;
  /* (broken link) end */
- /* END_KEYWORDS -- Do not remove! */
+ /* KEYWORDS_END */
 
  /* All unescaping and error checking is done in the parser. This allows us */
  /* to give better error messages. */
@@ -510,15 +539,15 @@ zone            return Tokens::KW_ZONE;
 
 {cs_comment_begin} UNCLOSED("comment");
 
-"("             return '(';
-"["             return '[';
-"{"             return '{';
-")"             return ')';
-"]"             return ']';
-"}"             return '}';
-"*"             return '*';
-","             return ',';
-"="             return '=';
+"("             return Tokens::LPAREN;
+"["             return Tokens::LBRACK;
+"{"             return Tokens::LBRACE;
+")"             return Tokens::RPAREN;
+"]"             return Tokens::RBRACK;
+"}"             return Tokens::RBRACE;
+"*"             return Tokens::MULT;
+","             return Tokens::COMMA;
+"="             return Tokens::ASSIGN;
 "+="            return Tokens::KW_ADD_ASSIGN;
 "-="            return Tokens::KW_SUB_ASSIGN;
 "!="            return Tokens::KW_NOT_EQUALS_C_STYLE;
@@ -526,27 +555,27 @@ zone            return Tokens::KW_ZONE;
 "<<"            return Tokens::KW_SHIFT_LEFT;
 "=>"            return Tokens::KW_NAMED_ARGUMENT_ASSIGNMENT;
 "->"            return Tokens::KW_LAMBDA_ARROW;
-"<"             return '<';
-">"             return '>';
+"<"             return Tokens::LT;
+">"             return Tokens::GT;
 ">="            return Tokens::KW_GREATER_EQUALS;
 "||"            return Tokens::KW_CONCAT_OP;
-"|"             return '|';
-"^"             return '^';
-"&"             return '&';
-"+"             return '+';
-"-"             return '-';
-"/"             return '/';
-"~"             return '~';
-"?"             return '?';
-"!"             return '!';
-"%"             return '%';
+"|"             return Tokens::OR;
+"^"             return Tokens::XOR;
+"&"             return Tokens::AND;
+"+"             return Tokens::PLUS;
+"-"             return Tokens::MINUS;
+"/"             return Tokens::DIV;
+"~"             return Tokens::TILDE;
+"?"             return Tokens::QUEST;
+"!"             return Tokens::EXCL;
+"%"             return Tokens::REM;
 "|>"            return Tokens::KW_PIPE;
-"@"             return '@';
+"@"             return Tokens::ATSIGN;
 "@@"            return Tokens::KW_DOUBLE_AT;
-"."             return '.';
-":"             return ':';
+"."             return Tokens::DOT;
+":"             return Tokens::COLON;
 "\\"            return Tokens::BACKSLASH;
-";"             return ';';
+";"             return Tokens::SEMICOLON;
 "$"{unquoted_identifier}    return Tokens::MACRO_INVOCATION;
 "$"{decimal_digits}         return Tokens::MACRO_ARGUMENT_REFERENCE;
 "$"             return Tokens::DOLLAR_SIGN;

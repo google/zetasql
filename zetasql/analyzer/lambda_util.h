@@ -29,7 +29,7 @@ namespace zetasql {
 // Validates that the lambda argument list of <ast_lambda> is a list of
 // identifiers.
 //
-// See lambda_parameter_list rule in bison_parser.y about why we cannot simply
+// See lambda_parameter_list rule in zetasql.tm about why we cannot simply
 // use a list of identifiers.
 absl::Status ValidateLambdaArgumentListIsIdentifierList(
     const ASTLambda* ast_lambda);

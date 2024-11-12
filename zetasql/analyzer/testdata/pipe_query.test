@@ -630,14 +630,6 @@ QueryStmt
         +-Literal(type=INT64, value=1)
 ==
 
-from TestTable
-|> DISTINCT
---
-ERROR: Pipe DISTINCT operator not supported yet; Try using |> AGGREGATE GROUP BY ... or |> SELECT DISTINCT ... [at 2:1]
-|> DISTINCT
-^
-==
-
 # From bug 328283572, expression subqueries with pseudo-columns were triggering
 # validator errors.  Value table version.
 # The failures were different with and without column pruning.

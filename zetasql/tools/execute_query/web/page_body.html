@@ -1,8 +1,8 @@
-    <div id="header"><a href="/">ZetaSQL Execute Query</a></div>
 
     <main>
-      <form action="/" method="post">
-        <textarea name="query" spellcheck=false
+      <div id="header"><a href="/">ZetaSQL Execute Query</a></div>
+      <form class="left-section" action="/" method="post">
+        <textarea id="query" tabindex="0" name="query" spellcheck=false
           placeholder="Enter your query here...">{{query}}</textarea>
 
         <div class="options">
@@ -45,24 +45,59 @@
                 <label for="mode-unparse">Unparse</label>
               </span>
             </fieldset>
+            <fieldset>
+              <legend>SQL Mode</legend>
+              <input type="radio" name="sql_mode" value="query" id="sql-mode-query"
+                  {{#sql_mode_query}}checked{{/sql_mode_query}}>
+              <label for="sql-mode-query">Query</label>
 
-            <div>
+              <input type="radio" name="sql_mode" value="expression" id="sql-mode-expression"
+                {{#sql_mode_expression}}checked{{/sql_mode_expression}}>
+              <label for="sql-mode-expression">Expression</label>
+
+              <input type="radio" name="sql_mode" value="script" id="sql-mode-script"
+                {{#sql_mode_script}}checked{{/sql_mode_script}}>
+              <label for="sql-mode-script">Script</label>
+            </fieldset>
+
+            <span class="select-options">
               <label for="catalog-select">Catalog:</label>
               <select name="catalog" id="catalog-select">
                 {{#catalogs}}
                 <option value="{{name}}" {{selected}}>{{label}}</option>
                 {{/catalogs}}
               </select>
-            </div>
+            </span>
+
+            <details>
+              <summary>Advanced Options</summary>
+              <span class="select-options">
+                <label for="language-features-select">Enabled Language Features:</label>
+                <select name="language-features" id="language-features-select">
+                  {{#language_features}}
+                  <option value="{{name}}" {{selected}}>{{name}}</option>
+                  {{/language_features}}
+                </select>
+              </span>
+              <span class="select-options">
+                <label for="ast-rewrites-select">Enabled AST Rewrites:</label>
+                <select name="ast-rewrites" id="ast-rewrites-select">
+                  {{#ast_rewrites}}
+                  <option value="{{name}}" {{selected}}>{{name}}</option>
+                  {{/ast_rewrites}}
+                </select>
+              </span>
+              <p><b>⚠️ Note:</b> Changing these default options may result in queries that produce wrong results.</p>
+            </details>
+
           </div>
 
           <input type="submit" id="submit" value="Submit">
         </div>
       </form>
 
-      <div id="statements">
+      <div class="right-section" id="statements">
         {{#statements}}
-        {{#result_or_error}}
         <div class="result">
           {{#show_statement_text}}
           {{#statement_text}}
@@ -117,7 +152,6 @@
             {{/result_log}}
           {{/result}}
         </div>
-        {{/result_or_error}}
         {{#not_is_last}}<hr>{{/not_is_last}}
         {{/statements}}
       </div>

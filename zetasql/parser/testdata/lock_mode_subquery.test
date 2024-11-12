@@ -1,0 +1,216 @@
+# Tests for the FOR UPDATE clause in subqueries.
+
+[default language_features=V_1_4_FOR_UPDATE]
+
+# FOR UPDATE scoped to correlated subquery.
+select a, b from t as i where b >= (select b from t where a = i.a for update);
+--
+QueryStatement [44-121] [select a,...for update)]
+  Query [44-121] [select a,...for update)]
+    Select [44-121] [select a,...for update)]
+      SelectList [51-55] [a, b]
+        SelectColumn [51-52] [a]
+          PathExpression [51-52] [a]
+            Identifier(a) [51-52] [a]
+        SelectColumn [54-55] [b]
+          PathExpression [54-55] [b]
+            Identifier(b) [54-55] [b]
+      FromClause [56-67] [from t as i]
+        TablePathExpression [61-67] [t as i]
+          PathExpression [61-62] [t]
+            Identifier(t) [61-62] [t]
+          Alias [63-67] [as i]
+            Identifier(i) [66-67] [i]
+      WhereClause [68-121] [where b >=...for update)]
+        BinaryExpression(>=) [74-121] [b >= (select...for update)]
+          PathExpression [74-75] [b]
+            Identifier(b) [74-75] [b]
+          ExpressionSubquery [79-121] [(select b...for update)]
+            Query [80-120] [select b from...for update]
+              Select [80-109] [select b from t where a = i.a]
+                SelectList [87-88] [b]
+                  SelectColumn [87-88] [b]
+                    PathExpression [87-88] [b]
+                      Identifier(b) [87-88] [b]
+                FromClause [89-95] [from t]
+                  TablePathExpression [94-95] [t]
+                    PathExpression [94-95] [t]
+                      Identifier(t) [94-95] [t]
+                WhereClause [96-109] [where a = i.a]
+                  BinaryExpression(=) [102-109] [a = i.a]
+                    PathExpression [102-103] [a]
+                      Identifier(a) [102-103] [a]
+                    PathExpression [106-109] [i.a]
+                      Identifier(i) [106-107] [i]
+                      Identifier(a) [108-109] [a]
+              LockMode [110-120] [for update]
+--
+SELECT
+  a,
+  b
+FROM
+  t AS i
+WHERE
+  b >= (
+    SELECT
+      b
+    FROM
+      t
+    WHERE
+      a = i.a
+    FOR UPDATE)
+==
+
+# FOR UPDATE on the outer query with a correlated subquery.
+select a, b from t as i where b >= (select b from t where a = i.a) for update;
+--
+QueryStatement [0-77] [select a,...for update]
+  Query [0-77] [select a,...for update]
+    Select [0-66] [select a,...where a = i.a)]
+      SelectList [7-11] [a, b]
+        SelectColumn [7-8] [a]
+          PathExpression [7-8] [a]
+            Identifier(a) [7-8] [a]
+        SelectColumn [10-11] [b]
+          PathExpression [10-11] [b]
+            Identifier(b) [10-11] [b]
+      FromClause [12-23] [from t as i]
+        TablePathExpression [17-23] [t as i]
+          PathExpression [17-18] [t]
+            Identifier(t) [17-18] [t]
+          Alias [19-23] [as i]
+            Identifier(i) [22-23] [i]
+      WhereClause [24-66] [where b >=...where a = i.a)]
+        BinaryExpression(>=) [30-66] [b >= (select...where a = i.a)]
+          PathExpression [30-31] [b]
+            Identifier(b) [30-31] [b]
+          ExpressionSubquery [35-66] [(select b...where a = i.a)]
+            Query [36-65] [select b from t where a = i.a]
+              Select [36-65] [select b from t where a = i.a]
+                SelectList [43-44] [b]
+                  SelectColumn [43-44] [b]
+                    PathExpression [43-44] [b]
+                      Identifier(b) [43-44] [b]
+                FromClause [45-51] [from t]
+                  TablePathExpression [50-51] [t]
+                    PathExpression [50-51] [t]
+                      Identifier(t) [50-51] [t]
+                WhereClause [52-65] [where a = i.a]
+                  BinaryExpression(=) [58-65] [a = i.a]
+                    PathExpression [58-59] [a]
+                      Identifier(a) [58-59] [a]
+                    PathExpression [62-65] [i.a]
+                      Identifier(i) [62-63] [i]
+                      Identifier(a) [64-65] [a]
+    LockMode [67-77] [for update]
+--
+SELECT
+  a,
+  b
+FROM
+  t AS i
+WHERE
+  b >= (
+    SELECT
+      b
+    FROM
+      t
+    WHERE
+      a = i.a
+  )
+FOR UPDATE
+==
+
+# FOR UPDATE scoped to a subquery of a FROM clause.
+select * from (select a from t1 where a >= 4 for update) as t;
+--
+QueryStatement [0-61] [select * from...update) as t]
+  Query [0-61] [select * from...update) as t]
+    Select [0-61] [select * from...update) as t]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-61] [from (select...update) as t]
+        TableSubquery [14-61] [(select a...update) as t]
+          Query [15-55] [select a from...for update]
+            Select [15-44] [select a from t1 where a >= 4]
+              SelectList [22-23] [a]
+                SelectColumn [22-23] [a]
+                  PathExpression [22-23] [a]
+                    Identifier(a) [22-23] [a]
+              FromClause [24-31] [from t1]
+                TablePathExpression [29-31] [t1]
+                  PathExpression [29-31] [t1]
+                    Identifier(t1) [29-31] [t1]
+              WhereClause [32-44] [where a >= 4]
+                BinaryExpression(>=) [38-44] [a >= 4]
+                  PathExpression [38-39] [a]
+                    Identifier(a) [38-39] [a]
+                  IntLiteral(4) [43-44] [4]
+            LockMode [45-55] [for update]
+          Alias [57-61] [as t]
+            Identifier(t) [60-61] [t]
+--
+SELECT
+  *
+FROM
+  (
+    SELECT
+      a
+    FROM
+      t1
+    WHERE
+      a >= 4
+    FOR UPDATE
+  ) AS t
+==
+
+# FOR UPDATE is scoped to an expression subquery.
+select * from t1 where c1 = (select c1 from t2 where c0 = 1 for update);
+--
+QueryStatement [0-71] [select * from...for update)]
+  Query [0-71] [select * from...for update)]
+    Select [0-71] [select * from...for update)]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-16] [from t1]
+        TablePathExpression [14-16] [t1]
+          PathExpression [14-16] [t1]
+            Identifier(t1) [14-16] [t1]
+      WhereClause [17-71] [where c1 =...for update)]
+        BinaryExpression(=) [23-71] [c1 = (select...for update)]
+          PathExpression [23-25] [c1]
+            Identifier(c1) [23-25] [c1]
+          ExpressionSubquery [28-71] [(select c1...for update)]
+            Query [29-70] [select c1...for update]
+              Select [29-59] [select c1 from t2 where c0 = 1]
+                SelectList [36-38] [c1]
+                  SelectColumn [36-38] [c1]
+                    PathExpression [36-38] [c1]
+                      Identifier(c1) [36-38] [c1]
+                FromClause [39-46] [from t2]
+                  TablePathExpression [44-46] [t2]
+                    PathExpression [44-46] [t2]
+                      Identifier(t2) [44-46] [t2]
+                WhereClause [47-59] [where c0 = 1]
+                  BinaryExpression(=) [53-59] [c0 = 1]
+                    PathExpression [53-55] [c0]
+                      Identifier(c0) [53-55] [c0]
+                    IntLiteral(1) [58-59] [1]
+              LockMode [60-70] [for update]
+--
+SELECT
+  *
+FROM
+  t1
+WHERE
+  c1 = (
+    SELECT
+      c1
+    FROM
+      t2
+    WHERE
+      c0 = 1
+    FOR UPDATE)
+==

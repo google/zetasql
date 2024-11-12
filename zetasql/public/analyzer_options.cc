@@ -23,21 +23,34 @@
 #include <utility>
 #include <vector>
 
+#include "zetasql/base/arena.h"
 #include "zetasql/common/errors.h"
+#include "zetasql/parser/parser.h"
+#include "zetasql/proto/options.pb.h"
 #include "zetasql/public/catalog.h"
-#include "zetasql/public/cycle_detector.h"
+#include "zetasql/public/id_string.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/rewriter_interface.h"
 #include "zetasql/public/time_zone_util.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/type.pb.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_builder.h"
 #include "zetasql/base/case.h"
+#include "absl/container/btree_set.h"
+#include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/flags/flag.h"
 #include "zetasql/base/check.h"
 #include "absl/status/status.h"
+#include "absl/strings/ascii.h"
+#include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
+#include "google/protobuf/descriptor.h"
+#include "google/protobuf/repeated_ptr_field.h"
+#include "zetasql/base/map_util.h"
+#include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
 ABSL_FLAG(bool, zetasql_validate_resolved_ast, true,
@@ -306,12 +319,9 @@ AnalyzerOptions::AnalyzerOptions() : AnalyzerOptions(LanguageOptions()) {}
 AnalyzerOptions::AnalyzerOptions(const LanguageOptions& language_options)
     : data_(new Data{
           .language_options = language_options,
-          .owned_cycle_detector = std::make_shared<CycleDetector>(),
           .validate_resolved_ast =
               absl::GetFlag(FLAGS_zetasql_validate_resolved_ast),
           .error_message_stability = GetDefaultErrorMessageStability()}) {
-  data_->find_options.set_cycle_detector(data_->owned_cycle_detector.get());
-
   ZETASQL_CHECK_OK(FindTimeZoneByName("America/Los_Angeles",  // Crash OK
                               &data_->default_timezone))
       << "Did you need to install the tzdata package?";

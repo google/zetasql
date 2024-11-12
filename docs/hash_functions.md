@@ -6,7 +6,7 @@
 
 ZetaSQL supports the following hash functions.
 
-### Function list
+## Function list
 
 <table>
   <thead>
@@ -18,8 +18,7 @@ ZetaSQL supports the following hash functions.
   <tbody>
 
 <tr>
-  <td><a href="#farm_fingerprint"><code>FARM_FINGERPRINT</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/hash_functions.md#farm_fingerprint"><code>FARM_FINGERPRINT</code></a>
 </td>
   <td>
     Computes the fingerprint of a <code>STRING</code> or
@@ -28,8 +27,7 @@ ZetaSQL supports the following hash functions.
 </tr>
 
 <tr>
-  <td><a href="#md5"><code>MD5</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/hash_functions.md#md5"><code>MD5</code></a>
 </td>
   <td>
     Computes the hash of a <code>STRING</code> or
@@ -38,8 +36,7 @@ ZetaSQL supports the following hash functions.
 </tr>
 
 <tr>
-  <td><a href="#sha1"><code>SHA1</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/hash_functions.md#sha1"><code>SHA1</code></a>
 </td>
   <td>
     Computes the hash of a <code>STRING</code> or
@@ -48,8 +45,7 @@ ZetaSQL supports the following hash functions.
 </tr>
 
 <tr>
-  <td><a href="#sha256"><code>SHA256</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/hash_functions.md#sha256"><code>SHA256</code></a>
 </td>
   <td>
     Computes the hash of a <code>STRING</code> or
@@ -58,8 +54,7 @@ ZetaSQL supports the following hash functions.
 </tr>
 
 <tr>
-  <td><a href="#sha512"><code>SHA512</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/hash_functions.md#sha512"><code>SHA512</code></a>
 </td>
   <td>
     Computes the hash of a <code>STRING</code> or
@@ -70,7 +65,7 @@ ZetaSQL supports the following hash functions.
   </tbody>
 </table>
 
-### `FARM_FINGERPRINT`
+## `FARM_FINGERPRINT`
 
 ```
 FARM_FINGERPRINT(value)
@@ -111,7 +106,7 @@ FROM example;
 
 [hash-link-to-farmhash-github]: https://github.com/google/farmhash
 
-### `MD5`
+## `MD5`
 
 ```
 MD5(input)
@@ -146,7 +141,7 @@ SELECT MD5("Hello World") as md5;
 
 [hash-link-to-md5-wikipedia]: https://en.wikipedia.org/wiki/MD5
 
-### `SHA1`
+## `SHA1`
 
 ```
 SHA1(input)
@@ -181,7 +176,7 @@ SELECT SHA1("Hello World") as sha1;
 
 [hash-link-to-sha-1-wikipedia]: https://en.wikipedia.org/wiki/SHA-1
 
-### `SHA256`
+## `SHA256`
 
 ```
 SHA256(input)
@@ -207,7 +202,7 @@ SELECT SHA256("Hello World") as sha256;
 
 [hash-link-to-sha-2-wikipedia]: https://en.wikipedia.org/wiki/SHA-2
 
-### `SHA512`
+## `SHA512`
 
 ```
 SHA512(input)

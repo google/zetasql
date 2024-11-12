@@ -191,6 +191,7 @@ cc_library(
         "//zetasql/public:function",
         "//zetasql/public:language_options",
         "//zetasql/public:type",
+        "//zetasql/public/types",
         "@com_google_absl//absl/status",
     ],
 )
@@ -275,6 +276,24 @@ cc_test(
         "//zetasql/public:sql_view",
         "//zetasql/public/types",
         "//zetasql/resolved_ast:resolved_ast_enums_cc_proto",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_test(
+    name = "sample_catalog_property_graph_test",
+    srcs = ["sample_catalog_property_graph_test.cc"],
+    deps = [
+        ":sample_catalog",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/public:catalog",
+        "//zetasql/public:language_options",
+        "//zetasql/public:simple_catalog",
+        "//zetasql/public:type_cc_proto",
+        "//zetasql/public/types",
+        "@com_google_absl//absl/algorithm:container",
+        "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/strings",
     ],
 )

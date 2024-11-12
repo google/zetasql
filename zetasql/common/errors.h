@@ -268,6 +268,12 @@ ConvertInternalErrorLocationsAndAdjustErrorStrings(
 // or ErrorMessageOptions.
 ErrorMessageStability GetDefaultErrorMessageStability();
 
+// Convert the first character of `str` to lowercase, for cases where that's
+// needed in error messages.
+// If the second character is also uppercase, no conversion happens, because
+// this is probably a keyword that should still be written all-uppercase.
+std::string FirstCharLower(absl::string_view str);
+
 }  // namespace zetasql
 
 #endif  // ZETASQL_COMMON_ERRORS_H_

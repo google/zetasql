@@ -19,6 +19,7 @@
 
 #include "zetasql/public/language_options.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 #include "file_based_test_driver/test_case_options.h"
 
 namespace zetasql {

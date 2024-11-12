@@ -25,9 +25,10 @@
 #include "zetasql/public/constant.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/type.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
-#include "zetasql/base/status.h"
 
 namespace zetasql {
 
@@ -67,12 +68,30 @@ class MultiCatalog : public Catalog {
                              const std::vector<Catalog*>& catalog_list,
                              std::unique_ptr<MultiCatalog>* multi_catalog);
 
-  // Appends a Catalog to <catalog_list_>.  Crashes if <catalog> is NULL.
-  void AppendCatalog(Catalog* catalog);
+  // Prepends a Catalog to the front of <catalog_list_>.  Returns a non-OK
+  // status iff `catalog` is nullptr.
+  absl::Status PrependCatalog(Catalog* catalog);
+
+  // Appends a Catalog to the back of <catalog_list_>.   Returns a non-OK status
+  // iff `catalog` is nullptr.
+  absl::Status AppendCatalog(Catalog* catalog);
+
+  // Similar to `PrependCatalog`, but assumes ownership.  Returns a non-OK
+  // status iff `catalog` is nullptr.
+  absl::Status PrependOwnedCatalog(std::unique_ptr<Catalog> catalog);
 
   // Similar to `AppendCatalog`, but assumes ownership.  Returns a non-OK status
-  // iff `catalog is nullptr.
+  // iff `catalog` is nullptr.
   absl::Status AppendOwnedCatalog(std::unique_ptr<Catalog> catalog);
+
+  // Removes the given catalog from this MultiCatalog.
+  // Returns true if the catalog was found and removed, false otherwise.
+  bool RemoveCatalog(Catalog* catalog);
+
+  // Removes the given catalog from this MultiCatalog.
+  // Returns ownership of the unique pointer to the removed catalog, or an
+  // absl::NotFoundError if the catalog was not found.
+  absl::StatusOr<std::unique_ptr<Catalog>> RemoveOwnedCatalog(Catalog* catalog);
 
   std::string FullName() const override { return name_; }
 
@@ -118,6 +137,10 @@ class MultiCatalog : public Catalog {
                                        const FindOptions& options,
                                        int* num_names_consumed,
                                        const Table** table) override;
+
+  absl::Status FindPropertyGraph(absl::Span<const std::string> path,
+                                 const PropertyGraph*& property_graph,
+                                 const FindOptions& options) override;
 
   // The Suggest*() functions look for suggestions in order based on the
   // catalog_list_, and return the first non-empty suggestion found.

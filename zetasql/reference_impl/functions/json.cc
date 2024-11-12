@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "zetasql/common/errors.h"
+#include "zetasql/common/internal_value.h"
 #include "zetasql/public/functions/json.h"
 #include "zetasql/public/functions/json_format.h"
 #include "zetasql/public/functions/json_internal.h"
@@ -32,15 +33,24 @@
 #include "zetasql/public/functions/unsupported_fields.pb.h"
 #include "zetasql/public/json_value.h"
 #include "zetasql/public/language_options.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/array_type.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
+#include "zetasql/reference_impl/evaluation.h"
 #include "zetasql/reference_impl/function.h"
+#include "zetasql/reference_impl/tuple.h"
+#include "zetasql/base/check.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/match.h"
+#include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_builder.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 namespace {
@@ -176,6 +186,15 @@ class JsonSubscriptFunction : public SimpleBuiltinScalarFunction {
 class ToJsonFunction : public SimpleBuiltinScalarFunction {
  public:
   ToJsonFunction()
+      : SimpleBuiltinScalarFunction(FunctionKind::kToJson, types::JsonType()) {}
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
+class SafeToJsonFunction : public SimpleBuiltinScalarFunction {
+ public:
+  SafeToJsonFunction()
       : SimpleBuiltinScalarFunction(FunctionKind::kToJson, types::JsonType()) {}
   absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
                              absl::Span<const Value> args,
@@ -636,6 +655,23 @@ absl::StatusOr<Value> ToJsonFunction::Eval(
       functions::ToJson(args[0], stringify_wide_numbers,
                         context->GetLanguageOptions(),
                         /*canonicalize_zero=*/true, unsupported_fields));
+  MaybeSetNonDeterministicContext(args[0], context);
+  return Value::Json(std::move(outputJson));
+}
+
+absl::StatusOr<Value> SafeToJsonFunction::Eval(
+    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
+    EvaluationContext* context) const {
+  ZETASQL_RET_CHECK_EQ(args.size(), 1);
+  ZETASQL_RETURN_IF_ERROR(ValidateMicrosPrecision(args[0], context));
+  const bool stringify_wide_numbers = true;
+  const auto ignore_unsupported_fields =
+      functions::UnsupportedFieldsEnum::IGNORE;
+  ZETASQL_ASSIGN_OR_RETURN(
+      JSONValue outputJson,
+      functions::ToJson(args[0], stringify_wide_numbers,
+                        context->GetLanguageOptions(),
+                        /*canonicalize_zero=*/true, ignore_unsupported_fields));
   MaybeSetNonDeterministicContext(args[0], context);
   return Value::Json(std::move(outputJson));
 }
@@ -1442,6 +1478,11 @@ void RegisterBuiltinJsonFunctions() {
   BuiltinFunctionRegistry::RegisterScalarFunction(
       {FunctionKind::kToJson}, [](FunctionKind kind, const Type* output_type) {
         return new ToJsonFunction();
+      });
+  BuiltinFunctionRegistry::RegisterScalarFunction(
+      {FunctionKind::kSafeToJson},
+      [](FunctionKind kind, const Type* output_type) {
+        return new SafeToJsonFunction();
       });
   BuiltinFunctionRegistry::RegisterScalarFunction(
       {FunctionKind::kToJsonString},

@@ -149,7 +149,7 @@ class ScriptValidationTest
                       const ParsedScript* parsed, const TestInput& stmt) {
     ParsedScript::StringSet actual_named_params =
         parsed->GetNamedParameters(range);
-    std::pair<int64_t, int64_t> actual_pos_params =
+    PositionalParameterRange actual_pos_params =
         parsed->GetPositionalParameters(range);
 
     if (stmt.has_named_parameters()) {
@@ -165,7 +165,8 @@ class ScriptValidationTest
     } else {
       std::pair<int64_t, int64_t> expected_pos_params =
           stmt.positional_parameters();
-      EXPECT_EQ(actual_pos_params, expected_pos_params);
+      EXPECT_EQ(actual_pos_params.start_param_index, expected_pos_params.first);
+      EXPECT_EQ(actual_pos_params.num_params, expected_pos_params.second);
     }
   }
 

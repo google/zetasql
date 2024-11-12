@@ -30,11 +30,13 @@
 #include "zetasql/base/logging.h"
 #include "zetasql/public/cast.h"
 #include "google/protobuf/descriptor.h"
+#include "zetasql/public/collator.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/function_signature.h"
 #include "zetasql/public/functions/array_zip_mode.pb.h"
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/functions/regexp.h"
+#include "zetasql/public/interval_value.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/proto/type_annotation.pb.h"
 #include "zetasql/public/type.h"
@@ -48,12 +50,15 @@
 #include "zetasql/reference_impl/tuple_comparator.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "absl/base/macros.h"
+#include "absl/container/flat_hash_map.h"
 #include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "absl/synchronization/mutex.h"
+#include "zetasql/base/source_location.h"
 #include "absl/types/span.h"
+#include "google/protobuf/descriptor.h"
 #include "zetasql/base/optional_ref.h"
 #include "re2/re2.h"
 #include "zetasql/base/status.h"
@@ -274,6 +279,7 @@ enum class FunctionKind {
   kJsonQuery,
   kJsonValue,
   kToJson,
+  kSafeToJson,
   kToJsonString,
   kParseJson,
   kStringArray,
@@ -505,6 +511,31 @@ enum class FunctionKind {
   kGenerateRangeArray,
   kRangeContains,
 
+  // Graph functions
+  kPropertyExists,
+  kSameGraphElement,
+  kAllDifferentGraphElement,
+  kIsSourceNode,
+  kIsDestNode,
+  kLabels,
+  kPropertyNames,
+  kElementDefinitionName,
+  kElementId,
+  kSourceNodeId,
+  kDestinationNodeId,
+  kPathLength,
+  kPathNodes,
+  kPathEdges,
+  kPathFirst,
+  kPathLast,
+  kPathCreate,
+  kUncheckedPathCreate,
+  kPathConcat,
+  kUncheckedPathConcat,
+  kIsTrail,
+  kIsAcyclic,
+  kIsSimple,
+
   // Distance functions
   kCosineDistance,
   kApproxCosineDistance,
@@ -534,6 +565,10 @@ enum class FunctionKind {
   kMapInsert,
   kMapInsertOrReplace,
   kMapReplaceKeyValuePairs,
+  kMapReplaceKeysAndLambda,
+  kMapCardinality,
+  kMapDelete,
+  kMapFilter,
 };
 
 // Provides two utility methods to look up a built-in function name or function
@@ -632,7 +667,7 @@ class BuiltinScalarFunction : public ScalarFunctionBody {
     extended_args_.reserve(arguments.size());
 
     for (const auto& arg : arguments) {
-      if (arg->value_expr() == nullptr) {
+      if (!arg->has_value_expr()) {
         extended_args_.push_back(arg.get());
       } else {
         extended_args_.push_back(std::nullopt);
@@ -1431,7 +1466,7 @@ class FilterFieldsFunction : public SimpleBuiltinScalarFunction {
   FilterFieldsFunction(const Type* output_type,
                        bool reset_cleared_required_fields);
 
-  ~FilterFieldsFunction() final;
+  ~FilterFieldsFunction() override;
 
   // Add a field path that denotes the path to a proto field, `include` denotes
   // whether the proto field is include or exclude.

@@ -130,7 +130,7 @@ class SignatureMatchResult {
   int non_literals_coerced_;   // Number of non-literal coercions.
   int non_literals_distance_;  // How far non-literals were coerced.
   int literals_coerced_;       // Number of literal coercions.
-  int literals_distance_;      // How far non-literals were coerced.
+  int literals_distance_;      // How far literals were coerced.
 
   // If the function call was invalid because of a particular argument, this
   // zero-based index is updated to indicate which argument was invalid.

@@ -267,6 +267,30 @@ public class SimpleTableTest {
   }
 
   @Test
+  public void testRowIdentity() {
+    SimpleTable table1 = new SimpleTable("t1", createColumns("t1"));
+    assertThat(table1.getRowIdentityColumns().isPresent()).isFalse();
+
+    table1.setPrimaryKey(ImmutableList.of(1));
+    assertThat(table1.getPrimaryKey().get()).containsExactly(1);
+    assertThat(table1.getRowIdentityColumns().get()).containsExactly(1);
+
+    table1.setRowIdentity(ImmutableList.of(0, 1));
+    assertThat(table1.getRowIdentityColumns().get()).containsExactly(0, 1).inOrder();
+    assertThat(table1.getPrimaryKey().get()).containsExactly(1);
+
+    try {
+      table1.setRowIdentity(ImmutableList.of(1, 5));
+      fail();
+    } catch (IllegalArgumentException e) {
+      assertThat(e).hasMessageThat().isEqualTo("Invalid column index 5 in row identity");
+    }
+
+    assertThat(table1.getRowIdentityColumns().get()).containsExactly(0, 1).inOrder();
+    assertThat(table1.getPrimaryKey().get()).containsExactly(1);
+  }
+
+  @Test
   public void testFullName() {
     SimpleTable table1 = new SimpleTable("t1", createColumns("t1"));
     assertThat(table1.getName()).isEqualTo("t1");
@@ -313,6 +337,7 @@ public class SimpleTableTest {
     table1.addSimpleColumn(column1);
     table1.addSimpleColumn(column2);
     table1.setPrimaryKey(ImmutableList.of(0));
+    table1.setRowIdentity(ImmutableList.of(0, 1));
     table1.setIsValueTable(true);
     FileDescriptorSetsBuilder descriptor = new FileDescriptorSetsBuilder();
 
@@ -328,6 +353,8 @@ public class SimpleTableTest {
           .isEqualTo(table1.getColumn(i).serialize(descriptor).toString());
     }
     assertThat(table2.getPrimaryKey().get()).isEqualTo(table1.getPrimaryKey().get());
+    assertThat(table2.getRowIdentityColumns().get())
+        .isEqualTo(table1.getRowIdentityColumns().get());
     assertThat(table1.getId() == table2.getId()).isTrue();
     assertThat(descriptor.getFileDescriptorSetCount()).isEqualTo(1);
 

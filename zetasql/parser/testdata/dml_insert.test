@@ -1614,7 +1614,7 @@ VALUES
 
 insert into c1.T (c1.c2)
 --
-ERROR: Syntax error: Expected ")" or "," but got "." [at 1:21]
+ERROR: Syntax error: Expected ")" but got "." [at 1:21]
 insert into c1.T (c1.c2)
                     ^
 ==
@@ -1871,3 +1871,4 @@ InsertStatement [0-44] [insert into...values (1)]
 INSERT INTO `project-987654321`.a.b
 VALUES
   (1)
+

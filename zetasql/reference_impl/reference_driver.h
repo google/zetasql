@@ -165,6 +165,11 @@ class ReferenceDriver : public TestDriver {
   absl::Status AddViews(
       absl::Span<const std::string> create_view_stmts) override;
 
+  // Adds property graphs to the catalog owned by this test driver. The argument
+  // is a collection of "CREATE PROPERTY GRAPH" statements.
+  absl::Status AddPropertyGraphs(
+      absl::Span<const std::string> create_property_graph_stmts) override;
+
   // Implements TestDriver::ExecuteStatement()
   absl::StatusOr<Value> ExecuteStatement(
       const std::string& sql, const std::map<std::string, Value>& parameters,

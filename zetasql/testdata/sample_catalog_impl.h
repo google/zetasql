@@ -115,6 +115,18 @@ class SampleCatalogImpl {
   void LoadExtendedSubscriptFunctions();
   void LoadFunctionsWithDefaultArguments();
   void LoadTemplatedSQLUDFs();
+  absl::Status LoadAmlBasedPropertyGraphs();
+
+  // The basic "aml" property graph is primarily used in all our analyzer tests.
+  // Keeping this succinct is useful as it makes sure our analyzer tests do not
+  // have very large trees while also being flexible enough to test for the
+  // right cases.
+  absl::Status LoadBasicAmlPropertyGraph();
+
+  absl::Status LoadEnhancedAmlPropertyGraph();
+
+  void LoadMultiSrcDstEdgePropertyGraphs();
+  void LoadCompositeKeyPropertyGraphs();
 
   // Loads several table-valued functions into the sample catalog. For a full
   // list of the signatures added, please see the beginning of the method
@@ -275,6 +287,9 @@ class SampleCatalogImpl {
   // Manages the lifetime of ResolvedAST objects for SQL defined statements like
   // views, SQL functions, column expressions, or SQL TVFs.
   std::vector<std::unique_ptr<const AnalyzerOutput>> sql_object_artifacts_;
+
+  std::vector<std::unique_ptr<const ResolvedExpr>>
+      owned_resolved_graph_property_definitions_;
 };
 
 }  // namespace zetasql

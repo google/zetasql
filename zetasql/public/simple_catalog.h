@@ -33,6 +33,7 @@
 #include "zetasql/public/constant.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/procedure.h"
+#include "zetasql/public/property_graph.h"
 #include "zetasql/public/sql_view.h"
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/type.h"
@@ -123,6 +124,17 @@ class SimpleCatalog : public EnumerableCatalog {
                            const FindOptions& options = FindOptions()) override
       ABSL_LOCKS_EXCLUDED(mutex_);
 
+  absl::Status GetPropertyGraph(absl::string_view name,
+                                const PropertyGraph*& property_graph)
+      ABSL_LOCKS_EXCLUDED(mutex_) {
+    return GetPropertyGraph(name, property_graph, FindOptions());
+  }
+
+  absl::Status GetPropertyGraph(absl::string_view name,
+                                const PropertyGraph*& property_graph,
+                                const FindOptions& options) override
+      ABSL_LOCKS_EXCLUDED(mutex_);
+
   // For suggestions we look from the last level of <mistyped_path>:
   //  - Whether the object exists directly in sub-catalogs.
   //  - If not above, whether there is a single name that's misspelled in the
@@ -135,6 +147,8 @@ class SimpleCatalog : public EnumerableCatalog {
       const absl::Span<const std::string>& mistyped_path) override;
   std::string SuggestConstant(
       const absl::Span<const std::string>& mistyped_path) override;
+  std::string SuggestPropertyGraph(
+      absl::Span<const std::string> mistyped_path) override;
 
   // TODO: Implement SuggestModel function.
   // TODO: Implement SuggestConnection function.
@@ -286,6 +300,23 @@ class SimpleCatalog : public EnumerableCatalog {
   void AddOwnedConstant(const std::string& name, const Constant* constant);
   void AddOwnedConstant(const Constant* constant) ABSL_LOCKS_EXCLUDED(mutex_);
   bool AddOwnedConstantIfNotPresent(std::unique_ptr<const Constant> constant)
+      ABSL_LOCKS_EXCLUDED(mutex_);
+
+  // Property Graphs
+  void AddPropertyGraph(absl::string_view name,
+                        const PropertyGraph* property_graph)
+      ABSL_LOCKS_EXCLUDED(mutex_);
+  void AddPropertyGraph(const PropertyGraph* property_graph)
+      ABSL_LOCKS_EXCLUDED(mutex_);
+  void AddOwnedPropertyGraph(
+      absl::string_view, std::unique_ptr<const PropertyGraph> property_graph)
+      ABSL_LOCKS_EXCLUDED(mutex_);
+  void AddOwnedPropertyGraph(
+      std::unique_ptr<const PropertyGraph> property_graph)
+      ABSL_LOCKS_EXCLUDED(mutex_);
+  bool AddOwnedPropertyGraphIfNotPresent(
+      absl::string_view name,
+      std::unique_ptr<const PropertyGraph> property_graph)
       ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Add ZetaSQL built-in function definitions into this catalog. `options`
@@ -507,6 +538,8 @@ class SimpleCatalog : public EnumerableCatalog {
   std::vector<const Connection*> connections() const
       ABSL_LOCKS_EXCLUDED(mutex_);
   std::vector<const Constant*> constants() const ABSL_LOCKS_EXCLUDED(mutex_);
+  std::vector<const PropertyGraph*> property_graphs() const
+      ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Accessors for reading a copy of the key (object-name) lists in this
   // SimpleCatalog. Note that all keys are lower case.
@@ -518,6 +551,8 @@ class SimpleCatalog : public EnumerableCatalog {
   std::vector<std::string> catalog_names() const ABSL_LOCKS_EXCLUDED(mutex_);
   std::vector<std::string> connection_names() const ABSL_LOCKS_EXCLUDED(mutex_);
   std::vector<std::string> constant_names() const ABSL_LOCKS_EXCLUDED(mutex_);
+  std::vector<std::string> property_graph_names() const
+      ABSL_LOCKS_EXCLUDED(mutex_);
 
  protected:
   absl::Status DeserializeImpl(const SimpleCatalogProto& proto,
@@ -554,6 +589,9 @@ class SimpleCatalog : public EnumerableCatalog {
       std::unique_ptr<const TableValuedFunction> table_function)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
   void AddConstantLocked(absl::string_view name, const Constant* constant)
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+  void AddPropertyGraphLocked(absl::string_view name,
+                              const PropertyGraph* graph)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   int RemoveFunctionsLocked(
@@ -616,6 +654,8 @@ class SimpleCatalog : public EnumerableCatalog {
   absl::flat_hash_map<std::string, Catalog*> catalogs_ ABSL_GUARDED_BY(mutex_);
   absl::flat_hash_map<std::string, const Constant*> constants_
       ABSL_GUARDED_BY(mutex_);
+  absl::flat_hash_map<std::string, const PropertyGraph*> property_graphs_
+      ABSL_GUARDED_BY(mutex_);
 
   std::vector<std::unique_ptr<const Table>> owned_tables_
       ABSL_GUARDED_BY(mutex_);
@@ -634,6 +674,8 @@ class SimpleCatalog : public EnumerableCatalog {
   std::vector<std::unique_ptr<const Catalog>> owned_catalogs_
       ABSL_GUARDED_BY(mutex_);
   std::vector<std::unique_ptr<const Constant>> owned_constants_
+      ABSL_GUARDED_BY(mutex_);
+  std::vector<std::unique_ptr<const PropertyGraph>> owned_property_graphs_
       ABSL_GUARDED_BY(mutex_);
 
   // Subcatalogs added for zetasql function namespaces. Kept separate from
@@ -705,6 +747,12 @@ class SimpleTable : public Table {
   std::optional<std::vector<int>> PrimaryKey() const override {
     return primary_key_;
   };
+  std::optional<std::vector<int>> RowIdentityColumns() const override {
+    if (!row_identity_.has_value()) {
+      return PrimaryKey();
+    }
+    return row_identity_;
+  };
 
   bool IsValueTable() const override { return is_value_table_; }
 
@@ -738,8 +786,14 @@ class SimpleTable : public Table {
   // deleted inside this function.
   absl::Status AddColumn(const Column* column, bool is_owned);
 
-  // Set primary key with give column ordinal indexes.
+  // Set primary key with given column 0-based indices.
+  //
+  // This is also used for the row identity columns unless
+  // SetRowIdentityColumns() has been called.
   absl::Status SetPrimaryKey(std::vector<int> primary_key);
+
+  // Set row identity with given column 0-based indices.
+  absl::Status SetRowIdentityColumns(std::vector<int> row_identity);
 
   // Set the full name. If empty, name will be used as the full name.
   absl::Status set_full_name(absl::string_view full_name) {
@@ -844,6 +898,7 @@ class SimpleTable : public Table {
   bool is_value_table_ = false;
   std::vector<const Column*> columns_;
   std::optional<std::vector<int>> primary_key_;
+  std::optional<std::vector<int>> row_identity_;
   std::vector<std::unique_ptr<const Column>> owned_columns_;
   absl::flat_hash_map<std::string, const Column*> columns_map_;
   absl::flat_hash_set<std::string> duplicate_column_names_;
@@ -903,7 +958,7 @@ class SimpleSQLView : public SQLView {
   bool is_value_table_;
   const ResolvedScan* query_;
   std::vector<std::unique_ptr<const Column>> owned_columns_;
-  absl::flat_hash_map<const std::string, const Column*> columns_map_;
+  absl::flat_hash_map<std::string, const Column*> columns_map_;
 
   SimpleSQLView(absl::string_view name, SqlSecurity security,
                 bool is_value_table, const ResolvedScan* query)
@@ -1075,7 +1130,7 @@ class SimpleColumn : public Column {
   SimpleColumn(const SimpleColumn&) = delete;
   SimpleColumn& operator=(const SimpleColumn&) = delete;
 
-  ~SimpleColumn() override;
+  ~SimpleColumn() override = default;
 
   std::string Name() const override { return name_; }
   std::string FullName() const override { return full_name_; }
@@ -1150,6 +1205,9 @@ class SimpleConstant : public Constant {
   const Type* type() const override { return value_.type(); }
 
   const Value& value() const { return value_; }
+
+  bool HasValue() const override { return true; }
+  absl::StatusOr<zetasql::Value> GetValue() const override { return value_; }
 
   // Returns a string describing this Constant for debugging purposes.
   std::string DebugString() const override;

@@ -36,8 +36,10 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/graph_element_type.h"
 #include "zetasql/public/types/proto_type.h"
 #include "zetasql/public/types/struct_type.h"
+#include "zetasql/public/uuid_value.h"
 #include "zetasql/public/value.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -134,6 +136,18 @@ JSONValue ToJsonFromFloat(FloatType value, bool canonicalize_zero) {
   return JSONValue(value);
 }
 
+absl::StatusOr<JSONValue> ToJsonFromGraphElement(
+    const Value& value, bool stringify_wide_numbers,
+    const LanguageOptions& language_options, int current_nesting_level,
+    bool canonicalize_zero,
+    UnsupportedFieldsEnum::UnsupportedFields unsupported_fields);
+
+absl::StatusOr<JSONValue> ToJsonFromGraphPath(
+    const Value& value, bool stringify_wide_numbers,
+    const LanguageOptions& language_options, int current_nesting_level,
+    bool canonicalize_zero,
+    UnsupportedFieldsEnum::UnsupportedFields unsupported_fields);
+
 // Helper function for ToJson except that this function internally keeps
 // tracking of <current_nesting_level> for STRUCT and ARRAY and checks stack
 // space when <current_nesting_level> not less than
@@ -225,6 +239,10 @@ absl::StatusOr<JSONValue> ToJsonHelper(
     }
     case TYPE_INTERVAL:
       return JSONValue(value.interval_value().ToISO8601());
+    case TYPE_UUID: {
+      ZETASQL_ASSIGN_OR_RETURN(const UuidValue uuid_value, value.uuid_value());
+      return JSONValue(uuid_value.ToString());
+    }
     case TYPE_JSON: {
       if (value.is_validated_json()) {
         return JSONValue::CopyFrom(value.json_value());
@@ -310,6 +328,16 @@ absl::StatusOr<JSONValue> ToJsonHelper(
         return JSONValue(static_cast<int64_t>(value.enum_value()));
       }
     }
+    case TYPE_GRAPH_ELEMENT: {
+      return ToJsonFromGraphElement(value, stringify_wide_numbers,
+                                    language_options, current_nesting_level,
+                                    canonicalize_zero, unsupported_fields);
+    }
+    case TYPE_GRAPH_PATH: {
+      return ToJsonFromGraphPath(value, stringify_wide_numbers,
+                                 language_options, current_nesting_level,
+                                 canonicalize_zero, unsupported_fields);
+    }
     case TYPE_RANGE: {
       JSONValue json_value;
       JSONValueRef json_value_ref = json_value.GetRef();
@@ -349,6 +377,84 @@ absl::StatusOr<JSONValue> ToJsonHelper(
           value.type()->ShortTypeName(language_options.product_mode())));
     }
   }
+}
+
+absl::StatusOr<JSONValue> ToJsonFromGraphElement(
+    const Value& value, bool stringify_wide_numbers,
+    const LanguageOptions& language_options, int current_nesting_level,
+    bool canonicalize_zero,
+    UnsupportedFieldsEnum::UnsupportedFields unsupported_fields) {
+  JSONValue json_value;
+  JSONValueRef json_value_ref = json_value.GetRef();
+  json_value_ref.SetToEmptyObject();
+
+  std::string tmp;
+  JsonFromBytes(value.GetIdentifier(), &tmp, /*quote_output_string=*/false);
+  json_value_ref.GetMember("identifier").SetString(tmp);
+
+  JSONValueRef label_ref = json_value_ref.GetMember("labels");
+  label_ref.SetToEmptyArray();
+  absl::Span<const std::string> labels = value.GetLabels();
+  for (int i = 0; i < labels.size(); ++i) {
+    label_ref.GetArrayElement(i).SetString(labels[i]);
+  }
+
+  JSONValueRef properties_ref = json_value_ref.GetMember("properties");
+  properties_ref.SetToEmptyObject();
+  const GraphElementType* type = value.type()->AsGraphElement();
+  ZETASQL_RET_CHECK_NE(type, nullptr);
+  for (const PropertyType& property_type : type->property_types()) {
+    if (absl::StatusOr<Value> property_value =
+            value.FindPropertyByName(property_type.name);
+        property_value.ok()) {
+      ZETASQL_RET_CHECK(property_value->type()->Equals(property_type.value_type));
+      ZETASQL_ASSIGN_OR_RETURN(JSONValue v,
+                       ToJsonHelper(*property_value, stringify_wide_numbers,
+                                    language_options, current_nesting_level + 1,
+                                    canonicalize_zero, unsupported_fields));
+      properties_ref.GetMember(property_type.name).Set(std::move(v));
+    }
+  }
+
+  if (value.IsNode()) {
+    json_value_ref.GetMember("kind").SetString("node");
+    return json_value;
+  }
+
+  json_value_ref.GetMember("kind").SetString("edge");
+
+  tmp.clear();
+  JsonFromBytes(value.GetSourceNodeIdentifier(), &tmp,
+                /*quote_output_string=*/false);
+  json_value_ref.GetMember("source_node_identifier").SetString(tmp);
+
+  tmp.clear();
+  JsonFromBytes(value.GetDestNodeIdentifier(), &tmp,
+                /*quote_output_string=*/false);
+  json_value_ref.GetMember("destination_node_identifier").SetString(tmp);
+
+  return json_value;
+}
+
+absl::StatusOr<JSONValue> ToJsonFromGraphPath(
+    const Value& value, bool stringify_wide_numbers,
+    const LanguageOptions& language_options, int current_nesting_level,
+    bool canonicalize_zero,
+    UnsupportedFieldsEnum::UnsupportedFields unsupported_fields) {
+  JSONValue json_value;
+  JSONValueRef json_value_ref = json_value.GetRef();
+  json_value_ref.SetToEmptyArray();
+
+  for (int i = 0; i < value.num_graph_elements(); ++i) {
+    ZETASQL_ASSIGN_OR_RETURN(
+        JSONValue v,
+        ToJsonHelper(value.graph_element(i), stringify_wide_numbers,
+                     language_options, current_nesting_level + 1,
+                     canonicalize_zero, unsupported_fields));
+    json_value_ref.GetArrayElement(i).Set(std::move(v));
+  }
+
+  return json_value;
 }
 
 }  // namespace

@@ -179,8 +179,7 @@ absl::Status InternalAnalyzeExpressionFromParserAST(
             options.error_message_options(), sql,
             resolver.deprecation_warnings()),
         type_assignments, resolver.undeclared_positional_parameters(),
-        resolver.max_column_id()
-    );
+        resolver.max_column_id(), resolver.has_graph_references());
     ZETASQL_RETURN_IF_ERROR(InternalRewriteResolvedAst(options, sql, catalog,
                                                type_factory, **output));
   }

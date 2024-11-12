@@ -19,6 +19,7 @@
 #include <array>
 #include <cstdint>
 #include <memory>
+#include <new>
 #include <optional>
 #include <set>
 #include <string>
@@ -93,6 +94,10 @@ bool CanHaveDefaultValue(SignatureArgumentKind kind) {
     case ARG_TYPE_MODEL:
     case ARG_TYPE_CONNECTION:
     case ARG_TYPE_DESCRIPTOR:
+    case ARG_TYPE_GRAPH_NODE:
+    case ARG_TYPE_GRAPH_EDGE:
+    case ARG_TYPE_GRAPH_ELEMENT:
+    case ARG_TYPE_GRAPH_PATH:
     case ARG_TYPE_SEQUENCE:
       return false;
     default:
@@ -106,9 +111,10 @@ bool CanHaveDefaultValue(SignatureArgumentKind kind) {
 FunctionArgumentTypeOptions::FunctionArgumentTypeOptions(
     const TVFRelation& relation_input_schema,
     bool extra_relation_input_columns_allowed)
-    : relation_input_schema_(new TVFRelation(relation_input_schema)),
-      extra_relation_input_columns_allowed_(
-          extra_relation_input_columns_allowed) {}
+    : data_(new Data{.relation_input_schema =
+                         std::make_shared<TVFRelation>(relation_input_schema),
+                     .extra_relation_input_columns_allowed =
+                         extra_relation_input_columns_allowed}) {}
 
 absl::StatusOr<std::string>
 FunctionSignatureOptions::CheckFunctionSignatureConstraints(
@@ -500,26 +506,26 @@ std::string FunctionArgumentTypeOptions::OptionsDebugString() const {
   // Print the options in a format matching proto ShortDebugString.
   // In java, we just print the proto itself.
   std::vector<std::string> options;
-  if (must_be_constant_) options.push_back("must_be_constant: true");
-  if (must_be_constant_expression_) {
+  if (data_->must_be_constant) options.push_back("must_be_constant: true");
+  if (data_->must_be_constant_expression) {
     options.push_back("must_be_constant_expression: true");
   }
-  if (must_be_non_null_) options.push_back("must_be_non_null: true");
-  if (default_.has_value()) {
-    options.push_back(
-        absl::StrCat("default_value: ", default_->ShortDebugString()));
+  if (data_->must_be_non_null) options.push_back("must_be_non_null: true");
+  if (data_->default_value.has_value()) {
+    options.push_back(absl::StrCat("default_value: ",
+                                   data_->default_value->ShortDebugString()));
   }
-  if (is_not_aggregate_) options.push_back("is_not_aggregate: true");
-  if (procedure_argument_mode_ != FunctionEnums::NOT_SET) {
-    options.push_back(absl::StrCat(
-        "procedure_argument_mode: ",
-        FunctionEnums::ProcedureArgumentMode_Name(procedure_argument_mode_)));
+  if (data_->is_not_aggregate) options.push_back("is_not_aggregate: true");
+  if (data_->procedure_argument_mode != FunctionEnums::NOT_SET) {
+    options.push_back(absl::StrCat("procedure_argument_mode: ",
+                                   FunctionEnums::ProcedureArgumentMode_Name(
+                                       data_->procedure_argument_mode)));
   }
   // No need to print the default ARGUMENT_NON_ALIASED.
-  if (argument_alias_kind_ == FunctionEnums::ARGUMENT_ALIASED) {
+  if (data_->argument_alias_kind == FunctionEnums::ARGUMENT_ALIASED) {
     options.push_back(absl::StrCat(
         "argument_alias_kind: ",
-        FunctionEnums::ArgumentAliasKind_Name(argument_alias_kind_)));
+        FunctionEnums::ArgumentAliasKind_Name(data_->argument_alias_kind)));
   }
   if (options.empty()) {
     return "";
@@ -533,16 +539,16 @@ std::string FunctionArgumentTypeOptions::GetSQLDeclaration(
   std::vector<std::string> options;
   // Some of these don't currently have any SQL syntax.
   // We emit a comment for those cases.
-  if (must_be_constant_) options.push_back("/*must_be_constant*/");
-  if (must_be_constant_expression_) {
+  if (data_->must_be_constant) options.push_back("/*must_be_constant*/");
+  if (data_->must_be_constant_expression) {
     options.push_back("/*must_be_constant_expression*/");
   }
-  if (must_be_non_null_) options.push_back("/*must_be_non_null*/");
-  if (default_.has_value()) {
+  if (data_->must_be_non_null) options.push_back("/*must_be_non_null*/");
+  if (data_->default_value.has_value()) {
     options.push_back("DEFAULT");
-    options.push_back(default_->GetSQLLiteral(product_mode));
+    options.push_back(data_->default_value->GetSQLLiteral(product_mode));
   }
-  if (is_not_aggregate_) options.push_back("NOT AGGREGATE");
+  if (data_->is_not_aggregate) options.push_back("NOT AGGREGATE");
   if (options.empty()) {
     return "";
   } else {
@@ -603,6 +609,14 @@ std::string FunctionArgumentType::SignatureArgumentKindToString(
       return "<function<T->T>>";
     case ARG_RANGE_TYPE_ANY_1:
       return "<range<T>>";
+    case ARG_TYPE_GRAPH_NODE:
+      return "<graph_node>";
+    case ARG_TYPE_GRAPH_EDGE:
+      return "<graph_edge>";
+    case ARG_TYPE_GRAPH_ELEMENT:
+      return "<graph_element>";
+    case ARG_TYPE_GRAPH_PATH:
+      return "<graph_path>";
     case ARG_TYPE_SEQUENCE:
       return "ANY SEQUENCE";
     case ARG_MAP_TYPE_ANY_1_2:
@@ -729,6 +743,8 @@ bool FunctionArgumentType::IsScalar() const {
          kind_ == ARG_PROTO_MAP_KEY_ANY || kind_ == ARG_PROTO_MAP_VALUE_ANY ||
          kind_ == ARG_PROTO_ANY || kind_ == ARG_STRUCT_ANY ||
          kind_ == ARG_ENUM_ANY || kind_ == ARG_TYPE_ARBITRARY ||
+         kind_ == ARG_TYPE_GRAPH_NODE || kind_ == ARG_TYPE_GRAPH_EDGE ||
+         kind_ == ARG_TYPE_GRAPH_ELEMENT || kind_ == ARG_TYPE_GRAPH_PATH ||
          kind_ == ARG_RANGE_TYPE_ANY_1 || kind_ == ARG_MAP_TYPE_ANY_1_2;
 }
 
@@ -916,6 +932,14 @@ std::string FunctionArgumentType::UserFacingName(
         return "FUNCTION";
       case ARG_RANGE_TYPE_ANY_1:
         return "RANGE";
+      case ARG_TYPE_GRAPH_NODE:
+        return "GRAPH_NODE";
+      case ARG_TYPE_GRAPH_EDGE:
+        return "GRAPH_EDGE";
+      case ARG_TYPE_GRAPH_ELEMENT:
+        return "GRAPH_ELEMENT";
+      case ARG_TYPE_GRAPH_PATH:
+        return "GRAPH_PATH";
       case ARG_TYPE_SEQUENCE:
         return "SEQUENCE";
       case ARG_MAP_TYPE_ANY_1_2:
@@ -1053,7 +1077,7 @@ FunctionSignature::FunctionSignature(FunctionArgumentType result_type,
     : FunctionSignature(std::move(result_type), std::move(arguments),
                         context_id, FunctionSignatureOptions()) {}
 
-FunctionSignature::FunctionSignature(FunctionArgumentType result_type,
+FunctionSignature::FunctionSignature(const FunctionArgumentType& result_type,
                                      FunctionArgumentTypeList arguments,
                                      int64_t context_id,
                                      FunctionSignatureOptions options)

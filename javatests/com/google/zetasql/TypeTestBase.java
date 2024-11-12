@@ -83,7 +83,14 @@ public final class TypeTestBase {
 
   public static void checkSerializedAndDeserializedTypes(
       Type type, Type type2, TypeProto proto, TypeProto proto2) {
-    assertThat(type.equivalent(type2)).isTrue();
+    if (type.isMeasure()) {
+      // Measures are not equivalent because they are not interchangeable. Instead, compare their
+      // result types, which would be expected to be equivalent.
+      assertThat(type.asMeasure().getResultType().equivalent(type2.asMeasure().getResultType()))
+          .isTrue();
+    } else {
+      assertThat(type.equivalent(type2)).isTrue();
+    }
     assertThat(proto).isEqualTo(proto2);
   }
 

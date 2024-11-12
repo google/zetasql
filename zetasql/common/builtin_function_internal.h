@@ -804,6 +804,10 @@ void GetElementWiseAggregationFunctions(
     TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
     NameToFunctionMap* functions);
 
+void GetGraphFunctions(TypeFactory* type_factory,
+                       const ZetaSQLBuiltinFunctionOptions& options,
+                       NameToFunctionMap* functions);
+
 void GetMapCoreFunctions(TypeFactory* type_factory,
                          const ZetaSQLBuiltinFunctionOptions& options,
                          NameToFunctionMap* functions);

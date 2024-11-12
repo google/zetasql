@@ -5232,6 +5232,1228 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> LoopOp::CreateIterator(
                                    lower_bound_val, upper_bound_val);
 }
 
+// -------------------------------------------------------
+// GraphPathOp
+// -------------------------------------------------------
+absl::StatusOr<std::unique_ptr<GraphPathOp>> GraphPathOp::Create(
+    std::vector<GraphPathFactorOpInfo> path_factor_ops, VariableId path,
+    const GraphPathType* path_type) {
+  return absl::WrapUnique(
+      new GraphPathOp(std::move(path_factor_ops), path, path_type));
+}
+
+GraphPathOp::GraphPathOp(std::vector<GraphPathFactorOpInfo> path_factor_ops,
+                         VariableId path, const GraphPathType* path_type)
+    : path_type_(path_type),
+      num_rel_(static_cast<int>(path_factor_ops.size())) {
+  for (int i = 0; i < path_factor_ops.size(); i++) {
+    SetArg(i, std::make_unique<RelationalArg>(
+                  std::move(path_factor_ops[i].rel_op)));
+    variables_.reserve(variables_.size() + path_factor_ops[i].variables.size());
+    variables_.insert(
+        variables_.end(),
+        std::make_move_iterator(path_factor_ops[i].variables.begin()),
+        std::make_move_iterator(path_factor_ops[i].variables.end()));
+    edge_orientations_.push_back(path_factor_ops[i].orientation);
+  }
+  if (path.is_valid()) {
+    variables_.push_back(path);
+  }
+}
+
+std::string GraphPathOp::DebugInternal(const std::string& indent,
+                                       bool verbose) const {
+  std::string path_var_str = "";
+  if (path_type_ != nullptr && !variables_.empty()) {
+    path_var_str = indent + kIndentFork +
+                   "path_variable: " + variables_.back().ToString() + ",";
+  }
+  std::vector<std::string> srels;
+  for (int i = 0; i < num_rel(); i++) {
+    std::string indent_input = indent + kIndentFork;
+    std::string indent_child = indent;
+    if (i < num_rel() - 1) {
+      absl::StrAppend(&indent_child, kIndentBar);
+    } else {
+      // No tree line is required beside the last child.
+      absl::StrAppend(&indent_child, kIndentSpace);
+    }
+    std::string srel;
+    absl::StrAppend(&srel, indent_input, "rel[", i, "]: {");
+    absl::StrAppend(&srel, indent_child + kIndentFork, "input: ",
+                    rel(i)->DebugInternal(indent_child + kIndentSpace, verbose),
+                    "}");
+    srels.push_back(srel);
+  }
+  return absl::StrCat("GraphPathOp(", path_var_str, absl::StrJoin(srels, ","),
+                      ")");
+}
+
+absl::Status GraphPathOp::SetSchemasForEvaluation(
+    absl::Span<const TupleSchema* const> params_schemas) {
+  for (int i = 0; i < num_rel(); ++i) {
+    RelationalOp* rel = mutable_rel(i);
+    ZETASQL_RETURN_IF_ERROR(rel->SetSchemasForEvaluation(params_schemas));
+  }
+  return absl::OkStatus();
+}
+
+std::unique_ptr<TupleSchema> GraphPathOp::CreateOutputSchema() const {
+  return std::make_unique<TupleSchema>(variables_);
+}
+
+std::string GraphPathOp::IteratorDebugString() const {
+  return absl::StrCat("GraphPathTupleIterator");
+}
+
+const RelationalOp* GraphPathOp::rel(int i) const {
+  return GetArg(i)->node()->AsRelationalOp();
+}
+
+RelationalOp* GraphPathOp::mutable_rel(int i) {
+  return GetMutableArg(i)->mutable_node()->AsMutableRelationalOp();
+}
+
+namespace {
+
+static absl::StatusOr<Value> CastGraphElementForPath(
+    const Value& element, const GraphPathType* path_type,
+    EvaluationContext* context) {
+  ZETASQL_RET_CHECK_EQ(element.type_kind(), TYPE_GRAPH_ELEMENT);
+  return internal::CastValueWithoutTypeValidation(
+      element, context->GetDefaultTimeZone(),
+      absl::FromUnixMicros(context->GetCurrentTimestamp()),
+      context->GetLanguageOptions(),
+      element.IsNode() ? path_type->node_type() : path_type->edge_type(),
+      /*format=*/{},
+      /*time_zone=*/{}, /*extended_conversion_evaluator=*/nullptr,
+      /*canonicalize_zero=*/true);
+}
+
+static absl::Status AppendComponentToPath(const Value& value,
+                                          const GraphPathType* path_type,
+                                          EvaluationContext* context,
+                                          std::vector<Value>& components) {
+  ZETASQL_ASSIGN_OR_RETURN(Value casted,
+                   CastGraphElementForPath(value, path_type, context));
+  if (components.empty() || components.back().IsEdge() || casted.IsEdge()) {
+    // If there are back to back nodes we don't need the second
+    // node.
+    components.push_back(casted);
+  }
+  return absl::OkStatus();
+};
+
+static absl::StatusOr<Value> BuildPath(absl::Span<const Value> path_elements,
+                                       const GraphPathType* path_type,
+                                       EvaluationContext* context) {
+  std::vector<Value> components;
+  int index = 0;
+  while (index < path_elements.size()) {
+    if (path_elements[index].type()->IsGraphElement()) {
+      // The path factor is a singleton element, simply append it to the
+      // growing path.
+      ZETASQL_RETURN_IF_ERROR(AppendComponentToPath(path_elements[index], path_type,
+                                            context, components));
+      ++index;
+    } else {
+      // If there are arrays in this path factor, we're dealing with a
+      // quantified path that has the form head, group variables..., tail.
+      // The head and tail are single elements so they are handled above.
+      // Each group variable is an array of the same length. In order to
+      // construct the path, we need to walk the arrays in transposed order.
+      // For instance if we have:
+      //  m = [m0, m1]
+      //  e = [e0, e1]
+      //  n = [n0, n1]
+      // Then we append the elements in the order:
+      //  m0, e0, n0, m1, e1, n1
+      // Note that n0, m1 represent back to back nodes which are always
+      // duplicates by construction. `AppendComponentToPath`
+      // correctly handles this by not appending m1.
+      ZETASQL_RET_CHECK(path_elements[index].type()->IsArray());
+      ZETASQL_RET_CHECK(path_elements[index]
+                    .type()
+                    ->AsArray()
+                    ->element_type()
+                    ->IsGraphElement());
+      const int group_var_array_length = path_elements[index].num_elements();
+      int last_group_var_index = index;
+      while (last_group_var_index + 1 < path_elements.size() &&
+             path_elements[last_group_var_index + 1].type()->IsArray()) {
+        last_group_var_index++;
+        ZETASQL_RET_CHECK_EQ(path_elements[last_group_var_index].num_elements(),
+                     group_var_array_length);
+      }
+      for (int i = 0; i < group_var_array_length; ++i) {
+        for (int j = index; j <= last_group_var_index; ++j) {
+          ZETASQL_RET_CHECK(path_elements[j].type()->IsArray());
+          ZETASQL_RETURN_IF_ERROR(AppendComponentToPath(
+              path_elements[j].element(i), path_type, context, components));
+        }
+      }
+      index = last_group_var_index + 1;
+      // The next element should be the tail node of the quantified path.
+      ZETASQL_RET_CHECK(path_elements[index].type()->IsGraphElement());
+      ZETASQL_RET_CHECK(path_elements[index].IsNode());
+    }
+  }
+  ZETASQL_RET_CHECK_EQ(index, path_elements.size());
+  return Value::MakeGraphPath(path_type, std::move(components));
+}
+
+// Takes left tuples, right tuples, and an arbitrary join predicate, and outputs
+// the joined tuples that match the join predicate.
+class GraphPathTupleIterator : public TupleIterator {
+ public:
+  GraphPathTupleIterator(
+      absl::Span<const TupleData* const> params,
+      std::vector<std::unique_ptr<TupleIterator>> path_factor_iterators,
+      std::vector<std::optional<ResolvedGraphEdgeScan::EdgeOrientation>>
+          edge_orientations,
+      const GraphPathType* path_type,
+      std::unique_ptr<TupleSchema> output_schema, int num_extra_slots,
+      EvaluationContext* context)
+      : params_(params.begin(), params.end()),
+        path_factor_iterators_(std::move(path_factor_iterators)),
+        edge_orientations_(edge_orientations),
+        path_type_(path_type),
+        output_schema_(std::move(output_schema)),
+        context_(context) {
+    output_tuple_.AddSlots(output_schema_->num_variables() + num_extra_slots);
+  }
+
+  GraphPathTupleIterator(const GraphPathTupleIterator&) = delete;
+  GraphPathTupleIterator& operator=(const GraphPathTupleIterator&) = delete;
+
+  const TupleSchema& Schema() const override { return *output_schema_; }
+
+  absl::Status Status() const override { return status_; }
+
+  std::string DebugString() const override { return "TODO: fill this later"; }
+
+ private:
+  // Extracts a value vector emitted by a graph path factor (a child of a path,
+  // can be an element or a subpath).
+  static absl::StatusOr<std::vector<Value>> GetPathVector(TupleData* tuple) {
+    std::vector<Value> subpath;
+    subpath.reserve(tuple->num_slots());
+    for (const TupleSlot& slot : tuple->slots()) {
+      // If the graph path factor is a subpath, skip adding its path variable.
+      if (slot.value().type()->IsGraphPath()) {
+        continue;
+      }
+      ZETASQL_RET_CHECK(slot.value().type()->IsGraphElement() ||
+                slot.value().type()->IsArray());
+      subpath.push_back(slot.value());
+    }
+    return subpath;
+  }
+
+  absl::StatusOr<std::vector<std::vector<Value>>> ExtractSubpathsFromPathFactor(
+      TupleIterator* path_factor_iterator) {
+    std::vector<std::vector<Value>> subpaths;
+    const int subpath_var_cnt = path_factor_iterator->Schema().num_variables();
+    while (true) {
+      TupleData* tuple = path_factor_iterator->Next();
+      ZETASQL_RETURN_IF_ERROR(path_factor_iterator->Status());
+      if (tuple == nullptr) {
+        break;
+      }
+      // Subpaths should have no extra_slots, and all subpaths have the same
+      // length.
+      ZETASQL_RET_CHECK_EQ(tuple->num_slots(), subpath_var_cnt);
+      ZETASQL_ASSIGN_OR_RETURN(std::vector<Value> subpath, GetPathVector(tuple));
+      subpaths.push_back(std::move(subpath));
+      ZETASQL_RETURN_IF_ERROR(
+          PeriodicallyVerifyNotAborted(context_, ++num_steps_computed_));
+    }
+
+    return subpaths;
+  }
+
+  static absl::StatusOr<bool> ElementsMatch(const Value& node,
+                                            const Value& edge, bool is_src) {
+    ZETASQL_RET_CHECK(node.type()->IsGraphElement());
+    ZETASQL_RET_CHECK(node.IsNode());
+    ZETASQL_RET_CHECK(edge.type()->IsGraphElement());
+    ZETASQL_RET_CHECK(edge.IsEdge());
+
+    return is_src ? node.GetIdentifier() == edge.GetSourceNodeIdentifier()
+                  : node.GetIdentifier() == edge.GetDestNodeIdentifier();
+  }
+
+  struct PathAndEndOrientation {
+    std::vector<Value> path;
+    // If the path ends in an edge, is_src_facing is:
+    // * True if the incoming node is expected to be the source node
+    // * False if it is expected to be the destination node
+    // It is meaningless if the path ends in a node.
+    bool is_src_facing;
+
+    PathAndEndOrientation(std::vector<Value> path, bool is_src_facing)
+        : path(std::move(path)), is_src_facing(is_src_facing) {}
+  };
+
+  absl::Status ExtendPath(const std::vector<Value>& path,
+                          absl::Span<const Value> path_to_append,
+                          int path_factor_index, bool is_src_facing,
+                          std::vector<PathAndEndOrientation>& new_paths) {
+    if (edge_orientations_[path_factor_index].has_value()) {
+      // `path_to_append` is an edge element.
+      ZETASQL_RET_CHECK_EQ(path_to_append.size(), 1);
+      const Value& element = path_to_append[0];
+      ZETASQL_RET_CHECK(element.type()->IsGraphElement());
+      ZETASQL_RET_CHECK(element.IsEdge());
+      ZETASQL_RET_CHECK(path.back().type()->IsGraphElement());
+      ZETASQL_RET_CHECK(path.back().IsNode());
+
+      // A directed self-edge has the same source and destination node. Such an
+      // edge is considered to be oriented both from right to left and left to
+      // right and therefore should be added only once, either in right-pointing
+      // or left-pointing direction. Here, we choose to add it in the
+      // right-pointing direction.
+      const bool is_self_edge =
+          element.GetSourceNodeIdentifier() == element.GetDestNodeIdentifier();
+      if (*edge_orientations_[path_factor_index] !=
+              ResolvedGraphEdgeScanEnums::LEFT ||
+          is_self_edge) {
+        ZETASQL_ASSIGN_OR_RETURN(bool elements_match,
+                         ElementsMatch(path.back(), element, /*is_src=*/true));
+        if (elements_match) {
+          // Copy the path, as it may match other elements
+          std::vector<Value> new_path = path;
+          new_path.push_back(element);
+          // The next node will have to be *dest* facing
+          new_paths.emplace_back(std::move(new_path),
+                                 /*is_src_facing=*/false);
+        }
+      }
+      if (*edge_orientations_[path_factor_index] !=
+              ResolvedGraphEdgeScanEnums::RIGHT &&
+          !is_self_edge) {
+        ZETASQL_ASSIGN_OR_RETURN(bool elements_match,
+                         ElementsMatch(path.back(), element, /*is_src=*/false));
+        if (elements_match) {
+          // Copy the path, as it may match other elements
+          std::vector<Value> new_path = path;
+          new_path.push_back(element);
+          // The next node will have to be *src* facing
+          new_paths.emplace_back(std::move(new_path),
+                                 /*is_src_facing=*/true);
+        }
+      }
+    } else {
+      // `path_to_append` is a node or a subpath.
+      ZETASQL_RET_CHECK(path_to_append.front().type()->IsGraphElement());
+      ZETASQL_RET_CHECK(path_to_append.back().type()->IsGraphElement());
+      ZETASQL_RET_CHECK(path_to_append.front().IsNode());
+      ZETASQL_RET_CHECK(path_to_append.back().IsNode());
+      bool elements_match = false;
+      if (path.back().IsEdge()) {
+        ZETASQL_ASSIGN_OR_RETURN(elements_match,
+                         ElementsMatch(path_to_append.front(), path.back(),
+                                       /*is_src=*/is_src_facing));
+      } else {
+        // Consecutive node patterns.
+        elements_match = path_to_append.front().GetIdentifier() ==
+                         path.back().GetIdentifier();
+      }
+      if (elements_match) {
+        // Extend the current `path` for future matching. `new_path`
+        // may contain consecutive node patterns: the semantic is that
+        // consecutive nodes must be the SAME nodes.
+        std::vector<Value> new_path;
+        new_path.reserve(path.size() + path_to_append.size());
+        new_path.insert(new_path.end(), path.begin(), path.end());
+        new_path.insert(new_path.end(), path_to_append.begin(),
+                        path_to_append.end());
+        new_paths.emplace_back(std::move(new_path),
+                               /*is_src_facing*/ false);
+      }
+    }
+
+    return PeriodicallyVerifyNotAborted(context_, ++num_steps_computed_);
+  }
+
+  absl::Status MaterializeAllPaths() {
+    // Materialize each scan, then join the path elements together.
+    // This is because each edge is a generator that encapsulates M*N actual
+    // edges. We unroll those first before joining with nodes.
+    //
+    // TODO: keep a map with alias names to add IS_SAME()
+    // constraints.
+    //
+    // Seed paths with the first node.
+    ZETASQL_ASSIGN_OR_RETURN(
+        std::vector<std::vector<Value>> seed_paths,
+        ExtractSubpathsFromPathFactor(path_factor_iterators_[0].get()));
+
+    // It a path ends in an edge, we need to keep track of its edge orientation.
+    std::vector<PathAndEndOrientation> paths;
+    paths.reserve(seed_paths.size());
+    for (std::vector<Value>& seed_path : seed_paths) {
+      ZETASQL_RET_CHECK(seed_path.front().type()->IsGraphElement());
+      ZETASQL_RET_CHECK(seed_path.back().type()->IsGraphElement());
+      ZETASQL_RET_CHECK(seed_path.front().IsNode());
+      ZETASQL_RET_CHECK(seed_path.back().IsNode());
+      paths.emplace_back(std::move(seed_path), /*is_src_facing=*/false);
+      ZETASQL_RETURN_IF_ERROR(
+          PeriodicallyVerifyNotAborted(context_, ++num_steps_computed_));
+    }
+
+    // For all the next iterators, do a hash join between the tail of each
+    // current path and the head of a new subpath.
+    for (int i = 1; i < path_factor_iterators_.size(); ++i) {
+      ZETASQL_ASSIGN_OR_RETURN(
+          const std::vector<std::vector<Value>> cur_subpaths,
+          ExtractSubpathsFromPathFactor(path_factor_iterators_[i].get()));
+
+      // This could be changed to a hash-join in the future.
+      std::vector<PathAndEndOrientation> new_paths;
+      for (const auto& [path, is_src_facing] : paths) {
+        for (const std::vector<Value>& subpath : cur_subpaths) {
+          ZETASQL_RETURN_IF_ERROR(
+              ExtendPath(path, subpath, i, is_src_facing, new_paths));
+        }
+      }
+
+      paths = std::move(new_paths);
+    }
+
+    // We can eliminate this copying by just leaving the directionality bit.
+    materialized_paths_ = std::vector<std::vector<Value>>{};
+    materialized_paths_->reserve(paths.size());
+    for (const auto& [path, is_src_facing] : paths) {
+      materialized_paths_->push_back(std::move(path));
+      ZETASQL_RETURN_IF_ERROR(
+          PeriodicallyVerifyNotAborted(context_, ++num_steps_computed_));
+    }
+
+    return absl::OkStatus();
+  }
+
+  // This is a trivial implementation that materializes all paths before
+  // returning anything. We can improve that to a streaming API in the future.
+  TupleData* Next() override {
+    if (!materialized_paths_.has_value()) {
+      absl::Status materialization_status = MaterializeAllPaths();
+      if (!materialization_status.ok()) {
+        status_ = materialization_status;
+        return nullptr;
+      }
+    }
+    if (num_results_consumed_ == materialized_paths_->size()) {
+      return nullptr;
+    }
+
+    absl::Status fill_tuple_status =
+        FillTuple(materialized_paths_->at(num_results_consumed_++));
+    if (!fill_tuple_status.ok()) {
+      status_ = fill_tuple_status;
+      return nullptr;
+    }
+    return &output_tuple_;
+  }
+
+  absl::Status FillTuple(absl::Span<const Value> path_elements) {
+    for (int i = 0; i < path_elements.size(); ++i) {
+      ZETASQL_RET_CHECK(path_elements[i].type()->IsGraphElement() ||
+                path_elements[i].type()->IsArray());
+      output_tuple_.mutable_slot(i)->SetValue(path_elements[i]);
+    }
+    if (path_type_) {
+      ZETASQL_ASSIGN_OR_RETURN(Value path,
+                       BuildPath(path_elements, path_type_, context_));
+      output_tuple_.mutable_slot(static_cast<int>(path_elements.size()))
+          ->SetValue(std::move(path));
+    }
+    return absl::OkStatus();
+  }
+
+  const std::vector<const TupleData*> params_;
+  std::vector<std::unique_ptr<TupleIterator>> path_factor_iterators_;
+  std::vector<std::optional<ResolvedGraphEdgeScan::EdgeOrientation>>
+      edge_orientations_;
+  // If this is non-null, materialize a path variable with this type.
+  const GraphPathType* path_type_;
+  std::unique_ptr<const TupleSchema> output_schema_;
+
+  EvaluationContext* context_;
+
+  std::optional<std::vector<std::vector<Value>>> materialized_paths_;
+  int num_results_consumed_ = 0;
+
+  TupleData output_tuple_;
+
+  absl::Status status_;
+
+  // Used to check periodically for timeouts. It doesn't necessarily correspond
+  // to output rows, e.g. we may be iterating over a vector to copy things.
+  // We do not want to wait for the full copying to happen.
+  uint64_t num_steps_computed_ = 0;
+};
+}  // namespace
+
+absl::StatusOr<std::unique_ptr<TupleIterator>> GraphPathOp::CreateIterator(
+    absl::Span<const TupleData* const> params, int num_extra_slots,
+    EvaluationContext* context) const {
+  std::vector<std::unique_ptr<TupleIterator>> path_factor_iterators;
+  path_factor_iterators.reserve(num_rel());
+  for (int i = 0; i < num_rel(); ++i) {
+    // All subpaths below the top-level path should get num_extra_slots = 0.
+    ZETASQL_ASSIGN_OR_RETURN(
+        std::unique_ptr<TupleIterator> path_factor_iterator,
+        rel(i)->CreateIterator(params, /*num_extra_slots*/ 0, context));
+    path_factor_iterators.push_back(std::move(path_factor_iterator));
+  }
+
+  std::unique_ptr<TupleIterator> graph_path_iter =
+      std::make_unique<GraphPathTupleIterator>(
+          params, std::move(path_factor_iterators), edge_orientations_,
+          path_type_, CreateOutputSchema(), num_extra_slots, context);
+  return MaybeReorder(std::move(graph_path_iter), context);
+}
+
+// -------------------------------------------------------
+// QuantifiedGraphPathOp
+// -------------------------------------------------------
+absl::StatusOr<std::unique_ptr<QuantifiedGraphPathOp>>
+QuantifiedGraphPathOp::Create(std::unique_ptr<RelationalOp> path_primary_op,
+                              VariablesInfo variables,
+                              std::unique_ptr<ValueExpr> lower_bound,
+                              std::unique_ptr<ValueExpr> upper_bound,
+                              const GraphPathType* path_type) {
+  if (lower_bound != nullptr) {
+    ZETASQL_RET_CHECK(lower_bound->output_type()->IsInt64());
+  }
+  if (upper_bound != nullptr) {
+    ZETASQL_RET_CHECK(upper_bound->output_type()->IsInt64());
+  }
+  return absl::WrapUnique(new QuantifiedGraphPathOp(
+      std::move(path_primary_op), std::move(variables), std::move(lower_bound),
+      std::move(upper_bound), path_type));
+}
+
+QuantifiedGraphPathOp::QuantifiedGraphPathOp(
+    std::unique_ptr<RelationalOp> path_primary_op, VariablesInfo variables,
+    std::unique_ptr<ValueExpr> lower_bound,
+    std::unique_ptr<ValueExpr> upper_bound, const GraphPathType* path_type)
+    : path_primary_op_(std::move(path_primary_op)),
+      path_type_(path_type),
+      variables_(std::move(variables)),
+      lower_bound_(std::move(lower_bound)),
+      upper_bound_(std::move(upper_bound)) {}
+
+std::string QuantifiedGraphPathOp::DebugInternal(const std::string& indent,
+                                                 bool verbose) const {
+  const std::string indent_input = absl::StrCat(indent, kIndentFork);
+  std::string path_var_str = "";
+  if (path_type_ != nullptr && variables_.path.is_valid()) {
+    path_var_str =
+        indent_input + "path_variable: " + variables_.path.ToString() + ",";
+  }
+  return absl::StrCat(
+      "QuantifiedGraphPathOp(", path_var_str, indent_input,
+      "lower_bound=", lower_bound_->DebugInternal(indent, verbose),
+      indent_input,
+      "upper_bound=", upper_bound_->DebugInternal(indent, verbose),
+      indent_input, "path_primary_op=",
+      path_primary_op_->DebugInternal(indent + kIndentSpace, verbose), ")");
+}
+
+absl::Status QuantifiedGraphPathOp::SetSchemasForEvaluation(
+    absl::Span<const TupleSchema* const> params_schemas) {
+  if (lower_bound_ != nullptr) {
+    ZETASQL_RETURN_IF_ERROR(lower_bound_->SetSchemasForEvaluation(params_schemas));
+  }
+  if (upper_bound_ != nullptr) {
+    ZETASQL_RETURN_IF_ERROR(upper_bound_->SetSchemasForEvaluation(params_schemas));
+  }
+  ZETASQL_RETURN_IF_ERROR(path_primary_op_->SetSchemasForEvaluation(params_schemas));
+  return absl::OkStatus();
+}
+
+std::unique_ptr<TupleSchema> QuantifiedGraphPathOp::CreateOutputSchema() const {
+  std::vector<VariableId> variables;
+  bool has_path_var = path_type_ != nullptr;
+  int num_extra_variables = 2;  // head and tail
+  if (has_path_var) {
+    num_extra_variables += 1;  // path variable
+  }
+  variables.reserve(variables_.group_variables.size() + num_extra_variables);
+  variables.push_back(variables_.head);
+  for (const GroupVariableInfo& group_variable_info :
+       variables_.group_variables) {
+    variables.push_back(group_variable_info.group_variable);
+  }
+  variables.push_back(variables_.tail);
+  if (has_path_var) {
+    variables.push_back(variables_.path);
+  }
+  return std::make_unique<TupleSchema>(variables);
+}
+
+std::string QuantifiedGraphPathOp::IteratorDebugString() const {
+  return absl::StrCat("QuantifiedGraphPathTupleIterator");
+}
+
+namespace {
+
+class QuantifiedGraphPathTupleIterator : public TupleIterator {
+ public:
+  static absl::StatusOr<std::unique_ptr<TupleIterator>> Create(
+      absl::Span<const TupleData* const> params,
+      std::unique_ptr<TupleSchema> output_schema, int num_extra_slots,
+      std::unique_ptr<TupleIterator> path_primary_iterator, int64_t lower_bound,
+      int64_t upper_bound,
+      std::vector<QuantifiedGraphPathOp::GroupVariableInfo> group_variable_info,
+      const GraphPathType* path_type, EvaluationContext* context) {
+    return absl::WrapUnique(new QuantifiedGraphPathTupleIterator(
+        params, std::move(output_schema), num_extra_slots,
+        std::move(path_primary_iterator), lower_bound, upper_bound,
+        std::move(group_variable_info), path_type, context));
+  }
+
+  const TupleSchema& Schema() const override { return *output_schema_; }
+
+  absl::Status Status() const override { return status_; }
+
+  // Extract the valid paths by iterating over the contained path primary and
+  // construct a reachability list for the 1-st iteration of the quantified
+  // path.
+  absl::Status Initialize() {
+    TupleData* tuple = path_primary_iterator_->Next();
+    while (tuple != nullptr) {
+      const Value& head_value = tuple->slot(0).value();
+      const Value& tail_value =
+          path_type_ != nullptr ? tuple->slot(tuple->num_slots() - 2).value()
+                                : tuple->slots().back().value();
+      std::vector<Value> group_variables;
+      for (int i = 0; i < group_variable_info_.size(); ++i) {
+        ZETASQL_RET_CHECK_LT(group_variable_info_[i].singleton_slot_index,
+                     tuple->num_slots());
+        group_variables.push_back(
+            tuple->slot(group_variable_info_[i].singleton_slot_index).value());
+      }
+      precomputed_paths_single_iteration_[head_value.GetIdentifier()].push_back(
+          {tail_value, std::move(group_variables)});
+      starting_nodes_.insert(head_value);
+      tuple = path_primary_iterator_->Next();
+    }
+    return path_primary_iterator_->Status();
+  }
+
+  // A naive materialization of all quantified paths by walking
+  // 'precomputed_paths_single_iteration_'.
+  absl::Status MaterializeAllQuantifiedPaths() {
+    materialized_paths_ = std::vector<std::vector<Value>>{};
+    // Queue that holds paths from start until current iteration.
+    std::queue<PathState> queue;
+    for (const Value& node : starting_nodes_) {
+      queue.push({.iteration = 0,
+                  .head = node,
+                  .tail = node,
+                  .group_variables = std::vector<std::vector<Value>>(
+                      group_variable_info_.size())});
+    }
+    while (!queue.empty()) {
+      PathState current_path = std::move(queue.front());
+      queue.pop();
+      auto it = precomputed_paths_single_iteration_.find(
+          current_path.tail.GetIdentifier());
+      // If we cannot find an outgoing node from 'current_path.tail', we
+      // cannot extend this path further.
+      if (it == precomputed_paths_single_iteration_.end()) {
+        continue;
+      }
+      for (const OneHopData& single_iteration : it->second) {
+        std::vector<std::vector<Value>> new_group_variables =
+            current_path.group_variables;
+        for (int idx = 0; idx < new_group_variables.size(); ++idx) {
+          new_group_variables[idx].push_back(
+              single_iteration.group_variables[idx]);
+        }
+        int iteration = current_path.iteration + 1;
+        if (iteration <= upper_bound_ && iteration >= lower_bound_) {
+          std::vector<Value> path;
+          path.reserve(new_group_variables.size() + 2);
+          path.push_back(current_path.head);
+          for (int idx = 0; idx < new_group_variables.size(); ++idx) {
+            ZETASQL_ASSIGN_OR_RETURN(
+                Value array,
+                Value::MakeArray(group_variable_info_[idx].array_type,
+                                 new_group_variables[idx]));
+            path.push_back(std::move(array));
+          }
+          path.push_back(single_iteration.destination);
+          materialized_paths_->push_back(std::move(path));
+        }
+        // If not at the final iteration, queue values for the next iteration.
+        if (iteration < upper_bound_) {
+          queue.push({.iteration = iteration,
+                      .head = current_path.head,
+                      .tail = single_iteration.destination,
+                      .group_variables = std::move(new_group_variables)});
+        }
+      }
+    }
+    return absl::OkStatus();
+  }
+
+  TupleData* Next() override {
+    absl::Status status;
+    if (should_initialize()) {
+      status = Initialize();
+      if (!status.ok()) {
+        status_ = std::move(status);
+        return nullptr;
+      }
+      status = MaterializeAllQuantifiedPaths();
+      if (!status.ok()) {
+        status_ = std::move(status);
+        return nullptr;
+      }
+    }
+    if (num_results_consumed_ == materialized_paths_->size()) {
+      return nullptr;
+    }
+    absl::Status fill_tuple_status =
+        FillTuple(materialized_paths_->at(num_results_consumed_++));
+    if (!fill_tuple_status.ok()) {
+      status_ = fill_tuple_status;
+      return nullptr;
+    }
+    return &output_tuple_;
+  }
+
+  absl::Status FillTuple(absl::Span<const Value> path_elements) {
+    for (int i = 0; i < path_elements.size(); ++i) {
+      output_tuple_.mutable_slot(i)->SetValue(path_elements[i]);
+    }
+
+    if (path_type_) {
+      // Excluding the path variable which we are now building.
+      const int num_variables = Schema().num_variables() - 1;
+      // This must be a quantified path, composed of a head, a list of group
+      // variables, and a tail.
+      ZETASQL_RET_CHECK_GE(num_variables, 3);
+      ZETASQL_RET_CHECK_EQ(output_tuple_.slot(0).value().type_kind(),
+                   TYPE_GRAPH_ELEMENT);
+      for (int i = 1; i < num_variables - 1; ++i) {
+        ZETASQL_RET_CHECK_EQ(output_tuple_.slot(i).value().type_kind(), TYPE_ARRAY);
+      }
+      ZETASQL_RET_CHECK_EQ(output_tuple_.slot(num_variables - 1).value().type_kind(),
+                   TYPE_GRAPH_ELEMENT);
+
+      ZETASQL_ASSIGN_OR_RETURN(Value path,
+                       BuildPath(path_elements, path_type_, context_));
+      output_tuple_.mutable_slot(static_cast<int>(path_elements.size()))
+          ->SetValue(std::move(path));
+    }
+    return absl::OkStatus();
+  }
+
+  std::string DebugString() const override {
+    return absl::StrCat(
+        "QuantifiedGraphPathTupleIterator: ", "path_primary iterator: ",
+        (path_primary_iterator_ != nullptr
+             ? path_primary_iterator_->DebugString()
+             : "nullptr"));
+  }
+
+ private:
+  QuantifiedGraphPathTupleIterator(
+      absl::Span<const TupleData* const> params,
+      std::unique_ptr<TupleSchema> output_schema, int num_extra_slots,
+      std::unique_ptr<TupleIterator> path_primary_iterator, int64_t lower_bound,
+      int64_t upper_bound,
+      std::vector<QuantifiedGraphPathOp::GroupVariableInfo> group_variable_info,
+      const GraphPathType* path_type, EvaluationContext* context)
+      : params_(params.begin(), params.end()),
+        output_schema_(std::move(output_schema)),
+        path_primary_iterator_(std::move(path_primary_iterator)),
+        lower_bound_(lower_bound),
+        upper_bound_(upper_bound),
+        group_variable_info_(std::move(group_variable_info)),
+        path_type_(path_type),
+        context_(context) {
+    output_tuple_.AddSlots(output_schema_->num_variables() + num_extra_slots);
+  }
+
+  // Represents a single hop of `path_primary_iterator` given a starting node.
+  struct OneHopData {
+    // The node we get to.
+    Value destination;
+    // The values that the group variables take along this one hop. We have one
+    // value per group variable.
+    std::vector<Value> group_variables;
+  };
+
+  // Represents the state of a partial or fully materialized quantified path.
+  struct PathState {
+    // The number of times we've traversed `path_primary_iterator_`. The size of
+    // each inner vector in `group_variables` must match `iteration`.
+    int iteration = 0;
+    // The head of the path.
+    Value head;
+    // The tail of the path.
+    Value tail;
+    // The group variables of the path. The outer vector is per group variable,
+    // the inner vector is the Values that that group variable takes.
+    std::vector<std::vector<Value>> group_variables;
+  };
+
+  bool should_initialize() { return !materialized_paths_.has_value(); }
+
+  const std::vector<const TupleData*> params_;
+  std::unique_ptr<const TupleSchema> output_schema_;
+
+  std::unique_ptr<TupleIterator> path_primary_iterator_;
+  int num_results_consumed_ = 0;
+
+  TupleData output_tuple_;
+
+  absl::Status status_;
+  int64_t lower_bound_;
+  int64_t upper_bound_;
+
+  // How to populate each group variable. Order of this vector matches the
+  // underlying GraphPathScan's `group_variable_list`.
+  std::vector<QuantifiedGraphPathOp::GroupVariableInfo> group_variable_info_;
+
+  // If non-null, materialize a path value at the final slot.
+  const GraphPathType* path_type_;
+
+  // The EvaluationContext.
+  EvaluationContext* context_;
+
+  // A map of reachable nodes from every starting node's identifier for this
+  // quantified path. Quantifying this path repeats the path primary up to N
+  // times and concatenates the tail of the previous iteration with the head of
+  // the current iteration. We index on identifier because we may see the same
+  // node with different properties. By default, Value::operator== sees those
+  // as different.
+  absl::flat_hash_map<std::string, std::vector<OneHopData>>
+      precomputed_paths_single_iteration_;
+
+  struct IdentifierLessThan {
+    bool operator()(const Value& a, const Value& b) const {
+      ABSL_DCHECK(a.type_kind() == TYPE_GRAPH_ELEMENT && a.IsNode() &&
+             b.type_kind() == TYPE_GRAPH_ELEMENT && b.IsNode());
+      return a.GetIdentifier() < b.GetIdentifier();
+    }
+  };
+
+  // A set of starting nodes for this quantified path.
+  // The values inserted must be graph nodes.
+  // We're using a sorted structure to get deterministic results.
+  absl::btree_set<Value, IdentifierLessThan> starting_nodes_;
+
+  // Temporarily stores the materialized paths before they're outputted.
+  std::optional<std::vector<std::vector<Value>>> materialized_paths_;
+};
+
+}  // namespace
+
+absl::StatusOr<std::unique_ptr<TupleIterator>>
+QuantifiedGraphPathOp::CreateIterator(absl::Span<const TupleData* const> params,
+                                      int num_extra_slots,
+                                      EvaluationContext* context) const {
+  // Perform validations on lower and upper bounds here since the resolver may
+  // not have validated them if they were given as parameters.
+  int64_t lower_bound_val = 0,
+          upper_bound_val = std::numeric_limits<int64_t>::max();
+  if (lower_bound_ != nullptr) {
+    TupleSlot bound_slot;
+    absl::Status status;
+    ZETASQL_RET_CHECK(lower_bound_->EvalSimple(params, context, &bound_slot, &status))
+        << status;
+    if (bound_slot.value().is_null()) {
+      return absl::Status(absl::StatusCode::kOutOfRange,
+                          "Lower bound must be non-null.");
+    }
+
+    lower_bound_val = bound_slot.value().int64_value();
+    if (lower_bound_val == 0) {
+      // TODO: Add support for 0-th iteration
+      return absl::UnimplementedError(
+          "QuantifiedGraphPathOp for a lower bound of 0 is not yet "
+          "implemented.");
+    } else if (lower_bound_val < 0) {
+      return absl::Status(absl::StatusCode::kOutOfRange,
+                          "Lower bound must be non-negative.");
+    }
+  }
+  if (upper_bound_ != nullptr) {
+    TupleSlot bound_slot;
+    absl::Status status;
+    ZETASQL_RET_CHECK(upper_bound_->EvalSimple(params, context, &bound_slot, &status))
+        << status;
+    if (bound_slot.value().is_null()) {
+      return absl::Status(absl::StatusCode::kOutOfRange,
+                          "Upper bound must be non-null.");
+    }
+
+    upper_bound_val = bound_slot.value().int64_value();
+    if (upper_bound_val <= 0) {
+      return absl::Status(absl::StatusCode::kOutOfRange,
+                          "Upper bound cannot be 0 or less");
+    } else if (upper_bound_val < lower_bound_val) {
+      return absl::Status(absl::StatusCode::kOutOfRange,
+                          "Upper bound must be greater than lower bound.");
+    }
+  }
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::unique_ptr<TupleIterator> path_primary_iterator,
+      path_primary_op_->CreateIterator(params, /*num_extra_slots*/ 0, context));
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::unique_ptr<TupleIterator> quantified_path_iter,
+      QuantifiedGraphPathTupleIterator::Create(
+          params, CreateOutputSchema(), num_extra_slots,
+          std::move(path_primary_iterator), lower_bound_val, upper_bound_val,
+          variables_.group_variables, path_type_, context));
+  return MaybeReorder(std::move(quantified_path_iter), context);
+}
+
+absl::StatusOr<std::unique_ptr<RelationalOp>> GraphPathModeOp::Create(
+    ResolvedGraphPathMode::PathMode path_mode,
+    std::unique_ptr<RelationalOp> path_op) {
+  switch (path_mode) {
+    case ResolvedGraphPathMode::PATH_MODE_UNSPECIFIED:
+    case ResolvedGraphPathMode::WALK:
+      return std::move(path_op);
+    case ResolvedGraphPathMode::SIMPLE:
+      return absl::WrapUnique(new GraphSimplePathModeOp(std::move(path_op)));
+    case ResolvedGraphPathMode::ACYCLIC:
+      return absl::WrapUnique(new GraphAcyclicPathModeOp(std::move(path_op)));
+    case ResolvedGraphPathMode::TRAIL:
+      return absl::WrapUnique(new GraphTrailPathModeOp(std::move(path_op)));
+    default:
+      return absl::UnimplementedError("Unsupported path mode");
+  }
+}
+
+GraphPathModeOp::GraphPathModeOp(std::unique_ptr<RelationalOp> path_op) {
+  SetArg(kInput, std::make_unique<RelationalArg>(std::move(path_op)));
+}
+
+const RelationalOp* GraphPathModeOp::input() const {
+  return GetArg(kInput)->node()->AsRelationalOp();
+}
+
+RelationalOp* GraphPathModeOp::mutable_input() {
+  return GetMutableArg(kInput)->mutable_node()->AsMutableRelationalOp();
+}
+
+absl::Status GraphPathModeOp::SetSchemasForEvaluation(
+    absl::Span<const TupleSchema* const> params_schemas) {
+  return mutable_input()->SetSchemasForEvaluation(params_schemas);
+}
+
+std::unique_ptr<TupleSchema> GraphPathModeOp::CreateOutputSchema() const {
+  return input()->CreateOutputSchema();
+}
+
+std::string GraphPathModeOp::GetIteratorDebugString(
+    absl::string_view input_iter_debug_string) {
+  return absl::StrCat("GraphPathModeTupleIterator(", input_iter_debug_string,
+                      ")");
+}
+
+std::string GraphPathModeOp::IteratorDebugString() const {
+  return GetIteratorDebugString(input()->IteratorDebugString());
+}
+
+std::string GraphPathModeOp::DebugInternal(const std::string& indent,
+                                           bool verbose) const {
+  return absl::StrCat("Graph", path_mode_str(), "PathModeOp(",
+                      ArgDebugString({"input"}, {k1}, indent, verbose), ")");
+}
+
+namespace {
+
+class GraphPathModeTupleIterator : public TupleIterator {
+ public:
+  explicit GraphPathModeTupleIterator(std::unique_ptr<TupleIterator> iter,
+                                      int num_extra_slots)
+      : iter_(std::move(iter)), num_extra_slots_(num_extra_slots) {}
+
+  GraphPathModeTupleIterator(const GraphPathModeTupleIterator&) = delete;
+  GraphPathModeTupleIterator& operator=(const GraphPathModeTupleIterator&) =
+      delete;
+
+  const TupleSchema& Schema() const override { return iter_->Schema(); }
+
+  TupleData* Next() override {
+    while (true) {
+      TupleData* current = iter_->Next();
+      if (current == nullptr) {
+        status_ = iter_->Status();
+        return nullptr;
+      }
+      // The tuple contains at least `num_extra_slots_` slots. If `path_length`
+      // is at most 1 then the path is trivially valid.
+      int path_length =
+          static_cast<int>(current->slots().size()) - num_extra_slots_;
+      if (path_length < 2) {
+        return current;
+      }
+      GraphPath path = absl::MakeSpan(&current->slots()[0], path_length);
+      if (ShouldKeep(path)) {
+        return current;
+      }
+    }
+  }
+
+  absl::Status Status() const override { return status_; }
+
+  std::string DebugString() const override {
+    return GraphPathModeOp::GetIteratorDebugString(iter_->DebugString());
+  }
+
+ protected:
+  using GraphPath = absl::Span<const TupleSlot>;
+  struct EdgeIdentifierType {
+    const Value& edge;
+
+    explicit EdgeIdentifierType(const Value& edge) : edge(edge) {}
+    bool operator==(const EdgeIdentifierType& that) const {
+      return edge.GetIdentifier() == that.edge.GetIdentifier() &&
+             edge.GetSourceNodeIdentifier() ==
+                 that.edge.GetSourceNodeIdentifier() &&
+             edge.GetDestNodeIdentifier() == that.edge.GetDestNodeIdentifier();
+    }
+    template <typename H>
+    friend H AbslHashValue(H h, const EdgeIdentifierType& id) {
+      return H::combine(std::move(h), id.edge.GetIdentifier(),
+                        id.edge.GetSourceNodeIdentifier(),
+                        id.edge.GetDestNodeIdentifier());
+    }
+  };
+
+  struct NodeIdentifierType {
+    const Value& node;
+
+    explicit NodeIdentifierType(const Value& node) : node(node) {}
+    bool operator==(const NodeIdentifierType& that) const {
+      return node.GetIdentifier() == that.node.GetIdentifier();
+    }
+    template <typename H>
+    friend H AbslHashValue(H h, const NodeIdentifierType& id) {
+      return H::combine(std::move(h), id.node.GetIdentifier());
+    }
+  };
+
+  absl::flat_hash_set<EdgeIdentifierType> discovered_edges_;
+  absl::flat_hash_set<NodeIdentifierType> discovered_nodes_;
+  std::optional<NodeIdentifierType> first_node_;
+
+ private:
+  virtual bool IsTrivialPath(GraphPath path) = 0;
+  virtual bool MaybeDiscardEdge(EdgeIdentifierType edge_id) { return false; }
+  virtual bool MaybeDiscardNode(NodeIdentifierType node_id, bool is_last) {
+    return false;
+  }
+
+  bool ShouldKeep(GraphPath path) {
+    if (IsTrivialPath(path)) {
+      return true;
+    }
+    std::optional<NodeIdentifierType> last_seen_node;
+    discovered_edges_.clear();
+    discovered_nodes_.clear();
+    first_node_.reset();
+    for (const TupleSlot& el : path) {
+      if (el.value().type_kind() == TYPE_GRAPH_PATH) {
+        continue;
+      }
+      if (el.value().type_kind() == TYPE_GRAPH_ELEMENT) {
+        if (el.value().IsEdge()) {
+          if (MaybeDiscardEdge(EdgeIdentifierType(el.value()))) {
+            return false;
+          }
+          if (last_seen_node.has_value() &&
+              MaybeDiscardNode(*last_seen_node, /*is_last=*/false)) {
+            return false;
+          }
+          last_seen_node.reset();
+        } else if (el.value().IsNode() && !last_seen_node.has_value()) {
+          // Skip duplicate node elements without intermediate edges in between.
+          last_seen_node.emplace(el.value());
+        }
+      } else {
+        ABSL_DCHECK_EQ(el.value().type_kind(), TYPE_ARRAY);  // Crash OK
+        const Type* array_element_type =
+            el.value().type()->AsArray()->element_type();
+        ABSL_DCHECK(array_element_type->IsGraphElement());  // Crash OK
+        // Quantified paths are represented as multiple arrays corresponding to
+        // graph elements that represent each group variable prefixed and
+        // suffixed by the scalar head and tail node elements. E.g. a path
+        // (a)->((b)-[e]->(c)){1,3}(d) has the following representation:
+        // [a, head, [b_0, ... b_i], [e_0, ... e_i], [c_0, ... c_i], tail, d].
+        // Note that a == head == b_0, b_i == c_0, and c_i == tail == d by
+        // construction.
+        if (array_element_type->AsGraphElement()->IsEdge()) {
+          for (const auto& val : el.value().elements()) {
+            if (MaybeDiscardEdge(EdgeIdentifierType(val))) {
+              return false;
+            }
+          }
+          if (last_seen_node.has_value() &&
+              MaybeDiscardNode(*last_seen_node, /*is_last=*/false)) {
+            return false;
+          }
+          last_seen_node.reset();
+        } else if (array_element_type->AsGraphElement()->IsNode()) {
+          // `last_seen_node` is always set when the first node variable group
+          // is processed because of the explicit preceding 'head' node element.
+          // Nodes in first node variable group can always be skipped because
+          // they are always the same as preceding scalar 'head' node element,
+          // node elements from the last node variable group, or scalar 'tail'
+          // node element.
+          if (last_seen_node.has_value()) {
+            if (MaybeDiscardNode(*last_seen_node,
+                                 /*is_last=*/false)) {
+              return false;
+            }
+            last_seen_node.reset();
+          } else {
+            for (const auto& val : el.value().elements()) {
+              if (last_seen_node.has_value()) {
+                if (MaybeDiscardNode(*last_seen_node,
+                                     /*is_last=*/false)) {
+                  return false;
+                }
+              }
+              last_seen_node.emplace(val);
+            }
+          }
+        }
+      }
+    }
+    ABSL_DCHECK(last_seen_node.has_value());  // Crash OK
+    return !MaybeDiscardNode(*last_seen_node, /*is_last=*/true);
+  }
+
+  std::unique_ptr<TupleIterator> iter_;
+  const int num_extra_slots_;
+  absl::Status status_;
+};
+
+class GraphTrailPathModeTupleIterator final
+    : public GraphPathModeTupleIterator {
+ public:
+  explicit GraphTrailPathModeTupleIterator(std::unique_ptr<TupleIterator> iter,
+                                           int num_extra_slots)
+      : GraphPathModeTupleIterator(std::move(iter), num_extra_slots) {}
+
+  GraphTrailPathModeTupleIterator(const GraphTrailPathModeTupleIterator&) =
+      delete;
+  GraphTrailPathModeTupleIterator& operator=(
+      const GraphTrailPathModeTupleIterator&) = delete;
+
+ private:
+  bool IsTrivialPath(GraphPath path) override {
+    // Path of length <=3 contains at most 1 edge.
+    return path.size() <= 3;
+  }
+  // Returns true iff the path does not contain duplicate edges.
+  bool MaybeDiscardEdge(EdgeIdentifierType edge_id) override {
+    const auto [it, inserted] = discovered_edges_.insert(edge_id);
+    return !inserted;
+  }
+};
+
+class GraphAcyclicPathModeTupleIterator final
+    : public GraphPathModeTupleIterator {
+ public:
+  explicit GraphAcyclicPathModeTupleIterator(
+      std::unique_ptr<TupleIterator> iter, int num_extra_slots)
+      : GraphPathModeTupleIterator(std::move(iter), num_extra_slots) {}
+
+  GraphAcyclicPathModeTupleIterator(const GraphAcyclicPathModeTupleIterator&) =
+      delete;
+  GraphAcyclicPathModeTupleIterator& operator=(
+      const GraphAcyclicPathModeTupleIterator&) = delete;
+
+ private:
+  bool IsTrivialPath(GraphPath path) override {
+    // Singleton paths are trivially acyclic.
+    return path.size() <= 1;
+  }
+  // Returns if the path contains duplicate nodes.
+  bool MaybeDiscardNode(NodeIdentifierType node_id, bool is_last) override {
+    return !discovered_nodes_.insert(node_id).second;
+  }
+};
+
+class GraphSimplePathModeTupleIterator final
+    : public GraphPathModeTupleIterator {
+ public:
+  explicit GraphSimplePathModeTupleIterator(std::unique_ptr<TupleIterator> iter,
+                                            int num_extra_slots)
+      : GraphPathModeTupleIterator(std::move(iter), num_extra_slots) {}
+
+  GraphSimplePathModeTupleIterator(const GraphSimplePathModeTupleIterator&) =
+      delete;
+  GraphSimplePathModeTupleIterator& operator=(
+      const GraphSimplePathModeTupleIterator&) = delete;
+
+ private:
+  bool IsTrivialPath(GraphPath path) override {
+    // Path of length up to 3 contains at most 2 nodes and we don't care whether
+    // they are the same or not.
+    return path.size() <= 3;
+  }
+  // Returns if the path contains duplicate nodes, except first and last nodes
+  // which could be the same.
+  bool MaybeDiscardNode(NodeIdentifierType node_id, bool is_last) override {
+    if (!first_node_.has_value()) {
+      first_node_.emplace(node_id);
+    }
+    if (is_last && first_node_ == node_id) {
+      return false;
+    }
+    return !discovered_nodes_.insert(node_id).second;
+  }
+};
+
+}  // namespace
+
+absl::StatusOr<std::unique_ptr<TupleIterator>>
+GraphTrailPathModeOp::CreateIterator(absl::Span<const TupleData* const> params,
+                                     int num_extra_slots,
+                                     EvaluationContext* context) const {
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<TupleIterator> iter,
+                   input()->CreateIterator(params, num_extra_slots, context));
+  iter = std::make_unique<GraphTrailPathModeTupleIterator>(std::move(iter),
+                                                           num_extra_slots);
+  return MaybeReorder(std::move(iter), context);
+}
+
+absl::StatusOr<std::unique_ptr<TupleIterator>>
+GraphAcyclicPathModeOp::CreateIterator(
+    absl::Span<const TupleData* const> params, int num_extra_slots,
+    EvaluationContext* context) const {
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<TupleIterator> iter,
+                   input()->CreateIterator(params, num_extra_slots, context));
+  iter = std::make_unique<GraphAcyclicPathModeTupleIterator>(std::move(iter),
+                                                             num_extra_slots);
+  return MaybeReorder(std::move(iter), context);
+}
+
+absl::StatusOr<std::unique_ptr<TupleIterator>>
+GraphSimplePathModeOp::CreateIterator(absl::Span<const TupleData* const> params,
+                                      int num_extra_slots,
+                                      EvaluationContext* context) const {
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<TupleIterator> iter,
+                   input()->CreateIterator(params, num_extra_slots, context));
+  iter = std::make_unique<GraphSimplePathModeTupleIterator>(std::move(iter),
+                                                            num_extra_slots);
+  return MaybeReorder(std::move(iter), context);
+}
+
 namespace {
 
 // Iterates over the input from `input_iterator` and evaluates `condition` on

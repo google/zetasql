@@ -44,7 +44,7 @@ namespace zetasql {
 // behavior differs by language version, flags, or other options.
 class LanguageOptions {
  public:
-  // Represetends a set of a language features.
+  // Represents a set of a language features.
   using LanguageFeatureSet = absl::flat_hash_set<LanguageFeature>;
 
   // Represents a set of keywords.

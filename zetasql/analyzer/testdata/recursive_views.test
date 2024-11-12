@@ -1,5 +1,5 @@
 # View using RECURSIVE keyword, but not actually recursive.
-[default language_features=V_1_3_WITH_RECURSIVE,V_1_1_WITH_ON_SUBQUERY]
+[default language_features=V_1_3_WITH_RECURSIVE,V_1_1_WITH_ON_SUBQUERY,PIPES]
 create {{materialized|}} recursive view tt
 as select 1 a, 2 b
 --
@@ -379,7 +379,7 @@ CREATE RECURSIVE VIEW a.b AS (
   SELECT * FROM a.b
 );
 --
-ERROR: Recursive query does not have the form <non-recursive-term> UNION [ALL|DISTINCT] <recursive-term> [at 2:3]
+ERROR: Recursive query does not have the form <non-recursive-term> UNION [ALL|DISTINCT] <recursive-term> or the pipe form <non-recursive-term> |> UNION [ALL|DISTINCT] <recursive-term> [at 2:3]
   SELECT * FROM a.b
   ^
 ==
@@ -485,3 +485,136 @@ CreateMaterializedViewStmt
 +-recursive=TRUE
 +-column_definition_list=
   +-ColumnDefinition(name="n", type=INT64, column=`a-b.c`.d.n#9)
+==
+
+create recursive view a.b.c as (
+  select 1 as n
+  |> union all (select n + 1 from a.b.c)
+);
+--
+CreateViewStmt
++-name_path=a.b.c
++-output_column_list=
+| +-$union_all.n#2 AS n [INT64]
++-query=
+| +-RecursiveScan
+|   +-column_list=[$union_all.n#2]
+|   +-op_type=UNION_ALL
+|   +-non_recursive_term=
+|   | +-SetOperationItem
+|   |   +-scan=
+|   |   | +-ProjectScan
+|   |   |   +-column_list=[non_recursive_term.n#1]
+|   |   |   +-expr_list=
+|   |   |   | +-n#1 := Literal(type=INT64, value=1)
+|   |   |   +-input_scan=
+|   |   |     +-SingleRowScan
+|   |   +-output_column_list=[non_recursive_term.n#1]
+|   +-recursive_term=
+|     +-SetOperationItem
+|       +-scan=
+|       | +-ProjectScan
+|       |   +-column_list=[$union_all1.$col1#4]
+|       |   +-expr_list=
+|       |   | +-$col1#4 :=
+|       |   |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+|       |   |     +-ColumnRef(type=INT64, column=$view.n#3)
+|       |   |     +-Literal(type=INT64, value=1)
+|       |   +-input_scan=
+|       |     +-RecursiveRefScan(column_list=[$view.n#3])
+|       +-output_column_list=[$union_all1.$col1#4]
++-sql="select 1 as n\n  |> union all (select n + 1 from a.b.c)"
++-recursive=TRUE
++-column_definition_list=
+  +-ColumnDefinition(name="n", type=INT64, column=a.b.c.n#5)
+==
+
+# Complex non-recursive term.
+create recursive view a.b.c as (
+  select 1 as n
+  |> where n > 10
+  |> order by n
+  |> union all (select n + 1 from a.b.c)
+);
+--
+CreateViewStmt
++-name_path=a.b.c
++-output_column_list=
+| +-$union_all.n#2 AS n [INT64]
++-query=
+| +-RecursiveScan
+|   +-column_list=[$union_all.n#2]
+|   +-op_type=UNION_ALL
+|   +-non_recursive_term=
+|   | +-SetOperationItem
+|   |   +-scan=
+|   |   | +-OrderByScan
+|   |   |   +-column_list=[non_recursive_term.n#1]
+|   |   |   +-is_ordered=TRUE
+|   |   |   +-input_scan=
+|   |   |   | +-FilterScan
+|   |   |   |   +-column_list=[non_recursive_term.n#1]
+|   |   |   |   +-input_scan=
+|   |   |   |   | +-ProjectScan
+|   |   |   |   |   +-column_list=[non_recursive_term.n#1]
+|   |   |   |   |   +-expr_list=
+|   |   |   |   |   | +-n#1 := Literal(type=INT64, value=1)
+|   |   |   |   |   +-input_scan=
+|   |   |   |   |     +-SingleRowScan
+|   |   |   |   +-filter_expr=
+|   |   |   |     +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+|   |   |   |       +-ColumnRef(type=INT64, column=non_recursive_term.n#1)
+|   |   |   |       +-Literal(type=INT64, value=10)
+|   |   |   +-order_by_item_list=
+|   |   |     +-OrderByItem
+|   |   |       +-column_ref=
+|   |   |         +-ColumnRef(type=INT64, column=non_recursive_term.n#1)
+|   |   +-output_column_list=[non_recursive_term.n#1]
+|   +-recursive_term=
+|     +-SetOperationItem
+|       +-scan=
+|       | +-ProjectScan
+|       |   +-column_list=[$union_all1.$col1#4]
+|       |   +-expr_list=
+|       |   | +-$col1#4 :=
+|       |   |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+|       |   |     +-ColumnRef(type=INT64, column=$view.n#3)
+|       |   |     +-Literal(type=INT64, value=1)
+|       |   +-input_scan=
+|       |     +-RecursiveRefScan(column_list=[$view.n#3])
+|       +-output_column_list=[$union_all1.$col1#4]
++-sql="select 1 as n\n  |> where n > 10\n  |> order by n\n  |> union all (select n + 1 from a.b.c)"
++-recursive=TRUE
++-column_definition_list=
+  +-ColumnDefinition(name="n", type=INT64, column=a.b.c.n#5)
+==
+
+# The last pipe operator must be union all or union distinct
+create recursive view a.b.c as (
+  select 1 as n
+  |> union all (select 2)
+  |> {{intersect|except}} {{all|distinct}} (select n + 1 from a.b.c)
+);
+--
+ERROR: Recursive query does not have the form <non-recursive-term> UNION [ALL|DISTINCT] <recursive-term> or the pipe form <non-recursive-term> |> UNION [ALL|DISTINCT] <recursive-term> [at 2:3]
+  select 1 as n
+  ^
+==
+
+# There must be exactly one input to the last union all or union distinct operator.
+create recursive view a.b.c as (
+  select 1 as n
+  |> union {{all|distinct}} (select n + 1 from a.b.c), (select n + 1 from a.b.c)
+);
+--
+ALTERNATION GROUP: all
+--
+ERROR: The final UNION in a recursive query is the recursive term and must have only one query argument [at 3:44]
+  |> union all (select n + 1 from a.b.c), (select n + 1 from a.b.c)
+                                           ^
+--
+ALTERNATION GROUP: distinct
+--
+ERROR: The final UNION in a recursive query is the recursive term and must have only one query argument [at 3:49]
+  |> union distinct (select n + 1 from a.b.c), (select n + 1 from a.b.c)
+                                                ^

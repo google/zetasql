@@ -24,9 +24,11 @@
 #include <cstdint>
 #include <map>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "zetasql/base/logging.h"
@@ -220,13 +222,13 @@ struct TestDatabase {
     proto_names.clear();
     enum_names.clear();
     tables.clear();
+    property_graph_defs.clear();
   }
 
   // Returns true if empty.
   bool empty() const {
     return proto_files.empty() && proto_names.empty() && enum_names.empty() &&
-           tables.empty()
-       ;
+           tables.empty() && property_graph_defs.empty();
   }
   // LINT.IfChange
   // File paths (*.proto) relative to the build workspace
@@ -235,6 +237,8 @@ struct TestDatabase {
   std::set<std::string> proto_names;        // Set of proto type names.
   std::set<std::string> enum_names;         // Set of enum type names.
   std::map<std::string, TestTable> tables;  // Keyed on table name.
+  std::map<std::string, std::string>
+      property_graph_defs;  // Keyed on graph name.
 };
 
 // The result of executing a single statement in a script.
@@ -341,6 +345,15 @@ class TestDriver {
   virtual absl::Status AddViews(
       absl::Span<const std::string> create_view_stmts) {
     return absl::UnimplementedError("Test driver does not support SQL UDFs.");
+  }
+
+  // Supplies several property graph definitions that the driver should add to
+  // the catalog. This will be called after CreateDatabase but before
+  // ExecuteStatement.
+  virtual absl::Status AddPropertyGraphs(
+      absl::Span<const std::string> create_property_graph_stmts) {
+    return absl::UnimplementedError(
+        "Test driver does not support property graphs.");
   }
 
   // Executes a statement using the given 'parameters' and returns the result.

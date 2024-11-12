@@ -115,6 +115,34 @@ QueryStmt
           +-group_selection_strategy := Literal(type=ENUM<DIFFERENTIAL_PRIVACY_GROUP_SELECTION_STRATEGY>, value=LAPLACE_THRESHOLD)
 ==
 
+# Reject NULL group_selection_strategy.
+select with differential_privacy options(group_selection_strategy=NULL)
+count(*)
+from SimpleTypesWithAnonymizationUid;
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-DifferentialPrivacyAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypesWithAnonymizationUid)
+        +-aggregate_list=
+        | +-$agg1#13 :=
+        |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
+        |     +-Literal(type=STRUCT<INT64, INT64>, value=NULL)
+        +-option_list=
+          +-group_selection_strategy := Literal(type=ENUM<DIFFERENTIAL_PRIVACY_GROUP_SELECTION_STRATEGY>, value=NULL)
+
+
+Rewrite ERROR: Differential privacy option group_selection_strategy must be a non-NULL enum literal
+==
+
 [language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,V_1_1_WITH_ON_SUBQUERY,TABLESAMPLE]
 # Forbidden operations after public groups joins are allowed outside of the
 # dp aggregate scan with per-group contribution bounding.
@@ -1887,7 +1915,7 @@ QueryStmt
               +-Parameter(type=STRING, name="test_param_string")
 
 
-Rewrite ERROR: Differential privacy option group_selection_strategy must be an enum literal
+Rewrite ERROR: Differential privacy option group_selection_strategy must be a non-NULL enum literal
 ==
 
 # group_selection_strategy can only be set once.

@@ -97,6 +97,8 @@ void BasicMapAsserts(const Type* map_type) {
   EXPECT_EQ(map_type->AsProto(), nullptr);
   EXPECT_EQ(map_type->AsEnum(), nullptr);
   EXPECT_EQ(map_type->AsRange(), nullptr);
+  EXPECT_FALSE(map_type->IsGraphElement());
+  EXPECT_EQ(nullptr, map_type->AsGraphElement());
 
   EXPECT_FALSE(map_type->SupportsEquality());
 
@@ -365,6 +367,33 @@ TEST(MapTest, MapTypeWithEnumValid) {
   LanguageOptions language_options;
   language_options.EnableLanguageFeature(FEATURE_V_1_4_MAP_TYPE);
   EXPECT_TRUE(map_type->IsSupportedType(language_options));
+}
+
+// Note: More rigorous testing is done through GetSQLLiteral() value_test.cc
+TEST(MapTest, FormatValueContentSQLLiteralMode) {
+  Type::FormatValueContentOptions options;
+  options.mode = Type::FormatValueContentOptions::Mode::kSQLLiteral;
+  options.verbose = true;
+
+  Value map_value =
+      test_values::Map({{Value::String("foo"), Value::Int64(100)}});
+
+  EXPECT_EQ(
+      map_value.type()->FormatValueContent(map_value.GetContent(), options),
+      R"(MAP_FROM_ARRAY([("foo", 100)]))");
+}
+
+// Note: More rigorous testing is done through GetSQL() value_test.cc
+TEST(MapTest, FormatValueContentSQLExpressionMode) {
+  Type::FormatValueContentOptions options;
+  options.mode = Type::FormatValueContentOptions::Mode::kSQLExpression;
+  options.verbose = true;
+
+  Value map_value =
+      test_values::Map({{Value::String("foo"), Value::Int64(100)}});
+  EXPECT_EQ(
+      map_value.type()->FormatValueContent(map_value.GetContent(), options),
+      R"(MAP_FROM_ARRAY([("foo", 100)]))");
 }
 
 INSTANTIATE_TEST_SUITE_P(

@@ -3828,4 +3828,126 @@ SELECT str_val FROM (SELECT 'abc' AS str_val)
 ^
 ==
 
+# Type coercions between value tables and NULL literals.
+# The output is a value table iff the first input is a value table.
+[language_features=PIPES,PIPE_STATIC_DESCRIBE]
+SELECT NULL
+UNION ALL
+SELECT AS STRUCT 1 a, 2 b
+|> static_describe
+--
+QueryStmt
++-output_column_list=
+| +-$union_all.$col1#5 AS `$col1` [STRUCT<a INT64, b INT64>]
++-query=
+  +-StaticDescribeScan
+    +-column_list=[$union_all.$col1#5]
+    +-describe_text=
+    |   """
+    |   NameList:
+    |     <unnamed> STRUCT<a INT64, b INT64> $union_all.$col1#5
+    |   NameScope:
+    |   """
+    +-input_scan=
+      +-SetOperationScan
+        +-column_list=[$union_all.$col1#5]
+        +-op_type=UNION_ALL
+        +-input_item_list=
+          +-SetOperationItem
+          | +-scan=
+          | | +-ProjectScan
+          | |   +-column_list=[$union_all1_cast.$col1#6]
+          | |   +-expr_list=
+          | |   | +-$col1#6 := Literal(type=STRUCT<a INT64, b INT64>, value=NULL)
+          | |   +-input_scan=
+          | |     +-ProjectScan
+          | |       +-column_list=[$union_all1.$col1#1]
+          | |       +-expr_list=
+          | |       | +-$col1#1 := Literal(type=INT64, value=NULL)
+          | |       +-input_scan=
+          | |         +-SingleRowScan
+          | +-output_column_list=[$union_all1_cast.$col1#6]
+          +-SetOperationItem
+            +-scan=
+            | +-ProjectScan
+            |   +-column_list=[$make_struct.$struct#4]
+            |   +-expr_list=
+            |   | +-$struct#4 :=
+            |   |   +-MakeStruct
+            |   |     +-type=STRUCT<a INT64, b INT64>
+            |   |     +-field_list=
+            |   |       +-ColumnRef(type=INT64, column=$union_all2.a#2)
+            |   |       +-ColumnRef(type=INT64, column=$union_all2.b#3)
+            |   +-input_scan=
+            |     +-ProjectScan
+            |       +-column_list=$union_all2.[a#2, b#3]
+            |       +-expr_list=
+            |       | +-a#2 := Literal(type=INT64, value=1)
+            |       | +-b#3 := Literal(type=INT64, value=2)
+            |       +-input_scan=
+            |         +-SingleRowScan
+            +-output_column_list=[$make_struct.$struct#4]
+==
 
+# Type coercions between value tables and NULL literals.
+# The output is a value table iff the first input is a value table.
+[language_features=PIPES,PIPE_STATIC_DESCRIBE]
+SELECT AS STRUCT 1 a, 2 b
+UNION ALL
+SELECT NULL
+|> static_describe
+--
+QueryStmt
++-output_column_list=
+| +-$union_all.$struct#5 AS `$struct` [STRUCT<a INT64, b INT64>]
++-is_value_table=TRUE
++-query=
+  +-StaticDescribeScan
+    +-column_list=[$union_all.$struct#5]
+    +-describe_text=
+    |   """
+    |   NameList (is_value_table = true):
+    |     <unnamed> STRUCT<a INT64, b INT64> $union_all.$struct#5 (value table)
+    |   NameScope:
+    |     Value table columns:
+    |       $union_all.$struct#5
+    |   """
+    +-input_scan=
+      +-SetOperationScan
+        +-column_list=[$union_all.$struct#5]
+        +-op_type=UNION_ALL
+        +-input_item_list=
+          +-SetOperationItem
+          | +-scan=
+          | | +-ProjectScan
+          | |   +-column_list=[$make_struct.$struct#3]
+          | |   +-expr_list=
+          | |   | +-$struct#3 :=
+          | |   |   +-MakeStruct
+          | |   |     +-type=STRUCT<a INT64, b INT64>
+          | |   |     +-field_list=
+          | |   |       +-ColumnRef(type=INT64, column=$union_all1.a#1)
+          | |   |       +-ColumnRef(type=INT64, column=$union_all1.b#2)
+          | |   +-input_scan=
+          | |     +-ProjectScan
+          | |       +-column_list=$union_all1.[a#1, b#2]
+          | |       +-expr_list=
+          | |       | +-a#1 := Literal(type=INT64, value=1)
+          | |       | +-b#2 := Literal(type=INT64, value=2)
+          | |       +-input_scan=
+          | |         +-SingleRowScan
+          | +-output_column_list=[$make_struct.$struct#3]
+          +-SetOperationItem
+            +-scan=
+            | +-ProjectScan
+            |   +-column_list=[$union_all2_cast.$col1#6]
+            |   +-expr_list=
+            |   | +-$col1#6 := Literal(type=STRUCT<a INT64, b INT64>, value=NULL)
+            |   +-input_scan=
+            |     +-ProjectScan
+            |       +-column_list=[$union_all2.$col1#4]
+            |       +-expr_list=
+            |       | +-$col1#4 := Literal(type=INT64, value=NULL)
+            |       +-input_scan=
+            |         +-SingleRowScan
+            +-output_column_list=[$union_all2_cast.$col1#6]

@@ -315,6 +315,7 @@ class Unparser : public ParseTreeVisitor {
   void visitASTAliasedQueryExpression(const ASTAliasedQueryExpression* node,
                                       void* data) override;
   void visitASTFromQuery(const ASTFromQuery* node, void* data) override;
+  void visitASTSubpipeline(const ASTSubpipeline* node, void* data) override;
   void visitASTPipeWhere(const ASTPipeWhere* node, void* data) override;
   void visitASTPipeSelect(const ASTPipeSelect* node, void* data) override;
   void visitASTPipeLimitOffset(const ASTPipeLimitOffset* node,
@@ -339,17 +340,39 @@ class Unparser : public ParseTreeVisitor {
   void visitASTPipeStaticDescribe(const ASTPipeStaticDescribe* node,
                                   void* data) override;
   void visitASTPipeAssert(const ASTPipeAssert* node, void* data) override;
+  void visitASTPipeLog(const ASTPipeLog* node, void* data) override;
   void visitASTPipeDrop(const ASTPipeDrop* node, void* data) override;
   void visitASTPipeSetItem(const ASTPipeSetItem* node, void* data) override;
   void visitASTPipeSet(const ASTPipeSet* node, void* data) override;
   void visitASTPipePivot(const ASTPipePivot* node, void* data) override;
   void visitASTPipeUnpivot(const ASTPipeUnpivot* node, void* data) override;
+  void visitASTPipeIf(const ASTPipeIf* node, void* data) override;
+  void visitASTPipeIfCase(const ASTPipeIfCase* node, void* data) override;
+  void visitASTPipeFork(const ASTPipeFork* node, void* data) override;
+  void visitASTPipeExportData(const ASTPipeExportData* node,
+                              void* data) override;
   void visitASTMatchRecognizeClause(const ASTMatchRecognizeClause* node,
+                                    void* data) override;
+  void visitASTAfterMatchSkipClause(const ASTAfterMatchSkipClause* node,
                                     void* data) override;
   void visitASTRowPatternVariable(const ASTRowPatternVariable* node,
                                   void* data) override;
   void visitASTRowPatternOperation(const ASTRowPatternOperation* node,
                                    void* data) override;
+  void visitASTEmptyRowPattern(const ASTEmptyRowPattern* node,
+                               void* data) override;
+  void visitASTRowPatternAnchor(const ASTRowPatternAnchor* node,
+                                void* data) override;
+  void visitASTRowPatternQuantification(const ASTRowPatternQuantification* node,
+                                        void* data) override;
+  void visitASTSymbolQuantifier(const ASTSymbolQuantifier* node,
+                                void* data) override;
+  void visitASTBoundedQuantifier(const ASTBoundedQuantifier* node,
+                                 void* data) override;
+  void visitASTFixedQuantifier(const ASTFixedQuantifier* node,
+                               void* data) override;
+  void visitASTQuantifierBound(const ASTQuantifierBound* node,
+                               void* data) override;
   void visitASTSetOperation(const ASTSetOperation* node, void* data) override;
   void visitASTSelect(const ASTSelect* node, void* data) override;
   void visitASTSelectAs(const ASTSelectAs* node, void* data) override;
@@ -404,6 +427,75 @@ class Unparser : public ParseTreeVisitor {
                                       void* data) override;
   void visitASTIdentityColumnMinValue(const ASTIdentityColumnMinValue* node,
                                       void* data) override;
+  void visitASTGqlMatch(const ASTGqlMatch* node, void* data) override;
+  void visitASTGqlQuery(const ASTGqlQuery* node, void* data) override;
+  void visitASTGqlGraphPatternQuery(const ASTGqlGraphPatternQuery* node,
+                                    void* data) override;
+  void visitASTGqlLinearOpsQuery(const ASTGqlLinearOpsQuery* node,
+                                 void* data) override;
+  void visitASTGqlReturn(const ASTGqlReturn* node, void* data) override;
+  void visitASTGqlWith(const ASTGqlWith* node, void* data) override;
+  void visitASTGqlFor(const ASTGqlFor* node, void* data) override;
+  void visitASTGqlLet(const ASTGqlLet* node, void* data) override;
+  void visitASTGqlLetVariableDefinitionList(
+      const ASTGqlLetVariableDefinitionList* node, void* data) override;
+  void visitASTGqlLetVariableDefinition(const ASTGqlLetVariableDefinition* node,
+                                        void* data) override;
+  void visitASTGqlFilter(const ASTGqlFilter* node, void* data) override;
+  void visitASTGqlOperatorList(const ASTGqlOperatorList* node,
+                               void* data) override;
+  void visitASTGqlPageLimit(const ASTGqlPageLimit* node, void* data) override;
+  void visitASTGqlPageOffset(const ASTGqlPageOffset* node, void* data) override;
+  void visitASTGqlPage(const ASTGqlPage* node, void* data) override;
+  void visitASTGqlOrderByAndPage(const ASTGqlOrderByAndPage* node,
+                                 void* data) override;
+  void visitASTGqlSetOperation(const ASTGqlSetOperation* node,
+                               void* data) override;
+  void visitASTGqlSample(const ASTGqlSample* node, void* data) override;
+  void visitASTCreatePropertyGraphStatement(
+      const ASTCreatePropertyGraphStatement* node, void* data) override;
+  void visitASTGraphElementTableList(const ASTGraphElementTableList* node,
+                                     void* data) override;
+  void visitASTGraphElementTable(const ASTGraphElementTable* node,
+                                 void* data) override;
+  void visitASTGraphNodeTableReference(const ASTGraphNodeTableReference* node,
+                                       void* data) override;
+  void visitASTGraphElementLabelAndPropertiesList(
+      const ASTGraphElementLabelAndPropertiesList* node, void* data) override;
+  void visitASTGraphElementLabelAndProperties(
+      const ASTGraphElementLabelAndProperties* node, void* data) override;
+  void visitASTGraphProperties(const ASTGraphProperties* node,
+                               void* data) override;
+  void visitASTGraphTableQuery(const ASTGraphTableQuery* node,
+                               void* data) override;
+  void visitASTGraphElementPatternFiller(
+      const ASTGraphElementPatternFiller* node, void* data) override;
+  void visitASTGraphPathMode(const ASTGraphPathMode* node, void* data) override;
+  void visitASTGraphEdgePattern(const ASTGraphEdgePattern* node,
+                                void* data) override;
+  void visitASTGraphNodePattern(const ASTGraphNodePattern* node,
+                                void* data) override;
+  void visitASTGraphLhsHint(const ASTGraphLhsHint* node, void* data) override;
+  void visitASTGraphRhsHint(const ASTGraphRhsHint* node, void* data) override;
+  void visitASTGraphLabelFilter(const ASTGraphLabelFilter* node,
+                                void* data) override;
+  void visitASTGraphElementLabel(const ASTGraphElementLabel* node,
+                                 void* data) override;
+  void visitASTGraphWildcardLabel(const ASTGraphWildcardLabel* node,
+                                  void* data) override;
+  void visitASTGraphLabelOperation(const ASTGraphLabelOperation* node,
+                                   void* data) override;
+  void visitASTGraphPathPattern(const ASTGraphPathPattern* node,
+                                void* data) override;
+  void visitASTGraphPathSearchPrefix(const ASTGraphPathSearchPrefix* node,
+                                     void* data) override;
+  void visitASTGraphPattern(const ASTGraphPattern* node, void* data) override;
+  void visitASTGraphPropertySpecification(
+      const ASTGraphPropertySpecification* node, void* data) override;
+  void visitASTGraphPropertyNameAndValue(
+      const ASTGraphPropertyNameAndValue* node, void* data) override;
+  void visitASTGraphIsLabeledPredicate(const ASTGraphIsLabeledPredicate* node,
+                                       void* data) override;
   void visitASTGroupingItemOrder(const ASTGroupingItemOrder* node,
                                  void* data) override;
   void visitASTGroupingItem(const ASTGroupingItem* node, void* data) override;
@@ -642,6 +734,8 @@ class Unparser : public ParseTreeVisitor {
                                    void* data) override;
   void visitASTInsertStatement(const ASTInsertStatement* node,
                                void* data) override;
+  void visitASTOnConflictClause(const ASTOnConflictClause* node,
+                                void* data) override;
   void visitASTUpdateSetValue(const ASTUpdateSetValue* node,
                               void* data) override;
   void visitASTUpdateItem(const ASTUpdateItem* node, void* data) override;
@@ -868,6 +962,11 @@ class Unparser : public ParseTreeVisitor {
   void visitASTExpressionWithOptAlias(const ASTExpressionWithOptAlias* node,
                                       void* data) override;
 
+  void visitASTLockMode(const ASTLockMode* node, void* data) override;
+
+  void visitASTPipeRecursiveUnion(const ASTPipeRecursiveUnion* node,
+                                  void* data) override;
+
   // Spanner-related nodes
   void visitASTSpannerAlterColumnAction(const ASTSpannerAlterColumnAction* node,
                                         void* data) override;
@@ -916,6 +1015,7 @@ class Unparser : public ParseTreeVisitor {
 
   void PrintOpenParenIfNeeded(const ASTNode* node);
   void PrintCloseParenIfNeeded(const ASTNode* node);
+  void PrintGraphQuantifierIfNeeded(const ASTGraphPathBase* node, void* data);
 
   static std::string GetCreateStatementPrefix(
       const ASTCreateStatement* node, absl::string_view create_object_type);

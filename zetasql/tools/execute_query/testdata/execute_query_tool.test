@@ -787,7 +787,10 @@ CreateTableFunctionStmt
 TVF registered.
 ==
 
-[mode=analyze,execute]
+# This test depends on TVFs, which are not supported by the reference
+# implementation and execute_query tool, and so it should not execute the query.
+# TODO: b/371219410 - Test execution when TVF support is launched.
+[mode=analyze]
 create table function tvf() as (select 1 x);
 select * from tvf() t;
 --
@@ -814,18 +817,7 @@ QueryStmt
   +-ProjectScan
     +-column_list=[tvf.x#1]
     +-input_scan=
-      +-ProjectScan
-        +-column_list=[tvf.x#1]
-        +-expr_list=
-        | +-x#1 := Literal(type=INT64, value=1)
-        +-input_scan=
-          +-SingleRowScan
-
-+---+
-| x |
-+---+
-| 1 |
-+---+
+      +-TVFScan(column_list=[tvf.x#1], tvf=tvf(() -> TABLE<x INT64>), signature=() -> TABLE<x INT64>, column_index_list=[0], alias="t")
 \
 ==
 
@@ -1080,6 +1072,10 @@ DESCRIBE multi;
 DESCRIBE table multi;
 DESCRIBE TVF multi;
 SELECT * FROM multi;   # The table.
+# This test depends on TVFs, which are not supported by the reference
+# implementation and execute_query tool, and so the query which references a TVF
+# produces an error when executed.
+# TODO: b/371219410 - Update test with result when TVF support is launched.
 SELECT * FROM multi(); # The TVF.
 --
 Function registered.
@@ -1105,22 +1101,18 @@ Table-valued function: MULTI() -> TABLE<x INT64>
 +---+
 +---+
 
-+---+
-| x |
-+---+
-| 1 |
-+---+
-\
+ERROR: UNIMPLEMENTED: TVF multi does not support the API in evaluator.h
 ==
 
 # This case with stacked DDL objects that trigger rewriters exercises code that
 # keeps parser and analyzer state objects alive. It crashed without that.
-[mode={{analyze|execute}}]
+# This test depends on TVFs, which are not supported by the reference
+# implementation and execute_query tool, and so it should not execute the query.
+# TODO: b/371219410 - Test execution when TVF support is launched.
+[mode=analyze]
 create table t (y int64);
 create table function tvf() AS (select 5 mm from t, unnest([1,2]) uu);
 SELECT * FROM tvf();
---
-ALTERNATION GROUP: analyze
 --
 CreateTableStmt
 +-name_path=t
@@ -1157,28 +1149,7 @@ QueryStmt
   +-ProjectScan
     +-column_list=[tvf.mm#1]
     +-input_scan=
-      +-ProjectScan
-        +-column_list=[tvf.mm#1]
-        +-expr_list=
-        | +-mm#1 := Literal(type=INT64, value=5)
-        +-input_scan=
-          +-ArrayScan
-            +-column_list=[t.y#2, $array.uu#3]
-            +-input_scan=
-            | +-TableScan(column_list=[t.y#2], table=t, column_index_list=[0])
-            +-array_expr_list=
-            | +-Literal(type=ARRAY<INT64>, value=[1, 2])
-            +-element_column_list=[$array.uu#3]
-\
---
-ALTERNATION GROUP: execute
---
-Table registered.
-TVF registered.
-+----+
-| mm |
-+----+
-+----+
+      +-TVFScan(column_list=[tvf.mm#1], tvf=tvf(() -> TABLE<mm INT64>), signature=() -> TABLE<mm INT64>, column_index_list=[0])
 \
 ==
 
@@ -1292,4 +1263,622 @@ select 1;
 +---+
 | 1 |
 +---+
+\
+
+==
+
+SHOW bad_object
+--
+ERROR: INVALID_ARGUMENT: Unsupported object type: bad_object
+==
+
+[catalog=tpch]
+SHOW TABLES
+--
+Customer
+LineItem
+Nation
+Orders
+Part
+PartSupp
+Region
+Supplier
+==
+
+[catalog=tpch]
+SHOW TABLES LIKE 'rEgIoN'
+--
+Region
+==
+
+[catalog=tpch]
+SHOW tables like 'pArT%'
+--
+Part
+PartSupp
+==
+
+[catalog=tpch]
+SHOW Tables like '%T%'
+--
+Customer
+LineItem
+Nation
+Part
+PartSupp
+==
+
+SHOW tables like '%foo%'
+--
+\
+No matching tables found
+==
+
+# Don't show internal functions
+SHOW functions like '$a%'
+--
+\
+No matching functions found
+==
+
+show FuNcTiOnS like '%floor%'
+--
+floor
+FloorDiv
+==
+
+# Check that the full function name is shown
+show functions like '%host%';
+--
+net.host
+==
+
+SHOW TVFs like '%TableArg%'
+--
+BinaryAbTableArg
+BinaryTableArg
+CallsUnaryAbTableArgWithScalarArgsTempl
+JoinsTableArgToScannedTable
+UnaryAbTableArg
+UnaryAbTableArgScannedInCTE
+UnaryAbTableArgSelfJoin
+UnaryAbTableArgWithScalarArgs
+UnaryAbTableArgWithScalarArgsTempl
+UnaryTableArg
+==
+
+SHOW tvfs like '%foo%'
+--
+\
+No matching tvfs found
+==
+
+# Unknown function
+SHOW Functions like 'NewSquare'
+--
+\
+No matching functions found
+==
+
+# Newly defined function is found
+CREATE TEMP FUNCTION NewSquare(x INT64)
+RETURNS DOUBLE
+AS (
+  (x *x )
+  );
+
+SHOW Functions like 'NewS%'
+--
+Function registered.
+NewSquare
+
+==
+
+# Parse Procedural script.
+[mode=parse]
+[sql_mode=script]
+for i in (select 1) do select 1; end for;
+--
+Script [0-41]
+  StatementList [0-41]
+    ForInStatement [0-40]
+      Identifier(i) [4-5]
+      Query [10-18]
+        Select [10-18]
+          SelectList [17-18]
+            SelectColumn [17-18]
+              IntLiteral(1) [17-18]
+      StatementList [23-32]
+        QueryStatement [23-31]
+          Query [23-31]
+            Select [23-31]
+              SelectList [30-31]
+                SelectColumn [30-31]
+                  IntLiteral(1) [30-31]
+\
+==
+
+# Unparse a procedural script.
+[mode=unparse]
+[sql_mode=script]
+for i in (select 1) do select 1; end for;
+--
+
+FOR i IN (
+SELECT
+  1
+)
+DO
+  SELECT
+    1
+  ;
+END FOR ;
+\
+
+==
+
+# Execute a procedural script.
+[mode=execute]
+[sql_mode=script]
+for i in (select 1) do select 1; end for;
+--
++--------+
+| $col_1 |
++--------+
+| 1      |
++--------+
+
++--------+
+| $col_1 |
++--------+
+| 1      |
++--------+
+\
+==
+
+# Multi mode for procedural script.
+[mode={{parse|unparse|analyze,execute}}]
+[sql_mode=script]
+DECLARE x INT64 DEFAULT 2;
+for i in (select 1) do select 1, x; end for;
+--
+ALTERNATION GROUP: parse
+--
+Script [0-71]
+  StatementList [0-71]
+    VariableDeclaration [0-25]
+      IdentifierList [8-9]
+        Identifier(x) [8-9]
+      SimpleType [10-15]
+        PathExpression [10-15]
+          Identifier(INT64) [10-15]
+      IntLiteral(2) [24-25]
+    ForInStatement [27-70]
+      Identifier(i) [31-32]
+      Query [37-45]
+        Select [37-45]
+          SelectList [44-45]
+            SelectColumn [44-45]
+              IntLiteral(1) [44-45]
+      StatementList [50-62]
+        QueryStatement [50-61]
+          Query [50-61]
+            Select [50-61]
+              SelectList [57-61]
+                SelectColumn [57-58]
+                  IntLiteral(1) [57-58]
+                SelectColumn [60-61]
+                  PathExpression [60-61]
+                    Identifier(x) [60-61]
+\
+--
+ALTERNATION GROUP: unparse
+--
+DECLARE x INT64 DEFAULT 2 ;
+FOR i IN (
+SELECT
+  1
+)
+DO
+  SELECT
+    1,
+    x
+  ;
+END FOR ;
+\
+--
+ALTERNATION GROUP: analyze,execute
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+
++--------+
+| $col_1 |
++--------+
+| 1      |
++--------+
+
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
+| +-$query.x#2 AS x [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#1, x#2]
+    +-expr_list=
+    | +-$col1#1 := Literal(type=INT64, value=1)
+    | +-x#2 := Constant(x, type=INT64, value=2)
+    +-input_scan=
+      +-SingleRowScan
+
++--------+---+
+| $col_1 | x |
++--------+---+
+| 1      | 2 |
++--------+---+
+\
+==
+
+# Unsupported modes for procedural script.
+[mode={{analyze|unanalyze|explain}}]
+[sql_mode=script]
+for i in (select 1) do select 1; end for;
+--
+ALTERNATION GROUPS:
+    analyze
+    unanalyze
+--
+ERROR: UNAVAILABLE: Analysis is not supported for scripts. Individual statements can be analyzed while they are executed if both "execute" and "analyze" are specified.
+--
+ALTERNATION GROUP: explain
+--
+ERROR: UNAVAILABLE: Explanation is not supported for scripts.
+==
+
+# Unsupported and supported modes for procedural script.
+[mode={{analyze|unanalyze|explain|execute}}]
+[sql_mode=script]
+for i in (select 1) do select 1; end for;
+--
+ALTERNATION GROUPS:
+    analyze
+    unanalyze
+--
+ERROR: UNAVAILABLE: Analysis is not supported for scripts. Individual statements can be analyzed while they are executed if both "execute" and "analyze" are specified.
+--
+ALTERNATION GROUP: explain
+--
+ERROR: UNAVAILABLE: Explanation is not supported for scripts.
+--
+ALTERNATION GROUP: execute
+--
++--------+
+| $col_1 |
++--------+
+| 1      |
++--------+
+
++--------+
+| $col_1 |
++--------+
+| 1      |
++--------+
+\
+==
+
+# Infinite loop in procedural script.
+[mode=execute]
+[sql_mode=script]
+[max_statements_to_execute=20]
+DECLARE x INT64 DEFAULT 0;
+WHILE x < 10
+DO
+  SELECT x;
+END WHILE;
+SELECT x;
+--
++---+
+| x |
++---+
+| 0 |
++---+
+
++---+
+| x |
++---+
+| 0 |
++---+
+
++---+
+| x |
++---+
+| 0 |
++---+
+
++---+
+| x |
++---+
+| 0 |
++---+
+
++---+
+| x |
++---+
+| 0 |
++---+
+
++---+
+| x |
++---+
+| 0 |
++---+
+
++---+
+| x |
++---+
+| 0 |
++---+
+
++---+
+| x |
++---+
+| 0 |
++---+
+
++---+
+| x |
++---+
+| 0 |
++---+
+
+ERROR: INVALID_ARGUMENT: Potential infinite loop in the script. Script has reached maximum execution limit: 20
+==
+
+# Test reading some SimpleConstants from the sample catalog.
+[mode=analyze,execute]
+[catalog=sample]
+select TestConstantTrue, TestConstantInt64, TestConstantProto;
+--
+QueryStmt
++-output_column_list=
+| +-$query.TestConstantTrue#1 AS TestConstantTrue [BOOL]
+| +-$query.TestConstantInt64#2 AS TestConstantInt64 [INT64]
+| +-$query.TestConstantProto#3 AS TestConstantProto [PROTO<zetasql_test__.KitchenSinkPB>]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[TestConstantTrue#1, TestConstantInt64#2, TestConstantProto#3]
+    +-expr_list=
+    | +-TestConstantTrue#1 := Constant(TestConstantTrue, type=BOOL, value=true)
+    | +-TestConstantInt64#2 := Constant(TestConstantInt64, type=INT64, value=1)
+    | +-TestConstantProto#3 := Constant(TestConstantProto, type=PROTO<zetasql_test__.KitchenSinkPB>, value={int64_key_1: 1 int64_key_2: -999})
+    +-input_scan=
+      +-SingleRowScan
+
++------------------+-------------------+------------------------------------+
+| TestConstantTrue | TestConstantInt64 | TestConstantProto                  |
++------------------+-------------------+------------------------------------+
+| true             | 1                 | {int64_key_1: 1 int64_key_2: -999} |
++------------------+-------------------+------------------------------------+
+\
+==
+
+# In analyze mode, we don't evaluate the constant expressions, so we can
+# continue past the error.  The SELECT shows the types.
+# In execute mode, we stop on the error.
+[mode=analyze{{|,execute}}]
+create constant c1 = 'abc' || 'def';
+create constant c2 = error("abc") > 0;
+create constant c3 = c1 || 'ghi';
+select c1, c2, c3;
+--
+ALTERNATION GROUP: <empty>
+--
+CreateConstantStmt
++-name_path=c1
++-expr=
+  +-FunctionCall(ZetaSQL:concat(STRING, repeated(1) STRING) -> STRING)
+    +-Literal(type=STRING, value="abc")
+    +-Literal(type=STRING, value="def")
+
+Constant registered.
+CreateConstantStmt
++-name_path=c2
++-expr=
+  +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+    +-FunctionCall(ZetaSQL:error(STRING) -> INT64)
+    | +-Literal(type=STRING, value="abc")
+    +-Literal(type=INT64, value=0)
+
+Constant registered.
+CreateConstantStmt
++-name_path=c3
++-expr=
+  +-FunctionCall(ZetaSQL:concat(STRING, repeated(1) STRING) -> STRING)
+    +-Constant(c1, type=STRING, value=Uninitialized value)
+    +-Literal(type=STRING, value="ghi")
+
+Constant registered.
+QueryStmt
++-output_column_list=
+| +-$query.c1#1 AS c1 [STRING]
+| +-$query.c2#2 AS c2 [BOOL]
+| +-$query.c3#3 AS c3 [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[c1#1, c2#2, c3#3]
+    +-expr_list=
+    | +-c1#1 := Constant(c1, type=STRING, value=Uninitialized value)
+    | +-c2#2 := Constant(c2, type=BOOL, value=Uninitialized value)
+    | +-c3#3 := Constant(c3, type=STRING, value=Uninitialized value)
+    +-input_scan=
+      +-SingleRowScan
+\
+--
+ALTERNATION GROUP: ,execute
+--
+CreateConstantStmt
++-name_path=c1
++-expr=
+  +-FunctionCall(ZetaSQL:concat(STRING, repeated(1) STRING) -> STRING)
+    +-Literal(type=STRING, value="abc")
+    +-Literal(type=STRING, value="def")
+
+Constant registered.
+Constant evaluated.
+CreateConstantStmt
++-name_path=c2
++-expr=
+  +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+    +-FunctionCall(ZetaSQL:error(STRING) -> INT64)
+    | +-Literal(type=STRING, value="abc")
+    +-Literal(type=INT64, value=0)
+
+Constant registered.
+ERROR: OUT_OF_RANGE: abc
+==
+
+# The reference implementation can get values from SQLConstants.
+[mode=analyze,execute]
+create constant c1 = 'abc' || 'def';
+create constant c2 = c1 || '!';
+select c1, c2;
+--
+CreateConstantStmt
++-name_path=c1
++-expr=
+  +-FunctionCall(ZetaSQL:concat(STRING, repeated(1) STRING) -> STRING)
+    +-Literal(type=STRING, value="abc")
+    +-Literal(type=STRING, value="def")
+
+Constant registered.
+Constant evaluated.
+CreateConstantStmt
++-name_path=c2
++-expr=
+  +-FunctionCall(ZetaSQL:concat(STRING, repeated(1) STRING) -> STRING)
+    +-Constant(c1, type=STRING, value="abcdef")
+    +-Literal(type=STRING, value="!")
+
+Constant registered.
+Constant evaluated.
+QueryStmt
++-output_column_list=
+| +-$query.c1#1 AS c1 [STRING]
+| +-$query.c2#2 AS c2 [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[c1#1, c2#2]
+    +-expr_list=
+    | +-c1#1 := Constant(c1, type=STRING, value="abcdef")
+    | +-c2#2 := Constant(c2, type=STRING, value="abcdef!")
+    +-input_scan=
+      +-SingleRowScan
+
++--------+---------+
+| c1     | c2      |
++--------+---------+
+| abcdef | abcdef! |
++--------+---------+
+\
+==
+
+# Constant evaluation in pipe IF can handle SQLConstants.
+[mode=analyze,execute]
+[enabled_language_features=MAXIMUM,+PIPE_IF]
+create constant c1 = 1 < 2;
+create constant c2 = 1 > 2;
+from KeyValue
+|> IF c1 THEN ( |> EXTEND 55 )
+|> IF c2 THEN ( |> EXTEND 66 )
+--
+CreateConstantStmt
++-name_path=c1
++-expr=
+  +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
+    +-Literal(type=INT64, value=1)
+    +-Literal(type=INT64, value=2)
+
+Constant registered.
+Constant evaluated.
+CreateConstantStmt
++-name_path=c2
++-expr=
+  +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+    +-Literal(type=INT64, value=1)
+    +-Literal(type=INT64, value=2)
+
+Constant registered.
+Constant evaluated.
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS Key [INT64]
+| +-KeyValue.Value#2 AS Value [STRING]
+| +-$pipe_extend.$col1#3 AS `$col1` [INT64]
++-query=
+  +-PipeIfScan
+    +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $pipe_extend.$col1#3]
+    +-input_scan=
+    | +-PipeIfScan
+    |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $pipe_extend.$col1#3]
+    |   +-input_scan=
+    |   | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+    |   +-selected_case=0
+    |   +-if_case_list=
+    |     +-PipeIfCase
+    |       +-condition=
+    |       | +-Constant(c1, type=BOOL, value=true)
+    |       +-subpipeline_sql="( |> EXTEND 55 )"
+    |       +-subpipeline=
+    |         +-Subpipeline
+    |           +-scan=
+    |             +-ProjectScan
+    |               +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $pipe_extend.$col1#3]
+    |               +-expr_list=
+    |               | +-$col1#3 := Literal(type=INT64, value=55)
+    |               +-input_scan=
+    |                 +-SubpipelineInputScan(column_list=KeyValue.[Key#1, Value#2])
+    +-selected_case=-1
+    +-if_case_list=
+      +-PipeIfCase
+        +-condition=
+        | +-Constant(c2, type=BOOL, value=false)
+        +-subpipeline_sql="( |> EXTEND 66 )"
+
++-----+-------+----+
+| Key | Value |    |
++-----+-------+----+
+| 1   | a     | 55 |
+| 2   | b     | 55 |
++-----+-------+----+
+\
+==
+
+# In script mode, variables act like constants and are available to
+# analysis and evaluation.
+[mode=execute]
+[sql_mode=script]
+declare x bool default true;
+select x AS xx |> IF x THEN ( |> EXTEND 55 );
+set x = 1 > 2;
+select x AS xx |> IF x THEN ( |> EXTEND 66 );
+--
++------+--------+
+| xx   | $col_2 |
++------+--------+
+| true | 55     |
++------+--------+
+
++-------+
+| xx    |
++-------+
+| false |
++-------+
 \

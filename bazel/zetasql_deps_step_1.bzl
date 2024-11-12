@@ -22,10 +22,25 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 # but depend on them being something different. So we have to override them both
 # by defining the repo first.
 load("@com_google_zetasql//bazel:zetasql_bazel_version.bzl", "zetasql_bazel_version")
+load("@toolchains_llvm//toolchain:deps.bzl", "bazel_toolchain_dependencies")
+load("@toolchains_llvm//toolchain:rules.bzl", "llvm_toolchain")
 
 def zetasql_deps_step_1(add_bazel_version = True):
     if add_bazel_version:
         zetasql_bazel_version()
+
+    bazel_toolchain_dependencies()
+    llvm_toolchain(
+        name = "llvm_toolchain",
+        llvm_versions = {
+            "": "16.0.0",
+            # The LLVM repo stops providing pre-built binaries for the MacOS x86_64
+            # architecture for versions >= 16.0.0: https://github.com/llvm/llvm-project/releases,
+            # but our Kokoro MacOS tests are still using x86_64 (ventura).
+            # TODO: Upgrade the MacOS version to sonoma-slcn.
+            "darwin-x86_64": "15.0.7",
+        },
+    )
 
     http_archive(
         name = "io_bazel_rules_go",
@@ -80,6 +95,13 @@ def zetasql_deps_step_1(add_bazel_version = True):
             strip_prefix = "rules_foreign_cc-0.9.0",
             url = "https://github.com/bazelbuild/rules_foreign_cc/archive/0.9.0.tar.gz",
             sha256 = "2a4d07cd64b0719b39a7c12218a3e507672b82a97b98c6a89d38565894cf7c51",
+        )
+
+    if not native.existing_rule("build_bazel_rules_apple"):
+        http_archive(
+            name = "build_bazel_rules_apple",
+            sha256 = "d0f566ad408a6e4d179f0ac4d50a93494a70fcff8fab4c4af0a25b2c241c9b8d",
+            url = "https://github.com/bazelbuild/rules_apple/releases/download/3.6.0/rules_apple.3.6.0.tar.gz",
         )
 
     http_archive(

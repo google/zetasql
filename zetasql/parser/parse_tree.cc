@@ -248,51 +248,11 @@ void ASTNode::GetDescendantsWithKindsImpl(
   }
 }
 
-std::pair<std::string, std::string> ASTSetOperation::GetSQLForOperationPair()
-    const {
-  if (op_type() == NOT_SET) {
-    return std::make_pair("<UNKNOWN SET OPERATOR>", "");
-  }
-  return std::make_pair(op_type() == UNION    ? "UNION"
-                        : op_type() == EXCEPT ? "EXCEPT"
-                                              : "INTERSECT",
-                        distinct() ? "DISTINCT" : "ALL");
-}
-
-std::string ASTSetOperation::GetSQLForOperation() const {
-  auto pair = GetSQLForOperationPair();
-  return absl::StrCat(pair.first, " ", pair.second);
-}
-
 std::string ASTSetOperation::SingleNodeDebugString() const {
+  const ASTSetOperationMetadata& effective_metadata =
+      *metadata_->set_operation_metadata_list(0);
   return absl::StrCat(ASTNode::SingleNodeDebugString(), "(",
-                      GetSQLForOperation(), ")");
-}
-
-const ASTHint* ASTSetOperation::hint() const {
-  if (metadata_ == nullptr) {
-    return hint_;
-  } else {
-    return metadata_->set_operation_metadata_list(0)->hint();
-  }
-}
-
-bool ASTSetOperation::distinct() const {
-  if (metadata_ == nullptr) {
-    return distinct_;
-  } else {
-    return metadata_->set_operation_metadata_list(0)
-               ->all_or_distinct()
-               ->value() == ASTSetOperation::DISTINCT;
-  }
-}
-
-ASTSetOperation::OperationType ASTSetOperation::op_type() const {
-  if (metadata_ == nullptr) {
-    return op_type_;
-  } else {
-    return metadata_->set_operation_metadata_list(0)->op_type()->value();
-  }
+                      effective_metadata.GetSQLForOperation(), ")");
 }
 
 std::string ASTQuery::SingleNodeDebugString() const {
@@ -530,6 +490,10 @@ std::string ASTBinaryExpression::GetSQLForOperator() const {
       return "||";
     case DISTINCT:
       return is_not_ ? "IS NOT DISTINCT FROM" : "IS DISTINCT FROM";
+    case IS_SOURCE_NODE:
+      return is_not_ ? "IS NOT SOURCE OF" : "IS SOURCE OF";
+    case IS_DEST_NODE:
+      return is_not_ ? "IS NOT DESTINATION OF" : "IS DESTINATION OF";
   }
 }
 
@@ -840,6 +804,8 @@ std::string ASTExpressionSubquery::ModifierToString(Modifier modifier) {
       return "ARRAY";
     case EXISTS:
       return "EXISTS";
+    case VALUE:
+      return "VALUE";
     case NONE:
       return "";
   }
@@ -1149,6 +1115,26 @@ std::string ASTInsertStatement::GetSQLForInsertMode() const {
   }
 }
 
+std::string ASTOnConflictClause::SingleNodeDebugString() const {
+  if (conflict_action_ == NOT_SET) {
+    return ASTNode::SingleNodeDebugString();
+  } else {
+    return absl::StrCat(ASTNode::SingleNodeDebugString(),
+                        "(conflict_action=", GetSQLForConflictAction(), ")");
+  }
+}
+
+std::string ASTOnConflictClause::GetSQLForConflictAction() const {
+  switch (conflict_action_) {
+    case NOT_SET:
+      return "<INVALID ACTION MODE>";
+    case NOTHING:
+      return "NOTHING";
+    case UPDATE:
+      return "UPDATE";
+  }
+}
+
 absl::StatusOr<const ASTPathExpression*>
 ASTInsertStatement::GetTargetPathForNonNested() const {
   return GetTargetPathForNonNestedDMLStatement(/*statement_type=*/"INSERT",
@@ -1204,6 +1190,16 @@ std::string ASTSampleSize::GetSQLForUnit() const {
   ABSL_DCHECK_NE(unit_, NOT_SET);
   if (unit_ == NOT_SET) return "<UNKNOWN UNIT>";
   return unit_ == ROWS ? "ROWS" : "PERCENT";
+}
+
+std::string ASTEmptyRowPattern::SingleNodeDebugString() const {
+  return absl::StrCat(ASTNode::SingleNodeDebugString(),
+                      parenthesized() ? "(parenthesized=true)" : "");
+}
+
+std::string ASTQuantifier::SingleNodeDebugString() const {
+  return absl::StrCat(ASTNode::SingleNodeDebugString(),
+                      is_reluctant_ ? "(is_reluctant=true)" : "");
 }
 
 std::string ASTGeneratedColumnInfo::GetSqlForStoredMode() const {
@@ -1597,6 +1593,60 @@ std::string ASTAlterStatementBase::SingleNodeDebugString() const {
   return absl::StrCat(node_name, "(is_if_exists)");
 }
 
+std::string ASTGqlMatch::SingleNodeDebugString() const {
+  const std::string node_name = ASTNode::SingleNodeDebugString();
+  if (optional()) {
+    return absl::StrCat(node_name, " (optional)");
+  }
+  return node_name;
+}
+
+std::string ASTGraphNodeTableReference::SingleNodeDebugString() const {
+  const std::string node_name = ASTNode::SingleNodeDebugString();
+  std::string ref_type;
+  switch (node_reference_type()) {
+    case ASTGraphNodeTableReference::NODE_REFERENCE_TYPE_UNSPECIFIED:
+      ref_type = "<UNSPECIFIED>";
+      break;
+    case ASTGraphNodeTableReference::SOURCE:
+      ref_type = "SOURCE";
+      break;
+    case ASTGraphNodeTableReference::DESTINATION:
+      ref_type = "DESTINATION";
+      break;
+  }
+
+  return absl::StrCat(node_name, "(", ref_type, ")");
+}
+
+std::string ASTGraphLabelOperation::SingleNodeDebugString() const {
+  const std::string node_name = ASTNode::SingleNodeDebugString();
+  std::string op;
+  switch (op_type()) {
+    case ASTGraphLabelOperation::OPERATION_TYPE_UNSPECIFIED:
+      op = "<UNSPECIFIED>";
+      break;
+    case ASTGraphLabelOperation::NOT:
+      op = "NOT";
+      break;
+    case ASTGraphLabelOperation::AND:
+      op = "AND";
+      break;
+    case ASTGraphLabelOperation::OR:
+      op = "OR";
+      break;
+  }
+
+  return absl::StrCat(node_name, "(", op, ")");
+}
+
+std::string ASTGraphPathPattern::SingleNodeDebugString() const {
+  if (parenthesized()) {
+    return absl::StrCat("Parenthesized", NodeKindToString(node_kind()));
+  }
+  return NodeKindToString(node_kind());
+}
+
 std::string ASTAuxLoadDataPartitionsClause::SingleNodeDebugString() const {
   return absl::StrCat(ASTNode::SingleNodeDebugString(),
                       is_overwrite_ ? "(is_overwrite)" : "");
@@ -1657,6 +1707,8 @@ absl::string_view SchemaObjectKindToName(SchemaObjectKind schema_object_kind) {
       return "TABLE FUNCTION";
     case SchemaObjectKind::kView:
       return "VIEW";
+    case SchemaObjectKind::kPropertyGraph:
+      return "PROPERTY GRAPH";
     default:
       return "<INVALID SCHEMA OBJECT KIND>";
   }
@@ -1677,6 +1729,49 @@ std::string ASTOptionsEntry::GetSQLForOperator() const {
 
 bool SchemaObjectAllowedForSnapshot(SchemaObjectKind schema_object_kind) {
   return schema_object_kind == SchemaObjectKind::kSchema;
+}
+
+static std::string SetOperationTypeToString(
+    const ASTSetOperationType* op_type) {
+  static constexpr char kUnknownSetOperator[] = "<UNKNOWN SET OPERATOR>";
+  if (op_type == nullptr) {
+    return kUnknownSetOperator;
+  }
+  switch (op_type->value()) {
+    case zetasql::ASTSetOperation::UNION:
+      return "UNION";
+    case zetasql::ASTSetOperation::INTERSECT:
+      return "INTERSECT";
+    case zetasql::ASTSetOperation::EXCEPT:
+      return "EXCEPT";
+    case zetasql::ASTSetOperation::NOT_SET:
+      return kUnknownSetOperator;
+  }
+}
+
+static std::string SetOperationAllOrDistinctToString(
+    const ASTSetOperationAllOrDistinct* all_or_distinct) {
+  if (all_or_distinct == nullptr) {
+    return "";
+  }
+  switch (all_or_distinct->value()) {
+    case zetasql::ASTSetOperation::ALL:
+      return "ALL";
+    case zetasql::ASTSetOperation::DISTINCT:
+      return "DISTINCT";
+    case zetasql::ASTSetOperation::NOT_SET:
+      return "";
+  }
+}
+
+std::string ASTSetOperationMetadata::GetSQLForOperation() const {
+  std::string op_type_str = SetOperationTypeToString(op_type());
+  std::string all_or_distinct_str =
+      SetOperationAllOrDistinctToString(all_or_distinct());
+  // TODO: b/350557288 - Here we preserve the original implementation and do
+  // not include the metadata related to CORRESPONDING. Once all callers have
+  // been updated we should update this function to include other metadata.
+  return absl::StrCat(op_type_str, " ", all_or_distinct_str);
 }
 
 }  // namespace zetasql

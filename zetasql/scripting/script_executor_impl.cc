@@ -918,6 +918,14 @@ absl::Status ScriptExecutorImpl::ExecuteVariableDeclaration() {
       zetasql_base::InsertOrUpdate(MutableCurrentVariableTypeParameters(),
                           var_id->GetAsIdString(),
                           type_with_params.type_params);
+    } else if (auto it = GetCurrentVariableTypeParameters().find(
+                   var_id->GetAsIdString());
+               it != GetCurrentVariableTypeParameters().end()) {
+      // If the variable is being declared without type parameters but there are
+      // type parameters in the map, remove the type parameters from the map.
+      // This can happen when the variable is being redeclared without type
+      // parameters in sessions.
+      MutableCurrentVariableTypeParameters()->erase(it);
     }
     ZETASQL_RETURN_IF_ERROR(UpdateAndCheckVariableSize(
         declaration, var_id->GetAsIdString(),
@@ -939,6 +947,14 @@ absl::StatusOr<Value> ScriptExecutorImpl::EvaluateExpression(
   ZETASQL_ASSIGN_OR_RETURN(ScriptSegment segment, SegmentForScalarExpression(expr));
   ZETASQL_ASSIGN_OR_RETURN(Value value, evaluator_->EvaluateScalarExpression(
                                     *this, segment, target_type));
+  if (target_type != nullptr) {
+    ZETASQL_RET_CHECK(value.is_valid());
+    ZETASQL_RET_CHECK_EQ(value.type_kind(), target_type->kind())
+        << "Scalar expression type [" << value.type()->DebugString()
+        << "] does not match target type [" << target_type->DebugString()
+        << "]. This should never happen. Ast expression: ["
+        << expr->DebugString() << "]";
+  }
   return value;
 }
 
@@ -948,7 +964,15 @@ absl::StatusOr<bool> ScriptExecutorImpl::EvaluateCondition(
                    EvaluateExpression(condition, types::BoolType()));
 
   // Per (broken link), a NULL condition result is equivalent to false.
-  return value.is_null() ? false : value.bool_value();
+  if (value.is_null()) {
+    return false;
+  }
+
+  ZETASQL_RET_CHECK_EQ(value.type_kind(), TYPE_BOOL)
+      << "Value is not a boolean. This should never happen. Value: ["
+      << value.DebugString() << "]. Condition: [" << condition->DebugString();
+
+  return value.bool_value();
 }
 
 absl::Status ScriptExecutorImpl::ExecuteWhileCondition() {
@@ -2201,12 +2225,12 @@ std::string ScriptExecutorImpl::ParameterDebugString() const {
     absl::StrAppend(&debug_string, indent, "parameter @", name, "\n");
   }
 
-  std::pair<int64_t, int64_t> positional_parameters =
+  PositionalParameterRange positional_parameters =
       GetCurrentPositionalParameters();
-  if (positional_parameters.second > 0) {
-    absl::StrAppend(&debug_string, indent, positional_parameters.second,
+  if (positional_parameters.num_params > 0) {
+    absl::StrAppend(&debug_string, indent, positional_parameters.num_params,
                     " parameters starting at index ",
-                    positional_parameters.first, "\n");
+                    positional_parameters.start_param_index, "\n");
   }
 
   return debug_string;

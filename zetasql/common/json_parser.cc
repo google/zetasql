@@ -17,19 +17,24 @@
 #include "zetasql/common/json_parser.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
-#include <ostream>
 #include <string>
 
 #include "zetasql/base/logging.h"
+#include "zetasql/common/thread_stack.h"
+#include "absl/status/status.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/match.h"
-#include "absl/strings/str_format.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/string_numbers.h"  // iwyu: keep
 #include "unicode/utf8.h"
+#include "unicode/utypes.h"
 #include "re2/re2.h"
+#include "zetasql/base/ret_check.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
@@ -48,46 +53,82 @@ JSONParser::JSONParser(absl::string_view json) : json_(json) {}
 
 JSONParser::~JSONParser() {}
 
-bool JSONParser::Parse() {
+absl::Status JSONParser::Parse() {
   p_ = json_;
 
-  bool ret = ParseValue();
+  // If there was a failure in parsing the given string, return an error status.
+  ZETASQL_RETURN_IF_ERROR(ParseValue());
+
+  // If there appears to have been no failure during parsing, then `status_`
+  // should still be ok.
+  ZETASQL_RET_CHECK_OK(status_);
+
   // Test that the entire string was consumed
   SkipWhitespace();
-  if (!p_.empty())
-    return ReportFailure("Parser terminated before end of string");
-  return ret;
+  if (!p_.empty()) {
+    std::string msg = "JSON parser terminated before end of string";
+    ReportFailure(msg);
+    return absl::OutOfRangeError(msg);
+  }
+
+  return absl::OkStatus();
 }
 
-
-bool JSONParser::ParseValue() {
+absl::Status JSONParser::ParseValue() {
+  ZETASQL_RETURN_IF_NOT_ENOUGH_STACK(
+      "JSON parsing failed due to out of stack memory.");
+  // TODO: b/364668357 - Update function return types from bool to absl::Status.
+  bool parse_success;
   switch (GetNextTokenType()) {
     case BEGIN_STRING:
-      return ParseString();
+      parse_success = ParseString();
+      break;
     case BEGIN_NUMBER:
-      return ParseNumber();
+      parse_success = ParseNumber();
+      break;
     case BEGIN_OBJECT:
-      return ParseObject();
+      parse_success = ParseObject();
+      break;
     case BEGIN_ARRAY:
-      return ParseArray();
+      parse_success = ParseArray();
+      break;
     case BEGIN_TRUE:
-      return ParseTrue();
+      parse_success = ParseTrue();
+      break;
     case BEGIN_FALSE:
-      return ParseFalse();
+      parse_success = ParseFalse();
+      break;
     case BEGIN_NULL:
-      return ParseNull();
+      parse_success = ParseNull();
+      break;
     case END_ARRAY:
     case VALUE_SEPARATOR:
-      return ParsedNull();
+      parse_success = ParsedNull();
+      break;
     default:
-      return ReportFailure("Unexpected token");
+      parse_success = ReportFailure("Unexpected token");
+      break;
   }
+
+  // If parsing appears to have failed, but `status_` was not updated to an
+  // error status (via ReportFailure()), then report the unknown error.
+  if (!parse_success && status_.ok()) {
+    parse_success = ReportFailure(
+        "JSON parser failed to parse the given string due to an unknown error",
+        absl::StatusCode::kInternal);
+  }
+
+  return status_;
 }
 
 bool JSONParser::ParseString() {
   std::string str;
-  if (!ParseStringHelper(&str)) return false;
-  if (!ParsedString(str)) return ReportFailure("ParsedString returned false");
+  if (!ParseStringHelper(&str)) {
+    return false;
+  }
+  if (!ParsedString(str)) {
+    return ReportFailure("ParsedString returned false");
+  }
   return true;
 }
 
@@ -174,8 +215,8 @@ bool JSONParser::ParseStringHelper(std::string* str) {
 
   // This code block builds up `str` to contain the, possibly escaped,
   // string literal from the json input. Often, this is going to be a simple
-  // copy of the inputs. however in the case of escaped characters such as
-  // the two-byte sequence '\','b' we replace them with the one byte sequence
+  // copy of the inputs. However, in the case of escaped characters such as
+  // the two-byte sequence '\','b', we replace them with the one byte sequence
   // '\b'. This also handles unicode and octal escaping.
   //
   // We reduce calls to str->append() by buffering up chunks of contiguous
@@ -202,11 +243,17 @@ bool JSONParser::ParseStringHelper(std::string* str) {
       flush(flush_start, p_.data(), str);
       flush_start = nullptr;
       // we know p->length() > 0
-      if (p_.length() == 1) return false;
+      if (p_.length() == 1) {
+        return ReportFailure("Unexpected end of string");
+      }
       if (p_.data()[1] == 'u') {
-        if (!ParseHexDigits(kUnicodeEscapedLength, str)) return false;
+        if (!ParseHexDigits(kUnicodeEscapedLength, str)) {
+          return ReportFailure("Could not parse hex digits");
+        }
       } else if (p_.data()[1] == 'x') {
-        if (!ParseHexDigits(kLatin1HexEscapedLength, str)) return false;
+        if (!ParseHexDigits(kLatin1HexEscapedLength, str)) {
+          return ReportFailure("Could not parse hex digits");
+        }
       } else if (IsOctalDigit(p_.data()[1])) {
         ParseOctalDigits(kLatin1OctEscapedLength, str);
       } else {
@@ -245,16 +292,21 @@ bool JSONParser::ParseStringHelper(std::string* str) {
     }
   }
   flush(flush_start, p_.data(), str);
-  if (!found_close_quote)
+  if (!found_close_quote) {
     return ReportFailure("Closing quote expected in string");
+  }
   AdvanceOneCodepoint();
   return true;
 }
 
 bool JSONParser::ParseNumber() {
   absl::string_view str;
-  if (!ParseNumberTextHelper(&str)) return false;
-  if (!ParsedNumber(str)) return ReportFailure("ParsedNumber returned false");
+  if (!ParseNumberTextHelper(&str)) {
+    return false;
+  }
+  if (!ParsedNumber(str)) {
+    return ReportFailure("ParsedNumber returned false");
+  }
   return true;
 }
 
@@ -264,7 +316,9 @@ bool JSONParser::ParseNumberTextHelper(absl::string_view* str) {
   const char* end = p + p_.size();
 
   // Optional leading minus.
-  if (*p == '-') p++;
+  if (*p == '-') {
+    p++;
+  }
 
   // A single zero, or a series of digits.
   if (p < end && *p == '0') {
@@ -298,7 +352,9 @@ bool JSONParser::ParseNumberTextHelper(absl::string_view* str) {
     p++;
 
     // Optional leading plus or minus.
-    if (p < end && (*p == '+' || *p == '-')) p++;
+    if (p < end && (*p == '+' || *p == '-')) {
+      p++;
+    }
 
     if (p < end && *p >= '0' && *p <= '9') {
       // One or more digits.
@@ -321,12 +377,16 @@ bool JSONParser::ParseObject() {
   ABSL_CHECK_EQ('{', *p_.data());
   AdvanceOneByte();
 
-  if (!BeginObject()) return ReportFailure("BeginObject returned false");
+  if (!BeginObject()) {
+    return ReportFailure("BeginObject returned false");
+  }
 
   // Handle the {} case.
   TokenType t = GetNextTokenType();
   if (t == END_OBJECT) {
-    if (!EndObject()) return ReportFailure("EndObject returned false");
+    if (!EndObject()) {
+      return ReportFailure("EndObject returned false");
+    }
     AdvanceOneByte();
     return true;
   }
@@ -337,8 +397,12 @@ bool JSONParser::ParseObject() {
     t = GetNextTokenType();
     if (t == BEGIN_STRING) {
       std::string str;
-      if (!ParseStringHelper(&str)) return false;
-      if (!BeginMember(str)) return ReportFailure("BeginMember returned false");
+      if (!ParseStringHelper(&str)) {
+        return false;
+      }
+      if (!BeginMember(str)) {
+        return ReportFailure("BeginMember returned false");
+      }
     } else if (t == BEGIN_KEY || t == BEGIN_NUMBER) {
       return ReportFailure("Non-string key encountered while parsing object");
     } else {
@@ -347,99 +411,142 @@ bool JSONParser::ParseObject() {
 
     // Consume the colon
     SkipWhitespace();
-    if (p_.empty() || *p_.data() != ':')
+    if (p_.empty() || *p_.data() != ':') {
       return ReportFailure("Expected : between key:value pair");
+    }
     AdvanceOneByte();
 
     // Parse the value for this member
-    if (!ParseValue()) return ReportFailure("Could not parse value");
+    if (!ParseValue().ok()) {
+      // If parsing failed, but an error has not yet been reported, then report
+      // the failure with an error message (using ReportFailure()).
+      if (status_.ok()) {
+        return ReportFailure("Could not parse value",
+                             absl::StatusCode::kInternal);
+      } else {
+        return false;
+      }
+    }
 
     // ',' '}' or possibly ',}' must appear next.
     t = GetNextTokenType();
     AdvanceOneByte();
     if (t == END_OBJECT) {
-      if (!EndMember(true)) return ReportFailure("EndMember returned false");
+      if (!EndMember(true)) {
+        return ReportFailure("EndMember returned false");
+      }
       break;
     }
     if (t == VALUE_SEPARATOR) {
       // Look ahead for '}'
       t = GetNextTokenType();
       if (t == END_OBJECT) {
-        if (!EndMember(true)) return ReportFailure("EndMember returned false");
+        if (!EndMember(true)) {
+          return ReportFailure("EndMember returned false");
+        }
         AdvanceOneByte();
         break;
       }
-      if (!EndMember(false)) return ReportFailure("EndMember returned false");
+      if (!EndMember(false)) {
+        return ReportFailure("EndMember returned false");
+      }
       continue;
     }
     // Fall through case.
     return ReportFailure("Expected , or } after key:value pair");
   }
-  if (!EndObject()) return ReportFailure("EndObject returned false");
+  if (!EndObject()) {
+    return ReportFailure("EndObject returned false");
+  }
   return true;
 }
 
 bool JSONParser::ParseArray() {
   ABSL_CHECK_EQ('[', *p_.data());
   AdvanceOneByte();
-  if (!BeginArray()) return ReportFailure("BeginArray returned false");
+  if (!BeginArray()) {
+    return ReportFailure("BeginArray returned false");
+  }
   // Deal with [] case
   TokenType t = GetNextTokenType();
   if (t == END_ARRAY) {
     AdvanceOneByte();
-    if (!EndArray()) return ReportFailure("EndArray returned false");
+    if (!EndArray()) {
+      return ReportFailure("EndArray returned false");
+    }
     return true;
   }
 
   // An array is a comma-separated list of values.
   while (true) {
-    if (!BeginArrayEntry())
+    if (!BeginArrayEntry()) {
       return ReportFailure("BeginArrayEntry returned false");
-    if (!ParseValue()) return ReportFailure("Could not parse value");
+    }
+    if (!ParseValue().ok()) {
+      // If parsing failed, but an error has not yet been reported, then report
+      // the failure with an error message (using ReportFailure()).
+      if (status_.ok()) {
+        return ReportFailure("Could not parse value",
+                             absl::StatusCode::kInternal);
+      } else {
+        return false;
+      }
+    }
 
     // ',' ']' or possibly ',]' must appear next.
     t = GetNextTokenType();
     AdvanceOneByte();
     if (t == END_ARRAY) {
-      if (!EndArrayEntry(true))
+      if (!EndArrayEntry(true)) {
         return ReportFailure("EndArrayEntry returned false");
+      }
       break;
     }
     if (t == VALUE_SEPARATOR) {
       t = GetNextTokenType();
       if (t == END_ARRAY) {
-        if (!EndArrayEntry(true))
+        if (!EndArrayEntry(true)) {
           return ReportFailure("EndArrayEntry returned false");
+        }
         AdvanceOneByte();
         break;
       }
-      if (!EndArrayEntry(false))
+      if (!EndArrayEntry(false)) {
         return ReportFailure("EndArrayEntry returned false");
+      }
       continue;
     }
     // Fall through case.
     return ReportFailure("Expected , or ] after array value");
   }
-  if (!EndArray()) return ReportFailure("EndArray returned false");
+  if (!EndArray()) {
+    return ReportFailure("EndArray returned false");
+  }
   return true;
 }
 
 bool JSONParser::ParseTrue() {
-  if (!ParsedBool(true)) return ReportFailure("ParsedBool returned false");
+  if (!ParsedBool(true)) {
+    return ReportFailure("ParsedBool returned false");
+  }
   ABSL_DCHECK_GE(p_.length(), kTrue.length());
   p_.remove_prefix(kTrue.length());
   return true;
 }
 
 bool JSONParser::ParseFalse() {
-  if (!ParsedBool(false)) return ReportFailure("ParsedBool returned false");
+  if (!ParsedBool(false)) {
+    return ReportFailure("ParsedBool returned false");
+  }
   ABSL_DCHECK_GE(p_.length(), kFalse.length());
   p_.remove_prefix(kFalse.length());
   return true;
 }
 
 bool JSONParser::ParseNull() {
-  if (!ParsedNull()) return ReportFailure("ParsedNull returned false");
+  if (!ParsedNull()) {
+    return ReportFailure("ParsedNull returned false");
+  }
   ABSL_DCHECK_GE(p_.length(), kNull.length());
   p_.remove_prefix(kNull.length());
   return true;
@@ -508,24 +615,35 @@ JSONParser::TokenType JSONParser::GetNextTokenType() {
     case ',':
       return VALUE_SEPARATOR;
     case 't':
-      if (absl::StartsWith(p_, kTrue)) return BEGIN_TRUE;
+      if (absl::StartsWith(p_, kTrue)) {
+        return BEGIN_TRUE;
+      }
       break;
     case 'f':
-      if (absl::StartsWith(p_, kFalse)) return BEGIN_FALSE;
+      if (absl::StartsWith(p_, kFalse)) {
+        return BEGIN_FALSE;
+      }
       break;
     case 'n':
-      if (absl::StartsWith(p_, kNull)) return BEGIN_NULL;
+      if (absl::StartsWith(p_, kNull)) {
+        return BEGIN_NULL;
+      }
       break;
   }
 
   absl::string_view temp = p_;  // Consume modifies pointer.
-  if (RE2::Consume(&temp, *key_re)) return BEGIN_KEY;
+  if (RE2::Consume(&temp, *key_re)) {
+    return BEGIN_KEY;
+  }
 
   ReportFailure("Unknown token type");
   return UNKNOWN;
 }
 
 std::string JSONParser::ContextAtCurrentPosition(int context_length) const {
+  if (p_.data() == nullptr || json_.data() == nullptr) {
+    return "";
+  }
   const char* begin =
       std::max<const char*>(p_.data() - context_length, json_.data());
   const char* end = std::min<const char*>(p_.data() + context_length,
@@ -534,12 +652,24 @@ std::string JSONParser::ContextAtCurrentPosition(int context_length) const {
 }
 
 // virtual
-bool JSONParser::ReportFailure(const std::string& error_message) {
-  static const int kContextLength = 10;
+bool JSONParser::ReportFailure(absl::string_view error_message,
+                               absl::StatusCode error_code) {
+  std::string error_location_string =
+      absl::StrCat("Character ", p_.data() - json_.data(), ":",
+                   ContextAtCurrentPosition(kDefaultContextLength));
+  status_ = absl::Status(
+      error_code, absl::StrCat(error_message, " at ", error_location_string));
+
   ZETASQL_VLOG(1) << error_message;
-  ZETASQL_VLOG(2) << "Character " << p_.data() - json_.data() << ":" << std::endl
-          << ContextAtCurrentPosition(kContextLength);
+  ZETASQL_VLOG(2) << error_location_string;
   return false;  // Convenient return value for forwarding.
+}
+
+// virtual
+bool JSONParser::ReportFailure(absl::string_view error_message) {
+  // By default, failures are assumed to be parsing errors, and hence should
+  // generate an out-of-range error.
+  return ReportFailure(error_message, absl::StatusCode::kOutOfRange);
 }
 
 // Implement default event handlers.

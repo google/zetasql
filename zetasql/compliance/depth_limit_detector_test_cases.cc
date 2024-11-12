@@ -579,4 +579,35 @@ AllDepthLimitDetectorTestCases() {
   return *case_references;
 }
 
+absl::Span<const std::reference_wrapper<const DepthLimitDetectorTestCase>>
+JSONDepthLimitDetectorTestCases() {
+  using R = depth_limit_detector_internal::DepthLimitDetectorRepeatedTemplate;
+  using N = depth_limit_detector_internal::DepthLimitDetectorDepthNumber;
+  static std::vector<DepthLimitDetectorTestCase>* cases =
+      new std::vector<DepthLimitDetectorTestCase>{
+          {
+              .depth_limit_test_case_name = "nested_json_object",
+              .depth_limit_template = {R({"{"}), "\"field\": true", R({"}"})},
+          },
+          {
+              .depth_limit_test_case_name =
+                  "nested_json_object_with_fields_at_each_depth",
+              .depth_limit_template = {R({"{ \"a\":", N(), ","}), "\"b\": true",
+                                       R({"}"})},
+          },
+          {
+              .depth_limit_test_case_name = "nested_json_array_bool",
+              .depth_limit_template = {R({"["}), "true", R({"]"})},
+          },
+          {
+              .depth_limit_test_case_name = "nested_json_array_null",
+              .depth_limit_template = {R({"["}), "null", R({"]"})},
+          },
+      };
+  static std::vector<std::reference_wrapper<const DepthLimitDetectorTestCase>>*
+      case_references = new std::vector<
+          std::reference_wrapper<const DepthLimitDetectorTestCase>>(
+          cases->begin(), cases->end());
+  return *case_references;
+}
 }  // namespace zetasql

@@ -162,6 +162,7 @@ cc_test(
         ":endian",
         "//zetasql/base/testing:zetasql_gtest_main",
         "@com_google_absl//absl/base:config",
+        "@com_google_absl//absl/numeric:int128",
     ],
 )
 
@@ -413,7 +414,6 @@ cc_library(
     deps = [
         ":bits",
         ":check",
-        ":mathlimits",
         "@com_google_absl//absl/base",
     ],
 )
@@ -424,32 +424,10 @@ cc_test(
         "mathutil_test.cc",
     ],
     deps = [
-        ":mathlimits",
         ":mathutil",
         "//zetasql/base/testing:zetasql_gtest_main",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/log",
-    ],
-)
-
-cc_library(
-    name = "mathlimits",
-    srcs = [
-        "mathlimits.cc",
-    ],
-    hdrs = [
-        "mathlimits.h",
-    ],
-)
-
-cc_test(
-    name = "mathlimits_test",
-    srcs = ["mathlimits_test.cc"],
-    deps = [
-        ":logging",
-        ":mathlimits",
-        ":mathutil",
-        "//zetasql/base/testing:zetasql_gtest_main",
     ],
 )
 

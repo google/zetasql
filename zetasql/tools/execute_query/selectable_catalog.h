@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "zetasql/public/catalog.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {
@@ -71,7 +72,7 @@ std::string GetSelectableCatalogDescriptionsForFlag();
 
 // Find the SelectableCatalog called `name` and return it, or an error.
 absl::StatusOr<SelectableCatalog*> FindSelectableCatalog(
-    const std::string& name);
+    absl::string_view name);
 
 }  // namespace zetasql
 

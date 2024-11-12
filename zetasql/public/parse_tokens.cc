@@ -26,10 +26,11 @@
 
 #include "zetasql/base/arena.h"
 #include "zetasql/common/errors.h"
-#include "zetasql/parser/bison_parser.bison.h"
 #include "zetasql/parser/bison_parser_mode.h"
 #include "zetasql/parser/keywords.h"
 #include "zetasql/parser/lookahead_transformer.h"
+#include "zetasql/parser/tm_token.h"
+#include "zetasql/parser/token_codes.h"
 #include "zetasql/public/error_helpers.h"
 #include "zetasql/public/functions/convert_string.h"
 #include "zetasql/public/parse_location.h"
@@ -54,7 +55,7 @@ enum class TokenizerState { kNone, kIdentifier, kIdentifierDot };
 
 }  // namespace
 
-using TokenKind = int;
+using Token = parser::Token;
 
 // Returns a syntax error status with message 'error_message', located at byte
 // offset 'error_offset' into 'location'.
@@ -69,20 +70,18 @@ static absl::Status MakeSyntaxErrorAtLocationOffset(
       << "Syntax error: " << error_message;
 }
 
-static absl::Status ConvertBisonToken(TokenKind bison_token,
+static absl::Status ConvertBisonToken(parser::Token bison_token,
                                       bool is_adjacent_to_prior_token,
                                       const ParseLocationRange& location,
                                       std::string image,
                                       std::vector<ParseToken>* parse_tokens) {
-  using zetasql_bison_parser::BisonParserImpl;
-
   switch (bison_token) {
-    case 0:
+    case Token::EOI:
       parse_tokens->emplace_back(location, is_adjacent_to_prior_token,
                                  std::move(image), ParseToken::END_OF_INPUT);
       break;
 
-    case ';': {
+    case parser::Token::SEMICOLON: {
       // The Flex tokenizer may include some whitespace in the ; token.
       // We don't want to include that in the image.
       ParseLocationRange adjusted_location = location;
@@ -93,7 +92,7 @@ static absl::Status ConvertBisonToken(TokenKind bison_token,
       break;
     }
 
-    case BisonParserImpl::token::STRING_LITERAL: {
+    case parser::Token::STRING_LITERAL: {
       std::string parsed_value;
       int error_offset;
       std::string error_message;
@@ -109,7 +108,7 @@ static absl::Status ConvertBisonToken(TokenKind bison_token,
       break;
     }
 
-    case BisonParserImpl::token::BYTES_LITERAL: {
+    case parser::Token::BYTES_LITERAL: {
       std::string parsed_value;
       int error_offset;
       std::string error_message;
@@ -125,7 +124,7 @@ static absl::Status ConvertBisonToken(TokenKind bison_token,
       break;
     }
 
-    case BisonParserImpl::token::FLOATING_POINT_LITERAL: {
+    case parser::Token::FLOATING_POINT_LITERAL: {
       double double_value;
       if (!functions::StringToNumeric(image, &double_value, nullptr)) {
         return MakeSqlErrorAtPoint(location.start())
@@ -137,7 +136,7 @@ static absl::Status ConvertBisonToken(TokenKind bison_token,
       break;
     }
 
-    case BisonParserImpl::token::INTEGER_LITERAL: {
+    case parser::Token::INTEGER_LITERAL: {
       Value parsed_value;
       if (!Value::ParseInteger(image, &parsed_value)) {
         return MakeSqlErrorAtPoint(location.start())
@@ -149,7 +148,7 @@ static absl::Status ConvertBisonToken(TokenKind bison_token,
       break;
     }
 
-    case BisonParserImpl::token::COMMENT: {
+    case parser::Token::COMMENT: {
       std::string comment(image);
       if (comment[0] != '/') {
         // The Flex rule for the comment will match trailing whitespaces. The
@@ -170,7 +169,7 @@ static absl::Status ConvertBisonToken(TokenKind bison_token,
       break;
     }
 
-    case BisonParserImpl::token::IDENTIFIER:
+    case parser::Token::IDENTIFIER:
       if (image[0] == '`') {
         std::string identifier;
         int error_offset;
@@ -208,8 +207,7 @@ static absl::Status ConvertBisonToken(TokenKind bison_token,
       }
       break;
 
-    case BisonParserImpl::token::
-        INVALID_LITERAL_PRECEDING_IDENTIFIER_NO_SPACE: {
+    case parser::Token::INVALID_LITERAL_PRECEDING_IDENTIFIER_NO_SPACE: {
       // Find the start of the identifier and report the error there.
       ZETASQL_RET_CHECK_GE(image.size(), 2);
       int start = static_cast<int>(image.size() - 1);
@@ -264,7 +262,7 @@ absl::Status GetParseTokens(const ParseTokenOptions& options,
   ParseLocationRange previous_location;
   ParseLocationRange location;
   while (true) {
-    TokenKind bison_token;
+    parser::Token bison_token;
     status = ConvertInternalErrorLocationToExternal(
         tokenizer->GetNextToken(&location /* input and output */, &bison_token),
         resume_location->input());
@@ -289,7 +287,7 @@ absl::Status GetParseTokens(const ParseTokenOptions& options,
     if (options.max_tokens > 0 && tokens->size() >= options.max_tokens) {
       break;
     }
-    if (bison_token == 0 /* EOF */) {
+    if (bison_token == Token::EOI) {
       break;
     }
     if (options.stop_at_end_of_statement &&

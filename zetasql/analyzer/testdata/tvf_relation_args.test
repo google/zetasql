@@ -7593,3 +7593,12 @@ QueryStmt
     | +-x#1 := ArgumentRef(type=ARRAY<STRING>, name="x")
     +-input_scan=
       +-SingleRowScan
+==
+
+select *
+from tvf_one_relation_arg_with_fixed_output(TABLE KeyValue WHERE true)
+--
+
+ERROR: TABLE clause with WHERE is not supported [at 2:45]
+from tvf_one_relation_arg_with_fixed_output(TABLE KeyValue WHERE true)
+                                            ^

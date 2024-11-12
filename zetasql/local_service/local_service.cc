@@ -53,6 +53,7 @@
 #include "absl/container/flat_hash_set.h"
 #include "absl/functional/bind_front.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
@@ -464,7 +465,7 @@ class RegisteredCatalogState : public GenericState {
         owned_descriptor_pool_ids_(std::move(owned_descriptor_pool_ids)) {}
 
   static absl::StatusOr<std::unique_ptr<SimpleTable>> DeserializeTable(
-      const std::string& name, const SimpleTableProto& proto,
+      absl::string_view name, const SimpleTableProto& proto,
       const google::protobuf::Map<std::string, TableContent>& tables_contents,
       const TypeDeserializer& type_deserializer) {
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<SimpleTable> table,

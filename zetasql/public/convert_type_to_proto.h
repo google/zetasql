@@ -29,6 +29,7 @@
 #include "zetasql/public/type.pb.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/node_hash_map.h"
+#include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 #include "zetasql/base/status.h"
 
@@ -251,7 +252,7 @@ absl::Status ConvertTableToProto(
 // At read time, the query engine should strip off this annotation,
 // giving back the user's original proto.
 absl::Status AddValueTableAnnotationForProto(
-    const std::string& message_full_name, google::protobuf::FileDescriptorProto* file);
+    absl::string_view message_full_name, google::protobuf::FileDescriptorProto* file);
 
 }  // namespace zetasql
 

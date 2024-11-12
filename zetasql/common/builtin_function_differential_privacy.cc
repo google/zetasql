@@ -14,6 +14,7 @@
 // limitations under the License.
 //
 
+#include <new>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -21,6 +22,7 @@
 #include "zetasql/common/builtin_function_internal.h"
 #include "zetasql/proto/anon_output_with_report.pb.h"
 #include "zetasql/public/anon_function.h"
+#include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/builtin_function_options.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/function_signature.h"
@@ -472,6 +474,112 @@ void GetAnonFunctions(TypeFactory* type_factory,
           "avg"));
 }
 
+static std::string DpSignatureTextCallback(
+    const LanguageOptions& language_options, const Function& function,
+    const FunctionSignature& signature) {
+  std::vector<std::string> argument_texts;
+  for (const FunctionArgumentType& argument : signature.arguments()) {
+    if (!argument.has_argument_name() ||
+        argument.argument_name() != "report_format") {
+      argument_texts.push_back(argument.UserFacingNameWithCardinality(
+          language_options.product_mode(),
+          FunctionArgumentType::NamePrintingStyle::kIfNamedOnly,
+          /*print_template_details=*/true));
+    } else {
+      // Includes the return result type as the two signatures accept the same
+      // arguments and result type is distinguished based on value of
+      // `report_format` argument.
+      const std::string report_suffix =
+          signature.result_type().type()->IsJsonType()
+              ? "/*with value \"JSON\"*/"
+              : (signature.result_type().type()->IsProto()
+                     ? "/*with value \"PROTO\"*/"
+                     : "");
+      argument_texts.push_back(absl::StrCat(
+          argument.UserFacingNameWithCardinality(
+              language_options.product_mode(),
+              FunctionArgumentType::NamePrintingStyle::kIfNamedOnly,
+              /*print_template_details=*/true),
+          report_suffix));
+    }
+  }
+  return absl::StrCat(function.GetSQL(argument_texts), " -> ",
+                      signature.result_type().UserFacingNameWithCardinality(
+                          language_options.product_mode(),
+                          FunctionArgumentType::NamePrintingStyle::kIfNamedOnly,
+                          /*print_template_details=*/true));
+}
+
+// Creates a signature for DP function returning a report. This signature will
+// only be matched if the argument at the 0-indexed `report_arg_position` has
+// constant value that is equal to `report_format`.
+static FunctionSignatureOptions DpReportSignatureOptions(
+    functions::DifferentialPrivacyEnums::ReportFormat report_format,
+    int report_arg_position) {
+  auto dp_report_constraint =
+      [report_arg_position, report_format](
+          const FunctionSignature& concrete_signature,
+          absl::Span<const InputArgumentType> arguments) -> std::string {
+    if (arguments.size() <= report_arg_position) {
+      return absl::StrCat("at most ", report_arg_position,
+                          " argument(s) can be provided");
+    }
+    const Value* value = arguments.at(report_arg_position).literal_value();
+    if (value == nullptr || !value->is_valid()) {
+      return absl::StrCat("literal value is required at ",
+                          report_arg_position + 1);
+    }
+    const Value expected_value = Value::Enum(
+        types::DifferentialPrivacyReportFormatEnumType(), report_format);
+    // If we encounter string we have to create enum type out of it to
+    // be able to compare against expected enum value.
+    if (value->type()->IsString()) {
+      auto enum_value =
+          Value::Enum(types::DifferentialPrivacyReportFormatEnumType(),
+                      value->string_value());
+      if (!enum_value.is_valid()) {
+        return absl::StrCat("Invalid enum value: ", value->string_value());
+      }
+      if (enum_value.Equals(expected_value)) {
+        return "";
+      }
+      return absl::StrCat("Found: ", enum_value.EnumDisplayName(),
+                          " expecting: ", expected_value.EnumDisplayName());
+    }
+    if (value->Equals(expected_value)) {
+      return std::string("");
+    }
+    return absl::StrCat("Found: ", value->EnumDisplayName(),
+                        " expecting: ", expected_value.EnumDisplayName());
+  };
+  return FunctionSignatureOptions()
+      .set_constraints(dp_report_constraint)
+      .AddRequiredLanguageFeature(
+          FEATURE_DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS);
+};
+
+static std::vector<FunctionSignature> MaybeAddEpsilonArgumentToSignatures(
+    const LanguageOptions& language_options,
+    const std::vector<FunctionSignature>& function_signatures) {
+  if (!language_options.LanguageFeatureEnabled(
+          FEATURE_DIFFERENTIAL_PRIVACY_PER_AGGREGATION_BUDGET)) {
+    return function_signatures;
+  }
+  std::vector<FunctionSignature> result;
+  for (const FunctionSignature& signature : function_signatures) {
+    FunctionArgumentTypeList arguments_copy = signature.arguments();
+    arguments_copy.push_back(FunctionArgumentType(
+        types::DoubleType(),
+        FunctionArgumentTypeOptions()
+            .set_argument_name("epsilon", FunctionEnums::NAMED_ONLY)
+            .set_cardinality(FunctionEnums::OPTIONAL)));
+    result.push_back(FunctionSignature(signature.result_type(), arguments_copy,
+                                       signature.context_id(),
+                                       signature.options()));
+  }
+  return result;
+}
+
 absl::Status GetDifferentialPrivacyFunctions(
     TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
     NameToFunctionMap* functions, NameToTypeMap* types) {
@@ -480,6 +588,7 @@ absl::Status GetDifferentialPrivacyFunctions(
   const Type* double_type = type_factory->get_double();
   const Type* numeric_type = type_factory->get_numeric();
   const Type* double_array_type = types::DoubleArrayType();
+  const Type* bytes_type = type_factory->get_bytes();
   const Type* json_type = types::JsonType();
   const Type* report_proto_type = nullptr;
   ZETASQL_RETURN_IF_ERROR(type_factory->MakeProtoType(
@@ -487,8 +596,14 @@ absl::Status GetDifferentialPrivacyFunctions(
       &report_proto_type));
   const Type* report_format_type =
       types::DifferentialPrivacyReportFormatEnumType();
-
   ZETASQL_RETURN_IF_ERROR(InsertType(types, options, report_format_type));
+  ZETASQL_ASSIGN_OR_RETURN(
+      const Type* contribution_bounding_strategy_type,
+      types::
+          DifferentialPrivacyCountDistinctContributionBoundingStrategyEnumType());  // NOLINT
+  ZETASQL_RETURN_IF_ERROR(
+      InsertType(types, options, contribution_bounding_strategy_type));
+
   // Creates a pair of same types for contribution bounds. First field is lower
   // bound and second is upper bound. Struct field name is omitted intentionally
   // because the user syntax for struct constructor does not allow "AS
@@ -568,60 +683,12 @@ absl::Status GetDifferentialPrivacyFunctions(
               optional_contribution_bounds_per_row_arg_options)
               .set_cardinality(FunctionEnums::REQUIRED);
 
+  const FunctionArgumentTypeOptions default_required_argument =
+      FunctionArgumentTypeOptions().set_cardinality(FunctionEnums::REQUIRED);
+
   const FunctionArgumentTypeOptions report_arg_options =
       FunctionArgumentTypeOptions().set_must_be_constant().set_argument_name(
           "report_format", FunctionEnums::NAMED_ONLY);
-  // Creates a signature for DP function returning a report. This signature
-  // will only be matched if the argument at the 0-indexed
-  // `report_arg_position` has constant value that is equal to
-  // `report_format`.
-  auto get_dp_report_signature =
-      [](functions::DifferentialPrivacyEnums::ReportFormat report_format,
-         int report_arg_position) {
-        auto dp_report_constraint =
-            [report_arg_position, report_format](
-                const FunctionSignature& concrete_signature,
-                absl::Span<const InputArgumentType> arguments) -> std::string {
-          if (arguments.size() <= report_arg_position) {
-            return absl::StrCat("at most ", report_arg_position,
-                                " argument(s) can be provided");
-          }
-          const Value* value =
-              arguments.at(report_arg_position).literal_value();
-          if (value == nullptr || !value->is_valid()) {
-            return absl::StrCat("literal value is required at ",
-                                report_arg_position + 1);
-          }
-          const Value expected_value = Value::Enum(
-              types::DifferentialPrivacyReportFormatEnumType(), report_format);
-          // If we encounter string we have to create enum type out of it to
-          // be able to compare against expected enum value.
-          if (value->type()->IsString()) {
-            auto enum_value =
-                Value::Enum(types::DifferentialPrivacyReportFormatEnumType(),
-                            value->string_value());
-            if (!enum_value.is_valid()) {
-              return absl::StrCat("Invalid enum value: ",
-                                  value->string_value());
-            }
-            if (enum_value.Equals(expected_value)) {
-              return "";
-            }
-            return absl::StrCat(
-                "Found: ", enum_value.EnumDisplayName(),
-                " expecting: ", expected_value.EnumDisplayName());
-          }
-          if (value->Equals(expected_value)) {
-            return std::string("");
-          }
-          return absl::StrCat("Found: ", value->EnumDisplayName(),
-                              " expecting: ", expected_value.EnumDisplayName());
-        };
-        return FunctionSignatureOptions()
-            .set_constraints(dp_report_constraint)
-            .AddRequiredLanguageFeature(
-                FEATURE_DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS);
-      };
 
   // TODO: internal function names shouldn't be resolvable,
   // an alternative way to look up COUNT(*) will be needed to fix the
@@ -634,74 +701,49 @@ absl::Status GetDifferentialPrivacyFunctions(
     };
   };
 
-  auto signature_text_function = [](const LanguageOptions& language_options,
-                                    const Function& function,
-                                    const FunctionSignature& signature) {
-    std::vector<std::string> argument_texts;
-    for (const FunctionArgumentType& argument : signature.arguments()) {
-      if (!argument.has_argument_name() ||
-          argument.argument_name() != "report_format") {
-        argument_texts.push_back(argument.UserFacingNameWithCardinality(
-            language_options.product_mode(),
-            FunctionArgumentType::NamePrintingStyle::kIfNamedOnly,
-            /*print_template_details=*/true));
-      } else {
-        // Includes the return result type as the two signatures accept the same
-        // arguments and result type is distinguished based on value of
-        // `report_format` argument.
-        const std::string report_suffix =
-            signature.result_type().type()->IsJsonType()
-                ? "/*with value \"JSON\"*/"
-                : (signature.result_type().type()->IsProto()
-                       ? "/*with value \"PROTO\"*/"
-                       : "");
-        argument_texts.push_back(absl::StrCat(
-            argument.UserFacingNameWithCardinality(
-                language_options.product_mode(),
-                FunctionArgumentType::NamePrintingStyle::kIfNamedOnly,
-                /*print_template_details=*/true),
-            report_suffix));
-      }
-    }
-    return absl::StrCat(
-        function.GetSQL(argument_texts), " -> ",
-        signature.result_type().UserFacingNameWithCardinality(
-            language_options.product_mode(),
-            FunctionArgumentType::NamePrintingStyle::kIfNamedOnly,
-            /*print_template_details=*/true));
-  };
-
   InsertCreatedFunction(
       functions, options,
       new AnonFunction(
           "$differential_privacy_count", Function::kZetaSQLFunctionGroupName,
-          {{int64_type,
-            {/*expr=*/ARG_TYPE_ANY_2,
-             /*contribution_bounds_per_group=*/
-             {int64_pair_type,
-              optional_contribution_bounds_per_group_arg_options}},
-            FN_DIFFERENTIAL_PRIVACY_COUNT},
-           {json_type,
-            {/*expr=*/ARG_TYPE_ANY_2,
-             /*report_format=*/{report_format_type, report_arg_options},
-             /*contribution_bounds_per_group=*/
-             {int64_pair_type,
-              optional_contribution_bounds_per_group_arg_options}},
-            FN_DIFFERENTIAL_PRIVACY_COUNT_REPORT_JSON,
-            get_dp_report_signature(functions::DifferentialPrivacyEnums::JSON,
-                                    1)},
-           {report_proto_type,
-            {/*expr=*/ARG_TYPE_ANY_2,
-             /*report_format=*/{report_format_type, report_arg_options},
-             /*contribution_bounds_per_group=*/
-             {int64_pair_type,
-              optional_contribution_bounds_per_group_arg_options}},
-            FN_DIFFERENTIAL_PRIVACY_COUNT_REPORT_PROTO,
-            get_dp_report_signature(functions::DifferentialPrivacyEnums::PROTO,
-                                    1)}},
+          MaybeAddEpsilonArgumentToSignatures(
+              options.language_options,
+              {
+                  {int64_type,
+                   {
+                       /*expr=*/ARG_TYPE_ANY_2,
+                       /*contribution_bounds_per_group=*/
+                       {int64_pair_type,
+                        optional_contribution_bounds_per_group_arg_options},
+                   },
+                   FN_DIFFERENTIAL_PRIVACY_COUNT},
+                  {json_type,
+                   {
+                       /*expr=*/ARG_TYPE_ANY_2,
+                       /*report_format=*/
+                       {report_format_type, report_arg_options},
+                       /*contribution_bounds_per_group=*/
+                       {int64_pair_type,
+                        optional_contribution_bounds_per_group_arg_options},
+                   },
+                   FN_DIFFERENTIAL_PRIVACY_COUNT_REPORT_JSON,
+                   DpReportSignatureOptions(
+                       functions::DifferentialPrivacyEnums::JSON, 1)},
+                  {report_proto_type,
+                   {
+                       /*expr=*/ARG_TYPE_ANY_2,
+                       /*report_format=*/
+                       {report_format_type, report_arg_options},
+                       /*contribution_bounds_per_group=*/
+                       {int64_pair_type,
+                        optional_contribution_bounds_per_group_arg_options},
+                   },
+                   FN_DIFFERENTIAL_PRIVACY_COUNT_REPORT_PROTO,
+                   DpReportSignatureOptions(
+                       functions::DifferentialPrivacyEnums::PROTO, 1)},
+              }),
           dp_options.Copy()
               .set_get_sql_callback(get_sql_callback_for_function("COUNT"))
-              .set_signature_text_callback(signature_text_function)
+              .set_signature_text_callback(DpSignatureTextCallback)
               .set_sql_name("count"),
           "count"));
 
@@ -710,27 +752,35 @@ absl::Status GetDifferentialPrivacyFunctions(
       new AnonFunction(
           "$differential_privacy_count_star",
           Function::kZetaSQLFunctionGroupName,
-          {{int64_type,
-            {/*contribution_bounds_per_group=*/{
-                int64_pair_type,
-                optional_contribution_bounds_per_group_arg_options}},
-            FN_DIFFERENTIAL_PRIVACY_COUNT_STAR},
-           {json_type,
-            {/*report_format=*/{report_format_type, report_arg_options},
-             /*contribution_bounds_per_group=*/
-             {int64_pair_type,
-              optional_contribution_bounds_per_group_arg_options}},
-            FN_DIFFERENTIAL_PRIVACY_COUNT_STAR_REPORT_JSON,
-            get_dp_report_signature(functions::DifferentialPrivacyEnums::JSON,
-                                    0)},
-           {report_proto_type,
-            {/*report_format=*/{report_format_type, report_arg_options},
-             /*contribution_bounds_per_group=*/
-             {int64_pair_type,
-              optional_contribution_bounds_per_group_arg_options}},
-            FN_DIFFERENTIAL_PRIVACY_COUNT_STAR_REPORT_PROTO,
-            get_dp_report_signature(functions::DifferentialPrivacyEnums::PROTO,
-                                    0)}},
+          MaybeAddEpsilonArgumentToSignatures(
+              options.language_options,
+              {{int64_type,
+                {
+                    /*contribution_bounds_per_group=*/{
+                        int64_pair_type,
+                        optional_contribution_bounds_per_group_arg_options},
+                },
+                FN_DIFFERENTIAL_PRIVACY_COUNT_STAR},
+               {json_type,
+                {
+                    /*report_format=*/{report_format_type, report_arg_options},
+                    /*contribution_bounds_per_group=*/
+                    {int64_pair_type,
+                     optional_contribution_bounds_per_group_arg_options},
+                },
+                FN_DIFFERENTIAL_PRIVACY_COUNT_STAR_REPORT_JSON,
+                DpReportSignatureOptions(
+                    functions::DifferentialPrivacyEnums::JSON, 0)},
+               {report_proto_type,
+                {
+                    /*report_format=*/{report_format_type, report_arg_options},
+                    /*contribution_bounds_per_group=*/
+                    {int64_pair_type,
+                     optional_contribution_bounds_per_group_arg_options},
+                },
+                FN_DIFFERENTIAL_PRIVACY_COUNT_STAR_REPORT_PROTO,
+                DpReportSignatureOptions(
+                    functions::DifferentialPrivacyEnums::PROTO, 0)}}),
           dp_options.Copy()
               .set_get_sql_callback(&DPCountStarSQL)
               // TODO: Showing 3 signatures is very long and
@@ -738,7 +788,7 @@ absl::Status GetDifferentialPrivacyFunctions(
               // showing detailed mismatch errors.
               .set_supported_signatures_callback(
                   &SupportedSignaturesForDPCountStar)
-              .set_signature_text_callback(signature_text_function)
+              .set_signature_text_callback(DpSignatureTextCallback)
               .set_sql_name("count(*)"),
           "$count_star"));
 
@@ -747,129 +797,162 @@ absl::Status GetDifferentialPrivacyFunctions(
       functions, options,
       new AnonFunction(
           "$differential_privacy_sum", Function::kZetaSQLFunctionGroupName,
-          {{int64_type,
-            {/*expr=*/int64_type,
-             /*contribution_bounds_per_group=*/
-             {int64_pair_type,
-              optional_contribution_bounds_per_group_arg_options}},
-            FN_DIFFERENTIAL_PRIVACY_SUM_INT64},
-           {uint64_type,
-            {/*expr=*/uint64_type,
-             /*contribution_bounds_per_group=*/
-             {uint64_pair_type,
-              optional_contribution_bounds_per_group_arg_options}},
-            FN_DIFFERENTIAL_PRIVACY_SUM_UINT64},
-           {double_type,
-            {/*expr=*/double_type,
-             /*contribution_bounds_per_group=*/
-             {double_pair_type,
-              optional_contribution_bounds_per_group_arg_options}},
-            FN_DIFFERENTIAL_PRIVACY_SUM_DOUBLE},
-           {numeric_type,
-            {/*expr=*/numeric_type,
-             /*contribution_bounds_per_group=*/
-             {numeric_pair_type,
-              optional_contribution_bounds_per_group_arg_options}},
-            FN_DIFFERENTIAL_PRIVACY_SUM_NUMERIC,
-            has_numeric_type_argument},
-           {json_type,
-            {/*expr=*/int64_type,
-             /*report_format=*/{report_format_type, report_arg_options},
-             /*contribution_bounds_per_group=*/
-             {int64_pair_type,
-              optional_contribution_bounds_per_group_arg_options}},
-            FN_DIFFERENTIAL_PRIVACY_SUM_REPORT_JSON_INT64,
-            get_dp_report_signature(functions::DifferentialPrivacyEnums::JSON,
-                                    1)},
-           {json_type,
-            {/*expr=*/double_type,
-             /*report_format=*/{report_format_type, report_arg_options},
-             /*contribution_bounds_per_group=*/
-             {double_pair_type,
-              optional_contribution_bounds_per_group_arg_options}},
-            FN_DIFFERENTIAL_PRIVACY_SUM_REPORT_JSON_DOUBLE,
-            get_dp_report_signature(functions::DifferentialPrivacyEnums::JSON,
-                                    1)},
-           {json_type,
-            {/*expr=*/uint64_type,
-             /*report_format=*/{report_format_type, report_arg_options},
-             /*contribution_bounds_per_group=*/
-             {uint64_pair_type,
-              optional_contribution_bounds_per_group_arg_options}},
-            FN_DIFFERENTIAL_PRIVACY_SUM_REPORT_JSON_UINT64,
-            get_dp_report_signature(functions::DifferentialPrivacyEnums::JSON,
-                                    1)},
-           {report_proto_type,
-            {/*expr=*/int64_type,
-             /*report_format=*/{report_format_type, report_arg_options},
-             /*contribution_bounds_per_group=*/
-             {int64_pair_type,
-              optional_contribution_bounds_per_group_arg_options}},
-            FN_DIFFERENTIAL_PRIVACY_SUM_REPORT_PROTO_INT64,
-            get_dp_report_signature(functions::DifferentialPrivacyEnums::PROTO,
-                                    1)},
-           {report_proto_type,
-            {/*expr=*/double_type,
-             /*report_format=*/{report_format_type, report_arg_options},
-             /*contribution_bounds_per_group=*/
-             {double_pair_type,
-              optional_contribution_bounds_per_group_arg_options}},
-            FN_DIFFERENTIAL_PRIVACY_SUM_REPORT_PROTO_DOUBLE,
-            get_dp_report_signature(functions::DifferentialPrivacyEnums::PROTO,
-                                    1)},
-           {report_proto_type,
-            {/*expr=*/uint64_type,
-             /*report_format=*/{report_format_type, report_arg_options},
-             /*contribution_bounds_per_group=*/
-             {uint64_pair_type,
-              optional_contribution_bounds_per_group_arg_options}},
-            FN_DIFFERENTIAL_PRIVACY_SUM_REPORT_PROTO_UINT64,
-            get_dp_report_signature(functions::DifferentialPrivacyEnums::PROTO,
-                                    1)}},
+          MaybeAddEpsilonArgumentToSignatures(
+              options.language_options,
+              {
+                  {int64_type,
+                   {
+                       /*expr=*/int64_type,
+                       /*contribution_bounds_per_group=*/
+                       {int64_pair_type,
+                        optional_contribution_bounds_per_group_arg_options},
+                   },
+                   FN_DIFFERENTIAL_PRIVACY_SUM_INT64},
+                  {uint64_type,
+                   {
+                       /*expr=*/uint64_type,
+                       /*contribution_bounds_per_group=*/
+                       {uint64_pair_type,
+                        optional_contribution_bounds_per_group_arg_options},
+                   },
+                   FN_DIFFERENTIAL_PRIVACY_SUM_UINT64},
+                  {double_type,
+                   {
+                       /*expr=*/double_type,
+                       /*contribution_bounds_per_group=*/
+                       {double_pair_type,
+                        optional_contribution_bounds_per_group_arg_options},
+                   },
+                   FN_DIFFERENTIAL_PRIVACY_SUM_DOUBLE},
+                  {numeric_type,
+                   {
+                       /*expr=*/numeric_type,
+                       /*contribution_bounds_per_group=*/
+                       {numeric_pair_type,
+                        optional_contribution_bounds_per_group_arg_options},
+                   },
+                   FN_DIFFERENTIAL_PRIVACY_SUM_NUMERIC,
+                   has_numeric_type_argument},
+                  {json_type,
+                   {
+                       /*expr=*/int64_type,
+                       /*report_format=*/
+                       {report_format_type, report_arg_options},
+                       /*contribution_bounds_per_group=*/
+                       {int64_pair_type,
+                        optional_contribution_bounds_per_group_arg_options},
+                   },
+                   FN_DIFFERENTIAL_PRIVACY_SUM_REPORT_JSON_INT64,
+                   DpReportSignatureOptions(
+                       functions::DifferentialPrivacyEnums::JSON, 1)},
+                  {json_type,
+                   {
+                       /*expr=*/double_type,
+                       /*report_format=*/
+                       {report_format_type, report_arg_options},
+                       /*contribution_bounds_per_group=*/
+                       {double_pair_type,
+                        optional_contribution_bounds_per_group_arg_options},
+                   },
+                   FN_DIFFERENTIAL_PRIVACY_SUM_REPORT_JSON_DOUBLE,
+                   DpReportSignatureOptions(
+                       functions::DifferentialPrivacyEnums::JSON, 1)},
+                  {json_type,
+                   {
+                       /*expr=*/uint64_type,
+                       /*report_format=*/
+                       {report_format_type, report_arg_options},
+                       /*contribution_bounds_per_group=*/
+                       {uint64_pair_type,
+                        optional_contribution_bounds_per_group_arg_options},
+                   },
+                   FN_DIFFERENTIAL_PRIVACY_SUM_REPORT_JSON_UINT64,
+                   DpReportSignatureOptions(
+                       functions::DifferentialPrivacyEnums::JSON, 1)},
+                  {report_proto_type,
+                   {
+                       /*expr=*/int64_type,
+                       /*report_format=*/
+                       {report_format_type, report_arg_options},
+                       /*contribution_bounds_per_group=*/
+                       {int64_pair_type,
+                        optional_contribution_bounds_per_group_arg_options},
+                   },
+                   FN_DIFFERENTIAL_PRIVACY_SUM_REPORT_PROTO_INT64,
+                   DpReportSignatureOptions(
+                       functions::DifferentialPrivacyEnums::PROTO, 1)},
+                  {report_proto_type,
+                   {
+                       /*expr=*/double_type,
+                       /*report_format=*/
+                       {report_format_type, report_arg_options},
+                       /*contribution_bounds_per_group=*/
+                       {double_pair_type,
+                        optional_contribution_bounds_per_group_arg_options},
+                   },
+                   FN_DIFFERENTIAL_PRIVACY_SUM_REPORT_PROTO_DOUBLE,
+                   DpReportSignatureOptions(
+                       functions::DifferentialPrivacyEnums::PROTO, 1)},
+                  {report_proto_type,
+                   {
+                       /*expr=*/uint64_type,
+                       /*report_format=*/
+                       {report_format_type, report_arg_options},
+                       /*contribution_bounds_per_group=*/
+                       {uint64_pair_type,
+                        optional_contribution_bounds_per_group_arg_options},
+                   },
+                   FN_DIFFERENTIAL_PRIVACY_SUM_REPORT_PROTO_UINT64,
+                   DpReportSignatureOptions(
+                       functions::DifferentialPrivacyEnums::PROTO, 1)},
+              }),
           dp_options.Copy()
               .set_get_sql_callback(get_sql_callback_for_function("SUM"))
-              .set_signature_text_callback(signature_text_function)
+              .set_signature_text_callback(DpSignatureTextCallback)
               .set_sql_name("sum"),
           "sum"));
-
   InsertCreatedFunction(
       functions, options,
       new AnonFunction(
           "$differential_privacy_avg", Function::kZetaSQLFunctionGroupName,
-          {{double_type,
-            {/*expr=*/double_type,
-             /*contribution_bounds_per_group=*/
-             {double_pair_type,
-              optional_contribution_bounds_per_group_arg_options}},
-            FN_DIFFERENTIAL_PRIVACY_AVG_DOUBLE},
-           {numeric_type,
-            {/*expr=*/numeric_type,
-             /*contribution_bounds_per_group=*/
-             {numeric_pair_type,
-              optional_contribution_bounds_per_group_arg_options}},
-            FN_DIFFERENTIAL_PRIVACY_AVG_NUMERIC,
-            has_numeric_type_argument},
-           {json_type,
-            {/*expr=*/double_type,
-             /*report_format=*/{report_format_type, report_arg_options},
-             /*contribution_bounds_per_group=*/
-             {double_pair_type,
-              optional_contribution_bounds_per_group_arg_options}},
-            FN_DIFFERENTIAL_PRIVACY_AVG_DOUBLE_REPORT_JSON,
-            get_dp_report_signature(functions::DifferentialPrivacyEnums::JSON,
-                                    1)},
-           {report_proto_type,
-            {/*expr=*/double_type,
-             /*report_format=*/{report_format_type, report_arg_options},
-             /*contribution_bounds_per_group=*/
-             {double_pair_type,
-              optional_contribution_bounds_per_group_arg_options}},
-            FN_DIFFERENTIAL_PRIVACY_AVG_DOUBLE_REPORT_PROTO,
-            get_dp_report_signature(functions::DifferentialPrivacyEnums::PROTO,
-                                    1)}},
+          MaybeAddEpsilonArgumentToSignatures(
+              options.language_options,
+              {
+                  {double_type,
+                   {/*expr=*/double_type,
+                    /*contribution_bounds_per_group=*/
+                    {double_pair_type,
+                     optional_contribution_bounds_per_group_arg_options}},
+                   FN_DIFFERENTIAL_PRIVACY_AVG_DOUBLE},
+                  {numeric_type,
+                   {/*expr=*/numeric_type,
+                    /*contribution_bounds_per_group=*/
+                    {numeric_pair_type,
+                     optional_contribution_bounds_per_group_arg_options}},
+                   FN_DIFFERENTIAL_PRIVACY_AVG_NUMERIC,
+                   has_numeric_type_argument},
+                  {json_type,
+                   {/*expr=*/double_type,
+                    /*report_format=*/{report_format_type, report_arg_options},
+                    /*contribution_bounds_per_group=*/
+                    {double_pair_type,
+                     optional_contribution_bounds_per_group_arg_options}},
+                   FN_DIFFERENTIAL_PRIVACY_AVG_DOUBLE_REPORT_JSON,
+                   DpReportSignatureOptions(
+                       functions::DifferentialPrivacyEnums::JSON, 1)},
+                  {report_proto_type,
+                   {/*expr=*/double_type,
+                    /*report_format=*/{report_format_type, report_arg_options},
+                    /*contribution_bounds_per_group=*/
+                    {double_pair_type,
+                     optional_contribution_bounds_per_group_arg_options}},
+                   FN_DIFFERENTIAL_PRIVACY_AVG_DOUBLE_REPORT_PROTO,
+                   DpReportSignatureOptions(
+                       functions::DifferentialPrivacyEnums::PROTO, 1)},
+              }),
           dp_options.Copy()
               .set_get_sql_callback(get_sql_callback_for_function("AVG"))
-              .set_signature_text_callback(signature_text_function)
+              .set_signature_text_callback(DpSignatureTextCallback)
               .set_sql_name("avg"),
           "avg"));
 
@@ -878,22 +961,26 @@ absl::Status GetDifferentialPrivacyFunctions(
       new AnonFunction(
           "$differential_privacy_var_pop",
           Function::kZetaSQLFunctionGroupName,
-          {{double_type,
-            {/*expr=*/double_type,
-             /*contribution_bounds_per_row=*/
-             {double_pair_type,
-              optional_contribution_bounds_per_row_arg_options}},
-            FN_DIFFERENTIAL_PRIVACY_VAR_POP_DOUBLE},
-           {double_type,
-            {/*expr=*/double_array_type,
-             /*contribution_bounds_per_row=*/
-             {double_pair_type,
-              optional_contribution_bounds_per_row_arg_options}},
-            FN_DIFFERENTIAL_PRIVACY_VAR_POP_DOUBLE_ARRAY,
-            FunctionSignatureOptions().set_is_internal(true)}},
+          MaybeAddEpsilonArgumentToSignatures(
+              options.language_options,
+              {
+                  {double_type,
+                   {/*expr=*/double_type,
+                    /*contribution_bounds_per_row=*/
+                    {double_pair_type,
+                     optional_contribution_bounds_per_row_arg_options}},
+                   FN_DIFFERENTIAL_PRIVACY_VAR_POP_DOUBLE},
+                  {double_type,
+                   {/*expr=*/double_array_type,
+                    /*contribution_bounds_per_row=*/
+                    {double_pair_type,
+                     optional_contribution_bounds_per_row_arg_options}},
+                   FN_DIFFERENTIAL_PRIVACY_VAR_POP_DOUBLE_ARRAY,
+                   FunctionSignatureOptions().set_is_internal(true)},
+              }),
           dp_options.Copy()
               .set_get_sql_callback(get_sql_callback_for_function("VAR_POP"))
-              .set_signature_text_callback(signature_text_function)
+              .set_signature_text_callback(DpSignatureTextCallback)
               .set_sql_name("var_pop"),
           "array_agg"));
 
@@ -902,22 +989,26 @@ absl::Status GetDifferentialPrivacyFunctions(
       new AnonFunction(
           "$differential_privacy_stddev_pop",
           Function::kZetaSQLFunctionGroupName,
-          {{double_type,
-            {/*expr=*/double_type,
-             /*contribution_bounds_per_row=*/
-             {double_pair_type,
-              optional_contribution_bounds_per_row_arg_options}},
-            FN_DIFFERENTIAL_PRIVACY_STDDEV_POP_DOUBLE},
-           {double_type,
-            {/*expr=*/double_array_type,
-             /*contribution_bounds_per_row=*/
-             {double_pair_type,
-              optional_contribution_bounds_per_row_arg_options}},
-            FN_DIFFERENTIAL_PRIVACY_STDDEV_POP_DOUBLE_ARRAY,
-            FunctionSignatureOptions().set_is_internal(true)}},
+          MaybeAddEpsilonArgumentToSignatures(
+              options.language_options,
+              {
+                  {double_type,
+                   {/*expr=*/double_type,
+                    /*contribution_bounds_per_row=*/
+                    {double_pair_type,
+                     optional_contribution_bounds_per_row_arg_options}},
+                   FN_DIFFERENTIAL_PRIVACY_STDDEV_POP_DOUBLE},
+                  {double_type,
+                   {/*expr=*/double_array_type,
+                    /*contribution_bounds_per_row=*/
+                    {double_pair_type,
+                     optional_contribution_bounds_per_row_arg_options}},
+                   FN_DIFFERENTIAL_PRIVACY_STDDEV_POP_DOUBLE_ARRAY,
+                   FunctionSignatureOptions().set_is_internal(true)},
+              }),
           dp_options.Copy()
               .set_get_sql_callback(get_sql_callback_for_function("STDDEV_POP"))
-              .set_signature_text_callback(signature_text_function)
+              .set_signature_text_callback(DpSignatureTextCallback)
               .set_sql_name("stddev_pop"),
           "array_agg"));
 
@@ -926,27 +1017,34 @@ absl::Status GetDifferentialPrivacyFunctions(
       new AnonFunction(
           "$differential_privacy_percentile_cont",
           Function::kZetaSQLFunctionGroupName,
-          {{double_type,
-            {/*expr=*/double_type,
-             /*percentile=*/{double_type, percentile_arg_options},
-             /*contribution_bounds_per_row=*/
-             {double_pair_type,
-              optional_contribution_bounds_per_row_arg_options}},
-            FN_DIFFERENTIAL_PRIVACY_PERCENTILE_CONT_DOUBLE},
-           // This is an internal signature that is only used post-dp-rewrite,
-           // and is not available in the external SQL language.
-           {double_type,
-            {/*expr=*/double_array_type,
-             /*percentile=*/{double_type, percentile_arg_options},
-             /*contribution_bounds_per_row=*/
-             {double_pair_type,
-              optional_contribution_bounds_per_row_arg_options}},
-            FN_DIFFERENTIAL_PRIVACY_PERCENTILE_CONT_DOUBLE_ARRAY,
-            FunctionSignatureOptions().set_is_internal(true)}},
+          MaybeAddEpsilonArgumentToSignatures(
+              options.language_options,
+              {
+                  {double_type,
+                   {/*expr=*/double_type,
+                    /*percentile=*/{double_type, percentile_arg_options},
+                    /*contribution_bounds_per_row=*/
+                    {double_pair_type,
+                     optional_contribution_bounds_per_row_arg_options}},
+                   FN_DIFFERENTIAL_PRIVACY_PERCENTILE_CONT_DOUBLE},
+                  // This is an internal signature that is only used
+                  // post-dp-rewrite, and is not available in the external SQL
+                  // language.
+                  {double_type,
+                   {
+                       /*expr=*/double_array_type,
+                       /*percentile=*/{double_type, percentile_arg_options},
+                       /*contribution_bounds_per_row=*/
+                       {double_pair_type,
+                        optional_contribution_bounds_per_row_arg_options},
+                   },
+                   FN_DIFFERENTIAL_PRIVACY_PERCENTILE_CONT_DOUBLE_ARRAY,
+                   FunctionSignatureOptions().set_is_internal(true)},
+              }),
           dp_options.Copy()
               .set_get_sql_callback(
                   get_sql_callback_for_function("PERCENTILE_CONT"))
-              .set_signature_text_callback(signature_text_function)
+              .set_signature_text_callback(DpSignatureTextCallback)
               .set_sql_name("percentile_cont"),
           "array_agg"));
 
@@ -955,76 +1053,221 @@ absl::Status GetDifferentialPrivacyFunctions(
       new AnonFunction(
           "$differential_privacy_approx_quantiles",
           Function::kZetaSQLFunctionGroupName,
-          {{double_array_type,
-            {/*expr=*/double_type,
-             /*quantiles=*/{int64_type, quantiles_arg_options},
-             /*contribution_bounds_per_row=*/
-             {double_pair_type,
-              required_contribution_bounds_per_row_arg_options}},
-            FN_DIFFERENTIAL_PRIVACY_QUANTILES_DOUBLE},
-           // This is an internal signature that is only used post-dp-rewrite,
-           // and is not available in the external SQL language.
-           {double_array_type,
-            {/*expr=*/double_array_type,
-             /*quantiles=*/{int64_type, quantiles_arg_options},
-             /*contribution_bounds_per_row=*/
-             {double_pair_type,
-              required_contribution_bounds_per_row_arg_options}},
-            FN_DIFFERENTIAL_PRIVACY_QUANTILES_DOUBLE_ARRAY,
-            FunctionSignatureOptions().set_is_internal(true)},
-           {json_type,
-            {/*expr=*/double_type,
-             /*quantiles=*/{int64_type, quantiles_arg_options},
-             /*report_format=*/{report_format_type, report_arg_options},
-             /*contribution_bounds_per_row=*/
-             {double_pair_type,
-              required_contribution_bounds_per_row_arg_options}},
-            FN_DIFFERENTIAL_PRIVACY_QUANTILES_DOUBLE_REPORT_JSON,
-            get_dp_report_signature(functions::DifferentialPrivacyEnums::JSON,
-                                    2)},
-           // This is an internal signature that is only used post-dp-rewrite,
-           // and is not available in the external SQL language.
-           {json_type,
-            {/*expr=*/double_array_type,
-             /*quantiles=*/{int64_type, quantiles_arg_options},
-             /*report_format=*/{report_format_type, report_arg_options},
-             /*contribution_bounds_per_row=*/
-             {double_pair_type,
-              required_contribution_bounds_per_row_arg_options}},
-            FN_DIFFERENTIAL_PRIVACY_QUANTILES_DOUBLE_ARRAY_REPORT_JSON,
-            get_dp_report_signature(functions::DifferentialPrivacyEnums::JSON,
-                                    2)
-                .set_is_internal(true)},
-           {report_proto_type,
-            {/*expr=*/double_type,
-             /*quantiles=*/{int64_type, quantiles_arg_options},
-             /*report_format=*/{report_format_type, report_arg_options},
-             /*contribution_bounds_per_row=*/
-             {double_pair_type,
-              required_contribution_bounds_per_row_arg_options}},
-            FN_DIFFERENTIAL_PRIVACY_QUANTILES_DOUBLE_REPORT_PROTO,
-            get_dp_report_signature(functions::DifferentialPrivacyEnums::PROTO,
-                                    2)},
-           // This is an internal signature that is only used post-dp-rewrite,
-           // and is not available in the external SQL language.
-           {report_proto_type,
-            {/*expr=*/double_array_type,
-             /*quantiles=*/{int64_type, quantiles_arg_options},
-             /*report_format=*/{report_format_type, report_arg_options},
-             /*contribution_bounds_per_row=*/
-             {double_pair_type,
-              required_contribution_bounds_per_row_arg_options}},
-            FN_DIFFERENTIAL_PRIVACY_QUANTILES_DOUBLE_ARRAY_REPORT_PROTO,
-            get_dp_report_signature(functions::DifferentialPrivacyEnums::PROTO,
-                                    2)
-                .set_is_internal(true)}},
+          MaybeAddEpsilonArgumentToSignatures(
+              options.language_options,
+              {
+                  {double_array_type,
+                   {/*expr=*/double_type,
+                    /*quantiles=*/{int64_type, quantiles_arg_options},
+                    /*contribution_bounds_per_row=*/
+                    {double_pair_type,
+                     required_contribution_bounds_per_row_arg_options}},
+                   FN_DIFFERENTIAL_PRIVACY_QUANTILES_DOUBLE},
+                  // This is an internal signature that is only used
+                  // post-dp-rewrite, and is not available in the external SQL
+                  // language.
+                  {double_array_type,
+                   {/*expr=*/double_array_type,
+                    /*quantiles=*/{int64_type, quantiles_arg_options},
+                    /*contribution_bounds_per_row=*/
+                    {double_pair_type,
+                     required_contribution_bounds_per_row_arg_options}},
+                   FN_DIFFERENTIAL_PRIVACY_QUANTILES_DOUBLE_ARRAY,
+                   FunctionSignatureOptions().set_is_internal(true)},
+                  {json_type,
+                   {/*expr=*/double_type,
+                    /*quantiles=*/{int64_type, quantiles_arg_options},
+                    /*report_format=*/{report_format_type, report_arg_options},
+                    /*contribution_bounds_per_row=*/
+                    {double_pair_type,
+                     required_contribution_bounds_per_row_arg_options}},
+                   FN_DIFFERENTIAL_PRIVACY_QUANTILES_DOUBLE_REPORT_JSON,
+                   DpReportSignatureOptions(
+                       functions::DifferentialPrivacyEnums::JSON, 2)},
+                  // This is an internal signature that is only used
+                  // post-dp-rewrite, and is not available in the external SQL
+                  // language.
+                  {json_type,
+                   {/*expr=*/double_array_type,
+                    /*quantiles=*/{int64_type, quantiles_arg_options},
+                    /*report_format=*/{report_format_type, report_arg_options},
+                    /*contribution_bounds_per_row=*/
+                    {double_pair_type,
+                     required_contribution_bounds_per_row_arg_options}},
+                   FN_DIFFERENTIAL_PRIVACY_QUANTILES_DOUBLE_ARRAY_REPORT_JSON,
+                   DpReportSignatureOptions(
+                       functions::DifferentialPrivacyEnums::JSON, 2)
+                       .set_is_internal(true)},
+                  {report_proto_type,
+                   {/*expr=*/double_type,
+                    /*quantiles=*/{int64_type, quantiles_arg_options},
+                    /*report_format=*/{report_format_type, report_arg_options},
+                    /*contribution_bounds_per_row=*/
+                    {double_pair_type,
+                     required_contribution_bounds_per_row_arg_options}},
+                   FN_DIFFERENTIAL_PRIVACY_QUANTILES_DOUBLE_REPORT_PROTO,
+                   DpReportSignatureOptions(
+                       functions::DifferentialPrivacyEnums::PROTO, 2)},
+                  // This is an internal signature that is only used
+                  // post-dp-rewrite, and is not available in the external SQL
+                  // language.
+                  {report_proto_type,
+                   {/*expr=*/double_array_type,
+                    /*quantiles=*/{int64_type, quantiles_arg_options},
+                    /*report_format=*/{report_format_type, report_arg_options},
+                    /*contribution_bounds_per_row=*/
+                    {double_pair_type,
+                     required_contribution_bounds_per_row_arg_options}},
+                   FN_DIFFERENTIAL_PRIVACY_QUANTILES_DOUBLE_ARRAY_REPORT_PROTO,
+                   DpReportSignatureOptions(
+                       functions::DifferentialPrivacyEnums::PROTO, 2)
+                       .set_is_internal(true)},
+              }),
           dp_options.Copy()
               .set_get_sql_callback(
                   get_sql_callback_for_function("APPROX_QUANTILES"))
-              .set_signature_text_callback(signature_text_function)
+              .set_signature_text_callback(DpSignatureTextCallback)
               .set_sql_name("approx_quantiles"),
           "array_agg"));
+
+  static constexpr absl::string_view kApproxCountDistinct =
+      "$differential_privacy_approx_count_distinct";
+  static constexpr absl::string_view kInitForDpApproxCountDistinct =
+      "$differential_privacy_init_for_dp_approx_count_distinct";
+  static constexpr absl::string_view kPartialMergeForDpApproxCountDistinct =
+      "$differential_privacy_merge_partial_for_dp_approx_count_distinct";
+  static constexpr absl::string_view kExtractForDpApproxCountDistinct =
+      "$differential_privacy_extract_for_dp_approx_count_distinct";
+
+  const FunctionArgumentTypeOptions
+      optional_max_contributions_per_group_arg_options =
+          FunctionArgumentTypeOptions()
+              .set_must_be_constant()
+              .set_argument_name("max_contributions_per_group",
+                                 FunctionEnums::NAMED_ONLY)
+              .set_cardinality(FunctionEnums::OPTIONAL);
+
+  const FunctionArgumentTypeOptions contribution_bounding_strategy_arg_options =
+      FunctionArgumentTypeOptions()
+          .set_must_be_constant()
+          .set_argument_name("contribution_bounding_strategy",
+                             FunctionEnums::NAMED_ONLY)
+          .set_cardinality(FunctionEnums::OPTIONAL);
+
+  const FunctionArgumentTypeOptions supports_grouping =
+      FunctionArgumentTypeOptions().set_must_support_grouping();
+
+  const FunctionSignatureOptions internal_collation_rejecting_option =
+      FunctionSignatureOptions().set_is_internal(true).set_rejects_collation();
+
+  InsertCreatedFunction(
+      functions, options,
+      new Function(kInitForDpApproxCountDistinct,
+                   Function::kZetaSQLFunctionGroupName, Function::AGGREGATE,
+                   /*function_signatures*/
+                   {{bytes_type,
+                     {/*expr=*/{ARG_TYPE_ANY_2, supports_grouping}},
+                     FN_DIFFERENTIAL_PRIVACY_INIT_FOR_DP_APPROX_COUNT_DISTINCT,
+                     internal_collation_rejecting_option}},
+                   dp_options.Copy()
+                       .set_get_sql_callback(get_sql_callback_for_function(
+                           "INIT_FOR_DP_APPROX_COUNT_DISTINCT"))
+                       .set_signature_text_callback(DpSignatureTextCallback)
+                       .set_sql_name("init_for_dp_approx_count_distinct")));
+
+  InsertCreatedFunction(
+      functions, options,
+      new AnonFunction(
+          kApproxCountDistinct, Function::kZetaSQLFunctionGroupName,
+          {{int64_type,
+            {/*expr=*/{ARG_TYPE_ANY_2, supports_grouping},
+             /*contribution_bounding_strategy=*/
+             {contribution_bounding_strategy_type,
+              contribution_bounding_strategy_arg_options},
+             /*max_contributions_per_group=*/
+             {int64_type, optional_max_contributions_per_group_arg_options}},
+            FN_DIFFERENTIAL_PRIVACY_APPROX_COUNT_DISTINCT,
+            FunctionSignatureOptions().set_rejects_collation()},
+           {json_type,
+            {/*expr=*/{ARG_TYPE_ANY_2, supports_grouping},
+             /*report_format=*/{report_format_type, report_arg_options},
+             /*contribution_bounding_strategy=*/
+             {contribution_bounding_strategy_type,
+              contribution_bounding_strategy_arg_options},
+             /*max_contributions_per_group=*/
+             {int64_type, optional_max_contributions_per_group_arg_options}},
+            FN_DIFFERENTIAL_PRIVACY_APPROX_COUNT_DISTINCT_REPORT_JSON,
+            DpReportSignatureOptions(functions::DifferentialPrivacyEnums::JSON,
+                                     1)
+                .set_rejects_collation()},
+           {report_proto_type,
+            {/*expr=*/{ARG_TYPE_ANY_2, supports_grouping},
+             /*report_format=*/{report_format_type, report_arg_options},
+             /*contribution_bounding_strategy=*/
+             {contribution_bounding_strategy_type,
+              contribution_bounding_strategy_arg_options},
+             /*max_contributions_per_group=*/
+             {int64_type, optional_max_contributions_per_group_arg_options}},
+            FN_DIFFERENTIAL_PRIVACY_APPROX_COUNT_DISTINCT_REPORT_PROTO,
+            DpReportSignatureOptions(functions::DifferentialPrivacyEnums::PROTO,
+                                     1)
+                .set_rejects_collation()}},
+          dp_options.Copy()
+              .set_get_sql_callback(
+                  get_sql_callback_for_function("APPROX_COUNT_DISTINCT"))
+              .set_signature_text_callback(DpSignatureTextCallback)
+              .set_sql_name("approx_count_distinct"),
+          std::string(kInitForDpApproxCountDistinct)));
+
+  InsertCreatedFunction(
+      functions, options,
+      new Function(
+          kExtractForDpApproxCountDistinct,
+          Function::kZetaSQLFunctionGroupName, Function::SCALAR,
+          {{int64_type,
+            {/*expr=*/{bytes_type, default_required_argument},
+             /*noisy_count_distinct_privacy_ids=*/{int64_type,
+                                                   default_required_argument}},
+            FN_DIFFERENTIAL_PRIVACY_EXTRACT_FOR_DP_APPROX_COUNT_DISTINCT,
+            internal_collation_rejecting_option},
+           {report_proto_type,
+            {/*expr=*/{bytes_type, default_required_argument},
+             /*noisy_count_distinct_privacy_ids=*/{int64_type,
+                                                   default_required_argument}},
+            FN_DIFFERENTIAL_PRIVACY_EXTRACT_FOR_DP_APPROX_COUNT_DISTINCT_REPORT_PROTO,  // NOLINT
+            internal_collation_rejecting_option},
+           {json_type,
+            {/*expr=*/{bytes_type, default_required_argument},
+             /*noisy_count_distinct_privacy_ids=*/{int64_type,
+                                                   default_required_argument}},
+            FN_DIFFERENTIAL_PRIVACY_EXTRACT_FOR_DP_APPROX_COUNT_DISTINCT_REPORT_JSON,  // NOLINT
+            internal_collation_rejecting_option}},
+          dp_options.Copy()
+              .set_get_sql_callback(get_sql_callback_for_function(
+                  "EXTRACT_FOR_DP_APPROX_COUNT_DISTINCT"))
+              .set_signature_text_callback(DpSignatureTextCallback)
+              .set_sql_name("extract_for_dp_approx_count_distinct")));
+
+  InsertCreatedFunction(
+      functions, options,
+      new Function(
+          kPartialMergeForDpApproxCountDistinct,
+          Function::kZetaSQLFunctionGroupName, Function::AGGREGATE,
+          {{bytes_type,
+            {/*expr=*/bytes_type,
+             /*contribution_bounding_strategy=*/
+             {contribution_bounding_strategy_type,
+              contribution_bounding_strategy_arg_options},
+             /*max_contributions_per_group=*/
+             {int64_type, optional_max_contributions_per_group_arg_options}},
+            FN_DIFFERENTIAL_PRIVACY_MERGE_PARTIAL_FOR_DP_APPROX_COUNT_DISTINCT,  // NOLINT
+            internal_collation_rejecting_option}},
+          dp_options.Copy()
+              .set_get_sql_callback(get_sql_callback_for_function(
+                  "MERGE_PARTIAL_FOR_DP_APPROX_COUNT_DISTINCT"))
+              .set_signature_text_callback(DpSignatureTextCallback)
+              .set_sql_name("merge_partial_for_dp_approx_count_distinct")));
   return absl::OkStatus();
-}
+}  // NOLINT(readability/fn_size)
 
 }  // namespace zetasql

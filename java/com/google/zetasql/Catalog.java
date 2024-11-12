@@ -419,6 +419,55 @@ public abstract class Catalog implements Serializable {
   }
 
   /**
+   * Look up an object of PropertyGraph from this Catalog on {@code path}.
+   *
+   * <p>If a Catalog implementation supports looking up PropertyGraph by path, it should implement
+   * the findPropertyGraph method. Alternatively, a Catalog can also contain nested catalogs, and
+   * implement findPropertyGraph method on the inner-most Catalog.
+   *
+   * <p>The default findPropertyGraph implementation traverses nested Catalogs until it reaches a
+   * Catalog that overrides findPropertyGraph, or until it gets to the last level of the path and
+   * then calls getPropertyGraph.
+   *
+   * <p>NOTE: The findPropertyGraph methods take precedence over getPropertyGraph methods and will
+   * always be called first. So getPropertyGraph method does not need to be implemented if
+   * findPropertyGraph method is implemented. If both getPropertyGraph and findPropertyGraph are
+   * implemented(though not recommended), it is the implementation's responsibility to keep them
+   * consistent.
+   *
+   * @throws NotFoundException if the PropertyGraph can not be found
+   */
+  public PropertyGraph findPropertyGraph(List<String> path) throws NotFoundException {
+    return findPropertyGraph(path, new FindOptions());
+  }
+
+  public PropertyGraph findPropertyGraph(List<String> path, FindOptions options)
+      throws NotFoundException {
+    Preconditions.checkNotNull(path, "Invalid null PropertyGraph name path");
+    Preconditions.checkArgument(!path.isEmpty(), "Invalid empty PropertyGraph name path");
+    final String name = path.get(0);
+    if (path.size() > 1) {
+      Catalog catalog = getCatalog(name, options);
+      if (catalog == null) {
+        throw new NotFoundException(
+            String.format(
+                "PropertyGraph not found: Catalog %s not found in Catalog %s",
+                ZetaSQLStrings.toIdentifierLiteral(name), getFullName()));
+      }
+      final List<String> pathSuffix = path.subList(1, path.size());
+      return catalog.findPropertyGraph(pathSuffix, options);
+    }
+    PropertyGraph propertyGraph = getPropertyGraph(name, options);
+    if (propertyGraph == null) {
+      throw new NotFoundException(
+          String.format(
+              "PropertyGraph not found: %s not found in Catalog %s",
+              ZetaSQLStrings.toIdentifierLiteral(name), getFullName()));
+    }
+    return propertyGraph;
+  }
+
+  /**
    * Given an identifier path, return the type name that results when combining that path into a
    * single protocol buffer type name, if applicable. Returns empty string if {@code path} cannot
    * form a valid proto-style type name.
@@ -628,6 +677,36 @@ public abstract class Catalog implements Serializable {
    * @return Procedure object if found, NULL if not found
    */
   protected Procedure getProcedure(
+      @SuppressWarnings("unused") String name, @SuppressWarnings("unused") FindOptions options) {
+    return null;
+  }
+
+  /**
+   * Get an object of PropertyGraph from this Catalog, without looking at any nested Catalogs.
+   *
+   * <p>A NULL pointer should be returned if the object doesn't exist.
+   *
+   * <p>The default implementations always return null.
+   *
+   * @return PropertyGraph object if found, NULL if not found
+   */
+  protected final PropertyGraph getPropertyGraph(String name) {
+    return getPropertyGraph(name, new FindOptions());
+  }
+
+  /**
+   * NOTE: If findPropertyGraph is implemented, there is no need to implement getPropertyGraph, as
+   * findPropertyGraph method takes precedence over getPropertyGraph and is always called first.
+   *
+   * <p>Get an object of PropertyGraph from this Catalog, without looking at any nested Catalogs.
+   *
+   * <p>A NULL pointer should be returned if the object doesn't exist.
+   *
+   * <p>This is normally overridden in subclasses. The default implementations always return null.
+   *
+   * @return PropertyGraph object if found, NULL if not found
+   */
+  protected PropertyGraph getPropertyGraph(
       @SuppressWarnings("unused") String name, @SuppressWarnings("unused") FindOptions options) {
     return null;
   }

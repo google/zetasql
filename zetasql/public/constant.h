@@ -44,6 +44,7 @@
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
 #include "absl/strings/str_join.h"
+#include "zetasql/base/ret_check.h"
 
 namespace zetasql {
 
@@ -94,6 +95,25 @@ class Constant {
   template <class ConstantSubclass>
   const ConstantSubclass* GetAs() const {
     return static_cast<const ConstantSubclass*>(this);
+  }
+
+  // Return true if this Constant can provide a Value.
+  // This and GetValue can be used to provide values for the constant
+  // to the analyzer, reference implementation, or other consumers.
+  // Some constants won't have values available yet at analysis time
+  // and will only know their Type.
+  // TODO Update this when (broken link) is complete.
+  // Constants cannot store error values currently, so if there was an
+  // error while evaluating the constant value, this should return false.
+  virtual bool HasValue() const { return false; }
+
+  // Return the current value for this Constant.
+  // Should only be called if HasValue() is true.
+  // All constants with HasValue() true should return a non-error
+  // Value here, with a Type matching type().
+  virtual absl::StatusOr<Value> GetValue() const {
+    ZETASQL_RET_CHECK_FAIL() << "GetValue called on constant " << FullName()
+                     << " with no value available";
   }
 
   // Returns a string describing this Constant for debugging purposes.

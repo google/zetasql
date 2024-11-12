@@ -269,6 +269,24 @@ TEST(OptionsUtils, ParseEnabledAstRewrites) {
   CheckResult("DEFAULTS,+ANONYMIZATION",
               {REWRITE_FLATTEN, REWRITE_PIVOT, REWRITE_ANONYMIZATION},
               {REWRITE_INVALID_DO_NOT_USE});
+  CheckResult("ALL",
+              {REWRITE_TEST_DEFAULT_DISABLED, REWRITE_TEST_DEFAULT_ENABLED,
+               REWRITE_TEST_DEFAULT_DISABLED_AND_IN_DEVELOPMENT,
+               REWRITE_TEST_DEFAULT_ENABLED_AND_IN_DEVELOPMENT},
+              {});
+  CheckResult("ALL_MINUS_DEV",
+              {REWRITE_TEST_DEFAULT_DISABLED, REWRITE_TEST_DEFAULT_ENABLED},
+              {REWRITE_TEST_DEFAULT_DISABLED_AND_IN_DEVELOPMENT,
+               REWRITE_TEST_DEFAULT_ENABLED_AND_IN_DEVELOPMENT});
+  CheckResult("DEFAULTS",
+              {REWRITE_TEST_DEFAULT_ENABLED,
+               REWRITE_TEST_DEFAULT_ENABLED_AND_IN_DEVELOPMENT},
+              {REWRITE_TEST_DEFAULT_DISABLED,
+               REWRITE_TEST_DEFAULT_DISABLED_AND_IN_DEVELOPMENT});
+  CheckResult("DEFAULTS_MINUS_DEV", {REWRITE_TEST_DEFAULT_ENABLED},
+              {REWRITE_TEST_DEFAULT_DISABLED,
+               REWRITE_TEST_DEFAULT_DISABLED_AND_IN_DEVELOPMENT,
+               REWRITE_TEST_DEFAULT_ENABLED_AND_IN_DEVELOPMENT});
 }
 
 TEST(OptionsUtils, TestRewriteFlagSupport) {
@@ -303,7 +321,8 @@ TEST(OptionsUtils, TestFlagSupport_BadFlag) {
   std::string error;
   EXPECT_FALSE(flag->ParseFrom("GARBAGE!", &error));
   EXPECT_THAT(error, HasSubstr("Rewrite list should always start with one of "
-                               "ALL, DEFAULTS, NONE"));
+                               "ALL, ALL_MINUS_DEV, DEFAULTS, "
+                               "DEFAULTS_MINUS_DEV, NONE"));
 }
 
 //////////////////////////////////////////////////////////////////////////

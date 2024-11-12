@@ -98,6 +98,7 @@ cc_library(
         "//zetasql/public:value",
         "//zetasql/public/functions:date_time_util",
         "//zetasql/public/types",
+        "//zetasql/resolved_ast:resolved_node_kind_cc_proto",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",

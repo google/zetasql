@@ -17,7 +17,7 @@ Note: In this topic, the privacy parameters in the examples are not
 recommendations. You should work with your privacy or security officer to
 determine the optimal privacy parameters for your dataset and organization.
 
-### Function list
+## Function list
 
 <table>
   <thead>
@@ -29,20 +29,19 @@ determine the optimal privacy parameters for your dataset and organization.
   <tbody>
 
 <tr>
-  <td><a href="#dp_avg"><code>AVG</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md#dp_avg"><code>AVG</code> (Differential Privacy)</a>
 </td>
   <td>
     <code>DIFFERENTIAL_PRIVACY</code>-supported <code>AVG</code>.<br/><br/>
     Gets the differentially-private average of non-<code>NULL</code>,
     non-<code>NaN</code> values in a query with a
     <code>DIFFERENTIAL_PRIVACY</code> clause.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#dp_count"><code>COUNT</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md#dp_count"><code>COUNT</code> (Differential Privacy)</a>
 </td>
   <td>
     <code>DIFFERENTIAL_PRIVACY</code>-supported <code>COUNT</code>.<br/><br/>
@@ -53,46 +52,46 @@ determine the optimal privacy parameters for your dataset and organization.
     Signature 2: Gets the differentially-private count of rows with a
     non-<code>NULL</code> expression in a query with a
     <code>DIFFERENTIAL_PRIVACY</code> clause.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#dp_percentile_cont"><code>PERCENTILE_CONT</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md#dp_percentile_cont"><code>PERCENTILE_CONT</code> (Differential Privacy)</a>
 </td>
   <td>
     <code>DIFFERENTIAL_PRIVACY</code>-supported <code>PERCENTILE_CONT</code>.<br/><br/>
     Computes a differentially-private percentile across privacy unit columns
     in a query with a <code>DIFFERENTIAL_PRIVACY</code> clause.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#dp_sum"><code>SUM</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md#dp_sum"><code>SUM</code> (Differential Privacy)</a>
 </td>
   <td>
     <code>DIFFERENTIAL_PRIVACY</code>-supported <code>SUM</code>.<br/><br/>
     Gets the differentially-private sum of non-<code>NULL</code>,
     non-<code>NaN</code> values in a query with a
     <code>DIFFERENTIAL_PRIVACY</code> clause.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#dp_var_pop"><code>VAR_POP</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md#dp_var_pop"><code>VAR_POP</code> (Differential Privacy)</a>
 </td>
   <td>
-    <code>DIFFERENTIAL_PRIVACY</code>-supported <code>VAR_POP</code>.<br/><br/>
+    <code>DIFFERENTIAL_PRIVACY</code>-supported <code>VAR_POP</code> (Differential Privacy).<br/><br/>
     Computes the differentially-private population (biased) variance of values
     in a query with a <code>DIFFERENTIAL_PRIVACY</code> clause.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#anon_avg"><code>ANON_AVG</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md#anon_avg"><code>ANON_AVG</code></a>
 </td>
   <td>
     Deprecated.
@@ -103,8 +102,7 @@ determine the optimal privacy parameters for your dataset and organization.
 </tr>
 
 <tr>
-  <td><a href="#anon_count"><code>ANON_COUNT</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md#anon_count"><code>ANON_COUNT</code></a>
 </td>
   <td>
     Deprecated.
@@ -121,8 +119,7 @@ determine the optimal privacy parameters for your dataset and organization.
 </tr>
 
 <tr>
-  <td><a href="#anon_percentile_cont"><code>ANON_PERCENTILE_CONT</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md#anon_percentile_cont"><code>ANON_PERCENTILE_CONT</code></a>
 </td>
   <td>
     Deprecated.
@@ -132,8 +129,7 @@ determine the optimal privacy parameters for your dataset and organization.
 </tr>
 
 <tr>
-  <td><a href="#anon_quantiles"><code>ANON_QUANTILES</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md#anon_quantiles"><code>ANON_QUANTILES</code></a>
 </td>
   <td>
     Deprecated.
@@ -143,8 +139,7 @@ determine the optimal privacy parameters for your dataset and organization.
 </tr>
 
 <tr>
-  <td><a href="#anon_stddev_pop"><code>ANON_STDDEV_POP</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md#anon_stddev_pop"><code>ANON_STDDEV_POP</code></a>
 </td>
   <td>
     Deprecated.
@@ -154,8 +149,7 @@ determine the optimal privacy parameters for your dataset and organization.
 </tr>
 
 <tr>
-  <td><a href="#anon_sum"><code>ANON_SUM</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md#anon_sum"><code>ANON_SUM</code></a>
 </td>
   <td>
     Deprecated.
@@ -166,8 +160,7 @@ determine the optimal privacy parameters for your dataset and organization.
 </tr>
 
 <tr>
-  <td><a href="#anon_var_pop"><code>ANON_VAR_POP</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md#anon_var_pop"><code>ANON_VAR_POP</code></a>
 </td>
   <td>
     Deprecated.
@@ -179,7 +172,7 @@ determine the optimal privacy parameters for your dataset and organization.
   </tbody>
 </table>
 
-### `AVG` (`DIFFERENTIAL_PRIVACY`) 
+## `AVG` (`DIFFERENTIAL_PRIVACY`) 
 <a id="dp_avg"></a>
 
 ```sql
@@ -315,7 +308,7 @@ noise, see [Remove noise][dp-noise].
 
 [dp-example-views]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_views
 
-### `COUNT` (`DIFFERENTIAL_PRIVACY`) 
+## `COUNT` (`DIFFERENTIAL_PRIVACY`) 
 <a id="dp_count"></a>
 
 + [Signature 1](#dp_count_signature1): Returns the number of rows in a
@@ -585,7 +578,7 @@ noise, see [Remove noise][dp-noise].
 
 [dp-example-views]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_views
 
-### `PERCENTILE_CONT` (`DIFFERENTIAL_PRIVACY`) 
+## `PERCENTILE_CONT` (`DIFFERENTIAL_PRIVACY`) 
 <a id="dp_percentile_cont"></a>
 
 ```sql
@@ -682,7 +675,7 @@ GROUP BY item;
 
 [dp-example-views]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_views
 
-### `SUM` (`DIFFERENTIAL_PRIVACY`) 
+## `SUM` (`DIFFERENTIAL_PRIVACY`) 
 <a id="dp_sum"></a>
 
 ```sql
@@ -822,7 +815,7 @@ noise, see [Use differential privacy][dp-noise].
 
 [dp-example-views]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_views
 
-### `VAR_POP` (`DIFFERENTIAL_PRIVACY`) 
+## `VAR_POP` (`DIFFERENTIAL_PRIVACY`) 
 <a id="dp_var_pop"></a>
 
 ```sql
@@ -921,7 +914,7 @@ GROUP BY item;
 
 [dp-example-views]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_views
 
-### `ANON_AVG` (DEPRECATED) 
+## `ANON_AVG` (DEPRECATED) 
 <a id="anon_avg"></a>
 
 Warning: This function has been deprecated. Use
@@ -1009,7 +1002,7 @@ noise [here][dp-noise].
 
 [dp-clamp-between]: #dp_clamp_between
 
-### `ANON_COUNT` (DEPRECATED) 
+## `ANON_COUNT` (DEPRECATED) 
 <a id="anon_count"></a>
 
 Warning: This function has been deprecated. Use
@@ -1174,7 +1167,7 @@ noise [here][dp-noise].
 
 [dp-clamp-between]: #dp_clamp_between
 
-### `ANON_PERCENTILE_CONT` (DEPRECATED) 
+## `ANON_PERCENTILE_CONT` (DEPRECATED) 
 <a id="anon_percentile_cont"></a>
 
 Warning: This function has been deprecated. Use
@@ -1239,7 +1232,7 @@ GROUP BY item;
 
 [dp-clamp-between]: #dp_clamp_between
 
-### `ANON_QUANTILES` (DEPRECATED) 
+## `ANON_QUANTILES` (DEPRECATED) 
 <a id="anon_quantiles"></a>
 
 Warning: This function has been deprecated. Use
@@ -1305,7 +1298,7 @@ GROUP BY item;
 
 [dp-clamp-between]: #dp_clamp_between
 
-### `ANON_STDDEV_POP` (DEPRECATED) 
+## `ANON_STDDEV_POP` (DEPRECATED) 
 <a id="anon_stddev_pop"></a>
 
 Warning: This function has been deprecated. Use
@@ -1370,7 +1363,7 @@ GROUP BY item;
 
 [dp-clamp-between]: #dp_clamp_between
 
-### `ANON_SUM` (DEPRECATED) 
+## `ANON_SUM` (DEPRECATED) 
 <a id="anon_sum"></a>
 
 Warning: This function has been deprecated. Use
@@ -1460,7 +1453,7 @@ noise [here][dp-noise].
 
 [dp-clamp-between]: #dp_clamp_between
 
-### `ANON_VAR_POP` (DEPRECATED) 
+## `ANON_VAR_POP` (DEPRECATED) 
 <a id="anon_var_pop"></a>
 
 Warning: This function has been deprecated. Use
@@ -1528,6 +1521,8 @@ GROUP BY item;
 [dp-example-views]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_views
 
 [dp-clamp-between]: #dp_clamp_between
+
+## Supplemental materials
 
 ### Clamp values in a differentially private aggregate function 
 <a id="dp_clamping"></a>
@@ -1800,11 +1795,7 @@ GROUP BY item;
 Note: For more information about when and when not to use
 noise, see [Remove noise][dp-noise].
 
-[dp-guide]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md
-
 [dp-syntax]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_clause
-
-[agg-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 
 [dp-example-views]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_views
 
@@ -1815,4 +1806,10 @@ noise, see [Remove noise][dp-noise].
 [dp-clamped-named]: #dp_clamped_named
 
 [dp-clamped-named-imp]: #dp_clamped_named_implicit
+
+[dp-guide]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md
+
+[dp-syntax]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_clause
+
+[agg-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 

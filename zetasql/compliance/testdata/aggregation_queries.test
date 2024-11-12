@@ -27,6 +27,14 @@ ARRAY<STRUCT<
   {1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
 ]
 ==
+[required_features=V_1_4_UUID_TYPE]
+[prepare_database]
+CREATE TABLE TableAllNullUuids AS
+SELECT CAST(1 as int64) as row_id,
+       CAST(NULL AS UUID) as uuid_val
+--
+ARRAY<STRUCT<row_id INT64, uuid_val UUID>>[{1, NULL}]
+==
 [required_features=RANGE_TYPE]
 [prepare_database]
 CREATE TABLE TableAllNullRanges AS
@@ -89,6 +97,19 @@ ARRAY<STRUCT<
    2001-01-01,
    2001-01-01 00:00:00+00
  }]
+==
+[required_features=V_1_4_UUID_TYPE]
+[prepare_database]
+CREATE TABLE TableOneValueUuid AS
+SELECT CAST(1 as int64) as row_id,
+       CAST('9d3da323-4c20-460f-8d9b-ec54feec54f0' AS UUID) as uuid_val
+--
+ARRAY<STRUCT<row_id INT64, uuid_val UUID>>[
+  {
+    1,
+    9d3da323-4c20-460f-8d9b-ec54feec54f0
+  }
+]
 ==
 [required_features=RANGE_TYPE]
 [prepare_database]
@@ -560,6 +581,105 @@ ARRAY<STRUCT<
    2014-02-04 00:00:04+00
  },
  {17, NULL, -1, NULL, 1, NULL, 0, NULL, "1", NULL, 2014-02-04, NULL}]
+==
+[required_features=V_1_4_UUID_TYPE]
+[prepare_database]
+CREATE TABLE TableUuidTypes AS
+SELECT CAST(1 AS int64) as row_id,
+       true AS bool_val,
+       CAST('9d3da323-4c20-460f-8d9b-ec54feec54f0' AS UUID) AS uuid_val UNION ALL
+SELECT 2, true, CAST('9d3da323-4c20-460f-8d9b-ec54feec54f0' AS UUID) UNION ALL
+SELECT 3, true, CAST('9d3da323-4c20-460f-8d9b-ec54feec54f0' AS UUID) UNION ALL
+SELECT 4, false, CAST('9d3da323-4c21-460f-8d9b-ec54feec54f1' AS UUID) UNION ALL
+SELECT 5, false, CAST('9d3da323-4c21-460f-8d9b-ec54feec54f1' AS UUID) UNION ALL
+SELECT 6, true, CAST('9d3da323-4c22-460f-8d9b-ec54feec54f2' AS UUID) UNION ALL
+SELECT 7, false, CAST('9d3da323-4c23-460f-8d9b-ec54feec54f3' AS UUID) UNION ALL
+SELECT 8, CAST(NULL AS bool), CAST(NULL AS UUID) UNION ALL
+SELECT 9, CAST(NULL AS bool), CAST(NULL AS UUID) UNION ALL
+SELECT 10, true, CAST('9d3da323-4c24-460f-8d9b-ec54feec54f4' AS UUID) UNION ALL
+SELECT 11, false, CAST('9d3da323-4c25-460f-8d9b-ec54feec54f5' AS UUID) UNION ALL
+SELECT 12, false, CAST('9d3da323-4c26-460f-8d9b-ec54feec54f6' AS UUID) UNION ALL
+SELECT 13, false, CAST('9d3da323-4c27-460f-8d9b-ec54feec54f7' AS UUID) UNION ALL
+SELECT 14, true, CAST('9d3da323-4c28-460f-8d9b-ec54feec54f8' AS UUID) UNION ALL
+SELECT 15, false, CAST('9d3da323-4c29-460f-8d9b-ec54feec54f9' AS UUID) UNION ALL
+SELECT 16, false, CAST('9d3da323-4c29-460f-8d9b-ec54feec54f9' AS UUID) UNION ALL
+SELECT 17, CAST(NULL AS bool), CAST(NULL AS UUID)
+--
+ARRAY<STRUCT<row_id INT64, bool_val BOOL, uuid_val UUID>>[
+  {
+    1,
+    true,
+    9d3da323-4c20-460f-8d9b-ec54feec54f0
+  },
+  {
+    2,
+    true,
+    9d3da323-4c20-460f-8d9b-ec54feec54f0
+  },
+  {
+    3,
+    true,
+    9d3da323-4c20-460f-8d9b-ec54feec54f0
+  },
+  {
+    4,
+    false,
+    9d3da323-4c21-460f-8d9b-ec54feec54f1
+  },
+  {
+    5,
+    false,
+    9d3da323-4c21-460f-8d9b-ec54feec54f1
+  },
+  {
+    6,
+    true,
+    9d3da323-4c22-460f-8d9b-ec54feec54f2
+  },
+  {
+    7,
+    false,
+    9d3da323-4c23-460f-8d9b-ec54feec54f3
+  },
+  {8, NULL, NULL},
+  {9, NULL, NULL},
+  {
+    10,
+    true,
+    9d3da323-4c24-460f-8d9b-ec54feec54f4
+  },
+  {
+    11,
+    false,
+    9d3da323-4c25-460f-8d9b-ec54feec54f5
+  },
+  {
+    12,
+    false,
+    9d3da323-4c26-460f-8d9b-ec54feec54f6
+  },
+  {
+    13,
+    false,
+    9d3da323-4c27-460f-8d9b-ec54feec54f7
+  },
+  {
+    14,
+    true,
+    9d3da323-4c28-460f-8d9b-ec54feec54f8
+  },
+  {
+    15,
+    false,
+    9d3da323-4c29-460f-8d9b-ec54feec54f9
+  },
+  {
+    16,
+    false,
+    9d3da323-4c29-460f-8d9b-ec54feec54f9
+  },
+  {17, NULL, NULL}
+]
 ==
 [required_features=RANGE_TYPE]
 [prepare_database]
@@ -1051,6 +1171,30 @@ SELECT COUNT(val) FROM TableEmpty
 --
 ARRAY<STRUCT<INT64>>[{0}]
 ==
+[required_features=V_1_4_UUID_TYPE]
+[name=aggregation_count_uuids_1]
+SELECT COUNT(uuid_val) FROM TableUuidTypes
+--
+ARRAY<STRUCT<INT64>>[{14}]
+==
+[required_features=V_1_4_UUID_TYPE]
+[name=aggregation_count_uuids_2]
+SELECT COUNT(*) FROM TableUuidTypes
+--
+ARRAY<STRUCT<INT64>>[{17}]
+==
+[required_features=V_1_4_UUID_TYPE]
+[name=aggregation_count_uuid_nulls_1]
+SELECT COUNT(uuid_val) FROM TableAllNullUuids
+--
+ARRAY<STRUCT<INT64>>[{0}]
+==
+[required_features=V_1_4_UUID_TYPE]
+[name=aggregation_count_uuid_nulls_2]
+SELECT COUNT(*) FROM TableAllNullUuids
+--
+ARRAY<STRUCT<INT64>>[{1}]
+==
 # COUNT should work with GROUP BY
 [name=aggregation_count_group_by]
 SELECT int32_val, COUNT(double_val) FROM TableAllTypes GROUP BY int32_val
@@ -1073,6 +1217,13 @@ ARRAY<STRUCT<int32_val INT32, INT64>>[unknown order:
 [name=aggregation_count_group_by_and_having]
 SELECT bool_val, COUNT(double_val) FROM TableAllTypes GROUP BY bool_val HAVING bool_val ORDER BY bool_val
 
+--
+ARRAY<STRUCT<bool_val BOOL, INT64>>[{true, 6}]
+==
+# COUNT should work with GROUP BY and HAVING with Uuids
+[required_features=V_1_4_UUID_TYPE]
+[name=aggregation_count_uuids_group_by_and_having]
+SELECT bool_val, COUNT(uuid_val) FROM TableUuidTypes GROUP BY bool_val HAVING bool_val ORDER BY bool_val
 --
 ARRAY<STRUCT<bool_val BOOL, INT64>>[{true, 6}]
 ==
@@ -1569,6 +1720,41 @@ SELECT MIN(int32_val), bool_val FROM TableAllTypes
   GROUP BY bool_val having MAX(uint32_val) > 30 ORDER BY bool_val
 --
 ARRAY<STRUCT<INT32, bool_val BOOL>>[known order:{-24, false}, {-3, true}]
+==
+[name=aggregation_min_max_uuid_1]
+[required_features=V_1_4_UUID_TYPE]
+SELECT MIN(uuid_val), MAX(uuid_val) FROM TableUuidTypes;
+--
+ARRAY<STRUCT<UUID, UUID>>[
+  {
+    9d3da323-4c20-460f-8d9b-ec54feec54f0,
+    9d3da323-4c29-460f-8d9b-ec54feec54f9
+  }
+]
+==
+[name=aggregation_min_max_uuid_3]
+[required_features=V_1_4_UUID_TYPE]
+SELECT MIN(uuid_val), MAX(uuid_val) FROM TableAllNullUuids;
+--
+ARRAY<STRUCT<UUID, UUID>>[{NULL, NULL}]
+==
+[name=aggregation_min_max_uuid_with_group_by]
+[required_features=V_1_4_UUID_TYPE]
+SELECT bool_val, MIN(uuid_val), MAX(uuid_val) FROM TableUuidTypes GROUP BY bool_val;
+--
+ARRAY<STRUCT<bool_val BOOL, UUID, UUID>>[unknown order:
+  {NULL, NULL, NULL},
+  {
+    false,
+    9d3da323-4c21-460f-8d9b-ec54feec54f1,
+    9d3da323-4c29-460f-8d9b-ec54feec54f9
+  },
+  {
+    true,
+    9d3da323-4c20-460f-8d9b-ec54feec54f0,
+    9d3da323-4c28-460f-8d9b-ec54feec54f8
+  }
+]
 ==
 [name=aggregation_min_max_range_date_with_group_by]
 [required_features=RANGE_TYPE]
@@ -2308,6 +2494,64 @@ SELECT CAST(NULL AS JSON) UNION ALL
 SELECT JSON '10')
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<JSON>[unknown order:null, 10, {"a":10}, NULL]}]
+==
+[required_features=V_1_4_UUID_TYPE]
+[name=aggregation_array_agg_uuid_1]
+SELECT ARRAY_AGG(uuid_val) FROM TableAllNullUuids
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<UUID>[NULL]}]
+==
+[required_features=V_1_4_UUID_TYPE]
+[name=aggregation_array_agg_uuid_2]
+SELECT ARRAY_AGG(uuid_val) FROM TableUuidTypes
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<UUID>[unknown order:
+     9d3da323-4c20-460f-8d9b-ec54feec54f0,
+     9d3da323-4c21-460f-8d9b-ec54feec54f1,
+     9d3da323-4c22-460f-8d9b-ec54feec54f2,
+     NULL,
+     9d3da323-4c24-460f-8d9b-ec54feec54f4,
+     9d3da323-4c26-460f-8d9b-ec54feec54f6,
+     9d3da323-4c28-460f-8d9b-ec54feec54f8,
+     9d3da323-4c29-460f-8d9b-ec54feec54f9,
+     9d3da323-4c20-460f-8d9b-ec54feec54f0,
+     9d3da323-4c20-460f-8d9b-ec54feec54f0,
+     9d3da323-4c21-460f-8d9b-ec54feec54f1,
+     9d3da323-4c23-460f-8d9b-ec54feec54f3,
+     NULL,
+     9d3da323-4c25-460f-8d9b-ec54feec54f5,
+     9d3da323-4c27-460f-8d9b-ec54feec54f7,
+     9d3da323-4c29-460f-8d9b-ec54feec54f9,
+     NULL
+   ]}
+]
+==
+[required_features=V_1_4_UUID_TYPE]
+[name=aggregation_array_agg_uuid_with_group_by]
+SELECT ARRAY_AGG(uuid_val) FROM TableUuidTypes GROUP BY bool_val
+--
+ARRAY<STRUCT<ARRAY<>>>[unknown order:
+  {ARRAY<UUID>[unknown order:NULL, NULL, NULL]},
+  {ARRAY<UUID>[unknown order:
+     9d3da323-4c21-460f-8d9b-ec54feec54f1,
+     9d3da323-4c26-460f-8d9b-ec54feec54f6,
+     9d3da323-4c29-460f-8d9b-ec54feec54f9,
+     9d3da323-4c21-460f-8d9b-ec54feec54f1,
+     9d3da323-4c23-460f-8d9b-ec54feec54f3,
+     9d3da323-4c25-460f-8d9b-ec54feec54f5,
+     9d3da323-4c27-460f-8d9b-ec54feec54f7,
+     9d3da323-4c29-460f-8d9b-ec54feec54f9
+   ]},
+  {ARRAY<UUID>[unknown order:
+     9d3da323-4c20-460f-8d9b-ec54feec54f0,
+     9d3da323-4c22-460f-8d9b-ec54feec54f2,
+     9d3da323-4c24-460f-8d9b-ec54feec54f4,
+     9d3da323-4c28-460f-8d9b-ec54feec54f8,
+     9d3da323-4c20-460f-8d9b-ec54feec54f0,
+     9d3da323-4c20-460f-8d9b-ec54feec54f0
+   ]}
+]
 ==
 # ----------------------------------------------------------------------------
 # ARRAY_AGG over empty input produces NULL
@@ -3128,6 +3372,18 @@ SELECT ANY_VALUE(x) FROM (
 SELECT CAST(NULL AS JSON) x)
 --
 ARRAY<STRUCT<JSON>>[{NULL}]
+==
+[required_features=V_1_4_UUID_TYPE]
+[name=aggregation_any_value_uuid_1]
+SELECT ANY_VALUE(uuid_val) FROM TableOneValueUuid;
+--
+ARRAY<STRUCT<UUID>>[{9d3da323-4c20-460f-8d9b-ec54feec54f0}]
+==
+[required_features=V_1_4_UUID_TYPE]
+[name=aggregation_any_value_uuid_2]
+SELECT ANY_VALUE(uuid_val) FROM TableAllNullUuids;
+--
+ARRAY<STRUCT<UUID>>[{NULL}]
 ==
 [required_features=RANGE_TYPE]
 [name=aggregation_any_value_range]

@@ -20,6 +20,10 @@
 #include <istream>
 #include <memory>
 
+#include "zetasql/parser/tm_lexer.h"
+#include "zetasql/parser/tm_token.h"
+#include "zetasql/parser/token_codes.h"
+
 // Some contortions to avoid duplicate inclusion of FlexLexer.h in the
 // generated flex_tokenizer.flex.cc.
 #undef yyFlexLexer
@@ -27,6 +31,7 @@
 #include <FlexLexer.h>
 
 #include "zetasql/public/parse_location.h"
+#include "absl/base/macros.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
@@ -34,21 +39,19 @@
 namespace zetasql {
 namespace parser {
 
-// Flex-based tokenizer for ZetaSQL.
-class ZetaSqlFlexTokenizer final : public ZetaSqlFlexTokenizerBase {
+// The legacy Flex-based tokenizer for ZetaSQL. Kept only for validation
+// purpose.
+class LegacyFlexTokenizer final : public ZetaSqlFlexTokenizerBase {
  public:
-  // Type aliases to improve readability of API.
-  using TokenKind = int;
-
   // Constructs a wrapper around a flex generated tokenizer.
   // `filename`, `input` and `language_options` must outlive this object.
-  ZetaSqlFlexTokenizer(absl::string_view filename, absl::string_view input,
-                         int start_offset);
+  LegacyFlexTokenizer(absl::string_view filename, absl::string_view input,
+                      int start_offset);
 
-  ZetaSqlFlexTokenizer(const ZetaSqlFlexTokenizer&) = delete;
-  ZetaSqlFlexTokenizer& operator=(const ZetaSqlFlexTokenizer&) = delete;
+  LegacyFlexTokenizer(const LegacyFlexTokenizer&) = delete;
+  LegacyFlexTokenizer& operator=(const LegacyFlexTokenizer&) = delete;
 
-  absl::StatusOr<TokenKind> GetNextToken(ParseLocationRange* location);
+  absl::StatusOr<Token> GetNextToken(ParseLocationRange* location);
 
  private:
   void SetOverrideError(const ParseLocationRange& location,
@@ -57,7 +60,7 @@ class ZetaSqlFlexTokenizer final : public ZetaSqlFlexTokenizerBase {
   // This method is implemented by the flex generated tokenizer. On input,
   // 'yylloc' must be the location of the previous token that was returned.
   // Returns the next token id, returning its location in 'yylloc'.
-  TokenKind GetNextTokenFlexImpl(ParseLocationRange* location);
+  Token GetNextTokenFlexImpl(ParseLocationRange* location);
 
   // The (optional) filename from which the statement is being parsed.
   absl::string_view filename_;
@@ -75,6 +78,50 @@ class ZetaSqlFlexTokenizer final : public ZetaSqlFlexTokenizerBase {
   // when returning the result.
   absl::Status override_error_;
 };
+
+// A wrapper class for the generated TextMapper lexer class with access to
+// the private fields of `Lexer`.
+// TODO: b/322871843: Find a way to use the `Lexer` class directly, maybe by
+// updating the TextMapper template.
+class TextMapperTokenizer final : Lexer {
+ public:
+  TextMapperTokenizer(absl::string_view filename, absl::string_view input,
+                      int start_offset);
+
+  TextMapperTokenizer(const TextMapperTokenizer&) = delete;
+  TextMapperTokenizer& operator=(const TextMapperTokenizer&) = delete;
+
+  absl::StatusOr<Token> GetNextToken(ParseLocationRange* location);
+};
+
+class ZetaSqlTokenizer {
+ public:
+  ZetaSqlTokenizer(absl::string_view filename, absl::string_view input,
+                     int start_offset);
+
+  ZetaSqlTokenizer(const ZetaSqlTokenizer&) = delete;
+  ZetaSqlTokenizer& operator=(const ZetaSqlTokenizer&) = delete;
+
+  absl::StatusOr<Token> GetNextToken(ParseLocationRange* location);
+
+ private:
+  // Validates the next TextMapper token is the same as the given flex token
+  // (`flex_token`, `flex_token_location`).
+  //
+  // `text_mapper_tokenizer_` will be initialized if it is nullptr.
+  absl::Status ValidateTextMapperToken(
+      absl::StatusOr<Token> flex_token,
+      const ParseLocationRange& flex_token_location);
+
+  std::unique_ptr<LegacyFlexTokenizer> flex_tokenizer_;
+  std::unique_ptr<TextMapperTokenizer> text_mapper_tokenizer_;
+
+  const absl::string_view filename_;
+  const absl::string_view input_;
+  const int start_offset_;
+};
+
+using ZetaSqlFlexTokenizer ABSL_DEPRECATED("Inline me!") = ZetaSqlTokenizer;
 
 }  // namespace parser
 }  // namespace zetasql

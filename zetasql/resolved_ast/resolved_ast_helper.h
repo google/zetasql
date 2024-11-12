@@ -46,6 +46,9 @@ class ColumnRefVisitor : public ResolvedASTVisitor {
 
   absl::Status VisitResolvedWithExpr(const ResolvedWithExpr* node) override;
 
+  absl::Status VisitResolvedArrayAggregate(
+      const ResolvedArrayAggregate* node) override;
+
   bool IsLocalColumn(const ResolvedColumn& column) const {
     return local_columns_.contains(column);
   }

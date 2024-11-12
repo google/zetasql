@@ -14,9 +14,9 @@ an exact value. If your computation is too slow or requires too much temporary
 storage, use sketches to reduce query time and resources.
 
 Additionally, computing [cardinalities][cardinality]{: .external}, such as the
-number of distinct users, or [quantiles][quantiles-wiki]{: .external}, such as median visit duration, without
-sketches is usually only possible by running jobs over the raw data because
-already-aggregated data can't be combined anymore.
+number of distinct users, or [quantiles][quantiles-wiki]{: .external}, such as
+median visit duration, without sketches is usually only possible by running jobs
+over the raw data because already-aggregated data can't be combined anymore.
 
 Consider a table with the following data:
 
@@ -92,9 +92,9 @@ roll-ups aren't possible with true distinct counts.
 ## Sketch integration
 
 You can integrate sketches with other systems. For example, you can build
-sketches in external applications, like [Dataflow][dataflow]{: .external} or
-[Apache Spark][spark]{: .external}, and consume them in ZetaSQL or vice
-versa.
+sketches in external applications, like [Dataflow][dataflow]{: .external},
+[Apache Spark][spark]{: .external}, and [ZetaSketch][zetasketch]{: .external}
+and then consume them in ZetaSQL or vice versa.
 
 In addition to ZetaSQL, you can use sketches with the following
 coding languages:
@@ -184,11 +184,17 @@ sketch-based approximation, see
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
+[cardinality]: https://en.wikipedia.org/wiki/Cardinality
+
+[quantiles-wiki]: https://en.wikipedia.org/wiki/Quantile
+
 [spark]: https://spark.apache.org
 
 [dataflow]: https://cloud.google.com/dataflow
 
 [olap]: https://en.wikipedia.org/wiki/OLAP_cube
+
+[zetasketch]: https://github.com/google/zetasketch
 
 [hll]: https://research.google.com/pubs/archive/40671.pdf
 
@@ -197,8 +203,6 @@ sketch-based approximation, see
 [hll-functions]: https://github.com/google/zetasql/blob/master/docs/hll_functions.md
 
 [hll-init]: https://github.com/google/zetasql/blob/master/docs/hll_functions.md#hll_countinit
-
-[cardinality]: https://en.wikipedia.org/wiki/Cardinality
 
 [approx-aggregate-functions]: https://github.com/google/zetasql/blob/master/docs/approximate_aggregate_functions.md
 

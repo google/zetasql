@@ -1200,8 +1200,13 @@ bool IsPartOfSameChunk(const Chunk& chunk, const std::vector<Token*>& tokens,
     return previous == ".";
   }
   if (previous == "*") {
-    return current_token->Is(Token::Type::SELECT_STAR_MODIFIER) ||
-           !IsTopLevelClauseKeyword(*current_token);
+    if (current_token->Is(Token::Type::SELECT_STAR_MODIFIER)) {
+      // For `SELECT * EXCEPT` and `SELECT * REPLACE`, the `EXCEPT`/`REPLACE`
+      // keywords should be in an indented child node, not part of the same
+      // chunk.
+      return false;
+    }
+    return !IsTopLevelClauseKeyword(*current_token);
   }
 
   // = is also tricky, as it doesn't join in the next token if it ends a
@@ -1447,16 +1452,15 @@ void MarkAllSelectStarModifiers(const TokensView& tokens_view) {
       tokens[t]->SetType(Token::Type::SELECT_STAR_MODIFIER);
       tokens[t]->MarkUsedAsKeyword();
 
-      // Jump to the corresponding close parenthesis and see if we have another
-      // {"<EXCEPT or REPLACE>", "("} (there can be at most two).
-      t = 1 + FindMatchingClosingBracket(tokens, t + 1);
-      if (t + 1 < tokens.size() &&
-          (tokens[t]->GetKeyword() == "EXCEPT" ||
-           tokens[t]->GetKeyword() == "REPLACE") &&
-          tokens[t + 1]->GetKeyword() == "(") {
-        tokens[t]->SetType(Token::Type::SELECT_STAR_MODIFIER);
-        tokens[t]->MarkUsedAsKeyword();
-        ++t;
+      // Look ahead to the corresponding close parenthesis and see if we have
+      // another chained {"<EXCEPT or REPLACE>", "("} (there can be at most 2).
+      int maybe_another_t = 1 + FindMatchingClosingBracket(tokens, t + 1);
+      if (maybe_another_t + 1 < tokens.size() &&
+          (tokens[maybe_another_t]->GetKeyword() == "EXCEPT" ||
+           tokens[maybe_another_t]->GetKeyword() == "REPLACE") &&
+          tokens[maybe_another_t + 1]->GetKeyword() == "(") {
+        tokens[maybe_another_t]->SetType(Token::Type::SELECT_STAR_MODIFIER);
+        tokens[maybe_another_t]->MarkUsedAsKeyword();
       }
     }
   }
@@ -1546,6 +1550,13 @@ int FindNextParamList(const std::vector<Token*>& tokens, int index) {
     if (index + 1 < tokens.size() && tokens[index - 1]->GetKeyword() == "[") {
       if (tokens[index + 1]->GetKeyword() == "=") return --index;
       if (tokens[index]->GetKeyword() == "DEFAULT") return index;
+    }
+
+    // CASE: '|> SET a = b, c = d'. (This is not strictly a parameter list,
+    // but '=' here is used as assignment operator)
+    if (tokens[index - 1]->GetKeyword() == "|>" &&
+        tokens[index]->GetKeyword() == "SET") {
+      return index;
     }
   }
 
@@ -1872,6 +1883,8 @@ void MarkAllStatementStarts(
   if (allowed->contains(first_token->GetKeyword()) ||
       first_token->IsMacroCall()) {
     first_token->SetType(Token::Type::TOP_LEVEL_KEYWORD);
+  } else if (first_token->GetKeyword() == "SET") {
+    first_token->SetType(Token::Type::SET_STATEMENT_START);
   }
 
   if (tokens.size() < 4 ||
@@ -1884,7 +1897,9 @@ void MarkAllStatementStarts(
   //   SET Foo 1
   //   SET Bar 2;
   int t = 3;
-  if (allowed->contains(tokens[t]->GetKeyword())) {
+  if (tokens[t]->GetKeyword() == "SET") {
+    tokens[t]->SetType(Token::Type::SET_STATEMENT_START);
+  } else if (allowed->contains(tokens[t]->GetKeyword())) {
     tokens[t]->SetType(Token::Type::TOP_LEVEL_KEYWORD);
   } else if (!IsTopLevelClauseKeyword(*tokens[t]) &&
              !tokens[t]->IsMacroCall()) {
@@ -1907,6 +1922,8 @@ void MarkAllStatementStarts(
     } else if (tokens[t]->IsMacroCall() &&
                MacroCallMayBeATopLevelClause(location_translator, tokens, t)) {
       tokens[t]->SetType(Token::Type::TOP_LEVEL_KEYWORD);
+    } else if (tokens[t]->GetKeyword() == "SET") {
+      tokens[t]->SetType(Token::Type::SET_STATEMENT_START);
     }
   }
 }

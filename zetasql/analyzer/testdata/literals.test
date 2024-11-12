@@ -1810,15 +1810,6 @@ ERROR: Invalid JSON literal: syntax error while parsing object key - unexpected 
 
 [language_features=JSON_TYPE]
 SELECT
-  JSON ''
---
-ERROR: Invalid JSON literal: syntax error while parsing value - unexpected end of input; expected '[', '{', or a literal [at 2:3]
-  JSON ''
-  ^
-==
-
-[language_features=JSON_TYPE]
-SELECT
   JSON '\'string\''
 --
 ERROR: Invalid JSON literal: syntax error while parsing value - invalid literal; last read: ''' [at 2:3]

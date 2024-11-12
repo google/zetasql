@@ -1,0 +1,202 @@
+# Tests for the FOR UPDATE clause, including all join varieties and combinations.
+
+[default language_features=V_1_4_FOR_UPDATE]
+
+# FOR UPDATE in CTE subquery of WITH statement.
+with t1 as (select a, b from t for update) select * from t1;
+--
+QueryStatement [48-107] [with t1 as...* from t1]
+  Query [48-107] [with t1 as...* from t1]
+    WithClause [48-90] [with t1 as...for update)]
+      AliasedQuery [53-90] [t1 as (select...for update)]
+        Identifier(t1) [53-55] [t1]
+        Query [60-89] [select a, b from t for update]
+          Select [60-78] [select a, b from t]
+            SelectList [67-71] [a, b]
+              SelectColumn [67-68] [a]
+                PathExpression [67-68] [a]
+                  Identifier(a) [67-68] [a]
+              SelectColumn [70-71] [b]
+                PathExpression [70-71] [b]
+                  Identifier(b) [70-71] [b]
+            FromClause [72-78] [from t]
+              TablePathExpression [77-78] [t]
+                PathExpression [77-78] [t]
+                  Identifier(t) [77-78] [t]
+          LockMode [79-89] [for update]
+    Select [91-107] [select * from t1]
+      SelectList [98-99] [*]
+        SelectColumn [98-99] [*]
+          Star(*) [98-99] [*]
+      FromClause [100-107] [from t1]
+        TablePathExpression [105-107] [t1]
+          PathExpression [105-107] [t1]
+            Identifier(t1) [105-107] [t1]
+--
+WITH
+  t1 AS (
+    SELECT
+      a,
+      b
+    FROM
+      t
+    FOR UPDATE
+  )
+SELECT
+  *
+FROM
+  t1
+==
+
+# FOR UPDATE when querying CTE.
+with t1 as (select a, b from t) select * from t1 for update;
+--
+QueryStatement [0-59] [with t1 as...for update]
+  Query [0-59] [with t1 as...for update]
+    WithClause [0-31] [with t1 as...b from t)]
+      AliasedQuery [5-31] [t1 as (select a, b from t)]
+        Identifier(t1) [5-7] [t1]
+        Query [12-30] [select a, b from t]
+          Select [12-30] [select a, b from t]
+            SelectList [19-23] [a, b]
+              SelectColumn [19-20] [a]
+                PathExpression [19-20] [a]
+                  Identifier(a) [19-20] [a]
+              SelectColumn [22-23] [b]
+                PathExpression [22-23] [b]
+                  Identifier(b) [22-23] [b]
+            FromClause [24-30] [from t]
+              TablePathExpression [29-30] [t]
+                PathExpression [29-30] [t]
+                  Identifier(t) [29-30] [t]
+    Select [32-48] [select * from t1]
+      SelectList [39-40] [*]
+        SelectColumn [39-40] [*]
+          Star(*) [39-40] [*]
+      FromClause [41-48] [from t1]
+        TablePathExpression [46-48] [t1]
+          PathExpression [46-48] [t1]
+            Identifier(t1) [46-48] [t1]
+    LockMode [49-59] [for update]
+--
+WITH
+  t1 AS (
+    SELECT
+      a,
+      b
+    FROM
+      t
+  )
+SELECT
+  *
+FROM
+  t1
+FOR UPDATE
+==
+
+# FOR UPDATE in both CTE subquery and when querying CTE.
+with t1 as (select a, b from t for update) select * from t1 for update;
+--
+QueryStatement [0-70] [with t1 as...for update]
+  Query [0-70] [with t1 as...for update]
+    WithClause [0-42] [with t1 as...for update)]
+      AliasedQuery [5-42] [t1 as (select...for update)]
+        Identifier(t1) [5-7] [t1]
+        Query [12-41] [select a, b from t for update]
+          Select [12-30] [select a, b from t]
+            SelectList [19-23] [a, b]
+              SelectColumn [19-20] [a]
+                PathExpression [19-20] [a]
+                  Identifier(a) [19-20] [a]
+              SelectColumn [22-23] [b]
+                PathExpression [22-23] [b]
+                  Identifier(b) [22-23] [b]
+            FromClause [24-30] [from t]
+              TablePathExpression [29-30] [t]
+                PathExpression [29-30] [t]
+                  Identifier(t) [29-30] [t]
+          LockMode [31-41] [for update]
+    Select [43-59] [select * from t1]
+      SelectList [50-51] [*]
+        SelectColumn [50-51] [*]
+          Star(*) [50-51] [*]
+      FromClause [52-59] [from t1]
+        TablePathExpression [57-59] [t1]
+          PathExpression [57-59] [t1]
+            Identifier(t1) [57-59] [t1]
+    LockMode [60-70] [for update]
+--
+WITH
+  t1 AS (
+    SELECT
+      a,
+      b
+    FROM
+      t
+    FOR UPDATE
+  )
+SELECT
+  *
+FROM
+  t1
+FOR UPDATE
+==
+
+# Nested WITH statement and FOR UPDATE on outer-most query.
+select * from (with t1 as (select a, b from t) select * from t1) as t2 for update;
+--
+QueryStatement [0-81] [select * from...for update]
+  Query [0-81] [select * from...for update]
+    Select [0-70] [select * from...t1) as t2]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-70] [from (with...t1) as t2]
+        TableSubquery [14-70] [(with t1 as...t1) as t2]
+          Query [15-63] [with t1 as...* from t1]
+            WithClause [15-46] [with t1 as...b from t)]
+              AliasedQuery [20-46] [t1 as (select a, b from t)]
+                Identifier(t1) [20-22] [t1]
+                Query [27-45] [select a, b from t]
+                  Select [27-45] [select a, b from t]
+                    SelectList [34-38] [a, b]
+                      SelectColumn [34-35] [a]
+                        PathExpression [34-35] [a]
+                          Identifier(a) [34-35] [a]
+                      SelectColumn [37-38] [b]
+                        PathExpression [37-38] [b]
+                          Identifier(b) [37-38] [b]
+                    FromClause [39-45] [from t]
+                      TablePathExpression [44-45] [t]
+                        PathExpression [44-45] [t]
+                          Identifier(t) [44-45] [t]
+            Select [47-63] [select * from t1]
+              SelectList [54-55] [*]
+                SelectColumn [54-55] [*]
+                  Star(*) [54-55] [*]
+              FromClause [56-63] [from t1]
+                TablePathExpression [61-63] [t1]
+                  PathExpression [61-63] [t1]
+                    Identifier(t1) [61-63] [t1]
+          Alias [65-70] [as t2]
+            Identifier(t2) [68-70] [t2]
+    LockMode [71-81] [for update]
+--
+SELECT
+  *
+FROM
+  (WITH
+      t1 AS (
+        SELECT
+          a,
+          b
+        FROM
+          t
+      )
+    SELECT
+      *
+    FROM
+      t1
+  ) AS t2
+FOR UPDATE
+==

@@ -87,6 +87,8 @@ class QueryExpression {
   bool TrySetWithAnonymizationClause(absl::string_view anonymization_options);
   bool TrySetPivotClause(absl::string_view pivot);
   bool TrySetUnpivotClause(absl::string_view unpivot);
+  bool TrySetMatchRecognizeClause(absl::string_view match_recognize);
+  bool TrySetLockModeClause(absl::string_view lock_mode);
 
   // Returns true if the clauses necessary to form a SQL query, i.e. select_list
   // or set_op_scan_list, are filled in QueryExpression. Otherwise false.
@@ -107,6 +109,8 @@ class QueryExpression {
   bool CanSetWithAnonymizationClause() const;
   bool CanSetPivotClause() const;
   bool CanSetUnpivotClause() const;
+  bool CanSetMatchRecognizeClause() const;
+  bool CanSetLockModeClause() const;
 
   // The below Has... methods return true if the concerned clause is present
   // inside the QueryExpression. Otherwise false.
@@ -123,6 +127,7 @@ class QueryExpression {
   bool HasOffsetClause() const { return !offset_.empty(); }
   bool HasPivotClause() const { return !pivot_.empty(); }
   bool HasUnpivotClause() const { return !unpivot_.empty(); }
+  bool HasMatchRecognizeClause() const { return !match_recognize_.empty(); }
   bool HasWithAnonymizationClause() const {
     return !anonymization_options_.empty();
   }
@@ -130,6 +135,8 @@ class QueryExpression {
   bool HasGroupByColumn(int column_id) const {
     return zetasql_base::ContainsKey(group_by_list_, column_id);
   }
+
+  bool HasLockModeClause() const { return !lock_mode_.empty(); }
 
   absl::string_view FromClause() const { return from_; }
 
@@ -259,6 +266,9 @@ class QueryExpression {
   std::string anonymization_options_;
   std::string pivot_;
   std::string unpivot_;
+  std::string match_recognize_;
+
+  std::string lock_mode_;
 };
 
 }  // namespace zetasql

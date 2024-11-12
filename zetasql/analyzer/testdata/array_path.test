@@ -6061,3 +6061,210 @@ QueryStmt
         +-input_scan=
           +-SingleRowScan
 
+==
+
+# Regression test for b/372014828
+SELECT FLATTEN(ARRAY<STRUCT<f ARRAY<INT64>>>[].f[OFFSET(a.k)])
+FROM ( SELECT 1 AS c, [STRUCT<k INT64>(1)] AS a) AS s;
+--
+ERROR: Cannot access field k on a value with type ARRAY<STRUCT<k INT64>>. You may need an explicit call to FLATTEN, and the flattened argument may only contain 'dot' after the first array [at 1:59]
+SELECT FLATTEN(ARRAY<STRUCT<f ARRAY<INT64>>>[].f[OFFSET(a.k)])
+                                                          ^
+==
+
+# But nested FLATTEN is sitll OK
+SELECT FLATTEN(ARRAY<STRUCT<f ARRAY<INT64>>>[].f[OFFSET(ARRAY_FIRST(FLATTEN(a.k)))])
+FROM ( SELECT 1 AS c, [STRUCT<k INT64>(1)] AS a) AS s;
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#3 AS `$col1` [ARRAY<INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#3]
+    +-expr_list=
+    | +-$col1#3 :=
+    |   +-Flatten
+    |     +-type=ARRAY<INT64>
+    |     +-expr=
+    |     | +-Literal(type=ARRAY<STRUCT<f ARRAY<INT64>>>, value=[], has_explicit_type=TRUE)
+    |     +-get_field_list=
+    |       +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<INT64>, INT64) -> INT64)
+    |         +-GetStructField
+    |         | +-type=ARRAY<INT64>
+    |         | +-expr=
+    |         | | +-FlattenedArg(type=STRUCT<f ARRAY<INT64>>)
+    |         | +-field_idx=0
+    |         +-FunctionCall(ZetaSQL:array_first(ARRAY<INT64> input_array) -> INT64)
+    |           +-Flatten
+    |             +-type=ARRAY<INT64>
+    |             +-expr=
+    |             | +-ColumnRef(type=ARRAY<STRUCT<k INT64>>, column=s.a#2)
+    |             +-get_field_list=
+    |               +-GetStructField
+    |                 +-type=INT64
+    |                 +-expr=
+    |                 | +-FlattenedArg(type=STRUCT<k INT64>)
+    |                 +-field_idx=0
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=s.[c#1, a#2]
+        +-expr_list=
+        | +-c#1 := Literal(type=INT64, value=1)
+        | +-a#2 := Literal(type=ARRAY<STRUCT<k INT64>>, value=[{k:1}], has_explicit_type=TRUE)
+        +-input_scan=
+          +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#3 AS `$col1` [ARRAY<INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#3]
+    +-expr_list=
+    | +-$col1#3 :=
+    |   +-SubqueryExpr
+    |     +-type=ARRAY<INT64>
+    |     +-subquery_type=SCALAR
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=ARRAY<STRUCT<k INT64>>, column=s.a#2)
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$with_expr.injected#14]
+    |         +-expr_list=
+    |         | +-injected#14 :=
+    |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
+    |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<STRUCT<f ARRAY<INT64>>>) -> BOOL)
+    |         |     | +-ColumnRef(type=ARRAY<STRUCT<f ARRAY<INT64>>>, column=$flatten_input.injected#4)
+    |         |     +-Literal(type=ARRAY<INT64>, value=NULL)
+    |         |     +-SubqueryExpr
+    |         |       +-type=ARRAY<INT64>
+    |         |       +-subquery_type=ARRAY
+    |         |       +-parameter_list=
+    |         |       | +-ColumnRef(type=ARRAY<STRUCT<k INT64>>, column=s.a#2, is_correlated=TRUE)
+    |         |       | +-ColumnRef(type=ARRAY<STRUCT<f ARRAY<INT64>>>, column=$flatten_input.injected#4)
+    |         |       +-subquery=
+    |         |         +-OrderByScan
+    |         |           +-column_list=[$flatten.injected#11]
+    |         |           +-is_ordered=TRUE
+    |         |           +-input_scan=
+    |         |           | +-ProjectScan
+    |         |           |   +-column_list=[$flatten.injected#5, $offset.injected#6, $flatten.injected#11]
+    |         |           |   +-expr_list=
+    |         |           |   | +-injected#11 :=
+    |         |           |   |   +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<INT64>, INT64) -> INT64)
+    |         |           |   |     +-GetStructField
+    |         |           |   |     | +-type=ARRAY<INT64>
+    |         |           |   |     | +-expr=
+    |         |           |   |     | | +-ColumnRef(type=STRUCT<f ARRAY<INT64>>, column=$flatten.injected#5)
+    |         |           |   |     | +-field_idx=0
+    |         |           |   |     +-SubqueryExpr
+    |         |           |   |       +-type=INT64
+    |         |           |   |       +-subquery_type=SCALAR
+    |         |           |   |       +-parameter_list=
+    |         |           |   |       | +-ColumnRef(type=ARRAY<STRUCT<k INT64>>, column=s.a#2, is_correlated=TRUE)
+    |         |           |   |       +-subquery=
+    |         |           |   |         +-ProjectScan
+    |         |           |   |           +-column_list=[$expr_subquery.$col1#13]
+    |         |           |   |           +-expr_list=
+    |         |           |   |           | +-$col1#13 :=
+    |         |           |   |           |   +-FunctionCall(ZetaSQL:$case_no_value(repeated(2) BOOL, repeated(2) INT64, INT64) -> INT64)
+    |         |           |   |           |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<INT64>) -> BOOL)
+    |         |           |   |           |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.input_array#12)
+    |         |           |   |           |     +-Literal(type=INT64, value=NULL)
+    |         |           |   |           |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |         |           |   |           |     | +-FunctionCall(ZetaSQL:array_length(ARRAY<INT64>) -> INT64)
+    |         |           |   |           |     | | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.input_array#12)
+    |         |           |   |           |     | +-Literal(type=INT64, value=0)
+    |         |           |   |           |     +-FunctionCall(ZetaSQL:error(STRING) -> INT64)
+    |         |           |   |           |     | +-Literal(type=STRING, value="ARRAY_FIRST cannot get the first element of an empty array")
+    |         |           |   |           |     +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<INT64>, INT64) -> INT64)
+    |         |           |   |           |       +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.input_array#12)
+    |         |           |   |           |       +-Literal(type=INT64, value=0)
+    |         |           |   |           +-input_scan=
+    |         |           |   |             +-ProjectScan
+    |         |           |   |               +-column_list=[$subquery1.input_array#12]
+    |         |           |   |               +-expr_list=
+    |         |           |   |               | +-input_array#12 :=
+    |         |           |   |               |   +-SubqueryExpr
+    |         |           |   |               |     +-type=ARRAY<INT64>
+    |         |           |   |               |     +-subquery_type=SCALAR
+    |         |           |   |               |     +-parameter_list=
+    |         |           |   |               |     | +-ColumnRef(type=ARRAY<STRUCT<k INT64>>, column=s.a#2, is_correlated=TRUE)
+    |         |           |   |               |     +-subquery=
+    |         |           |   |               |       +-ProjectScan
+    |         |           |   |               |         +-column_list=[$with_expr.injected#15]
+    |         |           |   |               |         +-expr_list=
+    |         |           |   |               |         | +-injected#15 :=
+    |         |           |   |               |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
+    |         |           |   |               |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<STRUCT<k INT64>>) -> BOOL)
+    |         |           |   |               |         |     | +-ColumnRef(type=ARRAY<STRUCT<k INT64>>, column=$flatten_input.injected#7)
+    |         |           |   |               |         |     +-Literal(type=ARRAY<INT64>, value=NULL)
+    |         |           |   |               |         |     +-SubqueryExpr
+    |         |           |   |               |         |       +-type=ARRAY<INT64>
+    |         |           |   |               |         |       +-subquery_type=ARRAY
+    |         |           |   |               |         |       +-parameter_list=
+    |         |           |   |               |         |       | +-ColumnRef(type=ARRAY<STRUCT<k INT64>>, column=$flatten_input.injected#7)
+    |         |           |   |               |         |       +-subquery=
+    |         |           |   |               |         |         +-OrderByScan
+    |         |           |   |               |         |           +-column_list=[$flatten.injected#10]
+    |         |           |   |               |         |           +-is_ordered=TRUE
+    |         |           |   |               |         |           +-input_scan=
+    |         |           |   |               |         |           | +-ProjectScan
+    |         |           |   |               |         |           |   +-column_list=[$flatten.injected#8, $offset.injected#9, $flatten.injected#10]
+    |         |           |   |               |         |           |   +-expr_list=
+    |         |           |   |               |         |           |   | +-injected#10 :=
+    |         |           |   |               |         |           |   |   +-GetStructField
+    |         |           |   |               |         |           |   |     +-type=INT64
+    |         |           |   |               |         |           |   |     +-expr=
+    |         |           |   |               |         |           |   |     | +-ColumnRef(type=STRUCT<k INT64>, column=$flatten.injected#8)
+    |         |           |   |               |         |           |   |     +-field_idx=0
+    |         |           |   |               |         |           |   +-input_scan=
+    |         |           |   |               |         |           |     +-ArrayScan
+    |         |           |   |               |         |           |       +-column_list=[$flatten.injected#8, $offset.injected#9]
+    |         |           |   |               |         |           |       +-array_expr_list=
+    |         |           |   |               |         |           |       | +-ColumnRef(type=ARRAY<STRUCT<k INT64>>, column=$flatten_input.injected#7, is_correlated=TRUE)
+    |         |           |   |               |         |           |       +-element_column_list=[$flatten.injected#8]
+    |         |           |   |               |         |           |       +-array_offset_column=
+    |         |           |   |               |         |           |         +-ColumnHolder(column=$offset.injected#9)
+    |         |           |   |               |         |           +-order_by_item_list=
+    |         |           |   |               |         |             +-OrderByItem
+    |         |           |   |               |         |               +-column_ref=
+    |         |           |   |               |         |                 +-ColumnRef(type=INT64, column=$offset.injected#9)
+    |         |           |   |               |         +-input_scan=
+    |         |           |   |               |           +-ProjectScan
+    |         |           |   |               |             +-column_list=[$flatten_input.injected#7]
+    |         |           |   |               |             +-expr_list=
+    |         |           |   |               |             | +-injected#7 := ColumnRef(type=ARRAY<STRUCT<k INT64>>, column=s.a#2, is_correlated=TRUE)
+    |         |           |   |               |             +-input_scan=
+    |         |           |   |               |               +-SingleRowScan
+    |         |           |   |               +-input_scan=
+    |         |           |   |                 +-SingleRowScan
+    |         |           |   +-input_scan=
+    |         |           |     +-ArrayScan
+    |         |           |       +-column_list=[$flatten.injected#5, $offset.injected#6]
+    |         |           |       +-array_expr_list=
+    |         |           |       | +-ColumnRef(type=ARRAY<STRUCT<f ARRAY<INT64>>>, column=$flatten_input.injected#4, is_correlated=TRUE)
+    |         |           |       +-element_column_list=[$flatten.injected#5]
+    |         |           |       +-array_offset_column=
+    |         |           |         +-ColumnHolder(column=$offset.injected#6)
+    |         |           +-order_by_item_list=
+    |         |             +-OrderByItem
+    |         |               +-column_ref=
+    |         |                 +-ColumnRef(type=INT64, column=$offset.injected#6)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=[$flatten_input.injected#4]
+    |             +-expr_list=
+    |             | +-injected#4 := Literal(type=ARRAY<STRUCT<f ARRAY<INT64>>>, value=[], has_explicit_type=TRUE)
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=s.[c#1, a#2]
+        +-expr_list=
+        | +-c#1 := Literal(type=INT64, value=1)
+        | +-a#2 := Literal(type=ARRAY<STRUCT<k INT64>>, value=[{k:1}], has_explicit_type=TRUE)
+        +-input_scan=
+          +-SingleRowScan

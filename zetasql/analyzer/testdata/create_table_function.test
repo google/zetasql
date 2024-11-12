@@ -2765,12 +2765,15 @@ CreateTableFunctionStmt
   +-$aggregate.count_star#3 AS count_star [INT64]
 ==
 
-# This is very similar to the above except that instead of scanning KeyValue
-# directly it provides TABLE KeyValue as an argument to another TVF. This
-# should resolve to the catalog table, not the input resolves to the catalog.
+# `TABLE KeyValue` is incorrectly resolved to `KeyValue` in the catalog,
+# instead of the function argument `KeyValue`. The feature
+# `FEATURE_TABLE_SYNTAX_RESOLVE_ARGUMENT_LAST` preserves the old resolution
+# order.
+# TODO: b/372326459 - Clean up this test once the new resolution order is
+# rolled out, and there are no remaining references.
 # TODO: Fix the table name extraction for this case.
 [no_test_extract_table_names]
-[language_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION]
+[language_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,TABLE_SYNTAX_RESOLVE_ARGUMENT_LAST]
 CREATE TABLE FUNCTION foo_tvf(KeyValue TABLE<Key INT64, Value INT64>) AS
 SELECT count(*) AS count_star
 FROM tvf_one_relation_arg_with_fixed_output(TABLE KeyValue);
@@ -2778,7 +2781,7 @@ FROM tvf_one_relation_arg_with_fixed_output(TABLE KeyValue);
 CreateTableFunctionStmt
 +-name_path=foo_tvf
 +-argument_name_list=[KeyValue]
-+-signature=(TABLE<Key INT64, Value INT64> KeyValue) -> TABLE<count_star INT64>
++-signature=(TABLE<Key INT64, Value INT64> KeyValue) -> TABLE<count_star INT64> (1 deprecation warning)
 +-language="SQL"
 +-code="SELECT count(*) AS count_star\nFROM tvf_one_relation_arg_with_fixed_output(TABLE KeyValue)"
 +-query=
@@ -2800,6 +2803,13 @@ CreateTableFunctionStmt
 |         +-count_star#5 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
 +-output_column_list=
   +-$aggregate.count_star#5 AS count_star [INT64]
+
+
+DEPRECATION WARNING:
+TABLE syntax was resolved as reference to a catalog table, when a function argument of the same name exists. This will change in the future to resolve as a reference to the function argument. If you wish to preserve this as a reference to a catalog table, rename the function argument to avoid the name collision [at 3:45]
+FROM tvf_one_relation_arg_with_fixed_output(TABLE KeyValue);
+                                            ^
+[zetasql.DeprecationWarning] { kind: TABLE_SYNTAX_ARGUMENT_RESOLUTION_ORDER }
 ==
 
 # Function has a single table argument that is scanned twice
@@ -3620,7 +3630,7 @@ create table function f(x int64) returns table<string> as select ?;
 create table function f(t table<col int64>)
 as table t;
 --
-ERROR: Syntax error: Unexpected keyword TABLE [at 2:4]
+ERROR: TABLE statements are not supported [at 2:4]
 as table t;
    ^
 ==

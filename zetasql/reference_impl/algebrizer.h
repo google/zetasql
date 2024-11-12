@@ -33,9 +33,11 @@
 #include <variant>
 #include <vector>
 
+#include "zetasql/public/anonymization_utils.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/language_options.h"
+#include "zetasql/public/property_graph.h"
 #include "zetasql/public/type.h"
 #include "zetasql/reference_impl/function.h"
 #include "zetasql/reference_impl/operator.h"
@@ -106,6 +108,7 @@ struct AnonymizationOptions {
   std::optional<Value> group_selection_threshold;    // int64_t Value
   std::optional<Value> min_privacy_units_per_group;  // int64_t Value
   std::optional<Value> group_selection_strategy;     // enum Value
+  anonymization::FunctionEpsilonAssigner* epsilon_assigner = nullptr;
 };
 
 class Algebrizer {
@@ -225,6 +228,19 @@ class Algebrizer {
   absl::StatusOr<std::unique_ptr<FieldValueExpr>> AlgebrizeGetStructField(
       const ResolvedGetStructField* get_struct_field);
 
+  // helper method to algebrize a list of expressions into value expressions,
+  // stored into `output_value_list`, which will be cleared first if not empty.
+  absl::Status AlgebrizeExpressionList(
+      absl::Span<const std::unique_ptr<const ResolvedExpr>> expr_list,
+      std::vector<std::unique_ptr<ValueExpr>>& output_value_list);
+
+  absl::StatusOr<std::unique_ptr<GraphGetElementPropertyExpr>>
+  AlgebrizeGraphGetElementProperty(
+      const ResolvedGraphGetElementProperty* get_graph_element_property);
+
+  absl::StatusOr<std::unique_ptr<NewGraphElementExpr>>
+  AlgebrizeGraphMakeElement(const ResolvedGraphMakeElement* make_graph_element);
+
   absl::StatusOr<std::unique_ptr<ScalarFunctionCallExpr>> AlgebrizeGetJsonField(
       const ResolvedGetJsonField* get_json_field);
 
@@ -251,6 +267,7 @@ class Algebrizer {
   // If `order_by_keys` is non-empty then use it as the order by. If `expr`
   // specifies a non empty `order_by_item_list` then `order_by_keys` must be
   // empty.
+  // Currently used by ArrayAggregate to order the aggregate in array order.
   absl::StatusOr<std::unique_ptr<AggregateArg>>
   AlgebrizeAggregateFnWithAlgebrizedArguments(
       const VariableId& variable,
@@ -258,6 +275,8 @@ class Algebrizer {
       std::unique_ptr<ValueExpr> filter, const ResolvedExpr* expr,
       std::vector<std::unique_ptr<ValueExpr>> arguments,
       std::unique_ptr<RelationalOp> group_rows_subquery,
+      std::vector<std::unique_ptr<KeyArg>> inner_grouping_keys,
+      std::vector<std::unique_ptr<AggregateArg>> inner_aggregators,
       const VariableId& side_effects_variable = VariableId(),
       std::vector<std::unique_ptr<KeyArg>> order_by_keys = {});
   absl::StatusOr<std::unique_ptr<AggregateArg>> AlgebrizeAggregateFn(
@@ -457,6 +476,8 @@ class Algebrizer {
   absl::StatusOr<std::unique_ptr<FilterOp>> AlgebrizeNullFilterForUnpivotScan(
       const ResolvedUnpivotScan* unpivot_scan,
       std::unique_ptr<RelationalOp> input);
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeMatchRecognizeScan(
+      const ResolvedMatchRecognizeScan* match_recognize_scan);
   absl::StatusOr<std::unique_ptr<AggregateArg>> AlgebrizeGroupingCall(
       const ResolvedGroupingCall* grouping_call,
       std::optional<AnonymizationOptions> anonymization_options,
@@ -512,6 +533,103 @@ class Algebrizer {
   absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeTableScan(
       const ResolvedTableScan* table_scan,
       std::vector<FilterConjunctInfo*>* active_conjuncts);
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizePipeIfScan(
+      const ResolvedPipeIfScan* scan);
+
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeGraphTableScan(
+      const ResolvedGraphTableScan* graph_table_scan,
+      std::vector<FilterConjunctInfo*>* active_conjuncts);
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeGraphScan(
+      const ResolvedGraphScan* graph_scan,
+      std::vector<FilterConjunctInfo*>* active_conjuncts);
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeGraphCompositeScan(
+      const ResolvedScan* graph_composite_scan, int composite_query_index,
+      std::vector<FilterConjunctInfo*>* active_conjuncts);
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeGraphLinearScan(
+      const ResolvedGraphLinearScan* graph_linear_scan,
+      std::vector<FilterConjunctInfo*>* active_conjuncts);
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeGraphRefScan(
+      const ResolvedGraphRefScan* graph_ref_scan);
+  // Algebrize paths in `path_list` starting from `from_index`.
+  // Requires: `from_index` < `path_list`.size().
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeGraphPathScanList(
+      const std::vector<std::unique_ptr<const ResolvedGraphPathScan>>&
+          path_list,
+      int from_index, std::vector<FilterConjunctInfo*>* active_conjuncts);
+  absl::StatusOr<std::unique_ptr<RelationalOp>>
+  AlgebrizeGraphQuantifiedPathScan(
+      const ResolvedGraphPathScan* path_scan,
+      std::unique_ptr<RelationalOp> path_primary_op,
+      std::vector<FilterConjunctInfo*>* active_conjuncts);
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeGraphPathPrimaryScan(
+      const ResolvedGraphPathScan* path_scan,
+      std::vector<FilterConjunctInfo*>* active_conjuncts);
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeGraphPathScan(
+      const ResolvedGraphPathScan* path_scan,
+      std::vector<FilterConjunctInfo*>* active_conjuncts);
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeGraphElementScan(
+      const ResolvedGraphElementScan* element_scan,
+      std::vector<FilterConjunctInfo*>* active_conjuncts);
+
+  // Algebrizes a scan of <graph_element_table> that computes expressions
+  // with <graph_element_type> that are represented by the variable
+  // <element_variable_id>.
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeGraphElementTableScan(
+      VariableId element_variable_id,
+      const GraphElementType* graph_element_type,
+      const GraphElementTable* graph_element_table);
+
+  // Algebrizes the <node_reference> from <edge_table> and returns the output
+  // relational op as the result. <node_reference_vars> outputs the node columns
+  // and variable mapping.
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeGraphNodeReference(
+      const GraphEdgeTable* edge_table,
+      const GraphNodeTableReference& node_reference,
+      std::unique_ptr<RelationalOp> input_scan,
+      absl::flat_hash_map<const Column*, VariableId>& node_reference_vars);
+
+  // Algebrizes a relational op that projects <base_table> to <element_type>.
+  // <base_table> is a scan of the underlying table of <element_table>.
+  // <source_node_vars> and <dest_node_vars> contains the variable mappings
+  // required for edge generation; they're only set when this is computing
+  // edges.
+  absl::StatusOr<std::unique_ptr<RelationalOp>> ComputeGraphElements(
+      VariableId element_variable_id, std::unique_ptr<RelationalOp> base_table,
+      const GraphElementTable* element_table,
+      const GraphElementType* element_type,
+      const absl::flat_hash_map<const Column*, VariableId>* source_node_vars =
+          nullptr,
+      const absl::flat_hash_map<const Column*, VariableId>* dest_node_vars =
+          nullptr);
+
+  using ConjunctsByGraphSubpaths =
+      absl::flat_hash_map<const ResolvedGraphPathScanBase*,
+                          std::vector<FilterConjunctInfo*>>;
+  // Return each child subpath scan's active filter conjuncts (in reversed order
+  // as a stack) to be pushed down from a path scan. Based on how a predicate's
+  // referenced ResolvedColumns overlap with child scans there are 3
+  // cases:
+  // 1. Predicates that has intersection with exactly one child scan, gets
+  // passed to that child scan.
+  // 2. Predicates that has intersection with no child scan, gets passed to all
+  // child scans.
+  // 3. Predicates that has intersection with >1 child scan stays at the
+  // path level.
+  static absl::StatusOr<ConjunctsByGraphSubpaths>
+  GetPushableActiveConjunctsByChildScans(
+      absl::Span<const std::unique_ptr<const ResolvedGraphPathScanBase>>
+          child_scans,
+      const std::vector<FilterConjunctInfo*>& active_conjuncts);
+
+  // Algebrizes ArrayAggregate which is similar to a subquery of an aggregate
+  // scan of an array scan in that it can access specific fields or expressions
+  // on the array elements, but respects the order in the input array.
+  absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeArrayAggregate(
+      const ResolvedArrayAggregate* array_aggregate);
+
+  // Algebrizes GraphIsLabeledPredicate
+  absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeGraphIsLabeledPredicate(
+      const ResolvedGraphIsLabeledPredicate& predicate);
 
   // Maps a ResolvedColumn from a table scan to its corresponding Variable and
   // index in the scan (not the Table).
@@ -560,7 +678,7 @@ class Algebrizer {
       bool input_is_from_same_analytic_scan);
 
   // Returns 'input_relation_op' if all the partitioning and ordering
-  // expressions in 'analytic_group' are correlated column references.
+  // expressions are correlated column references.
   // Otherwise, creates and returns a SortOp on top of 'input_relation_op' with
   // non-correlated partitioning and ordering expressions as order keys.
   // 'input_resolved_columns' contains the input columns produced by
@@ -569,7 +687,8 @@ class Algebrizer {
   absl::StatusOr<std::unique_ptr<RelationalOp>>
   MaybeCreateSortForAnalyticOperator(
       const std::set<ResolvedColumn>& input_resolved_columns,
-      const ResolvedAnalyticFunctionGroup* analytic_group,
+      const ResolvedWindowPartitioning* partition_by,
+      const ResolvedWindowOrdering* order_by,
       std::unique_ptr<RelationalOp> input_relation_op,
       bool require_stable_sort);
 
@@ -855,6 +974,15 @@ class Algebrizer {
   // optimizations like filter pushdown.
   absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeBarrierScan(
       const ResolvedBarrierScan* resolved_barrier_scan);
+
+  // Agebrize a ResolvedSubpipeline. `input_op` is the algebrized scan producing
+  // the input table for the subpipeline.  It'll be used for to make the
+  // table for the contained ResolvedSubpipelineInputScan.
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeSubpipeline(
+      const ResolvedSubpipeline* subpipeline,
+      std::unique_ptr<RelationalOp> input_op);
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeSubpipelineInputScan(
+      const ResolvedSubpipelineInputScan* scan);
 
   // Represents a named or positional parameter.
   class Parameter {
@@ -1146,6 +1274,29 @@ class Algebrizer {
   // ResolvedCatalogColumnRef.
   std::optional<absl::flat_hash_map<const Column*, VariableId>>
       catalog_column_ref_variables_;
+
+  // The top of the stack represents the algebrized input scan for the
+  // subpipeline being resolved.  It'll be used for the
+  // ResolvedSubpipelineInputScan.
+  std::stack<std::unique_ptr<RelationalOp>> subpipeline_input_scan_stack_;
+
+  // Represents an algebrized graph composite scan.
+  struct GraphCompositeScanInput {
+    // Algebrized relation.
+    std::unique_ptr<RelationalOp> op;
+    // Resolved column list.
+    ResolvedColumnList column_list;
+    // Set to ArrayNestExpr of `op` if the current `op` is referenced by
+    // multiple linear scans in the following graph composite scan. Can be
+    // nullptr if otherwise. It is owned by `GraphCompositeScanInput::op` of the
+    // next composite scan.
+    ExprArg* array_nest_expr;
+  };
+  // Tracks the current relational op that can be used as input by the child
+  // scan in graph composite scan. The stack size increases whenever there is a
+  // new level of nested GraphLinearScan.
+  std::vector<GraphCompositeScanInput>
+      current_input_op_in_graph_linear_scan_stack_;
 };
 
 }  // namespace zetasql

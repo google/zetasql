@@ -19,10 +19,9 @@
 load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies", "go_repository")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")
+load("@llvm_toolchain//:toolchains.bzl", "llvm_register_toolchains")
 load("@rules_bison//bison:bison.bzl", "bison_register_toolchains")
 load("@rules_flex//flex:flex.bzl", "flex_register_toolchains")
-
-# Followup from zetasql_deps_step_1.bzl
 load("@rules_foreign_cc//foreign_cc:repositories.bzl", "rules_foreign_cc_dependencies")
 load("@rules_m4//m4:m4.bzl", "m4_register_toolchains")
 load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies")
@@ -30,7 +29,66 @@ load("@rules_proto//proto:setup.bzl", "rules_proto_setup")
 load("@rules_proto//proto:toolchains.bzl", "rules_proto_toolchains")
 
 def _load_deps_from_step_1():
+    llvm_register_toolchains()
     rules_foreign_cc_dependencies()
+
+def textmapper_dependencies():
+    """Textmapper and its transitive dependencies."""
+    go_repository(
+        name = "com_github_segmentio_encoding",
+        importpath = "github.com/segmentio/encoding",
+        version = "v0.4.0",
+        sum = "h1:MEBYvRqiUB2nfR2criEXWqwdY6HJOUrCn5hboVOVmy8=",
+    )
+    go_repository(
+        name = "com_github_segmentio_asm",
+        importpath = "github.com/segmentio/asm",
+        version = "v1.2.0",
+        sum = "h1:9BQrFxC+YOHJlTlHGkTrFWf59nbL3XnCoFLTwDCI7ys=",
+    )
+    go_repository(
+        name = "dev_lsp_go_jsonrpc2",
+        importpath = "go.lsp.dev/jsonrpc2",
+        commit = "8c68d4fd37cd4bd06b62b3243f0d2292c681d164",
+    )
+    go_repository(
+        name = "dev_lsp_go_protocol",
+        importpath = "go.lsp.dev/protocol",
+        commit = "da30f9ae0326cc45b76adc5cd8920ac1ffa14a15",
+    )
+    go_repository(
+        name = "dev_lsp_go_uri",
+        importpath = "go.lsp.dev/uri",
+        commit = "63eaac75cc850f596be19073ff6d4ec198603779",
+    )
+    go_repository(
+        name = "dev_lsp_go_pkg",
+        importpath = "go.lsp.dev/pkg",
+        commit = "384b27a52fb2b5d74d78cfe89c7738e9a3e216a5",
+    )
+    go_repository(
+        name = "org_uber_go_zap",
+        importpath = "go.uber.org/zap",
+        version = "v1.27.0",
+        sum = "h1:aJMhYGrd5QSmlpLMr2MftRKl7t8J8PTZPA732ud/XR8=",
+    )
+    go_repository(
+        name = "org_uber_go_multierr",
+        importpath = "go.uber.org/multierr",
+        version = "v1.11.0",
+        sum = "h1:blXXJkSxSSfBVBlC76pxqeO+LN3aDfLQo+309xJstO0=",
+    )
+    go_repository(
+        name = "org_uber_go_goleak",
+        importpath = "go.uber.org/goleak",
+        version = "v1.3.0",
+        sum = "h1:2K3zAYmnTNqV73imy9J1T3WC+gmCePx2hEGkimedGto=",
+    )
+    go_repository(
+        name = "com_github_inspirer_textmapper",
+        commit = "8c81908b0030f754c42426cf6c5bb218086ce590",
+        importpath = "github.com/inspirer/textmapper",
+    )
 
 def zetasql_deps_step_2(
         name = None,
@@ -111,10 +169,10 @@ def zetasql_deps_step_2(
             #
             http_archive(
                 name = "com_google_absl",
-                # Commit from 2024-05-31
-                url = "https://github.com/abseil/abseil-cpp/archive/d06b82773e2306a99a8971934fb5845d5c04a170.tar.gz",
-                sha256 = "fd4c78078d160951f2317229511340f3e92344213bc145939995eea9ff9b9e48",
-                strip_prefix = "abseil-cpp-d06b82773e2306a99a8971934fb5845d5c04a170",
+                # Commit from 2024-07-15
+                sha256 = "04612122377806a412124a89f6258206783d4d53fbc5ad4c9cdc1f3b49411bfb",
+                url = "https://github.com/abseil/abseil-cpp/archive/eb852207758a773965301d0ae717e4235fc5301a.tar.gz",
+                strip_prefix = "abseil-cpp-eb852207758a773965301d0ae717e4235fc5301a",
             )
 
         # required by many python libraries
@@ -267,11 +325,21 @@ py_library(
         if not native.existing_rule("com_github_grpc_grpc"):
             http_archive(
                 name = "com_github_grpc_grpc",
-                urls = ["https://github.com/grpc/grpc/archive/refs/tags/v1.61.2.tar.gz"],
-                sha256 = "86f8773434c4b8a4b64c67c91a19a90991f0da0ba054bbeb299dc1bc95fad1e9",
-                strip_prefix = "grpc-1.61.2",
-                # from https://github.com/google/gvisor/blob/master/tools/grpc_extra_deps.patch
-                patches = ["@com_google_zetasql//bazel:grpc_extra_deps.patch"],
+                urls = ["https://github.com/grpc/grpc/archive/refs/tags/v1.64.2.tar.gz"],
+                sha256 = "c682fc39baefc6e804d735e6b48141157b7213602cc66dbe0bf375b904d8b5f9",
+                strip_prefix = "grpc-1.64.2",
+                patches = [
+                    # from https://github.com/google/gvisor/blob/master/tools/grpc_extra_deps.patch
+                    "@com_google_zetasql//bazel:grpc_extra_deps.patch",
+                    # The patch is to workaround the following error:
+                    # ```
+                    # external/com_github_grpc_grpc/src/core/lib/event_engine/cf_engine/cfstream_endpoint.cc:21:10: error: module com_github_grpc_grpc//src/core:cf_event_engine does not depend on a module exporting 'absl/status/status.h'
+                    # #include "absl/status/status.h"
+                    #         ^
+                    # 1 error generated.
+                    # ```
+                    "@com_google_zetasql//bazel:grpc_cf_engine.patch",
+                ],
             )
 
     if analyzer_deps:
@@ -376,9 +444,9 @@ py_library(
         if not native.existing_rule("google_bazel_common"):
             http_archive(
                 name = "google_bazel_common",
-                strip_prefix = "bazel-common-e768dbfea5bac239734b3f59b2a1d7464c6dbd26",
-                urls = ["https://github.com/google/bazel-common/archive/e768dbfea5bac239734b3f59b2a1d7464c6dbd26.zip"],
-                sha256 = "17f66ba76073a290add024a4ce7f5f92883832b7da85ffd7677e1f5de9a36153",
+                sha256 = "82a49fb27c01ad184db948747733159022f9464fc2e62da996fa700594d9ea42",
+                strip_prefix = "bazel-common-2a6b6406e12208e02b2060df0631fb30919080f3",
+                urls = ["https://github.com/google/bazel-common/archive/2a6b6406e12208e02b2060df0631fb30919080f3.zip"],
             )
     if evaluator_deps:
         if not native.existing_rule("org_publicsuffix"):
@@ -411,11 +479,7 @@ alias(
         go_rules_dependencies()
         go_register_toolchains(version = "1.21.6")
         gazelle_dependencies()
-        go_repository(
-            name = "com_github_inspirer_textmapper",
-            commit = "8fdc73e6bd65dc4478b9d6526fe6c282f9c8d25b",
-            importpath = "github.com/inspirer/textmapper",
-        )
+        textmapper_dependencies()
 
         ##########################################################################
         # Rules which depend on rules_foreign_cc

@@ -1,0 +1,73 @@
+# Tests for the FOR UPDATE clause with combinations of GROUP BY and HAVING.
+
+[default language_features=V_1_4_FOR_UPDATE]
+
+# GROUP BY and FOR UPDATE in query.
+select a, b from t1 group by a for update;
+--
+QueryStatement [36-77] [select a,...for update]
+  Query [36-77] [select a,...for update]
+    Select [36-66] [select a, b from t1 group by a]
+      SelectList [43-47] [a, b]
+        SelectColumn [43-44] [a]
+          PathExpression [43-44] [a]
+            Identifier(a) [43-44] [a]
+        SelectColumn [46-47] [b]
+          PathExpression [46-47] [b]
+            Identifier(b) [46-47] [b]
+      FromClause [48-55] [from t1]
+        TablePathExpression [53-55] [t1]
+          PathExpression [53-55] [t1]
+            Identifier(t1) [53-55] [t1]
+      GroupBy [56-66] [group by a]
+        GroupingItem [65-66] [a]
+          PathExpression [65-66] [a]
+            Identifier(a) [65-66] [a]
+    LockMode [67-77] [for update]
+--
+SELECT
+  a,
+  b
+FROM
+  t1
+GROUP BY a
+FOR UPDATE
+==
+
+# GROUP BY, HAVING and FOR UPDATE in query.
+select a, b from t1 group by a having b > 5 for update;
+--
+QueryStatement [0-54] [select a,...for update]
+  Query [0-54] [select a,...for update]
+    Select [0-43] [select a,...having b > 5]
+      SelectList [7-11] [a, b]
+        SelectColumn [7-8] [a]
+          PathExpression [7-8] [a]
+            Identifier(a) [7-8] [a]
+        SelectColumn [10-11] [b]
+          PathExpression [10-11] [b]
+            Identifier(b) [10-11] [b]
+      FromClause [12-19] [from t1]
+        TablePathExpression [17-19] [t1]
+          PathExpression [17-19] [t1]
+            Identifier(t1) [17-19] [t1]
+      GroupBy [20-30] [group by a]
+        GroupingItem [29-30] [a]
+          PathExpression [29-30] [a]
+            Identifier(a) [29-30] [a]
+      Having [31-43] [having b > 5]
+        BinaryExpression(>) [38-43] [b > 5]
+          PathExpression [38-39] [b]
+            Identifier(b) [38-39] [b]
+          IntLiteral(5) [42-43] [5]
+    LockMode [44-54] [for update]
+--
+SELECT
+  a,
+  b
+FROM
+  t1
+GROUP BY a
+HAVING b > 5
+FOR UPDATE
+==

@@ -1,5 +1,5 @@
 # out-of-order WITH entries without actual recursion
-[default language_features=V_1_3_WITH_RECURSIVE,ANALYTIC_FUNCTIONS,TABLE_VALUED_FUNCTIONS,TABLESAMPLE,V_1_1_WITH_ON_SUBQUERY,NUMERIC_TYPE,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+[default language_features=V_1_3_WITH_RECURSIVE,ANALYTIC_FUNCTIONS,TABLE_VALUED_FUNCTIONS,TABLESAMPLE,V_1_1_WITH_ON_SUBQUERY,NUMERIC_TYPE,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,PIPES]
 WITH RECURSIVE
   t1 AS (SELECT * FROM t2),
   t2 AS (SELECT * FROM t3 CROSS JOIN t4),
@@ -1059,7 +1059,7 @@ WITH RECURSIVE t AS (SELECT * FROM t)
 SELECT * FROM t;
 --
 
-ERROR: Recursive query does not have the form <non-recursive-term> UNION [ALL|DISTINCT] <recursive-term> [at 1:22]
+ERROR: Recursive query does not have the form <non-recursive-term> UNION [ALL|DISTINCT] <recursive-term> or the pipe form <non-recursive-term> |> UNION [ALL|DISTINCT] <recursive-term> [at 1:22]
 WITH RECURSIVE t AS (SELECT * FROM t)
                      ^
 ==
@@ -1068,7 +1068,7 @@ WITH RECURSIVE t AS (SELECT * FROM t)
 WITH RECURSIVE t AS (SELECT 1 INTERSECT ALL SELECT * FROM t)
 SELECT * FROM t;
 --
-ERROR: Recursive query does not have the form <non-recursive-term> UNION [ALL|DISTINCT] <recursive-term> [at 1:22]
+ERROR: Recursive query does not have the form <non-recursive-term> UNION [ALL|DISTINCT] <recursive-term> or the pipe form <non-recursive-term> |> UNION [ALL|DISTINCT] <recursive-term> [at 1:22]
 WITH RECURSIVE t AS (SELECT 1 INTERSECT ALL SELECT * FROM t)
                      ^
 ==
@@ -1473,7 +1473,7 @@ WITH RECURSIVE t AS (
     UNION ALL SELECT 'test' FROM t
 ) SELECT * FROM t;
 --
-ERROR: Cannot coerce column 1 of recursive term (STRING) to column type in non-recursive term ( DOUBLE) [at 3:15]
+ERROR: Cannot coerce column 1 of recursive term (STRING) to column type in non-recursive term (DOUBLE) [at 3:15]
     UNION ALL SELECT 'test' FROM t
               ^
 ==
@@ -5501,7 +5501,7 @@ SELECT * FROM T1 ORDER BY n;
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: CORRESPONDING and CORRESPONDING BY for WITH RECURSIVE are not supported [at 3:29]
+ERROR: CORRESPONDING is not supported in WITH RECURSIVE [at 3:29]
     SELECT 1 AS n UNION ALL CORRESPONDING SELECT n + 1 FROM T1 WHERE n < 5)
                             ^
 --
@@ -5521,7 +5521,7 @@ SELECT * FROM T1 ORDER BY n;
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: Column propagation mode (FULL/LEFT/STRICT) for WITH RECURSIVE are not supported [at 3:19]
+ERROR: Column propagation mode (FULL) is not supported in WITH RECURSIVE [at 3:19]
     SELECT 1 AS n FULL UNION ALL SELECT n + 1 FROM T1 WHERE n < 5)
                   ^
 --
@@ -5541,7 +5541,7 @@ SELECT * FROM T1 ORDER BY n;
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: Column propagation mode (FULL/LEFT/STRICT) for WITH RECURSIVE are not supported [at 3:19]
+ERROR: Column propagation mode (LEFT) is not supported in WITH RECURSIVE [at 3:19]
     SELECT 1 AS n LEFT UNION ALL SELECT n + 1 FROM T1 WHERE n < 5)
                   ^
 --
@@ -5561,7 +5561,7 @@ SELECT * FROM T1 ORDER BY n;
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: CORRESPONDING and CORRESPONDING BY for WITH RECURSIVE are not supported [at 3:36]
+ERROR: CORRESPONDING is not supported in WITH RECURSIVE [at 3:36]
     SELECT 1 AS n UNION ALL STRICT CORRESPONDING SELECT n + 1 FROM T1 WHERE n...
                                    ^
 --
@@ -5581,7 +5581,7 @@ SELECT * FROM T1 ORDER BY n;
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: CORRESPONDING and CORRESPONDING BY for WITH RECURSIVE are not supported [at 3:29]
+ERROR: CORRESPONDING is not supported in WITH RECURSIVE [at 3:29]
     SELECT 1 AS n UNION ALL CORRESPONDING SELECT 2 AS n UNION ALL SELECT n + ...
                             ^
 --
@@ -5590,6 +5590,35 @@ ALTERNATION GROUP: ,V_1_4_CORRESPONDING
 ERROR: CORRESPONDING for set operations cannot be used in WITH RECURSIVE [at 3:29]
     SELECT 1 AS n UNION ALL CORRESPONDING SELECT 2 AS n UNION ALL SELECT n + ...
                             ^
+==
+
+# BY NAME doesn't work either.
+[language_features=V_1_3_WITH_RECURSIVE{{|,V_1_4_CORRESPONDING_FULL,V_1_4_BY_NAME}}]
+WITH RECURSIVE
+  T1 AS (
+    SELECT 1 AS n
+    {{|INNER|LEFT}}
+    UNION ALL BY NAME
+    SELECT n + 1 FROM T1 WHERE n < 5)
+SELECT * FROM T1 ORDER BY n;
+--
+ALTERNATION GROUPS:
+    <empty>
+    INNER
+    LEFT
+--
+ERROR: BY NAME is not supported in WITH RECURSIVE [at 5:15]
+    UNION ALL BY NAME
+              ^
+--
+ALTERNATION GROUPS:
+    ,V_1_4_CORRESPONDING_FULL,V_1_4_BY_NAME,
+    ,V_1_4_CORRESPONDING_FULL,V_1_4_BY_NAME,INNER
+    ,V_1_4_CORRESPONDING_FULL,V_1_4_BY_NAME,LEFT
+--
+ERROR: BY NAME for set operations cannot be used in WITH RECURSIVE [at 5:15]
+    UNION ALL BY NAME
+              ^
 ==
 
 [language_features=V_1_3_WITH_RECURSIVE{{|,V_1_4_WITH_RECURSIVE_DEPTH_MODIFIER}}]
@@ -6033,4 +6062,832 @@ SELECT y FROM Fibonacci
 --
 ERROR: WITH DEPTH expects lower bound (Int64(2)) no larger than upper bound (Int64(1)) [at 5:3]
 ) WITH DEPTH BETWEEN 2 AND 1
+  ^
+==
+
+# Top-level pipe non-set operators are not allowed in with recursive.
+[language_features=V_1_3_WITH_RECURSIVE,PIPES]
+with recursive t as (
+  select 1 as col
+  union all
+  select col + 1 from t where col < 3
+  |> {{where col < 3|limit 1|order by col}}
+)
+select * from t;
+--
+ERROR: Recursive query does not have the form <non-recursive-term> UNION [ALL|DISTINCT] <recursive-term> or the pipe form <non-recursive-term> |> UNION [ALL|DISTINCT] <recursive-term> [at 2:3]
+  select 1 as col
+  ^
+==
+
+[language_features=V_1_3_WITH_RECURSIVE,PIPES]
+with recursive t as (
+  (
+    select 1 AS col
+    limit 10
+  )
+  |> union all (select col from t where col < 3)
+)
+select * from t;
+--
+QueryStmt
++-output_column_list=
+| +-t.col#4 AS col [INT64]
++-query=
+  +-WithScan
+    +-column_list=[t.col#4]
+    +-with_entry_list=
+    | +-WithEntry
+    |   +-with_query_name="t"
+    |   +-with_subquery=
+    |     +-RecursiveScan
+    |       +-column_list=[$union_all.col#2]
+    |       +-op_type=UNION_ALL
+    |       +-non_recursive_term=
+    |       | +-SetOperationItem
+    |       |   +-scan=
+    |       |   | +-LimitOffsetScan
+    |       |   |   +-column_list=[non_recursive_term.col#1]
+    |       |   |   +-input_scan=
+    |       |   |   | +-ProjectScan
+    |       |   |   |   +-column_list=[non_recursive_term.col#1]
+    |       |   |   |   +-expr_list=
+    |       |   |   |   | +-col#1 := Literal(type=INT64, value=1)
+    |       |   |   |   +-input_scan=
+    |       |   |   |     +-SingleRowScan
+    |       |   |   +-limit=
+    |       |   |     +-Literal(type=INT64, value=10)
+    |       |   +-output_column_list=[non_recursive_term.col#1]
+    |       +-recursive_term=
+    |         +-SetOperationItem
+    |           +-scan=
+    |           | +-ProjectScan
+    |           |   +-column_list=[t.col#3]
+    |           |   +-input_scan=
+    |           |     +-FilterScan
+    |           |       +-column_list=[t.col#3]
+    |           |       +-input_scan=
+    |           |       | +-RecursiveRefScan(column_list=[t.col#3])
+    |           |       +-filter_expr=
+    |           |         +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
+    |           |           +-ColumnRef(type=INT64, column=t.col#3)
+    |           |           +-Literal(type=INT64, value=3)
+    |           +-output_column_list=[t.col#3]
+    +-query=
+    | +-ProjectScan
+    |   +-column_list=[t.col#4]
+    |   +-input_scan=
+    |     +-WithRefScan(column_list=[t.col#4], with_query_name="t")
+    +-recursive=TRUE
+==
+
+# Limit clause wrapped inside redundant parentheses is still correctly rejected.
+[language_features=V_1_3_WITH_RECURSIVE]
+with recursive t as (
+  (
+    (
+      (
+        (
+          select 1 as col
+          union all
+          select col from t where col < 3
+          limit 10
+        )
+      )
+    )
+  )
+)
+select * from t;
+--
+ERROR: A recursive query may not use LIMIT [at 9:11]
+          limit 10
+          ^
+==
+
+# Corret usage of UNION ALL wrapped in redundant parentheses are allowed.
+[language_features=V_1_3_WITH_RECURSIVE]
+with recursive t as (
+  (
+    (
+      (
+        select 1 as col
+        union all
+        select col from t where col < 3
+      )
+    )
+  )
+)
+select * from t;
+--
+QueryStmt
++-output_column_list=
+| +-t.col#4 AS col [INT64]
++-query=
+  +-WithScan
+    +-column_list=[t.col#4]
+    +-with_entry_list=
+    | +-WithEntry
+    |   +-with_query_name="t"
+    |   +-with_subquery=
+    |     +-RecursiveScan
+    |       +-column_list=[$union_all.col#2]
+    |       +-op_type=UNION_ALL
+    |       +-non_recursive_term=
+    |       | +-SetOperationItem
+    |       |   +-scan=
+    |       |   | +-ProjectScan
+    |       |   |   +-column_list=[$union_all1.col#1]
+    |       |   |   +-expr_list=
+    |       |   |   | +-col#1 := Literal(type=INT64, value=1)
+    |       |   |   +-input_scan=
+    |       |   |     +-SingleRowScan
+    |       |   +-output_column_list=[$union_all1.col#1]
+    |       +-recursive_term=
+    |         +-SetOperationItem
+    |           +-scan=
+    |           | +-ProjectScan
+    |           |   +-column_list=[t.col#3]
+    |           |   +-input_scan=
+    |           |     +-FilterScan
+    |           |       +-column_list=[t.col#3]
+    |           |       +-input_scan=
+    |           |       | +-RecursiveRefScan(column_list=[t.col#3])
+    |           |       +-filter_expr=
+    |           |         +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
+    |           |           +-ColumnRef(type=INT64, column=t.col#3)
+    |           |           +-Literal(type=INT64, value=3)
+    |           +-output_column_list=[t.col#3]
+    +-query=
+    | +-ProjectScan
+    |   +-column_list=[t.col#4]
+    |   +-input_scan=
+    |     +-WithRefScan(column_list=[t.col#4], with_query_name="t")
+    +-recursive=TRUE
+==
+
+[language_features=PIPES,V_1_3_WITH_RECURSIVE]
+with recursive t as (
+  select 1 as col
+  |> {{union all|union distinct}} (select * from t)
+)
+select * from t;
+--
+ALTERNATION GROUP: union all
+--
+QueryStmt
++-output_column_list=
+| +-t.col#4 AS col [INT64]
++-query=
+  +-WithScan
+    +-column_list=[t.col#4]
+    +-with_entry_list=
+    | +-WithEntry
+    |   +-with_query_name="t"
+    |   +-with_subquery=
+    |     +-RecursiveScan
+    |       +-column_list=[$union_all.col#2]
+    |       +-op_type=UNION_ALL
+    |       +-non_recursive_term=
+    |       | +-SetOperationItem
+    |       |   +-scan=
+    |       |   | +-ProjectScan
+    |       |   |   +-column_list=[non_recursive_term.col#1]
+    |       |   |   +-expr_list=
+    |       |   |   | +-col#1 := Literal(type=INT64, value=1)
+    |       |   |   +-input_scan=
+    |       |   |     +-SingleRowScan
+    |       |   +-output_column_list=[non_recursive_term.col#1]
+    |       +-recursive_term=
+    |         +-SetOperationItem
+    |           +-scan=
+    |           | +-ProjectScan
+    |           |   +-column_list=[t.col#3]
+    |           |   +-input_scan=
+    |           |     +-RecursiveRefScan(column_list=[t.col#3])
+    |           +-output_column_list=[t.col#3]
+    +-query=
+    | +-ProjectScan
+    |   +-column_list=[t.col#4]
+    |   +-input_scan=
+    |     +-WithRefScan(column_list=[t.col#4], with_query_name="t")
+    +-recursive=TRUE
+--
+ALTERNATION GROUP: union distinct
+--
+QueryStmt
++-output_column_list=
+| +-t.col#4 AS col [INT64]
++-query=
+  +-WithScan
+    +-column_list=[t.col#4]
+    +-with_entry_list=
+    | +-WithEntry
+    |   +-with_query_name="t"
+    |   +-with_subquery=
+    |     +-RecursiveScan
+    |       +-column_list=[$union_distinct.col#2]
+    |       +-op_type=UNION_DISTINCT
+    |       +-non_recursive_term=
+    |       | +-SetOperationItem
+    |       |   +-scan=
+    |       |   | +-ProjectScan
+    |       |   |   +-column_list=[non_recursive_term.col#1]
+    |       |   |   +-expr_list=
+    |       |   |   | +-col#1 := Literal(type=INT64, value=1)
+    |       |   |   +-input_scan=
+    |       |   |     +-SingleRowScan
+    |       |   +-output_column_list=[non_recursive_term.col#1]
+    |       +-recursive_term=
+    |         +-SetOperationItem
+    |           +-scan=
+    |           | +-ProjectScan
+    |           |   +-column_list=[t.col#3]
+    |           |   +-input_scan=
+    |           |     +-RecursiveRefScan(column_list=[t.col#3])
+    |           +-output_column_list=[t.col#3]
+    +-query=
+    | +-ProjectScan
+    |   +-column_list=[t.col#4]
+    |   +-input_scan=
+    |     +-WithRefScan(column_list=[t.col#4], with_query_name="t")
+    +-recursive=TRUE
+==
+
+# The redundant parentheses do not affect the analysis result.
+[language_features=PIPES,V_1_3_WITH_RECURSIVE]
+with recursive t as (
+  (
+    (
+      select 1
+      |> union all (select * from t)
+    )
+  )
+)
+select * from t;
+--
+QueryStmt
++-output_column_list=
+| +-t.$col1#4 AS `$col1` [INT64]
++-query=
+  +-WithScan
+    +-column_list=[t.$col1#4]
+    +-with_entry_list=
+    | +-WithEntry
+    |   +-with_query_name="t"
+    |   +-with_subquery=
+    |     +-RecursiveScan
+    |       +-column_list=[$union_all.$col1#2]
+    |       +-op_type=UNION_ALL
+    |       +-non_recursive_term=
+    |       | +-SetOperationItem
+    |       |   +-scan=
+    |       |   | +-ProjectScan
+    |       |   |   +-column_list=[non_recursive_term.$col1#1]
+    |       |   |   +-expr_list=
+    |       |   |   | +-$col1#1 := Literal(type=INT64, value=1)
+    |       |   |   +-input_scan=
+    |       |   |     +-SingleRowScan
+    |       |   +-output_column_list=[non_recursive_term.$col1#1]
+    |       +-recursive_term=
+    |         +-SetOperationItem
+    |           +-scan=
+    |           | +-ProjectScan
+    |           |   +-column_list=[t.$col1#3]
+    |           |   +-input_scan=
+    |           |     +-RecursiveRefScan(column_list=[t.$col1#3])
+    |           +-output_column_list=[t.$col1#3]
+    +-query=
+    | +-ProjectScan
+    |   +-column_list=[t.$col1#4]
+    |   +-input_scan=
+    |     +-WithRefScan(column_list=[t.$col1#4], with_query_name="t")
+    +-recursive=TRUE
+==
+
+# Non-top level pipe operators are allowed.
+[language_features=PIPES,V_1_3_WITH_RECURSIVE]
+with recursive t as (
+    (select 1 |> limit 5)
+    union all (select * from t |> where true)
+  )
+select * from t;
+--
+QueryStmt
++-output_column_list=
+| +-t.$col1#4 AS `$col1` [INT64]
++-query=
+  +-WithScan
+    +-column_list=[t.$col1#4]
+    +-with_entry_list=
+    | +-WithEntry
+    |   +-with_query_name="t"
+    |   +-with_subquery=
+    |     +-RecursiveScan
+    |       +-column_list=[$union_all.$col1#2]
+    |       +-op_type=UNION_ALL
+    |       +-non_recursive_term=
+    |       | +-SetOperationItem
+    |       |   +-scan=
+    |       |   | +-LimitOffsetScan
+    |       |   |   +-column_list=[$union_all1.$col1#1]
+    |       |   |   +-input_scan=
+    |       |   |   | +-ProjectScan
+    |       |   |   |   +-column_list=[$union_all1.$col1#1]
+    |       |   |   |   +-expr_list=
+    |       |   |   |   | +-$col1#1 := Literal(type=INT64, value=1)
+    |       |   |   |   +-input_scan=
+    |       |   |   |     +-SingleRowScan
+    |       |   |   +-limit=
+    |       |   |     +-Literal(type=INT64, value=5)
+    |       |   +-output_column_list=[$union_all1.$col1#1]
+    |       +-recursive_term=
+    |         +-SetOperationItem
+    |           +-scan=
+    |           | +-FilterScan
+    |           |   +-column_list=[t.$col1#3]
+    |           |   +-input_scan=
+    |           |   | +-ProjectScan
+    |           |   |   +-column_list=[t.$col1#3]
+    |           |   |   +-input_scan=
+    |           |   |     +-RecursiveRefScan(column_list=[t.$col1#3])
+    |           |   +-filter_expr=
+    |           |     +-Literal(type=BOOL, value=true)
+    |           +-output_column_list=[t.$col1#3]
+    +-query=
+    | +-ProjectScan
+    |   +-column_list=[t.$col1#4]
+    |   +-input_scan=
+    |     +-WithRefScan(column_list=[t.$col1#4], with_query_name="t")
+    +-recursive=TRUE
+==
+
+# Disallowed pipe operators are rejected even if they are wrapped in redundant
+# parentheses.
+[language_features=PIPES,V_1_3_WITH_RECURSIVE]
+with recursive t as (
+  (
+    (
+      select 1
+      union all (select * from t)
+      |> limit 10
+    )
+  )
+)
+select * from t;
+--
+ERROR: Recursive query does not have the form <non-recursive-term> UNION [ALL|DISTINCT] <recursive-term> or the pipe form <non-recursive-term> |> UNION [ALL|DISTINCT] <recursive-term> [at 4:7]
+      select 1
+      ^
+==
+
+# With recursive does not allow pipe set operators other than pipe union.
+with recursive t as (
+  select 1 as col
+  |> {{intersect|except}} {{all|distinct}} (select col + 1 from t where col < 3)
+)
+select * from t;
+--
+ERROR: Recursive query does not have the form <non-recursive-term> UNION [ALL|DISTINCT] <recursive-term> or the pipe form <non-recursive-term> |> UNION [ALL|DISTINCT] <recursive-term> [at 2:3]
+  select 1 as col
+  ^
+==
+
+# The recursive term must have exactly one input argument to the pipe union
+# operator.
+with recursive t as (
+  select 1 as col
+  |> union all (select 1), (select col + 1 from t where col < 3), (select 1)
+)
+select * from t;
+--
+ERROR: The final UNION in a recursive query is the recursive term and must have only one query argument [at 3:29]
+  |> union all (select 1), (select col + 1 from t where col < 3), (select 1)
+                            ^
+==
+
+# Similar to the test case above but with two inputs both having self-reference.
+with recursive t as (
+  select 1 as col
+  |> union all (select col + 1 from t where col < 3),
+    (select col + 1 from t where col < 3)
+)
+select * from t;
+--
+ERROR: The final UNION in a recursive query is the recursive term and must have only one query argument [at 4:6]
+    (select col + 1 from t where col < 3)
+     ^
+==
+
+# It is allowed that the recursive term does not have self-reference.
+with recursive t as (
+  select 1 as col
+  |> union all (select 1)
+)
+select * from t;
+--
+QueryStmt
++-output_column_list=
+| +-t.col#4 AS col [INT64]
++-query=
+  +-WithScan
+    +-column_list=[t.col#4]
+    +-with_entry_list=
+    | +-WithEntry
+    |   +-with_query_name="t"
+    |   +-with_subquery=
+    |     +-SetOperationScan
+    |       +-column_list=[$union_all.col#3]
+    |       +-op_type=UNION_ALL
+    |       +-input_item_list=
+    |         +-SetOperationItem
+    |         | +-scan=
+    |         | | +-ProjectScan
+    |         | |   +-column_list=[t.col#1]
+    |         | |   +-expr_list=
+    |         | |   | +-col#1 := Literal(type=INT64, value=1)
+    |         | |   +-input_scan=
+    |         | |     +-SingleRowScan
+    |         | +-output_column_list=[t.col#1]
+    |         +-SetOperationItem
+    |           +-scan=
+    |           | +-ProjectScan
+    |           |   +-column_list=[$union_all1.$col1#2]
+    |           |   +-expr_list=
+    |           |   | +-$col1#2 := Literal(type=INT64, value=1)
+    |           |   +-input_scan=
+    |           |     +-SingleRowScan
+    |           +-output_column_list=[$union_all1.$col1#2]
+    +-query=
+    | +-ProjectScan
+    |   +-column_list=[t.col#4]
+    |   +-input_scan=
+    |     +-WithRefScan(column_list=[t.col#4], with_query_name="t")
+    +-recursive=TRUE
+==
+
+# Multiple pipe operators are allowed as long as the last one is pipe union.
+with recursive t as (
+  select 1 as col
+  |> where true
+  |> {{union all|intersect distinct}} (select 1), (select 2)
+  |> union distinct (select col + 1 from t where col < 3)
+)
+select * from t;
+--
+ALTERNATION GROUP: union all
+--
+QueryStmt
++-output_column_list=
+| +-t.col#8 AS col [INT64]
++-query=
+  +-WithScan
+    +-column_list=[t.col#8]
+    +-with_entry_list=
+    | +-WithEntry
+    |   +-with_query_name="t"
+    |   +-with_subquery=
+    |     +-RecursiveScan
+    |       +-column_list=[$union_distinct.col#5]
+    |       +-op_type=UNION_DISTINCT
+    |       +-non_recursive_term=
+    |       | +-SetOperationItem
+    |       |   +-scan=
+    |       |   | +-SetOperationScan
+    |       |   |   +-column_list=[$union_all.col#4]
+    |       |   |   +-op_type=UNION_ALL
+    |       |   |   +-input_item_list=
+    |       |   |     +-SetOperationItem
+    |       |   |     | +-scan=
+    |       |   |     | | +-FilterScan
+    |       |   |     | |   +-column_list=[non_recursive_term.col#1]
+    |       |   |     | |   +-input_scan=
+    |       |   |     | |   | +-ProjectScan
+    |       |   |     | |   |   +-column_list=[non_recursive_term.col#1]
+    |       |   |     | |   |   +-expr_list=
+    |       |   |     | |   |   | +-col#1 := Literal(type=INT64, value=1)
+    |       |   |     | |   |   +-input_scan=
+    |       |   |     | |   |     +-SingleRowScan
+    |       |   |     | |   +-filter_expr=
+    |       |   |     | |     +-Literal(type=BOOL, value=true)
+    |       |   |     | +-output_column_list=[non_recursive_term.col#1]
+    |       |   |     +-SetOperationItem
+    |       |   |     | +-scan=
+    |       |   |     | | +-ProjectScan
+    |       |   |     | |   +-column_list=[$union_all1.$col1#2]
+    |       |   |     | |   +-expr_list=
+    |       |   |     | |   | +-$col1#2 := Literal(type=INT64, value=1)
+    |       |   |     | |   +-input_scan=
+    |       |   |     | |     +-SingleRowScan
+    |       |   |     | +-output_column_list=[$union_all1.$col1#2]
+    |       |   |     +-SetOperationItem
+    |       |   |       +-scan=
+    |       |   |       | +-ProjectScan
+    |       |   |       |   +-column_list=[$union_all2.$col1#3]
+    |       |   |       |   +-expr_list=
+    |       |   |       |   | +-$col1#3 := Literal(type=INT64, value=2)
+    |       |   |       |   +-input_scan=
+    |       |   |       |     +-SingleRowScan
+    |       |   |       +-output_column_list=[$union_all2.$col1#3]
+    |       |   +-output_column_list=[$union_all.col#4]
+    |       +-recursive_term=
+    |         +-SetOperationItem
+    |           +-scan=
+    |           | +-ProjectScan
+    |           |   +-column_list=[$union_distinct1.$col1#7]
+    |           |   +-expr_list=
+    |           |   | +-$col1#7 :=
+    |           |   |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |           |   |     +-ColumnRef(type=INT64, column=t.col#6)
+    |           |   |     +-Literal(type=INT64, value=1)
+    |           |   +-input_scan=
+    |           |     +-FilterScan
+    |           |       +-column_list=[t.col#6]
+    |           |       +-input_scan=
+    |           |       | +-RecursiveRefScan(column_list=[t.col#6])
+    |           |       +-filter_expr=
+    |           |         +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
+    |           |           +-ColumnRef(type=INT64, column=t.col#6)
+    |           |           +-Literal(type=INT64, value=3)
+    |           +-output_column_list=[$union_distinct1.$col1#7]
+    +-query=
+    | +-ProjectScan
+    |   +-column_list=[t.col#8]
+    |   +-input_scan=
+    |     +-WithRefScan(column_list=[t.col#8], with_query_name="t")
+    +-recursive=TRUE
+--
+ALTERNATION GROUP: intersect distinct
+--
+QueryStmt
++-output_column_list=
+| +-t.col#8 AS col [INT64]
++-query=
+  +-WithScan
+    +-column_list=[t.col#8]
+    +-with_entry_list=
+    | +-WithEntry
+    |   +-with_query_name="t"
+    |   +-with_subquery=
+    |     +-RecursiveScan
+    |       +-column_list=[$union_distinct.col#5]
+    |       +-op_type=UNION_DISTINCT
+    |       +-non_recursive_term=
+    |       | +-SetOperationItem
+    |       |   +-scan=
+    |       |   | +-SetOperationScan
+    |       |   |   +-column_list=[$intersect_distinct.col#4]
+    |       |   |   +-op_type=INTERSECT_DISTINCT
+    |       |   |   +-input_item_list=
+    |       |   |     +-SetOperationItem
+    |       |   |     | +-scan=
+    |       |   |     | | +-FilterScan
+    |       |   |     | |   +-column_list=[non_recursive_term.col#1]
+    |       |   |     | |   +-input_scan=
+    |       |   |     | |   | +-ProjectScan
+    |       |   |     | |   |   +-column_list=[non_recursive_term.col#1]
+    |       |   |     | |   |   +-expr_list=
+    |       |   |     | |   |   | +-col#1 := Literal(type=INT64, value=1)
+    |       |   |     | |   |   +-input_scan=
+    |       |   |     | |   |     +-SingleRowScan
+    |       |   |     | |   +-filter_expr=
+    |       |   |     | |     +-Literal(type=BOOL, value=true)
+    |       |   |     | +-output_column_list=[non_recursive_term.col#1]
+    |       |   |     +-SetOperationItem
+    |       |   |     | +-scan=
+    |       |   |     | | +-ProjectScan
+    |       |   |     | |   +-column_list=[$intersect_distinct1.$col1#2]
+    |       |   |     | |   +-expr_list=
+    |       |   |     | |   | +-$col1#2 := Literal(type=INT64, value=1)
+    |       |   |     | |   +-input_scan=
+    |       |   |     | |     +-SingleRowScan
+    |       |   |     | +-output_column_list=[$intersect_distinct1.$col1#2]
+    |       |   |     +-SetOperationItem
+    |       |   |       +-scan=
+    |       |   |       | +-ProjectScan
+    |       |   |       |   +-column_list=[$intersect_distinct2.$col1#3]
+    |       |   |       |   +-expr_list=
+    |       |   |       |   | +-$col1#3 := Literal(type=INT64, value=2)
+    |       |   |       |   +-input_scan=
+    |       |   |       |     +-SingleRowScan
+    |       |   |       +-output_column_list=[$intersect_distinct2.$col1#3]
+    |       |   +-output_column_list=[$intersect_distinct.col#4]
+    |       +-recursive_term=
+    |         +-SetOperationItem
+    |           +-scan=
+    |           | +-ProjectScan
+    |           |   +-column_list=[$union_distinct1.$col1#7]
+    |           |   +-expr_list=
+    |           |   | +-$col1#7 :=
+    |           |   |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |           |   |     +-ColumnRef(type=INT64, column=t.col#6)
+    |           |   |     +-Literal(type=INT64, value=1)
+    |           |   +-input_scan=
+    |           |     +-FilterScan
+    |           |       +-column_list=[t.col#6]
+    |           |       +-input_scan=
+    |           |       | +-RecursiveRefScan(column_list=[t.col#6])
+    |           |       +-filter_expr=
+    |           |         +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
+    |           |           +-ColumnRef(type=INT64, column=t.col#6)
+    |           |           +-Literal(type=INT64, value=3)
+    |           +-output_column_list=[$union_distinct1.$col1#7]
+    +-query=
+    | +-ProjectScan
+    |   +-column_list=[t.col#8]
+    |   +-input_scan=
+    |     +-WithRefScan(column_list=[t.col#8], with_query_name="t")
+    +-recursive=TRUE
+==
+
+# The last pipe operator must be a pipe union.
+with recursive t as (
+  select 1 as col
+  |> union all (select 1)
+  |> {{intersect distinct|extend}} (select * from t where col < 3)
+)
+select * from t;
+--
+ERROR: Recursive query does not have the form <non-recursive-term> UNION [ALL|DISTINCT] <recursive-term> or the pipe form <non-recursive-term> |> UNION [ALL|DISTINCT] <recursive-term> [at 2:3]
+  select 1 as col
+  ^
+==
+
+# The last pipe union is the recursive term. Non recursive term is not allowed
+# to have self-reference.
+with recursive t as (
+  select 1 as col
+  |> union all (select col + 1 from t where col < 3)
+  |> union all (select col + 1 from t where col < 3)
+)
+select * from t;
+--
+ERROR: Recursive reference is not allowed in non-recursive UNION term [at 3:37]
+  |> union all (select col + 1 from t where col < 3)
+                                    ^
+==
+
+# Corresponding is not supported in with recursive.
+[language_features=V_1_3_WITH_RECURSIVE,PIPES{{|,V_1_4_CORRESPONDING}}]
+with recursive t as (
+  select 1 as col
+  |> union all corresponding (select col + 1 from t where col < 3)
+)
+select * from t;
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: CORRESPONDING is not supported in WITH RECURSIVE [at 3:16]
+  |> union all corresponding (select col + 1 from t where col < 3)
+               ^
+--
+ALTERNATION GROUP: ,V_1_4_CORRESPONDING
+--
+ERROR: CORRESPONDING for set operations cannot be used in WITH RECURSIVE [at 3:16]
+  |> union all corresponding (select col + 1 from t where col < 3)
+               ^
+==
+
+# Column number does not match between the recursive and non-recursive terms.
+with recursive t as (
+  select 1 as col1, 2 as col2
+  |> union all (select col1 + 1 from t where col1 < 3)
+)
+select * from t;
+--
+ERROR: Queries in UNION ALL have mismatched column count; pipe input table has 2 columns, pipe argument query 1 has 1 column [at 3:17]
+  |> union all (select col1 + 1 from t where col1 < 3)
+                ^
+==
+
+# Type mismatch between the recursive and non-recursive terms.
+with recursive t as (
+  select 1 as col1
+  |> union all (select "string" from t where col1 < 3)
+)
+select * from t;
+--
+ERROR: Cannot coerce column 1 of recursive term (STRING) to column type in non-recursive term (INT64) [at 3:17]
+  |> union all (select "string" from t where col1 < 3)
+                ^
+==
+
+# Column type (INT64) of the recursive term coerce into that of the
+# non-recursive term (DOUBLE).
+with recursive t as (
+  select cast(1 as float) as col
+  |> union all (select cast(2 as int32))
+  |> union all (select cast(col + 1 as int64) from t where col < 3)
+)
+select * from t
+--
+QueryStmt
++-output_column_list=
+| +-t.col#10 AS col [DOUBLE]
++-query=
+  +-WithScan
+    +-column_list=[t.col#10]
+    +-with_entry_list=
+    | +-WithEntry
+    |   +-with_query_name="t"
+    |   +-with_subquery=
+    |     +-RecursiveScan
+    |       +-column_list=[$union_all.col#6]
+    |       +-op_type=UNION_ALL
+    |       +-non_recursive_term=
+    |       | +-SetOperationItem
+    |       |   +-scan=
+    |       |   | +-SetOperationScan
+    |       |   |   +-column_list=[$union_all.col#3]
+    |       |   |   +-op_type=UNION_ALL
+    |       |   |   +-input_item_list=
+    |       |   |     +-SetOperationItem
+    |       |   |     | +-scan=
+    |       |   |     | | +-ProjectScan
+    |       |   |     | |   +-column_list=[$union_all1_cast.col#4]
+    |       |   |     | |   +-expr_list=
+    |       |   |     | |   | +-col#4 := Literal(type=DOUBLE, value=1, has_explicit_type=TRUE)
+    |       |   |     | |   +-input_scan=
+    |       |   |     | |     +-ProjectScan
+    |       |   |     | |       +-column_list=[non_recursive_term.col#1]
+    |       |   |     | |       +-expr_list=
+    |       |   |     | |       | +-col#1 := Literal(type=FLOAT, value=1, has_explicit_type=TRUE)
+    |       |   |     | |       +-input_scan=
+    |       |   |     | |         +-SingleRowScan
+    |       |   |     | +-output_column_list=[$union_all1_cast.col#4]
+    |       |   |     +-SetOperationItem
+    |       |   |       +-scan=
+    |       |   |       | +-ProjectScan
+    |       |   |       |   +-column_list=[$union_all2_cast.$col1#5]
+    |       |   |       |   +-expr_list=
+    |       |   |       |   | +-$col1#5 := Literal(type=DOUBLE, value=2, has_explicit_type=TRUE)
+    |       |   |       |   +-input_scan=
+    |       |   |       |     +-ProjectScan
+    |       |   |       |       +-column_list=[$union_all1.$col1#2]
+    |       |   |       |       +-expr_list=
+    |       |   |       |       | +-$col1#2 := Literal(type=INT32, value=2, has_explicit_type=TRUE)
+    |       |   |       |       +-input_scan=
+    |       |   |       |         +-SingleRowScan
+    |       |   |       +-output_column_list=[$union_all2_cast.$col1#5]
+    |       |   +-output_column_list=[$union_all.col#3]
+    |       +-recursive_term=
+    |         +-SetOperationItem
+    |           +-scan=
+    |           | +-ProjectScan
+    |           |   +-column_list=[$union_all1_cast.$col1#9]
+    |           |   +-expr_list=
+    |           |   | +-$col1#9 :=
+    |           |   |   +-Cast(INT64 -> DOUBLE)
+    |           |   |     +-ColumnRef(type=INT64, column=$union_all1.$col1#8)
+    |           |   +-input_scan=
+    |           |     +-ProjectScan
+    |           |       +-column_list=[$union_all1.$col1#8]
+    |           |       +-expr_list=
+    |           |       | +-$col1#8 :=
+    |           |       |   +-Cast(DOUBLE -> INT64)
+    |           |       |     +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    |           |       |       +-ColumnRef(type=DOUBLE, column=t.col#7)
+    |           |       |       +-Literal(type=DOUBLE, value=1)
+    |           |       +-input_scan=
+    |           |         +-FilterScan
+    |           |           +-column_list=[t.col#7]
+    |           |           +-input_scan=
+    |           |           | +-RecursiveRefScan(column_list=[t.col#7])
+    |           |           +-filter_expr=
+    |           |             +-FunctionCall(ZetaSQL:$less(DOUBLE, DOUBLE) -> BOOL)
+    |           |               +-ColumnRef(type=DOUBLE, column=t.col#7)
+    |           |               +-Literal(type=DOUBLE, value=3)
+    |           +-output_column_list=[$union_all1_cast.$col1#9]
+    +-query=
+    | +-ProjectScan
+    |   +-column_list=[t.col#10]
+    |   +-input_scan=
+    |     +-WithRefScan(column_list=[t.col#10], with_query_name="t")
+    +-recursive=TRUE
+==
+
+# Column type of the recursive term (UINT32) cannot coerce into that of the
+# non-recursive term (INT32).
+with recursive t as (
+  select cast(1 as uint32) as col
+  |> union all (select cast(col + 1 as int32) from t where col < 3)
+)
+select * from t;
+--
+ERROR: Cannot coerce column 1 of recursive term (INT32) to column type in non-recursive term (UINT32) [at 3:17]
+  |> union all (select cast(col + 1 as int32) from t where col < 3)
+                ^
+==
+
+# The pipe form of with recursive is not suggested if the pipe language feature
+# FEATURE_PIPES is not enabled.
+[language_features=V_1_3_WITH_RECURSIVE]
+with recursive t as (
+  select 1 as col
+  intersect distinct
+  select * from t
+)
+select * from t;
+--
+ERROR: Recursive query does not have the form <non-recursive-term> UNION [ALL|DISTINCT] <recursive-term> [at 2:3]
+  select 1 as col
   ^

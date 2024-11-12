@@ -35,6 +35,7 @@
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/uuid_value.h"
 #include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/strings/escaping.h"
@@ -424,6 +425,11 @@ absl::Status JsonFromValue(const Value& value,
     case TYPE_INTERVAL:
       ZETASQL_RETURN_IF_ERROR(JsonFromInterval(value.interval_value(), output));
       break;
+    case TYPE_UUID: {
+      ZETASQL_ASSIGN_OR_RETURN(const UuidValue uuid_value, value.uuid_value());
+      JsonFromString(uuid_value.ToString(), output);
+      break;
+    }
     case TYPE_JSON:
       if (value.is_unparsed_json()) {
         auto input_json = JSONValue::ParseJSONString(

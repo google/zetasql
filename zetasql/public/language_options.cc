@@ -45,6 +45,7 @@ LanguageOptions::GetLanguageFeaturesForVersion(LanguageVersion version) {
     case VERSION_1_4:
       // Add new features here that are "ideally_enabled" and not
       // "in_development". Add features here when removing "in_development".
+      features.insert(FEATURE_V_1_4_UUID_TYPE);
       features.insert(FEATURE_V_1_4_ARRAY_AGGREGATION_FUNCTIONS);
       features.insert(FEATURE_V_1_4_BARE_ARRAY_ACCESS);
       features.insert(FEATURE_V_1_4_WITH_EXPRESSION);
@@ -59,6 +60,7 @@ LanguageOptions::GetLanguageFeaturesForVersion(LanguageVersion version) {
       features.insert(FEATURE_V_1_4_ARRAY_FIND_FUNCTIONS);
       features.insert(FEATURE_V_1_4_PI_FUNCTIONS);
       features.insert(FEATURE_V_1_4_CORRESPONDING_FULL);
+      features.insert(FEATURE_V_1_4_BY_NAME);
       features.insert(FEATURE_V_1_4_GROUP_BY_ALL);
       features.insert(FEATURE_V_1_4_CREATE_MODEL_WITH_ALIASED_QUERY_LIST);
       features.insert(FEATURE_V_1_4_REMOTE_MODEL);
@@ -79,6 +81,16 @@ LanguageOptions::GetLanguageFeaturesForVersion(LanguageVersion version) {
       features.insert(FEATURE_V_1_4_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION);
       features.insert(FEATURE_V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS);
       features.insert(FEATURE_V_1_4_DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS);
+      features.insert(FEATURE_V_1_4_SQL_GRAPH);
+      features.insert(FEATURE_V_1_4_SQL_GRAPH_ADVANCED_QUERY);
+      features.insert(FEATURE_V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT);
+      features.insert(FEATURE_V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION);
+      features.insert(FEATURE_V_1_4_SQL_GRAPH_RETURN_EXTENSIONS);
+      features.insert(FEATURE_V_1_4_SQL_GRAPH_PATH_MODE);
+      features.insert(FEATURE_V_1_4_SQL_GRAPH_PATH_TYPE);
+      features.insert(FEATURE_V_1_4_GROUP_BY_GRAPH_PATH);
+      features.insert(FEATURE_V_1_4_FOR_UPDATE);
+      features.insert(FEATURE_V_1_4_LIMIT_OFFSET_EXPRESSIONS);
       ABSL_FALLTHROUGH_INTENDED;
     case VERSION_1_3:
       // NO CHANGES SHOULD HAPPEN INSIDE THE VERSIONS BELOW, which are
@@ -271,9 +283,8 @@ void LanguageOptions::EnableMaximumLanguageFeatures(bool for_development) {
 }
 
 const LanguageOptions::KeywordSet& LanguageOptions::GetReservableKeywords() {
-  static auto* reservable_keywords = new KeywordSet{
-      "QUALIFY", "MATCH_RECOGNIZE",
-  };
+  static auto* reservable_keywords =
+      new KeywordSet{"QUALIFY", "MATCH_RECOGNIZE", "GRAPH_TABLE"};
   return *reservable_keywords;
 }
 

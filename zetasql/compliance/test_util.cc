@@ -25,11 +25,12 @@
 #include "absl/container/btree_map.h"
 #include "absl/flags/commandlineflag.h"
 #include "absl/flags/reflection.h"
-#include "absl/strings/escaping.h"
+#include "absl/status/status.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
+#include "google/protobuf/descriptor.h"
 #include "zetasql/base/map_util.h"
 
 namespace zetasql {
@@ -85,7 +86,7 @@ absl::Status ComputeTransitiveClosure(const google::protobuf::DescriptorPool* po
     }
     if (descriptor->containing_type()) {
       // 'full_name' is in {contain_p}.
-      const std::string& full_name = descriptor->containing_type()->full_name();
+      std::string full_name(descriptor->containing_type()->full_name());
       if (!zetasql_base::ContainsKey(*proto_closure, full_name)) {
         delta_proto.insert(full_name);
       }
@@ -96,13 +97,13 @@ absl::Status ComputeTransitiveClosure(const google::protobuf::DescriptorPool* po
       if (field->type() == google::protobuf::FieldDescriptor::TYPE_MESSAGE ||
           field->type() == google::protobuf::FieldDescriptor::TYPE_GROUP) {
         // 'full_name' is in {child_p}.
-        const std::string& full_name = field->message_type()->full_name();
+        std::string full_name(field->message_type()->full_name());
         if (!zetasql_base::ContainsKey(*proto_closure, full_name)) {
           delta_proto.insert(full_name);
         }
       } else if (field->type() == google::protobuf::FieldDescriptor::TYPE_ENUM) {
         // 'full_name' is in {child_e}.
-        const std::string& full_name = field->enum_type()->full_name();
+        std::string full_name(field->enum_type()->full_name());
         if (!zetasql_base::ContainsKey(*enum_closure, full_name)) {
           delta_enum.insert(full_name);
         }
@@ -117,7 +118,7 @@ absl::Status ComputeTransitiveClosure(const google::protobuf::DescriptorPool* po
       const google::protobuf::FieldDescriptor* field = descriptor->extension(i);
       ProcessField(field);
       // 'full_name' is in {contain_p}.
-      const std::string& full_name = field->containing_type()->full_name();
+      std::string full_name(field->containing_type()->full_name());
       if (!zetasql_base::ContainsKey(*proto_closure, full_name)) {
         delta_proto.insert(full_name);
       }
@@ -132,8 +133,7 @@ absl::Status ComputeTransitiveClosure(const google::protobuf::DescriptorPool* po
     }
     if (enum_descriptor->containing_type()) {
       // 'full_name' is in {contain_e}.
-      const std::string& full_name =
-          enum_descriptor->containing_type()->full_name();
+      std::string full_name(enum_descriptor->containing_type()->full_name());
       if (!zetasql_base::ContainsKey(*proto_closure, full_name)) {
         delta_proto.insert(full_name);
       }

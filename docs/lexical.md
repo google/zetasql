@@ -1179,7 +1179,7 @@ ZetaSQL follows these rules for case sensitivity:
       <td>String values</td>
       <td>Yes</td>
       <td>
-        Includes enum value strings
+        Any value of type <code>STRING</code> preserves its case. For example, the result of an expression that produces a <code>STRING</code> value or a column value that's of type <code>STRING</code>.
       </td>
     </tr>
     <tr>
@@ -1203,6 +1203,22 @@ ZetaSQL follows these rules for case sensitivity:
     <tr>
       <td><code>LIKE</code> matching</td>
       <td>Yes</td>
+      <td>&nbsp;</td>
+    </tr>
+    
+    <tr>
+      <td>Property graph names</td>
+      <td>No</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>Property graph label names</td>
+      <td>No</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>Property graph property names</td>
+      <td>No</td>
       <td>&nbsp;</td>
     </tr>
     
@@ -1262,7 +1278,7 @@ FOLLOWING<br />
 FOR<br />
 FROM<br />
 FULL<br />
-
+GRAPH_TABLE<br />
 GROUP<br />
 GROUPING<br />
 GROUPS<br />

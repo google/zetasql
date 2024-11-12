@@ -1244,6 +1244,7 @@ FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
               +-analytic_function_list=
                 +-$analytic1#3 :=
                   +-AnalyticFunctionCall(sample_functions:afn_agg() -> INT64)
+                    +-parse_location=12-28
                     +-window_frame=
                       +-WindowFrame(frame_unit=ROWS)
                         +-start_expr=
@@ -1432,3 +1433,38 @@ group_rows()
 ERROR: Table-valued function not found: group_rows [at 1:16]
 (select x from group_rows())
                ^
+==
+
+[language_features=V_1_4_MULTILEVEL_AGGREGATION]
+[allow_aggregate_standalone_expression]
+[in_scope_expression_column_name=value]
+[in_scope_expression_column_type=int64]
+SUM(ANY_VALUE(value) GROUP BY value) / MIN(value + MAX(value) GROUP BY value)
+--
+FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
++-parse_location=0-77
++-Cast(INT64 -> DOUBLE)
+| +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+|   +-parse_location=0-36
+|   +-ColumnRef(type=INT64, column=$aggregate.$agg1#2)
+|   +-group_by_list=
+|   | +-$groupbymod#1 := ExpressionColumn(parse_location=30-35, type=INT64, name="value")
+|   +-group_by_aggregate_list=
+|     +-$agg1#2 :=
+|       +-AggregateFunctionCall(ZetaSQL:any_value(INT64) -> INT64)
+|         +-parse_location=4-20
+|         +-ExpressionColumn(parse_location=14-19, type=INT64, name="value")
++-Cast(INT64 -> DOUBLE)
+  +-AggregateFunctionCall(ZetaSQL:min(INT64) -> INT64)
+    +-parse_location=39-77
+    +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+      +-parse_location=43-61
+      +-ExpressionColumn(parse_location=43-48, type=INT64, name="value")
+      +-ColumnRef(type=INT64, column=$aggregate.$agg1#4)
+    +-group_by_list=
+    | +-$groupbymod#3 := ExpressionColumn(parse_location=71-76, type=INT64, name="value")
+    +-group_by_aggregate_list=
+      +-$agg1#4 :=
+        +-AggregateFunctionCall(ZetaSQL:max(INT64) -> INT64)
+          +-parse_location=51-61
+          +-ExpressionColumn(parse_location=55-60, type=INT64, name="value")

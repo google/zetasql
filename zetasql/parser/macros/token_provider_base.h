@@ -20,7 +20,7 @@
 #include <memory>
 #include <optional>
 
-#include "zetasql/parser/macros/token_with_location.h"
+#include "zetasql/parser/token_with_location.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/status_macros.h"

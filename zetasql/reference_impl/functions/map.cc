@@ -32,6 +32,7 @@
 #include "zetasql/public/value.h"
 #include "zetasql/reference_impl/evaluation.h"
 #include "zetasql/reference_impl/function.h"
+#include "zetasql/reference_impl/operator.h"
 #include "zetasql/reference_impl/tuple.h"
 #include "absl/algorithm/container.h"
 #include "absl/container/flat_hash_set.h"
@@ -39,6 +40,7 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/types/span.h"
+#include "zetasql/base/optional_ref.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
@@ -528,6 +530,157 @@ class MapReplaceKeysAndValuesFunction : public SimpleBuiltinScalarFunction {
   }
 };
 
+class MapReplaceKeysAndLambdaFunction : public SimpleBuiltinScalarFunction {
+ public:
+  MapReplaceKeysAndLambdaFunction(FunctionKind kind, const Type* output_type)
+      : SimpleBuiltinScalarFunction(kind, output_type) {}
+
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override {
+    ZETASQL_RET_CHECK_GE(args.size(), 2);  // Lambda is not included in args list.
+
+    const Value& map = args[0];
+    ZETASQL_RET_CHECK(map.type()->IsMap()) << map.type()->DebugString();
+
+    if (map.is_null()) {
+      return Value::Null(output_type());
+    }
+
+    // The last argument in the args list is the lambda.
+    const zetasql_base::optional_ref<AlgebraArg>& last_arg =
+        extended_args()[extended_args().size() - 1];
+    ZETASQL_RET_CHECK(last_arg.has_value());
+    ZETASQL_RET_CHECK(last_arg.value().has_inline_lambda_expr())
+        << last_arg.value().DebugString();
+    const InlineLambdaExpr* lambda = last_arg.value().inline_lambda_expr();
+    LambdaEvaluationContext lambda_eval_context(params, context);
+
+    std::vector<std::pair<Value, Value>> map_entries;
+    map_entries.reserve(args.size() - 1);
+    absl::flat_hash_set<Value> keys_to_replace;
+    keys_to_replace.reserve(args.size() - 1);
+
+    for (int i = 1; i < args.size(); ++i) {
+      auto& key = args[i];
+      ZETASQL_RETURN_IF_ERROR(CheckKeyExistsInMap(map, key));
+      ZETASQL_RETURN_IF_ERROR(
+          AddMapKeyToInsertionSetOrErrorIfNotUnique(key, keys_to_replace));
+      ZETASQL_ASSIGN_OR_RETURN(Value lambda_transformed_v,
+                       lambda_eval_context.EvaluateLambda(
+                           lambda, {map.map_entries().at(key)}));
+      map_entries.push_back({key, lambda_transformed_v});
+    }
+
+    for (const auto& [key, value] : map.map_entries()) {
+      if (!keys_to_replace.contains(key)) {
+        map_entries.push_back({key, value});
+      }
+    }
+
+    return Value::MakeMap(output_type(), std::move(map_entries));
+  }
+};
+
+class MapCardinalityFunction : public SimpleBuiltinScalarFunction {
+ public:
+  MapCardinalityFunction(FunctionKind kind, const Type* output_type)
+      : SimpleBuiltinScalarFunction(kind, output_type) {}
+
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override {
+    ZETASQL_RET_CHECK_EQ(args.size(), 1);
+    const Value& map = args[0];
+    ZETASQL_RET_CHECK(map.type()->IsMap()) << map.type()->DebugString();
+
+    if (map.is_null()) {
+      return Value::Null(output_type());
+    }
+
+    return Value::Int64(map.num_elements());
+  }
+};
+
+class MapDeleteFunction : public SimpleBuiltinScalarFunction {
+ public:
+  MapDeleteFunction(FunctionKind kind, const Type* output_type)
+      : SimpleBuiltinScalarFunction(kind, output_type) {}
+
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override {
+    ZETASQL_RET_CHECK_GE(args.size(), 2);
+    const Value& map = args[0];
+    ZETASQL_RET_CHECK(map.type()->IsMap()) << map.type()->DebugString();
+
+    if (map.is_null()) {
+      return Value::Null(output_type());
+    }
+
+    absl::flat_hash_set<Value> keys_to_delete;
+    keys_to_delete.reserve(args.size() - 1);
+    for (int i = 1; i < args.size(); ++i) {
+      keys_to_delete.insert(args[i]);
+    }
+
+    std::vector<std::pair<Value, Value>> map_entries;
+    map_entries.reserve(args.size() - 1);
+
+    for (const auto& [key, value] : map.map_entries()) {
+      if (!keys_to_delete.contains(key)) {
+        map_entries.push_back({key, value});
+      }
+    }
+
+    return Value::MakeMap(output_type(), std::move(map_entries));
+  }
+};
+
+class MapFilterFunction : public SimpleBuiltinScalarFunction {
+ public:
+  MapFilterFunction(FunctionKind kind, const Type* output_type)
+      : SimpleBuiltinScalarFunction(kind, output_type) {}
+
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override {
+    ZETASQL_RET_CHECK_EQ(args.size(), 1);  // Lambda is not included in args list.
+    ZETASQL_RET_CHECK_EQ(extended_args().size(), 2);
+
+    auto& lambda_arg = extended_args()[1];
+    ZETASQL_RET_CHECK(lambda_arg.has_value() &&
+              lambda_arg.value().inline_lambda_expr() != nullptr);
+
+    const InlineLambdaExpr* filter_lambda =
+        lambda_arg.value().inline_lambda_expr();
+    ZETASQL_RET_CHECK_EQ(filter_lambda->num_args(), 2);
+    ZETASQL_RET_CHECK(filter_lambda->output_type()->IsBool());
+
+    LambdaEvaluationContext lambda_eval_context(params, context);
+
+    const Value& map = args[0];
+    ZETASQL_RET_CHECK(map.type()->IsMap()) << map.type()->DebugString();
+
+    if (map.is_null()) {
+      return Value::Null(output_type());
+    }
+
+    std::vector<std::pair<Value, Value>> map_entries;
+    map_entries.reserve(args.size() - 1);
+
+    for (const auto& [key, value] : map.map_entries()) {
+      ZETASQL_ASSIGN_OR_RETURN(Value filter_result, lambda_eval_context.EvaluateLambda(
+                                                filter_lambda, {key, value}));
+      if (filter_result.bool_value()) {
+        map_entries.push_back({key, value});
+      }
+    }
+
+    return Value::MakeMap(output_type(), std::move(map_entries));
+  }
+};
+
 }  // namespace
 
 void RegisterBuiltinMapFunctions() {
@@ -604,6 +757,26 @@ void RegisterBuiltinMapFunctions() {
       {FunctionKind::kMapReplaceKeyValuePairs},
       [](FunctionKind kind, const Type* output_type) {
         return new MapReplaceKeysAndValuesFunction(kind, output_type);
+      });
+  BuiltinFunctionRegistry::RegisterScalarFunction(
+      {FunctionKind::kMapReplaceKeysAndLambda},
+      [](FunctionKind kind, const Type* output_type) {
+        return new MapReplaceKeysAndLambdaFunction(kind, output_type);
+      });
+  BuiltinFunctionRegistry::RegisterScalarFunction(
+      {FunctionKind::kMapCardinality},
+      [](FunctionKind kind, const Type* output_type) {
+        return new MapCardinalityFunction(kind, output_type);
+      });
+  BuiltinFunctionRegistry::RegisterScalarFunction(
+      {FunctionKind::kMapDelete},
+      [](FunctionKind kind, const Type* output_type) {
+        return new MapDeleteFunction(kind, output_type);
+      });
+  BuiltinFunctionRegistry::RegisterScalarFunction(
+      {FunctionKind::kMapFilter},
+      [](FunctionKind kind, const Type* output_type) {
+        return new MapFilterFunction(kind, output_type);
       });
 }
 

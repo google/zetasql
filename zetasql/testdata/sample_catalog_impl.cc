@@ -44,8 +44,10 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_resume_location.h"
 #include "zetasql/public/procedure.h"
+#include "zetasql/public/property_graph.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/simple_catalog_util.h"
+#include "zetasql/public/simple_property_graph.h"
 #include "zetasql/public/sql_function.h"
 #include "zetasql/public/sql_tvf.h"
 #include "zetasql/public/strings.h"
@@ -234,7 +236,7 @@ absl::StatusOr<SimpleTable*> SampleCatalogImpl::GetTable(
 const ProtoType* SampleCatalogImpl::GetProtoType(
     const google::protobuf::Descriptor* descriptor) {
   const Type* type;
-  ZETASQL_CHECK_OK(catalog_->FindType({descriptor->full_name()}, &type));
+  ZETASQL_CHECK_OK(catalog_->FindType({std::string(descriptor->full_name())}, &type));
   ABSL_CHECK(type != nullptr);
   ABSL_CHECK(type->IsProto());
   return type->AsProto();
@@ -243,7 +245,7 @@ const ProtoType* SampleCatalogImpl::GetProtoType(
 const EnumType* SampleCatalogImpl::GetEnumType(
     const google::protobuf::EnumDescriptor* descriptor) {
   const Type* type;
-  ZETASQL_CHECK_OK(catalog_->FindType({descriptor->full_name()}, &type));
+  ZETASQL_CHECK_OK(catalog_->FindType({std::string(descriptor->full_name())}, &type));
   ABSL_CHECK(type != nullptr);
   ABSL_CHECK(type->IsEnum());
   return type->AsEnum();
@@ -633,6 +635,9 @@ absl::Status SampleCatalogImpl::LoadCatalogImpl(
   LoadContrivedLambdaArgFunctions();
   LoadSqlFunctions(language_options);
   LoadNonTemplatedSqlTableValuedFunctions(language_options);
+  ZETASQL_RETURN_IF_ERROR(LoadAmlBasedPropertyGraphs());
+  LoadMultiSrcDstEdgePropertyGraphs();
+  LoadCompositeKeyPropertyGraphs();
   return absl::OkStatus();
 }
 
@@ -2415,7 +2420,7 @@ void SampleCatalogImpl::LoadFunctions() {
       {{types_->get_int64()}, {int64map_type_}, /*context_id=*/-1});
   catalog_->AddOwnedFunction(function);
 
-  // Add a function that takes a MAP<bytes, bytes> and returns an bytes type.
+  // Add a function that takes a MAP<bytes, bytes> and returns a bytes type.
   function = new Function("fn_on_bytes_map_returns_bytes", "sample_functions",
                           Function::SCALAR);
   function->AddSignature(
@@ -4678,6 +4683,13 @@ void SampleCatalogImpl::LoadTemplatedSQLUDFs() {
                                    WHERE e IS NOT NULL))sql"),
       Function::AGGREGATE));
 
+  catalog_->AddOwnedFunction(new TemplatedSQLFunction(
+      {"WrappedMultiLevelAgg"},
+      FunctionSignature(result_type, {ARG_TYPE_ARBITRARY}, context_id++),
+      /*argument_names=*/{"e"},
+      ParseResumeLocation::FromString("SUM(e GROUP BY e)"),
+      Function::AGGREGATE));
+
   // Add a SQL UDA with a valid templated SQL body with two NOT AGGREGATE
   // arguments having default values.
   FunctionArgumentType int64_default_not_aggregate_arg_type(
@@ -4777,6 +4789,1071 @@ void SampleCatalogImpl::LoadTemplatedSQLUDFs() {
       /*argument_names=*/{"x"},
       ParseResumeLocation::FromString("min(collate(x, 'und:ci'))"),
       Function::AGGREGATE));
+}
+
+absl::Status SampleCatalogImpl::LoadAmlBasedPropertyGraphs() {
+  typedef std::pair<std::string, const Type*> NameAndType;
+  // First, add all the common underlying tables to be shared across the
+  // different AML graphs.
+  auto* person = new SimpleTable("Person", std::vector<NameAndType>{
+                                               {"id", types_->get_int64()},
+                                               {"name", types_->get_string()},
+                                               {"gender", types_->get_string()},
+                                               {"birthday", types_->get_date()},
+                                               {"email", types_->get_string()},
+                                               {"age", types_->get_uint32()},
+                                               {"data", types_->get_bytes()},
+                                           });
+  ZETASQL_CHECK_OK(person->SetPrimaryKey({0}));
+  AddOwnedTable(person);
+
+  auto* account = new SimpleTable(
+      "Account", std::vector<NameAndType>{{"id", types_->get_int64()},
+                                          {"name", types_->get_string()},
+                                          {"balance", types_->get_uint64()}});
+  ZETASQL_CHECK_OK(account->SetPrimaryKey({0}));
+  AddOwnedTable(account);
+
+  auto* syndicate = new SimpleTable(
+      "Syndicate",
+      std::vector<NameAndType>{{"syndicateId", types_->get_int64()},
+                               {"syndicateName", types_->get_string()},
+                               {"syndicateData", int64array_type_}});
+  ZETASQL_CHECK_OK(syndicate->SetPrimaryKey({0}));
+  AddOwnedTable(syndicate);
+
+  auto* person_own_acc = new SimpleTable(
+      "PersonOwnAccount",
+      std::vector<NameAndType>{{"personId", types_->get_int64()},
+                               {"accountId", types_->get_int64()},
+                               {"startDate", types_->get_timestamp()}});
+  ZETASQL_CHECK_OK(person_own_acc->SetPrimaryKey({0, 1}));
+  AddOwnedTable(person_own_acc);
+
+  auto* transfer =
+      new SimpleTable("Transfer", std::vector<NameAndType>{
+                                      {"txnId", types_->get_int64()},
+                                      {"fromAccountId", types_->get_int64()},
+                                      {"toAccountId", types_->get_int64()},
+                                      {"time", types_->get_timestamp()},
+                                      {"amount", types_->get_uint64()},
+                                  });
+  ZETASQL_CHECK_OK(transfer->SetPrimaryKey({0}));
+  AddOwnedTable(transfer);
+
+  const std::vector<const Column*> columns = {
+      new SimpleColumn("pg.Place", "city", types_->get_string()),
+      new SimpleColumn("pg.Place", "country", types_->get_string()),
+      new SimpleColumn("pg.Place", "zip", types_->get_string()),
+  };
+  auto place_table = std::make_unique<SimpleTable>("Place", columns,
+                                                   /*take_ownership=*/true);
+  ZETASQL_CHECK_OK(place_table->set_full_name("pg.Place"));
+  SimpleCatalog* nested_pg_catalog = catalog_->MakeOwnedSimpleCatalog("pg");
+  nested_pg_catalog->AddOwnedTable(std::move(place_table));
+
+  auto* test_table_with_same_column_name =
+      new SimpleTable("TestTableWithSameColumnName",
+                      std::vector<NameAndType>{
+                          {"id", types_->get_int64()},
+                          {"TestTableWithSameColumnName", types_->get_string()},
+                      });
+  ZETASQL_CHECK_OK(test_table_with_same_column_name->SetPrimaryKey({0}));
+  AddOwnedTable(test_table_with_same_column_name);
+
+  auto* test_value_table_with_same_column_name = new SimpleTable(
+      "TestValueTableWithSameColumnName",
+      std::vector<NameAndType>{
+          {"id", types_->get_int64()},
+          {"TestValueTableWithSameColumnName", types_->get_string()},
+      });
+  ZETASQL_CHECK_OK(test_value_table_with_same_column_name->SetPrimaryKey({0}));
+  AddOwnedTable(test_value_table_with_same_column_name);
+
+  // Additional underlying tables for enhanced AML graph
+  auto* city = new SimpleTable(
+      "City", std::vector<NameAndType>{{"id", types_->get_int64()},
+                                       {"name", types_->get_string()}});
+  ZETASQL_CHECK_OK(city->SetPrimaryKey({0}));
+  AddOwnedTable(city);
+
+  auto* country = new SimpleTable(
+      "Country", std::vector<NameAndType>{{"id", types_->get_int64()},
+                                          {"name", types_->get_string()}});
+  ZETASQL_CHECK_OK(country->SetPrimaryKey({0}));
+  AddOwnedTable(country);
+
+  auto* knows = new SimpleTable(
+      "Knows", std::vector<NameAndType>{{"personId", types_->get_int64()},
+                                        {"toPersonId", types_->get_int64()}});
+  ZETASQL_CHECK_OK(knows->SetPrimaryKey({0, 1}));
+  AddOwnedTable(knows);
+
+  auto* located_in = new SimpleTable(
+      "LocatedIn",
+      std::vector<NameAndType>{{"cityId", types_->get_int64()},
+                               {"countryId", types_->get_int64()}});
+  ZETASQL_CHECK_OK(located_in->SetPrimaryKey({0, 1}));
+  AddOwnedTable(located_in);
+
+  auto* group = new SimpleTable("Group", std::vector<NameAndType>{
+                                             {"id", types_->get_int64()},
+                                             {"group", types_->get_int64()},
+                                         });
+  ZETASQL_CHECK_OK(group->SetPrimaryKey({0}));
+  AddOwnedTable(group);
+
+  ZETASQL_RETURN_IF_ERROR(LoadBasicAmlPropertyGraph());
+  ZETASQL_RETURN_IF_ERROR(LoadEnhancedAmlPropertyGraph());
+
+  return absl::OkStatus();
+}
+
+absl::Status SampleCatalogImpl::LoadBasicAmlPropertyGraph() {
+  std::vector<std::string> property_graph_name_path{catalog_->FullName(),
+                                                    "aml"};
+
+  const Table* person = nullptr;
+  const Table* account = nullptr;
+  const Table* syndicate = nullptr;
+  const Table* person_own_acc = nullptr;
+  const Table* transfer = nullptr;
+  ZETASQL_RETURN_IF_ERROR(catalog_->FindTable({"Person"}, &person));
+  ZETASQL_RETURN_IF_ERROR(catalog_->FindTable({"Account"}, &account));
+  ZETASQL_RETURN_IF_ERROR(catalog_->FindTable({"Syndicate"}, &syndicate));
+  ZETASQL_RETURN_IF_ERROR(catalog_->FindTable({"PersonOwnAccount"}, &person_own_acc));
+  ZETASQL_RETURN_IF_ERROR(catalog_->FindTable({"Transfer"}, &transfer));
+
+  // Property Declaration
+  auto id_property_dcl = std::make_unique<SimpleGraphPropertyDeclaration>(
+      "id", property_graph_name_path, types_->get_int64());
+  auto personId_property_dcl = std::make_unique<SimpleGraphPropertyDeclaration>(
+      "personId", property_graph_name_path, types_->get_int64());
+  auto accountId_property_dcl =
+      std::make_unique<SimpleGraphPropertyDeclaration>(
+          "accountId", property_graph_name_path, types_->get_int64());
+  auto target_account_id_property_dcl =
+      std::make_unique<SimpleGraphPropertyDeclaration>(
+          "targetAccountId", property_graph_name_path, types_->get_int64());
+  auto amount_property_dcl = std::make_unique<SimpleGraphPropertyDeclaration>(
+      "amount", property_graph_name_path, types_->get_uint64());
+  auto name_property_dcl = std::make_unique<SimpleGraphPropertyDeclaration>(
+      "name", property_graph_name_path, types_->get_string());
+  auto bday_property_dcl = std::make_unique<SimpleGraphPropertyDeclaration>(
+      "birthday", property_graph_name_path, types_->get_date());
+  auto balance_property_dcl = std::make_unique<SimpleGraphPropertyDeclaration>(
+      "balance", property_graph_name_path, types_->get_uint64());
+  auto age_property_dcl = std::make_unique<SimpleGraphPropertyDeclaration>(
+      "age", property_graph_name_path, types_->get_uint32());
+  auto data_property_dcl = std::make_unique<SimpleGraphPropertyDeclaration>(
+      "data", property_graph_name_path, types_->get_bytes());
+  auto syndicateid_property_dcl =
+      std::make_unique<SimpleGraphPropertyDeclaration>(
+          "syndicateId", property_graph_name_path, types_->get_int64());
+  auto syndicatename_property_dcl =
+      std::make_unique<SimpleGraphPropertyDeclaration>(
+          "syndicateName", property_graph_name_path, types_->get_string());
+  auto syndicatedata_property_dcl =
+      std::make_unique<SimpleGraphPropertyDeclaration>(
+          "syndicateData", property_graph_name_path, int64array_type_);
+
+  // Labels
+  auto property_dcls_person =
+      absl::flat_hash_set<const GraphPropertyDeclaration*>{
+          name_property_dcl.get(), bday_property_dcl.get(),
+          age_property_dcl.get(), data_property_dcl.get()};
+  auto person_label = std::make_unique<SimpleGraphElementLabel>(
+      "Person", property_graph_name_path, property_dcls_person);
+
+  auto property_dcls_account =
+      absl::flat_hash_set<const GraphPropertyDeclaration*>{
+          id_property_dcl.get()};
+  auto account_label = std::make_unique<SimpleGraphElementLabel>(
+      "Account", property_graph_name_path, property_dcls_account);
+
+  auto property_dcls_syndicate =
+      absl::flat_hash_set<const GraphPropertyDeclaration*>{
+          syndicateid_property_dcl.get(), syndicatename_property_dcl.get(),
+          syndicatedata_property_dcl.get()};
+  auto syndicate_label = std::make_unique<SimpleGraphElementLabel>(
+      "Syndicate", property_graph_name_path, property_dcls_syndicate);
+
+  auto property_dcls_person_own_acc =
+      absl::flat_hash_set<const GraphPropertyDeclaration*>{
+          personId_property_dcl.get(), accountId_property_dcl.get()};
+  auto person_own_acc_label = std::make_unique<SimpleGraphElementLabel>(
+      "PersonOwnAccount", property_graph_name_path,
+      property_dcls_person_own_acc);
+
+  auto property_dcls_transfer =
+      absl::flat_hash_set<const GraphPropertyDeclaration*>{
+          accountId_property_dcl.get(), target_account_id_property_dcl.get(),
+          amount_property_dcl.get()};
+  auto transfer_label = std::make_unique<SimpleGraphElementLabel>(
+      "Transfer", property_graph_name_path, property_dcls_transfer);
+
+  auto property_decls_has_id =
+      absl::flat_hash_set<const GraphPropertyDeclaration*>{
+          id_property_dcl.get()};
+  auto id_label = std::make_unique<SimpleGraphElementLabel>(
+      "HasId", property_graph_name_path, property_decls_has_id);
+
+  std::vector<std::unique_ptr<const GraphPropertyDefinition>>
+      property_defs_person, property_defs_account, property_defs_syndicate,
+      property_defs_person_own_acc, property_defs_transfer;
+
+  // Person node table
+  auto person_name_col_ref = MakeResolvedCatalogColumnRef(
+      types_->get_string(), person->FindColumnByName("name"));
+  auto person_name_prop_def = std::make_unique<SimpleGraphPropertyDefinition>(
+      name_property_dcl.get(), "name");
+  InternalSetResolvedExpr(person_name_prop_def.get(),
+                          person_name_col_ref.get());
+
+  property_defs_person.push_back(std::move(person_name_prop_def));
+  owned_resolved_graph_property_definitions_.push_back(
+      std::move(person_name_col_ref));
+
+  auto person_bday_col_ref = MakeResolvedCatalogColumnRef(
+      types_->get_date(), person->FindColumnByName("birthday"));
+  auto person_bday_prop_def = std::make_unique<SimpleGraphPropertyDefinition>(
+      bday_property_dcl.get(), "birthday");
+  InternalSetResolvedExpr(person_bday_prop_def.get(),
+                          person_bday_col_ref.get());
+
+  property_defs_person.push_back(std::move(person_bday_prop_def));
+  owned_resolved_graph_property_definitions_.push_back(
+      std::move(person_bday_col_ref));
+
+  auto person_id_col_ref = MakeResolvedCatalogColumnRef(
+      types_->get_int64(), person->FindColumnByName("id"));
+  auto person_id_prop_def = std::make_unique<SimpleGraphPropertyDefinition>(
+      id_property_dcl.get(), "id");
+  InternalSetResolvedExpr(person_id_prop_def.get(), person_id_col_ref.get());
+  property_defs_person.push_back(std::move(person_id_prop_def));
+  owned_resolved_graph_property_definitions_.push_back(
+      std::move(person_id_col_ref));
+
+  auto person_age_col_ref = MakeResolvedCatalogColumnRef(
+      types_->get_uint32(), person->FindColumnByName("age"));
+  auto person_age_prop_def = std::make_unique<SimpleGraphPropertyDefinition>(
+      age_property_dcl.get(), "age");
+  InternalSetResolvedExpr(person_age_prop_def.get(), person_age_col_ref.get());
+  property_defs_person.push_back(std::move(person_age_prop_def));
+  owned_resolved_graph_property_definitions_.push_back(
+      std::move(person_age_col_ref));
+
+  auto person_data_col_ref = MakeResolvedCatalogColumnRef(
+      types_->get_uint32(), person->FindColumnByName("data"));
+  auto person_data_prop_def = std::make_unique<SimpleGraphPropertyDefinition>(
+      data_property_dcl.get(), "data");
+  InternalSetResolvedExpr(person_data_prop_def.get(),
+                          person_data_col_ref.get());
+  property_defs_person.push_back(std::move(person_data_prop_def));
+  owned_resolved_graph_property_definitions_.push_back(
+      std::move(person_data_col_ref));
+
+  auto person_node_table = std::make_unique<const SimpleGraphNodeTable>(
+      person->Name(), property_graph_name_path, person, std::vector<int>{0},
+      absl::flat_hash_set<const GraphElementLabel*>{person_label.get(),
+                                                    id_label.get()},
+      std::move(property_defs_person));
+
+  // Account node table
+  auto id_col_ref = MakeResolvedCatalogColumnRef(
+      types_->get_int64(), account->FindColumnByName("id"));
+  auto account_id_prop_def = std::make_unique<SimpleGraphPropertyDefinition>(
+      id_property_dcl.get(), "id");
+  InternalSetResolvedExpr(account_id_prop_def.get(), id_col_ref.get());
+
+  property_defs_account.push_back(std::move(account_id_prop_def));
+  owned_resolved_graph_property_definitions_.push_back(std::move(id_col_ref));
+
+  auto balance_col_ref = MakeResolvedCatalogColumnRef(
+      types_->get_uint64(), account->FindColumnByName("balance"));
+  auto account_balance_prop_def =
+      std::make_unique<SimpleGraphPropertyDefinition>(
+          balance_property_dcl.get(), "balance");
+  InternalSetResolvedExpr(account_balance_prop_def.get(),
+                          balance_col_ref.get());
+
+  property_defs_account.push_back(std::move(account_balance_prop_def));
+  owned_resolved_graph_property_definitions_.push_back(
+      std::move(balance_col_ref));
+
+  auto account_node_table = std::make_unique<const SimpleGraphNodeTable>(
+      account->Name(), property_graph_name_path, account, std::vector<int>{0},
+      absl::flat_hash_set<const GraphElementLabel*>{account_label.get(),
+                                                    id_label.get()},
+      std::move(property_defs_account));
+
+  // Syndicate node table
+  auto syndicateid_col_ref = MakeResolvedCatalogColumnRef(
+      types_->get_int64(), syndicate->FindColumnByName("syndicateId"));
+  auto syndicateid_prop_def = std::make_unique<SimpleGraphPropertyDefinition>(
+      syndicateid_property_dcl.get(), "syndicateId");
+  InternalSetResolvedExpr(syndicateid_prop_def.get(),
+                          syndicateid_col_ref.get());
+
+  property_defs_syndicate.push_back(std::move(syndicateid_prop_def));
+  owned_resolved_graph_property_definitions_.push_back(
+      std::move(syndicateid_col_ref));
+
+  auto syndicatename_col_ref = MakeResolvedCatalogColumnRef(
+      types_->get_string(), syndicate->FindColumnByName("syndicateName"));
+  auto syndicatename_prop_def = std::make_unique<SimpleGraphPropertyDefinition>(
+      syndicatename_property_dcl.get(), "syndicateName");
+  InternalSetResolvedExpr(syndicatename_prop_def.get(),
+                          syndicatename_col_ref.get());
+
+  property_defs_syndicate.push_back(std::move(syndicatename_prop_def));
+  owned_resolved_graph_property_definitions_.push_back(
+      std::move(syndicatename_col_ref));
+
+  auto syndicatedata_col_ref = MakeResolvedCatalogColumnRef(
+      int64array_type_, syndicate->FindColumnByName("syndicateData"));
+  auto syndicatedata_prop_def = std::make_unique<SimpleGraphPropertyDefinition>(
+      syndicatedata_property_dcl.get(), "syndicateData");
+  InternalSetResolvedExpr(syndicatedata_prop_def.get(),
+                          syndicatedata_col_ref.get());
+
+  property_defs_syndicate.push_back(std::move(syndicatedata_prop_def));
+  owned_resolved_graph_property_definitions_.push_back(
+      std::move(syndicatedata_col_ref));
+
+  auto syndicate_node_table = std::make_unique<const SimpleGraphNodeTable>(
+      syndicate->Name(), property_graph_name_path, syndicate,
+      std::vector<int>{0},
+      absl::flat_hash_set<const GraphElementLabel*>{syndicate_label.get()},
+      std::move(property_defs_syndicate));
+
+  // PersonOwnAccount edge table
+  auto pa_personid_col_ref = MakeResolvedCatalogColumnRef(
+      types_->get_int64(), person_own_acc->FindColumnByName("personId"));
+  auto pa_personid_prop_def = std::make_unique<SimpleGraphPropertyDefinition>(
+      personId_property_dcl.get(), "personId");
+  InternalSetResolvedExpr(pa_personid_prop_def.get(),
+                          pa_personid_col_ref.get());
+
+  property_defs_person_own_acc.push_back(std::move(pa_personid_prop_def));
+  owned_resolved_graph_property_definitions_.push_back(
+      std::move(pa_personid_col_ref));
+
+  auto pa_accountid_col_ref = MakeResolvedCatalogColumnRef(
+      types_->get_int64(), person_own_acc->FindColumnByName("accountId"));
+  auto pa_accountid_prop_def = std::make_unique<SimpleGraphPropertyDefinition>(
+      accountId_property_dcl.get(), "accountId");
+  InternalSetResolvedExpr(pa_accountid_prop_def.get(),
+                          pa_accountid_col_ref.get());
+
+  property_defs_person_own_acc.push_back(std::move(pa_accountid_prop_def));
+  owned_resolved_graph_property_definitions_.push_back(
+      std::move(pa_accountid_col_ref));
+  property_defs_person_own_acc.emplace_back(
+      std::make_unique<SimpleGraphPropertyDefinition>(
+          personId_property_dcl.get(), "personId"));
+
+  auto person_own_acc_edge_table = std::make_unique<const SimpleGraphEdgeTable>(
+      person_own_acc->Name(), property_graph_name_path, person_own_acc,
+      std::vector<int>{0, 1},
+      absl::flat_hash_set<const GraphElementLabel*>{person_own_acc_label.get()},
+      std::move(property_defs_person_own_acc),
+      std::make_unique<const SimpleGraphNodeTableReference>(
+          person_node_table.get(), std::vector<int>{0}, std::vector<int>{0}),
+      std::make_unique<const SimpleGraphNodeTableReference>(
+          account_node_table.get(), std::vector<int>{1}, std::vector<int>{0}));
+
+  // AccountTransferAccount edge table
+  auto transfer_account_id_col_ref = MakeResolvedCatalogColumnRef(
+      types_->get_int64(), transfer->FindColumnByName("fromAccountId"));
+  auto transfer_account_id_property =
+      std::make_unique<SimpleGraphPropertyDefinition>(
+          accountId_property_dcl.get(), "fromAccountId");
+  InternalSetResolvedExpr(transfer_account_id_property.get(),
+                          transfer_account_id_col_ref.get());
+  property_defs_transfer.emplace_back(std::move(transfer_account_id_property));
+  owned_resolved_graph_property_definitions_.push_back(
+      std::move(transfer_account_id_col_ref));
+
+  auto transfer_target_id_col_ref = MakeResolvedCatalogColumnRef(
+      types_->get_int64(), transfer->FindColumnByName("toAccountId"));
+  auto transfer_target_id_property =
+      std::make_unique<SimpleGraphPropertyDefinition>(
+          target_account_id_property_dcl.get(), "toAccountId");
+  InternalSetResolvedExpr(transfer_target_id_property.get(),
+                          transfer_target_id_col_ref.get());
+  property_defs_transfer.emplace_back(std::move(transfer_target_id_property));
+  owned_resolved_graph_property_definitions_.push_back(
+      std::move(transfer_target_id_col_ref));
+
+  auto amount_col_ref = MakeResolvedCatalogColumnRef(
+      types_->get_uint64(), transfer->FindColumnByName("amount"));
+  auto amount_property = std::make_unique<SimpleGraphPropertyDefinition>(
+      amount_property_dcl.get(), "amount");
+  InternalSetResolvedExpr(amount_property.get(), amount_col_ref.get());
+  property_defs_transfer.emplace_back(std::move(amount_property));
+  owned_resolved_graph_property_definitions_.push_back(
+      std::move(amount_col_ref));
+
+  auto transfer_edge_table = std::make_unique<const SimpleGraphEdgeTable>(
+      transfer->Name(), property_graph_name_path, transfer,
+      std::vector<int>{0, 1, 2},
+      absl::flat_hash_set<const GraphElementLabel*>{transfer_label.get()},
+      std::move(property_defs_transfer),
+      std::make_unique<const SimpleGraphNodeTableReference>(
+          account_node_table.get(), std::vector<int>{1}, std::vector<int>{0}),
+      std::make_unique<const SimpleGraphNodeTableReference>(
+          account_node_table.get(), std::vector<int>{2}, std::vector<int>{0}));
+
+  // property graph
+  std::vector<std::unique_ptr<const GraphNodeTable>> node_tables;
+  node_tables.push_back(std::move(person_node_table));
+  node_tables.push_back(std::move(account_node_table));
+  node_tables.push_back(std::move(syndicate_node_table));
+
+  std::vector<std::unique_ptr<const GraphEdgeTable>> edge_tables;
+  edge_tables.push_back(std::move(person_own_acc_edge_table));
+  edge_tables.push_back(std::move(transfer_edge_table));
+
+  std::vector<std::unique_ptr<const GraphElementLabel>> labels;
+  labels.push_back(std::move(person_label));
+  labels.push_back(std::move(account_label));
+  labels.push_back(std::move(person_own_acc_label));
+  labels.push_back(std::move(transfer_label));
+  labels.push_back(std::move(id_label));
+  labels.push_back(std::move(syndicate_label));
+
+  std::vector<std::unique_ptr<const GraphPropertyDeclaration>> property_dcls;
+  property_dcls.push_back(std::move(id_property_dcl));
+  property_dcls.push_back(std::move(personId_property_dcl));
+  property_dcls.push_back(std::move(accountId_property_dcl));
+  property_dcls.push_back(std::move(target_account_id_property_dcl));
+  property_dcls.push_back(std::move(amount_property_dcl));
+  property_dcls.push_back(std::move(name_property_dcl));
+  property_dcls.push_back(std::move(bday_property_dcl));
+  property_dcls.push_back(std::move(balance_property_dcl));
+  property_dcls.push_back(std::move(age_property_dcl));
+  property_dcls.push_back(std::move(data_property_dcl));
+  property_dcls.push_back(std::move(syndicateid_property_dcl));
+  property_dcls.push_back(std::move(syndicatename_property_dcl));
+  property_dcls.push_back(std::move(syndicatedata_property_dcl));
+
+  auto property_graph = std::make_unique<SimplePropertyGraph>(
+      std::move(property_graph_name_path), std::move(node_tables),
+      std::move(edge_tables), std::move(labels), std::move(property_dcls));
+  catalog_->AddOwnedPropertyGraph(std::move(property_graph));
+
+  return absl::OkStatus();
+}
+
+absl::Status SampleCatalogImpl::LoadEnhancedAmlPropertyGraph() {
+  std::vector<std::string> property_graph_name_path{catalog_->FullName(),
+                                                    "aml_enhanced"};
+
+  const Table* person = nullptr;
+  const Table* account = nullptr;
+  const Table* city = nullptr;
+  const Table* country = nullptr;
+  const Table* person_own_acc = nullptr;
+  const Table* transfer = nullptr;
+  const Table* knows = nullptr;
+  const Table* located_in = nullptr;
+
+  ZETASQL_CHECK_OK(catalog_->FindTable({"Person"}, &person));
+  ZETASQL_CHECK_OK(catalog_->FindTable({"Account"}, &account));
+  ZETASQL_CHECK_OK(catalog_->FindTable({"City"}, &city));
+  ZETASQL_CHECK_OK(catalog_->FindTable({"Country"}, &country));
+  ZETASQL_CHECK_OK(catalog_->FindTable({"PersonOwnAccount"}, &person_own_acc));
+  ZETASQL_CHECK_OK(catalog_->FindTable({"Transfer"}, &transfer));
+  ZETASQL_CHECK_OK(catalog_->FindTable({"Knows"}, &knows));
+  ZETASQL_CHECK_OK(catalog_->FindTable({"LocatedIn"}, &located_in));
+
+  // Property Declaration
+  auto id_property_dcl = std::make_unique<SimpleGraphPropertyDeclaration>(
+      "id", property_graph_name_path, types_->get_int64());
+  auto personId_property_dcl = std::make_unique<SimpleGraphPropertyDeclaration>(
+      "personId", property_graph_name_path, types_->get_int64());
+  auto to_personId_property_dcl =
+      std::make_unique<SimpleGraphPropertyDeclaration>(
+          "toPersonId", property_graph_name_path, types_->get_int64());
+  auto accountId_property_dcl =
+      std::make_unique<SimpleGraphPropertyDeclaration>(
+          "accountId", property_graph_name_path, types_->get_int64());
+  auto target_account_id_property_dcl =
+      std::make_unique<SimpleGraphPropertyDeclaration>(
+          "targetAccountId", property_graph_name_path, types_->get_int64());
+  auto name_property_dcl = std::make_unique<SimpleGraphPropertyDeclaration>(
+      "name", property_graph_name_path, types_->get_string());
+  auto city_id_property_dcl = std::make_unique<SimpleGraphPropertyDeclaration>(
+      "cityId", property_graph_name_path, types_->get_string());
+  auto country_id_property_dcl =
+      std::make_unique<SimpleGraphPropertyDeclaration>(
+          "countryId", property_graph_name_path, types_->get_string());
+
+  // Labels
+  auto property_dcls_person =
+      absl::flat_hash_set<const GraphPropertyDeclaration*>{
+          name_property_dcl.get()};
+  auto person_label = std::make_unique<SimpleGraphElementLabel>(
+      "Person", property_graph_name_path, property_dcls_person);
+
+  auto property_dcls_account =
+      absl::flat_hash_set<const GraphPropertyDeclaration*>{
+          id_property_dcl.get()};
+  auto account_label = std::make_unique<SimpleGraphElementLabel>(
+      "Account", property_graph_name_path, property_dcls_account);
+
+  auto property_dcls_city =
+      absl::flat_hash_set<const GraphPropertyDeclaration*>{
+          city_id_property_dcl.get()};
+  auto city_label = std::make_unique<SimpleGraphElementLabel>(
+      "City", property_graph_name_path, property_dcls_city);
+
+  auto property_dcls_country =
+      absl::flat_hash_set<const GraphPropertyDeclaration*>{
+          country_id_property_dcl.get()};
+  auto country_label = std::make_unique<SimpleGraphElementLabel>(
+      "Country", property_graph_name_path, property_dcls_country);
+
+  auto property_dcls_person_own_acc =
+      absl::flat_hash_set<const GraphPropertyDeclaration*>{
+          personId_property_dcl.get(), accountId_property_dcl.get()};
+  auto person_own_acc_label = std::make_unique<SimpleGraphElementLabel>(
+      "PersonOwnAccount", property_graph_name_path,
+      property_dcls_person_own_acc);
+
+  auto property_dcls_transfer =
+      absl::flat_hash_set<const GraphPropertyDeclaration*>{
+          accountId_property_dcl.get(), target_account_id_property_dcl.get()};
+  auto transfer_label = std::make_unique<SimpleGraphElementLabel>(
+      "Transfer", property_graph_name_path, property_dcls_transfer);
+
+  auto property_dcls_knows =
+      absl::flat_hash_set<const GraphPropertyDeclaration*>{
+          personId_property_dcl.get(), to_personId_property_dcl.get()};
+  auto knows_label = std::make_unique<SimpleGraphElementLabel>(
+      "Knows", property_graph_name_path, property_dcls_knows);
+
+  auto property_dcls_located_in =
+      absl::flat_hash_set<const GraphPropertyDeclaration*>{
+          city_id_property_dcl.get(), country_id_property_dcl.get()};
+  auto located_in_label = std::make_unique<SimpleGraphElementLabel>(
+      "LocatedIn", property_graph_name_path, property_dcls_knows);
+
+  std::vector<std::unique_ptr<const GraphPropertyDefinition>>
+      property_defs_person, property_defs_account, property_defs_city,
+      property_defs_country, property_defs_person_own_acc,
+      property_defs_transfer, property_defs_knows, property_defs_located_in;
+
+  // Person node table
+  auto person_id_col_ref = MakeResolvedCatalogColumnRef(
+      types_->get_int64(), person->FindColumnByName("id"));
+  auto person_id_prop_def = std::make_unique<SimpleGraphPropertyDefinition>(
+      id_property_dcl.get(), "id");
+  InternalSetResolvedExpr(person_id_prop_def.get(), person_id_col_ref.get());
+
+  property_defs_person.push_back(std::move(person_id_prop_def));
+  owned_resolved_graph_property_definitions_.push_back(
+      std::move(person_id_col_ref));
+
+  auto person_name_col_ref = MakeResolvedCatalogColumnRef(
+      types_->get_string(), person->FindColumnByName("name"));
+  auto person_name_prop_def = std::make_unique<SimpleGraphPropertyDefinition>(
+      name_property_dcl.get(), "name");
+  InternalSetResolvedExpr(person_name_prop_def.get(),
+                          person_name_col_ref.get());
+
+  property_defs_person.push_back(std::move(person_name_prop_def));
+  owned_resolved_graph_property_definitions_.push_back(
+      std::move(person_name_col_ref));
+
+  auto person_node_table = std::make_unique<const SimpleGraphNodeTable>(
+      person->Name(), property_graph_name_path, person, std::vector<int>{0},
+      absl::flat_hash_set<const GraphElementLabel*>{person_label.get()},
+      std::move(property_defs_person));
+
+  // Account node table
+  auto account_id_col_ref = MakeResolvedCatalogColumnRef(
+      types_->get_int64(), account->FindColumnByName("id"));
+  auto account_id_prop_def = std::make_unique<SimpleGraphPropertyDefinition>(
+      id_property_dcl.get(), "id");
+  InternalSetResolvedExpr(account_id_prop_def.get(), account_id_col_ref.get());
+
+  property_defs_account.push_back(std::move(account_id_prop_def));
+  owned_resolved_graph_property_definitions_.push_back(
+      std::move(account_id_col_ref));
+
+  auto account_node_table = std::make_unique<const SimpleGraphNodeTable>(
+      account->Name(), property_graph_name_path, account, std::vector<int>{0},
+      absl::flat_hash_set<const GraphElementLabel*>{account_label.get()},
+      std::move(property_defs_account));
+
+  // City node table
+  auto city_id_col_ref = MakeResolvedCatalogColumnRef(
+      types_->get_int64(), city->FindColumnByName("id"));
+  auto city_id_prop_def = std::make_unique<SimpleGraphPropertyDefinition>(
+      city_id_property_dcl.get(), "id");
+  InternalSetResolvedExpr(city_id_prop_def.get(), city_id_col_ref.get());
+
+  property_defs_city.push_back(std::move(city_id_prop_def));
+  owned_resolved_graph_property_definitions_.push_back(
+      std::move(city_id_col_ref));
+
+  auto city_name_col_ref = MakeResolvedCatalogColumnRef(
+      types_->get_string(), person->FindColumnByName("name"));
+  auto city_name_prop_def = std::make_unique<SimpleGraphPropertyDefinition>(
+      name_property_dcl.get(), "name");
+  InternalSetResolvedExpr(city_name_prop_def.get(), city_name_col_ref.get());
+
+  property_defs_city.push_back(std::move(city_name_prop_def));
+  owned_resolved_graph_property_definitions_.push_back(
+      std::move(city_name_col_ref));
+
+  auto city_node_table = std::make_unique<const SimpleGraphNodeTable>(
+      city->Name(), property_graph_name_path, city, std::vector<int>{0},
+      absl::flat_hash_set<const GraphElementLabel*>{city_label.get()},
+      std::move(property_defs_city));
+
+  // Country node table
+  auto country_id_col_ref = MakeResolvedCatalogColumnRef(
+      types_->get_int64(), country->FindColumnByName("id"));
+  auto country_id_prop_def = std::make_unique<SimpleGraphPropertyDefinition>(
+      country_id_property_dcl.get(), "id");
+  InternalSetResolvedExpr(country_id_prop_def.get(), country_id_col_ref.get());
+
+  property_defs_country.push_back(std::move(country_id_prop_def));
+  owned_resolved_graph_property_definitions_.push_back(
+      std::move(country_id_col_ref));
+
+  auto country_name_col_ref = MakeResolvedCatalogColumnRef(
+      types_->get_string(), person->FindColumnByName("name"));
+  auto country_name_prop_def = std::make_unique<SimpleGraphPropertyDefinition>(
+      name_property_dcl.get(), "name");
+  InternalSetResolvedExpr(country_name_prop_def.get(),
+                          country_name_col_ref.get());
+
+  property_defs_country.push_back(std::move(country_name_prop_def));
+  owned_resolved_graph_property_definitions_.push_back(
+      std::move(country_name_col_ref));
+
+  auto country_node_table = std::make_unique<const SimpleGraphNodeTable>(
+      country->Name(), property_graph_name_path, country, std::vector<int>{0},
+      absl::flat_hash_set<const GraphElementLabel*>{country_label.get()},
+      std::move(property_defs_country));
+
+  // PersonOwnAccount edge table
+  auto pa_personid_col_ref = MakeResolvedCatalogColumnRef(
+      types_->get_int64(), person_own_acc->FindColumnByName("personId"));
+  auto pa_personid_prop_def = std::make_unique<SimpleGraphPropertyDefinition>(
+      personId_property_dcl.get(), "personId");
+  InternalSetResolvedExpr(pa_personid_prop_def.get(),
+                          pa_personid_col_ref.get());
+
+  property_defs_person_own_acc.push_back(std::move(pa_personid_prop_def));
+  owned_resolved_graph_property_definitions_.push_back(
+      std::move(pa_personid_col_ref));
+
+  auto pa_accountid_col_ref = MakeResolvedCatalogColumnRef(
+      types_->get_int64(), person_own_acc->FindColumnByName("accountId"));
+  auto pa_accountid_prop_def = std::make_unique<SimpleGraphPropertyDefinition>(
+      accountId_property_dcl.get(), "accountId");
+  InternalSetResolvedExpr(pa_accountid_prop_def.get(),
+                          pa_accountid_col_ref.get());
+
+  property_defs_person_own_acc.push_back(std::move(pa_accountid_prop_def));
+  owned_resolved_graph_property_definitions_.push_back(
+      std::move(pa_accountid_col_ref));
+  property_defs_person_own_acc.emplace_back(
+      std::make_unique<SimpleGraphPropertyDefinition>(
+          personId_property_dcl.get(), "personId"));
+
+  auto person_own_acc_edge_table = std::make_unique<const SimpleGraphEdgeTable>(
+      person_own_acc->Name(), property_graph_name_path, person_own_acc,
+      std::vector<int>{0, 1},
+      absl::flat_hash_set<const GraphElementLabel*>{person_own_acc_label.get()},
+      std::move(property_defs_person_own_acc),
+      std::make_unique<const SimpleGraphNodeTableReference>(
+          person_node_table.get(), std::vector<int>{0}, std::vector<int>{0}),
+      std::make_unique<const SimpleGraphNodeTableReference>(
+          account_node_table.get(), std::vector<int>{1}, std::vector<int>{0}));
+
+  // AccountTransferAccount edge table
+  auto transfer_account_id_col_ref = MakeResolvedCatalogColumnRef(
+      types_->get_int64(), transfer->FindColumnByName("fromAccountId"));
+  auto transfer_account_id_property =
+      std::make_unique<SimpleGraphPropertyDefinition>(
+          accountId_property_dcl.get(), "fromAccountId");
+  InternalSetResolvedExpr(transfer_account_id_property.get(),
+                          transfer_account_id_col_ref.get());
+  property_defs_transfer.emplace_back(std::move(transfer_account_id_property));
+  owned_resolved_graph_property_definitions_.push_back(
+      std::move(transfer_account_id_col_ref));
+
+  auto transfer_target_id_col_ref = MakeResolvedCatalogColumnRef(
+      types_->get_int64(), transfer->FindColumnByName("toAccountId"));
+  auto transfer_target_id_property =
+      std::make_unique<SimpleGraphPropertyDefinition>(
+          target_account_id_property_dcl.get(), "toAccountId");
+  InternalSetResolvedExpr(transfer_target_id_property.get(),
+                          transfer_target_id_col_ref.get());
+  property_defs_transfer.emplace_back(std::move(transfer_target_id_property));
+  owned_resolved_graph_property_definitions_.push_back(
+      std::move(transfer_target_id_col_ref));
+
+  auto transfer_edge_table = std::make_unique<const SimpleGraphEdgeTable>(
+      transfer->Name(), property_graph_name_path, transfer,
+      std::vector<int>{0, 1, 2},
+      absl::flat_hash_set<const GraphElementLabel*>{transfer_label.get()},
+      std::move(property_defs_transfer),
+      std::make_unique<const SimpleGraphNodeTableReference>(
+          account_node_table.get(), std::vector<int>{1}, std::vector<int>{0}),
+      std::make_unique<const SimpleGraphNodeTableReference>(
+          account_node_table.get(), std::vector<int>{2}, std::vector<int>{0}));
+
+  // PersonKnowsPerson edge table
+  auto knows_person_id_col_ref = MakeResolvedCatalogColumnRef(
+      types_->get_int64(), knows->FindColumnByName("personId"));
+  auto knows_person_id_property =
+      std::make_unique<SimpleGraphPropertyDefinition>(
+          personId_property_dcl.get(), "personId");
+  InternalSetResolvedExpr(knows_person_id_property.get(),
+                          knows_person_id_col_ref.get());
+  property_defs_knows.emplace_back(std::move(knows_person_id_property));
+  owned_resolved_graph_property_definitions_.push_back(
+      std::move(knows_person_id_col_ref));
+
+  auto knows_target_person_id_col_ref = MakeResolvedCatalogColumnRef(
+      types_->get_int64(), knows->FindColumnByName("toPersonId"));
+  auto knows_target_person_id_property =
+      std::make_unique<SimpleGraphPropertyDefinition>(
+          to_personId_property_dcl.get(), "toPersonId");
+  InternalSetResolvedExpr(knows_target_person_id_property.get(),
+                          knows_target_person_id_col_ref.get());
+  property_defs_knows.emplace_back(std::move(knows_target_person_id_property));
+  owned_resolved_graph_property_definitions_.push_back(
+      std::move(knows_target_person_id_col_ref));
+
+  auto knows_edge_table = std::make_unique<const SimpleGraphEdgeTable>(
+      knows->Name(), property_graph_name_path, knows, std::vector<int>{0, 1},
+      absl::flat_hash_set<const GraphElementLabel*>{knows_label.get()},
+      std::move(property_defs_knows),
+      std::make_unique<const SimpleGraphNodeTableReference>(
+          person_node_table.get(), std::vector<int>{0}, std::vector<int>{0}),
+      std::make_unique<const SimpleGraphNodeTableReference>(
+          person_node_table.get(), std::vector<int>{1}, std::vector<int>{0}));
+
+  // CityLocatedInCountry edge table
+  auto located_in_city_id_col_ref = MakeResolvedCatalogColumnRef(
+      types_->get_int64(), located_in->FindColumnByName("cityId"));
+  auto located_in_city_id_property =
+      std::make_unique<SimpleGraphPropertyDefinition>(
+          country_id_property_dcl.get(), "countryId");
+  InternalSetResolvedExpr(located_in_city_id_property.get(),
+                          located_in_city_id_col_ref.get());
+
+  property_defs_located_in.emplace_back(std::move(located_in_city_id_property));
+  owned_resolved_graph_property_definitions_.push_back(
+      std::move(located_in_city_id_col_ref));
+
+  auto located_in_country_id_col_ref = MakeResolvedCatalogColumnRef(
+      types_->get_int64(), located_in->FindColumnByName("countryId"));
+  auto located_in_country_id_property =
+      std::make_unique<SimpleGraphPropertyDefinition>(
+          country_id_property_dcl.get(), "countryId");
+  InternalSetResolvedExpr(located_in_country_id_property.get(),
+                          located_in_country_id_col_ref.get());
+  property_defs_located_in.emplace_back(
+      std::move(located_in_country_id_property));
+  owned_resolved_graph_property_definitions_.push_back(
+      std::move(located_in_country_id_col_ref));
+
+  auto located_in_edge_table = std::make_unique<const SimpleGraphEdgeTable>(
+      located_in->Name(), property_graph_name_path, located_in,
+      std::vector<int>{0, 1},
+      absl::flat_hash_set<const GraphElementLabel*>{located_in_label.get()},
+      std::move(property_defs_located_in),
+      std::make_unique<const SimpleGraphNodeTableReference>(
+          city_node_table.get(), std::vector<int>{0}, std::vector<int>{0}),
+      std::make_unique<const SimpleGraphNodeTableReference>(
+          country_node_table.get(), std::vector<int>{1}, std::vector<int>{0}));
+
+  // property graph
+  std::vector<std::unique_ptr<const GraphNodeTable>> node_tables;
+  node_tables.push_back(std::move(person_node_table));
+  node_tables.push_back(std::move(account_node_table));
+  node_tables.push_back(std::move(city_node_table));
+  node_tables.push_back(std::move(country_node_table));
+
+  std::vector<std::unique_ptr<const GraphEdgeTable>> edge_tables;
+  edge_tables.push_back(std::move(person_own_acc_edge_table));
+  edge_tables.push_back(std::move(transfer_edge_table));
+  edge_tables.push_back(std::move(knows_edge_table));
+  edge_tables.push_back(std::move(located_in_edge_table));
+
+  std::vector<std::unique_ptr<const GraphElementLabel>> labels;
+  labels.push_back(std::move(person_label));
+  labels.push_back(std::move(account_label));
+  labels.push_back(std::move(city_label));
+  labels.push_back(std::move(country_label));
+  labels.push_back(std::move(person_own_acc_label));
+  labels.push_back(std::move(transfer_label));
+  labels.push_back(std::move(knows_label));
+  labels.push_back(std::move(located_in_label));
+
+  std::vector<std::unique_ptr<const GraphPropertyDeclaration>> property_dcls;
+  property_dcls.push_back(std::move(id_property_dcl));
+  property_dcls.push_back(std::move(personId_property_dcl));
+  property_dcls.push_back(std::move(to_personId_property_dcl));
+  property_dcls.push_back(std::move(accountId_property_dcl));
+  property_dcls.push_back(std::move(target_account_id_property_dcl));
+  property_dcls.push_back(std::move(name_property_dcl));
+  property_dcls.push_back(std::move(city_id_property_dcl));
+  property_dcls.push_back(std::move(country_id_property_dcl));
+
+  auto property_graph = std::make_unique<SimplePropertyGraph>(
+      std::move(property_graph_name_path), std::move(node_tables),
+      std::move(edge_tables), std::move(labels), std::move(property_dcls));
+
+  catalog_->AddOwnedPropertyGraph(std::move(property_graph));
+
+  return absl::OkStatus();
+}
+
+void SampleCatalogImpl::LoadMultiSrcDstEdgePropertyGraphs() {
+  const std::vector<std::string> property_graph_name_path{catalog_->FullName(),
+                                                          "aml_multi"};
+  typedef std::pair<std::string, const Type*> NameAndType;
+
+  auto* entity = new SimpleTable(
+      "Entity", std::vector<NameAndType>{{"id", types_->get_int64()},
+                                         {"namespace", types_->get_int64()},
+                                         {"version", types_->get_int64()},
+                                         {"value", types_->get_string()}});
+  ZETASQL_CHECK_OK(entity->SetPrimaryKey({0, 1, 2}));
+  AddOwnedTable(entity);
+
+  auto* relation = new SimpleTable(
+      "Relation",
+      std::vector<NameAndType>{{"source_entity_id", types_->get_int64()},
+                               {"dest_entity_id", types_->get_int64()},
+                               {"namespace", types_->get_int64()},
+                               {"type", types_->get_int64()},
+                               {"value", types_->get_string()}});
+  ZETASQL_CHECK_OK(relation->SetPrimaryKey({0, 1, 2, 3}));
+  AddOwnedTable(relation);
+
+  // Property Declaration
+  auto value_property_dcl = std::make_unique<SimpleGraphPropertyDeclaration>(
+      "value", property_graph_name_path, types_->get_string());
+
+  // Labels
+  auto property_dcls_person =
+      absl::flat_hash_set<const GraphPropertyDeclaration*>{
+          value_property_dcl.get()};
+  auto entity_label = std::make_unique<SimpleGraphElementLabel>(
+      "Entity", property_graph_name_path, property_dcls_person);
+  auto relation_label = std::make_unique<SimpleGraphElementLabel>(
+      "RelatesTo", property_graph_name_path, property_dcls_person);
+
+  // Entity node table
+  auto entity_value_column_ref = MakeResolvedCatalogColumnRef(
+      types_->get_string(), entity->FindColumnByName("value"));
+  auto entity_value_property = std::make_unique<SimpleGraphPropertyDefinition>(
+      value_property_dcl.get(), "value");
+  InternalSetResolvedExpr(entity_value_property.get(),
+                          entity_value_column_ref.get());
+  std::vector<std::unique_ptr<const GraphPropertyDefinition>>
+      property_defs_entity;
+  property_defs_entity.push_back(std::move(entity_value_property));
+  owned_resolved_graph_property_definitions_.push_back(
+      std::move(entity_value_column_ref));
+  auto entity_node_table = std::make_unique<const SimpleGraphNodeTable>(
+      entity->Name(), property_graph_name_path, entity,
+      std::vector<int>{0, 1, 2},
+      absl::flat_hash_set<const GraphElementLabel*>{entity_label.get()},
+      std::move(property_defs_entity));
+
+  // Relation edge table
+  auto relation_value_column_ref = MakeResolvedCatalogColumnRef(
+      types_->get_string(), relation->FindColumnByName("value"));
+  auto relation_value_property =
+      std::make_unique<SimpleGraphPropertyDefinition>(value_property_dcl.get(),
+                                                      "value");
+  InternalSetResolvedExpr(relation_value_property.get(),
+                          relation_value_column_ref.get());
+  std::vector<std::unique_ptr<const GraphPropertyDefinition>>
+      property_defs_relation;
+  property_defs_relation.push_back(std::move(relation_value_property));
+  owned_resolved_graph_property_definitions_.push_back(
+      std::move(relation_value_column_ref));
+
+  // KEYS (source_entity_id, dest_entity_id, type)
+  const std::vector<int> element_keys = {0, 1, 3};
+  // SOURCE KEY (source_entity_id, namespace)
+  // REFERENCES Entity(id, namespace)
+  const std::vector<int> source_reference_edge_columns = {0, 2};
+  const std::vector<int> source_reference_node_columns = {0, 1};
+  // DESTINATION KEY (dest_entity_id, namespace)
+  // REFERENCES Entity(id, namespace)
+  const std::vector<int> dest_reference_edge_columns = {1, 2};
+  const std::vector<int> dest_reference_node_columns = {0, 1};
+  auto relation_edge_table = std::make_unique<const SimpleGraphEdgeTable>(
+      relation->Name(), property_graph_name_path, relation, element_keys,
+      absl::flat_hash_set<const GraphElementLabel*>{relation_label.get()},
+      std::move(property_defs_relation),
+      std::make_unique<const SimpleGraphNodeTableReference>(
+          entity_node_table.get(), source_reference_edge_columns,
+          source_reference_node_columns),
+      std::make_unique<const SimpleGraphNodeTableReference>(
+          entity_node_table.get(), dest_reference_edge_columns,
+          dest_reference_node_columns));
+
+  // property graph
+  std::vector<std::unique_ptr<const GraphNodeTable>> node_tables;
+  node_tables.push_back(std::move(entity_node_table));
+
+  std::vector<std::unique_ptr<const GraphEdgeTable>> edge_tables;
+  edge_tables.push_back(std::move(relation_edge_table));
+
+  std::vector<std::unique_ptr<const GraphElementLabel>> labels;
+  labels.push_back(std::move(entity_label));
+  labels.push_back(std::move(relation_label));
+
+  std::vector<std::unique_ptr<const GraphPropertyDeclaration>> property_dcls;
+  property_dcls.push_back(std::move(value_property_dcl));
+
+  auto property_graph = std::make_unique<SimplePropertyGraph>(
+      std::move(property_graph_name_path), std::move(node_tables),
+      std::move(edge_tables), std::move(labels), std::move(property_dcls));
+  catalog_->AddOwnedPropertyGraph(std::move(property_graph));
+}
+
+void SampleCatalogImpl::LoadCompositeKeyPropertyGraphs() {
+  std::vector<std::string> property_graph_name_path{catalog_->FullName(),
+                                                    "aml_composite_key"};
+  typedef std::pair<std::string, const Type*> NameAndType;
+
+  auto* entity = new SimpleTable(
+      "CompositeKeyEntity",
+      std::vector<NameAndType>{{"key_int", types_->get_int64()},
+                               {"key_string", types_->get_string()},
+                               {"value", types_->get_string()}});
+  ZETASQL_CHECK_OK(entity->SetPrimaryKey({0, 1}));
+  AddOwnedTable(entity);
+
+  auto* relation = new SimpleTable(
+      "CompositeKeyRelation",
+      std::vector<NameAndType>{{"source_entity_key_int", types_->get_int64()},
+                               {"dest_entity_key_int", types_->get_int64()},
+                               {"entity_key_string", types_->get_string()},
+                               {"value", types_->get_string()}});
+  ZETASQL_CHECK_OK(relation->SetPrimaryKey({0, 1, 2}));
+  AddOwnedTable(relation);
+
+  // Property Declaration
+  auto value_property_dcl = std::make_unique<SimpleGraphPropertyDeclaration>(
+      "value", property_graph_name_path, types_->get_string());
+  // Labels
+  auto property_dcls_value =
+      absl::flat_hash_set<const GraphPropertyDeclaration*>{
+          value_property_dcl.get()};
+  auto entity_label = std::make_unique<SimpleGraphElementLabel>(
+      "Entity", property_graph_name_path, property_dcls_value);
+  auto relation_label = std::make_unique<SimpleGraphElementLabel>(
+      "RelatesTo", property_graph_name_path, property_dcls_value);
+  auto value_relation_label = std::make_unique<SimpleGraphElementLabel>(
+      "RelatesByValue", property_graph_name_path,
+      absl::flat_hash_set<const GraphPropertyDeclaration*>{});
+
+  // Entity node table
+  auto entity_value_column_ref = MakeResolvedCatalogColumnRef(
+      types_->get_string(), entity->FindColumnByName("value"));
+  auto entity_value_property = std::make_unique<SimpleGraphPropertyDefinition>(
+      value_property_dcl.get(), "value");
+  InternalSetResolvedExpr(entity_value_property.get(),
+                          entity_value_column_ref.get());
+  std::vector<std::unique_ptr<const GraphPropertyDefinition>>
+      property_defs_entity;
+  property_defs_entity.push_back(std::move(entity_value_property));
+  owned_resolved_graph_property_definitions_.push_back(
+      std::move(entity_value_column_ref));
+  auto entity_node_table = std::make_unique<const SimpleGraphNodeTable>(
+      entity->Name(), property_graph_name_path, entity, std::vector<int>{0, 1},
+      absl::flat_hash_set<const GraphElementLabel*>{entity_label.get()},
+      std::move(property_defs_entity));
+
+  // Relation edge table
+  auto relation_value_column_ref = MakeResolvedCatalogColumnRef(
+      types_->get_string(), relation->FindColumnByName("value"));
+  auto relation_value_property =
+      std::make_unique<SimpleGraphPropertyDefinition>(value_property_dcl.get(),
+                                                      "value");
+  InternalSetResolvedExpr(relation_value_property.get(),
+                          relation_value_column_ref.get());
+  std::vector<std::unique_ptr<const GraphPropertyDefinition>>
+      property_defs_relation;
+  property_defs_relation.push_back(std::move(relation_value_property));
+  owned_resolved_graph_property_definitions_.push_back(
+      std::move(relation_value_column_ref));
+
+  // source reference fully contains the source node's key but is defined in a
+  // different order:
+  //   SOURCE KEY (entity_key_string, source_entity_key_int)
+  //   REFERENCES CompositeKeyEntity (key_string, key_int)
+  // destination reference fully contains the destination node's key and is
+  // defined in the same order:
+  //   DESTINATION KEY (dest_entity_key_int, entity_key_string)
+  //   REFERENCES CompositeKeyEntity (key_int, key_string)
+  auto relation_edge_table = std::make_unique<const SimpleGraphEdgeTable>(
+      relation->Name(), property_graph_name_path, relation,
+      std::vector<int>{0, 1, 2},
+      absl::flat_hash_set<const GraphElementLabel*>{relation_label.get()},
+      std::move(property_defs_relation),
+      std::make_unique<const SimpleGraphNodeTableReference>(
+          entity_node_table.get(), std::vector<int>{2, 0},
+          std::vector<int>{1, 0}),
+      std::make_unique<const SimpleGraphNodeTableReference>(
+          entity_node_table.get(), std::vector<int>{1, 2},
+          std::vector<int>{0, 1}));
+
+  // source reference contains exactly the source node's key:
+  //   SOURCE KEY (entity_key_string, source_entity_key_int)
+  //   REFERENCES CompositeKeyEntity (key_string, key_int)
+  // destination reference contains more than the destination node's key:
+  //   DESTINATION KEY (dest_entity_key_int, entity_key_string, value)
+  //   REFERENCES CompositeKeyEntity (key_int, key_string, value)
+  auto value_relation_edge_table = std::make_unique<const SimpleGraphEdgeTable>(
+      value_relation_label->Name(), property_graph_name_path, relation,
+      std::vector<int>{0, 1, 2},
+      absl::flat_hash_set<const GraphElementLabel*>{value_relation_label.get()},
+      std::vector<std::unique_ptr<const GraphPropertyDefinition>>{},
+      std::make_unique<const SimpleGraphNodeTableReference>(
+          entity_node_table.get(), std::vector<int>{2, 0},
+          std::vector<int>{1, 0}),
+      std::make_unique<const SimpleGraphNodeTableReference>(
+          entity_node_table.get(), std::vector<int>{1, 2, 3},
+          std::vector<int>{0, 1, 2}));
+
+  // property graph
+  std::vector<std::unique_ptr<const GraphNodeTable>> node_tables;
+  node_tables.push_back(std::move(entity_node_table));
+
+  std::vector<std::unique_ptr<const GraphEdgeTable>> edge_tables;
+  edge_tables.push_back(std::move(relation_edge_table));
+  edge_tables.push_back(std::move(value_relation_edge_table));
+
+  std::vector<std::unique_ptr<const GraphElementLabel>> labels;
+  labels.push_back(std::move(entity_label));
+  labels.push_back(std::move(relation_label));
+  labels.push_back(std::move(value_relation_label));
+
+  std::vector<std::unique_ptr<const GraphPropertyDeclaration>> property_dcls;
+  property_dcls.push_back(std::move(value_property_dcl));
+
+  auto property_graph = std::make_unique<SimplePropertyGraph>(
+      std::move(property_graph_name_path), std::move(node_tables),
+      std::move(edge_tables), std::move(labels), std::move(property_dcls));
+  catalog_->AddOwnedPropertyGraph(std::move(property_graph));
 }
 
 namespace {
@@ -7915,6 +8992,14 @@ void SampleCatalogImpl::LoadConstants() {
                              Value::String("foo"), &string_constant));
   catalog_->AddOwnedConstant(string_constant.release());
 
+  std::unique_ptr<SimpleConstant> bool_constant;
+  ZETASQL_CHECK_OK(SimpleConstant::Create(std::vector<std::string>{"TestConstantTrue"},
+                                  Value::Bool(true), &bool_constant));
+  catalog_->AddOwnedConstant(std::move(bool_constant));
+  ZETASQL_CHECK_OK(SimpleConstant::Create(std::vector<std::string>{"TestConstantFalse"},
+                                  Value::Bool(false), &bool_constant));
+  catalog_->AddOwnedConstant(std::move(bool_constant));
+
   std::unique_ptr<SimpleConstant> string_constant_nonstandard_name;
   ZETASQL_CHECK_OK(SimpleConstant::Create(
       std::vector<std::string>{"Test Constant-String"},
@@ -7924,11 +9009,13 @@ void SampleCatalogImpl::LoadConstants() {
   // Load a constant that is not owned by 'catalog_'.
   const ProtoType* const proto_type =
       GetProtoType(zetasql_test__::KitchenSinkPB::descriptor());
-  absl::Cord text_proto = absl::Cord("int64_key_1: 1, int64_key_2: -999");
-
-  ZETASQL_CHECK_OK(SimpleConstant::Create(std::vector<std::string>{"TestConstantProto"},
-                                  Value::Proto(proto_type, text_proto),
-                                  &owned_constant_));
+  zetasql_test__::KitchenSinkPB proto_value;
+  proto_value.set_int64_key_1(1);
+  proto_value.set_int64_key_2(-999);
+  ZETASQL_CHECK_OK(SimpleConstant::Create(
+      std::vector<std::string>{"TestConstantProto"},
+      Value::Proto(proto_type, proto_value.SerializeAsCord()),
+      &owned_constant_));
   catalog_->AddConstant(owned_constant_.get());
 
   // Load a constant that conflicts with a table.
@@ -8281,6 +9368,14 @@ void SampleCatalogImpl::LoadContrivedLambdaArgFunctions() {
            .AddArg(FunctionArgumentType::Lambda({string_type}, ARG_TYPE_ANY_1))
            .Returns(ArgBuilder().T1())
            .Build()});
+
+  AddFunction("fn_fp_string_arg_then_lambda_no_arg", Function::SCALAR,
+              {SignatureBuilder()
+                   .AddArg(ArgBuilder().String())
+                   .AddArg(FunctionArgumentType::Lambda({}, ARG_TYPE_ANY_1))
+                   .Returns(ArgBuilder().T1())
+                   .Build()});
+
   /*
   // Signature with lambda and repeated arguments before lambda.
   function = std::make_unique<Function>("fn_fp_repeated_arg_then_lambda_string",

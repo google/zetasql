@@ -548,11 +548,7 @@ public class AnalyzerTest {
     SqlException thrown =
         assertThrows(
             SqlException.class, () -> analyzer.analyzeStatement("SELECT \"abc\"[OFFSET(1.0)];"));
-    assertThat(thrown)
-        .hasMessageThat()
-        .contains(
-            "No matching signature for operator SUBSCRIPT WITH OFFSET for argument types: STRING,"
-                + " DOUBLE.");
+    assertThat(thrown).hasMessageThat().contains("No matching signature");
   }
 
   @Test

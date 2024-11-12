@@ -106,6 +106,7 @@ class ProtoValueConversionTest : public ::testing::Test {
     language_options.EnableLanguageFeature(FEATURE_INTERVAL_TYPE);
     language_options.EnableLanguageFeature(FEATURE_TOKENIZED_SEARCH);
     language_options.EnableLanguageFeature(FEATURE_RANGE_TYPE);
+    language_options.EnableLanguageFeature(FEATURE_V_1_4_UUID_TYPE);
     ZETASQL_RETURN_IF_ERROR(AnalyzeExpression(expression_sql,
                                       AnalyzerOptions(language_options),
                                       &catalog_, &type_factory_, &output));
@@ -284,6 +285,8 @@ TEST_F(ProtoValueConversionTest, RoundTrip) {
       "STRUCT(RANGE<TIMESTAMP> '[2022-12-05 16:44:00.000007+00, 2022-12-05 "
       "16:45:00.000007)')",
       "STRUCT(CAST(NULL AS RANGE<TIMESTAMP>))",
+      "STRUCT(CAST(NULL AS UUID))",
+      "STRUCT(CAST('00000000000040008000000000000000' AS UUID))",
 
       // STRUCT containing a proto.
       R"(
@@ -335,6 +338,7 @@ TEST_F(ProtoValueConversionTest, RoundTrip) {
       "[CAST(-2.000000001 AS NUMERIC)]",
       "[CAST(-12345678901234567890123456789.1234567890123456789012345678 AS "
       "BIGNUMERIC)]",
+      "[CAST('00000000000040008000000000000000' AS UUID)]",
       // ARRAYs containing ARRAYs would go here, but those aren't allowed
       // in ZetaSQL.  Instead, we do ARRAY<STRUCT<ARRAY>>.
       "[STRUCT([1,2,3])]",
@@ -373,7 +377,7 @@ TEST_F(ProtoValueConversionTest, RoundTrip) {
       "[CAST(NULL AS BIGNUMERIC)]", "[CAST(NULL AS GEOGRAPHY)]",
       "[CAST(NULL AS TOKENLIST)]", "[CAST(NULL AS RANGE<DATE>)]",
       "[CAST(NULL AS RANGE<DATETIME>)]", "[CAST(NULL AS RANGE<TIMESTAMP>)]",
-      "[CAST(NULL AS JSON)]"};
+      "[CAST(NULL AS JSON)]", "[CAST(NULL AS UUID)]"};
 
   for (bool array_wrappers : {true, false}) {
     for (bool element_wrappers : {true, false}) {

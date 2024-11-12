@@ -38,7 +38,7 @@ ALTERNATION GROUPS:
     V_1_4_CORRESPONDING
     V_1_4_CORRESPONDING_FULL
 --
-ERROR: Different column match modes cannot be used in the same query without using parentheses for grouping [at 4:11]
+ERROR: Different set operation modifiers cannot be used in the same query without using parentheses for grouping [at 4:11]
 UNION ALL CORRESPONDING
           ^
 ==
@@ -59,7 +59,7 @@ UNION ALL CORRESPONDING BY (a, b, c)
 --
 ALTERNATION GROUP: V_1_4_CORRESPONDING_FULL
 --
-ERROR: The identifier a from the CORRESPONDING BY list does not appear in the input query 1. All columns in the BY list must appear in each input query unless FULL CORRESPONDING or LEFT CORRESPONDING is specified [at 2:29]
+ERROR: The column name a from the CORRESPONDING BY list does not appear in query 1. All columns in the BY list must appear in each input query unless FULL CORRESPONDING or LEFT CORRESPONDING is specified [at 2:29]
 UNION ALL CORRESPONDING BY (a, b, c)
                             ^
 ==
@@ -82,7 +82,7 @@ UNION ALL CORRESPONDING BY (a, b, c)
 --
 ALTERNATION GROUP: V_1_4_CORRESPONDING_FULL
 --
-ERROR: Different column match modes cannot be used in the same query without using parentheses for grouping [at 4:11]
+ERROR: Different set operation modifiers cannot be used in the same query without using parentheses for grouping [at 4:11]
 UNION ALL CORRESPONDING BY (a, b, c)
           ^
 ==
@@ -97,7 +97,7 @@ ALTERNATION GROUPS:
     <empty>
     V_1_4_CORRESPONDING
 --
-ERROR: Column propagation mode (FULL/LEFT/STRICT) for set operations are not supported [at 2:16]
+ERROR: Column propagation mode (STRICT) for set operations is not supported [at 2:16]
 UNION DISTINCT STRICT
                ^
 --
@@ -120,7 +120,7 @@ ALTERNATION GROUPS:
     <empty>
     V_1_4_CORRESPONDING
 --
-ERROR: Column propagation mode (FULL/LEFT/STRICT) for set operations are not supported [at 4:16]
+ERROR: Column propagation mode (STRICT) for set operations is not supported [at 4:16]
 UNION DISTINCT STRICT
                ^
 --
@@ -141,7 +141,7 @@ ALTERNATION GROUPS:
     <empty>
     V_1_4_CORRESPONDING
 --
-ERROR: Column propagation mode (FULL/LEFT/STRICT) for set operations are not supported [at 2:1]
+ERROR: Column propagation mode (FULL) for set operations is not supported [at 2:1]
 FULL EXCEPT ALL
 ^
 --
@@ -164,7 +164,7 @@ ALTERNATION GROUPS:
     <empty>
     V_1_4_CORRESPONDING
 --
-ERROR: Column propagation mode (FULL/LEFT/STRICT) for set operations are not supported [at 4:1]
+ERROR: Column propagation mode (FULL) for set operations is not supported [at 4:1]
 FULL EXCEPT ALL
 ^
 --
@@ -185,7 +185,7 @@ ALTERNATION GROUPS:
     <empty>
     V_1_4_CORRESPONDING
 --
-ERROR: Column propagation mode (FULL/LEFT/STRICT) for set operations are not supported [at 2:1]
+ERROR: Column propagation mode (LEFT) for set operations is not supported [at 2:1]
 LEFT EXCEPT ALL
 ^
 --
@@ -208,7 +208,7 @@ ALTERNATION GROUPS:
     <empty>
     V_1_4_CORRESPONDING
 --
-ERROR: Column propagation mode (FULL/LEFT/STRICT) for set operations are not supported [at 4:1]
+ERROR: Column propagation mode (LEFT) for set operations is not supported [at 4:1]
 LEFT EXCEPT ALL
 ^
 --
@@ -226,13 +226,13 @@ SELECT 2
 --
 ALTERNATION GROUP: V_1_4_CORRESPONDING,FULL
 --
-ERROR: Column propagation mode (FULL/LEFT/STRICT) for set operations are not supported [at 2:1]
+ERROR: Column propagation mode (FULL) for set operations is not supported [at 2:1]
 FULL UNION ALL CORRESPONDING
 ^
 --
 ALTERNATION GROUP: V_1_4_CORRESPONDING,LEFT
 --
-ERROR: Column propagation mode (FULL/LEFT/STRICT) for set operations are not supported [at 2:1]
+ERROR: Column propagation mode (LEFT) for set operations is not supported [at 2:1]
 LEFT UNION ALL CORRESPONDING
 ^
 --
@@ -252,7 +252,7 @@ SELECT 2
 --
 ALTERNATION GROUP: V_1_4_CORRESPONDING
 --
-ERROR: Column propagation mode (FULL/LEFT/STRICT) for set operations are not supported [at 2:11]
+ERROR: Column propagation mode (STRICT) for set operations is not supported [at 2:11]
 UNION ALL STRICT CORRESPONDING
           ^
 --
@@ -263,11 +263,16 @@ SELECT 1
 ^
 ==
 
-[default language_features={{V_1_4_CORRESPONDING|V_1_4_CORRESPONDING_FULL}}]
+[default language_features={{V_1_4_CORRESPONDING|V_1_4_CORRESPONDING_FULL}},V_1_4_BY_NAME]
 # CORRESPONDING: same columns at same index.
 SELECT 1 AS col1, 2 AS col2
-EXCEPT DISTINCT CORRESPONDING
+{{EXCEPT DISTINCT CORRESPONDING|INNER EXCEPT DISTINCT BY NAME}}
 SELECT 3 AS col1, 4 AS col2
+--
+ALTERNATION GROUPS:
+    V_1_4_CORRESPONDING,EXCEPT DISTINCT CORRESPONDING
+    V_1_4_CORRESPONDING_FULL,EXCEPT DISTINCT CORRESPONDING
+    V_1_4_CORRESPONDING_FULL,INNER EXCEPT DISTINCT BY NAME
 --
 QueryStmt
 +-output_column_list=
@@ -300,12 +305,18 @@ QueryStmt
     |   +-output_column_list=$except_distinct2.[col1#3, col2#4]
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=INNER
+--
+ALTERNATION GROUP: V_1_4_CORRESPONDING,INNER EXCEPT DISTINCT BY NAME
+--
+ERROR: BY NAME for set operations is not supported [at 3:23]
+INNER EXCEPT DISTINCT BY NAME
+                      ^
 ==
 
 # CORRESPONDING: same columns at different index, the output column order is
 # determined by the first query.
 SELECT 1 AS col1, 2 AS col2
-INTERSECT ALL CORRESPONDING
+{{INTERSECT ALL CORRESPONDING|INNER INTERSECT ALL BY NAME}}
 SELECT 3 AS col2, 4 AS col1
 --
 QueryStmt
@@ -347,7 +358,7 @@ QueryStmt
 
 # CORRESPONDING: extra columns are ignored.
 SELECT 1 AS col, 2 AS extra_col_1
-UNION ALL CORRESPONDING
+{{UNION ALL CORRESPONDING|INNER UNION ALL BY NAME}}
 SELECT 3 AS extra_col_2, 4 AS col
 --
 QueryStmt
@@ -392,7 +403,7 @@ QueryStmt
 
 # CORRESPONDING: column name comparison is case-insensitive.
 SELECT 1 AS cOl1, 2 AS CoL2
-INTERSECT ALL CORRESPONDING
+{{INTERSECT ALL CORRESPONDING|INNER INTERSECT ALL BY NAME}}
 SELECT 3 AS Col2, 4 AS cOL1
 --
 QueryStmt
@@ -434,20 +445,36 @@ QueryStmt
 
 # CORRESPONDING: duplicate columns are not allowed.
 SELECT 1 AS col1, 2 AS col2
-EXCEPT DISTINCT CORRESPONDING
+{{EXCEPT DISTINCT CORRESPONDING|INNER EXCEPT DISTINCT BY NAME}}
 SELECT 3 AS col2, 4 AS col2
 --
+ALTERNATION GROUP: EXCEPT DISTINCT CORRESPONDING
+--
 ERROR: Duplicate columns found when using CORRESPONDING in set operations: col2 in query 2 [at 3:1]
+SELECT 3 AS col2, 4 AS col2
+^
+--
+ALTERNATION GROUP: INNER EXCEPT DISTINCT BY NAME
+--
+ERROR: Duplicate columns found when using BY NAME in set operations: col2 in query 2 [at 3:1]
 SELECT 3 AS col2, 4 AS col2
 ^
 ==
 
 # CORRESPONDING: duplicate columns are not allowed (case-insensitive).
 SELECT 1 AS col1, 2 AS COL1
-EXCEPT DISTINCT CORRESPONDING
+{{EXCEPT DISTINCT CORRESPONDING|INNER EXCEPT DISTINCT BY NAME}}
 SELECT 3 AS col2, 4 AS col3
 --
+ALTERNATION GROUP: EXCEPT DISTINCT CORRESPONDING
+--
 ERROR: Duplicate columns found when using CORRESPONDING in set operations: COL1 in query 1 [at 1:1]
+SELECT 1 AS col1, 2 AS COL1
+^
+--
+ALTERNATION GROUP: INNER EXCEPT DISTINCT BY NAME
+--
+ERROR: Duplicate columns found when using BY NAME in set operations: COL1 in query 1 [at 1:1]
 SELECT 1 AS col1, 2 AS COL1
 ^
 ==
@@ -457,10 +484,18 @@ SELECT *, 1 AS c
 FROM (
   SELECT 1 AS a, 1 AS a
 )
-UNION ALL CORRESPONDING
+{{UNION ALL CORRESPONDING|INNER UNION ALL BY NAME}}
 SELECT 1 AS c
 --
+ALTERNATION GROUP: UNION ALL CORRESPONDING
+--
 ERROR: Duplicate columns found when using CORRESPONDING in set operations: a in query 1 [at 1:1]
+SELECT *, 1 AS c
+^
+--
+ALTERNATION GROUP: INNER UNION ALL BY NAME
+--
+ERROR: Duplicate columns found when using BY NAME in set operations: a in query 1 [at 1:1]
 SELECT *, 1 AS c
 ^
 ==
@@ -472,40 +507,72 @@ SELECT *, 1 AS a
 FROM (
   SELECT 1 AS a, 2 AS b
 )
-UNION ALL CORRESPONDING
+{{UNION ALL CORRESPONDING|INNER UNION ALL BY NAME}}
 SELECT 1 AS a
 --
+ALTERNATION GROUP: UNION ALL CORRESPONDING
+--
 ERROR: Duplicate columns found when using CORRESPONDING in set operations: a in query 1 [at 1:1]
+SELECT *, 1 AS a
+^
+--
+ALTERNATION GROUP: INNER UNION ALL BY NAME
+--
+ERROR: Duplicate columns found when using BY NAME in set operations: a in query 1 [at 1:1]
 SELECT *, 1 AS a
 ^
 ==
 
 # CORRESPONDING: no common columns.
 SELECT 1 AS col1, 2 AS col2
-UNION DISTINCT CORRESPONDING
+{{UNION DISTINCT CORRESPONDING|INNER UNION DISTINCT BY NAME}}
 SELECT 3 AS col3, 4 AS col4
+--
+ALTERNATION GROUP: UNION DISTINCT CORRESPONDING
 --
 ERROR: Queries of the set operation using CORRESPONDING do not have any columns in common [at 2:1]
 UNION DISTINCT CORRESPONDING
 ^
+--
+ALTERNATION GROUP: INNER UNION DISTINCT BY NAME
+--
+ERROR: Queries of the set operation using BY NAME do not have any columns in common [at 2:7]
+INNER UNION DISTINCT BY NAME
+      ^
 ==
 
 # CORRESPONDING: value table not allowed.
 SELECT AS STRUCT 1 a, 2 b
-UNION ALL CORRESPONDING
+{{UNION ALL CORRESPONDING|INNER UNION ALL BY NAME}}
 SELECT AS STRUCT 3 c, 4 d
+--
+ALTERNATION GROUP: UNION ALL CORRESPONDING
 --
 ERROR: Value table type not allowed in set operations when CORRESPONDING is used: query 1 [at 2:1]
 UNION ALL CORRESPONDING
 ^
+--
+ALTERNATION GROUP: INNER UNION ALL BY NAME
+--
+ERROR: Value table type not allowed in set operations when BY NAME is used: query 1 [at 2:7]
+INNER UNION ALL BY NAME
+      ^
 ==
 
 # CORRESPONDING: anonymous columns are not allowed.
 SELECT 1, 2
-UNION ALL CORRESPONDING
+{{UNION ALL CORRESPONDING|INNER UNION ALL BY NAME}}
 SELECT 4, 5
 --
+ALTERNATION GROUP: UNION ALL CORRESPONDING
+--
 ERROR: Anonymous columns are not allowed in set operations when CORRESPONDING is used: query 1, column 1 [at 1:1]
+SELECT 1, 2
+^
+--
+ALTERNATION GROUP: INNER UNION ALL BY NAME
+--
+ERROR: Anonymous columns are not allowed in set operations when BY NAME is used: query 1, column 1 [at 1:1]
 SELECT 1, 2
 ^
 ==
@@ -517,10 +584,18 @@ SELECT 1, *
 FROM (
   SELECT 1 AS a, 2 AS b
 )
-UNION ALL CORRESPONDING
+{{UNION ALL CORRESPONDING|INNER UNION ALL BY NAME}}
 SELECT 1 AS a
 --
+ALTERNATION GROUP: UNION ALL CORRESPONDING
+--
 ERROR: Anonymous columns are not allowed in set operations when CORRESPONDING is used: query 1, column 1 [at 1:1]
+SELECT 1, *
+^
+--
+ALTERNATION GROUP: INNER UNION ALL BY NAME
+--
+ERROR: Anonymous columns are not allowed in set operations when BY NAME is used: query 1, column 1 [at 1:1]
 SELECT 1, *
 ^
 ==
@@ -530,10 +605,18 @@ SELECT *, 1
 FROM (
   SELECT 1 AS a
 )
-UNION ALL CORRESPONDING
+{{UNION ALL CORRESPONDING|INNER UNION ALL BY NAME}}
 SELECT 1 AS a
 --
+ALTERNATION GROUP: UNION ALL CORRESPONDING
+--
 ERROR: Anonymous columns are not allowed in set operations when CORRESPONDING is used: query 1, column 2 [at 1:1]
+SELECT *, 1
+^
+--
+ALTERNATION GROUP: INNER UNION ALL BY NAME
+--
+ERROR: Anonymous columns are not allowed in set operations when BY NAME is used: query 1, column 2 [at 1:1]
 SELECT *, 1
 ^
 ==
@@ -544,10 +627,18 @@ SELECT *, 1 AS a
 FROM (
   SELECT 1, 2 AS c
 )
-UNION ALL CORRESPONDING
+{{UNION ALL CORRESPONDING|INNER UNION ALL BY NAME}}
 SELECT 1 AS a
 --
+ALTERNATION GROUP: UNION ALL CORRESPONDING
+--
 ERROR: Anonymous columns are not allowed in set operations when CORRESPONDING is used: query 1, column 1 [at 1:1]
+SELECT *, 1 AS a
+^
+--
+ALTERNATION GROUP: INNER UNION ALL BY NAME
+--
+ERROR: Anonymous columns are not allowed in set operations when BY NAME is used: query 1, column 1 [at 1:1]
 SELECT *, 1 AS a
 ^
 ==
@@ -555,7 +646,7 @@ SELECT *, 1 AS a
 # CORRESPONDING: same column with different alias within a query is allowed.
 SELECT `int32` AS col1, `int32` AS col2
 FROM SimpleTypes
-UNION ALL CORRESPONDING
+{{UNION ALL CORRESPONDING|INNER UNION ALL BY NAME}}
 SELECT `float` AS col2, `float` AS col1
 FROM SimpleTypes
 --
@@ -612,7 +703,7 @@ QueryStmt
 
 # CORRESPONDING: same column with and without alias.
 SELECT `int32` AS col, `int32` FROM SimpleTypes
-UNION ALL CORRESPONDING
+{{UNION ALL CORRESPONDING|INNER UNION ALL BY NAME}}
 SELECT `float`, `float` AS col FROM SimpleTypes
 --
 QueryStmt
@@ -667,7 +758,7 @@ QueryStmt
 SELECT * FROM
 (
   SELECT 'abc' AS col, 'bcd' AS extra_col
-  UNION ALL CORRESPONDING
+  {{UNION ALL CORRESPONDING|INNER UNION ALL BY NAME}}
   SELECT 'def' AS col
 )
 --
@@ -711,7 +802,7 @@ QueryStmt
 
 # CORRESPONDING: no common supertype.
 select 1 AS col
-union all CORRESPONDING
+{{union all CORRESPONDING|INNER union all BY NAME}}
 select 'abc' AS col
 --
 ERROR: Column col in UNION ALL has incompatible types: INT64, STRING [at 3:1]
@@ -722,7 +813,7 @@ select 'abc' AS col
 # CORRESPONDING: different (non-literal) types coerce to a common supertype.
 # We wrap an extra ProjectScan around the first query to coerce it to double.
 SELECT 'a' a, 1 + 1 v1
-UNION ALL CORRESPONDING
+{{UNION ALL CORRESPONDING|INNER UNION ALL BY NAME}}
 SELECT 'a' b, 1.0 + 1.0 v1
 --
 QueryStmt
@@ -837,7 +928,7 @@ QueryStmt
 # set operation: CORREPSPONDING in BY_POSITION.
 (
   SELECT int32, int64, float FROM SimpleTypes
-  UNION ALL CORRESPONDING
+  {{UNION ALL CORRESPONDING|INNER UNION ALL BY NAME}}
   SELECT int64, int32 FROM SimpleTypes
 )
 UNION ALL
@@ -903,10 +994,10 @@ QueryStmt
 # set operation: CORREPSPONDING in CORRESPONDING.
 (
   SELECT int32, int64, float FROM SimpleTypes
-  UNION ALL CORRESPONDING
+  {{UNION ALL CORRESPONDING|INNER UNION ALL BY NAME}}
   SELECT int64, int32 FROM SimpleTypes
 )
-UNION ALL CORRESPONDING
+{{UNION ALL CORRESPONDING|INNER UNION ALL BY NAME}}
 SELECT int32, float FROM SimpleTypes
 --
 QueryStmt
@@ -974,7 +1065,7 @@ QueryStmt
   UNION ALL
   SELECT int64, int32, int64 FROM SimpleTypes
 )
-UNION ALL CORRESPONDING
+{{UNION ALL CORRESPONDING|INNER UNION ALL BY NAME}}
 SELECT int32, float FROM SimpleTypes
 --
 QueryStmt
@@ -1058,7 +1149,7 @@ SELECT DISTINCT a AS col1, b AS col2, a AS col3
 FROM (
   SELECT 1 AS a, 2 AS b
 )
-UNION ALL CORRESPONDING
+{{UNION ALL CORRESPONDING|INNER UNION ALL BY NAME}}
 SELECT 1 AS col3, 1 AS col1, 2 AS col2
 --
 QueryStmt
@@ -1112,7 +1203,7 @@ QueryStmt
 
 # CORRESPONDING: Union two of the same proto and proto + string literal.
 select KitchenSink AS col, KitchenSink from TestTable
-union all CORRESPONDING
+{{union all CORRESPONDING|INNER union all BY NAME}}
 select KitchenSink, "int64_key_1: 1, int64_key_2: 2" AS col from TestTable
 --
 QueryStmt
@@ -1155,7 +1246,7 @@ QueryStmt
 
 # CORRESPONDING: Union two different protos.
 select 1 AS extra_1, KitchenSink.message_with_nulls AS col from TestTable
-union all CORRESPONDING
+{{union all CORRESPONDING|INNER union all BY NAME}}
 select KitchenSink.nested_value AS col, 2 AS extra_2 from TestTable
 --
 ERROR: Column col in UNION ALL has incompatible types: zetasql_test__.MessageWithNulls, zetasql_test__.KitchenSinkPB.Nested [at 3:1]
@@ -1181,7 +1272,7 @@ select key from KeyValue union all CORRESPONDING
 
 # CORRESPONDING: Multiple columns, some of which have to get widened in either direction.
 select `int32` AS col1, `uint32` AS col2, `string` AS col3 from SimpleTypes s1
-union all CORRESPONDING
+{{union all CORRESPONDING|INNER union all BY NAME}}
 select `string` AS col3, `int32` AS col2, `int64` AS col1, from SimpleTypes s2
 --
 QueryStmt
@@ -1237,7 +1328,7 @@ QueryStmt
 SELECT *
 FROM (
   SELECT 1 AS col1, 2 AS col2
-  UNION ALL CORRESPONDING
+  {{UNION ALL CORRESPONDING|INNER UNION ALL BY NAME}}
   SELECT 1 AS col2, 2 AS col1
 )
 --
@@ -1283,7 +1374,7 @@ QueryStmt
 
 # CORRESPONDING: coercion with NULL.
 SELECT NULL AS timestamp FROM SimpleTypes
-UNION ALL CORRESPONDING
+{{UNION ALL CORRESPONDING|INNER UNION ALL BY NAME}}
 SELECT timestamp FROM SimpleTypes
 --
 QueryStmt
@@ -1322,7 +1413,7 @@ QueryStmt
 # CORRESPONDING: Union of two identical structs works.
 # Field names are determined from the first leg of the union.
 select (select AS STRUCT 1 a, 2 bbB) AS col
-union all CORRESPONDING
+{{union all CORRESPONDING|INNER union all BY NAME}}
 select (select AS STRUCT 3 a, 4 Bbb) AS col
 --
 QueryStmt
@@ -1401,7 +1492,7 @@ QueryStmt
 # Note that the second input to the union has the STRUCT field casted to a STRUCT
 # with the same field names as the STRUCT from the first input to the union.
 select (select AS STRUCT 1 a, 2 b) AS foo
-union all CORRESPONDING
+{{union all CORRESPONDING|INNER union all BY NAME}}
 select (select AS STRUCT 3 b, 4 c) as foo
 --
 QueryStmt
@@ -1485,27 +1576,43 @@ QueryStmt
 
 # CORRESPONDING: UNION of a STRUCT value table and non-value table not allowed.
 select AS STRUCT 1 a, 2 b
-union all CORRESPONDING
+union all {{CORRESPONDING|BY NAME}}
 select STRUCT<c int64, d int64>(3, 4) as e
+--
+ALTERNATION GROUP: CORRESPONDING
 --
 ERROR: Value table type not allowed in set operations when CORRESPONDING is used: query 1 [at 2:1]
 union all CORRESPONDING
+^
+--
+ALTERNATION GROUP: BY NAME
+--
+ERROR: Value table type not allowed in set operations when BY NAME is used: query 1 [at 2:1]
+union all BY NAME
 ^
 ==
 
 # CORRESPONDING: UNION of a non-value table and STRUCT value table not allowed.
 select STRUCT<c int64, d int64>(3, 4) as e
-union all CORRESPONDING
+union all {{CORRESPONDING|BY NAME}}
 select AS STRUCT 1 a, 2 b
+--
+ALTERNATION GROUP: CORRESPONDING
 --
 ERROR: Value table type not allowed in set operations when CORRESPONDING is used: query 2 [at 2:1]
 union all CORRESPONDING
+^
+--
+ALTERNATION GROUP: BY NAME
+--
+ERROR: Value table type not allowed in set operations when BY NAME is used: query 2 [at 2:1]
+union all BY NAME
 ^
 ==
 
 # CORRESPONDING: Union of two coercible structs types.
 select (select AS STRUCT 1 a, 2 b) AS col
-union all CORRESPONDING
+{{union all CORRESPONDING|INNER union all BY NAME}}
 select (select AS STRUCT 3 a, 4.5 b) AS col
 --
 QueryStmt
@@ -1589,7 +1696,7 @@ QueryStmt
 
 # CORRESPONDING: Union of two non-coercible struct types.
 select (select AS STRUCT cast(1 as uint64) a, 2 b) AS col
-union all CORRESPONDING
+{{union all CORRESPONDING|INNER union all BY NAME}}
 select (select AS STRUCT cast(1 as int32) a, 2 b) AS col
 --
 ERROR: Column col in UNION ALL has incompatible types: STRUCT<a UINT64, b INT64>, STRUCT<a INT32, b INT64> [at 3:1]
@@ -1600,7 +1707,7 @@ select (select AS STRUCT cast(1 as int32) a, 2 b) AS col
 # CORRESPONDING: Only field names of the first struct will determine the field names of
 # supertyped struct.
 select (select AS STRUCT 1, 2) AS col
-union all CORRESPONDING
+{{union all CORRESPONDING|INNER union all BY NAME}}
 select (select AS STRUCT 3 a, 4 b) AS col
 --
 QueryStmt
@@ -1684,7 +1791,7 @@ QueryStmt
 
 # CORRESPONDING: UNION of struct parameters.
 (select struct(1, "abc") AS col)
-union all CORRESPONDING
+{{union all CORRESPONDING|INNER union all BY NAME}}
 (select @test_param_struct AS col limit 1)
 --
 QueryStmt
@@ -1736,7 +1843,7 @@ QueryStmt
 
 # CORRESPONDING: with a group by.
 select `uint64` from SimpleTypes
-union all CORRESPONDING
+{{union all CORRESPONDING|INNER union all BY NAME}}
 select CAST(1 AS UINT64) as `uint64` from SimpleTypes
 group by `uint64`
 --
@@ -1837,9 +1944,9 @@ QueryStmt
 
 # CORRESPONDING: nested set operations with type coercing.
 select `uint32` AS col from SimpleTypes s1
-UNION ALL CORRESPONDING
+{{UNION ALL CORRESPONDING|INNER UNION ALL BY NAME}}
 (select `int32` AS col from SimpleTypes s2
- INTERSECT ALL CORRESPONDING
+ {{INTERSECT ALL CORRESPONDING|INNER INTERSECT ALL BY NAME}}
  (select `float` AS col from SimpleTypes s3 EXCEPT ALL CORRESPONDING select 1 AS col));
 --
 QueryStmt
@@ -1929,7 +2036,9 @@ QueryStmt
 ==
 
 # CORRESPONDING: UNION ALL CORRESPONDING with anonymous STRUCT.
-select (1, 1) AS col union all CORRESPONDING select (1, 1) AS col;
+select (1, 1) AS col
+{{union all CORRESPONDING|INNER union all BY NAME}}
+select (1, 1) AS col;
 --
 QueryStmt
 +-output_column_list=
@@ -1962,7 +2071,9 @@ QueryStmt
 ==
 
 # CORRESPONDING: UNION of arrays.
-select [1, 1] AS col union all CORRESPONDING select [2, 3, 4] AS col;
+select [1, 1] AS col
+{{union all CORRESPONDING|INNER union all BY NAME}}
+select [2, 3, 4] AS col;
 --
 QueryStmt
 +-output_column_list=
@@ -1996,7 +2107,7 @@ QueryStmt
 
 # CORRESPONDING: Subqueries with SELECT *.
 select "abc" c1, cast(1 as int64) c2
-union all CORRESPONDING
+{{union all CORRESPONDING|INNER union all BY NAME}}
 select * from (
   select "def" c1, cast(1 as int32) c2
 )
@@ -2092,10 +2203,10 @@ QueryStmt
     +-column_propagation_mode=INNER
 ==
 
-[default language_features=V_1_4_CORRESPONDING_FULL]
+[default language_features=V_1_4_CORRESPONDING_FULL,V_1_4_BY_NAME]
 # CORRESPONDING: Basic FULL mode: no common columns.
 SELECT 1 AS a
-FULL UNION ALL CORRESPONDING
+FULL UNION ALL {{CORRESPONDING|BY NAME}}
 SELECT 1 AS b
 --
 QueryStmt
@@ -2143,7 +2254,7 @@ QueryStmt
 
 # CORRESPONDING: Baisc FULL mode: first query misses columns.
 SELECT int64 FROM SimpleTypes
-FULL UNION ALL CORRESPONDING
+FULL UNION ALL {{CORRESPONDING|BY NAME}}
 SELECT int32, int64 FROM SimpleTypes
 --
 QueryStmt
@@ -2185,7 +2296,7 @@ QueryStmt
 
 # CORRESPONDING: Basic FULL mode: second query misses columns.
 SELECT int64, int32 FROM SimpleTypes
-FULL UNION ALL CORRESPONDING
+FULL UNION ALL {{CORRESPONDING|BY NAME}}
 SELECT int32 FROM SimpleTypes
 --
 QueryStmt
@@ -2223,7 +2334,7 @@ QueryStmt
 
 # CORRESPONDING: Basic FULL mode: both queries miss columns.
 SELECT 3 AS c, 1 AS a
-FULL UNION ALL CORRESPONDING
+FULL UNION ALL {{CORRESPONDING|BY NAME}}
 SELECT 1 AS a, 2 AS b
 --
 QueryStmt
@@ -2274,7 +2385,7 @@ QueryStmt
 
 # CORRESPONDING: Basic FULL no queries miss columns.
 SELECT int64, int32 FROM SimpleTypes
-FULL UNION DISTINCT CORRESPONDING
+FULL UNION DISTINCT {{CORRESPONDING|BY NAME}}
 SELECT int32, int64 FROM SimpleTypes
 --
 QueryStmt
@@ -2526,7 +2637,7 @@ QueryStmt
 
 # CORRESPONDING: FULL mode with duplicate columns of different names.
 SELECT int64 AS a, int64 AS b FROM SimpleTypes
-FULL UNION ALL CORRESPONDING
+FULL UNION ALL {{CORRESPONDING|BY NAME}}
 SELECT int32 AS b, int32 AS c FROM SimpleTypes
 --
 QueryStmt
@@ -2578,7 +2689,7 @@ QueryStmt
 
 # CORRESPONDING: FULL mode with duplicate columns of different names.
 SELECT int64 AS a, int64 AS b, int32 AS c, int64 AS d FROM SimpleTypes
-FULL UNION ALL CORRESPONDING
+FULL UNION ALL {{CORRESPONDING|BY NAME}}
 SELECT int32 AS b, int32 AS d, int32 AS e FROM SimpleTypes
 --
 QueryStmt
@@ -2636,9 +2747,9 @@ QueryStmt
 
 # CORRESPONDING: nested queries.
 SELECT int64, int32 FROM SimpleTypes
-FULL UNION ALL CORRESPONDING (
+FULL UNION ALL {{CORRESPONDING|BY NAME}} (
   SELECT float, double, int64 FROM SimpleTypes
-  FULL INTERSECT ALL CORRESPONDING
+  FULL INTERSECT ALL {{CORRESPONDING|BY NAME}}
   SELECT bool, double AS float FROM SimpleTypes
 )
 --
@@ -2725,10 +2836,10 @@ QueryStmt
 # CORRESPONDING: nested queries.
 (
   SELECT float, double, int64 FROM SimpleTypes
-  FULL INTERSECT ALL CORRESPONDING
+  FULL INTERSECT ALL {{CORRESPONDING|BY NAME}}
   SELECT bool, double AS float FROM SimpleTypes
 )
-FULL UNION ALL CORRESPONDING
+FULL UNION ALL {{CORRESPONDING|BY NAME}}
 SELECT int64, int32 FROM SimpleTypes
 --
 QueryStmt
@@ -2813,17 +2924,25 @@ QueryStmt
 
 # CORRESPONDING: Basic LEFT mode: no common columns.
 SELECT 1 AS a
-LEFT UNION ALL CORRESPONDING
+LEFT UNION ALL {{CORRESPONDING|BY NAME}}
 SELECT 1 AS b
 --
-ERROR: Query 2 of the set operation with LEFT mode does not share common columns with the first query [at 2:6]
+ALTERNATION GROUP: CORRESPONDING
+--
+ERROR: Query 2 of the set operation with LEFT mode does not share any common columns with query 1 [at 2:6]
 LEFT UNION ALL CORRESPONDING
+     ^
+--
+ALTERNATION GROUP: BY NAME
+--
+ERROR: Query 2 of the set operation with LEFT mode does not share any common columns with query 1 [at 2:6]
+LEFT UNION ALL BY NAME
      ^
 ==
 
 # CORRESPONDING: Basic LEFT mode: first query misses columns.
 SELECT 1 AS a
-LEFT UNION ALL CORRESPONDING
+LEFT UNION ALL {{CORRESPONDING|BY NAME}}
 SELECT 1 AS a, 2 AS b
 --
 QueryStmt
@@ -2863,7 +2982,7 @@ QueryStmt
 
 # CORRESPONDING: Basic LEFT mode: second query misses columns.
 SELECT 1 AS a, 2 AS b
-LEFT UNION ALL CORRESPONDING
+LEFT UNION ALL {{CORRESPONDING|BY NAME}}
 SELECT 1 AS a
 --
 QueryStmt
@@ -2906,7 +3025,7 @@ QueryStmt
 
 # CORRESPONDING: Basic LEFT mode: second query misses columns.
 SELECT 1 AS a, 2 AS b
-LEFT UNION ALL CORRESPONDING
+LEFT UNION ALL {{CORRESPONDING|BY NAME}}
 SELECT 2 AS b
 --
 QueryStmt
@@ -2949,7 +3068,7 @@ QueryStmt
 
 # CORRESPONDING: Basic LEFT mode: both queries miss columns
 SELECT 1 AS a, 2 AS b
-LEFT UNION ALL CORRESPONDING
+LEFT UNION ALL {{CORRESPONDING|BY NAME}}
 SELECT 2 AS b, 3 AS c
 --
 QueryStmt
@@ -2993,7 +3112,7 @@ QueryStmt
 
 # CORRESPONDING: Basic LEFT mode: no queries miss columns.
 SELECT 1 AS a, 2 AS b
-LEFT UNION ALL CORRESPONDING
+LEFT UNION ALL {{CORRESPONDING|BY NAME}}
 SELECT 2 AS b, 3 AS a
 --
 QueryStmt
@@ -3102,7 +3221,7 @@ SELECT 2 AS c, 3 AS d
 LEFT UNION ALL CORRESPONDING
 SELECT 2 AS d, 1 AS c
 --
-ERROR: Query 2 of the set operation with LEFT mode does not share common columns with the first query [at 2:6]
+ERROR: Query 2 of the set operation with LEFT mode does not share any common columns with query 1 [at 2:6]
 LEFT UNION ALL CORRESPONDING
      ^
 ==
@@ -3393,7 +3512,7 @@ QueryStmt
 
 # CORRESPONDING: LEFT mode with duplicate columns of different names.
 SELECT int64 AS a, int64 AS b FROM SimpleTypes
-LEFT UNION ALL CORRESPONDING
+LEFT UNION ALL {{CORRESPONDING|BY NAME}}
 SELECT int32 AS b, int32 AS c FROM SimpleTypes
 --
 QueryStmt
@@ -3438,7 +3557,7 @@ QueryStmt
 
 # CORRESPONDING: LEFT mode with duplicate columns of different names.
 SELECT int64 AS a, int64 AS b, int32 AS c, int64 AS d FROM SimpleTypes
-LEFT UNION ALL CORRESPONDING
+LEFT UNION ALL {{CORRESPONDING|BY NAME}}
 SELECT int32 AS b, int32 AS d, int32 AS e FROM SimpleTypes
 --
 QueryStmt
@@ -3489,9 +3608,9 @@ QueryStmt
 
 # CORRESPONDING: LEFT nested queries.
 SELECT int64, int32 FROM SimpleTypes
-LEFT UNION ALL CORRESPONDING (
+LEFT UNION ALL {{CORRESPONDING|BY NAME}} (
   SELECT float, double, int64 FROM SimpleTypes
-  LEFT INTERSECT ALL CORRESPONDING
+  LEFT INTERSECT ALL {{CORRESPONDING|BY NAME}}
   SELECT bool, double AS float FROM SimpleTypes
 )
 --
@@ -3561,10 +3680,10 @@ QueryStmt
 # CORRESPONDING: LEFT nested queries.
 (
   SELECT float, double, int64 FROM SimpleTypes
-  LEFT INTERSECT ALL CORRESPONDING
+  LEFT INTERSECT ALL {{CORRESPONDING|BY NAME}}
   SELECT bool, double AS float FROM SimpleTypes
 )
-LEFT UNION ALL CORRESPONDING
+LEFT UNION ALL {{CORRESPONDING|BY NAME}}
 SELECT int64, int32 FROM SimpleTypes
 --
 QueryStmt
@@ -3635,14 +3754,26 @@ QueryStmt
 # CORRESPONDING: LEFT nested queries: no common columns.
 (
   SELECT float, double, int64 FROM SimpleTypes
-  LEFT INTERSECT ALL CORRESPONDING
+  LEFT INTERSECT ALL {{CORRESPONDING|BY NAME}}
   SELECT bool, double AS float FROM SimpleTypes
 )
-LEFT UNION ALL CORRESPONDING
+LEFT UNION ALL {{CORRESPONDING|BY NAME}}
 SELECT int32 FROM SimpleTypes
 --
-ERROR: Query 2 of the set operation with LEFT mode does not share common columns with the first query [at 6:6]
+ALTERNATION GROUPS:
+    CORRESPONDING,CORRESPONDING
+    BY NAME,CORRESPONDING
+--
+ERROR: Query 2 of the set operation with LEFT mode does not share any common columns with query 1 [at 6:6]
 LEFT UNION ALL CORRESPONDING
+     ^
+--
+ALTERNATION GROUPS:
+    CORRESPONDING,BY NAME
+    BY NAME,BY NAME
+--
+ERROR: Query 2 of the set operation with LEFT mode does not share any common columns with query 1 [at 6:6]
+LEFT UNION ALL BY NAME
      ^
 ==
 
@@ -3651,7 +3782,7 @@ SELECT DISTINCT a AS col1, a AS col2
 FROM (
   SELECT 1 AS a
 )
-LEFT UNION ALL CORRESPONDING
+LEFT UNION ALL {{CORRESPONDING|BY NAME}}
 SELECT 1 AS col1, 2 AS col2
 --
 QueryStmt
@@ -3697,7 +3828,7 @@ QueryStmt
 
 # Literal coercion is correctly handled: INNER mode.
 SELECT CAST(1 AS INT32) AS A, NULL AS B
-INTERSECT ALL CORRESPONDING
+{{INTERSECT ALL CORRESPONDING|INNER INTERSECT ALL BY NAME}}
 SELECT CAST("STRING_VAL" AS STRING) AS B, 100 AS A
 --
 QueryStmt
@@ -3750,7 +3881,7 @@ QueryStmt
 # Literal cocercion is correctly handled when NULL columns are padded for FULL
 # mode.
 SELECT NULL AS A
-FULL UNION ALL CORRESPONDING
+FULL UNION ALL {{CORRESPONDING|BY NAME}}
 SELECT 1 AS B, CAST(NULL AS ARRAY<STRUCT<STRING, STRING>>) AS A
 --
 QueryStmt
@@ -3803,7 +3934,7 @@ QueryStmt
 # Literal cocercion is correctly handled when NULL columns are padded for FULL
 # mode.
 SELECT NULL AS A, 1 AS B, 3 AS C
-FULL UNION ALL CORRESPONDING
+FULL UNION ALL {{CORRESPONDING|BY NAME}}
 SELECT 1 AS B, CAST(NULL AS ARRAY<STRUCT<STRING, STRING>>) AS A
 --
 QueryStmt
@@ -3855,7 +3986,7 @@ QueryStmt
 # Literal coercion is correctly handled when NULL columns are padded for FULL
 # mode.
 SELECT CAST(1 AS INT32) AS A, "STRING_VAL" AS B
-FULL UNION DISTINCT CORRESPONDING
+FULL UNION DISTINCT {{CORRESPONDING|BY NAME}}
 SELECT NULL AS B
 --
 QueryStmt
@@ -3904,7 +4035,7 @@ QueryStmt
 # Literal coercion is correctly handled when NULL columns are padded for FULL
 # mode.
 SELECT CAST(1 AS INT32) AS A, "STRING_VAL" AS B
-FULL UNION DISTINCT CORRESPONDING
+FULL UNION DISTINCT {{CORRESPONDING|BY NAME}}
 SELECT NULL AS B, 1 AS A, "NO_MATCHING" AS C
 --
 QueryStmt
@@ -3961,7 +4092,7 @@ QueryStmt
 # Literal coercion is correctly handled when NULL columns are padded for LEFT
 # mode.
 SELECT NULL AS A, 2 AS B
-LEFT UNION ALL CORRESPONDING
+LEFT UNION ALL {{CORRESPONDING|BY NAME}}
 SELECT CAST(1 AS INT32) AS A
 --
 QueryStmt
@@ -4010,7 +4141,7 @@ QueryStmt
 # Literal coercion is correctly handled when NULL columns are padded for LEFT
 # mode.
 SELECT CAST(1 AS INT32) AS A, 2 AS B
-LEFT UNION ALL CORRESPONDING
+LEFT UNION ALL {{CORRESPONDING|BY NAME}}
 SELECT NULL AS A
 --
 QueryStmt
@@ -4058,7 +4189,7 @@ QueryStmt
 
 # CORRESPONDING: Basic STRICT.
 SELECT 1 AS a, 2 AS b
-UNION ALL STRICT CORRESPONDING
+UNION ALL {{STRICT CORRESPONDING|BY NAME}}
 SELECT 2 AS b, 1 AS a
 --
 QueryStmt
@@ -4099,31 +4230,55 @@ QueryStmt
 
 # CORRESPONDING: Basic STRICT: column names must be identical.
 SELECT 1 AS a, 2 AS b
-UNION ALL STRICT CORRESPONDING
+UNION ALL {{STRICT CORRESPONDING|BY NAME}}
 SELECT 2 AS b
 --
-ERROR: STRICT CORRESPONDING requires all input queries to have identical column names, but the first query has [a, b] and query 2 has [b] [at 2:1]
+ALTERNATION GROUP: STRICT CORRESPONDING
+--
+ERROR: STRICT CORRESPONDING requires all input queries to have identical column names, but query 1 has [a, b] and query 2 has [b] [at 2:1]
 UNION ALL STRICT CORRESPONDING
+^
+--
+ALTERNATION GROUP: BY NAME
+--
+ERROR: BY NAME requires all input queries to have identical column names, but query 1 has [a, b] and query 2 has [b] [at 2:1]
+UNION ALL BY NAME
 ^
 ==
 
 # CORRESPONDING: Basic STRICT: column names must be identical.
 SELECT 1 AS a
-UNION ALL STRICT CORRESPONDING
+UNION ALL {{STRICT CORRESPONDING|BY NAME}}
 SELECT 2 AS b, 3 AS c, 2 AS a
 --
-ERROR: STRICT CORRESPONDING requires all input queries to have identical column names, but the first query has [a] and query 2 has [b, c, a] [at 2:1]
+ALTERNATION GROUP: STRICT CORRESPONDING
+--
+ERROR: STRICT CORRESPONDING requires all input queries to have identical column names, but query 1 has [a] and query 2 has [b, c, a] [at 2:1]
 UNION ALL STRICT CORRESPONDING
+^
+--
+ALTERNATION GROUP: BY NAME
+--
+ERROR: BY NAME requires all input queries to have identical column names, but query 1 has [a] and query 2 has [b, c, a] [at 2:1]
+UNION ALL BY NAME
 ^
 ==
 
 # CORRESPONDING: Basic STRICT: column names must be identical.
 SELECT 1 AS a, 2 AS b
-UNION ALL STRICT CORRESPONDING
+UNION ALL {{STRICT CORRESPONDING|BY NAME}}
 SELECT 2 AS b, 3 AS c
 --
-ERROR: STRICT CORRESPONDING requires all input queries to have identical column names, but the first query has [a, b] and query 2 has [b, c] [at 2:1]
+ALTERNATION GROUP: STRICT CORRESPONDING
+--
+ERROR: STRICT CORRESPONDING requires all input queries to have identical column names, but query 1 has [a, b] and query 2 has [b, c] [at 2:1]
 UNION ALL STRICT CORRESPONDING
+^
+--
+ALTERNATION GROUP: BY NAME
+--
+ERROR: BY NAME requires all input queries to have identical column names, but query 1 has [a, b] and query 2 has [b, c] [at 2:1]
+UNION ALL BY NAME
 ^
 ==
 
@@ -4187,7 +4342,7 @@ SELECT 2 AS B, 3 AS a
 UNION ALL STRICT CORRESPONDING
 SELECT 3 AS A, 1 AS B, 3 AS c
 --
-ERROR: STRICT CORRESPONDING requires all input queries to have identical column names, but the first query has [a, b] and query 3 has [A, B, c] [at 2:1]
+ERROR: STRICT CORRESPONDING requires all input queries to have identical column names, but query 1 has [a, b] and query 3 has [A, B, c] [at 2:1]
 UNION ALL STRICT CORRESPONDING
 ^
 ==
@@ -4195,10 +4350,10 @@ UNION ALL STRICT CORRESPONDING
 # CORRESPONDING: nested set operations.
 (
   SELECT 1 AS a, 2 AS b, 3 AS c
-  UNION ALL CORRESPONDING
+  {{UNION ALL CORRESPONDING|INNER UNION ALL BY NAME}}
   SELECT 2 AS c, 3 AS b
 )
-EXCEPT DISTINCT STRICT CORRESPONDING
+EXCEPT DISTINCT {{STRICT CORRESPONDING|BY NAME}}
 SELECT 1 AS B, 3 AS c
 --
 QueryStmt
@@ -4263,10 +4418,10 @@ QueryStmt
 
 # CORRESPONDING: nested set operations.
 SELECT 1 AS B, 3 AS c
-EXCEPT DISTINCT STRICT CORRESPONDING
+EXCEPT DISTINCT {{STRICT CORRESPONDING|BY NAME}}
 (
   SELECT 1 AS a, 2 AS b, 3 AS c
-  UNION ALL CORRESPONDING
+  {{UNION ALL CORRESPONDING|INNER UNION ALL BY NAME}}
   SELECT 2 AS c, 3 AS b
 )
 --
@@ -4333,38 +4488,62 @@ QueryStmt
 # CORRESPONDING: nested set operations: column lists are not the same.
 (
   SELECT 1 AS a, 2 AS b, 3 AS c
-  UNION ALL CORRESPONDING
+  {{UNION ALL CORRESPONDING|INNER UNION ALL BY NAME}}
   SELECT 2 AS c, 3 AS b
 )
-EXCEPT DISTINCT STRICT CORRESPONDING
+EXCEPT DISTINCT {{STRICT CORRESPONDING|BY NAME}}
 SELECT 1 AS a, 3 AS C
 --
-ERROR: STRICT CORRESPONDING requires all input queries to have identical column names, but the first query has [b, c] and query 2 has [a, C] [at 6:1]
+ALTERNATION GROUPS:
+    UNION ALL CORRESPONDING,STRICT CORRESPONDING
+    INNER UNION ALL BY NAME,STRICT CORRESPONDING
+--
+ERROR: STRICT CORRESPONDING requires all input queries to have identical column names, but query 1 has [b, c] and query 2 has [a, C] [at 6:1]
 EXCEPT DISTINCT STRICT CORRESPONDING
+^
+--
+ALTERNATION GROUPS:
+    UNION ALL CORRESPONDING,BY NAME
+    INNER UNION ALL BY NAME,BY NAME
+--
+ERROR: BY NAME requires all input queries to have identical column names, but query 1 has [b, c] and query 2 has [a, C] [at 6:1]
+EXCEPT DISTINCT BY NAME
 ^
 ==
 
 # CORRESPONDING: nested set operations: column lists are not the same.
 SELECT 1 AS a, 3 AS C
-EXCEPT DISTINCT STRICT CORRESPONDING
+EXCEPT DISTINCT {{STRICT CORRESPONDING|BY NAME}}
 (
   SELECT 1 AS a, 2 AS b, 3 AS c
-  UNION ALL CORRESPONDING
+  {{UNION ALL CORRESPONDING|INNER UNION ALL BY NAME}}
   SELECT 2 AS c, 3 AS b
 )
 --
-ERROR: STRICT CORRESPONDING requires all input queries to have identical column names, but the first query has [a, C] and query 2 has [b, c] [at 2:1]
+ALTERNATION GROUPS:
+    STRICT CORRESPONDING,UNION ALL CORRESPONDING
+    STRICT CORRESPONDING,INNER UNION ALL BY NAME
+--
+ERROR: STRICT CORRESPONDING requires all input queries to have identical column names, but query 1 has [a, C] and query 2 has [b, c] [at 2:1]
 EXCEPT DISTINCT STRICT CORRESPONDING
+^
+--
+ALTERNATION GROUPS:
+    BY NAME,UNION ALL CORRESPONDING
+    BY NAME,INNER UNION ALL BY NAME
+--
+ERROR: BY NAME requires all input queries to have identical column names, but query 1 has [a, C] and query 2 has [b, c] [at 2:1]
+EXCEPT DISTINCT BY NAME
 ^
 ==
 
 # CORRESPONDING: INNER + STRICT
 (
   SELECT 1 AS A, 2 AS B, 3 AS C
-  INTERSECT ALL CORRESPONDING
+  {{INTERSECT ALL CORRESPONDING|INNER INTERSECT ALL BY NAME}}
   SELECT 2 AS B, 1 AS A
 )
-UNION ALL STRICT CORRESPONDING
+UNION ALL {{STRICT CORRESPONDING|BY NAME}}
 SELECT 1 AS A, 2 AS B
 --
 QueryStmt
@@ -4429,10 +4608,10 @@ QueryStmt
 
 # CORRESPONDING: INNER + STRICT
 SELECT 1 AS A, 2 AS B
-UNION ALL STRICT CORRESPONDING
+UNION ALL {{STRICT CORRESPONDING|BY NAME}}
 (
   SELECT 1 AS A, 2 AS B, 3 AS C
-  INTERSECT ALL CORRESPONDING
+  {{INTERSECT ALL CORRESPONDING|INNER INTERSECT ALL BY NAME}}
   SELECT 2 AS B, 1 AS A
 )
 --
@@ -4499,10 +4678,10 @@ QueryStmt
 # CORRESPONDING: FULL + STRICT
 (
   SELECT 1 AS A, 3 AS C
-  FULL INTERSECT DISTINCT CORRESPONDING
+  FULL INTERSECT DISTINCT {{CORRESPONDING|BY NAME}}
   SELECT 2 AS B
 )
-UNION ALL STRICT CORRESPONDING
+UNION ALL {{STRICT CORRESPONDING|BY NAME}}
 SELECT 3 AS C, 1 AS B, 2 AS A
 --
 QueryStmt
@@ -4576,24 +4755,36 @@ QueryStmt
 
 # CORRESPONDING: INNER + STRICT columns not identical.
 SELECT 1 AS B, 2 AS A
-UNION ALL STRICT CORRESPONDING
+UNION ALL {{STRICT CORRESPONDING|BY NAME}}
 (
   SELECT 1 AS A, 3 AS C
-  INTERSECT DISTINCT CORRESPONDING
+  {{INTERSECT DISTINCT CORRESPONDING|INNER INTERSECT DISTINCT BY NAME}}
   SELECT 2 AS B, 3 AS A
 )
 --
-ERROR: STRICT CORRESPONDING requires all input queries to have identical column names, but the first query has [B, A] and query 2 has [A] [at 2:1]
+ALTERNATION GROUPS:
+    STRICT CORRESPONDING,INTERSECT DISTINCT CORRESPONDING
+    STRICT CORRESPONDING,INNER INTERSECT DISTINCT BY NAME
+--
+ERROR: STRICT CORRESPONDING requires all input queries to have identical column names, but query 1 has [B, A] and query 2 has [A] [at 2:1]
 UNION ALL STRICT CORRESPONDING
+^
+--
+ALTERNATION GROUPS:
+    BY NAME,INTERSECT DISTINCT CORRESPONDING
+    BY NAME,INNER INTERSECT DISTINCT BY NAME
+--
+ERROR: BY NAME requires all input queries to have identical column names, but query 1 has [B, A] and query 2 has [A] [at 2:1]
+UNION ALL BY NAME
 ^
 ==
 
 # CORRESPONDING: FULL + STRICT
 SELECT 3 AS C, 1 AS B, 2 AS A
-UNION ALL STRICT CORRESPONDING
+UNION ALL {{STRICT CORRESPONDING|BY NAME}}
 (
   SELECT 1 AS A, 3 AS C
-  FULL INTERSECT DISTINCT CORRESPONDING
+  FULL INTERSECT DISTINCT {{CORRESPONDING|BY NAME}}
   SELECT 2 AS B
 )
 --
@@ -4668,25 +4859,37 @@ QueryStmt
 
 # CORRESPONDING: FULL + STRICT, not identical columns.
 SELECT 3 AS C, 2 AS A
-UNION ALL STRICT CORRESPONDING
+UNION ALL {{STRICT CORRESPONDING|BY NAME}}
 (
   SELECT 1 AS A, 3 AS C
-  FULL INTERSECT DISTINCT CORRESPONDING
+  FULL INTERSECT DISTINCT {{CORRESPONDING|BY NAME}}
   SELECT 2 AS B
 )
 --
-ERROR: STRICT CORRESPONDING requires all input queries to have identical column names, but the first query has [C, A] and query 2 has [A, C, B] [at 2:1]
+ALTERNATION GROUPS:
+    STRICT CORRESPONDING,CORRESPONDING
+    STRICT CORRESPONDING,BY NAME
+--
+ERROR: STRICT CORRESPONDING requires all input queries to have identical column names, but query 1 has [C, A] and query 2 has [A, C, B] [at 2:1]
 UNION ALL STRICT CORRESPONDING
+^
+--
+ALTERNATION GROUPS:
+    BY NAME,CORRESPONDING
+    BY NAME,BY NAME
+--
+ERROR: BY NAME requires all input queries to have identical column names, but query 1 has [C, A] and query 2 has [A, C, B] [at 2:1]
+UNION ALL BY NAME
 ^
 ==
 
 # CORRESPONDING: LEFT + STRICT
 (
   SELECT 1 AS A, 2 AS B
-  LEFT EXCEPT ALL CORRESPONDING
+  LEFT EXCEPT ALL {{CORRESPONDING|BY NAME}}
   SELECT 2 AS A, 3 AS C
 )
-INTERSECT DISTINCT STRICT CORRESPONDING
+INTERSECT DISTINCT {{STRICT CORRESPONDING|BY NAME}}
 SELECT 2 AS B, 3 AS A
 --
 QueryStmt
@@ -4752,10 +4955,10 @@ QueryStmt
 
 # CORRESPONDING: LEFT + STRICT
 SELECT 2 AS B, 3 AS A
-INTERSECT ALL STRICT CORRESPONDING
+INTERSECT ALL {{STRICT CORRESPONDING|BY NAME}}
 (
   SELECT 1 AS A, 2 AS B
-  LEFT EXCEPT ALL CORRESPONDING
+  LEFT EXCEPT ALL {{CORRESPONDING|BY NAME}}
   SELECT 2 AS A, 3 AS C
 )
 --
@@ -4823,12 +5026,35 @@ QueryStmt
 # CORRESPONDING: LEFT + STRICT, not identical columns
 (
   SELECT 1 AS A, 2 AS B, 3 AS C
-  LEFT EXCEPT ALL CORRESPONDING
+  LEFT EXCEPT ALL {{CORRESPONDING|BY NAME}}
   SELECT 2 AS A, 3 AS C
 )
-INTERSECT DISTINCT STRICT CORRESPONDING
+INTERSECT DISTINCT {{STRICT CORRESPONDING|BY NAME}}
 SELECT 2 AS B, 3 AS A
 --
-ERROR: STRICT CORRESPONDING requires all input queries to have identical column names, but the first query has [A, B, C] and query 2 has [B, A] [at 6:1]
+ALTERNATION GROUPS:
+    CORRESPONDING,STRICT CORRESPONDING
+    BY NAME,STRICT CORRESPONDING
+--
+ERROR: STRICT CORRESPONDING requires all input queries to have identical column names, but query 1 has [A, B, C] and query 2 has [B, A] [at 6:1]
 INTERSECT DISTINCT STRICT CORRESPONDING
 ^
+--
+ALTERNATION GROUPS:
+    CORRESPONDING,BY NAME
+    BY NAME,BY NAME
+--
+ERROR: BY NAME requires all input queries to have identical column names, but query 1 has [A, B, C] and query 2 has [B, A] [at 6:1]
+INTERSECT DISTINCT BY NAME
+^
+==
+
+SELECT 5 x
+LEFT UNION ALL CORRESPONDING
+SELECT 6 x
+UNION ALL STRICT CORRESPONDING
+SELECT 7 x
+--
+ERROR: Different set operation modifiers (LEFT and STRICT) cannot be used in the same query without using parentheses for grouping [at 4:11]
+UNION ALL STRICT CORRESPONDING
+          ^

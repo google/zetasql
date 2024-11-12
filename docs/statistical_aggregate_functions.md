@@ -8,7 +8,7 @@ ZetaSQL supports statistical aggregate functions.
 To learn about the syntax for aggregate function calls, see
 [Aggregate function calls][agg-function-calls].
 
-### Function list
+## Function list
 
 <table>
   <thead>
@@ -20,90 +20,90 @@ To learn about the syntax for aggregate function calls, see
   <tbody>
 
 <tr>
-  <td><a href="#corr"><code>CORR</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/statistical_aggregate_functions.md#corr"><code>CORR</code></a>
 </td>
   <td>
     Computes the Pearson coefficient of correlation of a set of number pairs.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#covar_pop"><code>COVAR_POP</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/statistical_aggregate_functions.md#covar_pop"><code>COVAR_POP</code></a>
 </td>
   <td>
     Computes the population covariance of a set of number pairs.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#covar_samp"><code>COVAR_SAMP</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/statistical_aggregate_functions.md#covar_samp"><code>COVAR_SAMP</code></a>
 </td>
   <td>
     Computes the sample covariance of a set of number pairs.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#stddev"><code>STDDEV</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/statistical_aggregate_functions.md#stddev"><code>STDDEV</code></a>
 </td>
   <td>
     An alias of the <code>STDDEV_SAMP</code> function.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#stddev_pop"><code>STDDEV_POP</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/statistical_aggregate_functions.md#stddev_pop"><code>STDDEV_POP</code></a>
 </td>
   <td>
     Computes the population (biased) standard deviation of the values.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#stddev_samp"><code>STDDEV_SAMP</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/statistical_aggregate_functions.md#stddev_samp"><code>STDDEV_SAMP</code></a>
 </td>
   <td>
     Computes the sample (unbiased) standard deviation of the values.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#var_pop"><code>VAR_POP</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/statistical_aggregate_functions.md#var_pop"><code>VAR_POP</code></a>
 </td>
   <td>
     Computes the population (biased) variance of the values.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#var_samp"><code>VAR_SAMP</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/statistical_aggregate_functions.md#var_samp"><code>VAR_SAMP</code></a>
 </td>
   <td>
     Computes the sample (unbiased) variance of the values.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#variance"><code>VARIANCE</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/statistical_aggregate_functions.md#variance"><code>VARIANCE</code></a>
 </td>
   <td>
     An alias of <code>VAR_SAMP</code>.
+    
   </td>
 </tr>
 
   </tbody>
 </table>
 
-### `CORR`
+## `CORR`
 
 ```sql
 CORR(
@@ -263,7 +263,7 @@ FROM
 
 [stat-agg-link-to-pearson-coefficient]: https://en.wikipedia.org/wiki/Pearson_product-moment_correlation_coefficient
 
-### `COVAR_POP`
+## `COVAR_POP`
 
 ```sql
 COVAR_POP(
@@ -409,7 +409,7 @@ FROM
 
 [stat-agg-link-to-covariance]: https://en.wikipedia.org/wiki/Covariance
 
-### `COVAR_SAMP`
+## `COVAR_SAMP`
 
 ```sql
 COVAR_SAMP(
@@ -559,7 +559,7 @@ FROM
 
 [stat-agg-link-to-covariance]: https://en.wikipedia.org/wiki/Covariance
 
-### `STDDEV`
+## `STDDEV`
 
 ```sql
 STDDEV(
@@ -586,7 +586,7 @@ An alias of [STDDEV_SAMP][stat-agg-link-to-stddev-samp].
 
 [stat-agg-link-to-stddev-samp]: #stddev_samp
 
-### `STDDEV_POP`
+## `STDDEV_POP`
 
 ```sql
 STDDEV_POP(
@@ -712,7 +712,7 @@ SELECT STDDEV_POP(x) AS results FROM UNNEST([10, 14, CAST('Infinity' as DOUBLE)]
 
 [dp-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md
 
-### `STDDEV_SAMP`
+## `STDDEV_SAMP`
 
 ```sql
 STDDEV_SAMP(
@@ -832,7 +832,7 @@ SELECT STDDEV_SAMP(x) AS results FROM UNNEST([10, 14, CAST('Infinity' as DOUBLE)
  *---------*/
 ```
 
-### `VAR_POP`
+## `VAR_POP`
 
 ```sql
 VAR_POP(
@@ -943,7 +943,7 @@ SELECT VAR_POP(x) AS results FROM UNNEST([10, 14, CAST('Infinity' as DOUBLE)]) A
 
 [dp-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md
 
-### `VAR_SAMP`
+## `VAR_SAMP`
 
 ```sql
 VAR_SAMP(
@@ -1063,7 +1063,7 @@ SELECT VAR_SAMP(x) AS results FROM UNNEST([10, 14, CAST('Infinity' as DOUBLE)]) 
  *---------*/
 ```
 
-### `VARIANCE`
+## `VARIANCE`
 
 ```sql
 VARIANCE(

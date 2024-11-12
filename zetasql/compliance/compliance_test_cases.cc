@@ -191,6 +191,19 @@ static std::string MakeLiteral(const Value& value) {
   }
 }
 
+// Returns all comparison operators for "=" and "<" operators.
+static std::string ComparisonExpression(const FunctionTestCall& f) {
+  if (f.function_name == "=" || f.function_name == "RangeEquals") {
+    return "@p0 = @p1 AND @p1 = @p0 AND @p0 <= @p1 AND @p0 >= @p1 AND "
+           "NOT(@p0 != @p1) AND NOT(@p0 < @p1) AND NOT(@p0 > @p1)";
+  } else if (f.function_name == "<" || f.function_name == "RangeLessThan") {
+    return "@p0 < @p1 AND @p1 > @p0 AND @p0 <= @p1 AND @p0 != @p1 AND "
+           "NOT(@p0 > @p1) AND NOT(@p0 >= @p1) AND NOT(@p0 = @p1)";
+  } else {
+    ABSL_LOG(FATAL) << f.function_name;
+  }
+}
+
 static std::vector<FunctionTestCall> WrapFunctionTestWithFeature(
     absl::Span<const FunctionTestCall> tests, LanguageFeature feature) {
   std::vector<FunctionTestCall> wrapped_tests;
@@ -209,7 +222,7 @@ std::vector<FunctionTestCall> WrapFeatureAdditionalStringFunctions(
 }
 
 std::vector<FunctionTestCall> WrapFeatureLastDay(
-    const std::vector<FunctionTestCall>& tests) {
+    absl::Span<const FunctionTestCall> tests) {
   std::vector<FunctionTestCall> wrapped_tests;
   for (auto call : tests) {
     QueryParamsWithResult::FeatureSet feature_set = {
@@ -1193,6 +1206,15 @@ SHARDED_TEST_F(ComplianceCodebasedTests,
                           format_fct);
 }
 
+SHARDED_TEST_F(ComplianceCodebasedTests, TestCastMapFunction, 5) {
+  auto format_fct = [](const QueryParamsWithResult& p) {
+    return absl::StrCat("CAST(@p0 AS ",
+                        p.result().type()->TypeName(PRODUCT_INTERNAL), ")");
+  };
+  SetNamePrefix("CastMap", /*need_result_type_name=*/true);
+  RunStatementTestsCustom(Shard(GetFunctionTestsMapCast()), format_fct);
+}
+
 SHARDED_TEST_F(ComplianceCodebasedTests, TestBitCastFunctions, 1) {
   SetNamePrefix("BitCast");
   RunFunctionCalls(Shard(GetFunctionTestsBitCast()));
@@ -1446,6 +1468,16 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestToJson, 3) {
   };
   RunFunctionTestsCustom(
       Shard(EnableJsonFeatureForTest(GetFunctionTestsToJson())), to_json_fct);
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestSafeToJson, 3) {
+  SetNamePrefix("SafeToJson");
+  auto safe_to_json_fct = [](const FunctionTestCall& f) {
+    return absl::Substitute("$0(@p0)", f.function_name);
+  };
+  RunFunctionTestsCustom(
+      Shard(EnableJsonFeatureForTest(GetFunctionTestsSafeToJson())),
+      safe_to_json_fct);
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestParseJson, 1) {
@@ -2406,38 +2438,20 @@ SHARDED_TEST_F(ComplianceCodebasedTests, IntervalCtor, 1) {
 
 SHARDED_TEST_F(ComplianceCodebasedTests, IntervalComparisons, 1) {
   SetNamePrefix("IntervalComparisons");
-  auto cmp = [](const FunctionTestCall& f) {
-    // Test cases only use "=" and "<", but we test all comparison operators
-    // for given pair of values.
-    if (f.function_name == "=") {
-      return "@p0 = @p1 AND @p1 = @p0 AND @p0 <= @p1 AND @p0 >= @p1 AND "
-             "NOT(@p0 != @p1) AND NOT(@p0 < @p1) AND NOT(@p0 > @p1)";
-    } else if (f.function_name == "<") {
-      return "@p0 < @p1 AND @p1 > @p0 AND @p0 <= @p1 AND @p0 != @p1 AND "
-             "NOT(@p0 > @p1) AND NOT(@p0 >= @p1) AND NOT(@p0 = @p1)";
-    } else {
-      ABSL_LOG(FATAL) << f.function_name;
-    }
-  };
-  RunFunctionTestsCustom(Shard(GetFunctionTestsIntervalComparisons()), cmp);
+  RunFunctionTestsCustom(Shard(GetFunctionTestsIntervalComparisons()),
+                         ComparisonExpression);
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, RangeComparisons, 1) {
   SetNamePrefix("RangeComparisons");
-  auto cmp = [](const FunctionTestCall& f) {
-    // Test cases only use "=" and "<", but we test all comparison operators
-    // for given pair of values.
-    if (f.function_name == "RangeEquals") {
-      return "@p0 = @p1 AND @p1 = @p0 AND @p0 <= @p1 AND @p0 >= @p1 AND "
-             "NOT(@p0 != @p1) AND NOT(@p0 < @p1) AND NOT(@p0 > @p1)";
-    } else if (f.function_name == "RangeLessThan") {
-      return "@p0 < @p1 AND @p1 > @p0 AND @p0 <= @p1 AND @p0 != @p1 AND "
-             "NOT(@p0 > @p1) AND NOT(@p0 >= @p1) AND NOT(@p0 = @p1)";
-    } else {
-      ABSL_LOG(FATAL) << f.function_name;
-    }
-  };
-  RunFunctionTestsCustom(Shard(GetFunctionTestsRangeComparisons()), cmp);
+  RunFunctionTestsCustom(Shard(GetFunctionTestsRangeComparisons()),
+                         ComparisonExpression);
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, UuidComparisons, 1) {
+  SetNamePrefix("UuidComparisons");
+  RunFunctionTestsCustom(Shard(GetFunctionTestsUuidComparisons()),
+                         ComparisonExpression);
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, RangeOverlaps, 1) {

@@ -6,7 +6,7 @@
 
 ZetaSQL supports the following datetime functions.
 
-### Function list
+## Function list
 
 <table>
   <thead>
@@ -18,8 +18,7 @@ ZetaSQL supports the following datetime functions.
   <tbody>
 
 <tr>
-  <td><a href="#current_datetime"><code>CURRENT_DATETIME</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/datetime_functions.md#current_datetime"><code>CURRENT_DATETIME</code></a>
 </td>
   <td>
     Returns the current date and time as a <code>DATETIME</code> value.
@@ -27,8 +26,7 @@ ZetaSQL supports the following datetime functions.
 </tr>
 
 <tr>
-  <td><a href="#datetime"><code>DATETIME</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/datetime_functions.md#datetime"><code>DATETIME</code></a>
 </td>
   <td>
     Constructs a <code>DATETIME</code> value.
@@ -36,8 +34,7 @@ ZetaSQL supports the following datetime functions.
 </tr>
 
 <tr>
-  <td><a href="#datetime_add"><code>DATETIME_ADD</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/datetime_functions.md#datetime_add"><code>DATETIME_ADD</code></a>
 </td>
   <td>
     Adds a specified time interval to a <code>DATETIME</code> value.
@@ -45,8 +42,7 @@ ZetaSQL supports the following datetime functions.
 </tr>
 
 <tr>
-  <td><a href="#datetime_diff"><code>DATETIME_DIFF</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/datetime_functions.md#datetime_diff"><code>DATETIME_DIFF</code></a>
 </td>
   <td>
     Gets the number of unit boundaries between two <code>DATETIME</code> values
@@ -55,8 +51,7 @@ ZetaSQL supports the following datetime functions.
 </tr>
 
 <tr>
-  <td><a href="#datetime_sub"><code>DATETIME_SUB</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/datetime_functions.md#datetime_sub"><code>DATETIME_SUB</code></a>
 </td>
   <td>
     Subtracts a specified time interval from a <code>DATETIME</code> value.
@@ -64,17 +59,19 @@ ZetaSQL supports the following datetime functions.
 </tr>
 
 <tr>
-  <td><a href="#datetime_trunc"><code>DATETIME_TRUNC</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/datetime_functions.md#datetime_trunc"><code>DATETIME_TRUNC</code></a>
 </td>
   <td>
-    Truncates a <code>DATETIME</code> value.
+    
+    Truncates a <code>DATETIME</code> or
+    <code>TIMESTAMP</code> value at a particular
+    granularity.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#extract"><code>EXTRACT</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/datetime_functions.md#extract"><code>EXTRACT</code></a>
 </td>
   <td>
     Extracts part of a date and time from a <code>DATETIME</code> value.
@@ -82,8 +79,7 @@ ZetaSQL supports the following datetime functions.
 </tr>
 
 <tr>
-  <td><a href="#format_datetime"><code>FORMAT_DATETIME</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/datetime_functions.md#format_datetime"><code>FORMAT_DATETIME</code></a>
 </td>
   <td>
     Formats a <code>DATETIME</code> value according to a specified
@@ -92,8 +88,7 @@ ZetaSQL supports the following datetime functions.
 </tr>
 
 <tr>
-  <td><a href="#last_day"><code>LAST_DAY</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/datetime_functions.md#last_day"><code>LAST_DAY</code></a>
 </td>
   <td>
     Gets the last day in a specified time period that contains a
@@ -102,18 +97,18 @@ ZetaSQL supports the following datetime functions.
 </tr>
 
 <tr>
-  <td><a href="#parse_datetime"><code>PARSE_DATETIME</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/datetime_functions.md#parse_datetime"><code>PARSE_DATETIME</code></a>
 </td>
   <td>
     Converts a <code>STRING</code> value to a <code>DATETIME</code> value.
+    
   </td>
 </tr>
 
   </tbody>
 </table>
 
-### `CURRENT_DATETIME`
+## `CURRENT_DATETIME`
 
 ```sql
 CURRENT_DATETIME([time_zone])
@@ -156,7 +151,7 @@ SELECT CURRENT_DATETIME() as now;
 
 [datetime-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#timezone_definitions
 
-### `DATETIME`
+## `DATETIME`
 
 ```sql
 1. DATETIME(year, month, day, hour, minute, second)
@@ -196,7 +191,7 @@ SELECT
 
 [datetime-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#timezone_definitions
 
-### `DATETIME_ADD`
+## `DATETIME_ADD`
 
 ```sql
 DATETIME_ADD(datetime_expression, INTERVAL int64_expression part)
@@ -244,7 +239,7 @@ SELECT
  *-----------------------------+------------------------*/
 ```
 
-### `DATETIME_DIFF`
+## `DATETIME_DIFF`
 
 ```sql
 DATETIME_DIFF(end_datetime, start_datetime, granularity)
@@ -383,7 +378,7 @@ SELECT
 
 [ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
 
-### `DATETIME_SUB`
+## `DATETIME_SUB`
 
 ```sql
 DATETIME_SUB(datetime_expression, INTERVAL int64_expression part)
@@ -431,23 +426,90 @@ SELECT
  *-----------------------------+------------------------*/
 ```
 
-### `DATETIME_TRUNC`
+## `DATETIME_TRUNC`
 
 ```sql
-DATETIME_TRUNC(datetime_expression, granularity)
+DATETIME_TRUNC(datetime_value, datetime_granularity)
+```
+
+```sql
+DATETIME_TRUNC(timestamp_value, timestamp_granularity[, time_zone])
 ```
 
 **Description**
 
-Truncates a `DATETIME` value at a particular time granularity. The `DATETIME`
-value is always rounded to the beginning of `granularity`.
+Truncates a `DATETIME` or `TIMESTAMP` value at a particular granularity.
 
 **Definitions**
 
-+ `datetime_expression`: The `DATETIME` value to truncate.
-+ `granularity`: The datetime part that represents the granularity. If
-  you passed in a `DATETIME` value for the first argument, `granularity` can
-  be:
++ `datetime_value`: A `DATETIME` value to truncate.
++ `datetime_granularity`: The truncation granularity for a `DATETIME` value.
+  [Date granularities][datetime-trunc-granularity-date] and
+  [time granularities][datetime-trunc-granularity-time] can be used.
++ `timestamp_value`: A `TIMESTAMP` value to truncate.
++ `timestamp_granularity`: The truncation granularity for a `TIMESTAMP` value.
+  [Date granularities][datetime-trunc-granularity-date] and
+  [time granularities][datetime-trunc-granularity-time] can be used.
++ `time_zone`: A time zone to use with the `TIMESTAMP` value.
+  [Time zone parts][datetime-time-zone-parts] can be used.
+  Use this argument if you want to use a time zone other than
+  the default time zone, which is implementation defined, as part of the
+  truncate operation.
+
+      Note: When truncating a timestamp to `MINUTE`
+    or `HOUR` parts, this function determines the civil time of the
+    timestamp in the specified (or default) time zone
+    and subtracts the minutes and seconds (when truncating to `HOUR`) or the
+    seconds (when truncating to `MINUTE`) from that timestamp.
+    While this provides intuitive results in most cases, the result is
+    non-intuitive near daylight savings transitions that are not hour-aligned.
+
+<a id="datetime_trunc_granularity_date"></a>
+
+**Date granularity definitions**
+
+  + `DAY`: The day in the Gregorian calendar year that contains the
+    value to truncate.
+
+  + `WEEK`: The first day in the week that contains the
+    value to truncate. Weeks begin on Sundays. `WEEK` is equivalent to
+    `WEEK(SUNDAY)`.
+
+  + `WEEK(WEEKDAY)`: The first day in the week that contains the
+    value to truncate. Weeks begin on `WEEKDAY`. `WEEKDAY` must be one of the
+     following: `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`, `FRIDAY`,
+     or `SATURDAY`.
+
+  + `ISOWEEK`: The first day in the [ISO 8601 week][ISO-8601-week] that contains
+    the value to truncate. The ISO week begins on
+    Monday. The first ISO week of each ISO year contains the first Thursday of the
+    corresponding Gregorian calendar year.
+
+  + `MONTH`: The first day in the month that contains the
+    value to truncate.
+
+  + `QUARTER`: The first day in the quarter that contains the
+    value to truncate.
+
+  + `YEAR`: The first day in the year that contains the
+    value to truncate.
+
+  + `ISOYEAR`: The first day in the [ISO 8601][ISO-8601] week-numbering year
+    that contains the value to truncate. The ISO year is the
+    Monday of the first week where Thursday belongs to the corresponding
+    Gregorian calendar year.
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
+
+[ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
+
+<!-- mdlint on -->
+
+<a id="datetime_trunc_granularity_time"></a>
+
+**Time granularity definitions**
 
   + `NANOSECOND`: If used, nothing is truncated from the value.
 
@@ -461,48 +523,28 @@ value is always rounded to the beginning of `granularity`.
 
   + `HOUR`: The nearest lesser than or equal hour.
 
-  + `DAY`: The day in the Gregorian calendar year that contains the
-    `DATETIME` value.
+<a id="datetime_time_zone_parts"></a>
 
-  + `WEEK`: The first day in the week that contains the
-    `DATETIME` value. Weeks begin on Sundays. `WEEK` is equivalent to
-    `WEEK(SUNDAY)`.
+**Time zone part definitions**
 
-  + `WEEK(WEEKDAY)`: The first day in the week that contains the
-    `DATETIME` value. Weeks begin on `WEEKDAY`. `WEEKDAY` must be one of the
-     following: `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`, `FRIDAY`,
-     or `SATURDAY`.
++ `MINUTE`
++ `HOUR`
++ `DAY`
++ `WEEK`
++ `WEEK(<WEEKDAY>)`
++ `ISOWEEK`
++ `MONTH`
++ `QUARTER`
++ `YEAR`
++ `ISOYEAR`
 
-  + `ISOWEEK`: The first day in the [ISO 8601 week][ISO-8601-week] that contains
-    the `DATETIME` value. The ISO week begins on
-    Monday. The first ISO week of each ISO year contains the first Thursday of the
-    corresponding Gregorian calendar year.
+**Details**
 
-  + `MONTH`: The first day in the month that contains the
-    `DATETIME` value.
-
-  + `QUARTER`: The first day in the quarter that contains the
-    `DATETIME` value.
-
-  + `YEAR`: The first day in the year that contains the
-    `DATETIME` value.
-
-  + `ISOYEAR`: The first day in the [ISO 8601][ISO-8601] week-numbering year
-    that contains the `DATETIME` value. The ISO year is the
-    Monday of the first week where Thursday belongs to the corresponding
-    Gregorian calendar year.
-
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
-
-[ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
-
-<!-- mdlint on -->
+The resulting value is always rounded to the beginning of `granularity`.
 
 **Return Data Type**
 
-`DATETIME`
+The same data type as the first argument passed into this function.
 
 **Examples**
 
@@ -555,7 +597,13 @@ SELECT
  *---------------------+----------------*/
 ```
 
-### `EXTRACT`
+[datetime-trunc-granularity-date]: #datetime_trunc_granularity_date
+
+[datetime-trunc-granularity-time]: #datetime_trunc_granularity_time
+
+[datetime-time-zone-parts]: #datetime_time_zone_parts
+
+## `EXTRACT`
 
 ```sql
 EXTRACT(part FROM datetime_expression)
@@ -680,17 +728,23 @@ FROM table;
 
 [ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
 
-### `FORMAT_DATETIME`
+## `FORMAT_DATETIME`
 
 ```sql
-FORMAT_DATETIME(format_string, datetime_expression)
+FORMAT_DATETIME(format_string, datetime_expr)
 ```
 
 **Description**
 
-Formats a `DATETIME` object according to the specified `format_string`. See
-[Supported Format Elements For DATETIME][datetime-format-elements]
-for a list of format elements that this function supports.
+Formats a `DATETIME` value according to a specified format string.
+
+**Definitions**
+
++   `format_string`: A `STRING` value that contains the
+    [format elements][datetime-format-elements] to use with
+    `datetime_expr`.
++   `datetime_expr`: A `DATETIME` value that represents the date and time to
+    format.
 
 **Return Data Type**
 
@@ -736,7 +790,7 @@ SELECT
 
 [datetime-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
 
-### `LAST_DAY`
+## `LAST_DAY`
 
 ```sql
 LAST_DAY(datetime_expression[, date_part])
@@ -832,7 +886,7 @@ SELECT LAST_DAY(DATETIME '2008-11-10 15:30:00', WEEK(MONDAY)) AS last_day
 
 [ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
 
-### `PARSE_DATETIME`
+## `PARSE_DATETIME`
 
 ```sql
 PARSE_DATETIME(format_string, datetime_string)
@@ -840,14 +894,20 @@ PARSE_DATETIME(format_string, datetime_string)
 
 **Description**
 
-Converts a [string representation of a datetime][datetime-format] to a
-`DATETIME` object.
+Converts a `STRING` value to a `DATETIME` value.
 
-`format_string` contains the [format elements][datetime-format-elements]
-that define how `datetime_string` is formatted. Each element in
-`datetime_string` must have a corresponding element in `format_string`. The
-location of each element in `format_string` must match the location of
-each element in `datetime_string`.
+**Definitions**
+
++   `format_string`: A `STRING` value that contains the
+    [format elements][datetime-format-elements] to use with `datetime_string`.
++   `datetime_string`: A `STRING` value that represents the date and time to
+    parse.
+
+**Details**
+
+Each element in `datetime_string` must have a corresponding element in
+`format_string`. The location of each element in `format_string` must match the
+location of each element in `datetime_string`.
 
 ```sql
 -- This works because elements on both sides match.
@@ -865,23 +925,23 @@ SELECT PARSE_DATETIME("%c", "Thu Dec 25 07:30:00 2008");
 
 `PARSE_DATETIME` parses `string` according to the following rules:
 
-+ **Unspecified fields.** Any unspecified field is initialized from
++ Unspecified fields. Any unspecified field is initialized from
   `1970-01-01 00:00:00.0`. For example, if the year is unspecified then it
   defaults to `1970`.
-+ **Case insensitivity.** Names, such as `Monday` and `February`,
++ Case insensitivity. Names, such as `Monday` and `February`,
   are case insensitive.
-+ **Whitespace.** One or more consecutive white spaces in the format string
++ Whitespace. One or more consecutive white spaces in the format string
   matches zero or more consecutive white spaces in the
   `DATETIME` string. Leading and trailing
   white spaces in the `DATETIME` string are always
   allowed, even if they are not in the format string.
-+ **Format precedence.** When two or more format elements have overlapping
++ Format precedence. When two or more format elements have overlapping
   information, the last one generally overrides any earlier ones, with some
   exceptions. For example, both `%F` and `%Y` affect the year, so the earlier
   element overrides the later. See the descriptions
   of `%s`, `%C`, and `%y` in
   [Supported Format Elements For DATETIME][datetime-format-elements].
-+ **Format divergence.** `%p` can be used with `am`, `AM`, `pm`, and `PM`.
++ Format divergence. `%p` can be used with `am`, `AM`, `pm`, and `PM`.
 
 **Return Data Type**
 

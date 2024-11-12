@@ -1301,6 +1301,18 @@ static absl::Status UpdateWithRedaction(
       query, status);
 }
 
+static absl::Status UpdateWithEnhancedRedaction(
+    const absl::Status& status, absl::string_view query,
+    ErrorMessageStability stability = ERROR_MESSAGE_STABILITY_TEST_REDACTED) {
+  return MaybeUpdateErrorFromPayload(
+      ErrorMessageOptions{
+          .mode = ErrorMessageMode::ERROR_MESSAGE_MULTI_LINE_WITH_CARET,
+          .attach_error_location_payload = true,
+          .stability = stability,
+          .enhanced_error_redaction = true},
+      query, status);
+}
+
 TEST(ErrorHelpersTest, RedactedModeReturnsRedactedMessages) {
   // Dummy query that can be used to resolve all lines and columns in
   // InternalErrorLocations in this test.
@@ -1326,6 +1338,27 @@ TEST(ErrorHelpersTest, RedactedModeReturnsRedactedMessages) {
           absl::Status(absl::StatusCode::kNotFound, "Some message"), query),
       AllOf(StatusIs(absl::StatusCode::kNotFound, Eq("SQL ERROR")),
             Not(StatusHasPayload<InternalErrorLocation>())));
+}
+
+TEST(ErrorHelpersTest, EnhancedRedaction) {
+  EXPECT_THAT(UpdateWithEnhancedRedaction(
+                  absl::Status(absl::StatusCode::kNotFound,
+                               "No matching signature for function foo"),
+                  ""),
+              AllOf(StatusIs(absl::StatusCode::kNotFound,
+                             Eq("FUNCTION_SIGNATURE_MISMATCH: FOO")),
+                    Not(StatusHasPayload<InternalErrorLocation>())));
+}
+
+TEST(ErrorHelpersTest, EnhancedRedactionFailure) {
+  EXPECT_DEBUG_DEATH(
+      UpdateWithEnhancedRedaction(
+          absl::Status(
+              absl::StatusCode::kNotFound,
+              "Error message which does not support enhanced redaction"),
+          "")
+          .IgnoreError(),
+      "Unable to redact");
 }
 
 TEST(Errors, RedactedModeDoesNotHideSystemErrors) {

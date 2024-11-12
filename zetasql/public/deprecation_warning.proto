@@ -59,6 +59,13 @@ message DeprecationWarning {
     // PIVOT/UNPIVOT.
     // See b/359591559 for details.
     PIVOT_OR_UNPIVOT_ON_ARRAY_SCAN = 6;
+
+    // Indicates that the query relies on the old resolution order for `TABLE x`
+    // syntax within SQL TVF bodies, I.E. it was resolved against `x` in the
+    // catalog when it should have resolved against the function argument `x`.
+    // TODO: b/372326459 - Clean up this warning once the new resolution order
+    // is rolled out, and there are no remaining references.
+    TABLE_SYNTAX_ARGUMENT_RESOLUTION_ORDER = 7;
   }
 
   optional Kind kind = 1;

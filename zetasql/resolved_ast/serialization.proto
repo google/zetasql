@@ -122,3 +122,29 @@ message ColumnRefProto {
   optional TableRefProto table_ref = 1;
   optional string name = 2;
 }
+
+// Reference to a PropertyGraph.
+message PropertyGraphRefProto {
+  optional string full_name = 1;
+}
+
+message GraphPropertyDeclarationRefProto {
+  // The property graph this graph property declaration belongs to.
+  optional PropertyGraphRefProto property_graph = 1;
+  // Name of the graph property, without prefixes.
+  optional string name = 2;
+}
+
+message GraphElementLabelRefProto {
+  // The property graph this graph element label belongs to.
+  optional PropertyGraphRefProto property_graph = 1;
+  // Name of the graph element label, without prefixes.
+  optional string name = 2;
+}
+
+message GraphElementTableRefProto {
+  // The property graph this graph element table belongs to.
+  optional PropertyGraphRefProto property_graph = 1;
+  // Name of the graph element table, without prefixes.
+  optional string name = 2;
+}

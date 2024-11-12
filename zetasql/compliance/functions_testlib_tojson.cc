@@ -35,6 +35,7 @@
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/array_type.h"
 #include "zetasql/public/types/type_factory.h"
+#include "zetasql/public/uuid_value.h"
 #include "zetasql/public/value.h"
 #include "zetasql/testing/test_function.h"
 #include "zetasql/testing/using_test_value.cc"
@@ -636,6 +637,54 @@ void AddRangeTestCases(bool is_to_json,
   }
 }
 
+void AddUuidTestCases(bool is_to_json,
+                      std::vector<FunctionTestCall>& all_tests) {
+  struct UuidStringTestData {
+    absl::string_view uuid_str;
+    absl::string_view json_str;
+  };
+  constexpr UuidStringTestData kUuidTestCases[] = {
+      {"00000000-0000-4000-8000-000000000000",
+       "00000000-0000-4000-8000-000000000000"},
+      {"9d3da323-4c20-360f-bd9b-ec54feec54f0",
+       "9d3da323-4c20-360f-bd9b-ec54feec54f0"},
+      {"ffffffff-ffff-4fff-8fff-ffffffffffff",
+       "ffffffff-ffff-4fff-8fff-ffffffffffff"},
+  };
+
+  for (const auto& [uuid_str, json_str] : kUuidTestCases) {
+    QueryParamsWithResult::FeatureSet required_features{
+        FEATURE_V_1_4_UUID_TYPE};
+    UuidValue uuid_value = UuidValue::FromString(uuid_str).value();
+    if (is_to_json) {
+      all_tests.emplace_back(
+          "to_json", QueryParamsWithResult({Value::Uuid(uuid_value)},
+                                           values::Json(JSONValue(json_str)))
+                         .AddRequiredFeatures(required_features)
+                         .AddRequiredFeature(FEATURE_JSON_TYPE));
+    } else {
+      all_tests.emplace_back(
+          "to_json_string",
+          QueryParamsWithResult({Value::Uuid(uuid_value)},
+                                String(absl::StrCat("\"", json_str, "\"")))
+              .AddRequiredFeatures(required_features));
+    }
+  }
+
+  if (is_to_json) {
+    all_tests.emplace_back(
+        "to_json", QueryParamsWithResult({Value::NullUuid()},
+                                         Value::Value::Json(JSONValue()))
+                       .AddRequiredFeature(FEATURE_V_1_4_UUID_TYPE)
+                       .AddRequiredFeature(FEATURE_JSON_TYPE));
+  } else {
+    all_tests.emplace_back(
+        "to_json_string",
+        QueryParamsWithResult({Value::NullUuid()}, String("null"))
+            .AddRequiredFeature(FEATURE_V_1_4_UUID_TYPE));
+  }
+}
+
 void AddJsonTestCases(bool is_to_json,
                       std::vector<FunctionTestCall>& all_tests) {
   constexpr absl::string_view kJsonValueString =
@@ -912,6 +961,7 @@ std::vector<FunctionTestCall> GetFunctionTestsToJsonString() {
   AddIntervalValueTestCases(/*is_to_json=*/false, all_tests);
   AddJsonTestCases(/*is_to_json=*/false, all_tests);
   AddRangeTestCases(/*is_to_json=*/false, all_tests);
+  AddUuidTestCases(/*is_to_json=*/false, all_tests);
   return all_tests;
 }
 
@@ -1163,7 +1213,26 @@ std::vector<FunctionTestCall> GetFunctionTestsToJson() {
   AddIntervalValueTestCases(/*is_to_json=*/true, all_tests);
   AddJsonTestCases(/*is_to_json=*/true, all_tests);
   AddRangeTestCases(/*is_to_json=*/true, all_tests);
+  AddUuidTestCases(/*is_to_json=*/true, all_tests);
 
+  return all_tests;
+}
+
+std::vector<FunctionTestCall> GetFunctionTestsSafeToJson() {
+  std::vector<FunctionTestCall> all_tests;
+  for (auto& test : GetFunctionTestsToJson()) {
+    const bool stringify_wide_numbers = test.params.num_params() == 2 &&
+                                        !test.params.param(1).is_null() &&
+                                        test.params.param(1).bool_value();
+    // SAFE_TO_JSON internally sets stringify_wide_numbers=>true
+    if (!stringify_wide_numbers) {
+      continue;
+    }
+    test.function_name = "safe_to_json";
+    test.params.RemoveRequiredFeature(FEATURE_NAMED_ARGUMENTS);
+    all_tests.push_back(std::move(test));
+  }
+  ABSL_DCHECK_GE(all_tests.size(), 1);
   return all_tests;
 }
 

@@ -23,6 +23,7 @@
 #include "zetasql/public/collator.h"
 #include "zetasql/public/functions/like.h"
 #include "zetasql/public/functions/string_with_collation.h"
+#include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "absl/status/status.h"

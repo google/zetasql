@@ -243,6 +243,7 @@ class ASTNode : public zetasql_base::ArenaOnlyGladiator {
   virtual bool IsDdlStatement() const { return false; }
   virtual bool IsCreateStatement() const { return false; }
   virtual bool IsAlterStatement() const { return false; }
+  virtual bool IsQuantifier() const { return false; }
 
   std::string GetNodeKindString() const;
 
@@ -331,6 +332,16 @@ class ASTNode : public zetasql_base::ArenaOnlyGladiator {
       }
     }
 
+    // Adds the next child element into *v, if it exists and its node_kind is
+    // `Subkind` or a subclass.
+    template <typename Subkind, typename T>
+    void AddOptionalIfSubkind(const T** v) {
+      if (index_ < end_ &&
+          node_->child(index_)->GetAsOrNull<Subkind>() != nullptr) {
+        *v = static_cast<const T*>(node_->child(index_++));
+      }
+    }
+
     // Appends all remaining child elements to <v>.
     template <typename T>
     void AddRestAsRepeated(absl::Span<const T* const>* v) {
@@ -356,6 +367,14 @@ class ASTNode : public zetasql_base::ArenaOnlyGladiator {
     template <typename T>
     void AddOptionalType(const T** v) {
       if (index_ < end_ && node_->child(index_)->IsType()) {
+        *v = static_cast<const T*>(node_->child(index_++));
+      }
+    }
+
+    // Gets the next child element into *v, if it's a subclass of ASTQuantifier.
+    template <typename T>
+    void AddOptionalQuantifier(const T** v) {
+      if (index_ < end_ && node_->child(index_)->IsQuantifier()) {
         *v = static_cast<const T*>(node_->child(index_++));
       }
     }

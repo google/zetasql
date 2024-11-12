@@ -1,0 +1,139 @@
+# Tests for the FOR UPDATE clause within queries using pipe syntax.
+
+[default language_features=V_1_4_FOR_UPDATE,PIPES]
+
+# Pipe syntax and FOR UPDATE.
+from t for update
+|> where a = 5
+|> select a, b;
+--
+QueryStatement [30-77] [from t for...select a, b]
+  Query [30-77] [from t for...select a, b]
+    FromQuery [30-36] [from t]
+      FromClause [30-36] [from t]
+        TablePathExpression [35-36] [t]
+          PathExpression [35-36] [t]
+            Identifier(t) [35-36] [t]
+    LockMode [37-47] [for update]
+    PipeWhere [48-62] [|> where a = 5]
+      WhereClause [51-62] [where a = 5]
+        BinaryExpression(=) [57-62] [a = 5]
+          PathExpression [57-58] [a]
+            Identifier(a) [57-58] [a]
+          IntLiteral(5) [61-62] [5]
+    PipeSelect [63-77] [|> select a, b]
+      Select [66-77] [select a, b]
+        SelectList [73-77] [a, b]
+          SelectColumn [73-74] [a]
+            PathExpression [73-74] [a]
+              Identifier(a) [73-74] [a]
+          SelectColumn [76-77] [b]
+            PathExpression [76-77] [b]
+              Identifier(b) [76-77] [b]
+--
+FROM
+  t
+FOR UPDATE
+|> WHERE
+     a = 5
+|> SELECT
+     a,
+     b
+==
+
+with q1 as (from t1 for update
+            |> where key = 5
+            |> select key, x),
+     q2 as (from q1
+            |> extend x*2 as y)
+from q2
+|> aggregate sum(y)
+   group by key;
+--
+QueryStatement [0-186] [with q1 as...group by key]
+  Query [0-186] [with q1 as...group by key]
+    WithClause [0-142] [with q1 as...x*2 as y)]
+      AliasedQuery [5-89] [q1 as (from...select key, x)]
+        Identifier(q1) [5-7] [q1]
+        Query [12-88] [from t1 for...select key, x]
+          FromQuery [12-19] [from t1]
+            FromClause [12-19] [from t1]
+              TablePathExpression [17-19] [t1]
+                PathExpression [17-19] [t1]
+                  Identifier(t1) [17-19] [t1]
+          LockMode [20-30] [for update]
+          PipeWhere [43-59] [|> where key = 5]
+            WhereClause [46-59] [where key = 5]
+              BinaryExpression(=) [52-59] [key = 5]
+                PathExpression [52-55] [key]
+                  Identifier(key) [52-55] [key]
+                IntLiteral(5) [58-59] [5]
+          PipeSelect [72-88] [|> select key, x]
+            Select [75-88] [select key, x]
+              SelectList [82-88] [key, x]
+                SelectColumn [82-85] [key]
+                  PathExpression [82-85] [key]
+                    Identifier(key) [82-85] [key]
+                SelectColumn [87-88] [x]
+                  PathExpression [87-88] [x]
+                    Identifier(x) [87-88] [x]
+      AliasedQuery [96-142] [q2 as (from...x*2 as y)]
+        Identifier(q2) [96-98] [q2]
+        Query [103-141] [from q1...extend x*2 as y]
+          FromQuery [103-110] [from q1]
+            FromClause [103-110] [from q1]
+              TablePathExpression [108-110] [q1]
+                PathExpression [108-110] [q1]
+                  Identifier(q1) [108-110] [q1]
+          PipeExtend [123-141] [|> extend x*2 as y]
+            Select [126-141] [extend x*2 as y]
+              SelectList [133-141] [x*2 as y]
+                SelectColumn [133-141] [x*2 as y]
+                  BinaryExpression(*) [133-136] [x*2]
+                    PathExpression [133-134] [x]
+                      Identifier(x) [133-134] [x]
+                    IntLiteral(2) [135-136] [2]
+                  Alias [137-141] [as y]
+                    Identifier(y) [140-141] [y]
+    FromQuery [143-150] [from q2]
+      FromClause [143-150] [from q2]
+        TablePathExpression [148-150] [q2]
+          PathExpression [148-150] [q2]
+            Identifier(q2) [148-150] [q2]
+    PipeAggregate [151-186] [|> aggregate...group by key]
+      Select [154-186] [aggregate...group by key]
+        SelectList [164-170] [sum(y)]
+          SelectColumn [164-170] [sum(y)]
+            FunctionCall [164-170] [sum(y)]
+              PathExpression [164-167] [sum]
+                Identifier(sum) [164-167] [sum]
+              PathExpression [168-169] [y]
+                Identifier(y) [168-169] [y]
+        GroupBy [174-186] [group by key]
+          GroupingItem [183-186] [key]
+            PathExpression [183-186] [key]
+              Identifier(key) [183-186] [key]
+--
+WITH
+  q1 AS (
+    FROM
+      t1
+    FOR UPDATE
+    |> WHERE
+         key = 5
+    |> SELECT
+         key,
+         x
+  ),
+  q2 AS (
+    FROM
+      q1
+    |> EXTEND
+         x * 2 AS y
+  )
+FROM
+  q2
+|> AGGREGATE
+     sum(y)
+   GROUP BY key
+==

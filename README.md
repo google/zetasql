@@ -7,7 +7,7 @@ ZetaSQL is not itself a database or query engine. Instead,
 it's intended to be used by multiple engines, to provide consistent
 language and behavior (name resolution, type checking, implicit
 casting, etc.). Specific query engines may implement a subset of features,
-giving errors for unuspported features.
+giving errors for unsupported features.
 ZetaSQL's compliance test suite can be used to validate query engine
 implementations are correct and consistent.
 

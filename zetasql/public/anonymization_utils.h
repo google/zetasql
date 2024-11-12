@@ -17,9 +17,11 @@
 #ifndef ZETASQL_PUBLIC_ANONYMIZATION_UTILS_H_
 #define ZETASQL_PUBLIC_ANONYMIZATION_UTILS_H_
 
+#include <memory>
+
 #include "zetasql/public/value.h"
+#include "zetasql/resolved_ast/resolved_ast.h"
 #include "absl/status/statusor.h"
-#include "zetasql/base/status.h"
 
 namespace zetasql {
 namespace anonymization {
@@ -62,6 +64,38 @@ absl::StatusOr<Value> ComputeLaplaceThresholdFromDelta(
 absl::StatusOr<Value> ComputeDeltaFromLaplaceThreshold(
     Value epsilon_value, Value laplace_threshold_value,
     Value max_groups_contributed_value);
+
+// Provides epsilon for each aggregate function call in a differential privacy
+// aggregate scan. Use this class for
+// 1. consistent behavior across engines,
+// 2. to avoid re-implementation of critical logic, and
+// 3. to reduce the surface for privacy audits.
+class FunctionEpsilonAssigner {
+ public:
+  // Creates a new epsilon assigner based on the options and aggregations in the
+  // scan. Returns an error in case the sum of all `epsilon` named arguments
+  // exceeds the `epsilon` option of the scan.
+  static absl::StatusOr<std::unique_ptr<FunctionEpsilonAssigner>>
+  CreateFromScan(const ResolvedDifferentialPrivacyAggregateScan* scan);
+
+  // Returns the epsilon value for the differential privacy aggregation function
+  // in the context of the scan that has been used to create this object.
+  //
+  // In particular, the returned value depends on two classes of aggregate
+  // functions in the scan:
+  // 1. Aggregate functions with non-null `epsilon` named argument.
+  // 2. Aggregate functions with null `epsilon` named argument or for which no
+  //    `epsilon` named argument is supported.
+  //
+  // For 1, the value of the `epsilon` named argument will be returned. For 2,
+  // the returned value will be the `epsilon` option **on the scan** minus the
+  // sum of all `epsilon` named arguments of functions in 1, equally split among
+  // the number of aggregate functions in 2.
+  virtual absl::StatusOr<double> GetEpsilonForFunction(
+      const ResolvedFunctionCallBase* function_call) = 0;
+
+  virtual ~FunctionEpsilonAssigner() = default;
+};
 
 }  // namespace anonymization
 }  // namespace zetasql

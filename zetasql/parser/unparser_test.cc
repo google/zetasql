@@ -96,4 +96,106 @@ TEST(TestUnparser, ExpressionTest) {
                     expression_string, unparsed_expression_string);
 }
 
+TEST(TestUnparser, Graph) {
+  const std::string fuzzed_create_graph_statement = R"SQL(
+CREATE PROPERTY
+      GRAPH
+MusicGraph NODE    TABLES
+ (
+ Singers AS Singer LABEL
+MUSIC_CREATOR PROPERTIES (
+  CONCAT(FirstName, " ", LastName) AS name,
+     SingerInfo.nationality AS country_origin)
+LABEL SINGER
+PROPERTIES  (SingerId AS id, CONCAT(FirstName, " ", LastName) AS singer_name,
+BirthDate AS birthday), ProductionCompanies AS Company
+LABEL MUSIC_CREATOR  PROPERTIES (CompanyName AS name, LocationCountry
+AS country_origin) LABEL MUSIC_COMPANY PROPERTIES
+(CompanyName AS name, FoundedYear AS
+founded_year), Albums AS Album LABEL ALBUM PROPERTIES ALL COLUMNS)
+EDGE   TABLES (
+Albums AS SINGER_CREATES_ALBUM SOURCE KEY(SingerId) REFERENCES Singer
+  DESTINATION KEY(AlbumId)
+REFERENCES Album(AlbumId)
+LABEL CREATES_MUSIC PROPERTIES
+( ReleaseDate AS release_date,
+AlbumId AS album_id ),
+
+SingerContracts
+AS SINGER_SIGNED_BY_COMPANY SOURCE KEY(SingerId) REFERENCES Singer
+DESTINATION KEY(CompanyId)
+REFERENCES Company LABEL SIGNED_BY,
+  SingerFriends
+AS SINGER_HAS_FRIEND
+    SOURCE KEY(SingerId)   REFERENCES Singer
+    DESTINATION
+KEY(FriendId)   REFERENCES Singer
+    LABEL KNOWS,
+
+Albums AS COMPANY_PRODUCES_ALBUM KEY(
+  CompanyId, SingerId, AlbumId) SOURCE KEY (CompanyId) REFERENCES Company
+DESTINATION
+KEY(SingerId, AlbumId) REFERENCES Album
+    LABEL CREATES_MUSIC PROPERTIES(ReleaseDate AS release_date, AlbumId AS album_id)
+)
+)SQL";
+
+  const std::string expected_unparsed_create_graph_statement =
+      R"SQL(CREATE PROPERTY GRAPH MusicGraph
+  NODE TABLES(
+    Singers AS Singer
+      LABEL MUSIC_CREATOR PROPERTIES(
+        CONCAT(FirstName, " ", LastName) AS name,
+        SingerInfo.nationality AS country_origin)
+      LABEL SINGER PROPERTIES(
+        SingerId AS id,
+        CONCAT(FirstName, " ", LastName) AS singer_name,
+        BirthDate AS birthday),
+
+    ProductionCompanies AS Company
+      LABEL MUSIC_CREATOR PROPERTIES(
+        CompanyName AS name,
+        LocationCountry AS country_origin)
+      LABEL MUSIC_COMPANY PROPERTIES(
+        CompanyName AS name,
+        FoundedYear AS founded_year),
+
+    Albums AS Album
+      LABEL ALBUM PROPERTIES ALL COLUMNS
+  )
+  EDGE TABLES(
+    Albums AS SINGER_CREATES_ALBUM
+      SOURCE KEY(SingerId) REFERENCES Singer
+      DESTINATION KEY(AlbumId) REFERENCES Album(AlbumId)
+      LABEL CREATES_MUSIC PROPERTIES(
+        ReleaseDate AS release_date,
+        AlbumId AS album_id),
+
+    SingerContracts AS SINGER_SIGNED_BY_COMPANY
+      SOURCE KEY(SingerId) REFERENCES Singer
+      DESTINATION KEY(CompanyId) REFERENCES Company
+      LABEL SIGNED_BY PROPERTIES ALL COLUMNS,
+
+    SingerFriends AS SINGER_HAS_FRIEND
+      SOURCE KEY(SingerId) REFERENCES Singer
+      DESTINATION KEY(FriendId) REFERENCES Singer
+      LABEL KNOWS PROPERTIES ALL COLUMNS,
+
+    Albums AS COMPANY_PRODUCES_ALBUM
+      KEY(CompanyId, SingerId, AlbumId)
+      SOURCE KEY(CompanyId) REFERENCES Company
+      DESTINATION KEY(SingerId, AlbumId) REFERENCES Album
+      LABEL CREATES_MUSIC PROPERTIES(
+        ReleaseDate AS release_date,
+        AlbumId AS album_id)
+  )
+)SQL";
+
+  std::unique_ptr<zetasql::ParserOutput> output;
+  ZETASQL_ASSERT_OK(zetasql::ParseStatement(fuzzed_create_graph_statement,
+                                      ParserOptions(), &output));
+  const std::string result = zetasql::Unparse(output->statement());
+  EXPECT_EQ(result, expected_unparsed_create_graph_statement);
+}
+
 }  // namespace zetasql

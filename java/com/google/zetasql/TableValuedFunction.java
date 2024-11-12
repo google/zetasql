@@ -144,6 +144,10 @@ public abstract class TableValuedFunction implements Serializable {
     return namePath.get(namePath.size() - 1);
   }
 
+  public ImmutableList<String> getNamePath() {
+    return namePath;
+  }
+
   public FunctionSignature getFunctionSignature() {
     return signature;
   }
@@ -175,8 +179,13 @@ public abstract class TableValuedFunction implements Serializable {
     return getName() + "(" + getFunctionSignature().debugString("", verbose) + ")";
   }
 
+  public boolean isDefaultValue() {
+    return true;
+  }
+
   /** A TVF that always returns a relation with the same fixed output schema. */
   public static class FixedOutputSchemaTVF extends TableValuedFunction {
+    private final TVFRelation outputSchema;
 
     public FixedOutputSchemaTVF(
         ImmutableList<String> namePath,
@@ -191,6 +200,11 @@ public abstract class TableValuedFunction implements Serializable {
         TVFRelation outputSchema,
         TableValuedFunctionOptionsProto options) {
       super(namePath, signature, ImmutableList.of(), null, null, options);
+      this.outputSchema = outputSchema;
+    }
+
+    public TVFRelation getOutputSchema() {
+      return outputSchema;
     }
 
     @Override
@@ -311,6 +325,16 @@ public abstract class TableValuedFunction implements Serializable {
       super(namePath, signature, ImmutableList.of(), null, null, options);
       this.argumentNames = argumentNames;
       this.parseResumeLocation = parseResumeLocation;
+    }
+
+    public ImmutableList<String> getArgumentNames() {
+      return argumentNames;
+    }
+
+    public String getSqlBody() {
+      return this.parseResumeLocation
+          .getInput()
+          .substring(this.parseResumeLocation.getBytePosition());
     }
 
     @Override

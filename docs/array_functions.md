@@ -6,7 +6,7 @@
 
 ZetaSQL supports the following array functions.
 
-### Function list
+## Function list
 
 <table>
   <thead>
@@ -18,8 +18,7 @@ ZetaSQL supports the following array functions.
   <tbody>
 
 <tr>
-  <td><a href="#array"><code>ARRAY</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/array_functions.md#array"><code>ARRAY</code></a>
 </td>
   <td>
     Produces an array with one element for each row in a subquery.
@@ -27,8 +26,17 @@ ZetaSQL supports the following array functions.
 </tr>
 
 <tr>
-  <td><a href="#array_avg"><code>ARRAY_AVG</code></a>
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#array_agg"><code>ARRAY_AGG</code></a>
+</td>
+  <td>
+    Gets an array of values.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md">Aggregate functions</a>.
 
+  </td>
+</tr>
+
+<tr>
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/array_functions.md#array_avg"><code>ARRAY_AVG</code></a>
 </td>
   <td>
     Gets the average of non-<code>NULL</code> values in an array.
@@ -36,8 +44,7 @@ ZetaSQL supports the following array functions.
 </tr>
 
 <tr>
-  <td><a href="#array_concat"><code>ARRAY_CONCAT</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/array_functions.md#array_concat"><code>ARRAY_CONCAT</code></a>
 </td>
   <td>
     Concatenates one or more arrays with the same element type into a
@@ -46,8 +53,17 @@ ZetaSQL supports the following array functions.
 </tr>
 
 <tr>
-  <td><a href="#array_filter"><code>ARRAY_FILTER</code></a>
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#array_concat_agg"><code>ARRAY_CONCAT_AGG</code></a>
+</td>
+  <td>
+    Concatenates arrays and returns a single array as a result.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md">Aggregate functions</a>.
 
+  </td>
+</tr>
+
+<tr>
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/array_functions.md#array_filter"><code>ARRAY_FILTER</code></a>
 </td>
   <td>
     Takes an array, filters out unwanted elements, and returns the results
@@ -56,8 +72,7 @@ ZetaSQL supports the following array functions.
 </tr>
 
 <tr>
-  <td><a href="#array_first"><code>ARRAY_FIRST</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/array_functions.md#array_first"><code>ARRAY_FIRST</code></a>
 </td>
   <td>
     Gets the first element in an array.
@@ -65,8 +80,7 @@ ZetaSQL supports the following array functions.
 </tr>
 
 <tr>
-  <td><a href="#array_includes"><code>ARRAY_INCLUDES</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/array_functions.md#array_includes"><code>ARRAY_INCLUDES</code></a>
 </td>
   <td>
     Checks if there is an element in the array that is
@@ -75,8 +89,7 @@ ZetaSQL supports the following array functions.
 </tr>
 
 <tr>
-  <td><a href="#array_includes_all"><code>ARRAY_INCLUDES_ALL</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/array_functions.md#array_includes_all"><code>ARRAY_INCLUDES_ALL</code></a>
 </td>
   <td>
     Checks if all search values are in an array.
@@ -84,8 +97,7 @@ ZetaSQL supports the following array functions.
 </tr>
 
 <tr>
-  <td><a href="#array_includes_any"><code>ARRAY_INCLUDES_ANY</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/array_functions.md#array_includes_any"><code>ARRAY_INCLUDES_ANY</code></a>
 </td>
   <td>
     Checks if any search values are in an array.
@@ -93,8 +105,7 @@ ZetaSQL supports the following array functions.
 </tr>
 
 <tr>
-  <td><a href="#array_is_distinct"><code>ARRAY_IS_DISTINCT</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/array_functions.md#array_is_distinct"><code>ARRAY_IS_DISTINCT</code></a>
 </td>
   <td>
     Checks if an array contains no repeated elements.
@@ -102,8 +113,7 @@ ZetaSQL supports the following array functions.
 </tr>
 
 <tr>
-  <td><a href="#array_last"><code>ARRAY_LAST</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/array_functions.md#array_last"><code>ARRAY_LAST</code></a>
 </td>
   <td>
     Gets the last element in an array.
@@ -111,8 +121,7 @@ ZetaSQL supports the following array functions.
 </tr>
 
 <tr>
-  <td><a href="#array_length"><code>ARRAY_LENGTH</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/array_functions.md#array_length"><code>ARRAY_LENGTH</code></a>
 </td>
   <td>
     Gets the number of elements in an array.
@@ -120,8 +129,7 @@ ZetaSQL supports the following array functions.
 </tr>
 
 <tr>
-  <td><a href="#array_max"><code>ARRAY_MAX</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/array_functions.md#array_max"><code>ARRAY_MAX</code></a>
 </td>
   <td>
     Gets the maximum non-<code>NULL</code> value in an array.
@@ -129,8 +137,7 @@ ZetaSQL supports the following array functions.
 </tr>
 
 <tr>
-  <td><a href="#array_min"><code>ARRAY_MIN</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/array_functions.md#array_min"><code>ARRAY_MIN</code></a>
 </td>
   <td>
     Gets the minimum non-<code>NULL</code> value in an array.
@@ -138,8 +145,7 @@ ZetaSQL supports the following array functions.
 </tr>
 
 <tr>
-  <td><a href="#array_reverse"><code>ARRAY_REVERSE</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/array_functions.md#array_reverse"><code>ARRAY_REVERSE</code></a>
 </td>
   <td>
     Reverses the order of elements in an array.
@@ -147,8 +153,7 @@ ZetaSQL supports the following array functions.
 </tr>
 
 <tr>
-  <td><a href="#array_slice"><code>ARRAY_SLICE</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/array_functions.md#array_slice"><code>ARRAY_SLICE</code></a>
 </td>
   <td>
     Produces an array containing zero or more consecutive elements from an
@@ -157,8 +162,7 @@ ZetaSQL supports the following array functions.
 </tr>
 
 <tr>
-  <td><a href="#array_sum"><code>ARRAY_SUM</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/array_functions.md#array_sum"><code>ARRAY_SUM</code></a>
 </td>
   <td>
     Gets the sum of non-<code>NULL</code> values in an array.
@@ -166,18 +170,17 @@ ZetaSQL supports the following array functions.
 </tr>
 
 <tr>
-  <td><a href="#array_to_string"><code>ARRAY_TO_STRING</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/array_functions.md#array_to_string"><code>ARRAY_TO_STRING</code></a>
 </td>
   <td>
     Produces a concatenation of the elements in an array as a
     <code>STRING</code> value.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#array_transform"><code>ARRAY_TRANSFORM</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/array_functions.md#array_transform"><code>ARRAY_TRANSFORM</code></a>
 </td>
   <td>
     Transforms the elements of an array, and returns the results in a new
@@ -186,8 +189,7 @@ ZetaSQL supports the following array functions.
 </tr>
 
 <tr>
-  <td><a href="#array_zip"><code>ARRAY_ZIP</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/array_functions.md#array_zip"><code>ARRAY_ZIP</code></a>
 </td>
   <td>
     Combines elements from two to four arrays into one array.
@@ -195,8 +197,7 @@ ZetaSQL supports the following array functions.
 </tr>
 
 <tr>
-  <td><a href="#flatten"><code>FLATTEN</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/array_functions.md#flatten"><code>FLATTEN</code></a>
 </td>
   <td>
     Flattens arrays of nested data to create a single flat array.
@@ -204,8 +205,7 @@ ZetaSQL supports the following array functions.
 </tr>
 
 <tr>
-  <td><a href="#generate_array"><code>GENERATE_ARRAY</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/array_functions.md#generate_array"><code>GENERATE_ARRAY</code></a>
 </td>
   <td>
     Generates an array of values in a range.
@@ -213,27 +213,132 @@ ZetaSQL supports the following array functions.
 </tr>
 
 <tr>
-  <td><a href="#generate_date_array"><code>GENERATE_DATE_ARRAY</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/array_functions.md#generate_date_array"><code>GENERATE_DATE_ARRAY</code></a>
 </td>
   <td>
     Generates an array of dates in a range.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#generate_timestamp_array"><code>GENERATE_TIMESTAMP_ARRAY</code></a>
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/range-functions.md#generate_range_array"><code>GENERATE_RANGE_ARRAY</code></a>
+</td>
+  <td>
+    Splits a range into an array of subranges.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/range-functions.md">Range functions</a>.
 
+  </td>
+</tr>
+
+<tr>
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/array_functions.md#generate_timestamp_array"><code>GENERATE_TIMESTAMP_ARRAY</code></a>
 </td>
   <td>
     Generates an array of timestamps in a range.
+    
+  </td>
+</tr>
+
+<tr>
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#json_array"><code>JSON_ARRAY</code></a>
+</td>
+  <td>
+    Creates a JSON array.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#json_array_append"><code>JSON_ARRAY_APPEND</code></a>
+</td>
+  <td>
+    Appends JSON data to the end of a JSON array.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#json_array_insert"><code>JSON_ARRAY_INSERT</code></a>
+</td>
+  <td>
+    Inserts JSON data into a JSON array.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#json_extract_array"><code>JSON_EXTRACT_ARRAY</code></a>
+</td>
+  <td>
+    (Deprecated)
+    Extracts a JSON array and converts it to
+    a SQL <code>ARRAY&lt;JSON-formatted STRING&gt;</code>
+     or
+    <code>ARRAY&lt;JSON&gt;</code>
+    
+    value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#json_extract_string_array"><code>JSON_EXTRACT_STRING_ARRAY</code></a>
+</td>
+  <td>
+    (Deprecated)
+    Extracts a JSON array of scalar values and converts it to a SQL
+    <code>ARRAY&lt;STRING&gt;</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#json_query_array"><code>JSON_QUERY_ARRAY</code></a>
+</td>
+  <td>
+    Extracts a JSON array and converts it to
+    a SQL <code>ARRAY&lt;JSON-formatted STRING&gt;</code>
+     or
+    <code>ARRAY&lt;JSON&gt;</code>
+    
+    value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#json_value_array"><code>JSON_VALUE_ARRAY</code></a>
+</td>
+  <td>
+    Extracts a JSON array of scalar values and converts it to a SQL
+    <code>ARRAY&lt;STRING&gt;</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/mathematical_functions.md#range_bucket"><code>RANGE_BUCKET</code></a>
+</td>
+  <td>
+    Scans through a sorted array and returns the 0-based position
+    of a point's upper bound.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/mathematical_functions.md">Mathematical functions</a>.
+
   </td>
 </tr>
 
   </tbody>
 </table>
 
-### `ARRAY`
+## `ARRAY`
 
 ```sql
 ARRAY(subquery)
@@ -330,7 +435,7 @@ SELECT ARRAY
 
 [array-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#array_type
 
-### `ARRAY_AVG`
+## `ARRAY_AVG`
 
 ```sql
 ARRAY_AVG(input_array)
@@ -393,7 +498,7 @@ SELECT ARRAY_AVG([0, 2, NULL, 4, 4, 5]) as avg
  *-----*/
 ```
 
-### `ARRAY_CONCAT`
+## `ARRAY_CONCAT`
 
 ```sql
 ARRAY_CONCAT(array_expression[, ...])
@@ -426,7 +531,7 @@ SELECT ARRAY_CONCAT([1, 2], [3, 4], [5, 6]) as count_to_six;
 
 [array-link-to-operators]: https://github.com/google/zetasql/blob/master/docs/operators.md
 
-### `ARRAY_FILTER`
+## `ARRAY_FILTER`
 
 ```sql
 ARRAY_FILTER(array_expression, lambda_expression)
@@ -474,7 +579,7 @@ SELECT
 
 [lambda-definition]: https://github.com/google/zetasql/blob/master/docs/functions-reference.md#lambdas
 
-### `ARRAY_FIRST`
+## `ARRAY_FIRST`
 
 ```sql
 ARRAY_FIRST(array_expression)
@@ -508,7 +613,7 @@ SELECT ARRAY_FIRST(['a','b','c','d']) as first_element
 
 [array-last]: #array_last
 
-### `ARRAY_INCLUDES`
+## `ARRAY_INCLUDES`
 
 +   [Signature 1](#array_includes_signature1):
     `ARRAY_INCLUDES(array_to_search, search_value)`
@@ -599,7 +704,7 @@ SELECT
 
 [lambda-definition]: https://github.com/google/zetasql/blob/master/docs/functions-reference.md#lambdas
 
-### `ARRAY_INCLUDES_ALL`
+## `ARRAY_INCLUDES_ALL`
 
 ```sql
 ARRAY_INCLUDES_ALL(array_to_search, search_values)
@@ -638,7 +743,7 @@ SELECT
  *------+-------*/
 ```
 
-### `ARRAY_INCLUDES_ANY`
+## `ARRAY_INCLUDES_ANY`
 
 ```sql
 ARRAY_INCLUDES_ANY(array_to_search, search_values)
@@ -677,7 +782,7 @@ SELECT
  *------+-------*/
 ```
 
-### `ARRAY_IS_DISTINCT`
+## `ARRAY_IS_DISTINCT`
 
 ```sql
 ARRAY_IS_DISTINCT(value)
@@ -763,7 +868,7 @@ SELECT ARRAY_IS_DISTINCT(NULL) AS is_distinct
  *-------------*/
 ```
 
-### `ARRAY_LAST`
+## `ARRAY_LAST`
 
 ```sql
 ARRAY_LAST(array_expression)
@@ -797,7 +902,7 @@ SELECT ARRAY_LAST(['a','b','c','d']) as last_element
 
 [array-first]: #array_first
 
-### `ARRAY_LENGTH`
+## `ARRAY_LENGTH`
 
 ```sql
 ARRAY_LENGTH(array_expression)
@@ -826,7 +931,7 @@ SELECT
  *--------+--------*/
 ```
 
-### `ARRAY_MAX`
+## `ARRAY_MAX`
 
 ```sql
 ARRAY_MAX(input_array)
@@ -865,7 +970,7 @@ SELECT ARRAY_MAX([8, 37, NULL, 55, 4]) as max
 
 [data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data_type_properties
 
-### `ARRAY_MIN`
+## `ARRAY_MIN`
 
 ```sql
 ARRAY_MIN(input_array)
@@ -904,7 +1009,7 @@ SELECT ARRAY_MIN([8, 37, NULL, 4, 55]) as min
 
 [data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data_type_properties
 
-### `ARRAY_REVERSE`
+## `ARRAY_REVERSE`
 
 ```sql
 ARRAY_REVERSE(value)
@@ -930,7 +1035,7 @@ SELECT ARRAY_REVERSE([1, 2, 3]) AS reverse_arr
  *-------------*/
 ```
 
-### `ARRAY_SLICE`
+## `ARRAY_SLICE`
 
 ```sql
 ARRAY_SLICE(array_to_slice, start_offset, end_offset)
@@ -1171,7 +1276,7 @@ SELECT ARRAY_SLICE(['a', 'b', NULL, 'd', 'e'], 1, 3) AS result
  *--------------*/
 ```
 
-### `ARRAY_SUM`
+## `ARRAY_SUM`
 
 ```sql
 ARRAY_SUM(input_array)
@@ -1233,7 +1338,7 @@ SELECT ARRAY_SUM([1, 2, 3, 4, 5, NULL, 4, 3, 2, 1]) as sum
  *-----*/
 ```
 
-### `ARRAY_TO_STRING`
+## `ARRAY_TO_STRING`
 
 ```sql
 ARRAY_TO_STRING(array_expression, delimiter[, null_text])
@@ -1279,7 +1384,7 @@ SELECT ARRAY_TO_STRING(['cake', 'pie', NULL], '--', 'MISSING') AS text
  *--------------------------------*/
 ```
 
-### `ARRAY_TRANSFORM`
+## `ARRAY_TRANSFORM`
 
 ```sql
 ARRAY_TRANSFORM(array_expression, lambda_expression)
@@ -1327,7 +1432,7 @@ SELECT
 
 [lambda-definition]: https://github.com/google/zetasql/blob/master/docs/functions-reference.md#lambdas
 
-### `ARRAY_ZIP`
+## `ARRAY_ZIP`
 
 ```sql
 ARRAY_ZIP(
@@ -1495,7 +1600,7 @@ SELECT ARRAY_ZIP([1, 2], ['a', 'b', 'c', 'd'], mode => 'TRUNCATE') AS results
 
 <!-- mdlint on -->
 
-### `FLATTEN`
+## `FLATTEN`
 
 ```sql
 FLATTEN(array_elements_field_access_expression)
@@ -1589,7 +1694,7 @@ For more examples, including how to use protocol buffers with `FLATTEN`, see the
 
 [array-el-field-operator]: https://github.com/google/zetasql/blob/master/docs/operators.md#array_el_field_operator
 
-### `GENERATE_ARRAY`
+## `GENERATE_ARRAY`
 
 ```sql
 GENERATE_ARRAY(start_expression, end_expression[, step_expression])
@@ -1711,7 +1816,7 @@ FROM UNNEST([3, 4, 5]) AS start;
  +---------------*/
 ```
 
-### `GENERATE_DATE_ARRAY`
+## `GENERATE_DATE_ARRAY`
 
 ```sql
 GENERATE_DATE_ARRAY(start_date, end_date[, INTERVAL INT64_expr date_part])
@@ -1854,7 +1959,7 @@ FROM (
  *--------------------------------------------------------------*/
 ```
 
-### `GENERATE_TIMESTAMP_ARRAY`
+## `GENERATE_TIMESTAMP_ARRAY`
 
 ```sql
 GENERATE_TIMESTAMP_ARRAY(start_timestamp, end_timestamp,
@@ -1997,6 +2102,8 @@ FROM
  | [2016-10-05 23:59:00+00, 2016-10-06 00:59:00+00, 2016-10-06 01:59:00+00] |
  *--------------------------------------------------------------------------*/
 ```
+
+## Supplemental materials
 
 ### OFFSET and ORDINAL
 

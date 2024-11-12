@@ -21,7 +21,7 @@
 #include <algorithm>
 #include <functional>
 #include <memory>
-#include <set>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -232,9 +232,9 @@ void NameScope::AddColumn(IdString name, const ResolvedColumn& column,
   AddNameTarget(name, NameTarget(column, is_explicit));
 }
 
-void NameScope::AddRangeVariable(IdString name,
-                                 const NameListPtr& scan_columns) {
-  AddNameTarget(name, NameTarget(scan_columns));
+void NameScope::AddRangeVariable(IdString name, const NameListPtr& scan_columns,
+                                 bool is_pattern_variable) {
+  AddNameTarget(name, NameTarget(scan_columns, is_pattern_variable));
 }
 
 bool NameScope::LookupName(
@@ -333,7 +333,8 @@ const char* const NameScope::kDefaultProblemString =
 absl::Status NameScope::LookupNamePath(
     const PathExpressionSpan& path_expr, const char* clause_name,
     const char* problem_string, bool in_strict_mode,
-    CorrelatedColumnsSetList* correlated_columns_sets, int* num_names_consumed,
+    CorrelatedColumnsSetList& correlated_columns_sets, int* num_names_consumed,
+    std::optional<IdString>& out_referenced_pattern_variable,
     NameTarget* target_out) const {
   const IdString first_name = path_expr.GetFirstIdString();
 
@@ -342,7 +343,7 @@ absl::Status NameScope::LookupNamePath(
   NameTarget target;
   // This call to LookupName() populates correlated_columns_sets if
   // the lookup resolves to a correlated column.
-  if (LookupName(first_name, &target, correlated_columns_sets)) {
+  if (LookupName(first_name, &target, &correlated_columns_sets)) {
     if (in_strict_mode && target.IsImplicit()) {
       return MakeSqlErrorAt(path_expr.first_name())
              << "Alias " << ToIdentifierLiteral(first_name)
@@ -350,8 +351,21 @@ absl::Status NameScope::LookupNamePath(
                 "resolution mode";
     }
 
+    auto make_correlated_pattern_variable_ref_error = [&path_expr]() {
+      return MakeSqlErrorAt(path_expr.first_name())
+             << "Pattern variables can only be referenced in the same "
+             << "MATCH_RECOGNIZE clause defining them directly without "
+             << "subqueries";
+    };
+
     switch (target.kind()) {
       case NameTarget::RANGE_VARIABLE: {
+        if (target.is_pattern_variable()) {
+          if (!correlated_columns_sets.empty()) {
+            return make_correlated_pattern_variable_ref_error();
+          }
+          out_referenced_pattern_variable = first_name;
+        }
         const NameList& scan_columns = *target.scan_columns();
         if (path_expr.num_names() >= 2) {
           // We have at least two identifiers and the first is a scan alias.
@@ -384,6 +398,9 @@ absl::Status NameScope::LookupNamePath(
                      << "Name " << dot_name << " is ambiguous inside "
                      << first_name;
             case NameTarget::RANGE_VARIABLE:
+              ZETASQL_RET_CHECK(!target.is_pattern_variable())
+                  << "Pattern variable " << dot_name
+                  << " cannot be referenced from alias " << first_name;
               return MakeSqlErrorAt(path_expr.first_name())
                      << "Name " << first_name << "." << dot_name
                      << " is a table alias, but a column was expected";
@@ -435,6 +452,15 @@ absl::Status NameScope::LookupNamePath(
         // The name exists but accessing it is an error.  However,
         // if we are accessing fields from this name then check to
         // see if the field access is valid.
+        // But first, make a note of any pattern variable access along the path
+        if (NameTarget::IsRangeVariableKind(target.original_kind()) &&
+            target.is_pattern_variable()) {
+          if (!correlated_columns_sets.empty()) {
+            return make_correlated_pattern_variable_ref_error();
+          }
+          out_referenced_pattern_variable = first_name;
+        }
+
         if (path_expr.num_names() >= 2) {
           std::vector<IdString> path_names;
 
@@ -646,6 +672,33 @@ Type::HasFieldResult NameScope::LookupFieldTargetLocalOnly(
     ABSL_DCHECK_EQ(result, Type::HAS_NO_FIELD);
   }
   return result;
+}
+
+absl::Status NameScope::CloneRangeVariablesMapped(
+    const NameScope& other_scope,
+    const absl::flat_hash_map<int, ResolvedColumn>& column_map,
+    const ASTNode& ast_location,
+    const IdStringHashSetCase& excluded_range_variable_set) {
+  for (const auto& [name, target] : other_scope.names()) {
+    if (!target.IsRangeVariable() ||
+        excluded_range_variable_set.contains(name)) {
+      continue;
+    }
+
+    auto range_var = std::make_shared<NameList>();
+    for (const NamedColumn& column : target.scan_columns()->columns()) {
+      const auto& iter = column_map.find(column.column().column_id());
+      if (iter == column_map.end()) continue;
+      const ResolvedColumn& new_column = iter->second;
+      ZETASQL_RETURN_IF_ERROR(
+          range_var->AddColumn(column.name(), new_column, target.IsExplicit()));
+    }
+
+    // Note that this can add a range variable containing an empty column list.
+    this->AddRangeVariable(name, range_var);
+  }
+
+  return absl::OkStatus();
 }
 
 bool NameScope::HasName(IdString name) const {
@@ -919,6 +972,7 @@ absl::Status NameScope::CreateNewRangeVariableTargetGivenValidNamePaths(
     const ValidFieldInfoMap& valid_field_info_map_in,
     NameTarget* new_name_target) {
   if (original_name_target.scan_columns()->is_value_table()) {
+    ZETASQL_RET_CHECK(!original_name_target.is_pattern_variable());
     ValidNamePathList new_name_path_list;
     const ResolvedColumn range_variable_column =
         original_name_target.scan_columns()->column(0).column();
@@ -971,6 +1025,8 @@ absl::Status NameScope::CreateNewRangeVariableTargetGivenValidNamePaths(
     // Accessing this range variable directly is an error,
     // but accessing its fields are possibly ok.
     new_name_target->SetAccessError(NameTarget::RANGE_VARIABLE);
+    ZETASQL_RETURN_IF_ERROR(new_name_target->SetIsPatternVariable(
+        original_name_target.is_pattern_variable()));
     if (!new_name_path_list.empty()) {
       new_name_target->AppendValidNamePathList(new_name_path_list);
     }
@@ -1159,8 +1215,9 @@ bool NameTarget::Equals_TESTING(const NameTarget& other) const {
     case RANGE_VARIABLE:
       // TODO: We should not rely on NameList.DebugString() for
       // equality.  Implement NameList equality and use that here.
-      return scan_columns()->DebugString() ==
-               other.scan_columns()->DebugString();
+      return is_pattern_variable_ == other.is_pattern_variable() &&
+             scan_columns()->DebugString() ==
+                 other.scan_columns()->DebugString();
     case IMPLICIT_COLUMN:
     case EXPLICIT_COLUMN:
       return column_ == other.column();
@@ -1185,7 +1242,8 @@ std::string NameTarget::DebugString() const {
   }
   switch (kind_) {
     case RANGE_VARIABLE:
-      return absl::StrCat("RANGE_VARIABLE<",
+      return absl::StrCat(is_pattern_variable_ ? "PATTERN" : "RANGE",
+                          "_VARIABLE<",
                           absl::StrJoin(scan_columns()->GetColumnNames(), ",",
                                         IdStringFormatter),
                           ">");
@@ -1204,7 +1262,11 @@ std::string NameTarget::DebugString() const {
     case ACCESS_ERROR:
       switch (original_kind_) {
         case RANGE_VARIABLE:
-          absl::StrAppend(&debug_string, "RANGE_VARIABLE");
+          if (is_pattern_variable_) {
+            absl::StrAppend(&debug_string, "PATTERN_VARIABLE");
+          } else {
+            absl::StrAppend(&debug_string, "RANGE_VARIABLE");
+          }
           break;
         case IMPLICIT_COLUMN:
           absl::StrAppend(&debug_string, "IMPLICIT_COLUMN");
@@ -1416,6 +1478,26 @@ absl::Status NameList::MergeFrom(const NameList& other,
   return MergeFrom(other, ast_location, MergeOptions());
 }
 
+std::shared_ptr<NameList> NameList::Copy() const {
+  // This is not implemented by calling the Copy that takes `options` because
+  // we want to use the optimized construction path like MergeFrom above uses.
+  // This is not implemented via MergeFrom to avoid needing to handle errors.
+  auto new_name_list = std::make_shared<NameList>();
+  new_name_list->columns_ = columns_;
+  new_name_list->name_scope_.CopyStateFrom(name_scope_);
+  return new_name_list;
+}
+
+std::shared_ptr<NameList> NameList::CopyWithIsValueTable() const {
+  std::shared_ptr<NameList> copy = Copy();
+  if (is_value_table_) {
+    // SetIsValueTable() can return errors, but only on assertion failures
+    // that can't occur here, so just set the field directly.
+    copy->is_value_table_ = true;
+  }
+  return copy;
+}
+
 absl::Status NameList::MergeFrom(const NameList& other,
                                  const ASTNode* ast_location,
                                  const MergeOptions& options) {
@@ -1581,6 +1663,13 @@ absl::Status NameList::MergeFrom(const NameList& other,
   return absl::OkStatus();
 }
 
+absl::StatusOr<std::shared_ptr<NameList>> NameList::Copy(
+    const ASTNode* ast_location, const MergeOptions& options) const {
+  auto new_name_list = std::make_shared<NameList>();
+  ZETASQL_RETURN_IF_ERROR(new_name_list->MergeFrom(*this, ast_location, options));
+  return new_name_list;
+}
+
 // static
 absl::StatusOr<std::shared_ptr<NameList>>
 NameList::AddRangeVariableInWrappingNameList(
@@ -1605,7 +1694,7 @@ NameList::AddRangeVariableInWrappingNameList(
 
 absl::StatusOr<std::shared_ptr<NameList>> NameList::CloneWithNewColumns(
     const ASTNode* ast_location, absl::string_view value_table_error,
-    const ASTAlias* alias,
+    const ASTIdentifier* alias,
     std::function<ResolvedColumn(const ResolvedColumn&)> clone_column,
     IdStringPool* id_string_pool) const {
   if (is_value_table()) {

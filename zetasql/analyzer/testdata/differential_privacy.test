@@ -66,12 +66,14 @@ QueryStmt
         |     +-AnalyticFunctionGroup
         |       +-order_by=
         |       | +-WindowOrdering
+        |       |   +-parse_location=86-98
         |       |   +-order_by_item_list=
         |       |     +-OrderByItem
+        |       |       +-parse_location=95-98
         |       |       +-column_ref=
         |       |         +-ColumnRef(type=STRING, column=$orderby.$orderbycol1#25)
         |       +-analytic_function_list=
-        |         +-$analytic1#24 := AnalyticFunctionCall(ZetaSQL:rank() -> INT64)
+        |         +-$analytic1#24 := AnalyticFunctionCall(ZetaSQL:rank() -> INT64)(parse_location=73-99)
         +-filter_expr=
           +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
             +-ColumnRef(type=INT64, column=$aggregate.$agg1#23)
@@ -2669,12 +2671,14 @@ QueryStmt
         |         +-AnalyticFunctionGroup
         |           +-order_by=
         |           | +-WindowOrdering
+        |           |   +-parse_location=113-127
         |           |   +-order_by_item_list=
         |           |     +-OrderByItem
+        |           |       +-parse_location=122-127
         |           |       +-column_ref=
         |           |         +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
         |           +-analytic_function_list=
-        |             +-$analytic1#14 := AnalyticFunctionCall(ZetaSQL:rank() -> INT64)
+        |             +-$analytic1#14 := AnalyticFunctionCall(ZetaSQL:rank() -> INT64)(parse_location=100-128)
         +-aggregate_list=
           +-$agg1#15 :=
             +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)

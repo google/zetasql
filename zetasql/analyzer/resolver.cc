@@ -24,6 +24,7 @@
 #include <limits>
 #include <map>
 #include <memory>
+#include <new>
 #include <optional>
 #include <set>
 #include <string>
@@ -67,6 +68,7 @@
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
+#include "zetasql/public/property_graph.h"
 #include "zetasql/public/select_with_mode.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/table_valued_function.h"
@@ -149,6 +151,9 @@ void Resolver::Reset(absl::string_view sql) {
   function_argument_info_ = nullptr;
   resolved_columns_from_table_scans_.clear();
   side_effect_scope_depth_ = 0;
+  graph_context_stack_ = {};
+  referenced_property_graphs_ = {};
+  lock_mode_stack_ = {};
 
   if (analyzer_options_.column_id_sequence_number() != nullptr) {
     column_factory_ = std::make_unique<ColumnFactory>(
@@ -300,9 +305,21 @@ absl::Status Resolver::ResolveStandaloneExpr(
                           << "standalone expressions";
   }
 
-  ZETASQL_RETURN_IF_ERROR(ResolveScalarExpr(ast_expr, empty_name_scope_.get(),
-                                    "standalone expression",
-                                    resolved_expr_out));
+  if (analyzer_options_.allow_aggregate_standalone_expression()) {
+    std::unique_ptr<QueryResolutionInfo> query_resolution_info(
+        new QueryResolutionInfo(this));
+    ExprResolutionInfoOptions options;
+    options.allows_aggregation = true;
+    options.clause_name = "standalone expression";
+    ExprResolutionInfo expr_resolution_info(query_resolution_info.get(),
+                                            empty_name_scope_.get(), options);
+    ZETASQL_RETURN_IF_ERROR(
+        ResolveExpr(ast_expr, &expr_resolution_info, resolved_expr_out));
+  } else {
+    ZETASQL_RETURN_IF_ERROR(ResolveScalarExpr(ast_expr, empty_name_scope_.get(),
+                                      "standalone expression",
+                                      resolved_expr_out));
+  }
   ZETASQL_RETURN_IF_ERROR(ValidateUndeclaredParameters(resolved_expr_out->get()));
   ZETASQL_RETURN_IF_ERROR(PruneColumnLists(resolved_expr_out->get()));
   return absl::OkStatus();
@@ -511,7 +528,7 @@ absl::Status Resolver::AssignTypeToUndeclaredParameter(
     const ParseLocationPoint& location, const Type* type) {
   const auto it = untyped_undeclared_parameters_.find(location);
   ZETASQL_RET_CHECK(it != untyped_undeclared_parameters_.end());
-  const absl::variant<std::string, int> name_or_position = it->second;
+  const std::variant<std::string, int> name_or_position = it->second;
   untyped_undeclared_parameters_.erase(it);
 
   if (std::holds_alternative<std::string>(name_or_position)) {
@@ -1963,6 +1980,17 @@ void Resolver::RecordColumnAccess(
   }
 }
 
+void Resolver::RecordPropertyGraphRef(const PropertyGraph* property_graph) {
+  referenced_property_graphs_.insert(property_graph);
+}
+
+absl::flat_hash_set<const PropertyGraph*>
+Resolver::release_referenced_property_graphs() {
+  absl::flat_hash_set<const PropertyGraph*> tmp;
+  referenced_property_graphs_.swap(tmp);
+  return tmp;
+}
+
 absl::Status Resolver::RecordImpliedAccess(const ResolvedStatement* statement) {
   // ResolvedUpdateStmt and ResolvedMergeStmt are both supported and we return
   // immediately if statement is not one of these two. This saves us from
@@ -2348,6 +2376,18 @@ absl::Status Resolver::ValidateAndResolveCollate(
            << column_type->ShortTypeName(product_mode());
   }
   return ResolveCollate(ast_collate, resolved_collate);
+}
+
+absl::StatusOr<absl::string_view> Resolver::GetSQLForASTNode(
+    const ASTNode* node) {
+  ZETASQL_RET_CHECK(node != nullptr);
+  const ParseLocationRange& range = node->GetParseLocationRange();
+  ZETASQL_RET_CHECK(range.start().IsValid());
+  ZETASQL_RET_CHECK(range.end().IsValid());
+  ZETASQL_RET_CHECK_GE(sql_.length(), range.end().GetByteOffset()) << sql_;
+  return absl::ClippedSubstr(
+      sql_, range.start().GetByteOffset(),
+      range.end().GetByteOffset() - range.start().GetByteOffset());
 }
 
 std::vector<std::string> FunctionArgumentInfo::ArgumentNames() const {

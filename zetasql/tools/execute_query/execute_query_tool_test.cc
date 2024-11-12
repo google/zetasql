@@ -17,6 +17,7 @@
 #include "zetasql/tools/execute_query/execute_query_tool.h"
 
 #include <memory>
+#include <optional>
 #include <ostream>
 #include <sstream>
 #include <string>
@@ -26,6 +27,7 @@
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/map_field.h"
 #include "google/protobuf/text_format.h"
+#include "zetasql/common/options_utils.h"
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/builtin_function_options.h"
@@ -73,12 +75,14 @@ absl::Status ExecuteQuery(absl::string_view sql, ExecuteQueryConfig& config,
   return ExecuteQuery(sql, config, writer);
 }
 
-TEST(ExecuteQueryDefaults, AllRewritesEnabledByDefault) {
+TEST(ExecuteQueryDefaults, AllNonDevRewritesEnabledByDefault) {
   absl::FlagSaver fs;
   ExecuteQueryConfig config;
   ZETASQL_ASSERT_OK(SetAnalyzerOptionsFromFlags(config));
   EXPECT_EQ(config.analyzer_options().enabled_rewrites(),
-            internal::GetAllRewrites());
+            internal::GetRewrites(
+                /*include_in_development=*/false,
+                /*include_default_disabled=*/true));
 }
 
 TEST(ExecuteQueryDefaults, FoldLiteralCastEnabledByDefault) {
@@ -159,6 +163,7 @@ TEST(SetSqlModeFromFlags, SqlMode) {
   };
   CheckFlag("query", SqlMode::kQuery);
   CheckFlag("expression", SqlMode::kExpression);
+  CheckFlag("script", SqlMode::kScript);
 }
 
 TEST(SetSqlModeFromFlags, BadSqlMode) {
@@ -167,6 +172,22 @@ TEST(SetSqlModeFromFlags, BadSqlMode) {
   ExecuteQueryConfig config;
   EXPECT_THAT(SetSqlModeFromFlags(config),
               StatusIs(absl::StatusCode::kInvalidArgument));
+}
+
+TEST(ExecuteQueryConfigTest, ParseSqlMode) {
+  ExecuteQueryConfig config;
+  EXPECT_EQ(config.parse_sql_mode("query"), SqlMode::kQuery);
+  EXPECT_EQ(config.parse_sql_mode("expression"), SqlMode::kExpression);
+  EXPECT_EQ(config.parse_sql_mode("script"), SqlMode::kScript);
+  // Invalid mode received
+  EXPECT_EQ(config.parse_sql_mode("some_invalid_mode"), std::nullopt);
+}
+
+TEST(ExecuteQueryConfigTest, SqlModeName) {
+  ExecuteQueryConfig config;
+  EXPECT_EQ(config.sql_mode_name(SqlMode::kQuery), "query");
+  EXPECT_EQ(config.sql_mode_name(SqlMode::kExpression), "expression");
+  EXPECT_EQ(config.sql_mode_name(SqlMode::kScript), "script");
 }
 
 TEST(SetLanguageOptionsFromFlags, BadProductMode) {
@@ -1020,6 +1041,15 @@ TEST(ExecuteQuery, ExamineResolvedASTCallback) {
   EXPECT_THAT(output.str(), IsEmpty());
 }
 
+TEST(ExecuteQuery, InitializeConfigReservesAllReservablesKeywords) {
+  ExecuteQueryConfig config;
+  ZETASQL_ASSERT_OK(InitializeExecuteQueryConfig(config));
+  EXPECT_TRUE(config.analyzer_options().language().IsReservedKeyword(
+      "MATCH_RECOGNIZE"));
+  EXPECT_TRUE(
+      config.analyzer_options().language().IsReservedKeyword("QUALIFY"));
+}
+
 TEST(SetLanguageOptionsFromFlags, SelectedCatalog_None) {
   absl::FlagSaver fs;
   ExecuteQueryConfig config;
@@ -1083,14 +1113,30 @@ static absl::Status RunFileBasedTestImpl(
   file_based_test_driver::TestCaseOptions test_case_options;
   // `mode` and `catalog` options correspond to flags of the same name.
   test_case_options.RegisterString("mode", "execute");
+  test_case_options.RegisterString("sql_mode", "query");
   test_case_options.RegisterString("catalog", "sample");
+  test_case_options.RegisterString("enabled_language_features", "");
+  test_case_options.RegisterInt64("max_statements_to_execute", -1);
 
   std::string test_case = std::string(test_case_input);
   ZETASQL_RETURN_IF_ERROR(test_case_options.ParseTestCaseOptions(&test_case));
 
   absl::SetFlag(&FLAGS_mode,
-                absl::StrSplit(test_case_options.GetString("mode"), ","));
+                absl::StrSplit(test_case_options.GetString("mode"), ','));
+  absl::SetFlag(&FLAGS_sql_mode, test_case_options.GetString("sql_mode"));
   absl::SetFlag(&FLAGS_catalog, test_case_options.GetString("catalog"));
+  if (test_case_options.GetInt64("max_statements_to_execute") != -1) {
+    absl::SetFlag(&FLAGS_max_statements_to_execute,
+                  test_case_options.GetInt64("max_statements_to_execute"));
+  }
+  if (!test_case_options.GetString("enabled_language_features").empty()) {
+    absl::CommandLineFlag* flag =
+        absl::FindCommandLineFlag("enabled_language_features");
+    std::string error;
+    EXPECT_TRUE(flag->ParseFrom(
+        test_case_options.GetString("enabled_language_features"), &error))
+        << error;
+  }
 
   ExecuteQueryConfig config;
   ZETASQL_RETURN_IF_ERROR(InitializeExecuteQueryConfig(config));

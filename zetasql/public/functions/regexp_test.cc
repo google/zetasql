@@ -19,6 +19,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -212,6 +213,58 @@ TEST_P(RegexpInstrTest, TestLib) {
 
 INSTANTIATE_TEST_SUITE_P(RegexpInstrTests, RegexpInstrTest,
                          testing::ValuesIn(GetFunctionTestsRegexpInstr()));
+
+// TODO: b/328210654 - Move these tests to testlib with prohibited feature:
+// FEATURE_LEGACY_REGEXP_POSITION_BEHAVIOR. This is a temporary test set to
+// ensure that the offset is correctly forwarded. This behavior is not yet used
+// by any engine.
+TEST(RegexpExtract, ForwardsOffset) {
+  absl::StatusOr<std::unique_ptr<const RegExp>> re;
+  absl::Status status;
+  absl::string_view out;
+  bool is_null;
+  const std::vector<std::tuple<absl::string_view, absl::string_view, int, int,
+                               absl::string_view>>
+      tests = {{"xyzabc", "^abc$", 4, 1, ""},
+               {"xyzabc", "abc$", 4, 1, "abc"},
+               {"xyzabc-abc", "^abc.", 4, 1, ""},
+               {"xyzabc-abc", "abc.", 4, 1, "abc-"}};
+  for (const auto& [in, regex, position, occurrence, expected_out] : tests) {
+    re = MakeRegExpBytes(regex);
+    (*re)->Extract(in, RegExp::kBytes, position, occurrence,
+                   /*use_legacy_position_behavior=*/false, &out, &is_null,
+                   &status);
+    ZETASQL_ASSERT_OK(status);
+    EXPECT_EQ(out, expected_out);
+  }
+}
+
+TEST(RegexpInstr, ForwardsOffset) {
+  absl::StatusOr<std::unique_ptr<const RegExp>> re;
+  absl::Status status;
+  RegExp::InstrParams options;
+  int64_t out;
+  const std::vector<
+      std::tuple<absl::string_view, absl::string_view, int, int, int>>
+      tests = {{"xyzabc", "^abc$", 4, 1, 0},
+               {"xyzabc", "abc$", 4, 1, 4},
+               {"xyzabc-abc", "^abc.", 4, 1, 0},
+               {"xyzabc-abc", "abc.", 4, 1, 4}};
+  for (const auto& [in, regex, position, occurrence, expected_out] : tests) {
+    re = MakeRegExpBytes(regex);
+    options = {
+        .input_str = in,
+        .position_unit = RegExp::kBytes,
+        .position = position,
+        .occurrence_index = occurrence,
+        .return_position = RegExp::kStartOfMatch,
+        .out = &out,
+    };
+    (*re)->Instr(options, /*use_legacy_position_behavior=*/false, &status);
+    ZETASQL_ASSERT_OK(status);
+    EXPECT_EQ(out, expected_out);
+  }
+}
 
 TEST(RegexpExtract, NullStringView) {
   // Tests for b/25378427.

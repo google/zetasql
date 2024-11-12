@@ -30,6 +30,12 @@ execute_query_test(
 
 execute_query_test(
     name = "execute_walkthrough_7day_test",
-    args = ["--catalog=tpch"],
+    args = [
+        "--catalog=tpch",
+        # This test depends on REWRITE_INLINE_SQL_TVFS, which is marked in_development=true, and
+        # thus may return incorrect results, and needs to be manually enabled.
+        # TODO: b/202167428 - Remove arg once this rewriter is out of development.
+        "--enabled_ast_rewrites=ALL_MINUS_DEV,+INLINE_SQL_TVFS",
+    ],
     sql_file = "walkthrough_7day.sql",
 )

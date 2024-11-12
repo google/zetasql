@@ -26,7 +26,7 @@
 #include "zetasql/base/arena.h"
 #include "zetasql/parser/macros/macro_catalog.h"
 #include "zetasql/parser/macros/token_provider_base.h"
-#include "zetasql/parser/macros/token_with_location.h"
+#include "zetasql/parser/token_with_location.h"
 #include "zetasql/public/error_helpers.h"
 #include "zetasql/public/error_location.pb.h"
 #include "zetasql/public/language_options.h"
@@ -77,6 +77,7 @@ struct DiagnosticOptions {
   ErrorMessageOptions error_message_options = {};
   bool warn_on_literal_expansion = true;
   bool warn_on_identifier_splicing = true;
+  bool warn_on_macro_invocation_with_no_parens = true;
   int max_warning_count = 5;
 };
 

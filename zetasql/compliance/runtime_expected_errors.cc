@@ -177,6 +177,9 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange,
       "The n argument to ARRAY_(|REMOVE_)(FIRST|LAST)_N must not be negative"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "Limit requires (non-negative|non-null) count and offset"));
 
   // REPLACE_FIELDS() specific
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
@@ -217,6 +220,10 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       "LOG is undefined for zero or negative value, or when base equals 1"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange, "SQRT is undefined for negative value"));
+  // MATCH_RECOGNIZE specific
+  //
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange, "MATCH_RECOGNIZE pattern is too complex"));
 
   // CASTing errors for un-castable values.
   //
@@ -296,6 +303,8 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       absl::StatusCode::kOutOfRange, "Max distance must be non-negative"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange, "EDIT_DISTANCE .* invalid UTF8 string"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange, "Invalid UTF8 string"));
 
   // TODO: known issue
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
@@ -565,7 +574,7 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       absl::StatusCode::kUnimplemented, "Precision argument of ST_AsGeoJSON "));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kUnimplemented,
-      "(ST_BUFFER|ST_BUFFERWITHTOLERANCE) does not yet implement "
+      "(ST_BUFFER|ST_BUFFERWITHTOLERANCE|ST_LENGTH) does not yet implement "
       "use_spheroid=true"));
 
   // PROTO_NULL_IF_UNSET() analysis errors from Protobuf fields without defaults
@@ -593,6 +602,37 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       absl::StatusCode::kInvalidArgument,
       "Modifying multiple fields from the same OneOf is unsupported by "
       "REPLACE_FIELDS()"));
+
+  // Graph related errors
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "Returning expressions of type (GRAPH_ELEMENT|GRAPH_PATH) is not "
+      "allowed"));
+  // TODO: Add null handling for graph predicate functions
+  // and remove this entry.
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "Input to the function "
+      "(SAME|ALL_DIFFERENT|PROPERTY_EXISTS|LABELS|PROPERTY_NAMES|PATH) must "
+      "not be null"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "Input to the operator (SOURCE|DEST) must not "
+      "be null"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange, "Path concatenation requires"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange, "The arguments to PATH must contain"));
+  // TODO: Add reference implementation for TO_JSON_STRING and
+  // remove this entry.
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kUnimplemented,
+      "Unsupported argument type (GRAPH|PATH).* for TO_JSON_STRING"));
+  // TODO: b/332323738 - Support set operation after NEXT and remove this entry.
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kUnimplemented,
+      "Correlated columns in GQL with set operation after NEXT is not "
+      "implemented yet"));
 
   // COLLATION related errors
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
@@ -694,6 +734,10 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       "syntax error while parsing (value|array|object|object key|object "
       "separator)"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "attempting to parse an empty input; check that your input string or "
+      "stream contains the expected JSON"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange, "Invalid `wide_number_mode` specified"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange, "Invalid input to JSON_(REMOVE|SET)"));
@@ -715,6 +759,18 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange,
       "The provided JSON input is not an array"));
+  // Multi-level aggregation expected errors. These are analyzer errors, which
+  // we accept since configuring RQG to avoid generating these ResolvedASTs is
+  // difficult.
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "GROUP BY modifiers cannot be literal values"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "GROUP BY modifiers cannot specify ordinals"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "ORDER BY argument is neither an aggregate function nor a grouping key"));
 
   return std::make_unique<MatcherCollection<absl::Status>>(
       matcher_name, std::move(error_matchers));

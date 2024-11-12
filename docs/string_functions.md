@@ -17,7 +17,7 @@ returned positions refer to character positions.
 All string comparisons are done byte-by-byte, without regard to Unicode
 canonical equivalence.
 
-### Function list
+## Function list
 
 <table>
   <thead>
@@ -29,8 +29,18 @@ canonical equivalence.
   <tbody>
 
 <tr>
-  <td><a href="#ascii"><code>ASCII</code></a>
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/array_functions.md#array_to_string"><code>ARRAY_TO_STRING</code></a>
+</td>
+  <td>
+    Produces a concatenation of the elements in an array as a
+    <code>STRING</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/array_functions.md">Array functions</a>.
 
+  </td>
+</tr>
+
+<tr>
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#ascii"><code>ASCII</code></a>
 </td>
   <td>
     Gets the ASCII code for the first character or byte in a <code>STRING</code>
@@ -39,8 +49,7 @@ canonical equivalence.
 </tr>
 
 <tr>
-  <td><a href="#byte_length"><code>BYTE_LENGTH</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#byte_length"><code>BYTE_LENGTH</code></a>
 </td>
   <td>
     Gets the number of <code>BYTES</code> in a <code>STRING</code> or
@@ -49,8 +58,7 @@ canonical equivalence.
 </tr>
 
 <tr>
-  <td><a href="#char_length"><code>CHAR_LENGTH</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#char_length"><code>CHAR_LENGTH</code></a>
 </td>
   <td>
     Gets the number of characters in a <code>STRING</code> value.
@@ -58,8 +66,7 @@ canonical equivalence.
 </tr>
 
 <tr>
-  <td><a href="#character_length"><code>CHARACTER_LENGTH</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#character_length"><code>CHARACTER_LENGTH</code></a>
 </td>
   <td>
     Synonym for <code>CHAR_LENGTH</code>.
@@ -67,37 +74,36 @@ canonical equivalence.
 </tr>
 
 <tr>
-  <td><a href="#chr"><code>CHR</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#chr"><code>CHR</code></a>
 </td>
   <td>
     Converts a Unicode code point to a character.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#code_points_to_bytes"><code>CODE_POINTS_TO_BYTES</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#code_points_to_bytes"><code>CODE_POINTS_TO_BYTES</code></a>
 </td>
   <td>
     Converts an array of extended ASCII code points to a
     <code>BYTES</code> value.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#code_points_to_string"><code>CODE_POINTS_TO_STRING</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#code_points_to_string"><code>CODE_POINTS_TO_STRING</code></a>
 </td>
   <td>
     Converts an array of extended ASCII code points to a
     <code>STRING</code> value.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#collate"><code>COLLATE</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#collate"><code>COLLATE</code></a>
 </td>
   <td>
     Combines a <code>STRING</code> value and a collation specification into a
@@ -106,8 +112,7 @@ canonical equivalence.
 </tr>
 
 <tr>
-  <td><a href="#concat"><code>CONCAT</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#concat"><code>CONCAT</code></a>
 </td>
   <td>
     Concatenates one or more <code>STRING</code> or <code>BYTES</code>
@@ -116,8 +121,7 @@ canonical equivalence.
 </tr>
 
 <tr>
-  <td><a href="#edit_distance"><code>EDIT_DISTANCE</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#edit_distance"><code>EDIT_DISTANCE</code></a>
 </td>
   <td>
     Computes the Levenshtein distance between two <code>STRING</code>
@@ -126,8 +130,7 @@ canonical equivalence.
 </tr>
 
 <tr>
-  <td><a href="#ends_with"><code>ENDS_WITH</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#ends_with"><code>ENDS_WITH</code></a>
 </td>
   <td>
     Checks if a <code>STRING</code> or <code>BYTES</code> value is the suffix
@@ -136,8 +139,7 @@ canonical equivalence.
 </tr>
 
 <tr>
-  <td><a href="#format_string"><code>FORMAT</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#format_string"><code>FORMAT</code></a>
 </td>
   <td>
     Formats data and produces the results as a <code>STRING</code> value.
@@ -145,38 +147,38 @@ canonical equivalence.
 </tr>
 
 <tr>
-  <td><a href="#from_base32"><code>FROM_BASE32</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#from_base32"><code>FROM_BASE32</code></a>
 </td>
   <td>
     Converts a base32-encoded <code>STRING</code> value into a
     <code>BYTES</code> value.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#from_base64"><code>FROM_BASE64</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#from_base64"><code>FROM_BASE64</code></a>
 </td>
   <td>
     Converts a base64-encoded <code>STRING</code> value into a
     <code>BYTES</code> value.
+    
+
   </td>
 </tr>
 
 <tr>
-  <td><a href="#from_hex"><code>FROM_HEX</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#from_hex"><code>FROM_HEX</code></a>
 </td>
   <td>
     Converts a hexadecimal-encoded <code>STRING</code> value into a
     <code>BYTES</code> value.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#initcap"><code>INITCAP</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#initcap"><code>INITCAP</code></a>
 </td>
   <td>
     Formats a <code>STRING</code> as proper case, which means that the first
@@ -185,8 +187,7 @@ canonical equivalence.
 </tr>
 
 <tr>
-  <td><a href="#instr"><code>INSTR</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#instr"><code>INSTR</code></a>
 </td>
   <td>
     Finds the position of a subvalue inside another value, optionally starting
@@ -195,8 +196,28 @@ canonical equivalence.
 </tr>
 
 <tr>
-  <td><a href="#left"><code>LEFT</code></a>
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#lax_string"><code>LAX_STRING</code></a>
+</td>
+  <td>
+    Attempts to convert a JSON value to a SQL <code>STRING</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
 
+  </td>
+</tr>
+
+<tr>
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#lax_string_array"><code>LAX_STRING_ARRAY</code></a>
+</td>
+  <td>
+    Attempts to convert a JSON value to a
+    SQL <code>ARRAY&lt;STRING&gt;</code>value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#left"><code>LEFT</code></a>
 </td>
   <td>
     Gets the specified leftmost portion from a <code>STRING</code> or
@@ -205,8 +226,7 @@ canonical equivalence.
 </tr>
 
 <tr>
-  <td><a href="#length"><code>LENGTH</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#length"><code>LENGTH</code></a>
 </td>
   <td>
     Gets the length of a <code>STRING</code> or <code>BYTES</code> value.
@@ -214,8 +234,7 @@ canonical equivalence.
 </tr>
 
 <tr>
-  <td><a href="#lower"><code>LOWER</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#lower"><code>LOWER</code></a>
 </td>
   <td>
     Formats alphabetic characters in a <code>STRING</code> value as
@@ -227,8 +246,7 @@ canonical equivalence.
 </tr>
 
 <tr>
-  <td><a href="#lpad"><code>LPAD</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#lpad"><code>LPAD</code></a>
 </td>
   <td>
     Prepends a <code>STRING</code> or <code>BYTES</code> value with a pattern.
@@ -236,8 +254,7 @@ canonical equivalence.
 </tr>
 
 <tr>
-  <td><a href="#ltrim"><code>LTRIM</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#ltrim"><code>LTRIM</code></a>
 </td>
   <td>
     Identical to the <code>TRIM</code> function, but only removes leading
@@ -246,8 +263,7 @@ canonical equivalence.
 </tr>
 
 <tr>
-  <td><a href="#normalize"><code>NORMALIZE</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#normalize"><code>NORMALIZE</code></a>
 </td>
   <td>
     Case-sensitively normalizes the characters in a <code>STRING</code> value.
@@ -255,8 +271,7 @@ canonical equivalence.
 </tr>
 
 <tr>
-  <td><a href="#normalize_and_casefold"><code>NORMALIZE_AND_CASEFOLD</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#normalize_and_casefold"><code>NORMALIZE_AND_CASEFOLD</code></a>
 </td>
   <td>
     Case-insensitively normalizes the characters in a <code>STRING</code> value.
@@ -264,8 +279,7 @@ canonical equivalence.
 </tr>
 
 <tr>
-  <td><a href="#octet_length"><code>OCTET_LENGTH</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#octet_length"><code>OCTET_LENGTH</code></a>
 </td>
   <td>
     Alias for <code>BYTE_LENGTH</code>.
@@ -273,8 +287,7 @@ canonical equivalence.
 </tr>
 
 <tr>
-  <td><a href="#regexp_contains"><code>REGEXP_CONTAINS</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#regexp_contains"><code>REGEXP_CONTAINS</code></a>
 </td>
   <td>
     Checks if a value is a partial match for a regular expression.
@@ -282,8 +295,7 @@ canonical equivalence.
 </tr>
 
 <tr>
-  <td><a href="#regexp_extract"><code>REGEXP_EXTRACT</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#regexp_extract"><code>REGEXP_EXTRACT</code></a>
 </td>
   <td>
     Produces a substring that matches a regular expression.
@@ -291,8 +303,7 @@ canonical equivalence.
 </tr>
 
 <tr>
-  <td><a href="#regexp_extract_all"><code>REGEXP_EXTRACT_ALL</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#regexp_extract_all"><code>REGEXP_EXTRACT_ALL</code></a>
 </td>
   <td>
     Produces an array of all substrings that match a
@@ -301,8 +312,7 @@ canonical equivalence.
 </tr>
 
 <tr>
-  <td><a href="#regexp_instr"><code>REGEXP_INSTR</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#regexp_instr"><code>REGEXP_INSTR</code></a>
 </td>
   <td>
     Finds the position of a regular expression match in a value, optionally
@@ -311,8 +321,7 @@ canonical equivalence.
 </tr>
 
 <tr>
-  <td><a href="#regexp_match"><code>REGEXP_MATCH</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#regexp_match"><code>REGEXP_MATCH</code></a>
 </td>
   <td>
     (Deprecated) Checks if a value is a full match for a regular expression.
@@ -320,8 +329,7 @@ canonical equivalence.
 </tr>
 
 <tr>
-  <td><a href="#regexp_replace"><code>REGEXP_REPLACE</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#regexp_replace"><code>REGEXP_REPLACE</code></a>
 </td>
   <td>
     Produces a <code>STRING</code> value where all substrings that match a
@@ -330,8 +338,7 @@ canonical equivalence.
 </tr>
 
 <tr>
-  <td><a href="#regexp_substr"><code>REGEXP_SUBSTR</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#regexp_substr"><code>REGEXP_SUBSTR</code></a>
 </td>
   <td>
     Synonym for <code>REGEXP_EXTRACT</code>.
@@ -339,8 +346,7 @@ canonical equivalence.
 </tr>
 
 <tr>
-  <td><a href="#repeat"><code>REPEAT</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#repeat"><code>REPEAT</code></a>
 </td>
   <td>
     Produces a <code>STRING</code> or <code>BYTES</code> value that consists of
@@ -349,8 +355,7 @@ canonical equivalence.
 </tr>
 
 <tr>
-  <td><a href="#replace"><code>REPLACE</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#replace"><code>REPLACE</code></a>
 </td>
   <td>
     Replaces all occurrences of a pattern with another pattern in a
@@ -359,8 +364,7 @@ canonical equivalence.
 </tr>
 
 <tr>
-  <td><a href="#reverse"><code>REVERSE</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#reverse"><code>REVERSE</code></a>
 </td>
   <td>
     Reverses a <code>STRING</code> or <code>BYTES</code> value.
@@ -368,8 +372,7 @@ canonical equivalence.
 </tr>
 
 <tr>
-  <td><a href="#right"><code>RIGHT</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#right"><code>RIGHT</code></a>
 </td>
   <td>
     Gets the specified rightmost portion from a <code>STRING</code> or
@@ -378,8 +381,7 @@ canonical equivalence.
 </tr>
 
 <tr>
-  <td><a href="#rpad"><code>RPAD</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#rpad"><code>RPAD</code></a>
 </td>
   <td>
     Appends a <code>STRING</code> or <code>BYTES</code> value with a pattern.
@@ -387,8 +389,7 @@ canonical equivalence.
 </tr>
 
 <tr>
-  <td><a href="#rtrim"><code>RTRIM</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#rtrim"><code>RTRIM</code></a>
 </td>
   <td>
     Identical to the <code>TRIM</code> function, but only removes trailing
@@ -397,19 +398,18 @@ canonical equivalence.
 </tr>
 
 <tr>
-  <td><a href="#safe_convert_bytes_to_string"><code>SAFE_CONVERT_BYTES_TO_STRING</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#safe_convert_bytes_to_string"><code>SAFE_CONVERT_BYTES_TO_STRING</code></a>
 </td>
   <td>
     Converts a <code>BYTES</code> value to a <code>STRING</code> value and
     replace any invalid UTF-8 characters with the Unicode replacement character,
     <code>U+FFFD</code>.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#soundex"><code>SOUNDEX</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#soundex"><code>SOUNDEX</code></a>
 </td>
   <td>
     Gets the Soundex codes for words in a <code>STRING</code> value.
@@ -417,8 +417,7 @@ canonical equivalence.
 </tr>
 
 <tr>
-  <td><a href="#split"><code>SPLIT</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#split"><code>SPLIT</code></a>
 </td>
   <td>
     Splits a <code>STRING</code> or <code>BYTES</code> value, using a delimiter.
@@ -426,8 +425,17 @@ canonical equivalence.
 </tr>
 
 <tr>
-  <td><a href="#starts_with"><code>STARTS_WITH</code></a>
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#split_substr"><code>SPLIT_SUBSTR</code></a>
+</td>
+  <td>
+    Returns the substring from an input string that's determined by a delimiter, a
+    location that indicates the first split of the substring to return, and the
+    number of splits to include.
+  </td>
+</tr>
 
+<tr>
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#starts_with"><code>STARTS_WITH</code></a>
 </td>
   <td>
     Checks if a <code>STRING</code> or <code>BYTES</code> value is a
@@ -436,8 +444,49 @@ canonical equivalence.
 </tr>
 
 <tr>
-  <td><a href="#strpos"><code>STRPOS</code></a>
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#string_for_json"><code>STRING</code> (JSON)</a>
+</td>
+  <td>
+    Converts a JSON string to a SQL <code>STRING</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
 
+  </td>
+</tr>
+
+<tr>
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#string_array_for_json"><code>STRING_ARRAY</code></a>
+</td>
+  <td>
+    Converts a JSON array of strings to a SQL <code>ARRAY&lt;STRING&gt;</code>
+    value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#string"><code>STRING</code> (Timestamp)</a>
+</td>
+  <td>
+    Converts a <code>TIMESTAMP</code> value to a <code>STRING</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md">Timestamp functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#string_agg"><code>STRING_AGG</code></a>
+</td>
+  <td>
+    Concatenates non-<code>NULL</code> <code>STRING</code> or
+    <code>BYTES</code> values.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md">Aggregate functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#strpos"><code>STRPOS</code></a>
 </td>
   <td>
     Finds the position of the first occurrence of a subvalue inside another
@@ -446,8 +495,7 @@ canonical equivalence.
 </tr>
 
 <tr>
-  <td><a href="#substr"><code>SUBSTR</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#substr"><code>SUBSTR</code></a>
 </td>
   <td>
     Gets a portion of a <code>STRING</code> or <code>BYTES</code> value.
@@ -455,55 +503,53 @@ canonical equivalence.
 </tr>
 
 <tr>
-  <td><a href="#substring"><code>SUBSTRING</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#substring"><code>SUBSTRING</code></a>
 </td>
   <td>Alias for <code>SUBSTR</code></td>
 </tr>
 
 <tr>
-  <td><a href="#to_base32"><code>TO_BASE32</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#to_base32"><code>TO_BASE32</code></a>
 </td>
   <td>
     Converts a <code>BYTES</code> value to a
     base32-encoded <code>STRING</code> value.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#to_base64"><code>TO_BASE64</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#to_base64"><code>TO_BASE64</code></a>
 </td>
   <td>
     Converts a <code>BYTES</code> value to a
     base64-encoded <code>STRING</code> value.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#to_code_points"><code>TO_CODE_POINTS</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#to_code_points"><code>TO_CODE_POINTS</code></a>
 </td>
   <td>
     Converts a <code>STRING</code> or <code>BYTES</code> value into an array of
     extended ASCII code points.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#to_hex"><code>TO_HEX</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#to_hex"><code>TO_HEX</code></a>
 </td>
   <td>
     Converts a <code>BYTES</code> value to a
     hexadecimal <code>STRING</code> value.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#translate"><code>TRANSLATE</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#translate"><code>TRANSLATE</code></a>
 </td>
   <td>
     Within a value, replaces each source character with the corresponding
@@ -512,8 +558,7 @@ canonical equivalence.
 </tr>
 
 <tr>
-  <td><a href="#trim"><code>TRIM</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#trim"><code>TRIM</code></a>
 </td>
   <td>
     Removes the specified leading and trailing Unicode code points or bytes
@@ -522,8 +567,7 @@ canonical equivalence.
 </tr>
 
 <tr>
-  <td><a href="#unicode"><code>UNICODE</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#unicode"><code>UNICODE</code></a>
 </td>
   <td>
     Gets the Unicode code point for the first character in a value.
@@ -531,8 +575,7 @@ canonical equivalence.
 </tr>
 
 <tr>
-  <td><a href="#upper"><code>UPPER</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md#upper"><code>UPPER</code></a>
 </td>
   <td>
     Formats alphabetic characters in a <code>STRING</code> value as
@@ -546,7 +589,7 @@ canonical equivalence.
   </tbody>
 </table>
 
-### `ASCII`
+## `ASCII`
 
 ```sql
 ASCII(value)
@@ -574,7 +617,7 @@ SELECT ASCII('abcd') as A, ASCII('a') as B, ASCII('') as C, ASCII(NULL) as D;
  *-------+-------+-------+-------*/
 ```
 
-### `BYTE_LENGTH`
+## `BYTE_LENGTH`
 
 ```sql
 BYTE_LENGTH(value)
@@ -611,7 +654,7 @@ SELECT BYTE_LENGTH(b'абвгд') AS bytes_example;
  *----------------*/
 ```
 
-### `CHAR_LENGTH`
+## `CHAR_LENGTH`
 
 ```sql
 CHAR_LENGTH(value)
@@ -637,7 +680,7 @@ SELECT CHAR_LENGTH('абвгд') AS char_length;
  *------------ */
 ```
 
-### `CHARACTER_LENGTH`
+## `CHARACTER_LENGTH`
 
 ```sql
 CHARACTER_LENGTH(value)
@@ -667,7 +710,7 @@ SELECT
 
 [string-link-to-char-length]: #char_length
 
-### `CHR`
+## `CHR`
 
 ```sql
 CHR(value)
@@ -714,7 +757,7 @@ SELECT CHR(97) AS A, CHR(0xF9B5) AS B, CHR(0) AS C, CHR(NULL) AS D;
 
 [string-link-to-codepoints-to-string]: #code_points_to_string
 
-### `CODE_POINTS_TO_BYTES`
+## `CODE_POINTS_TO_BYTES`
 
 ```sql
 CODE_POINTS_TO_BYTES(ascii_code_points)
@@ -778,7 +821,7 @@ FROM UNNEST(TO_CODE_POINTS(b'Test String!')) code WITH OFFSET;
 
 [string-link-to-code-points]: #to_code_points
 
-### `CODE_POINTS_TO_STRING`
+## `CODE_POINTS_TO_STRING`
 
 ```sql
 CODE_POINTS_TO_STRING(unicode_code_points)
@@ -866,7 +909,7 @@ ORDER BY 2 DESC;
 
 [string-link-to-code-points]: #to_code_points
 
-### `COLLATE`
+## `COLLATE`
 
 ```sql
 COLLATE(value, collate_specification)
@@ -932,7 +975,7 @@ FROM Words;
 
 [link-collation-concepts]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#working_with_collation
 
-### `CONCAT`
+## `CONCAT`
 
 ```sql
 CONCAT(value1[, ...])
@@ -1006,7 +1049,7 @@ FROM Employees;
 
 [string-link-to-operators]: https://github.com/google/zetasql/blob/master/docs/operators.md
 
-### `EDIT_DISTANCE`
+## `EDIT_DISTANCE`
 
 ```sql
 EDIT_DISTANCE(
@@ -1099,7 +1142,7 @@ SELECT EDIT_DISTANCE('abcdefg', 'a', max_distance => 2) AS results;
 
 [l-distance]: https://en.wikipedia.org/wiki/Levenshtein_distance
 
-### `ENDS_WITH`
+## `ENDS_WITH`
 
 ```sql
 ENDS_WITH(value, suffix)
@@ -1130,7 +1173,7 @@ SELECT ENDS_WITH('apple', 'e') as example
  *---------*/
 ```
 
-### `FORMAT` 
+## `FORMAT` 
 <a id="format_string"></a>
 
 ```sql
@@ -1957,7 +2000,7 @@ representations.
 
 [rules-format-specifiers]: #rules_format_specifiers
 
-### `FROM_BASE32`
+## `FROM_BASE32`
 
 ```sql
 FROM_BASE32(string_expr)
@@ -1986,7 +2029,7 @@ SELECT FROM_BASE32('MFRGGZDF74======') AS byte_data;
 
 [string-link-to-base32]: #to_base32
 
-### `FROM_BASE64`
+## `FROM_BASE64`
 
 ```sql
 FROM_BASE64(string_expr)
@@ -2040,7 +2083,7 @@ SELECT FROM_BASE64(REPLACE(REPLACE('_-A=', '-', '+'), '_', '/')) AS binary;
 
 [string-link-to-from-base64]: #from_base64
 
-### `FROM_HEX`
+## `FROM_HEX`
 
 ```sql
 FROM_HEX(string)
@@ -2081,7 +2124,7 @@ FROM Input;
 
 [string-link-to-to-hex]: #to_hex
 
-### `INITCAP`
+## `INITCAP`
 
 ```sql
 INITCAP(value[, delimiters])
@@ -2131,7 +2174,7 @@ SELECT
  *----------------------+------------+----------------------*/
 ```
 
-### `INSTR`
+## `INSTR`
 
 ```sql
 INSTR(value, subvalue[, position[, occurrence]])
@@ -2288,7 +2331,7 @@ SELECT
  *--------------+--------------+----------+------------+-------*/
 ```
 
-### `LEFT`
+## `LEFT`
 
 ```sql
 LEFT(value, length)
@@ -2334,7 +2377,7 @@ SELECT LEFT(b'\xab\xcd\xef\xaa\xbb', 3) AS results
  *--------------*/
 ```
 
-### `LENGTH`
+## `LENGTH`
 
 ```sql
 LENGTH(value)
@@ -2364,7 +2407,7 @@ SELECT
  *----------------+---------------*/
 ```
 
-### `LOWER`
+## `LOWER`
 
 ```sql
 LOWER(value)
@@ -2401,7 +2444,7 @@ FROM items;
 
 [string-link-to-unicode-character-definitions]: http://unicode.org/ucd/
 
-### `LPAD`
+## `LPAD`
 
 ```sql
 LPAD(original_value, return_length[, pattern])
@@ -2487,7 +2530,7 @@ SELECT FORMAT('%T', LPAD(b'abc', 10, b'ghd')) AS results
  *---------------*/
 ```
 
-### `LTRIM`
+## `LTRIM`
 
 ```sql
 LTRIM(value1[, value2])
@@ -2535,7 +2578,7 @@ SELECT LTRIM('xxxapplexxx', 'xyz') AS example
 
 [string-link-to-trim]: #trim
 
-### `NORMALIZE`
+## `NORMALIZE`
 
 ```sql
 NORMALIZE(value[, normalization_mode])
@@ -2624,7 +2667,7 @@ SELECT NORMALIZE('Raha Mahan', NFKC) AS normalized_name
 
 [string-link-to-normalization-wikipedia]: https://en.wikipedia.org/wiki/Unicode_equivalence#Normalization
 
-### `NORMALIZE_AND_CASEFOLD`
+## `NORMALIZE_AND_CASEFOLD`
 
 ```sql
 NORMALIZE_AND_CASEFOLD(value[, normalization_mode])
@@ -2711,7 +2754,7 @@ SELECT
 
 [string-link-to-normalize]: #normalize
 
-### `OCTET_LENGTH`
+## `OCTET_LENGTH`
 
 ```sql
 OCTET_LENGTH(value)
@@ -2721,7 +2764,7 @@ Alias for [`BYTE_LENGTH`][byte-length].
 
 [byte-length]: #byte_length
 
-### `REGEXP_CONTAINS`
+## `REGEXP_CONTAINS`
 
 ```sql
 REGEXP_CONTAINS(value, regexp)
@@ -2846,7 +2889,7 @@ SELECT
 
 [string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
 
-### `REGEXP_EXTRACT`
+## `REGEXP_EXTRACT`
 
 ```sql
 REGEXP_EXTRACT(value, regexp[, position[, occurrence]])
@@ -2957,7 +3000,7 @@ position, occurrence) AS regexp_value FROM example;
 
 [string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
 
-### `REGEXP_EXTRACT_ALL`
+## `REGEXP_EXTRACT_ALL`
 
 ```sql
 REGEXP_EXTRACT_ALL(value, regexp)
@@ -2999,7 +3042,7 @@ SELECT REGEXP_EXTRACT_ALL('Try `func(x)` or `func(y)`', '`(.+?)`') AS example
 
 [string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
 
-### `REGEXP_INSTR`
+## `REGEXP_INSTR`
 
 ```sql
 REGEXP_INSTR(source_value, regexp [, position[, occurrence, [occurrence_position]]])
@@ -3108,7 +3151,7 @@ SELECT
  *-------------------*/
 ```
 
-### `REGEXP_MATCH` (Deprecated) 
+## `REGEXP_MATCH` (Deprecated) 
 <a id="regexp_match"></a>
 
 ```sql
@@ -3163,7 +3206,7 @@ FROM email_addresses;
 
 [regexp-contains]: https://github.com/google/zetasql/blob/master/docs/string_functions.md#regexp_contains
 
-### `REGEXP_REPLACE`
+## `REGEXP_REPLACE`
 
 ```sql
 REGEXP_REPLACE(value, regexp, replacement)
@@ -3214,7 +3257,7 @@ SELECT REGEXP_REPLACE('# Heading', r'^# ([a-zA-Z0-9\s]+$)', '<h1>\\1</h1>') AS h
 
 [string-link-to-lexical-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#string_and_bytes_literals
 
-### `REGEXP_SUBSTR`
+## `REGEXP_SUBSTR`
 
 ```sql
 REGEXP_SUBSTR(value, regexp[, position[, occurrence]])
@@ -3247,7 +3290,7 @@ position, occurrence) AS regexp_value FROM example;
 
 [string-link-to-regex]: #regexp_extract
 
-### `REPEAT`
+## `REPEAT`
 
 ```sql
 REPEAT(original_value, repetitions)
@@ -3298,7 +3341,7 @@ SELECT REPEAT(NULL, 3) AS results
  *---------*/
 ```
 
-### `REPLACE`
+## `REPLACE`
 
 ```sql
 REPLACE(original_value, from_pattern, to_pattern)
@@ -3340,7 +3383,7 @@ FROM desserts;
  *--------------------*/
 ```
 
-### `REVERSE`
+## `REVERSE`
 
 ```sql
 REVERSE(value)
@@ -3376,7 +3419,7 @@ SELECT FORMAT('%T', REVERSE(b'1a3')) AS results
  *---------*/
 ```
 
-### `RIGHT`
+## `RIGHT`
 
 ```sql
 RIGHT(value, length)
@@ -3422,7 +3465,7 @@ SELECT b'apple' AS example, RIGHT(b'apple', 3) AS right_example
  *----------------------+---------------*
 ```
 
-### `RPAD`
+## `RPAD`
 
 ```sql
 RPAD(original_value, return_length[, pattern])
@@ -3509,7 +3552,7 @@ SELECT FORMAT('%T', RPAD(b'abc', 10, b'ghd')) AS results
  *---------------*/
 ```
 
-### `RTRIM`
+## `RTRIM`
 
 ```sql
 RTRIM(value1[, value2])
@@ -3547,7 +3590,7 @@ SELECT RTRIM('applexxz', 'xyz') AS example
 
 [string-link-to-trim]: #trim
 
-### `SAFE_CONVERT_BYTES_TO_STRING`
+## `SAFE_CONVERT_BYTES_TO_STRING`
 
 ```sql
 SAFE_CONVERT_BYTES_TO_STRING(value)
@@ -3570,7 +3613,7 @@ The following statement returns the Unicode replacement character, &#65533;.
 SELECT SAFE_CONVERT_BYTES_TO_STRING(b'\xc2') as safe_convert;
 ```
 
-### `SOUNDEX`
+## `SOUNDEX`
 
 ```sql
 SOUNDEX(value)
@@ -3608,7 +3651,7 @@ SELECT 'Ashcraft' AS value, SOUNDEX('Ashcraft') AS soundex
 
 [string-link-to-soundex-wikipedia]: https://en.wikipedia.org/wiki/Soundex
 
-### `SPLIT`
+## `SPLIT`
 
 ```sql
 SPLIT(value[, delimiter])
@@ -3616,7 +3659,9 @@ SPLIT(value[, delimiter])
 
 **Description**
 
-Splits `value` using the `delimiter` argument.
+Splits a `STRING` or `BYTES` value, using a delimiter. The `delimiter` argument
+must be a literal character or sequence of characters. You can't split with a
+regular expression.
 
 For `STRING`, the default delimiter is the comma `,`.
 
@@ -3659,7 +3704,207 @@ FROM letters;
  *----------------------*/
 ```
 
-### `STARTS_WITH`
+## `SPLIT_SUBSTR`
+
+```sql
+SPLIT_SUBSTR(value, delimiter, start_split[, count])
+```
+
+**Description**
+
+Returns a substring from an input `STRING` that's determined by a delimiter, a
+location that indicates the first split of the substring to return, and the
+number of splits to include in the returned substring.
+
+The `value` argument is the supplied `STRING` value from which a substring is
+returned.
+
+The `delimiter` argument is the delimiter used to split the input `STRING`. It
+must be a literal character or sequence of characters.
+
++ The `delimiter` argument can't be a regular expression.
++ Delimiter matching is from left to right.
++ If the delimiter is a sequence of characters, then two instances of the
+  delimiter in the input string can't overlap. For example, if the delimiter is
+  `**`, then the delimiters in the string `aa***bb***cc` are:
+    + The first two asterisks after `aa`.
+    + The first two asterisks after `bb`.
+
+The `start_split` argument is an integer that specifies the first split of the
+substring to return.
+
++ If `start_split` is `1`, then the returned substring starts from the first
+  split.
++ If `start_split` is `0` or less than the negative of the number of splits,
+  then `start_split` is treated as if it's `1` and returns a substring that
+  starts with the first split.
++ If `start_split` is greater than the number of splits, then an empty string is
+  returned.
++ If `start_split` is negative, then the splits are counted from the end of the
+  input string. If `start_split` is `-1`, then the last split in the input
+  string is returned.
+
+The optional `count` argument is an integer that specifies the maximum number
+of splits to include in the returned substring.
+
++ If `count` isn't specified, then the substring from the `start_split`
+  position to the end of the input string is returned.
++ If `count` is `0`, an empty string is returned.
++ If `count` is negative, an error is returned.
++ If the sum of `count` plus `start_split` is greater than the number of splits,
+  then a substring from `start_split` to the end of the input string is
+  returned.
+
+This function supports specifying [collation][collation].
+
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
+
+**Return type**
+
+`STRING`
+
+**Examples**
+
+The following example returns an empty string because `count` is `0`:
+
+```sql
+SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", 1, 0) AS example
+
+/*---------*
+ | example |
+ +---------+
+ |         |
+ *---------*/
+```
+
+The following example returns two splits starting with the first split:
+
+```sql
+SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", 1, 2) AS example
+
+/*---------*
+ | example |
+ +---------+
+ | www.abc |
+ *---------*/
+```
+
+The following example returns one split starting with the first split:
+
+```sql
+SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", 1, 1) AS example
+
+/*---------*
+ | example |
+ +---------+
+ | www     |
+ *---------*/
+```
+
+The following example returns splits from the right because `start_split` is a
+negative value:
+
+```sql
+SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", -1, 1) AS example
+
+/*---------*
+ | example |
+ +---------+
+ | com     |
+ *---------*/
+```
+
+The following example returns a substring with three splits, starting with the
+first split:
+
+```sql
+SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", 1, 3) AS example
+
+/*-------------*
+ | example     |
+ +-------------+
+ | www.abc.xyz |
+ *------------*/
+```
+
+If `start_split` is zero, then it's treated as if it's `1`. The following
+example returns three substrings starting with the first split:
+
+```sql
+SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", 0, 3) AS example
+
+/*-------------*
+ | example     |
+ +-------------+
+ | www.abc.xyz |
+ *------------*/
+```
+
+If `start_split` is greater than the number of splits, then an empty string is
+returned:
+
+```sql
+SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", 5, 3) AS example
+
+/*---------*
+ | example |
+ +---------+
+ |         |
+ *--------*/
+```
+
+In the following example, the `start_split` value (`-5`) is less than the
+negative of the number of splits (`-4`), so `start_split` is treated as `1`:
+
+```sql
+SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", -5, 3) AS example
+
+/*-------------*
+ | example     |
+ +-------------+
+ | www.abc.xyz |
+ *------------*/
+```
+
+In the following example, the substring from `start_split` to the end of the
+string is returned because `count` isn't specified:
+
+```sql
+SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", 3) AS example
+
+/*---------*
+ | example |
+ +---------+
+ | xyz.com |
+ *--------*/
+```
+
+The following two examples demonstrate how `SPLIT_SUBSTR` works with a
+multi-character delimiter that has overlapping matches in the input string. In
+each example, the input string contains instances of three asterisks in a row
+(`***`) and the delimiter is two asterisks (`**`).
+
+```sql
+SELECT SPLIT_SUBSTR('aaa***bbb***ccc', '**', 1, 2) AS example
+
+/*-----------*
+ | example   |
+ +-----------+
+ | aaa***bbb |
+ *----------*/
+```
+
+```sql
+SELECT SPLIT_SUBSTR('aaa***bbb***ccc', '**', 2, 2) AS example
+
+/*------------*
+ | example    |
+ +------------+
+ | *bbb***ccc |
+ *-----------*/
+```
+
+## `STARTS_WITH`
 
 ```sql
 STARTS_WITH(value, prefix)
@@ -3690,7 +3935,7 @@ SELECT STARTS_WITH('bar', 'b') AS example
  *---------*/
 ```
 
-### `STRPOS`
+## `STRPOS`
 
 ```sql
 STRPOS(value, subvalue)
@@ -3721,7 +3966,7 @@ SELECT STRPOS('foo@example.com', '@') AS example
  *---------*/
 ```
 
-### `SUBSTR`
+## `SUBSTR`
 
 ```sql
 SUBSTR(value, position[, length])
@@ -3819,7 +4064,7 @@ SELECT SUBSTR('apple', 123, 5) AS example
  *---------*/
 ```
 
-### `SUBSTRING`
+## `SUBSTRING`
 
 ```sql
 SUBSTRING(value, position[, length])
@@ -3829,7 +4074,7 @@ Alias for [`SUBSTR`][substr].
 
 [substr]: #substr
 
-### `TO_BASE32`
+## `TO_BASE32`
 
 ```sql
 TO_BASE32(bytes_expr)
@@ -3858,7 +4103,7 @@ SELECT TO_BASE32(b'abcde\xFF') AS base32_string;
 
 [string-link-to-from-base32]: #from_base32
 
-### `TO_BASE64`
+## `TO_BASE64`
 
 ```sql
 TO_BASE64(bytes_expr)
@@ -3910,7 +4155,7 @@ SELECT REPLACE(REPLACE(TO_BASE64(b'\377\340'), '+', '-'), '/', '_') as websafe_b
 
 [RFC-4648]: https://tools.ietf.org/html/rfc4648#section-4
 
-### `TO_CODE_POINTS`
+## `TO_CODE_POINTS`
 
 ```sql
 TO_CODE_POINTS(value)
@@ -4049,7 +4294,7 @@ SELECT TO_CODE_POINTS(b'Ā') AS b_result, TO_CODE_POINTS('Ā') AS s_result;
 
 [string-link-to-codepoints-to-bytes]: #code_points_to_bytes
 
-### `TO_HEX`
+## `TO_HEX`
 
 ```sql
 TO_HEX(bytes)
@@ -4082,7 +4327,7 @@ SELECT
 
 [string-link-to-from-hex]: #from_hex
 
-### `TRANSLATE`
+## `TRANSLATE`
 
 ```sql
 TRANSLATE(expression, source_characters, target_characters)
@@ -4117,7 +4362,7 @@ SELECT TRANSLATE('This is a cookie', 'sco', 'zku') AS translate
  *------------------*/
 ```
 
-### `TRIM`
+## `TRIM`
 
 ```sql
 TRIM(value_to_trim[, set_of_characters_to_remove])
@@ -4214,7 +4459,7 @@ SELECT b'apple', TRIM(b'apple', b'na\xab') AS example
  *----------------------+------------------*/
 ```
 
-### `UNICODE`
+## `UNICODE`
 
 ```sql
 UNICODE(value)
@@ -4244,7 +4489,7 @@ SELECT UNICODE('âbcd') as A, UNICODE('â') as B, UNICODE('') as C, UNICODE(NULL
 
 [string-code-point]: https://en.wikipedia.org/wiki/Code_point
 
-### `UPPER`
+## `UPPER`
 
 ```sql
 UPPER(value)

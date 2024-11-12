@@ -22,15 +22,21 @@
 #include <vector>
 
 #include "zetasql/base/logging.h"
+#include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/compliance/depth_limit_detector_test_cases.h"
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "absl/flags/flag.h"
+#include "absl/status/status.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
+#include "absl/time/time.h"
 
 using zetasql::JSONParser;
 
 namespace {
+using ::zetasql_base::testing::StatusIs;
+
 // Exclude '\0' in the end to catch bugs like b/153040983.
 class StringNoTerminator {
  public:
@@ -48,7 +54,6 @@ class JSONToJSON : private StringNoTerminator, public JSONParser {
   std::string output_;
   int indent_;
   bool indent_next_;
-  std::string error_;
 
  public:
   explicit JSONToJSON(absl::string_view js)
@@ -60,7 +65,12 @@ class JSONToJSON : private StringNoTerminator, public JSONParser {
   // The pretty-printed js that resulted from the call to Parse().
   const std::string& output() const { return output_; }
   void clear_output() { output_.clear(); }
-  const std::string& error() const { return error_; }
+
+  // Expose protected ContextAtCurrentPosition() for direct testing.
+  std::string ContextAtCurrentPosition(
+      int context_length = kDefaultContextLength) {
+    return JSONParser::ContextAtCurrentPosition(context_length);
+  }
 
  protected:
   bool BeginObject() override {
@@ -125,8 +135,7 @@ class JSONToJSON : private StringNoTerminator, public JSONParser {
     return true;
   }
 
-  bool ReportFailure(const std::string& error_message) override {
-    error_ = error_message;
+  bool ReportFailure(absl::string_view error_message) override {
     return JSONParser::ReportFailure(error_message);
   }
 
@@ -146,7 +155,7 @@ class JSONToJSON : private StringNoTerminator, public JSONParser {
 static void ParseAndCompare(absl::string_view input,
                             absl::string_view expected) {
   JSONToJSON j(input);
-  ASSERT_TRUE(j.Parse()) << "Parse failed: " << input;
+  ZETASQL_ASSERT_OK(j.Parse()) << "Parse failed: " << input;
   EXPECT_EQ(expected, j.output()) << "Input: " << input;
 }
 
@@ -154,10 +163,25 @@ static void ParseAndExpectUnchanged(absl::string_view input) {
   return ParseAndCompare(input, input);
 }
 
+struct ParseTestCase {
+  // Original text to parse.
+  const char* orig;
+  // Expected successful parse result or context at the point of failure.
+  const char* expected;
+
+  explicit ParseTestCase(const char* orig_chars, const char* expected_chars)
+      : orig(orig_chars), expected(expected_chars) {}
+
+  explicit ParseTestCase(const char* orig_and_expected)
+      : orig(orig_and_expected), expected(orig_and_expected) {}
+};
+
 // Try to parse `input` but expect failure.
-static void ParseAndExpectFail(absl::string_view input) {
-  JSONToJSON j(input);
-  ASSERT_FALSE(j.Parse()) << "Input: " << input;
+static void ParseAndExpectFail(ParseTestCase test_case) {
+  JSONToJSON j(test_case.orig);
+  ASSERT_THAT(j.Parse(), StatusIs(absl::StatusCode::kOutOfRange))
+      << "Input: " << test_case.orig;
+  EXPECT_EQ(j.ContextAtCurrentPosition(), test_case.expected);
 }
 
 TEST(JSONParserTest, ParseIdempotency) {
@@ -165,12 +189,12 @@ TEST(JSONParserTest, ParseIdempotency) {
   JSONToJSON j(str);
 
   // The first parse should succeed.
-  ASSERT_TRUE(j.Parse());
+  ZETASQL_ASSERT_OK(j.Parse());
   EXPECT_EQ(str, j.output()) << "Input: " << str;
 
   // The second parse should also succeed with the same output.
   j.clear_output();
-  ASSERT_TRUE(j.Parse());
+  ZETASQL_ASSERT_OK(j.Parse());
   EXPECT_EQ(str, j.output()) << "Input: " << str;
 }
 
@@ -178,64 +202,67 @@ TEST(JSONParserTest, ParseString) {
   const char* str = "\"neat\"";
   ParseAndExpectUnchanged(str);
 }
-
-struct ParseStringComplicated_case {
-  const char* orig;
-  const char* expected;
-} ParseStringComplicated_cases[] = {
-    {"\"\"",  // empty string
-     "\"\""},
-    {"\"\\b\"",  // string with a \b only
-     "\"\\010\""},
-    {"\"hello\\nworld\"",  // \n
-     "\"hello\\nworld\""},
-    {"\"hello\\t\"",  // terminal \t
-     "\"hello\\t\""},
-    {"\"hello \\0\"",  // zero single octal escape sequence
-     "\"hello \\000\""},
-    {"\"hello \\1\"",  // non-zero single octal escape sequence
-     "\"hello \\001\""},
-    {"\"hello\\2world\"",  // 1 digit octal escape sequence
-     "\"hello\\002world\""},
-    {"\"hello \\01\"",  // 2 digit octal escape sequence
-     "\"hello \\001\""},
-    {"\"hello \\019\"",  // 2 digit octal escape sequence followed by non-octal
-     "\"hello \\0019\""},
-    {"\"hello\\16world\"",  // 2 digit octal escape sequence
-     "\"hello\\016world\""},
-    {"\"hello\\251world\"",  // full octal escape sequence
-     "\"hello\\302\\251world\""},
-    {"\"hello \\2519\"",  // full octal escape sequence followed by non-octal
-     "\"hello \\302\\2519\""},
-    {"\"hello \\2517\"",  // full octal escape sequence followed by octal digit
-     "\"hello \\302\\2517\""},
-    {"\"hello\\xa9world\"",  // hex escape sequence
-     "\"hello\\302\\251world\""},
-    {"\"helloworld\\xa9\"",  // terminal hex escape sequence
-     "\"helloworld\\302\\251\""},
-    {"\"helloworld\\xA9\"",  // terminal hex escape sequence with upper case
-     "\"helloworld\\302\\251\""},
-    {"\"helloworld\\xA9f\"",  // hex escape sequence followed by hex digit
-     "\"helloworld\\302\\251f\""},
-    {"\"helloworld\\xA9g\"",  // hex escape sequence followed by non hex
-     "\"helloworld\\302\\251g\""},
-    {"\"parecer\\u00e1 n\\u00famero\"",  // unicode spanish with accents
-     "\"parecer\\303\\241 n\\303\\272mero\""},
-    {"\"parecer\\u00e1\\n n\\u00famero\"",  // unicode spanish with accents
-                                            // followed by another escape
-                                            // sequence
-     "\"parecer\\303\\241\\n n\\303\\272mero\""},
-    {"\"\\u4e2d\\u65b0\\u7f5111\\u67087\\u65e5\\u7535\"",  // unicode chinese
-     "\"\\344\\270\\255\\346\\226\\260\\347\\275\\22111"
-     "\\346\\234\\2107\\346\\227\\245\\347\\224\\265\""},
-    {"'n\\e\\a\\t'", "\"nea\\t\""},
-    {"'neat'", "\"neat\""},
-    {"\"neat\\\\\"", "\"neat\\\\\""},
-    {"'ne\\\"at'", "\"ne\\\"at\""},
-    {"\"ne'at\"", "\"ne\\\'at\""},  // ' is escaped unnecessarily by test code.
-    {"   \"neat\"", "\"neat\""},
-    {"\"neat\"   ", "\"neat\""},
-    {"\"ne\\\"at\"", "\"ne\\\"at\""},
+ParseTestCase ParseStringComplicated_cases[] = {
+    ParseTestCase{"\"\""},    // empty string
+    ParseTestCase{"\"\\b\"",  // string with a \b only
+                  "\"\\010\""},
+    ParseTestCase{"\"hello\\nworld\""},  // \n
+    ParseTestCase{"\"hello\\t\""},       // terminal \t
+    ParseTestCase{"\"hello \\0\"",       // zero single octal escape sequence
+                  "\"hello \\000\""},
+    ParseTestCase{"\"hello \\1\"",  // non-zero single octal escape sequence
+                  "\"hello \\001\""},
+    ParseTestCase{"\"hello\\2world\"",  // 1 digit octal escape sequence
+                  "\"hello\\002world\""},
+    ParseTestCase{"\"hello \\01\"",  // 2 digit octal escape sequence
+                  "\"hello \\001\""},
+    ParseTestCase{"\"hello \\019\"",  // 2 digit octal escape sequence followed
+                                      // by non-octal
+                  "\"hello \\0019\""},
+    ParseTestCase{"\"hello\\16world\"",  // 2 digit octal escape sequence
+                  "\"hello\\016world\""},
+    ParseTestCase{"\"hello\\251world\"",  // full octal escape sequence
+                  "\"hello\\302\\251world\""},
+    ParseTestCase{
+        "\"hello \\2519\"",  // full octal escape sequence followed by non-octal
+        "\"hello \\302\\2519\""},
+    ParseTestCase{"\"hello \\2517\"",  // full octal escape sequence followed by
+                                       // octal digit
+                  "\"hello \\302\\2517\""},
+    ParseTestCase{"\"hello\\xa9world\"",  // hex escape sequence
+                  "\"hello\\302\\251world\""},
+    ParseTestCase{"\"helloworld\\xa9\"",  // terminal hex escape sequence
+                  "\"helloworld\\302\\251\""},
+    ParseTestCase{
+        "\"helloworld\\xA9\"",  // terminal hex escape sequence with upper case
+        "\"helloworld\\302\\251\""},
+    ParseTestCase{
+        "\"helloworld\\xA9f\"",  // hex escape sequence followed by hex digit
+        "\"helloworld\\302\\251f\""},
+    ParseTestCase{
+        "\"helloworld\\xA9g\"",  // hex escape sequence followed by non hex
+        "\"helloworld\\302\\251g\""},
+    ParseTestCase{
+        "\"parecer\\u00e1 n\\u00famero\"",  // unicode spanish with accents
+        "\"parecer\\303\\241 n\\303\\272mero\""},
+    ParseTestCase{
+        "\"parecer\\u00e1\\n n\\u00famero\"",  // unicode spanish with accents
+                                               // followed by another escape
+                                               // sequence
+        "\"parecer\\303\\241\\n n\\303\\272mero\""},
+    ParseTestCase{
+        "\"\\u4e2d\\u65b0\\u7f5111\\u67087\\u65e5\\u7535\"",  // unicode chinese
+        "\"\\344\\270\\255\\346\\226\\260\\347\\275\\22111"
+        "\\346\\234\\2107\\346\\227\\245\\347\\224\\265\""},
+    ParseTestCase{"'n\\e\\a\\t'", "\"nea\\t\""},
+    ParseTestCase{"'neat'", "\"neat\""},
+    ParseTestCase{"\"neat\\\\\""},
+    ParseTestCase{"'ne\\\"at'", "\"ne\\\"at\""},
+    ParseTestCase{"\"ne'at\"",
+                  "\"ne\\\'at\""},  // ' is escaped unnecessarily by test code.
+    ParseTestCase{"   \"neat\"", "\"neat\""},
+    ParseTestCase{"\"neat\"   ", "\"neat\""},
+    ParseTestCase{"\"ne\\\"at\""},
 };
 
 TEST(JSONParserTest, ParseStringComplicated) {
@@ -246,34 +273,42 @@ TEST(JSONParserTest, ParseStringComplicated) {
   }
 }
 
-const char* ParseStringFail_cases[] = {
-    "\"\\",      // escape nothing and don't terminate string
-    "\"\\\"",    // escape nothing
-    "\"\\x\"",   // empty hex encoding
-    "\"\\xf\"",  // short hex encoding with high bit set
-    "\"neat",
-    "neat\"",
-    "ne\"at\"",
-    "'neat",
-    "neat'",
-    "\"neat\\\\\\\"",  // three backslashes
-    "\xEF\xBB",  // incomplete UTF-8 BOM; shouldn't parse as whitespace or json
-    "\x80",      // invalid UTF-8 becomes U+FFFD, which is an "unexpected token"
-    "test\xEF\xBB\xBF",  // UTF-8 BOM not at the beginning is an "unexpected
-                         // token"
+ParseTestCase ParseStringFail_cases[] = {
+    ParseTestCase{"\"\\"},      // escape nothing and don't terminate string
+    ParseTestCase{"\"\\\""},    // escape nothing
+    ParseTestCase{"\"\\x\""},   // empty hex encoding
+    ParseTestCase{"\"\\xf\""},  // short hex encoding with high bit set
+    ParseTestCase{"\"neat"},
+    ParseTestCase{"neat\""},
+    ParseTestCase{"ne\"at\""},
+    ParseTestCase{"neat'"},
+    ParseTestCase{"\"neat\\\\\\\""},  // three backslashes
+    // incomplete UTF-8 BOM; shouldn't parse as whitespace or json
+    ParseTestCase{"\xEF\xBB"},
+    // invalid UTF-8 becomes U+FFFD, which is an "unexpected token"
+    ParseTestCase{"\x80"},
+    // UTF-8 BOM not at the beginning is an "unexpected token"
+    ParseTestCase{"test\xEF\xBB\xBF"},
+    // Long non-JSON string
+    ParseTestCase{"abcdefghijklmnopqrstuvwxyz", "abcdefghij"},
 };
 
 TEST(JSONParserTest, ParseStringFail) {
   for (int i = 0; i < ABSL_ARRAYSIZE(ParseStringFail_cases); ++i) {
-    const char* test = ParseStringFail_cases[i];
-    ParseAndExpectFail(test);
+    ParseTestCase test_case = ParseStringFail_cases[i];
+    ParseAndExpectFail(test_case);
   }
+}
 
+TEST(JSONParserTest, ParseStringFailOctalDigits) {
   // Parse special case to test the ABSL_DCHECK in ParseOctalDigits.
   // Resizing to special.size() because it strips out the null terminator.
   std::string special = "\"\\4";
   special.resize(special.size());
-  ParseAndExpectFail(special);
+  JSONToJSON j(special);
+  ASSERT_THAT(j.Parse(), StatusIs(absl::StatusCode::kOutOfRange))
+      << "Input: " << special;
+  EXPECT_EQ(j.ContextAtCurrentPosition(), special);
 }
 
 TEST(JSONParserTest, ParseUTF7FalsePositive) {
@@ -282,7 +317,7 @@ TEST(JSONParserTest, ParseUTF7FalsePositive) {
   // Explicitly set the encoding so that it is not mistaken for UTF-7.
   JSONToJSON j(str);
 
-  ASSERT_TRUE(j.Parse());
+  ZETASQL_ASSERT_OK(j.Parse());
   EXPECT_EQ(str, j.output());
 }
 
@@ -291,20 +326,17 @@ TEST(JSONParserTest, ParseDouble) {
   ParseAndCompare(str, "5.734");
 }
 
-struct ParseDoubleComplicated_case {
-  const char* orig;
-  const char* expected;
-} ParseDoubleComplicated_cases[] = {
-    {"5", "5"},
-    {"-5", "-5"},
-    {"-5.734", "-5.734"},
-    {"-5.734e2", "-5.734e2"},
-    {"-5.734e+2", "-5.734e+2"},
-    {"5.734e-2", "5.734e-2"},
-    {"-5e2", "-5e2"},
-    {"-5E2", "-5E2"},
-    {"    -5e2", "-5e2"},
-    {"-5e2    ", "-5e2"},
+ParseTestCase ParseDoubleComplicated_cases[] = {
+    ParseTestCase{"5"},
+    ParseTestCase{"-5"},
+    ParseTestCase{"-5.734"},
+    ParseTestCase{"-5.734e2"},
+    ParseTestCase{"-5.734e+2"},
+    ParseTestCase{"5.734e-2"},
+    ParseTestCase{"-5e2"},
+    ParseTestCase{"-5E2"},
+    ParseTestCase{"    -5e2", "-5e2"},
+    ParseTestCase{"-5e2    ", "-5e2"},
 };
 
 TEST(JSONParserTest, ParseDoubleComplicated) {
@@ -315,67 +347,94 @@ TEST(JSONParserTest, ParseDoubleComplicated) {
   }
 }
 
-const char* ParseDoubleFail_cases[] = {
-    "-5e2abc",
-    "-ab5e2",
-    "-5e",
+ParseTestCase ParseDoubleFail_cases[] = {
+    ParseTestCase{"-5e2abc"},
+    ParseTestCase{"-ab5e2"},
+    ParseTestCase{"-5e"},
 };
 
 TEST(JSONParserTest, ParseDoubleFail) {
   for (int i = 0; i < ABSL_ARRAYSIZE(ParseDoubleFail_cases); ++i) {
-    const char* test = ParseDoubleFail_cases[i];
-    ParseAndExpectFail(test);
+    ParseTestCase test_case = ParseDoubleFail_cases[i];
+    ParseAndExpectFail(test_case);
   }
 }
 
 TEST(JSONParserTest, ParseNumber) {
   JSONToJSON parser("5.734");
-  ASSERT_TRUE(parser.Parse()) << parser.error();
+  absl::Status status = parser.Parse();
+  ZETASQL_ASSERT_OK(status);
   EXPECT_EQ("5.734", parser.output());
 }
 
-struct ParseNumberComplicated_case {
-  const char* orig;
-  const char* expected;
-} ParseNumberComplicated_cases[] = {
-    {"5", "5"},
-    {"-5", "-5"},
-    {"-5.734", "-5.734"},
-    {"-5.734e2", "-5.734e2"},
-    {"-5.734e+2", "-5.734e+2"},
-    {"5.734e-2", "5.734e-2"},
-    {"-5e2", "-5e2"},
-    {"-5E2", "-5E2"},
-    {"    -5e2", "-5e2"},
-    {"-5e2    ", "-5e2"},
-    {"999E9999", "999E9999"},  // Out of range for double.
+ParseTestCase ParseNumberComplicated_cases[] = {
+    ParseTestCase{"5"},
+    ParseTestCase{"-5"},
+    ParseTestCase{"-5.734"},
+    ParseTestCase{"-5.734e2"},
+    ParseTestCase{"-5.734e+2"},
+    ParseTestCase{"5.734e-2"},
+    ParseTestCase{"-5e2"},
+    ParseTestCase{"-5E2"},
+    ParseTestCase{"    -5e2", "-5e2"},
+    ParseTestCase{"-5e2    ", "-5e2"},
+    ParseTestCase{"999E9999"},  // Out of range for double.
 };
 
 TEST(JSONParserTest, ParseNumberComplicated) {
   for (auto test : ParseNumberComplicated_cases) {
     JSONToJSON parser(test.orig);
-    EXPECT_TRUE(parser.Parse()) << parser.error();
+    absl::Status status = parser.Parse();
+    ZETASQL_EXPECT_OK(status);
     EXPECT_EQ(test.expected, parser.output()) << "Input: " << test.orig;
   }
 }
 
-const char* ParseNumberFail_cases[] = {
-    "-5e2abc", "-ab5e2",                        // Invalid characters.
-    "-.003",   "-E30",   "-+",    "--",   "-",  // - not followed by digits.
-    "00.0",    "01",     "-04",  // Leading 0 cannot be followed by digits.
-    "1.e3",    "1.+",    "1.-",   "1..",  "1.",    // . not followed by digits.
-    "1.5E",    "1.5E.",  "1.5eE",                  // E not followed by digits.
-    "5E+",     "5E+.",   "5E+-",  "5E+e", "5E++",  // + not followed by digits.
-    "5E-",     "5E-.",   "5E-+",  "5E-e", "5E--",  // - not followed by digits.
-    ".2",      "e20",    "+100",  // Must start with - or digit.
+const ParseTestCase ParseNumberFail_cases[] = {
+    // Invalid characters.
+    ParseTestCase{"-5e2abc"},
+    ParseTestCase{"-ab5e2"},
+    // - not followed by digits.
+    ParseTestCase{"-.003"},
+    ParseTestCase{"-E30"},
+    ParseTestCase{"-+"},
+    ParseTestCase{"--"},
+    ParseTestCase{"-"},
+    // Leading 0 cannot be followed by digits.
+    ParseTestCase{"00.0"},
+    ParseTestCase{"01"},
+    ParseTestCase{"-04"},
+    // . not followed by digits.
+    ParseTestCase{"1.e3"},
+    ParseTestCase{"1.+"},
+    ParseTestCase{"1.-"},
+    ParseTestCase{"1.."},
+    ParseTestCase{"1."},
+    // E not followed by digits.
+    ParseTestCase{"1.5E"},
+    ParseTestCase{"1.5E."},
+    ParseTestCase{"1.5eE"},
+    // + not followed by digits.
+    ParseTestCase{"5E+"},
+    ParseTestCase{"5E+."},
+    ParseTestCase{"5E+-"},
+    ParseTestCase{"5E+e"},
+    ParseTestCase{"5E++"},
+    // - not followed by digits.
+    ParseTestCase{"5E-"},
+    ParseTestCase{"5E-."},
+    ParseTestCase{"5E-+"},
+    ParseTestCase{"5E-e"},
+    ParseTestCase{"5E--"},
+    // Must start with - or digit.
+    ParseTestCase{".2"},
+    ParseTestCase{"e20"},
+    ParseTestCase{"+100"},
 };
 
 TEST(JSONParserTest, ParseNumberFail) {
   for (auto test : ParseNumberFail_cases) {
-    JSONToJSON parser(test);
-    EXPECT_FALSE(parser.Parse())
-        << "Input: " << test << " should fail the parsing but succeeded."
-        << " Output: " << parser.output();
+    ParseAndExpectFail(test);
   }
 }
 
@@ -385,15 +444,17 @@ TEST(JSONParserTest, ParseBool) {
 }
 
 TEST(JSONParserTest, ParseBoolFail) {
-  ParseAndExpectFail("treu");   // NOTYPO
-  ParseAndExpectFail("fasle");  // NOTYPO
-  ParseAndExpectFail("tr");
-  ParseAndExpectFail("fa");
+  ParseAndExpectFail(ParseTestCase{"treu", "treu"});    // NOTYPO
+  ParseAndExpectFail(ParseTestCase{"fasle", "fasle"});  // NOTYPO
+  ParseAndExpectFail(ParseTestCase{"tr", "tr"});
+  ParseAndExpectFail(ParseTestCase{"fa", "fa"});
 }
 
 TEST(JSONParserTest, ParseNull) { ParseAndExpectUnchanged("null"); }
 
-TEST(JSONParserTest, ParseNullFail) { ParseAndExpectFail("nul"); }
+TEST(JSONParserTest, ParseNullFail) {
+  ParseAndExpectFail(ParseTestCase{"nul", "nul"});
+}
 
 TEST(JSONParserTest, ParseObject) {
   const char* str;
@@ -417,45 +478,44 @@ TEST(JSONParserTest, ParseObject) {
   ParseAndExpectUnchanged(str);
 }
 
-TEST(JSONParserTest, ParseObjectFail) {
-  const char* str =
-      "{\n"
-      "  \"a\"";  // no colon
-  ParseAndExpectFail(str);
-  str =
-      "{\n"
-      "  \"a\" : true\n"  // no comma
-      "  \"b\" : false,\n"
-      "}";
-  ParseAndExpectFail(str);
-  str =
-      "{\n"
-      "  \"a\" : true,\n"
-      "  \"b\" : false\n"
-      "]";  // ] instead of }
-  ParseAndExpectFail(str);
-  // Array in object brackets.
-  str =
-      "{\n"
-      "  \"a\",\n"
-      "  \"b\"\n"
-      "}";
-  ParseAndExpectFail(str);
-  // Repeated commas
-  str =
-      "{\n"
-      "  \"a\" : true,,\n"
-      "  \"b\" : false\n"
-      "}";
-  ParseAndExpectFail(str);
+ParseTestCase ParseObjectFail_cases[] = {
+    ParseTestCase{"{\n"
+                  "  \"a\""},  // no colon
+    ParseTestCase{"{\n"
+                  "  \"a\" : true\n"  // no comma
+                  "  \"b\" : false,\n"
+                  "}",
+                  ": true\n  \"b\" : false"},
+    ParseTestCase{"{\n"
+                  "  \"a\" : true,\n"
+                  "  \"b\" : false\n"
+                  "]",  // ] instead of }
+                  " : false\n]"},
+    ParseTestCase{"{\n"
+                  "  \"a\" : true,\n"
+                  "  \"b\" : false\n"
+                  "]",  // ] instead of }
+                  " : false\n]"},
+    ParseTestCase{"{\n"  // Array in object brackets.
+                  "  \"a\",\n"
+                  "  \"b\"\n"
+                  "}"},
+    ParseTestCase{"{\n"
+                  "  \"a\" : true,,\n"  // Repeated commas
+                  "  \"b\" : false\n"
+                  "}",
+                  "a\" : true,,\n  \"b\" : "},
+    ParseTestCase{"{\n"
+                  "  \"a\" : true,\n"
+                  "  \"b\" : false"
+                  "",  // missing final token.
+                  "b\" : false"},
+};
 
-    // Repeated commas
-  str =
-      "{\n"
-      "  \"a\" : true,\n"
-      "  \"b\" : false"
-      "";  // missing final token.
-  ParseAndExpectFail(str);
+TEST(JSONParserTest, ParseObjectFail) {
+  for (auto test : ParseObjectFail_cases) {
+    ParseAndExpectFail(test);
+  }
 }
 
 TEST(JSONParserTest, ParseArraySimple) {
@@ -482,7 +542,7 @@ TEST(JSONParserTest, ParseArrayTrailingComma) {
       "  false\n"
       "]";
   parser = std::make_unique<JSONToJSON>(str);
-  ASSERT_TRUE(parser->Parse());
+  ZETASQL_ASSERT_OK(parser->Parse());
   EXPECT_EQ(exp, parser->output());
 }
 
@@ -497,7 +557,7 @@ TEST(JSONParserTest, ParseArrayRepeatedComma) {
       "  false\n"
       "]";
   parser = std::make_unique<JSONToJSON>(str);
-  ASSERT_TRUE(parser->Parse());
+  ZETASQL_ASSERT_OK(parser->Parse());
   EXPECT_EQ(exp, parser->output());
 }
 
@@ -512,33 +572,32 @@ TEST(JSONParserTest, ParseArrayLeadingCommas) {
       "  null\n"
       "]";
   parser = std::make_unique<JSONToJSON>(str);
-  ASSERT_TRUE(parser->Parse());
+  ZETASQL_ASSERT_OK(parser->Parse());
   EXPECT_EQ(exp, parser->output());
 }
 
+ParseTestCase ParseArrayFail_cases[] = {
+    ParseTestCase{"[\n"
+                  "  true\n"  // no comma
+                  "  false,\n"
+                  "]",
+                  "  true\n  false,\n]"},
+    ParseTestCase{"[\n"
+                  "  true,\n"
+                  "  false\n"
+                  "}",  // } instead of ]
+                  "\n  false\n}"},
+    ParseTestCase{"[\n"  // Object in array brackets.
+                  "  \"a\" : true,\n"
+                  "  \"b\" : false\n"
+                  "]",
+                  "[\n  \"a\" : true,\n  \""},
+};
+
 TEST(JSONParserTest, ParseArrayFail) {
-  const char* str;
-  str =
-      "[\n"
-      "  true\n"  // no comma
-      "  false,\n"
-      "]";
-  ParseAndExpectFail(str);
-
-  str =
-      "[\n"
-      "  true,\n"
-      "  false\n"
-      "}";  // } instead of ]
-  ParseAndExpectFail(str);
-
-  // Object in array brackets.
-  str =
-      "[\n"
-      "  \"a\" : true,\n"
-      "  \"b\" : false\n"
-      "]";
-  ParseAndExpectFail(str);
+  for (auto test : ParseArrayFail_cases) {
+    ParseAndExpectFail(test);
+  }
 }
 
 TEST(JSONParserTest, UTF8) {
@@ -610,7 +669,8 @@ TEST(JSONParserTest, KeyValueSimple) {
       "}";
   // Verify failure in non-extended mode
   JSONParser parser(str);
-  EXPECT_FALSE(parser.Parse()) << "Input: " << str;
+  EXPECT_THAT(parser.Parse(), StatusIs(absl::StatusCode::kOutOfRange))
+      << "Input: " << str;
 }
 
 TEST(JSONParserTest, KeyValueComplicated) {
@@ -622,7 +682,8 @@ TEST(JSONParserTest, KeyValueComplicated) {
       "}";
   // Verify failure in non-extended mode
   JSONParser parser(str);
-  EXPECT_FALSE(parser.Parse()) << "Input: " << str;
+  EXPECT_THAT(parser.Parse(), StatusIs(absl::StatusCode::kOutOfRange))
+      << "Input: " << str;
 }
 
 TEST(JSONParserTest, KeyValueFail) {
@@ -630,12 +691,14 @@ TEST(JSONParserTest, KeyValueFail) {
   {
     const char* str = "{1f : 1}";
     JSONParser parser(str);
-    EXPECT_FALSE(parser.Parse()) << "Input: " << str;
+    EXPECT_THAT(parser.Parse(), StatusIs(absl::StatusCode::kOutOfRange))
+        << "Input: " << str;
   }
   {
     const char* str = "{*f : 2}";
     JSONParser parser(str);
-    EXPECT_FALSE(parser.Parse()) << "Input: " << str;
+    EXPECT_THAT(parser.Parse(), StatusIs(absl::StatusCode::kOutOfRange))
+        << "Input: " << str;
   }
 }
 
@@ -654,7 +717,37 @@ TEST(JSONParserTest, FunctionSimple) {
   for (int i = 0; i < ABSL_ARRAYSIZE(FunctionSimple_cases); ++i) {
     // Verify functions not supported.
     JSONParser parser(FunctionSimple_cases[i]);
-    EXPECT_FALSE(parser.Parse()) << "Input: " << FunctionSimple_cases[i];
+    EXPECT_THAT(parser.Parse(), StatusIs(absl::StatusCode::kOutOfRange))
+        << "Input: " << FunctionSimple_cases[i];
+  }
+}
+
+TEST(JSONParserTest, TestDeeplyNestedJSON) {
+  zetasql::DepthLimitDetectorRuntimeControl control;
+  control.max_probing_duration = absl::Seconds(1);
+
+  for (auto const& test_case : zetasql::JSONDepthLimitDetectorTestCases()) {
+    zetasql::DepthLimitDetectorTestResult result =
+        zetasql::RunDepthLimitDetectorTestCase(
+            test_case,
+            [](absl::string_view json) {
+              JSONParser parser(json);
+              if (!parser.Parse().ok()) {
+                return absl::ResourceExhaustedError("");
+              }
+              return absl::OkStatus();
+            },
+            control);
+    EXPECT_EQ(result.depth_limit_detector_return_conditions[0].return_status,
+              absl::OkStatus())
+        << result;
+    for (int i = 1; i < result.depth_limit_detector_return_conditions.size();
+         ++i) {
+      EXPECT_THAT(
+          result.depth_limit_detector_return_conditions[i].return_status,
+          StatusIs(absl::StatusCode::kResourceExhausted))
+          << result.depth_limit_detector_return_conditions[i];
+    }
   }
 }
 

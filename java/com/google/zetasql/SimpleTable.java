@@ -58,6 +58,7 @@ public final class SimpleTable implements Table {
   private List<SimpleColumn> columns = new ArrayList<>();
   private Map<String, SimpleColumn> columnsMap = new HashMap<>();
   private ImmutableList<Integer> primaryKey = null;
+  private ImmutableList<Integer> rowIdentity = null;
   private Set<String> duplicateColumnNames = new HashSet<>();
   private boolean allowAnonymousColumnName = false;
   private boolean anonymousColumnSeen = false;
@@ -124,6 +125,11 @@ public final class SimpleTable implements Table {
         builder.addPrimaryKeyColumnIndex(columnIndex);
       }
     }
+    if (rowIdentity != null) {
+      for (Integer columnIndex : rowIdentity) {
+        builder.addRowIdentityColumnIndex(columnIndex);
+      }
+    }
     if (userIdColumn != null) {
       SimpleAnonymizationInfoProto.Builder anonymizationBuilder =
           SimpleAnonymizationInfoProto.newBuilder();
@@ -163,6 +169,9 @@ public final class SimpleTable implements Table {
     }
     if (proto.getPrimaryKeyColumnIndexCount() > 0) {
       table.setPrimaryKey(proto.getPrimaryKeyColumnIndexList());
+    }
+    if (proto.getRowIdentityColumnIndexCount() > 0) {
+      table.setRowIdentity(proto.getRowIdentityColumnIndexList());
     }
     table.setIsValueTable(proto.getIsValueTable());
     if (proto.hasAnonymizationInfo()) {
@@ -246,6 +255,11 @@ public final class SimpleTable implements Table {
   @Override
   public Optional<ImmutableList<Integer>> getPrimaryKey() {
     return Optional.ofNullable(primaryKey);
+  }
+
+  @Override
+  public Optional<ImmutableList<Integer>> getRowIdentityColumns() {
+    return rowIdentity == null ? getPrimaryKey() : Optional.ofNullable(rowIdentity);
   }
 
   @Override
@@ -383,5 +397,13 @@ public final class SimpleTable implements Table {
           columnIndex < getColumnCount(), "Invalid column index %s in primary key", columnIndex);
     }
     primaryKey = ImmutableList.copyOf(columnIndexes);
+  }
+
+  public void setRowIdentity(List<Integer> columnIndexes) {
+    for (Integer columnIndex : columnIndexes) {
+      Preconditions.checkArgument(
+          columnIndex < getColumnCount(), "Invalid column index %s in row identity", columnIndex);
+    }
+    rowIdentity = ImmutableList.copyOf(columnIndexes);
   }
 }

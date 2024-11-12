@@ -595,3 +595,36 @@ from KeyValue
 ERROR: Name in pipe DROP is ambiguous; DROP can only drop columns: key [at 5:14]
      |> DROP key
              ^
+==
+
+# This shows an artifact where the value table gets an
+# excluded_field_name `abc` even though it has no field of that name.
+FROM TestStructValueTable
+|> EXTEND 1 abc
+|> DROP abc
+|> STATIC_DESCRIBE
+--
+QueryStmt
++-output_column_list=
+| +-TestStructValueTable.value#1 AS TestStructValueTable [STRUCT<a INT32, b STRING>]
++-query=
+  +-StaticDescribeScan
+    +-column_list=[TestStructValueTable.value#1, $pipe_extend.abc#2]
+    +-describe_text=
+    |   """
+    |   NameList:
+    |     TestStructValueTable STRUCT<a INT32, b STRING> TestStructValueTable.value#1 (value table) (excluded_field_names abc)
+    |   NameScope:
+    |     Range variables:
+    |       TestStructValueTable -> RANGE_VARIABLE<$value>
+    |     Value table columns:
+    |       TestStructValueTable.value#1 (excluded_field_names abc)
+    |   """
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[TestStructValueTable.value#1, $pipe_extend.abc#2]
+        +-expr_list=
+        | +-abc#2 := Literal(type=INT64, value=1)
+        +-input_scan=
+          +-TableScan(column_list=[TestStructValueTable.value#1], table=TestStructValueTable, column_index_list=[0])
+==

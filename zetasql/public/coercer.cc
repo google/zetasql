@@ -34,6 +34,7 @@
 #include "zetasql/public/signature_match_result.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/graph_element_type.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
@@ -492,6 +493,18 @@ class Coercer::Context : public Coercer::ContextBase {
                                       const Type* to_type,
                                       SignatureMatchResult* result);
 
+  absl::StatusOr<bool> GraphElementCoercesTo(
+      const InputArgumentType& graph_element_argument, const Type* to_type,
+      SignatureMatchResult* result);
+
+  absl::StatusOr<bool> GraphPathCoercesTo(
+      const InputArgumentType& graph_path_argument, const Type* to_type,
+      SignatureMatchResult* result);
+
+  absl::StatusOr<bool> MapCoercesTo(const InputArgumentType& map_argument,
+                                    const Type* to_type,
+                                    SignatureMatchResult* result);
+
   absl::StatusOr<bool> ParameterCoercesTo(const Type* from_type,
                                           const Type* to_type,
                                           SignatureMatchResult* result);
@@ -698,6 +711,98 @@ absl::StatusOr<const ArrayType*> Coercer::GetCommonArraySuperType(
   return new_array_type;
 }
 
+absl::StatusOr<const GraphElementType*> Coercer::GetCommonGraphElementSuperType(
+    const InputArgumentTypeSet& argument_set) const {
+  const auto& arguments = argument_set.arguments();
+  ZETASQL_RET_CHECK(!arguments.empty());
+
+  const auto* dominant_arg = argument_set.dominant_argument();
+  ZETASQL_RET_CHECK_NE(dominant_arg, nullptr);
+
+  const Type* dominant_type = dominant_arg->type();
+  ZETASQL_RET_CHECK_NE(dominant_type, nullptr);
+
+  // If not GraphElementType, no supertype.
+  if (!dominant_type->IsGraphElement()) {
+    return nullptr;
+  }
+
+  const auto* dominant_graph_element_type = dominant_type->AsGraphElement();
+
+  // Returns dominant type when there is only one type.
+  if (argument_set.arguments().size() == 1) {
+    return dominant_graph_element_type;
+  }
+
+  // No common supertype if any one argument is not the same kind of graph
+  // element type.
+  if (absl::c_any_of(arguments, [&](const auto& arg) {
+        if (arg.is_untyped_null()) {
+          // Supertype between an untyped NULL and any other type should be that
+          // other type.
+          return false;
+        }
+        if (!arg.type()->IsGraphElement()) {
+          return true;
+        }
+        const auto* source_graph_element_type = arg.type()->AsGraphElement();
+        // No coercion between element kinds or across graphs.
+        return !absl::c_equal(source_graph_element_type->graph_reference(),
+                              dominant_graph_element_type->graph_reference(),
+                              zetasql_base::CaseEqual) ||
+               source_graph_element_type->element_kind() !=
+                   dominant_graph_element_type->element_kind();
+      })) {
+    return nullptr;
+  }
+
+  std::vector<GraphElementType::PropertyType> property_type_collection;
+  for (const auto& arg : arguments) {
+    if (arg.type()->IsGraphElement()) {
+      absl::c_copy(arg.type()->AsGraphElement()->property_types(),
+                   std::back_inserter(property_type_collection));
+    }
+  }
+
+  // TypeFactory will handle duplicate property types and report error for
+  // inconsistent property types (property type with same name but different
+  // value type).
+  const GraphElementType* supertype;
+  ZETASQL_RETURN_IF_ERROR(type_factory_->MakeGraphElementTypeFromVector(
+      dominant_graph_element_type->graph_reference(),
+      dominant_graph_element_type->element_kind(),
+      std::move(property_type_collection), &supertype));
+  return supertype;
+}
+
+absl::StatusOr<const GraphPathType*> Coercer::GetCommonGraphPathSuperType(
+    const InputArgumentTypeSet& argument_set) const {
+  const auto& arguments = argument_set.arguments();
+  ZETASQL_RET_CHECK(!arguments.empty());
+  InputArgumentTypeSet node_types;
+  InputArgumentTypeSet edge_types;
+  for (const auto& arg : arguments) {
+    if (arg.is_untyped_null()) {
+      continue;
+    }
+    if (!arg.type()->IsGraphPath()) {
+      return nullptr;
+    }
+    node_types.Insert(
+        InputArgumentType(arg.type()->AsGraphPath()->node_type()));
+    edge_types.Insert(
+        InputArgumentType(arg.type()->AsGraphPath()->edge_type()));
+  }
+  ZETASQL_ASSIGN_OR_RETURN(const GraphElementType* node_type,
+                   GetCommonGraphElementSuperType(node_types));
+  ZETASQL_ASSIGN_OR_RETURN(const GraphElementType* edge_type,
+                   GetCommonGraphElementSuperType(edge_types));
+  const GraphPathType* supertype;
+  ZETASQL_RETURN_IF_ERROR(
+      type_factory_->MakeGraphPathType(node_type, edge_type, &supertype));
+  return supertype;
+}
+
 const Type* Coercer::GetCommonSuperType(
     const InputArgumentTypeSet& argument_set) const {
   const Type* common_supertype{};
@@ -753,6 +858,12 @@ absl::StatusOr<const Type*> Coercer::GetCommonSuperTypeImpl(
     if (argument.type()->IsArray() && !argument.is_untyped()) {
       return GetCommonArraySuperType(argument_set,
                                      treat_parameters_as_literals);
+    }
+    if (argument.type()->IsGraphElement()) {
+      return GetCommonGraphElementSuperType(argument_set);
+    }
+    if (argument.type()->IsGraphPath()) {
+      return GetCommonGraphPathSuperType(argument_set);
     }
   }
 
@@ -1024,6 +1135,15 @@ absl::StatusOr<bool> Coercer::Context::CoercesTo(
   if (from_argument.type()->IsArray()) {
     return ArrayCoercesTo(from_argument, to_type, result);
   }
+  if (from_argument.type()->IsGraphElement()) {
+    return GraphElementCoercesTo(from_argument, to_type, result);
+  }
+  if (from_argument.type()->IsGraphPath()) {
+    return GraphPathCoercesTo(from_argument, to_type, result);
+  }
+  if (from_argument.type()->IsMap()) {
+    return MapCoercesTo(from_argument, to_type, result);
+  }
   if (from_argument.literal_value() != nullptr) {
     return LiteralCoercesTo(*(from_argument.literal_value()), to_type, result);
   }
@@ -1105,6 +1225,11 @@ absl::StatusOr<bool> Coercer::Context::ParameterCoercesTo(
         InputArgumentType(from_type, /*is_query_parameter=*/true), to_type,
         result);
   }
+  if (from_type->IsMap()) {
+    return MapCoercesTo(
+        InputArgumentType(from_type, /*is_query_parameter=*/true), to_type,
+        result);
+  }
 
   const CastFunctionProperty* property =
       zetasql_base::FindOrNull(internal::GetZetaSQLCasts(),
@@ -1162,6 +1287,11 @@ absl::StatusOr<bool> Coercer::Context::TypeCoercesTo(
   if (from_type->IsArray()) {
     return ArrayCoercesTo(InputArgumentType(from_type), to_type, result);
   }
+
+  if (from_type->IsMap()) {
+    return MapCoercesTo(InputArgumentType(from_type), to_type, result);
+  }
+
   if (!is_explicit() && !SupportsImplicitCoercion(property->type)) {
     result->incr_non_matched_arguments();
     return false;
@@ -1374,6 +1504,20 @@ absl::StatusOr<bool> Coercer::Context::ArrayCoercesTo(
       return CoercesTo(element_arg, to_element_type, result);
     }
 
+    if (from_element_type->IsGraphElement() &&
+        to_element_type->IsGraphElement()) {
+      InputArgumentType element_arg(from_element_type,
+                                    /*is_query_parameter=*/false,
+                                    /*is_literal_for_constness=*/false);
+      return GraphElementCoercesTo(element_arg, to_element_type, result);
+    }
+    if (from_element_type->IsGraphPath() && to_element_type->IsGraphPath()) {
+      InputArgumentType element_arg(from_element_type,
+                                    /*is_query_parameter=*/false,
+                                    /*is_literal_for_constness=*/false);
+      return GraphPathCoercesTo(element_arg, to_element_type, result);
+    }
+
     if (is_explicit() ||
         // Per (broken link), ARRAY<STRUCT<K,V>> coerces implicitly
         // to ARRAY<MapEntryProto> if STRUCT<K,V> coerces to MapEntryProto.
@@ -1382,6 +1526,101 @@ absl::StatusOr<bool> Coercer::Context::ArrayCoercesTo(
          language_options().LanguageFeatureEnabled(FEATURE_V_1_3_PROTO_MAPS))) {
       return TypeCoercesTo(from_element_type, to_element_type, result);
     }
+  }
+
+  result->incr_non_matched_arguments();
+  return false;
+}
+
+absl::StatusOr<bool> Coercer::Context::GraphElementCoercesTo(
+    const InputArgumentType& graph_element_argument, const Type* to_type,
+    SignatureMatchResult* result) {
+  ZETASQL_RET_CHECK(graph_element_argument.type()->IsGraphElement());
+
+  // The language syntax does not support graph element literal definition.
+  ZETASQL_RET_CHECK(!graph_element_argument.is_literal())
+      << "Graph query should not produce GraphElementType literals";
+
+  if (!to_type->IsGraphElement()) {
+    result->incr_non_matched_arguments();
+    return false;
+  }
+
+  const GraphElementType* to_graph_element = to_type->AsGraphElement();
+  if (!graph_element_argument.type()->AsGraphElement()->CoercibleTo(
+          to_graph_element)) {
+    result->incr_non_matched_arguments();
+    return false;
+  }
+  return true;
+}
+
+absl::StatusOr<bool> Coercer::Context::GraphPathCoercesTo(
+    const InputArgumentType& graph_path_argument, const Type* to_type,
+    SignatureMatchResult* result) {
+  ZETASQL_RET_CHECK(graph_path_argument.type()->IsGraphPath());
+
+  // Path literals not supported.
+  ZETASQL_RET_CHECK(!graph_path_argument.is_literal())
+      << "Graph query should not produce GraphPathType literals";
+
+  if (!to_type->IsGraphPath()) {
+    result->incr_non_matched_arguments();
+    return false;
+  }
+  const GraphPathType* from = graph_path_argument.type()->AsGraphPath();
+  const GraphPathType* to = to_type->AsGraphPath();
+  if (from->node_type()->CoercibleTo(to->node_type()) &&
+      from->edge_type()->CoercibleTo(to->edge_type())) {
+    return true;
+  }
+
+  result->incr_non_matched_arguments();
+  return false;
+}
+
+absl::StatusOr<bool> Coercer::Context::MapCoercesTo(
+    const InputArgumentType& map_argument, const Type* to_type,
+    SignatureMatchResult* result) {
+  ZETASQL_RET_CHECK(map_argument.type()->IsMap());
+  const MapType* from_map = map_argument.type()->AsMap();
+  if (from_map->Equivalent(to_type)) return true;
+  if (!to_type->IsMap()) {
+    result->incr_non_matched_arguments();
+    return false;
+  }
+
+  const MapType* to_map = to_type->AsMap();
+
+  if (is_explicit() || map_argument.is_literal() ||
+      map_argument.is_query_parameter()) {
+    InputArgumentType key_arg;
+    InputArgumentType value_arg;
+    if (map_argument.is_literal()) {
+      // Just check whether a NULL element coerces; any value will do.
+      key_arg = InputArgumentType(Value::Null(from_map->key_type()));
+      value_arg = InputArgumentType(Value::Null(from_map->value_type()));
+    } else if (map_argument.is_query_parameter()) {
+      key_arg = InputArgumentType(from_map->key_type(),
+                                  /*is_query_parameter=*/true);
+      value_arg = InputArgumentType(from_map->value_type(),
+                                    /*is_query_parameter=*/true);
+    } else {
+      key_arg = InputArgumentType(from_map->key_type());
+      value_arg = InputArgumentType(from_map->value_type());
+    }
+    SignatureMatchResult local_result;
+    ZETASQL_ASSIGN_OR_RETURN(bool key_coerces,
+                     CoercesTo(key_arg, to_map->key_type(), &local_result));
+    ZETASQL_ASSIGN_OR_RETURN(bool value_coerces,
+                     CoercesTo(value_arg, to_map->value_type(), &local_result));
+
+    if (!key_coerces || !value_coerces) {
+      result->incr_non_matched_arguments();
+      return false;
+    }
+
+    return true;
   }
 
   result->incr_non_matched_arguments();

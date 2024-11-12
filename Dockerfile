@@ -8,27 +8,24 @@ FROM ubuntu:18.04 as build
 RUN apt-get update && apt-get -qq install -y default-jre default-jdk
 
 # Install prerequisites for bazel
-RUN apt-get update && apt-get -qq install curl tar build-essential wget        \
-    python python3 zip unzip
+RUN apt-get -qq install curl tar build-essential wget python python3 zip unzip
 
-ENV BAZEL_VERSION=6.5.0
+ENV BAZEL_VERSION=7.2.1
 
-# Install bazel from source
-RUN mkdir -p bazel                                                          && \
-    cd bazel                                                                && \
-    wget https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VERSION}/bazel-${BAZEL_VERSION}-dist.zip &&\
-    unzip bazel-${BAZEL_VERSION}-dist.zip                                              && \
-    rm -rf bazel-${BAZEL_VERSION}-dist.zip
-ENV PATH=$PATH:/usr/bin:/usr/local/bin
-ENV EXTRA_BAZEL_ARGS="--tool_java_runtime_version=local_jdk"
-RUN cd bazel && bash ./compile.sh
-RUN cp /bazel/output/bazel  /usr/local/bin
+RUN apt install apt-transport-https curl gnupg -y
+RUN curl -fsSL https://bazel.build/bazel-release.pub.gpg | gpg --dearmor >bazel-archive-keyring.gpg
+RUN mv bazel-archive-keyring.gpg /usr/share/keyrings
+RUN echo "deb [arch=amd64 signed-by=/usr/share/keyrings/bazel-archive-keyring.gpg] https://storage.googleapis.com/bazel-apt stable jdk1.8" | tee /etc/apt/sources.list.d/bazel.list
+
+RUN apt update && apt -qq install -y bazel-${BAZEL_VERSION}
+RUN ln -s /usr/bin/bazel-${BAZEL_VERSION} /usr/bin/bazel
 
 RUN apt-get update && DEBIAN_FRONTEND="noninteractive"                         \
     TZ="America/Los_Angeles" apt-get install -y tzdata
 
 # Unfortunately ZetaSQL has issues with clang (default bazel compiler), so
 # we install GCC. Also install make for rules_foreign_cc bazel rules.
+RUN apt-get -qq install -y software-properties-common make rename  git ca-certificates libgnutls30
 RUN apt-get -qq install -y software-properties-common
 RUN add-apt-repository ppa:ubuntu-toolchain-r/test                          && \
     apt-get -qq update                                                      && \
@@ -49,8 +46,6 @@ COPY . /zetasql
 RUN useradd -ms /bin/bash zetasql
 RUN chown -R zetasql:zetasql /zetasql
 USER zetasql
-
-ENV BAZEL_ARGS="--config=g++"
 
 ENV HOME=/home/zetasql
 RUN mkdir -p $HOME/bin

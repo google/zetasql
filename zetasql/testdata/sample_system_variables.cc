@@ -48,6 +48,7 @@ static absl::Status AddSystemVariable(const std::vector<std::string>& name_path,
 
 void SetupSampleSystemVariables(TypeFactory* type_factory,
                                 AnalyzerOptions* options) {
+  const Type* bool_type = type_factory->get_bool();
   const Type* int32_type = type_factory->get_int32();
   const Type* int64_type = type_factory->get_int64();
   const Type* uint64_type = type_factory->get_uint64();
@@ -81,6 +82,7 @@ void SetupSampleSystemVariables(TypeFactory* type_factory,
   ZETASQL_CHECK_OK(type_factory->MakeArrayType(proto_map_element_type,
                                        &array_of_map_element_type));
 
+  ZETASQL_CHECK_OK(AddSystemVariable({"bool_system_variable"}, bool_type, options));
   ZETASQL_CHECK_OK(AddSystemVariable({"int32_system_variable"}, int32_type, options));
   ZETASQL_CHECK_OK(AddSystemVariable({"int64_array_system_variable"}, int64_array_type,
                              options));

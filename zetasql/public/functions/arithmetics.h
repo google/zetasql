@@ -110,8 +110,7 @@ struct is_safe_to_cast {
 
 template <typename To, typename From>
 inline To safe_cast(From in) {
-  static_assert(is_safe_to_cast<To, From>::value,
-                "This cast is not safe.");
+  static_assert(is_safe_to_cast<To, From>::value, "This cast is not safe.");
   return static_cast<To>(in);
 }
 

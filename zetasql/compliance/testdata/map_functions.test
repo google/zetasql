@@ -253,6 +253,14 @@ ARRAY<STRUCT<
       >>[{1, NULL, -1}]
 ==
 
+[name=map_get_nan_key]
+SELECT
+  MAP_GET(MAP_FROM_ARRAY([(CAST("nan" AS DOUBLE), 1)]), CAST("nan" AS DOUBLE)) as found,
+  MAP_GET(MAP_FROM_ARRAY([(CAST(1 AS DOUBLE), 1)]), CAST("nan" AS DOUBLE)) as not_found,
+--
+ARRAY<STRUCT<found INT64, not_found INT64>>[{1, NULL}]
+==
+
 [name=map_get_key_null_map]
 SELECT
   MAP_GET(MAP_FROM_ARRAY(CAST(NULL AS ARRAY<STRUCT<INT64, STRING>>)), 1) as with_no_default,
@@ -454,6 +462,19 @@ ARRAY<STRUCT<
       >>[{true, false}]
 ==
 
+[name=map_contains_key_nan_key]
+SELECT
+  MAP_CONTAINS_KEY(
+    MAP_FROM_ARRAY([(CAST("nan" AS DOUBLE), 1)]), CAST("nan" AS DOUBLE)) as map_nan_key_found,
+  MAP_CONTAINS_KEY(
+    MAP_FROM_ARRAY([(CAST("nan" AS DOUBLE), 1)]), CAST("inf" AS DOUBLE)) as map_nan_key_not_found;
+--
+ARRAY<STRUCT<
+        map_nan_key_found BOOL,
+        map_nan_key_not_found BOOL
+      >>[{true, false}]
+==
+
 [name=cast_basic_null]
 SELECT CAST(NULL AS MAP<STRING, STRING>);
 --
@@ -481,6 +502,97 @@ ARRAY<STRUCT<
 SELECT CAST(NULL AS MAP<STRING, MAP<STRING, STRING> >);
 --
 ARRAY<STRUCT<MAP<STRING, MAP<STRING, STRING>>>>[{NULL}]
+==
+
+[name=cast_map_value_int64_to_float]
+SELECT
+  CAST(MAP_FROM_ARRAY([("a", 1), ("b", 2)]) AS MAP<STRING, FLOAT>);
+--
+ARRAY<STRUCT<MAP<STRING, FLOAT>>>[{{"a": 1, "b": 2}}]
+==
+
+[name=cast_map_key_int64_to_float]
+SELECT
+  CAST(MAP_FROM_ARRAY([(1, "a"), (2, "b")]) AS MAP<FLOAT, STRING>);
+--
+ARRAY<STRUCT<MAP<FLOAT, STRING>>>[{{1: "a", 2: "b"}}]
+==
+
+[name=cast_map_key_string_to_float_valid]
+SELECT
+  CAST(MAP_FROM_ARRAY([("2.5", 1), ("3.5", 2)]) AS MAP<FLOAT, INT64>);
+--
+ARRAY<STRUCT<MAP<FLOAT, INT64>>>[{{2.5: 1, 3.5: 2}}]
+==
+
+[name=cast_map_key_string_to_float_invalid]
+SELECT
+  CAST(MAP_FROM_ARRAY([("1.0", 0), ("a", 1)]) AS MAP<FLOAT, INT64>);
+--
+ERROR: generic::out_of_range: Bad float value: a
+==
+
+[name=cast_map_value_string_to_float_valid]
+SELECT
+  CAST(MAP_FROM_ARRAY([(1, "2.5"), (2, "3.5")]) AS MAP<INT64, FLOAT>);
+--
+ARRAY<STRUCT<MAP<INT64, FLOAT>>>[{{1: 2.5, 2: 3.5}}]
+==
+
+[name=cast_map_value_string_to_float_invalid]
+SELECT
+  CAST(MAP_FROM_ARRAY([(0, "1.0"), (1, "a")]) AS MAP<INT64, FLOAT>);
+--
+ERROR: generic::out_of_range: Bad float value: a
+==
+
+[name=cast_map_keys_string_to_float_values_date_to_string]
+SELECT
+  CAST(
+    MAP_FROM_ARRAY([(1.1, DATE("2024-01-01")), (1.2, DATE("2024-01-02"))])
+    AS MAP<FLOAT, STRING>);
+--
+ARRAY<STRUCT<MAP<FLOAT, STRING>>>[{{1.1: "2024-01-01", 1.2: "2024-01-02"}}]
+==
+
+[name=cast_map_nested]
+[required_features=V_1_4_MAP_TYPE,V_1_2_GROUP_BY_STRUCT]
+SELECT
+  CAST(
+    MAP_FROM_ARRAY([("a", MAP_FROM_ARRAY([(STRUCT("4"), 1), (STRUCT("5"), 2)]))])
+    AS MAP<STRING, MAP<STRUCT<INT64>, INT64>>);
+--
+ARRAY<STRUCT<MAP<STRING, MAP<STRUCT<INT64>, INT64>>>>[
+  {{"a": {{4}: 1, {5}: 2}}}
+]
+==
+
+[name=cast_map_nested_invalid]
+[required_features=V_1_4_MAP_TYPE,V_1_2_GROUP_BY_STRUCT]
+SELECT
+  CAST(
+    MAP_FROM_ARRAY([("a", MAP_FROM_ARRAY([(STRUCT("4a"), 1), (STRUCT("5"), 2)]))])
+    AS MAP<STRING, MAP<STRUCT<INT64>, INT64>>);
+--
+ERROR: generic::out_of_range: Bad int64 value: 4a
+==
+
+[name=cast_map_null_to_null_different_types]
+SELECT CAST(MAP_FROM_ARRAY(CAST(NULL AS ARRAY<STRUCT<INT64, STRING>>)) AS MAP<STRING, INT64>);
+--
+ARRAY<STRUCT<MAP<STRING, INT64>>>[{NULL}]
+==
+
+[name=cast_map_null_elements_different_types]
+SELECT CAST(MAP_FROM_ARRAY([(CAST(NULL AS STRING), "1"), ("1", NULL)]) AS MAP<INT64, INT64>);
+--
+ARRAY<STRUCT<MAP<INT64, INT64>>>[{{NULL: 1, 1: NULL}}]
+==
+
+[name=cast_map_duplicate_keys_after_cast]
+SELECT CAST(MAP_FROM_ARRAY([(1.1, "a"), (1.2, "b")]) AS MAP<INT64, STRING>);
+--
+ERROR: generic::out_of_range: Duplicate map keys are not allowed, but got multiple instances of key: 1
 ==
 
 [name=map_keys_values_sorted_unsorted_null]
@@ -761,16 +873,197 @@ ARRAY<STRUCT<
       >>[{NULL, NULL, NULL}]
 ==
 
+[name=map_replace_lambda]
+[required_features=V_1_4_MAP_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT
+  MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), 'a', v -> v + 1) as one_element_one_replaced,
+  MAP_REPLACE(MAP_FROM_ARRAY([('a', 1), ('b', 2)]), 'a', v -> v - 1) as two_elements_one_replaced,
+  MAP_REPLACE(MAP_FROM_ARRAY([('a', 1), ('b', 2)]), 'a', 'b', v -> NULL) as two_elements_two_replaced,
+  MAP_REPLACE(MAP_FROM_ARRAY([('a', 'b'), ('b', 'c')]), 'a', 'b', v -> CONCAT(v, '!')) as two_str_elements_two_replaced,
+  MAP_REPLACE(CAST(NULL AS MAP<STRING, STRING>), 'a', 'b', v -> CONCAT(v, '!')) as null_map;
+--
+ARRAY<STRUCT<
+        one_element_one_replaced MAP<STRING, INT64>,
+        two_elements_one_replaced MAP<STRING, INT64>,
+        two_elements_two_replaced MAP<STRING, INT64>,
+        two_str_elements_two_replaced MAP<STRING, STRING>,
+        null_map MAP<STRING, STRING>
+      >>
+[{
+   {"a": 2},
+   {"a": 0, "b": 2},
+   {"a": NULL, "b": NULL},
+   {"a": "b!", "b": "c!"},
+   NULL
+ }]
+==
+
+[name=map_replace_lambda_error_duplicate_key_arg]
+[required_features=V_1_4_MAP_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT MAP_REPLACE(MAP_FROM_ARRAY([('a', 1), ('b', 2)]), 'a', 'b', 'a', v -> v + 1);
+--
+ERROR: generic::out_of_range: Key provided more than once as argument: "a"
+==
+
+[name=map_replace_lambda_error_duplicate_null_key_arg]
+[required_features=V_1_4_MAP_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT
+  MAP_REPLACE(
+    MAP_FROM_ARRAY([(1, 'a'), (NULL, 'b')]),
+    NULL,
+    (SELECT MAX(x) FROM UNNEST([]) as x),  # Subquery expression that returns NULL.
+    v -> v);
+--
+ERROR: generic::out_of_range: Key provided more than once as argument: NULL
+==
+
+[name=map_replace_lambda_can_raise_user_error]
+[required_features=V_1_4_MAP_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), 'a', v -> ERROR("custom user error"));
+--
+ERROR: generic::out_of_range: custom user error
+==
+
+[name=map_replace_lambda_with_conditional_user_error_not_raised]
+[required_features=V_1_4_MAP_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), 'a', v -> IF(v = 1, 0, ERROR("not raised")));
+--
+ARRAY<STRUCT<MAP<STRING, INT64>>>[{{"a": 0}}]
+==
+
+[name=map_replace_lambda_error_invalid_key_arg]
+[required_features=V_1_4_MAP_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT MAP_REPLACE(MAP_FROM_ARRAY([('a', 1), ('b', 2)]), 'a', 'b', 'c', v -> v + 1);
+--
+ERROR: generic::out_of_range: Key does not exist in map: "c"
+==
+
 [name=map_modify_fns_null_map_duplicate_key_arg]
+[required_features=V_1_4_MAP_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
 # All map modification functions should return NULL if the map is NULL, and this
 # takes precedence over the duplicate key argument error.
 SELECT
   MAP_INSERT(NULL, 'b', 2, 'b', 3) as map_insert,
   MAP_INSERT_OR_REPLACE(NULL, 'b', 2, 'b', 3) as map_insert_or_replace,
-  MAP_REPLACE(NULL, 'b', 2, 'b', 3) as map_replace;
+  MAP_REPLACE(NULL, 'b', 2, 'b', 3) as map_replace,
+  MAP_REPLACE(CAST(NULL AS MAP<STRING, INT64>), 'b', 'b', v -> v) as map_replace_lambda;
 --
 ARRAY<STRUCT<
         map_insert MAP<STRING, INT64>,
         map_insert_or_replace MAP<STRING, INT64>,
-        map_replace MAP<STRING, INT64>
-      >>[{NULL, NULL, NULL}]
+        map_replace MAP<STRING, INT64>,
+        map_replace_lambda MAP<STRING, INT64>
+      >>[{NULL, NULL, NULL, NULL}]
+==
+
+[name=map_delete]
+SELECT
+  MAP_DELETE(MAP_FROM_ARRAY(CAST(NULL AS ARRAY<STRUCT<STRING, INT64>>)), 'x', 'y') as null_map,
+  MAP_DELETE(MAP_FROM_ARRAY(CAST([] AS ARRAY<STRUCT<STRING, INT64>>)), 'x', 'y') as empty_map,
+  MAP_DELETE(MAP_FROM_ARRAY([('a', 1), ('b', 2)]), 'a', 'b') as two_elements_two_deleted,
+  MAP_DELETE(MAP_FROM_ARRAY([('a', 1), ('b', 2)]), 'a', 'c') as two_elements_one_deleted,
+  MAP_DELETE(MAP_FROM_ARRAY([('a', 1), ('b', 2)]), 'x') as key_not_deleted,
+  MAP_DELETE(MAP_FROM_ARRAY([('a', 1), ('b', 2)]), NULL) as null_arg_not_deleted,
+  MAP_DELETE(MAP_FROM_ARRAY([('a', 1), (NULL, 2)]), NULL) as null_key_deleted;
+--
+ARRAY<STRUCT<
+        null_map MAP<STRING, INT64>,
+        empty_map MAP<STRING, INT64>,
+        two_elements_two_deleted MAP<STRING, INT64>,
+        two_elements_one_deleted MAP<STRING, INT64>,
+        key_not_deleted MAP<STRING, INT64>,
+        null_arg_not_deleted MAP<STRING, INT64>,
+        null_key_deleted MAP<STRING, INT64>
+      >>[
+  {NULL, {}, {}, {"b": 2}, {"a": 1, "b": 2}, {"a": 1, "b": 2}, {"a": 1}}
+]
+==
+
+[name=map_delete_repeated_arg]
+SELECT
+  MAP_DELETE(MAP_FROM_ARRAY([('a', 1), ('b', 2)]), 'a', 'b', 'a') as two_elements_two_deleted,
+  MAP_DELETE(MAP_FROM_ARRAY([('a', 1), ('b', 2)]), 'a', 'x', 'x') as two_elements_one_deleted,
+  MAP_DELETE(MAP_FROM_ARRAY([(NULL, 1)]), NULL, NULL) as null_deleted,
+  MAP_DELETE(MAP_FROM_ARRAY([('x', 1)]), NULL, NULL) as null_not_deleted,
+--
+ARRAY<STRUCT<
+        two_elements_two_deleted MAP<STRING, INT64>,
+        two_elements_one_deleted MAP<STRING, INT64>,
+        null_deleted MAP<INT64, INT64>,
+        null_not_deleted MAP<STRING, INT64>
+      >>[{{}, {"b": 2}, {}, {"x": 1}}]
+==
+
+[name=map_filter]
+[required_features=V_1_4_MAP_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT
+  MAP_FILTER(MAP_FROM_ARRAY(CAST(NULL AS ARRAY<STRUCT<STRING, INT64>>)), (k, v) -> v > 1) as null_map,
+  MAP_FILTER(MAP_FROM_ARRAY(CAST([] AS ARRAY<STRUCT<STRING, INT64>>)), (k, v) -> v > 1) as empty_map,
+  MAP_FILTER(MAP_FROM_ARRAY([('a', 1), ('b', 2)]), (k, v) -> k = 'a' AND v = 1) as one_filtered,
+  MAP_FILTER(MAP_FROM_ARRAY([('a', 1), ('b', 2)]), (k, v) -> LENGTH(k) > 1) as all_filtered,
+  MAP_FILTER(MAP_FROM_ARRAY([('a', 1), ('b', 2)]), (k, v) -> v != 0) as none_filtered,
+  MAP_FILTER(
+    MAP_FROM_ARRAY([(CAST(NULL AS STRING), 1), ('b', NULL), ('c', 2), ('d', NULL)]),
+    (k, v) -> k IS NULL OR v IS NULL) as nulls_only;
+--
+ARRAY<STRUCT<
+        null_map MAP<STRING, INT64>,
+        empty_map MAP<STRING, INT64>,
+        one_filtered MAP<STRING, INT64>,
+        all_filtered MAP<STRING, INT64>,
+        none_filtered MAP<STRING, INT64>,
+        nulls_only MAP<STRING, INT64>
+      >>
+[{
+   NULL,
+   {},
+   {"a": 1},
+   {},
+   {"a": 1, "b": 2},
+   {NULL: 1, "b": NULL, "d": NULL}
+ }]
+==
+
+[name=map_filter_with_subquery]
+[required_features=V_1_4_MAP_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+WITH
+  t1 AS (SELECT col FROM UNNEST([1, 2]) as col),
+  t2 AS (SELECT y FROM UNNEST([1, 2]) as y)
+SELECT
+  MAP_FILTER(
+    MAP_FROM_ARRAY([('a', 1), ('b', 2)]),
+    (k, v) -> EXISTS(SELECT MAX(y) from t2 where y > outer_t.col GROUP BY y)
+  ) FROM t1 as outer_t;
+--
+ARRAY<STRUCT<MAP<STRING, INT64>>>[unknown order:{{}}, {{"a": 1, "b": 2}}]
+==
+
+[name=map_cardinality]
+SELECT
+  MAP_CARDINALITY(MAP_FROM_ARRAY(CAST(NULL AS ARRAY<STRUCT<STRING, INT64>>))) as null_map,
+  MAP_CARDINALITY(MAP_FROM_ARRAY(CAST([] AS ARRAY<STRUCT<STRING, INT64>>))) as empty_map,
+  MAP_CARDINALITY(MAP_FROM_ARRAY([('a', 'b')])) as one_element_map,
+  MAP_CARDINALITY(MAP_FROM_ARRAY([('a', 'b'), (NULL, NULL)])) as two_element_map;
+--
+ARRAY<STRUCT<
+        null_map INT64,
+        empty_map INT64,
+        one_element_map INT64,
+        two_element_map INT64
+      >>[{NULL, 0, 1, 2}]
+==
+
+[name=map_cardinality_dynamic_map]
+[required_features=V_1_4_MAP_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT
+  MAP_CARDINALITY(
+    MAP_FILTER(
+      MAP_INSERT(
+        MAP_FROM_ARRAY([('a', 1)]),
+        'b', 2,
+        'c', 3,
+        'd', (SELECT x from UNNEST([4]) AS x)),
+      (k, v) -> v > 2)
+  );
+--
+ARRAY<STRUCT<INT64>>[{2}]

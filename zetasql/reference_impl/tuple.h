@@ -261,13 +261,15 @@ class TupleSlot {
 
   // For performance reasons, we only store SharedProtoState for PROTOs and:
   // - STRUCTs
+  // - GRAPH_ELEMENTs
+  // - GRAPH_PATHS
   // which may contain protos.
   // TODO check why ARRAY isn't in this list.
   // TODO see whether can-contain-proto is something Type itself
   // should indicate.
   static bool ShouldStoreSharedProtoStateFor(TypeKind kind) {
-    return kind == TYPE_PROTO ||
-           kind == TYPE_STRUCT;
+    return kind == TYPE_PROTO || kind == TYPE_GRAPH_ELEMENT ||
+           kind == TYPE_GRAPH_PATH || kind == TYPE_STRUCT;
   }
 
   TupleSlot() {}

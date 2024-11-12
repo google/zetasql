@@ -46,6 +46,10 @@ AlgebraArg::AlgebraArg(const VariableId& variable,
 
 AlgebraArg::~AlgebraArg() = default;
 
+bool AlgebraArg::has_value_expr() const {
+  return node() ? node()->IsValueExpr() : false;
+}
+
 const ValueExpr* AlgebraArg::value_expr() const {
   return node() ? node()->AsValueExpr() : nullptr;
 }
@@ -67,6 +71,10 @@ const RelationalOp* AlgebraArg::relational_op() const {
 
 RelationalOp* AlgebraArg::mutable_relational_op() {
   return node() ? mutable_node()->AsMutableRelationalOp() : nullptr;
+}
+
+bool AlgebraArg::has_inline_lambda_expr() const {
+  return node() ? node()->IsInlineLambdaExpr() : false;
 }
 
 const InlineLambdaExpr* AlgebraArg::inline_lambda_expr() const {
@@ -156,30 +164,37 @@ AlgebraNode::~AlgebraNode() {
   zetasql_base::STLDeleteElements(&args_);
 }
 
+bool AlgebraNode::IsValueExpr() const { return false; }
+
 const ValueExpr* AlgebraNode::AsValueExpr() const {
+  ABSL_LOG(ERROR) << "Not a ValueExpr";
   return nullptr;
 }
 
 ValueExpr* AlgebraNode::AsMutableValueExpr() {
+  ABSL_LOG(ERROR) << "Not a ValueExpr";
   return nullptr;
 }
 
 const RelationalOp* AlgebraNode::AsRelationalOp() const {
+  ABSL_LOG(ERROR) << "Not a RelationalOp";
   return nullptr;
 }
 
 RelationalOp* AlgebraNode::AsMutableRelationalOp() {
-  ABSL_LOG(FATAL);
+  ABSL_LOG(ERROR) << "Not a RelationalOp";
   return nullptr;
 }
 
+bool AlgebraNode::IsInlineLambdaExpr() const { return false; }
+
 const InlineLambdaExpr* AlgebraNode::AsInlineLambdaExpr() const {
-  ABSL_LOG(FATAL);
+  ABSL_LOG(ERROR) << "Not an InlineLambdaExpr";
   return nullptr;
 }
 
 InlineLambdaExpr* AlgebraNode::AsMutableInlineLambdaExpr() {
-  ABSL_LOG(FATAL);
+  ABSL_LOG(ERROR) << "Not an InlineLambdaExpr";
   return nullptr;
 }
 

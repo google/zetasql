@@ -254,6 +254,12 @@ bool StringFormatEvaluator::ProcessType(const Type* arg_type) {
                        descriptor->name()));
       return false;
     }
+  } else if (arg_type->IsGraphElement()) {
+    status_ =
+        absl::Status(absl::StatusCode::kUnimplemented,
+                     absl::StrCat("Cannot format type ",
+                                  arg_type->ShortTypeName(product_mode_)));
+    return false;
   }
   return true;
 }

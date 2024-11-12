@@ -1,0 +1,118 @@
+# Tests for the FOR UPDATE clause combined with a FROM and WHERE clause.
+
+# Flipping FOR UPDATE feature on and off.
+[default language_features={{|V_1_4_FOR_UPDATE}}]
+select a, b from Table1 for update;
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: FOR UPDATE is not supported [at 1:25]
+select a, b from Table1 for update;
+                        ^
+--
+ALTERNATION GROUP: V_1_4_FOR_UPDATE
+--
+QueryStatement [0-34] [select a,...for update]
+  Query [0-34] [select a,...for update]
+    Select [0-23] [select a, b from Table1]
+      SelectList [7-11] [a, b]
+        SelectColumn [7-8] [a]
+          PathExpression [7-8] [a]
+            Identifier(a) [7-8] [a]
+        SelectColumn [10-11] [b]
+          PathExpression [10-11] [b]
+            Identifier(b) [10-11] [b]
+      FromClause [12-23] [from Table1]
+        TablePathExpression [17-23] [Table1]
+          PathExpression [17-23] [Table1]
+            Identifier(Table1) [17-23] [Table1]
+    LockMode [24-34] [for update]
+--
+SELECT
+  a,
+  b
+FROM
+  Table1
+FOR UPDATE
+==
+
+# WHERE and FOR UPDATE in query.
+select a, b from Table1 where a > 0 for update;
+--
+QueryStatement [0-46] [select a,...for update]
+  Query [0-46] [select a,...for update]
+    Select [0-35] [select a,...where a > 0]
+      SelectList [7-11] [a, b]
+        SelectColumn [7-8] [a]
+          PathExpression [7-8] [a]
+            Identifier(a) [7-8] [a]
+        SelectColumn [10-11] [b]
+          PathExpression [10-11] [b]
+            Identifier(b) [10-11] [b]
+      FromClause [12-23] [from Table1]
+        TablePathExpression [17-23] [Table1]
+          PathExpression [17-23] [Table1]
+            Identifier(Table1) [17-23] [Table1]
+      WhereClause [24-35] [where a > 0]
+        BinaryExpression(>) [30-35] [a > 0]
+          PathExpression [30-31] [a]
+            Identifier(a) [30-31] [a]
+          IntLiteral(0) [34-35] [0]
+    LockMode [36-46] [for update]
+--
+SELECT
+  a,
+  b
+FROM
+  Table1
+WHERE
+  a > 0
+FOR UPDATE
+==
+
+# UNNEST and FOR UPDATE in query.
+select * from unnest ([10,20,30]) as numbers with offset for update;
+--
+QueryStatement [0-67] [select * from...for update]
+  Query [0-67] [select * from...for update]
+    Select [0-56] [select * from...with offset]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-56] [from unnest...with offset]
+        TablePathExpression [14-56] [unnest ([10...with offset]
+          UnnestExpression [14-33] [unnest ([10,20,30])]
+            ExpressionWithOptAlias [22-32] [[10,20,30]]
+              ArrayConstructor [22-32] [[10,20,30]]
+                IntLiteral(10) [23-25] [10]
+                IntLiteral(20) [26-28] [20]
+                IntLiteral(30) [29-31] [30]
+          Alias [34-44] [as numbers]
+            Identifier(numbers) [37-44] [numbers]
+          WithOffset [45-56] [with offset]
+    LockMode [57-67] [for update]
+--
+SELECT
+  *
+FROM
+  UNNEST(ARRAY[10, 20, 30]) AS numbers WITH OFFSET
+FOR UPDATE
+==
+
+# FOR UPDATE without a FROM clause. Valid in the parser but will be made
+# invalid in the analyzer as it doesn't lock any tables.
+select 1 for update;
+--
+QueryStatement [0-19] [select 1 for update]
+  Query [0-19] [select 1 for update]
+    Select [0-8] [select 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    LockMode [9-19] [for update]
+--
+SELECT
+  1
+FOR UPDATE
+==
+

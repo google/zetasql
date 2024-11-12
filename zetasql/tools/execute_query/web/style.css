@@ -1,20 +1,7 @@
-body {
+html, body {
   background-color: #f0f8ff;
   margin: 0;
-}
-
-#header {
-  margin-bottom: 0.5rem;
-  background-color: #1597ec;
-  font-size: 2.25em;
-  font-family: Roboto, Arial, sans-serif;
-  font-weight: 700;
-  padding: 0.5rem 1rem;
-}
-
-#header a {
-  text-decoration: none;
-  color: #fff;
+  height: 100%;
 }
 
 body, p {
@@ -38,10 +25,6 @@ select {
   border-radius: 0.3em;
 }
 
-main {
-  margin: 1em;
-}
-
 textarea, pre {
   font-family: ui-monospace,
                Menlo, Monaco,
@@ -54,20 +37,56 @@ textarea, pre {
                'Courier New', monospace;
 }
 
+textarea#query:focus {
+  border-color: #fa8072;
+}
+
 main {
   display: grid;
-  grid-template-columns: calc(40% - 25px) calc(60% - 25px);
-  gap: 20px 50px;
-  min-width: 650px;
+  grid-template-rows: auto 1fr;
+  grid-template-columns: 40% 60%;
+  height: 100vh;
+}
+
+#header {
+  grid-column: 1 / -1;
+  background-color: #1597ec;
+  font-size: 2.25em;
+  font-family: Roboto, Arial, sans-serif;
+  font-weight: 700;
+  padding: 0.5rem 1rem;
+}
+
+#header a {
+  text-decoration: none;
+  color: #fff;
+}
+
+.left-section {
+  box-sizing: border-box;
+  padding: 1rem;
+}
+
+.right-section {
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 1rem;
+  height: 100%
 }
 
 @media (max-width: 1600px) {
   main {
     display: block;
   }
+  .right-section {
+    overflow-y: initial;
+  }
+  textarea#query {
+    height: auto;
+  }
 }
 
-textarea {
+textarea#query {
   width: 100%;
   min-height: 20em;
   height: 40vh;
@@ -78,12 +97,6 @@ textarea {
   border-radius: 0.5rem;
   margin-bottom: 0.7em;
   resize: none;
-}
-
-@media (max-width: 1600px) {
-  textarea {
-    height: auto;
-  }
 }
 
 fieldset {
@@ -131,6 +144,12 @@ form {
 
 .mode-option {
   white-space: nowrap;
+}
+
+.select-options {
+  display: inline-block;
+  margin-right: 0.5em;
+  margin-bottom: 0.5em;
 }
 
 .result > h3 {

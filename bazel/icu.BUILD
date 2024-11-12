@@ -35,17 +35,20 @@ filegroup(
 configure_make(
     name = "icu",
     configure_command = "source/configure",
-    env = select({
-        "@platforms//os:macos": {
-            "AR": "",
-            "CXXFLAGS": "-fPIC",  # For JNI
-            "CFLAGS": "-fPIC",  # For JNI
-        },
-        "//conditions:default": {
-            "CXXFLAGS": "-fPIC",  # For JNI
-            "CFLAGS": "-fPIC",  # For JNI
-        },
+    args = select({
+        # AR is overridden to be libtool by rules_foreign_cc. It does not support ar style arguments
+        # like "r". We need to prevent the icu make rules from adding unsupported parameters by
+        # forcing ARFLAGS to keep the rules_foreign_cc value in this parameter
+        "@platforms//os:macos": [
+            "ARFLAGS=\"-static -o\"",
+            "MAKE=gnumake",
+        ],
+        "//conditions:default": [],
     }),
+    env = {
+        "CXXFLAGS": "-fPIC",  # For JNI
+        "CFLAGS": "-fPIC",  # For JNI
+    },
     configure_options = [
         "--enable-option-checking",
         "--enable-static",

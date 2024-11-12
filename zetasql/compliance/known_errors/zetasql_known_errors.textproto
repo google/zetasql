@@ -201,3 +201,9 @@ known_errors {
   label: "regression_test:b/228574862_1"
   label: "regression_test:b/228574862_2"
 }
+
+known_errors {
+  mode: ALLOW_UNIMPLEMENTED
+  reason: "SAFE_TO_JSON function is not implemented."
+  label: "code:safe_to_json_.*"
+}

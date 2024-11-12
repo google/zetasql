@@ -21,6 +21,11 @@
 -- These can be executed in `execute_query` with the `tpch` catalog.
 -- See the README for more information.
 
+-- Examples with TVFs depend on the `REWRITE_INLINE_SQL_TVFS` rewriter, which is in-development and
+-- may return incorrect results. This rewriter must be enabled manually when invoking execute_query,
+-- for example: `--enabled_ast_rewrites=ALL_MINUS_DEV,+INLINE_SQL_TVFS`
+-- TODO: b/202167428 - Remove this note once this rewriter is out of development.
+
 -- Goal: Compute a metric for 7-day-active users from an event log.
 --
 -- These queries have been adapted to run against the Orders table since

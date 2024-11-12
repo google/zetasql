@@ -406,10 +406,10 @@ create row access policy if not exists on KeyValue grant to ("foo@google.com")
 
 # Creating on unknown table.
 
-create row access policy on unknown grant to ("foo@google.com") filter using(key = 123);
+create row access policy on non_existent grant to ("foo@google.com") filter using(key = 123);
 --
-ERROR: Table not found: unknown [at 1:29]
-create row access policy on unknown grant to ("foo@google.com") filter using(...
+ERROR: Table not found: non_existent [at 1:29]
+create row access policy on non_existent grant to ("foo@google.com") filter u...
                             ^
 ==
 

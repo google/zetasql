@@ -25,6 +25,7 @@
 
 #include "gtest/gtest.h"
 #include "absl/base/config.h"
+#include "absl/numeric/int128.h"
 
 namespace zetasql_base {
 namespace {
@@ -319,6 +320,17 @@ TEST(EndianessTest, LittleEndian) {
   EXPECT_EQ(u128Buf, k128ValueLE);
   comp128 = LittleEndian::Load128(&u128Buf);
   EXPECT_EQ(comp128, k128Value);
+}
+
+TEST(BigEndianTest, Load128) {
+  uint8_t ascending_values[16] = {0};
+  for (int i = 0; i < 16; ++i) {
+    ascending_values[i] = i;
+  }
+  const absl::uint128 value_h = BigEndian::Load128(&ascending_values[0]);
+  const absl::uint128 reference_h =
+      absl::MakeUint128(0x0001020304050607ULL, 0x08090a0b0c0d0e0fULL);
+  EXPECT_EQ(reference_h, value_h);
 }
 
 }  // namespace

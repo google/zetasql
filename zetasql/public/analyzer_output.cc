@@ -31,10 +31,10 @@
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output_properties.h"
 #include "zetasql/public/id_string.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/proto/logging.pb.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
-#include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
@@ -58,8 +58,7 @@ AnalyzerOutput::AnalyzerOutput(
     const std::vector<absl::Status>& deprecation_warnings,
     const QueryParametersMap& undeclared_parameters,
     const std::vector<const Type*>& undeclared_positional_parameters,
-    int max_column_id
-    )
+    int max_column_id, bool has_graph_references)
     : id_string_pool_(std::move(id_string_pool)),
       arena_(std::move(arena)),
       statement_(std::move(statement)),
@@ -68,8 +67,8 @@ AnalyzerOutput::AnalyzerOutput(
       deprecation_warnings_(deprecation_warnings),
       undeclared_parameters_(undeclared_parameters),
       undeclared_positional_parameters_(undeclared_positional_parameters),
-      max_column_id_(max_column_id)
-{}
+      max_column_id_(max_column_id),
+      has_graph_references_(has_graph_references) {}
 
 AnalyzerOutput::AnalyzerOutput(
     std::shared_ptr<IdStringPool> id_string_pool,
@@ -80,8 +79,7 @@ AnalyzerOutput::AnalyzerOutput(
     const std::vector<absl::Status>& deprecation_warnings,
     const QueryParametersMap& undeclared_parameters,
     const std::vector<const Type*>& undeclared_positional_parameters,
-    int max_column_id
-    )
+    int max_column_id, bool has_graph_references)
     : id_string_pool_(std::move(id_string_pool)),
       arena_(std::move(arena)),
       expr_(std::move(expr)),
@@ -90,8 +88,8 @@ AnalyzerOutput::AnalyzerOutput(
       deprecation_warnings_(deprecation_warnings),
       undeclared_parameters_(undeclared_parameters),
       undeclared_positional_parameters_(undeclared_positional_parameters),
-      max_column_id_(max_column_id)
-{}
+      max_column_id_(max_column_id),
+      has_graph_references_(has_graph_references) {}
 
 AnalyzerOutput::~AnalyzerOutput() = default;
 

@@ -24,9 +24,12 @@ cc_library(
         "collation.cc",
         "enum_type.cc",
         "extended_type.cc",
+        "graph_element_type.cc",
+        "graph_path_type.cc",
         "internal_utils.cc",
         "internal_utils.h",
         "map_type.cc",
+        "measure_type.cc",
         "proto_type.cc",
         "range_type.cc",
         "simple_type.cc",
@@ -45,8 +48,11 @@ cc_library(
         "container_type.h",
         "enum_type.h",
         "extended_type.h",
+        "graph_element_type.h",
+        "graph_path_type.h",
         "list_backed_type.h",
         "map_type.h",
+        "measure_type.h",
         "proto_type.h",
         "range_type.h",
         "simple_type.h",
@@ -85,6 +91,7 @@ cc_library(
         "//zetasql/public:options_cc_proto",
         "//zetasql/public:simple_value_cc_proto",
         "//zetasql/public:strings",
+        "//zetasql/public:timestamp_pico_value",
         "//zetasql/public:token_list",
         "//zetasql/public:type_annotation_cc_proto",
         "//zetasql/public:type_cc_proto",
@@ -143,6 +150,7 @@ cc_library(
         "//zetasql/public:interval_value",
         "//zetasql/public:json_value",
         "//zetasql/public:numeric_value",
+        "//zetasql/public:timestamp_pico_value",
         "//zetasql/public:token_list",
         "//zetasql/public:uuid_value",
         "//zetasql/public:value_content",
@@ -168,6 +176,40 @@ cc_library(
 )
 
 cc_test(
+    name = "graph_element_type_test",
+    srcs = ["graph_element_type_test.cc"],
+    deps = [
+        ":types",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/public:language_options",
+        "//zetasql/public:options_cc_proto",
+        "//zetasql/public:type_cc_proto",
+        "//zetasql/public:type_parameters_cc_proto",
+        "@com_google_absl//absl/status",
+        "@com_google_protobuf//:protobuf",
+    ],
+)
+
+cc_test(
+    name = "graph_path_type_test",
+    srcs = ["graph_path_type_test.cc"],
+    deps = [
+        ":types",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/common/testing:proto_matchers",
+        "//zetasql/public:language_options",
+        "//zetasql/public:options_cc_proto",
+        "//zetasql/public:type_cc_proto",
+        "//zetasql/public:type_parameters_cc_proto",
+        "@com_google_absl//absl/hash:hash_testing",
+        "@com_google_absl//absl/status",
+        "@com_google_protobuf//:protobuf",
+    ],
+)
+
+cc_test(
     name = "map_type_test",
     srcs = ["map_type_test.cc"],
     deps = [
@@ -182,5 +224,17 @@ cc_test(
         "//zetasql/testing:test_value",
         "@com_google_absl//absl/status",
         "@com_google_protobuf//:protobuf",
+    ],
+)
+
+cc_test(
+    name = "measure_type_test",
+    srcs = ["measure_type_test.cc"],
+    deps = [
+        ":types",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/testdata:test_schema_cc_proto",
+        "@com_google_absl//absl/status",
     ],
 )

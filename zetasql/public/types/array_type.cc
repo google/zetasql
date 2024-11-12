@@ -542,9 +542,11 @@ absl::Status ArrayType::SerializeValueContent(const ValueContent& value,
 
 absl::Status ArrayType::DeserializeValueContent(const ValueProto& value_proto,
                                                 ValueContent* value) const {
+  // TODO: b/365163099 - Implement the deserialization logic here, instead of in
+  // Value.
   return absl::FailedPreconditionError(
-      "DeserializeValueContent should never be called for ArrayType, since its "
-      "value content is maintained in the Value class");
+      "DeserializeValueContent should not be called for ARRAY. The "
+      "deserialization logic is implemented directly in the Value class.");
 }
 
 void ArrayType::FormatValueContentDebugModeImpl(

@@ -161,6 +161,17 @@ std::string EnumType::TypeName(ProductMode mode_unused) const {
   return TypeName();
 }
 
+bool EnumType::FindName(int number, absl::string_view* name) const {
+  const std::string* name_string = nullptr;
+  if (FindName(number, &name_string)) {
+    *name = *name_string;
+    return true;
+  } else {
+    *name = "";
+    return false;
+  }
+}
+
 bool EnumType::FindName(int number, const std::string** name) const {
   *name = nullptr;
   const google::protobuf::EnumValueDescriptor* value_descr =
@@ -289,7 +300,7 @@ bool EnumType::ValueContentLess(const ValueContent& x, const ValueContent& y,
 
 std::string EnumType::FormatValueContent(
     const ValueContent& value, const FormatValueContentOptions& options) const {
-  const std::string* enum_name = nullptr;
+  absl::string_view enum_name;
   int32_t enum_value = GetEnumValue(value);
   if (!FindName(enum_value, &enum_name)) {
     if (options.mode == FormatValueContentOptions::Mode::kDebug ||
@@ -301,11 +312,11 @@ std::string EnumType::FormatValueContent(
   }
 
   if (options.mode == FormatValueContentOptions::Mode::kDebug) {
-    return options.verbose ? absl::StrCat(*enum_name, ":", enum_value)
-                           : *enum_name;
+    return options.verbose ? absl::StrCat(enum_name, ":", enum_value)
+                           : std::string(enum_name);
   }
 
-  std::string literal = ToStringLiteral(*enum_name);
+  std::string literal = ToStringLiteral(enum_name);
   return options.as_literal() ? literal
                               : internal::GetCastExpressionString(
                                     literal, this, options.product_mode);

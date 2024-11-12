@@ -194,6 +194,13 @@ message ResolvedMergeWhenEnums {
   }
 }
 
+message ResolvedOnConflictClauseEnums {
+  enum ConflictAction {
+    NOTHING = 0;
+    UPDATE = 1;
+  }
+}
+
 // Note: These enums are imported in both ResolvedArgument{Def,Ref}, using a
 // hack in gen_resolved_ast.py.
 message ResolvedArgumentDefEnums {
@@ -285,6 +292,76 @@ message ResolvedAuxLoadDataStmtEnums {
   }
 }
 
+message ResolvedMatchRecognizeScanEnums {
+  enum AfterMatchSkipMode {
+    AFTER_MATCH_SKIP_MODE_UNSPECIFIED = 0;
+    END_OF_MATCH = 1;
+    NEXT_ROW = 2;
+  }
+}
+
+message ResolvedMatchRecognizePatternAnchorEnums {
+  enum Mode {
+    MODE_UNSPECIFIED = 0;
+    START = 1;  // The `^` anchor, matches the start of the partition.
+    END = 2;    // The `$` anchor, matches the end of the partition.
+  }
+}
+
+// Represents the kind of operation on patterns in MATCH_RECOGNIZE's PATTERN
+// clause.
+message ResolvedMatchRecognizePatternOperationEnums {
+  enum MatchRecognizePatternOperationType {
+    OPERATION_TYPE_UNSPECIFIED = 0;
+    // Indicates that this operation is a concatenation of at least 2 patterns.
+    // For eample, the pattern
+    //    A+ B? (C|D)*
+    // is a concatenation of the 3 patterns `A`, `B?`, and `(C|D)*`.
+    CONCAT = 1;
+
+    // Indicates that this operation is an alternation of at least 2 patterns.
+    // For example, the pattern
+    //    A?|B+ C|D
+    // is an alternation of the 3 patterns: `A?`, `B+ C`, and `D`.
+    ALTERNATE = 2;
+  }
+}
+
+message ResolvedGraphLabelNaryExprEnums {
+  enum GraphLogicalOpType {
+    OPERATION_TYPE_UNSPECIFIED = 0;
+    NOT = 1;
+    AND = 2;
+    OR = 3;
+  }
+}
+
+message ResolvedGraphEdgeScanEnums {
+  enum EdgeOrientation {
+    ANY = 0;
+    LEFT = 1;
+    RIGHT = 2;
+  }
+}
+
+message ResolvedGraphPathModeEnums {
+  enum PathMode {
+    PATH_MODE_UNSPECIFIED = 0;
+    WALK = 1;
+    TRAIL = 2;
+    SIMPLE = 3;
+    ACYCLIC = 4;
+  }
+}
+
+message ResolvedGraphPathSearchPrefixEnums {
+  enum PathSearchPrefixType {
+    PATH_SEARCH_PREFIX_TYPE_UNSPECIFIED = 0;
+    ANY = 1;
+    SHORTEST = 2;
+  }
+}
+
 message ResolvedDropIndexStmtEnums {
   enum IndexType {
     INDEX_DEFAULT = 0;
@@ -298,5 +375,14 @@ message ResolvedOptionEnums {
     DEFAULT_ASSIGN = 0;  // "="
     ADD_ASSIGN = 1;      // "+="
     SUB_ASSIGN = 2;      // "-="
+  }
+}
+
+message ResolvedLockModeEnums {
+  enum LockStrengthType {
+    // Acquire exclusive locks on the data accessed by a ResolvedTableScan so
+    // it can be updated in a subsequent statement within the same transaction.
+    // The scope of lock acquisition is engine-dependent.
+    UPDATE = 0;
   }
 }

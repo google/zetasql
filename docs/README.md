@@ -12,6 +12,7 @@ with ZetaSQL:
 * [Data Types](data-types.md)
 * [Query Syntax](query-syntax.md)
 * [Pipe Query Syntax](pipe-syntax.md)
+* [Graph Query Syntax](graph-intro.md)
 * [Data Manipulation Language Reference](data-manipulation-language.md)
 * [Data Model](data-model.md)
 * [Data Definition Language Reference](data-definition-language.md)

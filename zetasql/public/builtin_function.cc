@@ -257,6 +257,10 @@ absl::Status GetBuiltinFunctionsAndTypes(const BuiltinFunctionOptions& options,
   }
   ZETASQL_RETURN_IF_ERROR(
       GetStandaloneBuiltinEnumTypes(&type_factory, options, &types));
+  if (options.language_options.LanguageFeatureEnabled(
+          FEATURE_V_1_4_SQL_GRAPH)) {
+    GetGraphFunctions(&type_factory, options, &functions);
+  }
   GetMapCoreFunctions(&type_factory, options, &functions);
   return ValidateBuiltinFunctionsAgainstOptions(options, output_properties);
 }

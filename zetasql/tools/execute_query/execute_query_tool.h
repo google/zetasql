@@ -17,6 +17,7 @@
 #ifndef ZETASQL_TOOLS_EXECUTE_QUERY_EXECUTE_QUERY_TOOL_H_
 #define ZETASQL_TOOLS_EXECUTE_QUERY_EXECUTE_QUERY_TOOL_H_
 
+#include <cstdint>
 #include <functional>
 #include <iostream>
 #include <list>
@@ -39,7 +40,6 @@
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/tools/execute_query/execute_query_writer.h"
-#include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/flags/declare.h"
 #include "absl/flags/flag.h"
@@ -79,7 +79,7 @@ class ExecuteQueryConfig {
     kExplain,
 
     // Execute the query and pretty print the result.
-    kExecute
+    kExecute,
   };
 
   enum class SqlMode {
@@ -87,7 +87,10 @@ class ExecuteQueryConfig {
     kQuery,
 
     // Treat sql as an expression, the output is a single value.
-    kExpression
+    kExpression,
+
+    // Treat sql as a script, the output is result of multiple queries.
+    kScript,
   };
 
   void clear_tool_modes() { tool_modes_.clear(); }
@@ -103,50 +106,16 @@ class ExecuteQueryConfig {
   }
 
   // Returns the tool mode if the mode string matches one of the tool modes.
-  static std::optional<ToolMode> parse_tool_mode(absl::string_view mode) {
-    static const auto* tool_mode_map =
-        new absl::flat_hash_map<absl::string_view, ToolMode>({
-            {"parse", ToolMode::kParse},
-            {"parser", ToolMode::kParse},
-            {"unparse", ToolMode::kUnparse},
-            {"unparser", ToolMode::kUnparse},
-            {"resolve", ToolMode::kResolve},
-            {"resolver", ToolMode::kResolve},
-            {"analyze", ToolMode::kResolve},
-            {"analyzer", ToolMode::kResolve},
-            {"sql_builder", ToolMode::kUnAnalyze},
-            {"sqlbuilder", ToolMode::kUnAnalyze},
-            {"unanalyze", ToolMode::kUnAnalyze},
-            {"unanalyzer", ToolMode::kUnAnalyze},
-            {"unresolve", ToolMode::kUnAnalyze},
-            {"unresolver", ToolMode::kUnAnalyze},
-            {"explain", ToolMode::kExplain},
-            {"execute", ToolMode::kExecute},
-        });
-
-    std::string mode_lower{absl::AsciiStrToLower(mode)};
-    if (tool_mode_map->contains(mode_lower)) {
-      return tool_mode_map->at(mode_lower);
-    }
-    return std::nullopt;
-  }
+  static std::optional<ToolMode> parse_tool_mode(absl::string_view mode);
 
   // Returns the name of the tool mode.
-  static absl::string_view tool_mode_name(ToolMode tool_mode) {
-    static const auto* tool_mode_names =
-        new absl::flat_hash_map<ToolMode, absl::string_view>({
-            {ToolMode::kParse, "parse"},
-            {ToolMode::kUnparse, "unparse"},
-            {ToolMode::kResolve, "analyze"},
-            {ToolMode::kUnAnalyze, "unanalyze"},
-            {ToolMode::kExplain, "explain"},
-            {ToolMode::kExecute, "execute"},
-        });
+  static absl::string_view tool_mode_name(ToolMode tool_mode);
 
-    ABSL_CHECK(tool_mode_names->contains(tool_mode))
-        << "Unknown tool mode: " << static_cast<int>(tool_mode);
-    return tool_mode_names->at(tool_mode);
-  }
+  // Returns the sql mode if the mode string matches one of the sql modes.
+  static std::optional<SqlMode> parse_sql_mode(absl::string_view mode);
+
+  // Returns the name of the sql mode.
+  static absl::string_view sql_mode_name(SqlMode sql_mode);
 
   void set_sql_mode(SqlMode sql_mode) { sql_mode_ = sql_mode; }
   SqlMode sql_mode() const { return sql_mode_; }
@@ -198,7 +167,7 @@ class ExecuteQueryConfig {
     examine_resolved_ast_callback_ = std::move(callback);
   }
 
-  absl::Status SetCatalogFromString(const std::string& value);
+  absl::Status SetCatalogFromString(absl::string_view value);
 
   // Set the google::protobuf::DescriptorPool to use when resolving types.
   // The DescriptorPool can only be set once and cannot be changed.
@@ -320,5 +289,8 @@ ABSL_DECLARE_FLAG(std::string, output_mode);
 ABSL_DECLARE_FLAG(std::string, parameters);
 ABSL_DECLARE_FLAG(int64_t, evaluator_max_value_byte_size);
 ABSL_DECLARE_FLAG(int64_t, evaluator_max_intermediate_byte_size);
+ABSL_DECLARE_FLAG(int64_t, max_statements_to_execute);
+ABSL_DECLARE_FLAG(std::optional<zetasql::internal::EnabledLanguageFeatures>,
+                  enabled_language_features);
 
 #endif  // ZETASQL_TOOLS_EXECUTE_QUERY_EXECUTE_QUERY_TOOL_H_

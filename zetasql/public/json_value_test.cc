@@ -29,6 +29,7 @@
 #include <vector>
 
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/compliance/depth_limit_detector_test_cases.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/container/flat_hash_map.h"
@@ -38,7 +39,9 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
+#include "absl/time/time.h"
 #include "absl/types/span.h"
+#include "zetasql/base/status_macros.h"
 
 namespace {
 
@@ -772,6 +775,39 @@ TEST_P(JSONParserTest, ParseDuplicateKeys) {
   for (const auto& pair : input_to_expected_output) {
     JSONValue json = JSONValue::ParseJSONString(pair.first, GetParam()).value();
     EXPECT_EQ(json.GetConstRef().ToString(), pair.second);
+  }
+}
+
+TEST_P(JSONParserTest, ParseComplexStrings) {
+  zetasql::DepthLimitDetectorRuntimeControl control;
+  control.max_probing_duration = absl::Seconds(2);
+
+  for (auto const& test_case : zetasql::JSONDepthLimitDetectorTestCases()) {
+    zetasql::DepthLimitDetectorTestResult result =
+        zetasql::RunDepthLimitDetectorTestCase(
+            test_case,
+            [](absl::string_view json) -> absl::Status {
+              ZETASQL_ASSIGN_OR_RETURN(JSONValue val,
+                               JSONValue::ParseJSONString(json, GetParam()));
+
+              // If the first deserialization had enough stack, we assert we can
+              // format and serialize the value repeatedly.
+              std::string serialized = val.GetConstRef().ToString();
+              JSONValue from_serialized =
+                  JSONValue::ParseJSONString(serialized, GetParam()).value();
+              EXPECT_EQ(from_serialized.GetConstRef().ToString(), serialized);
+
+              std::string formatted = val.GetConstRef().Format();
+              JSONValue from_formatted =
+                  JSONValue::ParseJSONString(formatted, GetParam()).value();
+              EXPECT_EQ(from_formatted.GetConstRef().Format(), formatted);
+
+              return absl::OkStatus();
+            },
+            control);
+    EXPECT_EQ(result.depth_limit_detector_return_conditions[0].return_status,
+              absl::OkStatus())
+        << result;
   }
 }
 

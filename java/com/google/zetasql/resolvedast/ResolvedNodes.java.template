@@ -54,10 +54,18 @@ import com.google.zetasql.ZetaSQLType.ProtoTypeProto;
 import com.google.zetasql.ZetaSQLType.TypeProto;
 import com.google.zetasql.ZetaSQLTypeModifiers.TypeModifiersProto;
 import com.google.zetasql.ZetaSQLTypeParameters.TypeParametersProto;
+import com.google.zetasql.GraphElementLabel;
+import com.google.zetasql.GraphElementLabelRefProto;
+import com.google.zetasql.GraphElementTable;
+import com.google.zetasql.GraphElementTableRefProto;
+import com.google.zetasql.GraphPropertyDeclaration;
+import com.google.zetasql.GraphPropertyDeclarationRefProto;
 import com.google.zetasql.Model;
 import com.google.zetasql.ModelRefProto;
 import com.google.zetasql.Procedure;
 import com.google.zetasql.ProcedureRefProto;
+import com.google.zetasql.PropertyGraph;
+import com.google.zetasql.PropertyGraphRefProto;
 import com.google.zetasql.ResolvedCollationProto;
 import com.google.zetasql.ResolvedColumnProto;
 import com.google.zetasql.ResolvedNodeProto;
@@ -343,6 +351,69 @@ public final class ResolvedNodes {
       TypeParameters typeParameters,
       FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
     return typeParameters.serialize();
+  }
+
+  static PropertyGraphRefProto serialize(
+      PropertyGraph propertyGraph,
+      FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
+    return PropertyGraphRefProto.newBuilder()
+        .setFullName(propertyGraph.getFullName()).build();
+  }
+
+  static GraphPropertyDeclarationRefProto serialize(
+    GraphPropertyDeclaration graphPropertyDeclaration,
+    FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
+    String fullName = graphPropertyDeclaration.getFullName();
+    int pos = fullName.lastIndexOf('.');
+    Preconditions.checkArgument(pos != -1);
+
+    return GraphPropertyDeclarationRefProto.newBuilder()
+           .setName(graphPropertyDeclaration.getName())
+           .setPropertyGraph(
+              PropertyGraphRefProto.newBuilder()
+                .setFullName(fullName.substring(0, pos))
+           )
+           .build();
+  }
+
+  static GraphElementLabelRefProto serialize(
+      GraphElementLabel graphElementLabel,
+      FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
+    // The label full name consists of three parts <catalog full name>,
+    // <property graph name>, and <label name>. The property graph full name is
+    // <catalog full name>.<property graph name>. Note the catalog full name
+    // may be a path containing multiple nested catalogs.
+    String fullName = graphElementLabel.getFullName();
+    int pos = fullName.lastIndexOf('.');
+    Preconditions.checkArgument(pos != -1);
+
+    return GraphElementLabelRefProto.newBuilder()
+           .setName(graphElementLabel.getName())
+           .setPropertyGraph(
+              PropertyGraphRefProto.newBuilder()
+                .setFullName(fullName.substring(0, pos))
+           )
+           .build();
+  }
+
+  static GraphElementTableRefProto serialize(
+      GraphElementTable graphElementTable,
+      FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
+    // The element table full name consists of three parts <catalog full name>,
+    // <property graph name>, and <element table name>. The property graph full
+    // name is <catalog full name>.<property graph name>. Note the catalog full
+    // name may be a path containing multiple nested catalogs.
+    String fullName = graphElementTable.getFullName();
+    int pos = fullName.lastIndexOf('.');
+    Preconditions.checkArgument(pos != -1);
+
+    return GraphElementTableRefProto.newBuilder()
+           .setName(graphElementTable.getName())
+           .setPropertyGraph(
+              PropertyGraphRefProto.newBuilder()
+                .setFullName(fullName.substring(0, pos))
+           )
+           .build();
   }
 
   public static ResolvedNode deserialize(

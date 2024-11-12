@@ -16,6 +16,8 @@
 
 #include "zetasql/testdata/populate_sample_tables.h"
 
+#include <string>
+
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
@@ -85,7 +87,8 @@ absl::Status PopulateSampleTables(TypeFactory* type_factory,
 
   const Type* kitchen_sink_pb_type;
   ZETASQL_RETURN_IF_ERROR(catalog->catalog()->FindType(
-      {KitchenSinkPB::descriptor()->full_name()}, &kitchen_sink_pb_type));
+      {std::string(KitchenSinkPB::descriptor()->full_name())},
+      &kitchen_sink_pb_type));
 
   KitchenSinkPB proto1;
   proto1.set_int64_key_1(1);
@@ -105,9 +108,10 @@ absl::Status PopulateSampleTables(TypeFactory* type_factory,
   // Table ComplexTypes
   const Type *enum_type, *test_extra_pb_type;
   ZETASQL_RETURN_IF_ERROR(catalog->catalog()->FindType(
-      {zetasql_test__::TestEnum_descriptor()->full_name()}, &enum_type));
+      {std::string(zetasql_test__::TestEnum_descriptor()->full_name())},
+      &enum_type));
   ZETASQL_RETURN_IF_ERROR(catalog->catalog()->FindType(
-      {zetasql_test__::TestExtraPB::descriptor()->full_name()},
+      {std::string(zetasql_test__::TestExtraPB::descriptor()->full_name())},
       &test_extra_pb_type));
   KitchenSinkPB proto;
   proto.set_int64_key_1(1);
@@ -123,6 +127,54 @@ absl::Status PopulateSampleTables(TypeFactory* type_factory,
                    type_factory),
             Value::Null(test_extra_pb_type->AsProto())}});
 
+  catalog->GetTableOrDie("Person")->SetContents(
+      {{Int64(1), String("Person1"), String("male"),
+        Date(absl::CivilDay(2000, 1, 2)), String("person1@google.com"),
+        Uint32(10), Bytes("001")},
+       {Int64(2), String("Person2"), String("female"),
+        Date(absl::CivilDay(2000, 1, 3)), String("person2@google.com"),
+        Uint32(20), Bytes("002")},
+       {Int64(3), String("Person3"), String("female"),
+        Date(absl::CivilDay(2000, 1, 4)), String("person3@google.com"),
+        Uint32(30), Bytes("003")},
+       {Int64(4), String("Person4"), String("female"),
+        Date(absl::CivilDay(2000, 1, 2)), String("person4@google.com"),
+        Uint32(40), Bytes("004")}});
+
+  catalog->GetTableOrDie("Account")->SetContents(
+      {{Int64(1), String("Account1"), Uint64(100)},
+       {Int64(2), String("Account2"), Uint64(200)},
+       {Int64(3), String("Account3"), Uint64(300)},
+       {Int64(4), String("Account4"), Uint64(400)},
+       {Int64(5), String("Account5"), Uint64(500)},
+       {Int64(6), String("Account6"), Uint64(600)},
+       {Int64(7), String("Account7"), Uint64(700)}});
+
+  catalog->GetTableOrDie("Syndicate")->SetContents({});
+
+  catalog->GetTableOrDie("PersonOwnAccount")
+      ->SetContents({
+          {Int64(1), Int64(1), TimestampFromUnixMicros(1000)},
+          {Int64(1), Int64(2), TimestampFromUnixMicros(2000)},
+          {Int64(2), Int64(2), TimestampFromUnixMicros(3000)},
+          {Int64(3), Int64(3), TimestampFromUnixMicros(4000)},
+          {Int64(4), Int64(4), TimestampFromUnixMicros(4000)},
+          {Int64(4), Int64(5), TimestampFromUnixMicros(4000)},
+          {Int64(4), Int64(6), TimestampFromUnixMicros(5000)},
+          {Int64(4), Int64(7), TimestampFromUnixMicros(6000)},
+      });
+
+  catalog->GetTableOrDie("Transfer")
+      ->SetContents({
+          {Int64(1), Int64(1), Int64(2), TimestampFromUnixMicros(1000),
+           Uint64(10)},
+          {Int64(2), Int64(2), Int64(3), TimestampFromUnixMicros(2000),
+           Uint64(20)},
+          {Int64(3), Int64(3), Int64(4), TimestampFromUnixMicros(3000),
+           Uint64(30)},
+          {Int64(4), Int64(2), Int64(1), TimestampFromUnixMicros(4000),
+           Uint64(40)},
+      });
   return absl::OkStatus();
 }
 }  // namespace zetasql

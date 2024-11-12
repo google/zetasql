@@ -60,10 +60,11 @@ class SignatureMatchResult;
 class TVFInputArgumentType;
 class TVFRelationColumnProto;
 class TVFRelationProto;
-class TVFSchemaColumn;
 class TVFSignature;
 class TableValuedFunctionProto;
 class TableValuedFunctionOptionsProto;
+
+struct TVFSchemaColumn;
 
 // Options that apply to a table-valued function.
 // The setter methods here return a reference to *self so options can be
@@ -205,6 +206,11 @@ class TableValuedFunction {
       bool print_template_and_name_details) const;
 
   virtual std::string DebugString() const;
+
+  // Returns SQL to perform a function call with the given SQL arguments,
+  // using given FunctionSignature if provided.
+  std::string GetSQL(std::vector<std::string> inputs,
+                     const FunctionSignature* signature = nullptr) const;
 
   // Returns an error message for a table-valued function call named
   // 'tvf_name_string' with 'tvf_catalog_entry' that did not match the

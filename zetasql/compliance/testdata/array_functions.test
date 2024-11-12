@@ -807,6 +807,20 @@ ARRAY<STRUCT<ARRAY<>>>[
    ]}
 ]
 ==
+[required_features=V_1_4_UUID_TYPE]
+[name=array_concat_uuid]
+SELECT ARRAY_CONCAT([CAST('00000000-0000-0000-0000-000000000000' AS UUID),
+                     CAST('9d3da323-4c20-360f-bd9b-ec54feec54f0' AS UUID)],
+                    [CAST('ffffffff-ffff-ffff-ffff-ffffffffffff' AS UUID)])
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<UUID>[known order:
+     00000000-0000-0000-0000-000000000000,
+     9d3da323-4c20-360f-bd9b-ec54feec54f0,
+     ffffffff-ffff-ffff-ffff-ffffffffffff
+   ]}
+]
+==
 [name=array_concat_range_date]
 [required_features=RANGE_TYPE]
 [parameters=cast(null as RANGE<DATE>) as null_range]

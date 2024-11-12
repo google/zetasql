@@ -121,6 +121,33 @@ ARRAY<STRUCT<
  }]
 ==
 [prepare_database]
+[required_features=V_1_4_UUID_TYPE]
+CREATE TABLE TestUuid AS
+SELECT 'a' as str,
+       cast('9d3da323-4c20-360f-bd9b-ec54feec54f0' as uuid) as uuid_col
+UNION ALL
+SELECT 'b',
+       cast('00000000000040008000000000000000' as uuid)
+UNION ALL
+SELECT 'c',
+       cast('ffffffff-ffff-ffff-ffff-ffffffffffff' as uuid)
+--
+ARRAY<STRUCT<str STRING, uuid_col UUID>>[
+  {
+    "a",
+    9d3da323-4c20-360f-bd9b-ec54feec54f0
+  },
+  {
+    "b",
+    00000000-0000-4000-8000-000000000000
+  },
+  {
+    "c",
+    ffffffff-ffff-ffff-ffff-ffffffffffff
+  }
+]
+==
+[prepare_database]
 CREATE TABLE Test2 AS
 SELECT 1 id,
        (SELECT AS `zetasql_test__.TestExtraPB`
@@ -315,6 +342,20 @@ SELECT y FROM TestBigNumeric
 WHERE bignumeric_col IN(CAST(1.234567890123456789 AS BIGNUMERIC), CAST(-3.141592653589793238 AS BIGNUMERIC));
 --
 ARRAY<STRUCT<y STRING>>[unknown order:{"b"}, {"a"}]
+==
+[required_features=V_1_4_UUID_TYPE]
+[name=in_clause_simple_not_in_uuid]
+SELECT str FROM TestUuid
+WHERE uuid_col NOT IN(CAST('9d3da323-4c20-360f-bd9b-ec54feec54f0' AS UUID), CAST('00000000-0000-4000-8000-000000000000' AS UUID));
+--
+ARRAY<STRUCT<str STRING>>[{"c"}]
+==
+[required_features=V_1_4_UUID_TYPE]
+[name=in_clause_simple_in_uuid]
+SELECT str FROM TestUuid
+WHERE uuid_col IN(CAST('9d3da323-4c20-360f-bd9b-ec54feec54f0' AS UUID), CAST('00000000-0000-4000-8000-000000000000' AS UUID));
+--
+ARRAY<STRUCT<str STRING>>[unknown order:{"b"}, {"a"}]
 ==
 [required_features=RANGE_TYPE]
 [name=in_clause_simple_not_in_range_date]
@@ -545,6 +586,15 @@ ARRAY<STRUCT<BOOL>>[{true}]
 [required_features=BIGNUMERIC_TYPE]
 [name=in_clause_unnest_in_select_bignumeric]
 SELECT CAST(1.234567890123456789 AS BIGNUMERIC) IN UNNEST(ARRAY<BIGNUMERIC>[1, 2, 3.25, 1.234567890123456789]);
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[required_features=V_1_4_UUID_TYPE]
+[name=in_clause_unnest_in_select_uuid]
+SELECT CAST('9d3da323-4c20-360f-bd9b-ec54feec54f0' AS UUID)
+IN UNNEST(
+  ARRAY<UUID>[CAST('9d3da323-4c20-360f-bd9b-ec54feec54f0' AS UUID),
+              CAST('9d5da323-4c20-360f-bd9b-ec54feec54f0' AS UUID)]);
 --
 ARRAY<STRUCT<BOOL>>[{true}]
 ==

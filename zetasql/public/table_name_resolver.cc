@@ -37,6 +37,7 @@
 #include "absl/container/btree_set.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/ascii.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
@@ -185,6 +186,13 @@ class TableNameResolver {
       const ASTTVF* tvf,
       const AliasSet& external_visible_aliases,
       AliasSet* local_visible_aliases);
+
+  absl::Status FindInCreatePropertyGraphStatement(
+      const ASTCreatePropertyGraphStatement* statement);
+
+  absl::Status FindInGraphTableQuery(const ASTGraphTableQuery* graph_query,
+                                     const AliasSet& external_visible_aliases,
+                                     AliasSet* local_visible_aliases);
 
   absl::Status FindInTableSubquery(
       const ASTTableSubquery* table_subquery,
@@ -524,6 +532,14 @@ absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_CREATE_PROCEDURE_STMT)) {
         return absl::OkStatus();
+      }
+      break;
+
+    case AST_CREATE_PROPERTY_GRAPH_STATEMENT:
+      if (analyzer_options_->language().SupportsStatementKind(
+              RESOLVED_CREATE_PROPERTY_GRAPH_STMT)) {
+        return FindInCreatePropertyGraphStatement(
+            statement->GetAs<ASTCreatePropertyGraphStatement>());
       }
       break;
 
@@ -1094,14 +1110,15 @@ absl::Status TableNameResolver::FindInCreateTableFunctionStatement(
     if (parameter->name() == nullptr) {
       continue;
     }
-    // If it's a table parameter or is ANY TABLE or ANY TYPE then it is
-    // a name that we should ignore.
+    // If it's a non-templated table parameter or is ANY TABLE then it is a name
+    // that we should ignore.
     if (parameter->IsTableParameter() ||
         (parameter->IsTemplated() &&
          parameter->templated_parameter_type()->kind()
            == ASTTemplatedParameterType::ANY_TABLE)) {
-      zetasql_base::InsertIfNotPresent(&local_table_aliases_,
-                              parameter->name()->GetAsString());
+      zetasql_base::InsertIfNotPresent(
+          &local_table_aliases_,
+          absl::AsciiStrToLower(parameter->name()->GetAsString()));
     }
   }
   ZETASQL_RETURN_IF_ERROR(FindInQuery(statement->query(), /*visible_aliases=*/{}));
@@ -1328,6 +1345,10 @@ absl::Status TableNameResolver::FindInQueryExpression(
       ZETASQL_RETURN_IF_ERROR(FindInFromQuery(query_expr->GetAs<ASTFromQuery>(),
                                       visible_aliases, new_aliases));
       break;
+    case AST_GQL_QUERY:
+      return FindInGraphTableQuery(
+          query_expr->GetAs<ASTGqlQuery>()->graph_table(), visible_aliases,
+          new_aliases);
     default:
       return MakeSqlErrorAt(query_expr)
              << "Unhandled query_expr:\n" << query_expr->DebugString();
@@ -1431,6 +1452,10 @@ absl::Status TableNameResolver::FindInTableExpression(
                        local_visible_aliases);
     case AST_PIPE_JOIN_LHS_PLACEHOLDER:
       return absl::OkStatus();
+    case AST_GRAPH_TABLE_QUERY:
+      return FindInGraphTableQuery(table_expr->GetAs<ASTGraphTableQuery>(),
+                                   external_visible_aliases,
+                                   local_visible_aliases);
     default:
       return MakeSqlErrorAt(table_expr)
              << "Unhandled node type in from clause: "
@@ -1664,6 +1689,39 @@ absl::Status TableNameResolver::FindInTablePathExpression(
 
   if (!alias.empty()) {
     visible_aliases->insert(absl::AsciiStrToLower(alias));
+  }
+
+  return absl::OkStatus();
+}
+
+absl::Status TableNameResolver::FindInGraphTableQuery(
+    const ASTGraphTableQuery* graph_query,
+    const AliasSet& external_visible_aliases, AliasSet* local_visible_aliases) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
+
+  // Find in any nested subqueries
+  return FindInExpressionsUnder(graph_query, external_visible_aliases);
+}
+
+absl::Status TableNameResolver::FindInCreatePropertyGraphStatement(
+    const ASTCreatePropertyGraphStatement* statement) {
+  ZETASQL_RET_CHECK_NE(statement, nullptr);
+  ZETASQL_RET_CHECK_NE(statement->node_table_list(), nullptr);
+
+  // source table references for nodes
+  for (const auto& ast_graph_element_table :
+       statement->node_table_list()->element_tables()) {
+    zetasql_base::InsertIfNotPresent(
+        table_names_, ast_graph_element_table->name()->ToIdentifierVector());
+  }
+
+  // source table references for edges, if they exist
+  if (statement->edge_table_list() != nullptr) {
+    for (const auto& ast_graph_element_table :
+         statement->edge_table_list()->element_tables()) {
+      zetasql_base::InsertIfNotPresent(
+          table_names_, ast_graph_element_table->name()->ToIdentifierVector());
+    }
   }
 
   return absl::OkStatus();

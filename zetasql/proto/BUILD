@@ -46,6 +46,7 @@ proto_library(
     deps = [
         ":function_proto",
         ":options_proto",
+        ":simple_property_graph_proto",
         "//zetasql/public:simple_connection_proto",
         "//zetasql/public:simple_constant_proto",
         "//zetasql/public:simple_model_proto",
@@ -144,4 +145,22 @@ proto_library(
 cc_proto_library(
     name = "script_exception_cc_proto",
     deps = [":script_exception_proto"],
+)
+
+proto_library(
+    name = "simple_property_graph_proto",
+    srcs = ["simple_property_graph.proto"],
+    deps = [
+        "//zetasql/public:type_proto",
+    ],
+)
+
+cc_proto_library(
+    name = "simple_property_graph_cc_proto",
+    deps = [":simple_property_graph_proto"],
+)
+
+java_proto_library(
+    name = "simple_property_graph_java_proto",
+    deps = [":simple_property_graph_proto"],
 )

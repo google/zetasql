@@ -506,4 +506,11 @@ TEST(LanguageOptions, ClassAndProtoSize) {
       << "also update the serialization code accordingly.";
 }
 
+TEST(LanguageOptions, EnableMaximumFeaturesDoesNotReserveGraphTable) {
+  LanguageOptions options;
+  options.EnableMaximumLanguageFeatures();
+  EXPECT_TRUE(options.IsReservedKeyword("QUALIFY"));
+  EXPECT_FALSE(options.IsReservedKeyword("GRAPH_TABLE"));
+}
+
 }  // namespace zetasql

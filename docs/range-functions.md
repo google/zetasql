@@ -6,7 +6,7 @@
 
 ZetaSQL supports the following range functions.
 
-### Function list
+## Function list
 
 <table>
   <thead>
@@ -18,15 +18,17 @@ ZetaSQL supports the following range functions.
   <tbody>
 
 <tr>
-  <td><a href="#generate_range_array"><code>GENERATE_RANGE_ARRAY</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/range-functions.md#generate_range_array"><code>GENERATE_RANGE_ARRAY</code></a>
 </td>
-  <td>Splits a range into an array of subranges.</td>
+  <td>
+    Splits a range into an array of subranges.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/range-functions.md">Range functions</a>.
+
+  </td>
 </tr>
 
 <tr>
-  <td><a href="#range"><code>RANGE</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/range-functions.md#range"><code>RANGE</code></a>
 </td>
   <td>
     Constructs a range of <code>DATE</code>, <code>DATETIME</code>,
@@ -35,8 +37,18 @@ ZetaSQL supports the following range functions.
 </tr>
 
 <tr>
-  <td><a href="#range_contains"><code>RANGE_CONTAINS</code></a>
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/mathematical_functions.md#range_bucket"><code>RANGE_BUCKET</code></a>
+</td>
+  <td>
+    Scans through a sorted array and returns the 0-based position
+    of a point's upper bound.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/mathematical_functions.md">Mathematical functions</a>.
 
+  </td>
+</tr>
+
+<tr>
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/range-functions.md#range_contains"><code>RANGE_CONTAINS</code></a>
 </td>
   <td>
   Signature 1: Checks if one range is in another range.
@@ -46,36 +58,34 @@ ZetaSQL supports the following range functions.
 </tr>
 
 <tr>
-  <td><a href="#range_end"><code>RANGE_END</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/range-functions.md#range_end"><code>RANGE_END</code></a>
 </td>
   <td>Gets the upper bound of a range.</td>
 </tr>
 
 <tr>
-  <td><a href="#range_intersect"><code>RANGE_INTERSECT</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/range-functions.md#range_intersect"><code>RANGE_INTERSECT</code></a>
 </td>
   <td>Gets a segment of two ranges that intersect.</td>
 </tr>
 
 <tr>
-  <td><a href="#range_overlaps"><code>RANGE_OVERLAPS</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/range-functions.md#range_overlaps"><code>RANGE_OVERLAPS</code></a>
 </td>
   <td>Checks if two ranges overlap.</td>
 </tr>
 
 <tr>
-  <td><a href="#range_sessionize"><code>RANGE_SESSIONIZE</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/range-functions.md#range_sessionize"><code>RANGE_SESSIONIZE</code></a>
 </td>
-  <td>Produces a table of sessionized ranges.</td>
+  <td>
+    Produces a table of sessionized ranges.
+    
+  </td>
 </tr>
 
 <tr>
-  <td><a href="#range_start"><code>RANGE_START</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/range-functions.md#range_start"><code>RANGE_START</code></a>
 </td>
   <td>Gets the lower bound of a range.</td>
 </tr>
@@ -83,7 +93,7 @@ ZetaSQL supports the following range functions.
   </tbody>
 </table>
 
-### `GENERATE_RANGE_ARRAY`
+## `GENERATE_RANGE_ARRAY`
 
 ```sql
 GENERATE_RANGE_ARRAY(range_to_split, step_interval)
@@ -214,7 +224,7 @@ SELECT GENERATE_RANGE_ARRAY(
 
 [interval-single]: https://github.com/google/zetasql/blob/master/docs/data-types.md#single_datetime_part_interval
 
-### `RANGE`
+## `RANGE`
 
 ```sql
 RANGE(lower_bound, upper_bound)
@@ -316,7 +326,7 @@ SELECT RANGE(DATE '2022-10-01', NULL) AS results;
 
 [datetime-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#datetime_type
 
-### `RANGE_CONTAINS`
+## `RANGE_CONTAINS`
 
 +   [Signature 1][range_contains-sig1]: Checks if every value in one range is
     in another range.
@@ -441,7 +451,7 @@ SELECT RANGE_CONTAINS(
 
 [range_contains-sig2]: #signature_2
 
-### `RANGE_END`
+## `RANGE_END`
 
 ```sql
 RANGE_END(range_to_check)
@@ -492,7 +502,7 @@ SELECT RANGE_END(RANGE<DATE> '[2022-12-01, UNBOUNDED)') AS results;
  +------------*/
 ```
 
-### `RANGE_INTERSECT`
+## `RANGE_INTERSECT`
 
 ```sql
 RANGE_INTERSECT(range_a, range_b)
@@ -558,7 +568,7 @@ SELECT RANGE_INTERSECT(
  +-------------------------*/
 ```
 
-### `RANGE_OVERLAPS`
+## `RANGE_OVERLAPS`
 
 ```sql
 RANGE_OVERLAPS(range_a, range_b)
@@ -635,7 +645,7 @@ SELECT RANGE_OVERLAPS(
 
 [range-intersect]: #range_intersect
 
-### `RANGE_SESSIONIZE`
+## `RANGE_SESSIONIZE`
 
 ```sql
 RANGE_SESSIONIZE(
@@ -788,7 +798,7 @@ GROUP BY emp_id, normalized;
  +--------+--------------------------*/
 ```
 
-### `RANGE_START`
+## `RANGE_START`
 
 ```sql
 RANGE_START(range_to_check)

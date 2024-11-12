@@ -132,6 +132,9 @@ class Token : public ParseToken {
     // Marks an inline comment that annotates the following string literal.
     // Example: /*sql*/'''select 1'''
     STRING_ANNOTATION_COMMENT,
+    // Marks SET keyword that starts a SET statement as opposed to other usages
+    // of SET keyword.
+    SET_STATEMENT_START,
   };
 
   explicit Token(ParseToken t)

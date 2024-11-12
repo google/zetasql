@@ -451,7 +451,7 @@ absl::StatusOr<std::unique_ptr<const AnalyzerOutput>> RewriteForAnonymization(
 // rewrites.
 //
 // The `analyzer_output` does not include the extra runtime in overall time, or
-// finalize warnings. We should consider reivisiting this if a use-case wants
+// finalize warnings. We should consider revisiting this if a use-case wants
 // those outputs.
 //
 // *WARNING* On error, `analyzer_output` may be in an inconsistent state with

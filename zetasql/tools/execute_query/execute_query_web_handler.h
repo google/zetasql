@@ -17,17 +17,17 @@
 #ifndef ZETASQL_TOOLS_EXECUTE_QUERY_EXECUTE_QUERY_WEB_HANDLER_H_
 #define ZETASQL_TOOLS_EXECUTE_QUERY_EXECUTE_QUERY_WEB_HANDLER_H_
 
+#include <optional>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include "zetasql/tools/execute_query/execute_query_tool.h"
 #include "zetasql/tools/execute_query/execute_query_writer.h"
-#include "zetasql/tools/execute_query/selectable_catalog.h"
 #include "zetasql/tools/execute_query/web/embedded_resources.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/functional/any_invocable.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 
 namespace zetasql {
 
@@ -36,17 +36,34 @@ using ModeSet = absl::flat_hash_set<ExecuteQueryConfig::ToolMode>;
 // Encapsulates request parameters.
 class ExecuteQueryWebRequest {
  public:
-  ExecuteQueryWebRequest(const std::vector<std::string>& str_modes,
-                         std::string query, std::string catalog);
+  ExecuteQueryWebRequest(absl::Span<const std::string> str_modes,
+                         std::optional<ExecuteQueryConfig::SqlMode> sql_mode,
+                         std::string query, std::string catalog,
+                         std::string enabled_language_features,
+                         std::string enabled_ast_rewrites);
 
   const std::string& query() const { return query_; }
   const ModeSet& modes() const { return modes_; }
+  std::optional<ExecuteQueryConfig::SqlMode> sql_mode() const {
+    return sql_mode_;
+  }
   const std::string& catalog() const { return catalog_; }
+
+  const std::string& GetEnabledLanguageFeaturesOptionsStr() const {
+    return enabled_language_features_;
+  }
+
+  const std::string& GetEnabledAstRewritesOptionsStr() const {
+    return enabled_ast_rewrites_;
+  }
 
  private:
   ModeSet modes_;
+  std::optional<ExecuteQueryConfig::SqlMode> sql_mode_;
   std::string query_;
   std::string catalog_;
+  std::string enabled_language_features_;
+  std::string enabled_ast_rewrites_;
 };
 
 // Handler for a web request. This class takes an incoming request, executes

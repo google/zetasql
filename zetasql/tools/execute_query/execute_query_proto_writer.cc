@@ -34,6 +34,7 @@
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
+#include "absl/strings/string_view.h"
 #include "google/protobuf/io/zero_copy_stream_impl.h"
 #include "zetasql/base/status_macros.h"
 
@@ -48,6 +49,12 @@ ExecuteQueryStreamProtobufWriter::ExecuteQueryStreamProtobufWriter(
     ABSL_LOG(WARNING) << "Parent descriptor pool is missing; encoding of "
                     "non-primitive types may be incomplete";
   }
+}
+
+absl::Status ExecuteQueryStreamProtobufWriter::log(absl::string_view message) {
+  // TODO: Handle logs for real. This is a no-op for now only to
+  // support some output for output_mode=textproto or json
+  return absl::OkStatus();
 }
 
 absl::Status ExecuteQueryStreamProtobufWriter::executed(

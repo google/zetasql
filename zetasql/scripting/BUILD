@@ -203,7 +203,9 @@ cc_library(
         "//zetasql/public:signature_match_result",
         "//zetasql/public:time_zone_util",
         "//zetasql/public:type",
+        "//zetasql/public:value",
         "//zetasql/public/types",
+        "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
@@ -211,6 +213,7 @@ cc_library(
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:span",
+        "@com_google_protobuf//:protobuf",
     ],
 )
 

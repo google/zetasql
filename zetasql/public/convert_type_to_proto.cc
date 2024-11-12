@@ -192,6 +192,11 @@ absl::Status TypeToProtoConverter::MakeFieldDescriptor(
       proto_field->mutable_options()->SetExtension(
           zetasql::format, FieldFormat::TIMESTAMP_MICROS);
       break;
+    case TYPE_TIMESTAMP_PICOS:
+      proto_field->set_type(google::protobuf::FieldDescriptorProto::TYPE_BYTES);
+      proto_field->mutable_options()->SetExtension(
+          zetasql::format, FieldFormat::TIMESTAMP_PICOS);
+      break;
     case TYPE_TIME:
       proto_field->set_type(google::protobuf::FieldDescriptorProto::TYPE_INT64);
       proto_field->mutable_options()->SetExtension(
@@ -270,7 +275,7 @@ absl::Status TypeToProtoConverter::MakeFieldDescriptor(
       proto_field->set_type(google::protobuf::FieldDescriptorProto::TYPE_ENUM);
       proto_field->set_type_name(
           absl::StrCat(".", enum_type->enum_descriptor()->full_name()));
-      import_filenames_.insert(enum_type->enum_descriptor()->file()->name());
+      import_filenames_.emplace(enum_type->enum_descriptor()->file()->name());
 
       if (options_.output_field_descriptor_map != nullptr) {
         (*options_.output_field_descriptor_map)[proto_field] =
@@ -283,7 +288,7 @@ absl::Status TypeToProtoConverter::MakeFieldDescriptor(
       proto_field->set_type(google::protobuf::FieldDescriptorProto::TYPE_MESSAGE);
       proto_field->set_type_name(
           absl::StrCat(".", proto_type->descriptor()->full_name()));
-      import_filenames_.insert(proto_type->descriptor()->file()->name());
+      import_filenames_.emplace(proto_type->descriptor()->file()->name());
 
       if (options_.output_field_descriptor_map != nullptr) {
         (*options_.output_field_descriptor_map)[proto_field] =
@@ -328,6 +333,14 @@ absl::Status TypeToProtoConverter::MakeFieldDescriptor(
       proto_field->set_type_name(descriptor_proto->name());
       break;
     }
+    case TYPE_GRAPH_ELEMENT:
+      // TODO: Implement this for GRAPH_ELEMENT.
+      return absl::UnimplementedError(
+          "GraphElementType type is not fully implemented");
+    case TYPE_GRAPH_PATH:
+      // TODO: Implement this for GRAPH_PATH.
+      return absl::UnimplementedError(
+          "GraphPathType type is not fully implemented");
     case TYPE_EXTENDED:
       // TODO: fix by moving this logic into Type class.
       return absl::UnimplementedError(
@@ -336,6 +349,10 @@ absl::Status TypeToProtoConverter::MakeFieldDescriptor(
       // TODO: Implement proto type conversion for Map.
       return absl::UnimplementedError(
           "Proto type conversion for Map is not yet implemented.");
+    case TYPE_MEASURE:
+      // TODO: b/350555383 - Implement proto type conversion for Measure.
+      return absl::UnimplementedError(
+          "Proto type conversion for Measure is not implemented.");
     case __TypeKind__switch_must_have_a_default__:
     case TYPE_UNKNOWN:
       break;  // Error generated below.
@@ -682,7 +699,7 @@ static google::protobuf::DescriptorProto* FindDescriptorProtoImpl(
 // Find a proto message descriptor inside <file> with name <full_name>.
 // Return NULL if not found.
 static google::protobuf::DescriptorProto* FindDescriptorProto(
-    google::protobuf::FileDescriptorProto* file, const std::string& full_name) {
+    google::protobuf::FileDescriptorProto* file, absl::string_view full_name) {
   std::vector<std::string> message_names;
   if (!file->package().empty()) {
     if (!absl::StartsWith(full_name, absl::StrCat(file->package(), "."))) {
@@ -706,7 +723,7 @@ static google::protobuf::DescriptorProto* FindDescriptorProto(
 }
 
 absl::Status AddValueTableAnnotationForProto(
-    const std::string& message_full_name, google::protobuf::FileDescriptorProto* file) {
+    absl::string_view message_full_name, google::protobuf::FileDescriptorProto* file) {
   google::protobuf::DescriptorProto* message = FindDescriptorProto(file,
                                                          message_full_name);
   if (message == nullptr) {

@@ -384,9 +384,91 @@ SELECT
    )
 ==
 
+# BY NAME modifiers work.
+select 1
+|> UNION ALL BY NAME (select 2)
+|> INTERSECT DISTINCT BY NAME ON (x) (select 3)
+|> EXCEPT ALL BY NAME ON (x) (select 4)
+--
+QueryStatement [0-128] [select 1 |...(select 4)]
+  Query [0-128] [select 1 |...(select 4)]
+    Select [0-8] [select 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    PipeSetOperation [9-40] [|> UNION ALL...(select 2)]
+      SetOperationMetadata [12-29] [UNION ALL BY NAME]
+        SetOperationType [12-17] [UNION]
+        SetOperationAllOrDistinct [18-21] [ALL]
+        SetOperationColumnMatchMode [22-29] [BY NAME]
+      Query [31-39] [select 2]
+        Select [31-39] [select 2]
+          SelectList [38-39] [2]
+            SelectColumn [38-39] [2]
+              IntLiteral(2) [38-39] [2]
+    PipeSetOperation [41-88] [|> INTERSECT...(select 3)]
+      SetOperationMetadata [44-77] [INTERSECT...NAME ON (x)]
+        SetOperationType [44-53] [INTERSECT]
+        SetOperationAllOrDistinct [54-62] [DISTINCT]
+        SetOperationColumnMatchMode [63-73] [BY NAME ON]
+        ColumnList [74-77] [(x)]
+          Identifier(x) [75-76] [x]
+      Query [79-87] [select 3]
+        Select [79-87] [select 3]
+          SelectList [86-87] [3]
+            SelectColumn [86-87] [3]
+              IntLiteral(3) [86-87] [3]
+    PipeSetOperation [89-128] [|> EXCEPT...(select 4)]
+      SetOperationMetadata [92-117] [EXCEPT ALL BY NAME ON (x)]
+        SetOperationType [92-98] [EXCEPT]
+        SetOperationAllOrDistinct [99-102] [ALL]
+        SetOperationColumnMatchMode [103-113] [BY NAME ON]
+        ColumnList [114-117] [(x)]
+          Identifier(x) [115-116] [x]
+      Query [119-127] [select 4]
+        Select [119-127] [select 4]
+          SelectList [126-127] [4]
+            SelectColumn [126-127] [4]
+              IntLiteral(4) [126-127] [4]
+--
+SELECT
+  1
+|> UNION ALL BY NAME
+   (
+   SELECT
+     2
+   )
+|> INTERSECT DISTINCT BY NAME ON (x)
+   (
+   SELECT
+     3
+   )
+|> EXCEPT ALL BY NAME ON (x)
+   (
+   SELECT
+     4
+   )
+==
+
+select 1
+|> UNION ALL STRICT BY NAME (select 2)
+--
+ERROR: Syntax error: STRICT cannot be used with BY NAME in set operations [at 2:14]
+|> UNION ALL STRICT BY NAME (select 2)
+             ^
+==
+
+select 1
+|> UNION ALL BY NAME BY (a,b) (select 2)
+--
+ERROR: Syntax error: Expected "(" but got keyword BY [at 2:22]
+|> UNION ALL BY NAME BY (a,b) (select 2)
+                     ^
+==
+
 # FULL/LEFT modifiers work at the start of the pipe operator
 select 1
-|> {{FULL|FULL OUTER|LEFT|LEFT OUTER}} UNION ALL (select 2)
+|> {{FULL|FULL OUTER|LEFT|LEFT OUTER|INNER}} UNION ALL (select 2)
 --
 ALTERNATION GROUP: FULL
 --
@@ -491,6 +573,109 @@ QueryStatement [0-43] [select 1 |...(select 2)]
 SELECT
   1
 |> LEFT UNION ALL
+   (
+   SELECT
+     2
+   )
+--
+ALTERNATION GROUP: INNER
+--
+QueryStatement [0-38] [select 1 |...(select 2)]
+  Query [0-38] [select 1 |...(select 2)]
+    Select [0-8] [select 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    PipeSetOperation [9-38] [|> INNER UNION ALL (select 2)]
+      SetOperationMetadata [12-27] [INNER UNION ALL]
+        SetOperationType [18-23] [UNION]
+        SetOperationAllOrDistinct [24-27] [ALL]
+        SetOperationColumnPropagationMode [12-17] [INNER]
+      Query [29-37] [select 2]
+        Select [29-37] [select 2]
+          SelectList [36-37] [2]
+            SelectColumn [36-37] [2]
+              IntLiteral(2) [36-37] [2]
+--
+SELECT
+  1
+|> INNER UNION ALL
+   (
+   SELECT
+     2
+   )
+==
+
+# Zero inputs with trailing comma is not allowed.
+select 1
+|> union all,
+--
+ERROR: Syntax error: Expected "(" but got "," [at 2:13]
+|> union all,
+            ^
+==
+
+# Trailing comma is allowed, single input.
+select 1
+|> union all (select 2),
+--
+QueryStatement [0-33] [select 1 |...select 2),]
+  Query [0-32] [select 1 |...(select 2)]
+    Select [0-8] [select 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    PipeSetOperation [9-32] [|> union all (select 2)]
+      SetOperationMetadata [12-21] [union all]
+        SetOperationType [12-17] [union]
+        SetOperationAllOrDistinct [18-21] [all]
+      Query [23-31] [select 2]
+        Select [23-31] [select 2]
+          SelectList [30-31] [2]
+            SelectColumn [30-31] [2]
+              IntLiteral(2) [30-31] [2]
+--
+SELECT
+  1
+|> UNION ALL
+   (
+   SELECT
+     2
+   )
+==
+
+# Trailing comma is allowed, multiple inputs.
+select 1
+|> intersect distinct (select 2), (select 2),
+--
+QueryStatement [0-54] [select 1 |...select 2),]
+  Query [0-52] [select 1 |...(select 2]
+    Select [0-8] [select 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    PipeSetOperation [9-52] [|> intersect...(select 2]
+      SetOperationMetadata [12-30] [intersect distinct]
+        SetOperationType [12-21] [intersect]
+        SetOperationAllOrDistinct [22-30] [distinct]
+      Query [32-40] [select 2]
+        Select [32-40] [select 2]
+          SelectList [39-40] [2]
+            SelectColumn [39-40] [2]
+              IntLiteral(2) [39-40] [2]
+      Query [44-52] [select 2]
+        Select [44-52] [select 2]
+          SelectList [51-52] [2]
+            SelectColumn [51-52] [2]
+              IntLiteral(2) [51-52] [2]
+--
+SELECT
+  1
+|> INTERSECT DISTINCT
+   (
+   SELECT
+     2
+   ),
    (
    SELECT
      2

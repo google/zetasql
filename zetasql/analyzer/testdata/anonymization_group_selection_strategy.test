@@ -1511,7 +1511,7 @@ QueryStmt
               +-Parameter(type=STRING, name="test_param_string")
 
 
-Rewrite ERROR: Anonymization option group_selection_strategy must be an enum literal
+Rewrite ERROR: Anonymization option group_selection_strategy must be a non-NULL enum literal
 ==
 
 # group_selection_strategy can only be set once.

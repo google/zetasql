@@ -32,6 +32,7 @@
 #include "zetasql/compliance/functions_testlib.h"
 #include "zetasql/compliance/functions_testlib_common.h"
 #include "zetasql/public/interval_value_test_util.h"
+#include "zetasql/public/language_options.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/token_list_util.h"
@@ -44,6 +45,7 @@
 #include "zetasql/testing/test_value.h"
 #include "zetasql/testing/using_test_value.cc"  // NOLINT
 #include "absl/base/casts.h"
+#include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
@@ -52,7 +54,9 @@
 #include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/stl_util.h"
+#include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
@@ -2392,6 +2396,13 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastComplex() {
   const Value another_null_proto = Value::Null(NullableIntProtoType());
   const Value another_null_array = Value::Null(Int64ArrayType());
 
+  LanguageOptions language_options_map_type;
+  language_options_map_type.EnableLanguageFeature(FEATURE_V_1_4_MAP_TYPE);
+  absl::StatusOr<const Type*> map_type_or_status = type_factory()->MakeMapType(
+      StringType(), Int64Type(), language_options_map_type);
+  ZETASQL_CHECK_OK(map_type_or_status);
+  const Value null_map = Value::Null(map_type_or_status.value());
+
   const std::string kitchen_sink_string_1("int64_key_1: 1 int64_key_2: 2");
   const std::string kitchen_sink_string_2(
       "int64_key_1: 1 int64_key_2: 2 repeated_int32_val: 3 "
@@ -2496,6 +2507,19 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastComplex() {
   const Value string_string_struct_value = Value::Struct(
       string_string_struct, {Value::String("aaa"), Value::String("777")});
 
+  TypeFactory factory;
+  const Value nested_container_from_type = test_values::Map(
+      {{"k", test_values::Array({test_values::Struct({"a"}, {Value::Float(1.5)},
+                                                     type_factory())},
+                                test_values::kPreservesOrder, type_factory())}},
+      type_factory());
+  const Value nested_container_to_type = test_values::Map(
+      {{Value::Bytes("k"),
+        test_values::Array(
+            {test_values::Struct({"a"}, {Value::Int32(2)}, type_factory())},
+            test_values::kPreservesOrder, type_factory())}},
+      type_factory());
+
   std::set<LanguageFeature> with_proto_maps = {FEATURE_V_1_3_PROTO_MAPS};
 
   return {
@@ -2561,6 +2585,9 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastComplex() {
       {{null_proto_equivalent}, null_proto},
       {{null_proto}, NullString()},
       {{NullString()}, null_proto},
+
+      QueryParamsWithResult({{null_map}, null_map})
+          .AddRequiredFeature(FEATURE_V_1_4_MAP_TYPE),
 
       {{KitchenSink(kitchen_sink_string_1)}, String(kitchen_sink_string_1)},
       {{KitchenSink(kitchen_sink_string_2)}, String(kitchen_sink_string_2)},
@@ -2679,7 +2706,13 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastComplex() {
       // Struct with the wrong field types won't cast.
       QueryParamsWithResult(
           {struct_value}, Value::Null(Uint64StringMapEntryType()), OUT_OF_RANGE)
-          .WrapWithFeatureSet(with_proto_maps)};
+          .WrapWithFeatureSet(with_proto_maps),
+
+      QueryParamsWithResult({nested_container_from_type},
+                            nested_container_to_type)
+          .AddRequiredFeatures({FEATURE_V_1_4_MAP_TYPE,
+                                FEATURE_V_1_1_CAST_DIFFERENT_ARRAY_TYPES}),
+  };
 }
 
 std::vector<QueryParamsWithResult> GetFunctionTestsCast() {
@@ -2746,8 +2779,6 @@ GetFunctionTestsCastBetweenDifferentArrayTypes(bool arrays_with_nulls) {
       Value from_array = Value::Array(from_array_type, {cast_value});
       Value to_array = Value::Array(to_array_type, {result_value});
 
-      ABSL_CHECK(!zetasql_base::ContainsKey(test.required_features(),
-                              FEATURE_V_1_1_CAST_DIFFERENT_ARRAY_TYPES));
       tests.push_back(
           QueryParamsWithResult({from_array}, to_array, test.status())
               .AddRequiredFeatures(zetasql_base::STLSetUnion(
@@ -2787,6 +2818,213 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastTokenList() {
     result.push_back(test.WrapWithFeature(FEATURE_TOKENIZED_SEARCH));
   }
   return result;
+}
+
+// Helper functions for MAP cast tests.
+namespace {
+
+enum class MapKeyOrValueSelector {
+  kMapKey,
+  kMapValue,
+};
+
+absl::StatusOr<QueryParamsWithResult> WrapCastTestInputAndResultInMapCastTest(
+    MapKeyOrValueSelector selector, const Value& cast_value,
+    const Value& result_value, const absl::Status& expected_status,
+    std::set<LanguageFeature> required_features) {
+  Value map_entry_cast_key;
+  Value map_entry_cast_value;
+  Value map_entry_result_key;
+  Value map_entry_result_value;
+  switch (selector) {
+    case MapKeyOrValueSelector::kMapKey: {
+      map_entry_cast_key = cast_value;
+      map_entry_cast_value = Value::Bool(true);
+      map_entry_result_key = result_value;
+      map_entry_result_value = Value::Bool(true);
+      break;
+    }
+    case MapKeyOrValueSelector::kMapValue: {
+      map_entry_cast_key = Value::Bool(true);
+      map_entry_cast_value = cast_value;
+      map_entry_result_key = Value::Bool(true);
+      map_entry_result_value = result_value;
+      break;
+    }
+    default:
+      ABSL_LOG(FATAL) << "Unsupported MapKeyOrValueSelector";
+  }
+
+  required_features.emplace(FEATURE_V_1_4_MAP_TYPE);
+
+  // Basic support for cases with containers as keys.
+  if (map_entry_cast_key.type()->IsArray()) {
+    required_features.emplace(FEATURE_V_1_2_GROUP_BY_ARRAY);
+  } else if (map_entry_cast_key.type()->IsStruct()) {
+    required_features.emplace(FEATURE_V_1_2_GROUP_BY_STRUCT);
+  }
+
+  LanguageOptions language_options;
+  language_options.SetEnabledLanguageFeatures(required_features);
+
+  ZETASQL_ASSIGN_OR_RETURN(const Type* cast_map_type,
+                   type_factory()->MakeMapType(map_entry_cast_key.type(),
+                                               map_entry_cast_value.type(),
+                                               language_options));
+  ZETASQL_ASSIGN_OR_RETURN(const Type* result_map_type,
+                   type_factory()->MakeMapType(map_entry_result_key.type(),
+                                               map_entry_result_value.type(),
+                                               language_options));
+
+  ZETASQL_ASSIGN_OR_RETURN(Value cast_map,
+                   Value::MakeMap(cast_map_type, {{map_entry_cast_key,
+                                                   map_entry_cast_value}}));
+  ZETASQL_ASSIGN_OR_RETURN(Value result_map,
+                   Value::MakeMap(result_map_type, {{map_entry_result_key,
+                                                     map_entry_result_value}}));
+
+  ZETASQL_RET_CHECK(cast_map.is_valid());
+  ZETASQL_RET_CHECK(result_map.is_valid());
+  ZETASQL_RET_CHECK(cast_map.map_entries().begin()->first.is_valid());
+  ZETASQL_RET_CHECK(cast_map.map_entries().begin()->second.is_valid());
+
+  QueryParamsWithResult map_cast_test_case = {
+      {cast_map}, result_map, expected_status};
+
+  map_cast_test_case.AddRequiredFeatures(required_features);
+  return map_cast_test_case;
+}
+
+// Additional test cases for MAP to address gaps in the standard cast test
+// cases.
+static inline absl::Status AddAdditionalMapCastTestCases(
+    std::vector<QueryParamsWithResult>& map_cast_test_cases) {
+  // ARRAY element tests.
+  ZETASQL_ASSIGN_OR_RETURN(
+      QueryParamsWithResult map_array_key,
+      WrapCastTestInputAndResultInMapCastTest(
+          MapKeyOrValueSelector::kMapKey,
+          test_values::Array({"1", "2", "3"}, type_factory()),
+          test_values::Array({1, 2, 3}, type_factory()), absl::OkStatus(),
+          {FEATURE_V_1_2_GROUP_BY_ARRAY,
+           FEATURE_V_1_1_CAST_DIFFERENT_ARRAY_TYPES}));
+  map_cast_test_cases.push_back(map_array_key);
+
+  ZETASQL_ASSIGN_OR_RETURN(
+      QueryParamsWithResult map_array_value,
+      WrapCastTestInputAndResultInMapCastTest(
+          MapKeyOrValueSelector::kMapValue,
+          test_values::Array({"1", "2", "3"}, type_factory()),
+          test_values::Array({1, 2, 3}, type_factory()), absl::OkStatus(),
+          {FEATURE_V_1_1_CAST_DIFFERENT_ARRAY_TYPES}));
+  map_cast_test_cases.push_back(map_array_value);
+
+  // MAP element test.
+  ZETASQL_ASSIGN_OR_RETURN(
+      QueryParamsWithResult map_map_value,
+      WrapCastTestInputAndResultInMapCastTest(
+          MapKeyOrValueSelector::kMapValue,
+          test_values::Map({{"1", "1.5"}}, type_factory()),
+          test_values::Map({{1, 1.5}}, type_factory()), absl::OkStatus(),
+          /*required_features=*/{}));
+  map_cast_test_cases.push_back(map_map_value);
+
+  // STRUCT element tests.
+  ZETASQL_ASSIGN_OR_RETURN(
+      QueryParamsWithResult map_struct_key,
+      WrapCastTestInputAndResultInMapCastTest(
+          MapKeyOrValueSelector::kMapKey,
+          test_values::Struct({"a", "b"}, {1, 2.5}, type_factory()),
+          test_values::Struct({"a", "b"}, {"1", "2.5"}, type_factory()),
+          absl::OkStatus(),
+          /*required_features=*/{FEATURE_V_1_2_GROUP_BY_STRUCT}));
+  map_cast_test_cases.push_back(map_struct_key);
+  ZETASQL_ASSIGN_OR_RETURN(
+      QueryParamsWithResult map_struct_value,
+      WrapCastTestInputAndResultInMapCastTest(
+          MapKeyOrValueSelector::kMapValue,
+          test_values::Struct({"a", "b"}, {1, 2.5}, type_factory()),
+          test_values::Struct({"a", "b"}, {"1", "2.5"}, type_factory()),
+          absl::OkStatus(),
+          /*required_features=*/{}));
+  map_cast_test_cases.push_back(map_struct_value);
+
+  return absl::OkStatus();
+}
+
+}  // namespace
+
+// Builds test cases for MAP type based on the standard cast test cases plus
+// some additional test cases. Each standard test case will be reproduced twice:
+// once placing the case in the MAP key and once in the MAP value. Invalid
+// cases, such as when the MAP key type is not groupable, will be filtered out.
+std::vector<QueryParamsWithResult> GetFunctionTestsMapCast() {
+  auto cast_test_cases = GetFunctionTestsCast();
+  std::vector<QueryParamsWithResult> map_cast_test_cases;
+  map_cast_test_cases.reserve(cast_test_cases.size() * 2);
+
+  int cast_test_case_as_key_failure_count = 0;
+  int cast_test_case_as_value_failures_count = 0;
+
+  // Add standard cast test cases wrapped in a MAP type.
+  for (const QueryParamsWithResult& test : cast_test_cases) {
+    // Currently FORMAT parameter is not allowed for MAP casting.
+    if (test.params().size() > 1) {
+      continue;
+    }
+    ABSL_CHECK_EQ(1, test.params().size()) << test;
+
+    const Value& cast_value = test.param(0);
+    const Value& result_value = test.result();
+    if (!cast_value.type()->Equivalent(result_value.type())) {
+      const std::set<LanguageFeature>& required_features =
+          test.required_features();
+
+      absl::StatusOr<QueryParamsWithResult>
+          cast_and_result_maps_varying_key_or_status =
+              WrapCastTestInputAndResultInMapCastTest(
+                  MapKeyOrValueSelector::kMapKey, cast_value, result_value,
+                  test.status(), required_features);
+      absl::StatusOr<QueryParamsWithResult>
+          cast_and_result_maps_varying_value_or_status =
+              WrapCastTestInputAndResultInMapCastTest(
+                  MapKeyOrValueSelector::kMapValue, cast_value, result_value,
+                  test.status(), required_features);
+
+      if (cast_and_result_maps_varying_key_or_status.ok()) {
+        map_cast_test_cases.push_back(
+            cast_and_result_maps_varying_key_or_status.value());
+      } else {
+        ++cast_test_case_as_key_failure_count;
+      }
+      if (cast_and_result_maps_varying_value_or_status.ok()) {
+        map_cast_test_cases.push_back(
+            cast_and_result_maps_varying_value_or_status.value());
+      } else {
+        ++cast_test_case_as_value_failures_count;
+      }
+    }
+  }
+
+  ABSL_DCHECK_GE(map_cast_test_cases.size(), 1);
+
+  ABSL_LOG(INFO) << "GetFunctionTestsMapCast(): " << map_cast_test_cases.size()
+            << " cases generated from GetFunctionTestsCast(). Removed "
+            << cast_test_case_as_key_failure_count
+            << " cases invalid as MAP keys and "
+            << cast_test_case_as_value_failures_count
+            << " cases invalid as MAP values.";
+
+  // Additional test cases here. The cast test cases being used above don't
+  // contain array tests, so we add some add additional tests for ARRAYs and
+  // other container types explicitly.
+  ZETASQL_CHECK_OK(AddAdditionalMapCastTestCases(map_cast_test_cases));
+
+  for (auto& test_case : map_cast_test_cases) {
+    test_case.AddRequiredFeature(FEATURE_V_1_4_MAP_TYPE);
+  }
+
+  return map_cast_test_cases;
 }
 
 }  // namespace zetasql

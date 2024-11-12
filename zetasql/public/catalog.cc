@@ -22,9 +22,11 @@
 
 #include "zetasql/public/catalog_helper.h"
 #include "zetasql/public/strings.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 #include "google/protobuf/io/tokenizer.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/ret_check.h"
@@ -437,6 +439,31 @@ absl::Status Catalog::FindConstantWithPathPrefixImpl(
   return ConstantNotFoundError(path);
 }
 
+absl::Status Catalog::FindPropertyGraph(
+    const absl::Span<const std::string> path,
+    const PropertyGraph*& property_graph, const FindOptions& options) {
+  property_graph = nullptr;
+  if (path.empty()) {
+    return EmptyNamePathInternalError("PropertyGraph");
+  }
+
+  const std::string& name = path.front();
+  if (path.size() > 1) {
+    Catalog* catalog = nullptr;
+    ZETASQL_RETURN_IF_ERROR(GetCatalog(name, &catalog, options));
+    if (catalog == nullptr) {
+      return PropertyGraphNotFoundError(path);
+    }
+    const absl::Span<const std::string> path_suffix = path.subspan(1);
+    return catalog->FindPropertyGraph(path_suffix, property_graph, options);
+  }
+  ZETASQL_RETURN_IF_ERROR(GetPropertyGraph(name, property_graph, options));
+  if (property_graph == nullptr) {
+    return PropertyGraphNotFoundError(path);
+  }
+  return absl::OkStatus();
+}
+
 absl::Status Catalog::FindObject(absl::Span<const std::string> path,
                                  const Table** object,
                                  const FindOptions& options) {
@@ -446,6 +473,12 @@ absl::Status Catalog::FindObject(absl::Span<const std::string> path,
                                  const Type** object,
                                  const FindOptions& options) {
   return FindType(path, object, options);
+}
+
+absl::Status Catalog::FindObject(absl::Span<const std::string> path,
+                                 const PropertyGraph** object,
+                                 const FindOptions& options) {
+  return FindPropertyGraph(path, *object, options);
 }
 
 absl::StatusOr<TypeListView> Catalog::GetExtendedTypeSuperTypes(
@@ -501,6 +534,11 @@ std::string Catalog::SuggestConstant(
 std::string Catalog::SuggestEnumValue(const EnumType* type,
                                       absl::string_view mistyped_value) {
   return ::zetasql::SuggestEnumValue(type, mistyped_value);
+}
+
+std::string Catalog::SuggestPropertyGraph(
+    absl::Span<const std::string> mistyped_path) {
+  return "";
 }
 
 std::string Catalog::SuggestSequence(
@@ -574,6 +612,14 @@ absl::Status Catalog::GetConstant(const std::string& name,
   return absl::OkStatus();
 }
 
+absl::Status Catalog::GetPropertyGraph(absl::string_view name,
+                                       const PropertyGraph*& property_graph,
+                                       const FindOptions& options) {
+  property_graph = nullptr;
+  return absl::Status(absl::StatusCode::kUnimplemented,
+                      "GetPropertyGraph is not implemented yet.");
+}
+
 absl::Status Catalog::GenericNotFoundError(
     absl::string_view object_type, absl::Span<const std::string> path) const {
   const std::string& name = path.front();
@@ -642,6 +688,11 @@ absl::Status Catalog::ConversionNotFoundError(
          << FullName();
 }
 
+absl::Status Catalog::PropertyGraphNotFoundError(
+    const absl::Span<const std::string> path) const {
+  return GenericNotFoundError("PropertyGraph", path);
+}
+
 absl::Status Catalog::EmptyNamePathInternalError(
     absl::string_view object_type) const {
   return ::zetasql_base::InternalErrorBuilder()
@@ -670,6 +721,25 @@ AnonymizationUserIdInfo::AnonymizationUserIdInfo(const Column* column)
 AnonymizationUserIdInfo::AnonymizationUserIdInfo(
     absl::Span<const std::string> column_name_path)
     : column_name_path_(column_name_path.begin(), column_name_path.end()) {}
+
+absl::Status ValidateDefaultThreshold(int default_threshold) {
+  if (default_threshold < 0) {
+    return absl::InvalidArgumentError(
+        "Default threshold value cannot be negative.");
+  }
+  return absl::OkStatus();
+}
+
+// static
+absl::StatusOr<std::unique_ptr<AnonymizationInfo>> AnonymizationInfo::Create(
+    const Table* table, absl::Span<const std::string> userid_column_name_path,
+    int default_threshold) {
+  ZETASQL_RETURN_IF_ERROR(ValidateDefaultThreshold(default_threshold));
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<AnonymizationInfo> anonymization_info,
+                   AnonymizationInfo::Create(table, userid_column_name_path));
+  anonymization_info->SetDefaultThreshold(default_threshold);
+  return anonymization_info;
+}
 
 // static
 absl::StatusOr<std::unique_ptr<AnonymizationInfo>> AnonymizationInfo::Create(

@@ -269,6 +269,14 @@ absl::StatusOr<EnumOptionsEntry<EnumT>> ParseEnumOptionsSet(
   return EnumOptionsEntry<EnumT>{description, output_options};
 }
 
+// Returns the set of all ResolvedAST Rewrites, filtered based on input args.
+// `include_in_development` controls whether rewrites with
+// `in_development=true` are returned. `include_default_disabled` controls
+// whether rewrites without `default_enabled=true` are returned. The special
+// "INVALID" value (0) is never returned.
+AnalyzerOptions::ASTRewriteSet GetRewrites(bool include_in_development,
+                                           bool include_default_disabled);
+
 // Returns all ResolvedAST Rewrites except the special "INVALID" value (0).
 AnalyzerOptions::ASTRewriteSet GetAllRewrites();
 

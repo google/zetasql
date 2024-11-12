@@ -35,6 +35,12 @@ namespace zetasql {
 // Internally UUID values are stored using two 64-bit integers.
 class UuidValue final {
  public:
+  // Returns the maximum and minimum UUID values.
+  // Minimum UUID value is 00000000-0000-0000-0000-000000000000.
+  // Maximum UUID value is ffffffff-ffff-ffff-ffff-ffffffffffff.
+  static UuidValue MaxValue();
+  static UuidValue MinValue();
+
   // Parses a textual representation of a UUID value. Returns an error if the
   // given string cannot be parsed as a UUID value.
   //

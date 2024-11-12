@@ -28,6 +28,18 @@ namespace zetasql {
 enum class SQLBuildTargetSyntax {
   kGroupByAll,  // Represents GROUP BY ALL produced a
                 // ResolvedAggregateScan.
+  kAnonymousGraphElement,  // Represents a ResolvedGraphElementScan that
+                           // was not given a user supplied alias.
+  kGqlWith,                // Represents a ResolvedProjectScan produced by
+                           // graph WITH operator.
+  // The below 3 GQL subquery target syntaxes are mutually exclusive with each
+  // other.
+  kGqlSubquery,  // Represents a ResolvedSubqueryExpr that should be rendered
+                 // as a regular GQL subquery.
+  kGqlExistsSubqueryGraphPattern,  // Represents an EXISTS GQL subquery
+                                   // in partial form 1 (graph pattern case).
+  kGqlExistsSubqueryLinearOps,     // Represents an EXISTS GQL subquery
+                                   // in partial form 2 (linear ops case).
 };
 
 using TargetSyntaxMap =

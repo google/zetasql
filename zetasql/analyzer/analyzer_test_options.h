@@ -102,6 +102,9 @@ class AnalyzerTestCase;
 //       - with mode=expression and in_scope_expression_column_name, use this
 //         type for an in_scope_expression_column in addition to the default
 //         set of named expression columns.
+//   allow_aggregate_standalone_expression
+//       - if true, allow aggregate standalone expression in the expression
+//         mode.
 //   product_mode
 //       - "external" or "internal". Maps to ProductMode analyzer option.
 //   statement_context
@@ -184,6 +187,7 @@ extern const char* const kDefaultTimezone;
 extern const char* const kExpectErrorLocation;
 extern const char* const kInScopeExpressionColumnName;
 extern const char* const kInScopeExpressionColumnType;
+extern const char* const kAllowAggregateStandaloneExpression;
 extern const char* const kCoercedQueryOutputTypes;
 extern const char* const kModeOption;
 extern const char* const kParameterMode;

@@ -23,6 +23,7 @@
 #include "zetasql/reference_impl/reference_driver.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/strings/string_view.h"
 
 namespace zetasql {
 

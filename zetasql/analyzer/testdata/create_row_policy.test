@@ -398,10 +398,10 @@ create row policy if not exists on KeyValue to "foo@google.com"
 
 # Creating on unknown table.
 
-create row policy on unknown to "foo@google.com" using(key = 123);
+create row policy on non_existent to "foo@google.com" using(key = 123);
 --
-ERROR: Table not found: unknown [at 1:22]
-create row policy on unknown to "foo@google.com" using(key = 123);
+ERROR: Table not found: non_existent [at 1:22]
+create row policy on non_existent to "foo@google.com" using(key = 123);
                      ^
 ==
 

@@ -53,9 +53,9 @@ class RewriteRegistry {
   // when the rule hasn't been registered. (This is a failure in debug mode.)
   const Rewriter* Get(ResolvedASTRewrite key) const;
 
-  // Return the rewriter keys in the order that they are applied by the rewriter
-  // framework.
-  absl::Span<const ResolvedASTRewrite> registration_order() const;
+  // Return a copy of the rewriter keys in the order that they are applied by
+  // the rewriter framework.
+  std::vector<ResolvedASTRewrite> registration_order() const;
 
   static RewriteRegistry& global_instance();
 

@@ -42,6 +42,7 @@
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/type_factory.h"
+#include "zetasql/public/uuid_value.h"
 #include "zetasql/public/value.h"
 #include "zetasql/testing/test_function.h"
 #include "zetasql/testing/test_value.h"
@@ -701,6 +702,23 @@ static std::vector<ComparisonTest> GetComparisonTests(
        NULL_VALUE, features},
   };
   v.insert(v.end(), nano_tests.begin(), nano_tests.end());
+  std::set<LanguageFeature> uuid_features = {FEATURE_V_1_4_UUID_TYPE};
+  std::vector<ComparisonTest> uuid_tests = {
+      {Uuid(UuidValue::FromString("00000000-0000-4000-8000-000000000001")
+                .value()),
+       Uuid(UuidValue::FromString("00000000-0000-4000-8000-000000000001")
+                .value()),
+       EQUAL, uuid_features},
+      {Uuid(UuidValue::FromString("00000000-0000-4000-8000-000000000001")
+                .value()),
+       Uuid(UuidValue::FromString("00000000-0022-4000-8000-000000000022")
+                .value()),
+       LESS, uuid_features},
+      {Uuid(UuidValue::FromString("00000000-0000-4000-8000-000000000001")
+                .value()),
+       NullUuid(), NULL_VALUE, uuid_features},
+  };
+  v.insert(v.end(), uuid_tests.begin(), uuid_tests.end());
   if (include_struct_comparisons) {
     std::vector<ComparisonTest> struct_equality_tests =
         GetStructComparisonTests();
@@ -754,7 +772,7 @@ static std::vector<ComparisonTest> GetComparisonTests(
 // If none of these are true, then constructs the QueryParamsWithResult
 // directly from  <input>/<out>.
 static void AddTestWithPossiblyWrappedResultWithRequiredFeatures(
-    const std::vector<ValueConstructor>& input, const Value& out,
+    absl::Span<const ValueConstructor> input, const Value& out,
     const std::set<LanguageFeature>& required_language_features,
     absl::Span<const LanguageFeature> array_language_features,
     std::vector<QueryParamsWithResult>* result) {
@@ -1582,7 +1600,7 @@ static const std::vector<ArrayFirstLastTestCase> GetArrayFirstLastTestCases() {
 }
 
 static void AddWrappedSafeArrayFunctionResult(
-    const std::vector<ValueConstructor>& input, const Value& out,
+    absl::Span<const ValueConstructor> input, const Value& out,
     absl::StatusCode status_code,
     const std::set<LanguageFeature>& array_language_features, bool is_safe,
     std::vector<QueryParamsWithResult>* result) {
@@ -2368,6 +2386,12 @@ GetOrderableTypesWithFeaturesAndValues() {
        Interval(IntervalValue::FromDays(30).value()),
        Interval(IntervalValue::FromMonths(1).value()),
        Interval(IntervalValue::MaxValue()), FEATURE_INTERVAL_TYPE},
+      {UuidType(), Uuid(UuidValue::MinValue()),
+       Uuid(UuidValue::FromString("9d3da323-4c20-360f-bd9b-ec54feec54f0")
+                .value()),
+       Uuid(UuidValue::FromString("9d3da323-4c20-360f-bd9b-ec54feec54f0")
+                .value()),
+       Uuid(UuidValue::MaxValue()), FEATURE_V_1_4_UUID_TYPE},
       {TimeType(), TimeMicros(0, 0, 0, 0), TimeMicros(1, 2, 3, 4),
        TimeMicros(1, 2, 3, 4), TimeMicros(1, 2, 3, 123450),
        FEATURE_V_1_2_CIVIL_TIME},
@@ -4259,9 +4283,8 @@ std::vector<QueryParamsWithResult> GetFunctionTestsIfNull() {
 
 // Builds test cases with FEATURE_V_1_1_ARRAY_EQUALITY option turned on/off.
 static QueryParamsWithResult BuildArrayEqualityQueryParamsWithResult(
-    const std::vector<ValueConstructor>& arguments,
-    const ValueConstructor& result,
-    const Value& null_value) {
+    absl::Span<const ValueConstructor> arguments,
+    const ValueConstructor& result, const Value& null_value) {
   return QueryParamsWithResult(arguments, result)
       .AddRequiredFeature(FEATURE_V_1_1_ARRAY_EQUALITY);
 }

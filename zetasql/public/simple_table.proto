@@ -30,12 +30,14 @@ message SimpleAnonymizationInfoProto {
   repeated string userid_column_name = 1;
 }
 
+// Next ID: 12
 message SimpleTableProto {
   optional string name = 1;
   optional int64 serialization_id = 2;
   optional bool is_value_table = 3;
   repeated SimpleColumnProto column = 4;
   repeated int32 primary_key_column_index = 9;
+  repeated int32 row_identity_column_index = 11;
   // Alias name of the table when it is added to the parent catalog.  This is
   // only set when the Table is added to the Catalog using a different name
   // than the Table's name.  This name is not part of the SimpleTable, but

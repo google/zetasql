@@ -239,7 +239,121 @@ AlterViewStatement [0-32] [ALTER VIEW...OPTIONS (a=1)]
 ALTER VIEW foo SET OPTIONS(a = 1)
 ==
 
-ALTER TABLE foo ALTER COLUMN bar SET OPTIONS (a += 1);
+CREATE {{SCHEMA|TABLE}} foo OPTIONS (a {{+=|-=}} 1);
+--
+ALTERNATION GROUP: SCHEMA,+=
+--
+CreateSchemaStatement [0-34] [CREATE SCHEMA...TIONS (a += 1)]
+  PathExpression [14-17] [foo]
+    Identifier(foo) [14-17] [foo]
+  OptionsList [26-34] [(a += 1)]
+    OptionsEntry [27-33] [a += 1]
+      Identifier(a) [27-28] [a]
+      IntLiteral(1) [32-33] [1]
+--
+CREATE SCHEMA foo
+OPTIONS(a += 1)
+--
+ALTERNATION GROUP: SCHEMA,-=
+--
+CreateSchemaStatement [0-34] [CREATE SCHEMA...TIONS (a -= 1)]
+  PathExpression [14-17] [foo]
+    Identifier(foo) [14-17] [foo]
+  OptionsList [26-34] [(a -= 1)]
+    OptionsEntry [27-33] [a -= 1]
+      Identifier(a) [27-28] [a]
+      IntLiteral(1) [32-33] [1]
+--
+CREATE SCHEMA foo
+OPTIONS(a -= 1)
+--
+ALTERNATION GROUP: TABLE,+=
+--
+CreateTableStatement [0-33] [CREATE TABLE...PTIONS (a += 1)]
+  PathExpression [13-16] [foo]
+    Identifier(foo) [13-16] [foo]
+  OptionsList [25-33] [(a += 1)]
+    OptionsEntry [26-32] [a += 1]
+      Identifier(a) [26-27] [a]
+      IntLiteral(1) [31-32] [1]
+--
+CREATE TABLE foo OPTIONS(a += 1)
+--
+ALTERNATION GROUP: TABLE,-=
+--
+CreateTableStatement [0-33] [CREATE TABLE...PTIONS (a -= 1)]
+  PathExpression [13-16] [foo]
+    Identifier(foo) [13-16] [foo]
+  OptionsList [25-33] [(a -= 1)]
+    OptionsEntry [26-32] [a -= 1]
+      Identifier(a) [26-27] [a]
+      IntLiteral(1) [31-32] [1]
+--
+CREATE TABLE foo OPTIONS(a -= 1)
+==
+
+ALTER {{SCHEMA|TABLE}} foo SET OPTIONS (a {{+=|-=}} 1);
+--
+ALTERNATION GROUP: SCHEMA,+=
+--
+AlterSchemaStatement [0-37] [ALTER SCHEMA...PTIONS (a += 1)]
+  PathExpression [13-16] [foo]
+    Identifier(foo) [13-16] [foo]
+  AlterActionList [17-37] [SET OPTIONS (a += 1)]
+    SetOptionsAction [17-37] [SET OPTIONS (a += 1)]
+      OptionsList [29-37] [(a += 1)]
+        OptionsEntry [30-36] [a += 1]
+          Identifier(a) [30-31] [a]
+          IntLiteral(1) [35-36] [1]
+--
+ALTER SCHEMA foo SET OPTIONS(a += 1)
+--
+ALTERNATION GROUP: SCHEMA,-=
+--
+AlterSchemaStatement [0-37] [ALTER SCHEMA...PTIONS (a -= 1)]
+  PathExpression [13-16] [foo]
+    Identifier(foo) [13-16] [foo]
+  AlterActionList [17-37] [SET OPTIONS (a -= 1)]
+    SetOptionsAction [17-37] [SET OPTIONS (a -= 1)]
+      OptionsList [29-37] [(a -= 1)]
+        OptionsEntry [30-36] [a -= 1]
+          Identifier(a) [30-31] [a]
+          IntLiteral(1) [35-36] [1]
+--
+ALTER SCHEMA foo SET OPTIONS(a -= 1)
+--
+ALTERNATION GROUP: TABLE,+=
+--
+AlterTableStatement [0-36] [ALTER TABLE...OPTIONS (a += 1)]
+  PathExpression [12-15] [foo]
+    Identifier(foo) [12-15] [foo]
+  AlterActionList [16-36] [SET OPTIONS (a += 1)]
+    SetOptionsAction [16-36] [SET OPTIONS (a += 1)]
+      OptionsList [28-36] [(a += 1)]
+        OptionsEntry [29-35] [a += 1]
+          Identifier(a) [29-30] [a]
+          IntLiteral(1) [34-35] [1]
+--
+ALTER TABLE foo SET OPTIONS(a += 1)
+--
+ALTERNATION GROUP: TABLE,-=
+--
+AlterTableStatement [0-36] [ALTER TABLE...OPTIONS (a -= 1)]
+  PathExpression [12-15] [foo]
+    Identifier(foo) [12-15] [foo]
+  AlterActionList [16-36] [SET OPTIONS (a -= 1)]
+    SetOptionsAction [16-36] [SET OPTIONS (a -= 1)]
+      OptionsList [28-36] [(a -= 1)]
+        OptionsEntry [29-35] [a -= 1]
+          Identifier(a) [29-30] [a]
+          IntLiteral(1) [34-35] [1]
+--
+ALTER TABLE foo SET OPTIONS(a -= 1)
+==
+
+ALTER TABLE foo ALTER COLUMN bar SET OPTIONS (a {{+=|-=}} 1);
+--
+ALTERNATION GROUP: +=
 --
 AlterTableStatement [0-53] [ALTER TABLE...OPTIONS (a += 1)]
   PathExpression [12-15] [foo]
@@ -253,9 +367,8 @@ AlterTableStatement [0-53] [ALTER TABLE...OPTIONS (a += 1)]
           IntLiteral(1) [51-52] [1]
 --
 ALTER TABLE foo ALTER COLUMN bar SET OPTIONS(a += 1)
-==
-
-ALTER TABLE foo ALTER COLUMN bar SET OPTIONS (a -= 1);
+--
+ALTERNATION GROUP: -=
 --
 AlterTableStatement [0-53] [ALTER TABLE...OPTIONS (a -= 1)]
   PathExpression [12-15] [foo]
@@ -273,7 +386,9 @@ ALTER TABLE foo ALTER COLUMN bar SET OPTIONS(a -= 1)
 
 [language_features=ENABLE_ALTER_ARRAY_OPTIONS]
 
-ALTER TABLE foo ALTER COLUMN bar SET OPTIONS (a += 1);
+ALTER TABLE foo ALTER COLUMN bar SET OPTIONS (a {{+=|-=}} 1);
+--
+ALTERNATION GROUP: +=
 --
 AlterTableStatement [0-53] [ALTER TABLE...OPTIONS (a += 1)]
   PathExpression [12-15] [foo]
@@ -287,11 +402,8 @@ AlterTableStatement [0-53] [ALTER TABLE...OPTIONS (a += 1)]
           IntLiteral(1) [51-52] [1]
 --
 ALTER TABLE foo ALTER COLUMN bar SET OPTIONS(a += 1)
-==
-
-[language_features=ENABLE_ALTER_ARRAY_OPTIONS]
-
-ALTER TABLE foo ALTER COLUMN bar SET OPTIONS (a -= 1);
+--
+ALTERNATION GROUP: -=
 --
 AlterTableStatement [0-53] [ALTER TABLE...OPTIONS (a -= 1)]
   PathExpression [12-15] [foo]

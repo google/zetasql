@@ -483,6 +483,177 @@ GROUP AND ORDER BY x
       ^
 ==
 
+# Test order modifiers on the GROUP BY inside graph queries.
+[reserve_graph_table]
+[language_features=V_1_4_SQL_GRAPH{{|,PIPES}}]
+select * from GRAPH_TABLE(aml
+  MATCH (a)
+  RETURN a GROUP AND ORDER BY x)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Unexpected AND [at 3:18]
+  RETURN a GROUP AND ORDER BY x)
+                 ^
+--
+ALTERNATION GROUP: ,PIPES
+--
+QueryStatement [0-74] [select * from...ORDER BY x)]
+  Query [0-74] [select * from...ORDER BY x)]
+    Select [0-74] [select * from...ORDER BY x)]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-74] [from GRAPH_TABLE...ORDER BY x)]
+        GraphTableQuery [14-74] [GRAPH_TABLE...ORDER BY x)]
+          PathExpression [26-29] [aml]
+            Identifier(aml) [26-29] [aml]
+          GqlOperatorList [32-73] [MATCH (a)...ORDER BY x]
+            GqlOperatorList [32-73] [MATCH (a)...ORDER BY x]
+              GqlMatch [32-41] [MATCH (a)]
+                GraphPattern [38-41] [(a)]
+                  GraphPathPattern [38-41] [(a)]
+                    GraphNodePattern [38-41] [(a)]
+                      GraphElementPatternFiller [39-40] [a]
+                        Identifier(a) [39-40] [a]
+              GqlReturn [44-73] [RETURN a GROUP AND ORDER BY x]
+                Select [50-73] [a GROUP AND ORDER BY x]
+                  SelectList [51-52] [a]
+                    SelectColumn [51-52] [a]
+                      PathExpression [51-52] [a]
+                        Identifier(a) [51-52] [a]
+                  GroupBy(and_order_by=true) [53-73] [GROUP AND ORDER BY x]
+                    GroupingItem [72-73] [x]
+                      PathExpression [72-73] [x]
+                        Identifier(x) [72-73] [x]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+    RETURN
+      a
+    GROUP AND ORDER BY x
+  )
+==
+
+[reserve_graph_table]
+[language_features=V_1_4_SQL_GRAPH{{|,PIPES}}]
+select * from GRAPH_TABLE(aml
+  MATCH (a)
+  RETURN a GROUP BY x, y {{ASC|NULLS FIRST}})
+--
+ALTERNATION GROUP: ASC
+--
+ERROR: Syntax error: Unexpected ASC [at 3:26]
+  RETURN a GROUP BY x, y ASC)
+                         ^
+--
+ALTERNATION GROUP: NULLS FIRST
+--
+ERROR: Syntax error: Unexpected NULLS [at 3:26]
+  RETURN a GROUP BY x, y NULLS FIRST)
+                         ^
+--
+ALTERNATION GROUP: ,PIPES,ASC
+--
+QueryStatement [0-71] [select * from...x, y ASC)]
+  Query [0-71] [select * from...x, y ASC)]
+    Select [0-71] [select * from...x, y ASC)]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-71] [from GRAPH_TABLE...x, y ASC)]
+        GraphTableQuery [14-71] [GRAPH_TABLE...x, y ASC)]
+          PathExpression [26-29] [aml]
+            Identifier(aml) [26-29] [aml]
+          GqlOperatorList [32-70] [MATCH (a)...BY x, y ASC]
+            GqlOperatorList [32-70] [MATCH (a)...BY x, y ASC]
+              GqlMatch [32-41] [MATCH (a)]
+                GraphPattern [38-41] [(a)]
+                  GraphPathPattern [38-41] [(a)]
+                    GraphNodePattern [38-41] [(a)]
+                      GraphElementPatternFiller [39-40] [a]
+                        Identifier(a) [39-40] [a]
+              GqlReturn [44-70] [RETURN a GROUP BY x, y ASC]
+                Select [50-70] [a GROUP BY x, y ASC]
+                  SelectList [51-52] [a]
+                    SelectColumn [51-52] [a]
+                      PathExpression [51-52] [a]
+                        Identifier(a) [51-52] [a]
+                  GroupBy [53-70] [GROUP BY x, y ASC]
+                    GroupingItem [62-63] [x]
+                      PathExpression [62-63] [x]
+                        Identifier(x) [62-63] [x]
+                    GroupingItem [65-70] [y ASC]
+                      PathExpression [65-66] [y]
+                        Identifier(y) [65-66] [y]
+                      GroupingItemOrder(ASC) [67-70] [ASC]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+    RETURN
+      a
+    GROUP BY x, y ASC
+  )
+--
+ALTERNATION GROUP: ,PIPES,NULLS FIRST
+--
+QueryStatement [0-79] [select * from...NULLS FIRST)]
+  Query [0-79] [select * from...NULLS FIRST)]
+    Select [0-79] [select * from...NULLS FIRST)]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-79] [from GRAPH_TABLE...ULLS FIRST)]
+        GraphTableQuery [14-79] [GRAPH_TABLE...NULLS FIRST)]
+          PathExpression [26-29] [aml]
+            Identifier(aml) [26-29] [aml]
+          GqlOperatorList [32-78] [MATCH (a)...NULLS FIRST]
+            GqlOperatorList [32-78] [MATCH (a)...NULLS FIRST]
+              GqlMatch [32-41] [MATCH (a)]
+                GraphPattern [38-41] [(a)]
+                  GraphPathPattern [38-41] [(a)]
+                    GraphNodePattern [38-41] [(a)]
+                      GraphElementPatternFiller [39-40] [a]
+                        Identifier(a) [39-40] [a]
+              GqlReturn [44-78] [RETURN a GROUP...NULLS FIRST]
+                Select [50-78] [a GROUP BY x, y NULLS FIRST]
+                  SelectList [51-52] [a]
+                    SelectColumn [51-52] [a]
+                      PathExpression [51-52] [a]
+                        Identifier(a) [51-52] [a]
+                  GroupBy [53-78] [GROUP BY x, y NULLS FIRST]
+                    GroupingItem [62-63] [x]
+                      PathExpression [62-63] [x]
+                        Identifier(x) [62-63] [x]
+                    GroupingItem [65-78] [y NULLS FIRST]
+                      PathExpression [65-66] [y]
+                        Identifier(y) [65-66] [y]
+                      GroupingItemOrder(UNSPECIFIED) [67-78] [NULLS FIRST]
+                        NullOrder(NULLS FIRST) [67-78] [NULLS FIRST]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+    RETURN
+      a
+    GROUP BY x, y NULLS FIRST
+  )
+==
+
 # Order suffixes in the aggregate list.
 from t
 |> aggregate count(*) ASC,

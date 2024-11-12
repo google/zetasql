@@ -23,13 +23,16 @@
 #include <vector>
 
 #include "zetasql/compliance/test_driver.h"
+#include "zetasql/public/catalog.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
+#include "absl/types/span.h"
 #include "google/protobuf/compiler/importer.h"
 
 namespace zetasql {
@@ -42,12 +45,21 @@ class TestDatabaseCatalog {
 
   SimpleCatalog* catalog() const { return catalog_.get(); }
   absl::Status SetTestDatabase(const TestDatabase& test_db);
-  void SetLanguageOptions(const LanguageOptions& language_options);
+  absl::Status SetLanguageOptions(const LanguageOptions& language_options);
+
+  absl::Status IsInitialized() const;
 
   void AddTable(const std::string& table_name, const TestTable& table);
   absl::Status LoadProtoEnumTypes(const std::set<std::string>& filenames,
                                   const std::set<std::string>& proto_names,
                                   const std::set<std::string>& enum_names);
+
+  // Catalog- and EnumerableCatalog-analogous functions needed by callers.
+  absl::Status FindTable(
+      absl::Span<const std::string> path, const Table** table,
+      const Catalog::FindOptions& options = Catalog::FindOptions());
+  absl::Status GetTables(absl::flat_hash_set<const Table*>* output) const;
+  absl::Status GetTypes(absl::flat_hash_set<const Type*>* output) const;
 
  private:
   class BuiltinFunctionCache {

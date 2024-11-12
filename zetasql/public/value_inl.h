@@ -42,6 +42,7 @@
 #include "zetasql/public/civil_time.h"
 #include "zetasql/public/json_value.h"
 #include "zetasql/public/numeric_value.h"
+#include "zetasql/public/timestamp_pico_value.h"
 #include "zetasql/public/token_list.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
@@ -113,9 +114,6 @@ class Value::TypedMap : public internal::ValueContentMap {
   const ValueMap& entries() const;
   uint64_t physical_byte_size() const override;
   int64_t num_elements() const override;
-  std::vector<
-      std::pair<internal::NullableValueContent, internal::NullableValueContent>>
-  value_content_entries() const override;
   std::optional<internal::NullableValueContent> GetContentMapValueByKey(
       const internal::NullableValueContent& search_key, const Type* key_type,
       const ValueEqualityCheckOptions& options) const override;
@@ -129,6 +127,178 @@ class Value::TypedMap : public internal::ValueContentMap {
       const override;
 
   ValueMap map_;
+};
+
+class Value::GraphElementValue final
+    : public zetasql_base::refcount::CompactReferenceCounted<Value::GraphElementValue>,
+      public internal::GraphElementContainer {
+ public:
+  // Node constructor.
+  GraphElementValue(const GraphElementType* type, std::string identifier,
+                    std::vector<Value> properties,
+                    std::vector<std::string> labels,
+                    std::string definition_name)
+      : type_(type),
+        identifier_(std::move(identifier)),
+        properties_(std::move(properties)),
+        labels_(std::move(labels)),
+        definition_name_(std::move(definition_name)) {
+    ABSL_DCHECK(IsNode()) << "Not a node";
+  }
+
+  // Edge constructor.
+  GraphElementValue(const GraphElementType* type, std::string identifier,
+                    std::vector<Value> properties,
+                    std::vector<std::string> labels,
+                    std::string definition_name,
+                    std::string source_node_identifier,
+                    std::string dest_node_identifier)
+      : type_(type),
+        identifier_(std::move(identifier)),
+        properties_(std::move(properties)),
+        labels_(std::move(labels)),
+        definition_name_(std::move(definition_name)),
+        source_node_identifier_(std::move(source_node_identifier)),
+        dest_node_identifier_(std::move(dest_node_identifier)) {
+    ABSL_DCHECK(IsEdge()) << "Not an edge";
+  }
+
+  GraphElementValue(const GraphElementValue&) = delete;
+  GraphElementValue& operator=(const GraphElementValue&) = delete;
+
+  GraphElementType::ElementKind element_kind() const {
+    return type_->element_kind();
+  }
+  bool IsNode() const { return type_->IsNode(); }
+  bool IsEdge() const { return type_->IsEdge(); }
+
+  // Returns value of property with given name; otherwise returns an error
+  // status if no property with such name found.
+  absl::StatusOr<Value> FindPropertyByName(const std::string& name) const {
+    // <properties_> matches with <type_->property_types()>.
+    int index;
+    if (type_->HasField(name, &index) == Type::HAS_FIELD) {
+      Value property_value = properties_.values().at(index);
+      if (property_value.is_valid()) {
+        return property_value;
+      }
+    }
+    return absl::NotFoundError(absl::StrCat("No such property: ", name));
+  }
+
+  std::vector<std::string> property_names() const {
+    std::vector<std::string> names;
+    for (const auto& [name, type] : type_->property_types()) {
+      int index;
+      if (type_->HasField(name, &index) == Type::HAS_FIELD) {
+        Value property_value = properties_.values().at(index);
+        if (property_value.is_valid()) {
+          names.push_back(name);
+        }
+      }
+    }
+    // We keep the original case but sort names case-insensitively.
+    std::sort(names.begin(), names.end(), zetasql_base::CaseLess());
+    return names;
+  }
+
+  absl::Span<const Value> property_values() const {
+    return properties_.values();
+  }
+
+  // ValueContentOrderedList implementation:
+  internal::NullableValueContent element(int i) const override {
+    if (!properties_.values().at(i).is_valid()) {
+      return internal::NullableValueContent();
+    }
+    return properties_.element(i);
+  }
+
+  int64_t num_elements() const override { return properties_.num_elements(); }
+
+  uint64_t physical_byte_size() const override {
+    return absl::c_accumulate(
+        labels_,
+        sizeof(GraphElementValue) + identifier_.length() +
+            definition_name_.length() + source_node_identifier_.length() +
+            dest_node_identifier_.length() + properties_.physical_byte_size(),
+        [](uint64_t size, const std::string& label) {
+          return size + label.length();
+        });
+  }
+
+  // GraphElementContainer implementation:
+  absl::string_view GetIdentifier() const override { return identifier_; }
+
+  absl::Span<const std::string> GetLabels() const override { return labels_; }
+
+  absl::string_view GetDefinitionName() const override {
+    return definition_name_;
+  }
+
+  // REQUIRES: IsEdge()
+  absl::string_view GetSourceNodeIdentifier() const override {
+    ABSL_DCHECK(IsEdge()) << "Not an edge";  // Crash OK
+    return source_node_identifier_;
+  }
+
+  // REQUIRES: IsEdge()
+  absl::string_view GetDestNodeIdentifier() const override {
+    ABSL_DCHECK(IsEdge()) << "Not an edge";  // Crash OK
+    return dest_node_identifier_;
+  }
+
+ private:
+  const GraphElementType* type_;
+  const std::string identifier_;
+  const Value::TypedList properties_;
+  const std::vector<std::string> labels_;
+  const std::string definition_name_;
+
+  const std::string source_node_identifier_;
+  const std::string dest_node_identifier_;
+};
+
+class Value::GraphPathValue final
+    : public zetasql_base::refcount::CompactReferenceCounted<Value::GraphPathValue>,
+      public internal::ValueContentOrderedList {
+ public:
+  explicit GraphPathValue(std::vector<Value> graph_elements)
+      : graph_elements_(std::move(graph_elements)) {}
+
+  GraphPathValue(const GraphPathValue&) = delete;
+  GraphPathValue& operator=(const GraphPathValue&) = delete;
+
+  const Value& graph_element(int i) const {
+    ABSL_DCHECK(graph_elements_.values().at(i).is_valid()) << i;
+    ABSL_DCHECK(!graph_elements_.values().at(i).is_null()) << i;
+    ABSL_DCHECK(graph_elements_.values().at(i).type()->IsGraphElement());
+    if (i % 2 == 0) {
+      ABSL_DCHECK(graph_elements_.values().at(i).type()->AsGraphElement()->IsNode());
+    } else {
+      ABSL_DCHECK(graph_elements_.values().at(i).type()->AsGraphElement()->IsEdge());
+    }
+    return graph_elements_.values().at(i);
+  }
+
+  absl::Span<const Value> graph_elements() const {
+    return graph_elements_.values();
+  }
+
+  internal::NullableValueContent element(int i) const override {
+    return internal::NullableValueContent(graph_element(i).GetContent());
+  }
+
+  int64_t num_elements() const override {
+    return graph_elements_.num_elements();
+  }
+
+  uint64_t physical_byte_size() const override {
+    return sizeof(GraphPathValue) + graph_elements_.physical_byte_size();
+  }
+
+ private:
+  const Value::TypedList graph_elements_;
 };
 
 // -------------------------------------------------------
@@ -321,6 +491,51 @@ inline Value Value::EmptyArray(const ArrayType* array_type) {
   return *MakeArrayFromValidatedInputs(array_type, std::vector<Value>{});
 }
 
+inline absl::StatusOr<Value> Value::MakeGraphNode(
+    const GraphElementType* graph_element_type, absl::string_view identifier,
+    absl::Span<const Value::Property> properties,
+    absl::Span<const std::string> labels, absl::string_view definition_name) {
+  return MakeGraphNode(graph_element_type, std::string(identifier),
+                       {properties.begin(), properties.end()},
+                       {labels.begin(), labels.end()},
+                       std::string(definition_name));
+}
+
+inline absl::StatusOr<Value> Value::MakeGraphNode(
+    const GraphElementType* graph_element_type, std::string identifier,
+    std::vector<Value::Property> properties, std::vector<std::string> labels,
+    std::string definition_name) {
+  return MakeGraphElement(graph_element_type, std::move(identifier),
+                          std::move(properties), std::move(labels),
+                          std::move(definition_name),
+                          /*source_node_identifier=*/"",
+                          /*dest_node_identifier=*/"");
+}
+
+inline absl::StatusOr<Value> Value::MakeGraphEdge(
+    const GraphElementType* graph_element_type, absl::string_view identifier,
+    absl::Span<const Value::Property> properties,
+    absl::Span<const std::string> labels, absl::string_view definition_name,
+    absl::string_view source_node_identifier,
+    absl::string_view dest_node_identifier) {
+  return MakeGraphEdge(
+      graph_element_type, std::string(identifier),
+      {properties.begin(), properties.end()}, {labels.begin(), labels.end()},
+      std::string(definition_name), std::string(source_node_identifier),
+      std::string(dest_node_identifier));
+}
+
+inline absl::StatusOr<Value> Value::MakeGraphEdge(
+    const GraphElementType* graph_element_type, std::string identifier,
+    std::vector<Value::Property> properties, std::vector<std::string> labels,
+    std::string definition_name, std::string source_node_identifier,
+    std::string dest_node_identifier) {
+  return MakeGraphElement(
+      graph_element_type, std::move(identifier), std::move(properties),
+      std::move(labels), std::move(definition_name),
+      std::move(source_node_identifier), std::move(dest_node_identifier));
+}
+
 inline absl::StatusOr<Value> Value::MakeMap(
     const Type* map_type,
     absl::Span<const std::pair<const Value, const Value>> map_entries) {
@@ -377,6 +592,7 @@ inline Value Value::Bytes(const char (&str)[N]) {
 
 inline Value Value::Date(int32_t v) { return Value(TYPE_DATE, v); }
 inline Value Value::Timestamp(absl::Time t) { return Value(t); }
+inline Value Value::TimestampPicos(TimestampPicoValue t) { return Value(t); }
 inline Value Value::Time(TimeValue time) {
   return Value(time);
 }
@@ -429,6 +645,9 @@ inline Value Value::NullString() { return Value(TypeKind::TYPE_STRING); }
 inline Value Value::NullBytes() { return Value(TypeKind::TYPE_BYTES); }
 inline Value Value::NullDate() { return Value(TypeKind::TYPE_DATE); }
 inline Value Value::NullTimestamp() { return Value(TypeKind::TYPE_TIMESTAMP); }
+inline Value Value::NullTimestampPicos() {
+  return Value(TypeKind::TYPE_TIMESTAMP_PICOS);
+}
 inline Value Value::NullTime() { return Value(TypeKind::TYPE_TIME); }
 inline Value Value::NullDatetime() { return Value(TypeKind::TYPE_DATETIME); }
 inline Value Value::NullInterval() { return Value(TypeKind::TYPE_INTERVAL); }
@@ -590,6 +809,13 @@ inline const BigNumericValue& Value::bignumeric_value() const {
   return bignumeric_ptr_->value();
 }
 
+inline const TimestampPicoValue& Value::timestamp_pico_value() const {
+  ABSL_CHECK_EQ(TYPE_TIMESTAMP_PICOS, metadata_.type_kind())  // Crash OK
+      << "Not a timestamp_picos type";
+  ABSL_CHECK(!metadata_.is_null()) << "Null value";
+  return timestamp_pico_ptr_->value();
+}
+
 inline bool Value::is_validated_json() const {
   return metadata_.type_kind() == TYPE_JSON && !metadata_.is_null() &&
          json_ptr_->unparsed_string() == nullptr;
@@ -683,6 +909,69 @@ inline const Value& Value::end() const {
       static_cast<const TypedList* const>(container_ptr);
   ABSL_CHECK_EQ(list_ptr->values().size(), 2);  // Crash ok
   return list_ptr->values().at(1);
+}
+
+inline const Value::GraphElementValue* Value::graph_element_value() const {
+  ABSL_CHECK_EQ(metadata_.type_kind(), TYPE_GRAPH_ELEMENT)  // Crash ok
+      << "Not a graph element value";
+  ABSL_CHECK(!is_null()) << "Null value";  // Crash ok
+  return static_cast<const Value::GraphElementValue*>(container_ptr_->value());
+}
+
+inline bool Value::IsNode() const { return graph_element_value()->IsNode(); }
+
+inline bool Value::IsEdge() const { return graph_element_value()->IsEdge(); }
+
+inline absl::string_view Value::GetIdentifier() const {
+  return graph_element_value()->GetIdentifier();
+}
+
+inline absl::Span<const std::string> Value::GetLabels() const {
+  return graph_element_value()->GetLabels();
+}
+
+inline absl::string_view Value::GetDefinitionName() const {
+  return graph_element_value()->GetDefinitionName();
+}
+
+inline absl::string_view Value::GetSourceNodeIdentifier() const {
+  return graph_element_value()->GetSourceNodeIdentifier();
+}
+
+inline absl::string_view Value::GetDestNodeIdentifier() const {
+  return graph_element_value()->GetDestNodeIdentifier();
+}
+
+inline std::vector<std::string> Value::property_names() const {
+  return graph_element_value()->property_names();
+}
+
+inline absl::Span<const Value> Value::property_values() const {
+  return graph_element_value()->property_values();
+}
+
+inline absl::StatusOr<Value> Value::FindPropertyByName(
+    const std::string& name) const {
+  return graph_element_value()->FindPropertyByName(name);
+}
+
+inline const Value::GraphPathValue* Value::graph_path_value() const {
+  ABSL_CHECK_EQ(metadata_.type_kind(), TYPE_GRAPH_PATH)  // Crash ok
+      << "Not a graph path value";
+  ABSL_CHECK(!is_null()) << "Null value";  // Crash ok
+  return static_cast<const Value::GraphPathValue*>(container_ptr_->value());
+}
+
+inline int Value::num_graph_elements() const {
+  return static_cast<int>(graph_path_value()->num_elements());
+}
+
+inline const Value& Value::graph_element(int i) const {
+  return graph_path_value()->graph_element(i);
+}
+
+inline absl::Span<const Value> Value::graph_elements() const {
+  return graph_path_value()->graph_elements();
 }
 
 template <typename H>
@@ -995,6 +1284,7 @@ inline Value NullString() { return Value::NullString(); }
 inline Value NullBytes() { return Value::NullBytes(); }
 inline Value NullDate() { return Value::NullDate(); }
 inline Value NullTimestamp() { return Value::NullTimestamp(); }
+inline Value NullTimestampPicos() { return Value::NullTimestampPicos(); }
 inline Value NullTime() { return Value::NullTime(); }
 inline Value NullDatetime() { return Value::NullDatetime(); }
 inline Value NullInterval() { return Value::NullInterval(); }

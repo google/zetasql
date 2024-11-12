@@ -24,14 +24,14 @@
 #include "zetasql/base/arena.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/parser/bison_parser_mode.h"
-#include "zetasql/parser/bison_token_codes.h"
 #include "zetasql/parser/macros/flex_token_provider.h"
 #include "zetasql/parser/macros/macro_catalog.h"
 #include "zetasql/parser/macros/macro_expander.h"
-#include "zetasql/parser/macros/token_with_location.h"
-#include "zetasql/public/error_helpers.h"
+#include "zetasql/parser/tm_token.h"
+#include "zetasql/parser/token_with_location.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/parse_location.h"
+#include "absl/base/macros.h"
 #include "absl/container/flat_hash_map.h"
 #include "zetasql/base/check.h"
 #include "absl/log/log.h"
@@ -50,7 +50,7 @@ namespace zetasql {
 namespace parser_internal {
 using zetasql::parser::BisonParserMode;
 using zetasql::parser::LookaheadTransformer;
-using TokenKind = int;
+using parser::Token;
 
 void SetForceTerminate(LookaheadTransformer* lookahead_transformer,
                        int* end_offset) {
@@ -63,19 +63,19 @@ void PushBisonParserMode(LookaheadTransformer* lookahead_transformer,
 void PopBisonParserMode(LookaheadTransformer* lookahead_transformer) {
   return lookahead_transformer->PopBisonParserMode();
 }
-int GetNextToken(LookaheadTransformer* lookahead_transformer,
-                 absl::string_view* text, ParseLocationRange* location) {
+Token GetNextToken(LookaheadTransformer* lookahead_transformer,
+                   absl::string_view* text, ParseLocationRange* location) {
   return lookahead_transformer->GetNextToken(text, location);
 }
 absl::Status OverrideNextTokenLookback(
     LookaheadTransformer* lookahead_transformer, bool parser_lookahead_is_empty,
-    TokenKind expected_next_token, TokenKind lookback_token) {
+    Token expected_next_token, Token lookback_token) {
   return lookahead_transformer->OverrideNextTokenLookback(
       parser_lookahead_is_empty, expected_next_token, lookback_token);
 }
 
 absl::Status OverrideCurrentTokenLookback(
-    LookaheadTransformer* lookahead_transformer, TokenKind new_token_kind) {
+    LookaheadTransformer* lookahead_transformer, Token new_token_kind) {
   return lookahead_transformer->OverrideCurrentTokenLookback(new_token_kind);
 }
 }  // namespace parser_internal
@@ -84,18 +84,15 @@ namespace parser {
 // Include the helpful type aliases in the namespace within the C++ file so
 // that they are useful for free helper functions as well as class member
 // functions.
-using Token = TokenKinds;
-using TokenKind = int;
+using TokenKind ABSL_DEPRECATED("Inline me!") = Token;
 using Location = ParseLocationRange;
-using TokenWithLocation = macros::TokenWithLocation;
 using DiagnosticOptions = macros::DiagnosticOptions;
 using FlexTokenProvider = macros::FlexTokenProvider;
 using MacroCatalog = macros::MacroCatalog;
 using MacroExpander = macros::MacroExpander;
 using MacroExpanderBase = macros::MacroExpanderBase;
-using TokenWithLocation = macros::TokenWithLocation;
 
-static constexpr char kInTemplatedType = '<';
+static constexpr Token kInTemplatedType = Token::LT;
 
 static bool IsLookbackToken(TokenKind token) {
   return token > Token::SENTINEL_LB_TOKEN_START &&
@@ -164,7 +161,7 @@ static absl::Status MakeError(absl::string_view error_message,
 static bool IsValidPreviousTokenBeforeScriptLabel(
     const TokenKind previous_token) {
   switch (previous_token) {
-    case ';':
+    case Token::SEMICOLON:
     case Token::LB_END_OF_STATEMENT_LEVEL_HINT:
     case Token::LB_OPEN_STATEMENT_BLOCK:
     case Token::LB_BEGIN_AT_STATEMENT_START:
@@ -181,7 +178,7 @@ static bool IsValidPreviousTokenBeforeScriptLabel(
 
 static bool IsValidPreviousTokenToSqlStatement(TokenKind token) {
   switch (token) {
-    case ';':
+    case Token::SEMICOLON:
     case Token::LB_EXPLAIN_SQL_STATEMENT:
     case Token::LB_END_OF_STATEMENT_LEVEL_HINT:
     case Token::LB_OPEN_STATEMENT_BLOCK:
@@ -194,6 +191,41 @@ static bool IsValidPreviousTokenToSqlStatement(TokenKind token) {
     case Token::MODE_SCRIPT:
     case Token::MODE_STATEMENT:
       return true;
+    default:
+      return false;
+  }
+}
+
+static bool IsValidLookbackToStartQuery(Token lookback1, Token lookback2,
+                                        Token lookback3) {
+  if (IsValidPreviousTokenToSqlStatement(lookback1)) {
+    return true;
+  }
+  switch (lookback1) {
+    case Token::LB_PAREN_OPENS_QUERY:
+      return true;
+    case Token::LB_AS_BEFORE_QUERY:
+      // Case ... CREATE VIEW ... AS ● SELECT
+      return true;
+    case Token::LB_CLOSE_ALIASED_QUERY:
+      // Case ... WITH t AS (...) ● SELECT
+      return true;
+    case Token::LB_END_OF_WITH_RECURSIVE:
+      // Case .. WITH t AS (...) WITH DEPTH ● SELECT
+      return true;
+    case Token::LB_CLOSE_COLUMN_LIST:
+      // Case ... CORRESPONDING BY (column list) ● SELECT
+      return true;
+    case Token::LB_SET_OP_QUANTIFIER:
+      // Case ... UNION ALL ● SELECT
+      return true;
+    case Token::KW_CORRESPONDING:
+      return
+          // Case ... UNION ALL CORRESPONDING ● SELECT
+          lookback2 == Token::LB_SET_OP_QUANTIFIER ||
+          // Case ... UNION ALL STRICT CORRESPONDING ● SELECT
+          (lookback2 == Token::KW_STRICT &&
+           lookback3 == Token::LB_SET_OP_QUANTIFIER);
     default:
       return false;
   }
@@ -218,7 +250,7 @@ static bool IsScriptLabel(TokenKind lookback,
   if (!IsIdentifierOrKeyword(token)) {
     return false;
   }
-  if (lookahead_1 != ':') {
+  if (lookahead_1 != Token::COLON) {
     return false;
   }
   switch (lookahead_2) {
@@ -235,6 +267,11 @@ static bool IsScriptLabel(TokenKind lookback,
 
 void LookaheadTransformer::ApplyConditionallyReservedKeywords(TokenKind& kind) {
   switch (kind) {
+    case Token::KW_GRAPH_TABLE_NONRESERVED:
+      if (language_options_.IsReservedKeyword("GRAPH_TABLE")) {
+        kind = Token::KW_GRAPH_TABLE_RESERVED;
+      }
+      break;
     case Token::KW_QUALIFY_NONRESERVED:
       if (language_options_.IsReservedKeyword("QUALIFY")) {
         kind = Token::KW_QUALIFY_RESERVED;
@@ -253,7 +290,7 @@ void LookaheadTransformer::ApplyConditionallyReservedKeywords(TokenKind& kind) {
 void LookaheadTransformer::FetchNextToken(
     const std::optional<TokenWithOverrideError>& current,
     std::optional<TokenWithOverrideError>& next) {
-  if (current.has_value() && current->token.kind == Token::YYEOF) {
+  if (current.has_value() && current->token.kind == Token::EOI) {
     // If the current token is already YYEOF, do not continue the fetch.
     // Instead, return the same token directly so that future calls to
     // GetNextToken() and GetOverrideError() return the same token kind and
@@ -278,7 +315,7 @@ void LookaheadTransformer::FetchNextToken(
     ApplyConditionallyReservedKeywords(next->token.kind);
     next->error = absl::OkStatus();
   } else {
-    next->token.kind = Token::YYEOF;
+    next->token.kind = Token::EOI;
     // TODO: Correctly update the `slot` token location once the
     // macro expander is updated to return TokenWithOverrideError.
     next->token.location = Location();
@@ -296,8 +333,7 @@ static bool IsAdjacentPrecedingToken(
   }
   // YYEOF could mean tokens have errors, in which case we do not have the
   // correct location information, so we return false to disallow token fusions.
-  if (token1->token.kind == Token::YYEOF ||
-      token2->token.kind == Token::YYEOF) {
+  if (token1->token.kind == Token::EOI || token2->token.kind == Token::EOI) {
     return false;
   }
   return token1->token.AdjacentlyPrecedes(token2->token);
@@ -404,12 +440,14 @@ TokenKind LookaheadTransformer::ApplyTokenDisambiguation(
       // "standard" one.
       switch (Lookback1()) {
         case Token::LB_DOT_IN_PATH_EXPRESSION:
-        case '@':
+        case Token::ATSIGN:
         case Token::KW_DOUBLE_AT:
           if (IsKeywordToken(token)) {
             // This keyword is used as an identifier.
             return Token::IDENTIFIER;
           }
+          break;
+        default:
           break;
       }
       switch (token) {
@@ -417,7 +455,7 @@ TokenKind LookaheadTransformer::ApplyTokenDisambiguation(
           return Token::KW_DEFINE;
         case Token::KW_OPEN_HINT:
         case Token::KW_OPEN_INTEGER_HINT:
-          return '@';
+          return Token::ATSIGN;
         // The following token fusions need to be performed even in the
         // `kTokenizer` and `kTokenizerPreserveComments` to make sure the
         // formatter and other clients of GetParseTokens do not have to
@@ -428,7 +466,7 @@ TokenKind LookaheadTransformer::ApplyTokenDisambiguation(
           return EmitInvalidLiteralPrecedesIdentifierTokenIfApplicable();
         case Token::FLOATING_POINT_LITERAL:
           return EmitInvalidLiteralPrecedesIdentifierTokenIfApplicable();
-        case '.':
+        case Token::DOT:
           TransformDotSymbol();
           return EmitInvalidLiteralPrecedesIdentifierTokenIfApplicable();
         case Token::EXP_IN_FLOAT_NO_SIGN:
@@ -439,8 +477,8 @@ TokenKind LookaheadTransformer::ApplyTokenDisambiguation(
       }
     case BisonParserMode::kMacroBody:
       switch (token) {
-        case ';':
-        case Token::YYEOF:
+        case Token::SEMICOLON:
+        case Token::EOI:
           return token;
         default:
           return Token::MACRO_BODY_TOKEN;
@@ -453,13 +491,18 @@ TokenKind LookaheadTransformer::ApplyTokenDisambiguation(
   // These should happen before any token transformations when we are running
   // in a mode that is driven by the parser.
   switch (Lookback1()) {
-    case Token::LB_OPEN_TYPE_TEMPLATE:
+    case Token::LB_OPEN_TYPE_TEMPLATE: {
       PushState(kInTemplatedType);
       break;
-    case Token::LB_CLOSE_TYPE_TEMPLATE:
+    }
+    case Token::LB_CLOSE_TYPE_TEMPLATE: {
       bool popped = PopStateIfMatch(kInTemplatedType);
       ABSL_DCHECK(popped);
       break;
+    }
+    default: {
+      break;
+    }
   }
 
   // WARNING: This transformation must come before other transformations for
@@ -486,19 +529,123 @@ TokenKind LookaheadTransformer::ApplyTokenDisambiguation(
 
   switch (Lookback1()) {
     case Token::LB_DOT_IN_PATH_EXPRESSION:
-    case '@':
+    case Token::ATSIGN:
     case Token::KW_DOUBLE_AT:
       if (IsKeywordToken(token)) {
         // This keyword is used as an identifier.
         return Token::IDENTIFIER;
       }
       break;
+    case Token::LB_END_OF_WITH_RECURSIVE:
+      switch (token) {
+        case Token::KW_AS:
+        case Token::ATSIGN:
+        case Token::KW_DOUBLE_AT:
+          lookahead_1_->lookback_override = Token::LB_END_OF_WITH_RECURSIVE;
+          break;
+        case Token::KW_BETWEEN:
+        case Token::KW_MAX:
+        case Token::KW_AND:
+        case Token::KW_UNBOUNDED:
+        case Token::QUEST:
+        case Token::DECIMAL_INTEGER_LITERAL:
+        case Token::HEX_INTEGER_LITERAL:
+          current_token_->lookback_override = Token::LB_END_OF_WITH_RECURSIVE;
+          break;
+        default:
+          break;
+      }
+      break;
+    default:
+      break;
   }
 
   switch (token) {
+    case Token::KW_TABLE:
+      if (IsValidLookbackToStartQuery(Lookback1(), Lookback2(), Lookback3())) {
+        return Token::KW_TABLE_FOR_TABLE_CLAUSE;
+      }
+      if (Lookback1() == Token::LPAREN) {
+        // This case the word 'TABLE' is the first token in a parenthesized
+        // expression, parenthesized query, parenthesized join, or other
+        // parenthesized construct where the parser isn't setting a specific
+        // lookback override token for the left paren.
+        //
+        // <KW_TABLE IDENTIFIER> will directly follow an open paren in these
+        // cases (cases were exhaustively enumerated by querying the parser's
+        // graph):
+        //   1) As a subquery: (TABLE my_data ...)
+        //     1.1) As a scalar subquery in a pipes operator where the operator
+        //          is a non-reserved keyword:
+        //           FROM t |> AGGREGATE (TABLE t) + COUNT(*)
+        //           FROM t |> EXTEND (TABLE t) + COUNT(*)
+        //   2) As the beginning of a parenthsized join: (TABLE my_data...JOIN
+        //   3) As the first argument in a table function or procedure call
+        //      argument list: MyTVF(TABLE my_data...)
+        //   4) As the first parameter in a UDF or TVF declaration parameter
+        //      list: CREATE FUNCTION MyUDF(TABLE my_type...)
+        //   5) As the first parameter in a parenthesized "select_list" as in
+        //      the CREATE MODEL statement or similar structures in the PIVOT
+        //      operator:
+        //      CREATE MODEL ... TRANSFORM(TABLE as_alas, ...)
+        //      PIVOT(TABLE as_alias, ...)
+        //   6) Delete from T then return with action (table T)
+        //
+        // There are certain tokens that will never preceded the open parne and
+        // never follow the identifier in the parenthesized join case or
+        // subquery cases. In all such cases where the token following
+        // identifier is not possible for the parenthesized join but are
+        // possible for the parenthesized subquery.
+        if (Lookback2() == Token::KW_IN || Lookback2() == Token::IDENTIFIER ||
+            (IsNonreservedKeywordToken(Lookback2()) &&
+             Lookback3() != Token::KW_PIPE &&
+             !(Lookback2() == Token::KW_ACTION &&
+               Lookback3() == Token::KW_WITH))) {
+          // This return avoids cases (4), (5), and (6) above, while ensuring
+          // case 1.A is allowed.
+          return token;
+        }
+        if (IsIdentifierOrNonreservedKeyword(Lookahead1())) {
+          switch (Lookahead2()) {
+            case Token::KW_WHERE:             // (TABLE table_name WHERE
+            case Token::KW_UNION:             // (TABLE table_name UNION
+            case Token::KW_INTERSECT:         // (TABLE table_name INTERSECT
+            case Token::KW_EXCEPT_IN_SET_OP:  // (TABLE table_name EXCEPT
+            case Token::KW_ORDER:             // (TABLE table_name ORDER
+            case Token::KW_LIMIT:             // (TABLE table_name LIMIT
+            case Token::DOT:                  // (TABLE schema_name.
+            case Token::RPAREN:               // (TABLE table_name)
+              return Token::KW_TABLE_FOR_TABLE_CLAUSE;
+            case Token::LPAREN:  // (TABLE tvf_name(
+              // There is an ambiguity when a TVF name is KW_PIVOT or
+              // KW_UNPIVOT. It is not clear whether the sequence is a table
+              // named `table` being pivoted or a TVF named `pivot` in a table
+              // clause. The PIVOT and UNPIVOT operator existed first, so we
+              // prefer that resolution.
+              switch (Lookahead1()) {
+                case Token::KW_PIVOT:
+                case Token::KW_UNPIVOT:
+                  break;
+                default:
+                  return Token::KW_TABLE_FOR_TABLE_CLAUSE;
+              }
+              break;
+            default:
+              break;
+          }
+        }
+      }
+      break;
+    case Token::KW_DEPTH:
+      if (Lookback1() == Token::KW_WITH &&
+          Lookback2() == Token::LB_CLOSE_ALIASED_QUERY) {
+        // This case is the depth clause after the WITH RECURSIVE clause.
+        current_token_->lookback_override = Token::LB_END_OF_WITH_RECURSIVE;
+      }
+      break;
     case Token::KW_OPTIONS:
       if (Lookback2() == Token::LB_WITH_IN_SELECT_WITH_OPTIONS &&
-          Lookahead1() == '(') {
+          Lookahead1() == Token::LPAREN) {
         return Token::KW_OPTIONS_IN_SELECT_WITH_OPTIONS;
       }
       break;
@@ -519,7 +666,8 @@ TokenKind LookaheadTransformer::ApplyTokenDisambiguation(
         // the path expression, and its image was not simply 'UPDATE', so it
         // was not recognized as the insert mode. This check preserves that
         // behavior.
-        bool token_starts_path = Lookahead1() == '.' || Lookahead1() == '[';
+        bool token_starts_path =
+            Lookahead1() == Token::DOT || Lookahead1() == Token::LBRACK;
         if (insert_starts_statement && !token_starts_path) {
           return token == Token::KW_UPDATE ? Token::KW_UPDATE_AFTER_INSERT
                                            : Token::KW_REPLACE_AFTER_INSERT;
@@ -547,15 +695,15 @@ TokenKind LookaheadTransformer::ApplyTokenDisambiguation(
       break;
     }
     case Token::KW_WITH: {
-      if (Lookahead1() == KW_GROUP) {
+      if (Lookahead1() == Token::KW_GROUP) {
         return Token::KW_WITH_STARTING_WITH_GROUP_ROWS;
       }
       // The WITH expression uses a function-call like syntax and is followed by
       // the open parenthesis and at least one variable definition consisting
       // of an identifier followed by KW_AS.
-      if (Lookahead1() == '(' &&
+      if (Lookahead1() == Token::LPAREN &&
           (IsIdentifierOrNonreservedKeyword(Lookahead2())) &&
-          Lookahead3() == KW_AS) {
+          Lookahead3() == Token::KW_AS) {
         return Token::KW_WITH_STARTING_WITH_EXPRESSION;
       }
       break;
@@ -568,38 +716,63 @@ TokenKind LookaheadTransformer::ApplyTokenDisambiguation(
       // This rule generates a special token for an EXCEPT that is followed by a
       // hint, ALL or DISTINCT which is distinctly the set operator use.
       switch (Lookahead1()) {
-        case '(':
+        case Token::LPAREN:
           // This is the SELECT * EXCEPT (column...) case.
           return Token::KW_EXCEPT;
         case Token::KW_ALL:
         case Token::KW_DISTINCT:
           // This is the {query} EXCEPT (ALL|DISTINCT) {query} case.
           return Token::KW_EXCEPT_IN_SET_OP;
-        case '@':
+        case Token::ATSIGN:
           switch (Lookahead2()) {
             case Token::DECIMAL_INTEGER_LITERAL:
             case Token::HEX_INTEGER_LITERAL:
-            case '{':
+            case Token::LBRACE:
               // This is the {query} EXCEPT opt_hint (ALL|DISTINCT) {query}
               // case.
               return Token::KW_EXCEPT_IN_SET_OP;
+            default:
+              break;
           }
+          break;
+        default:
+          break;
       }
       return SetOverrideErrorAndReturnEof(
           "EXCEPT must be followed by ALL, DISTINCT, or \"(\"", location);
     }
+    // Looking ahead to see if the next token is UPDATE to avoid a shift/reduce
+    // conflict with FOR SYSTEM_TIME and FOR SYSTEM.
+    case Token::KW_FOR:
+      if (Lookahead1() == Token::KW_UPDATE) {
+        return Token::KW_FOR_BEFORE_LOCK_MODE;
+      }
+      break;
     case Token::KW_FULL:
-    case Token::KW_LEFT: {
-      // If FULL or LEFT is used in set operations, return KW_FULL_IN_SET_OP
-      // or KW_LEFT_IN_SET_OP instead.
+    case Token::KW_LEFT:
+    case Token::KW_INNER: {
+      // If FULL, LEFT, or INNER are used in set operations, return
+      // KW_*_IN_SET_OP instead.
       TokenKind lookahead =
           Lookahead1() == Token::KW_OUTER ? Lookahead2() : Lookahead1();
       switch (lookahead) {
         case Token::KW_UNION:
         case Token::KW_INTERSECT:
-        case Token::KW_EXCEPT:
-          return token == KW_FULL ? Token::KW_FULL_IN_SET_OP
-                                  : Token::KW_LEFT_IN_SET_OP;
+        case Token::KW_EXCEPT: {
+          switch (token) {
+            case Token::KW_FULL:
+              return Token::KW_FULL_IN_SET_OP;
+            case Token::KW_LEFT:
+              return Token::KW_LEFT_IN_SET_OP;
+            case Token::KW_INNER:
+              return Token::KW_INNER_IN_SET_OP;
+            default:
+              break;
+          }
+          break;
+        }
+        default:
+          break;
       }
       break;
     }
@@ -612,17 +785,17 @@ TokenKind LookaheadTransformer::ApplyTokenDisambiguation(
       // and reports "Syntax error: Expected ")" but got keyword BETWEEN".
       //
       // See the comment section "AMBIGUOUS CASE 13: SEQUENCE CLAMPED" in
-      // bison_parser.y for more information.
+      // zetasql.tm for more information.
       if (Lookahead1() == Token::KW_CLAMPED) {
         return Token::IDENTIFIER;
       }
       break;
     }
-    case '@': {
+    case Token::ATSIGN: {
       switch (Lookahead1()) {
         case Token::DECIMAL_INTEGER_LITERAL:
         case Token::HEX_INTEGER_LITERAL:
-          if (Lookahead2() == '@' && Lookahead3() == '{') {
+          if (Lookahead2() == Token::ATSIGN && Lookahead3() == Token::LBRACE) {
             // This is a hint with both the integer and the key-value list.
             // Like: @5 @{a=b}. We give a special prefix token here so that the
             // parser can handle this case without lookahead. Avoiding lookahead
@@ -631,38 +804,43 @@ TokenKind LookaheadTransformer::ApplyTokenDisambiguation(
             return Token::OPEN_INTEGER_PREFIX_HINT;
           }
           return Token::KW_OPEN_INTEGER_HINT;
-        case '{':
+        case Token::LBRACE:
           return Token::KW_OPEN_HINT;
+        default:
+          break;
       }
       break;
     }
-    case '<': {
+    case Token::LT: {
       // Adjacent "<" and ">" become "<>".
-      if (Lookback1() != Token::KW_STRUCT && Lookahead1() == '>' &&
+      if (Lookback1() != Token::KW_STRUCT && Lookahead1() == Token::GT &&
           IsAdjacentPrecedingToken(current_token_, lookahead_1_)) {
         FuseLookahead1IntoCurrent(Token::KW_NOT_EQUALS_SQL_STYLE);
       }
       return current_token_->token.kind;
     }
-    case '>': {
+    case Token::GT: {
       // Adjacent ">" and ">" become ">>".
-      if (!IsInTemplatedTypeState() && Lookahead1() == '>' &&
+      if (!IsInTemplatedTypeState() && Lookahead1() == Token::GT &&
           IsAdjacentPrecedingToken(current_token_, lookahead_1_)) {
         FuseLookahead1IntoCurrent(Token::KW_SHIFT_RIGHT);
       }
       return current_token_->token.kind;
     }
-    case '(': {
-      PushState('(');
+    case Token::LPAREN: {
+      if (IsValidLookbackToStartQuery(Lookback1(), Lookback2(), Lookback3())) {
+        current_token_->lookback_override = Token::LB_PAREN_OPENS_QUERY;
+      }
+      PushState(Token::LPAREN);
       break;
     }
-    case ')': {
-      if (!PopStateIfMatch('(')) {
+    case Token::RPAREN: {
+      if (!PopStateIfMatch(Token::LPAREN)) {
         // This is an unmatched ')'. We push it onto `state_stack_` to end
         // the kInTemplatedType state, if it exists, to preserve the Flex
         // behavior.
         // TODO: b/333926361 - Report an error directly.
-        PushState(')');
+        PushState(Token::RPAREN);
       }
       break;
     }
@@ -671,7 +849,7 @@ TokenKind LookaheadTransformer::ApplyTokenDisambiguation(
       TransformIntegerLiteral();
       return current_token_->token.kind;
     }
-    case '.': {
+    case Token::DOT: {
       return TransformDotSymbol();
     }
     case Token::EXP_IN_FLOAT_NO_SIGN:
@@ -707,9 +885,9 @@ bool LookaheadTransformer::LookbackTokenCanBeBeforeDotInPathExpression(
   ABSL_DCHECK(token_kind != Token::STANDALONE_EXPONENT_SIGN);
   switch (token_kind) {
     case Token::IDENTIFIER:
-    case ')':
-    case ']':
-    case '?':
+    case Token::RPAREN:
+    case Token::RBRACK:
+    case Token::QUEST:
       return true;
     default:
       break;
@@ -718,7 +896,7 @@ bool LookaheadTransformer::LookbackTokenCanBeBeforeDotInPathExpression(
 }
 
 static bool IsPlusOrMinus(TokenKind token_kind) {
-  return token_kind == '+' || token_kind == '-';
+  return token_kind == Token::PLUS || token_kind == Token::MINUS;
 }
 
 bool LookaheadTransformer::FuseExponentPartIntoFloatingPointLiteral() {
@@ -760,7 +938,7 @@ TokenKind LookaheadTransformer::TransformDotSymbol() {
   if (LookbackTokenCanBeBeforeDotInPathExpression(Lookback1())) {
     // This dot is part of a path expression, return '.' directly.
     current_token_->lookback_override = Token::LB_DOT_IN_PATH_EXPRESSION;
-    return '.';
+    return Token::DOT;
   }
   if (Lookahead1() == Token::DECIMAL_INTEGER_LITERAL &&
       IsAdjacentPrecedingToken(current_token_, lookahead_1_)) {
@@ -771,7 +949,7 @@ TokenKind LookaheadTransformer::TransformDotSymbol() {
     FuseExponentPartIntoFloatingPointLiteral();
     return Token::FLOATING_POINT_LITERAL;
   }
-  return '.';
+  return Token::DOT;
 }
 
 void LookaheadTransformer::TransformIntegerLiteral() {
@@ -799,7 +977,7 @@ void LookaheadTransformer::TransformIntegerLiteral() {
     return;
   }
   switch (Lookahead1()) {
-    case '.':
+    case Token::DOT:
       if (!IsAdjacentPrecedingToken(current_token_, lookahead_1_)) {
         return;
       }
@@ -829,9 +1007,9 @@ TokenKind LookaheadTransformer::SetOverrideErrorAndReturnEof(
   if (!current_token_.has_value()) {
     current_token_.emplace();
   }
-  current_token_->token.kind = Token::YYEOF;
+  current_token_->token.kind = Token::EOI;
   current_token_->error = MakeError(error_message, error_location);
-  return Token::YYEOF;
+  return Token::EOI;
 }
 
 namespace {
@@ -877,29 +1055,41 @@ void LookaheadTransformer::PopulateLookaheads() {
 
 TokenKind LookaheadTransformer::Lookback1() const {
   if (lookback_1_.has_value()) {
-    if (lookback_1_->lookback_override != kNoToken) {
+    if (lookback_1_->lookback_override != Token::UNAVAILABLE) {
       return lookback_1_->lookback_override;
     } else {
       return lookback_1_->token.kind;
     }
   }
-  return kNoToken;
+  return Token::UNAVAILABLE;
 }
 
 TokenKind LookaheadTransformer::Lookback2() const {
   if (lookback_2_.has_value()) {
-    if (lookback_2_->lookback_override != kNoToken) {
+    if (lookback_2_->lookback_override != Token::UNAVAILABLE) {
       return lookback_2_->lookback_override;
     } else {
       return lookback_2_->token.kind;
     }
   }
-  return kNoToken;
+  return Token::UNAVAILABLE;
+}
+
+Token LookaheadTransformer::Lookback3() const {
+  if (lookback_3_.has_value()) {
+    if (lookback_3_->lookback_override != Token::UNAVAILABLE) {
+      return lookback_3_->lookback_override;
+    } else {
+      return lookback_3_->token.kind;
+    }
+  }
+  return Token::UNAVAILABLE;
 }
 
 TokenKind LookaheadTransformer::GetNextToken(absl::string_view* text,
                                              Location* yylloc) {
   // Advance the token buffers.
+  lookback_3_.swap(lookback_2_);
   lookback_2_.swap(lookback_1_);
   lookback_1_.swap(current_token_);
   current_token_.swap(lookahead_1_);
@@ -908,10 +1098,10 @@ TokenKind LookaheadTransformer::GetNextToken(absl::string_view* text,
   FetchNextToken(lookahead_2_, lookahead_3_);
 
   current_token_->token.kind = ApplyTokenDisambiguation(current_token_->token);
-  // If the current token is Token::YYEOF after disambiguation, set all the
+  // If the current token is Token::EOI after disambiguation, set all the
   // lookaheads to be the same as `current_token_` so that future calls to
   // GetNextToken() and GetOverrideError() return the same token kind and error.
-  if (current_token_->token.kind == YYEOF) {
+  if (current_token_->token.kind == Token::EOI) {
     ResetToEof(*current_token_, lookahead_1_);
     ResetToEof(*current_token_, lookahead_2_);
     ResetToEof(*current_token_, lookahead_3_);
@@ -1073,7 +1263,7 @@ void LookaheadTransformer::ResetToEof(
     const TokenWithOverrideError& template_token,
     std::optional<TokenWithOverrideError>& lookahead) const {
   lookahead = template_token;
-  lookahead->token.kind = Token::YYEOF;
+  lookahead->token.kind = Token::EOI;
 }
 
 void LookaheadTransformer::PushBisonParserMode(BisonParserMode mode) {
@@ -1088,16 +1278,15 @@ void LookaheadTransformer::PopBisonParserMode() {
 }
 
 bool LookaheadTransformer::Lookahead1IsRealEndOfInput() const {
-  if (lookahead_1_->token.kind != Token::YYEOF) {
+  if (lookahead_1_->token.kind != Token::EOI) {
     return false;
   }
   if (!lookahead_1_->error.ok()) {
-    // If lookahead1 errors, the Token::YYEOF does not necessarily indicate
+    // If lookahead1 errors, the Token::EOI does not necessarily indicate
     // the real end of file, so return false.
     return false;
   }
-  if (current_token_.has_value() &&
-      current_token_->token.kind == Token::YYEOF) {
+  if (current_token_.has_value() && current_token_->token.kind == Token::EOI) {
     // The current token is already YYEOF. If it does not have error, then the
     // lookahead1 is not a real YYEOF because the input has already ended.
     // Otherwise, we don't know whether the next token is the real end of

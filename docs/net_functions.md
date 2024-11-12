@@ -6,7 +6,7 @@
 
 ZetaSQL supports the following Net functions.
 
-### Function list
+## Function list
 
 <table>
   <thead>
@@ -18,8 +18,7 @@ ZetaSQL supports the following Net functions.
   <tbody>
 
 <tr>
-  <td><a href="#netformat_ip"><code>NET.FORMAT_IP</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/net_functions.md#netformat_ip"><code>NET.FORMAT_IP</code></a>
 </td>
   <td>
     (Deprecated) Converts an
@@ -29,8 +28,7 @@ ZetaSQL supports the following Net functions.
 </tr>
 
 <tr>
-  <td><a href="#netformat_packed_ip"><code>NET.FORMAT_PACKED_IP</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/net_functions.md#netformat_packed_ip"><code>NET.FORMAT_PACKED_IP</code></a>
 </td>
   <td>
     (Deprecated) Converts an
@@ -40,8 +38,7 @@ ZetaSQL supports the following Net functions.
 </tr>
 
 <tr>
-  <td><a href="#nethost"><code>NET.HOST</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/net_functions.md#nethost"><code>NET.HOST</code></a>
 </td>
   <td>
    Gets the hostname from a URL.
@@ -49,8 +46,7 @@ ZetaSQL supports the following Net functions.
 </tr>
 
 <tr>
-  <td><a href="#netip_from_string"><code>NET.IP_FROM_STRING</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/net_functions.md#netip_from_string"><code>NET.IP_FROM_STRING</code></a>
 </td>
   <td>
     Converts an IPv4 or IPv6 address from a <code>STRING</code> value to
@@ -59,8 +55,7 @@ ZetaSQL supports the following Net functions.
 </tr>
 
 <tr>
-  <td><a href="#netip_in_net"><code>NET.IP_IN_NET</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/net_functions.md#netip_in_net"><code>NET.IP_IN_NET</code></a>
 </td>
   <td>
     Checks if an IP address is in a subnet.
@@ -68,8 +63,7 @@ ZetaSQL supports the following Net functions.
 </tr>
 
 <tr>
-  <td><a href="#netip_net_mask"><code>NET.IP_NET_MASK</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/net_functions.md#netip_net_mask"><code>NET.IP_NET_MASK</code></a>
 </td>
   <td>
     Gets a network mask.
@@ -77,8 +71,7 @@ ZetaSQL supports the following Net functions.
 </tr>
 
 <tr>
-  <td><a href="#netip_to_string"><code>NET.IP_TO_STRING</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/net_functions.md#netip_to_string"><code>NET.IP_TO_STRING</code></a>
 </td>
   <td>
     Converts an IPv4 or IPv6 address from a <code>BYTES</code> value in
@@ -87,8 +80,7 @@ ZetaSQL supports the following Net functions.
 </tr>
 
 <tr>
-  <td><a href="#netip_trunc"><code>NET.IP_TRUNC</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/net_functions.md#netip_trunc"><code>NET.IP_TRUNC</code></a>
 </td>
   <td>
     Converts a <code>BYTES</code>  IPv4 or IPv6 address in
@@ -97,8 +89,7 @@ ZetaSQL supports the following Net functions.
 </tr>
 
 <tr>
-  <td><a href="#netipv4_from_int64"><code>NET.IPV4_FROM_INT64</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/net_functions.md#netipv4_from_int64"><code>NET.IPV4_FROM_INT64</code></a>
 </td>
   <td>
     Converts an IPv4 address from an <code>INT64</code> value to a
@@ -107,8 +98,7 @@ ZetaSQL supports the following Net functions.
 </tr>
 
 <tr>
-  <td><a href="#netipv4_to_int64"><code>NET.IPV4_TO_INT64</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/net_functions.md#netipv4_to_int64"><code>NET.IPV4_TO_INT64</code></a>
 </td>
   <td>
     Converts an IPv4 address from a <code>BYTES</code> value in network
@@ -117,8 +107,7 @@ ZetaSQL supports the following Net functions.
 </tr>
 
 <tr>
-  <td><a href="#netmake_net"><code>NET.MAKE_NET</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/net_functions.md#netmake_net"><code>NET.MAKE_NET</code></a>
 </td>
   <td>
     Takes a IPv4 or IPv6 address and the prefix length, and produces a
@@ -127,8 +116,7 @@ ZetaSQL supports the following Net functions.
 </tr>
 
 <tr>
-  <td><a href="#netparse_ip"><code>NET.PARSE_IP</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/net_functions.md#netparse_ip"><code>NET.PARSE_IP</code></a>
 </td>
   <td>
     (Deprecated) Converts an
@@ -138,8 +126,7 @@ ZetaSQL supports the following Net functions.
 </tr>
 
 <tr>
-  <td><a href="#netparse_packed_ip"><code>NET.PARSE_PACKED_IP</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/net_functions.md#netparse_packed_ip"><code>NET.PARSE_PACKED_IP</code></a>
 </td>
   <td>
     (Deprecated) Converts an
@@ -149,8 +136,7 @@ ZetaSQL supports the following Net functions.
 </tr>
 
 <tr>
-  <td><a href="#netpublic_suffix"><code>NET.PUBLIC_SUFFIX</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/net_functions.md#netpublic_suffix"><code>NET.PUBLIC_SUFFIX</code></a>
 </td>
   <td>
     Gets the public suffix from a URL.
@@ -158,8 +144,7 @@ ZetaSQL supports the following Net functions.
 </tr>
 
 <tr>
-  <td><a href="#netreg_domain"><code>NET.REG_DOMAIN</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/net_functions.md#netreg_domain"><code>NET.REG_DOMAIN</code></a>
 </td>
   <td>
     Gets the registered or registrable domain from a URL.
@@ -167,8 +152,7 @@ ZetaSQL supports the following Net functions.
 </tr>
 
 <tr>
-  <td><a href="#netsafe_ip_from_string"><code>NET.SAFE_IP_FROM_STRING</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/net_functions.md#netsafe_ip_from_string"><code>NET.SAFE_IP_FROM_STRING</code></a>
 </td>
   <td>
     Similar to the <code>NET.IP_FROM_STRING</code>, but returns
@@ -179,7 +163,7 @@ ZetaSQL supports the following Net functions.
   </tbody>
 </table>
 
-### `NET.FORMAT_IP` (DEPRECATED) 
+## `NET.FORMAT_IP` (DEPRECATED) 
 <a id="net_format_ip"></a>
 
 ```
@@ -200,7 +184,7 @@ STRING
 
 [net-link-to-ipv4-from-int64]: #netipv4_from_int64
 
-### `NET.FORMAT_PACKED_IP` (DEPRECATED) 
+## `NET.FORMAT_PACKED_IP` (DEPRECATED) 
 <a id="net_format_packed_ip"></a>
 
 ```
@@ -217,7 +201,7 @@ STRING
 
 [net-link-to-ip-to-string]: #netip_to_string
 
-### `NET.HOST`
+## `NET.HOST`
 
 ```
 NET.HOST(url)
@@ -272,7 +256,7 @@ FROM (
 
 [net-link-to-rfc-3986-appendix-a]: https://tools.ietf.org/html/rfc3986#appendix-A
 
-### `NET.IP_FROM_STRING`
+## `NET.IP_FROM_STRING`
 
 ```
 NET.IP_FROM_STRING(addr_str)
@@ -325,7 +309,7 @@ FROM UNNEST([
 
 [net-link-to-cidr-notation]: https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing
 
-### `NET.IP_IN_NET`
+## `NET.IP_IN_NET`
 
 ```
 NET.IP_IN_NET(address, subnet)
@@ -354,7 +338,7 @@ BOOL
 
 [net-link-to-ipv6-rfc]: http://www.ietf.org/rfc/rfc2373.txt
 
-### `NET.IP_NET_MASK`
+## `NET.IP_NET_MASK`
 
 ```
 NET.IP_NET_MASK(num_output_bytes, prefix_length)
@@ -398,7 +382,7 @@ FROM UNNEST([
  *--------------------------------------------------------------------------------*/
 ```
 
-### `NET.IP_TO_STRING`
+## `NET.IP_TO_STRING`
 
 ```
 NET.IP_TO_STRING(addr_bin)
@@ -439,7 +423,7 @@ FROM UNNEST([
  *---------------------------------------------------------------------------------------------------------------*/
 ```
 
-### `NET.IP_TRUNC`
+## `NET.IP_TRUNC`
 
 ```
 NET.IP_TRUNC(addr_bin, prefix_length)
@@ -483,7 +467,7 @@ FROM UNNEST([
  *-----------------------------------------------------------------------------*/
 ```
 
-### `NET.IPV4_FROM_INT64`
+## `NET.IPV4_FROM_INT64`
 
 ```
 NET.IPV4_FROM_INT64(integer_value)
@@ -527,7 +511,7 @@ FROM (
  *-----------------------------------------------*/
 ```
 
-### `NET.IPV4_TO_INT64`
+## `NET.IPV4_TO_INT64`
 
 ```
 NET.IPV4_TO_INT64(addr_bin)
@@ -567,7 +551,7 @@ UNNEST([b"\x00\x00\x00\x00", b"\x00\xab\xcd\xef", b"\xff\xff\xff\xff"]) AS x;
  *-------------------------------------*/
 ```
 
-### `NET.MAKE_NET`
+## `NET.MAKE_NET`
 
 ```
 NET.MAKE_NET(address, prefix_length)
@@ -610,7 +594,7 @@ STRING
 
 [net-link-to-cidr-notation]: https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing
 
-### `NET.PARSE_IP` (DEPRECATED) 
+## `NET.PARSE_IP` (DEPRECATED) 
 <a id="net_parse_ip"></a>
 
 ```
@@ -632,7 +616,7 @@ INT64
 
 [net-link-to-ipv4-to-int64]: #netipv4_to_int64
 
-### `NET.PARSE_PACKED_IP` (DEPRECATED) 
+## `NET.PARSE_PACKED_IP` (DEPRECATED) 
 <a id="net_parse_packed_ip"></a>
 
 ```
@@ -652,7 +636,7 @@ BYTES
 
 [net-link-to-ip-from-string]: #netip_from_string
 
-### `NET.PUBLIC_SUFFIX`
+## `NET.PUBLIC_SUFFIX`
 
 ```
 NET.PUBLIC_SUFFIX(url)
@@ -735,7 +719,7 @@ FROM (
 
 [net-link-to-rfc-3986-appendix-a]: https://tools.ietf.org/html/rfc3986#appendix-A
 
-### `NET.REG_DOMAIN`
+## `NET.REG_DOMAIN`
 
 ```
 NET.REG_DOMAIN(url)
@@ -823,7 +807,7 @@ FROM (
 
 [net-link-to-rfc-3986-appendix-a]: https://tools.ietf.org/html/rfc3986#appendix-A
 
-### `NET.SAFE_IP_FROM_STRING`
+## `NET.SAFE_IP_FROM_STRING`
 
 ```
 NET.SAFE_IP_FROM_STRING(addr_str)

@@ -31,6 +31,7 @@
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_helper.h"
 #include "zetasql/resolved_ast/resolved_column.h"
+#include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "absl/status/statusor.h"
 #include "absl/types/span.h"
 #include "zetasql/base/ret_check.h"

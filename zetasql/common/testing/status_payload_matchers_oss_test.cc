@@ -20,6 +20,7 @@
 
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/common/testing/status_payload_matchers_test.pb.h"
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"

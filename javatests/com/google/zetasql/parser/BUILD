@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+load("@rules_java//java:defs.bzl", "java_library")
 load("//javatests/com/google/zetasql:junit_test_suites.bzl", "junit_test_suites")
 
 # Tests for ZetaSQL parser classes.

@@ -24,17 +24,21 @@
 #include <cstddef>
 #include <cstdint>
 #include <type_traits>
-#include <vector>
 
 #include "zetasql/common/multiprecision_int.h"
 #include "zetasql/public/collator.h"
 #include "zetasql/public/numeric_value.h"
+#include "zetasql/base/check.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
-template <typename T>
+// TODO: Remove the second template parameter and always use T for
+// Weight.
+template <typename T, typename W = std::conditional_t<std::is_same_v<T, double>,
+                                                      long double, T>>
 class PercentileHelper;
 
 // A comparator to determine if the <lhs> is less than the <rhs> given the
@@ -67,17 +71,22 @@ class LessComparatorWithCollation {
 };
 
 // PercentileType = double, NumericValue or BigNumericValue
-template <typename PercentileType>
+// TODO: Remove the second template parameter and always use
+// PercentileType for Weight.
+template <typename PercentileType,
+          typename W =
+              std::conditional_t<std::is_same_v<PercentileType, double>,
+                                 long double, PercentileType>>
 class PercentileEvaluator {
  public:
-  // For PercentileType = double, Weight = long double.
+  // For PercentileType = double, Weight = long double by default; can be
+  // overridden by the template parameter W to double.
   // For PercentileType = NumericValue, Weight = NumericValue.
   // For PercentileType = BigNumericValue, Weight = BigNumericValue.
-  using Weight = typename PercentileHelper<PercentileType>::Weight;
+  using Weight = W;
   // Returns an error if percentile is not in [0, 1].
   static absl::StatusOr<PercentileEvaluator> Create(PercentileType percentile) {
-    ZETASQL_ASSIGN_OR_RETURN(PercentileHelper<PercentileType> helper,
-                     PercentileHelper<PercentileType>::Create(percentile));
+    ZETASQL_ASSIGN_OR_RETURN(PctHelper helper, PctHelper::Create(percentile));
     return PercentileEvaluator(helper);
   }
 
@@ -109,8 +118,8 @@ class PercentileEvaluator {
                                                    Weight left_weight,
                                                    PercentileType right_value,
                                                    Weight right_weight) {
-    return PercentileHelper<PercentileType>::ComputeLinearInterpolation(
-        left_value, left_weight, right_value, right_weight);
+    return PctHelper::ComputeLinearInterpolation(left_value, left_weight,
+                                                 right_value, right_weight);
   }
 
   // Computes PERCENTILE_CONT(x, percentile) from values in
@@ -231,6 +240,7 @@ class PercentileEvaluator {
   }
 
  private:
+  using PctHelper = PercentileHelper<PercentileType, W>;
   struct IsNaN {
     template <typename T>
     bool operator()(T value) const {
@@ -287,26 +297,22 @@ class PercentileEvaluator {
     return nonnull_values_end;
   }
 
-  explicit PercentileEvaluator(const PercentileHelper<PercentileType>& helper)
-      : helper_(helper) {}
+  explicit PercentileEvaluator(const PctHelper& helper) : helper_(helper) {}
 
-  PercentileHelper<PercentileType> helper_;
+  PctHelper helper_;
 };
 
-template <>
-class PercentileHelper<double> {
+template <typename Weight>
+class PercentileHelper<double, Weight> {
  public:
-  // Use long double to minimize floating point errors in
-  // ComputeLinearInterpolation.
-  using Weight = long double;
   static absl::StatusOr<PercentileHelper> Create(double percentile);
   PercentileHelper(const PercentileHelper& src) = default;
-  size_t ComputePercentileIndex(size_t max_index, long double* left_weight,
-                                long double* right_weight) const;
+  size_t ComputePercentileIndex(size_t max_index, Weight* left_weight,
+                                Weight* right_weight) const;
   static double ComputeLinearInterpolation(double left_value,
-                                           long double left_weight,
+                                           Weight left_weight,
                                            double right_value,
-                                           long double right_weight) {
+                                           Weight right_weight) {
     return left_value * left_weight + right_value * right_weight;
   }
 
@@ -323,8 +329,11 @@ class PercentileHelper<double> {
   const int num_fractional_bits_;
 };
 
+extern template class PercentileHelper<double, double>;
+extern template class PercentileHelper<double, long double>;
+
 template <>
-class PercentileHelper<NumericValue> {
+class PercentileHelper<NumericValue, NumericValue> {
  public:
   using Weight = NumericValue;
   static absl::StatusOr<PercentileHelper> Create(NumericValue percentile);
@@ -343,7 +352,7 @@ class PercentileHelper<NumericValue> {
 };
 
 template <>
-class PercentileHelper<BigNumericValue> {
+class PercentileHelper<BigNumericValue, BigNumericValue> {
  public:
   using Weight = BigNumericValue;
   static absl::StatusOr<PercentileHelper> Create(BigNumericValue percentile);

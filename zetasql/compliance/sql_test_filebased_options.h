@@ -38,6 +38,7 @@
 #include "gtest/gtest.h"
 #include "absl/container/btree_map.h"
 #include "absl/container/btree_set.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/container/node_hash_set.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
@@ -105,6 +106,11 @@ class FilebasedSQLTestCaseOptions {
   // functions.
   bool prepare_database() const { return prepare_database_; }
 
+  bool reserve_match_recognize() const { return reserve_match_recognize_; }
+
+  // Whether to reserve the keyword GRAPH_TABLE
+  bool reserve_graph_table() const { return reserve_graph_table_; }
+
   // If true, the golden file will contain the computed labels in the printed
   // result.
   bool extract_labels() const { return extract_labels_; }
@@ -125,6 +131,8 @@ class FilebasedSQLTestCaseOptions {
   PrimaryKeyMode primary_key_mode_ = PrimaryKeyMode::DEFAULT;
   bool extract_labels_ = false;
   bool prepare_database_ = false;
+  bool reserve_match_recognize_ = false;
+  bool reserve_graph_table_ = false;
 
   FilebasedSQLTestCaseOptions();
 };

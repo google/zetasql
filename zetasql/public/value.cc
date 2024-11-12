@@ -41,6 +41,7 @@
 #include "zetasql/public/functions/convert_string.h"
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/timestamp_pico_value.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/map_type.h"
@@ -88,6 +89,7 @@ using zetasql::types::JsonArrayType;
 using zetasql::types::NumericArrayType;
 using zetasql::types::StringArrayType;
 using zetasql::types::TimestampArrayType;
+using zetasql::types::TimestampPicosArrayType;
 using zetasql::types::Uint32ArrayType;
 using zetasql::types::Uint64ArrayType;
 
@@ -180,6 +182,10 @@ Value::Value(absl::Time t) {
   metadata_ = Metadata(TypeKind::TYPE_TIMESTAMP, subsecond_nanos);
 }
 
+Value::Value(const TimestampPicoValue& t)
+    : metadata_(TypeKind::TYPE_TIMESTAMP_PICOS),
+      timestamp_pico_ptr_(new internal::TimestampPicoRef(t)) {}
+
 Value::Value(TimeValue time)
     : metadata_(TypeKind::TYPE_TIME, time.Nanoseconds()),
       bit_field_32_value_(time.Packed32TimeSeconds()) {
@@ -199,7 +205,7 @@ Value Value::Enum(const EnumType* type, int64_t value) {
 
 Value::Value(const EnumType* enum_type, int64_t value,
              bool allow_unknown_enum_values) {
-  const std::string* unused;
+  absl::string_view unused;
 
   // We confirm immediately afterwards that the cast back works, so we can be
   // sure no out of range integers are accepted.
@@ -318,6 +324,96 @@ absl::StatusOr<Value> Value::MakeRangeInternal(bool is_validated,
   return result;
 }
 
+absl::StatusOr<Value> Value::MakeGraphElement(
+    const GraphElementType* graph_element_type, std::string identifier,
+    std::vector<Value::Property> properties, std::vector<std::string> labels,
+    std::string definition_name, std::string source_node_identifier,
+    std::string dest_node_identifier) {
+  // Validates the identifiers.
+  ZETASQL_RET_CHECK(!identifier.empty()) << "Empty identifier";
+  ZETASQL_RET_CHECK_EQ(graph_element_type->IsNode(), source_node_identifier.empty())
+      << "Invalid source node identifier";
+  ZETASQL_RET_CHECK_EQ(graph_element_type->IsNode(), dest_node_identifier.empty())
+      << "Invalid destination node identifier";
+
+  std::vector<Value> property_values(
+      graph_element_type->property_types().size(), Value::Invalid());
+  // Validates the property types based on name.
+  for (const auto& [name, value] : properties) {
+    int field_index;
+    ZETASQL_RET_CHECK(graph_element_type->HasField(name, &field_index) ==
+              Type::HAS_FIELD)
+        << "Unknown property: " << name;
+    const PropertyType* property_type =
+        graph_element_type->FindPropertyType(name);
+    ZETASQL_RET_CHECK(property_type != nullptr);
+    ZETASQL_RET_CHECK(property_type->value_type->Equals(value.type()))
+        << "Expected property value type: "
+        << property_type->value_type->DebugString()
+        << ", got: " << value.type()->DebugString();
+    property_values[field_index] = std::move(value);
+  }
+
+  // We keep the original case but sort labels case-insensitively.
+  std::sort(labels.begin(), labels.end(), zetasql_base::CaseLess());
+
+  std::unique_ptr<internal::ValueContentOrderedList> container =
+      graph_element_type->IsNode()
+          ? std::make_unique<GraphElementValue>(
+                graph_element_type, std::move(identifier),
+                std::move(property_values), std::move(labels),
+                std::move(definition_name))
+          : std::make_unique<GraphElementValue>(
+                graph_element_type, std::move(identifier),
+                std::move(property_values), std::move(labels),
+                std::move(definition_name), std::move(source_node_identifier),
+                std::move(dest_node_identifier));
+  Value result(graph_element_type, /*is_null=*/false,
+               /*order_kind=*/kIgnoresOrder);
+  result.container_ptr_ = new internal::ValueContentOrderedListRef(
+      std::move(container), /*preserves_order=*/false);
+  return result;
+}
+
+absl::StatusOr<Value> Value::MakeGraphPath(const GraphPathType* graph_path_type,
+                                           std::vector<Value> graph_elements) {
+  ZETASQL_RET_CHECK_EQ(graph_elements.size() % 2, 1)
+      << "Path must have an odd number of graph elements, has "
+      << graph_elements.size() << " graph elements";
+  for (int i = 0; i < graph_elements.size(); ++i) {
+    ZETASQL_RET_CHECK(!graph_elements[i].is_null())
+        << "Path cannot have null graph elements";
+    if (i % 2 == 0) {
+      ZETASQL_RET_CHECK(graph_elements[i].type()->Equals(graph_path_type->node_type()))
+          << "Expected node type";
+    } else {
+      ZETASQL_RET_CHECK(graph_elements[i].type()->Equals(graph_path_type->edge_type()))
+          << "Expected edge type";
+    }
+  }
+  for (int i = 1; i < graph_elements.size(); i += 2) {
+    // The edge must connect the previous node to the next node in some
+    // direction.
+    const Value& edge = graph_elements[i];
+    const Value& previous_node = graph_elements[i - 1];
+    const Value& next_node = graph_elements[i + 1];
+    bool forward =
+        previous_node.GetIdentifier() == edge.GetSourceNodeIdentifier() &&
+        next_node.GetIdentifier() == edge.GetDestNodeIdentifier();
+    bool backward =
+        previous_node.GetIdentifier() == edge.GetDestNodeIdentifier() &&
+        next_node.GetIdentifier() == edge.GetSourceNodeIdentifier();
+    ZETASQL_RET_CHECK(forward || backward) << "Edge must connect the previous node to "
+                                      "the next node in some direction";
+  }
+  Value result(graph_path_type, /*is_null=*/false,
+               /*order_kind=*/kIgnoresOrder);
+  result.container_ptr_ = new internal::ValueContentOrderedListRef(
+      std::make_unique<GraphPathValue>(std::move(graph_elements)),
+      /*preserves_order=*/false);
+  return result;
+}
+
 absl::StatusOr<Value> Value::MakeMapInternal(
     const Type* type, std::vector<std::pair<Value, Value>> map_entries) {
   const Type* key_type = GetMapKeyType(type);
@@ -426,19 +522,19 @@ absl::StatusOr<std::string_view> Value::EnumName() const {
   if (is_null()) {
     return absl::InvalidArgumentError("Null enum value");
   }
-  const std::string* enum_name = nullptr;
+  absl::string_view enum_name;
   if (!type()->AsEnum()->FindName(enum_value(), &enum_name)) {
     return absl::InvalidArgumentError(absl::StrCat(
         "Value ", enum_value(), " not in ", type()->DebugString()));
   }
-  return *enum_name;
+  return enum_name;
 }
 std::string Value::EnumDisplayName() const {
   ABSL_CHECK_EQ(TYPE_ENUM, metadata_.type_kind()) << "Not an enum value";
   ABSL_CHECK(!is_null()) << "Null value";
-  const std::string* enum_name = nullptr;
+  absl::string_view enum_name;
   if (type()->AsEnum()->FindName(enum_value(), &enum_name)) {
-    return *enum_name;
+    return std::string(enum_name);
   }
   return absl::StrCat(enum_value());
 }
@@ -467,6 +563,7 @@ int64_t Value::ToInt64() const {
     case TYPE_PROTO:
     case TYPE_TIME:
     case TYPE_DATETIME:
+    case TYPE_TIMESTAMP_PICOS:
     default:
       ABSL_LOG(FATAL) << "Cannot coerce " << TypeKind_Name(type_kind())
                  << " to int64";
@@ -515,6 +612,7 @@ double Value::ToDouble() const {
     case TYPE_ENUM:
       return enum_value();
     case TYPE_TIMESTAMP:
+    case TYPE_TIMESTAMP_PICOS:
     case TYPE_STRING:
     case TYPE_BYTES:
     case TYPE_ARRAY:
@@ -759,6 +857,7 @@ static bool TypesSupportSqlEquals(const Type* type1, const Type* type2) {
     case TYPE_KIND_PAIR(TYPE_BYTES, TYPE_BYTES):
     case TYPE_KIND_PAIR(TYPE_DATE, TYPE_DATE):
     case TYPE_KIND_PAIR(TYPE_TIMESTAMP, TYPE_TIMESTAMP):
+    case TYPE_KIND_PAIR(TYPE_TIMESTAMP_PICOS, TYPE_TIMESTAMP_PICOS):
     case TYPE_KIND_PAIR(TYPE_TIME, TYPE_TIME):
     case TYPE_KIND_PAIR(TYPE_DATETIME, TYPE_DATETIME):
     case TYPE_KIND_PAIR(TYPE_INTERVAL, TYPE_INTERVAL):
@@ -769,6 +868,8 @@ static bool TypesSupportSqlEquals(const Type* type1, const Type* type2) {
     case TYPE_KIND_PAIR(TYPE_DOUBLE, TYPE_DOUBLE):
     case TYPE_KIND_PAIR(TYPE_INT64, TYPE_UINT64):
     case TYPE_KIND_PAIR(TYPE_UINT64, TYPE_INT64):
+    case TYPE_KIND_PAIR(TYPE_GRAPH_ELEMENT, TYPE_GRAPH_ELEMENT):
+    case TYPE_KIND_PAIR(TYPE_GRAPH_PATH, TYPE_GRAPH_PATH):
     case TYPE_KIND_PAIR(TYPE_UUID, TYPE_UUID):
       return true;
     case TYPE_KIND_PAIR(TYPE_STRUCT, TYPE_STRUCT): {
@@ -814,6 +915,7 @@ Value Value::SqlEquals(const Value& that) const {
     case TYPE_KIND_PAIR(TYPE_BYTES, TYPE_BYTES):
     case TYPE_KIND_PAIR(TYPE_DATE, TYPE_DATE):
     case TYPE_KIND_PAIR(TYPE_TIMESTAMP, TYPE_TIMESTAMP):
+    case TYPE_KIND_PAIR(TYPE_TIMESTAMP_PICOS, TYPE_TIMESTAMP_PICOS):
     case TYPE_KIND_PAIR(TYPE_TIME, TYPE_TIME):
     case TYPE_KIND_PAIR(TYPE_DATETIME, TYPE_DATETIME):
     case TYPE_KIND_PAIR(TYPE_INTERVAL, TYPE_INTERVAL):
@@ -822,6 +924,26 @@ Value Value::SqlEquals(const Value& that) const {
     case TYPE_KIND_PAIR(TYPE_BIGNUMERIC, TYPE_BIGNUMERIC):
     case TYPE_KIND_PAIR(TYPE_UUID, TYPE_UUID):
       return Value::Bool(Equals(that));
+    case TYPE_KIND_PAIR(TYPE_GRAPH_ELEMENT, TYPE_GRAPH_ELEMENT): {
+      const auto* this_element = this->graph_element_value();
+      const auto* that_element = that.graph_element_value();
+      if (this_element->element_kind() != that_element->element_kind()) {
+        return values::False();
+      }
+      bool eq = this_element->GetIdentifier() == that_element->GetIdentifier();
+      if (this_element->IsEdge()) {
+        eq = eq &&
+             this_element->GetSourceNodeIdentifier() ==
+                 that_element->GetSourceNodeIdentifier() &&
+             this_element->GetDestNodeIdentifier() ==
+                 that_element->GetDestNodeIdentifier();
+      }
+      return Value::Bool(eq);
+    }
+    case TYPE_KIND_PAIR(TYPE_GRAPH_PATH, TYPE_GRAPH_PATH): {
+      // The components of a path cannot be null.
+      return Value::Bool(Equals(that));
+    }
     case TYPE_KIND_PAIR(TYPE_STRUCT, TYPE_STRUCT): {
       if (num_fields() != that.num_fields()) {
         return values::False();
@@ -916,6 +1038,7 @@ static bool TypesSupportSqlLessThan(const Type* type1, const Type* type2) {
     case TYPE_KIND_PAIR(TYPE_BYTES, TYPE_BYTES):
     case TYPE_KIND_PAIR(TYPE_DATE, TYPE_DATE):
     case TYPE_KIND_PAIR(TYPE_TIMESTAMP, TYPE_TIMESTAMP):
+    case TYPE_KIND_PAIR(TYPE_TIMESTAMP_PICOS, TYPE_TIMESTAMP_PICOS):
     case TYPE_KIND_PAIR(TYPE_TIME, TYPE_TIME):
     case TYPE_KIND_PAIR(TYPE_DATETIME, TYPE_DATETIME):
     case TYPE_KIND_PAIR(TYPE_INTERVAL, TYPE_INTERVAL):
@@ -957,6 +1080,7 @@ Value Value::SqlLessThan(const Value& that) const {
     case TYPE_KIND_PAIR(TYPE_BYTES, TYPE_BYTES):
     case TYPE_KIND_PAIR(TYPE_DATE, TYPE_DATE):
     case TYPE_KIND_PAIR(TYPE_TIMESTAMP, TYPE_TIMESTAMP):
+    case TYPE_KIND_PAIR(TYPE_TIMESTAMP_PICOS, TYPE_TIMESTAMP_PICOS):
     case TYPE_KIND_PAIR(TYPE_TIME, TYPE_TIME):
     case TYPE_KIND_PAIR(TYPE_DATETIME, TYPE_DATETIME):
     case TYPE_KIND_PAIR(TYPE_ENUM, TYPE_ENUM):
@@ -1601,6 +1725,14 @@ Value TimestampArray(absl::Span<const absl::Time> values) {
   return Value::Array(TimestampArrayType(), value_vector);
 }
 
+Value TimestampPicosArray(absl::Span<const TimestampPicoValue> values) {
+  std::vector<Value> value_vector;
+  for (const auto& v : values) {
+    value_vector.push_back(Value::TimestampPicos(v));
+  }
+  return Value::Array(TimestampPicosArrayType(), value_vector);
+}
+
 }  // namespace values
 
 absl::Status Value::Serialize(ValueProto* value_proto) const {
@@ -1668,6 +1800,30 @@ absl::StatusOr<Value> Value::Deserialize(const ValueProto& value_proto,
           Deserialize(value_proto.range_value().end(), element_type));
       return MakeRange(start, end);
     }
+    case TYPE_MAP: {
+      if (!value_proto.has_map_value()) {
+        return type->TypeMismatchError(value_proto);
+      }
+      std::vector<std::pair<Value, Value>> map_entries;
+      map_entries.reserve(value_proto.map_value().entry_size());
+      for (const auto& entry : value_proto.map_value().entry()) {
+        if (!entry.has_key() || !entry.has_value()) {
+          return MakeEvalError()
+                 << "Invalid MapEntry could not be deserialized: entry must "
+                    "set both key and value.";
+        }
+        ZETASQL_ASSIGN_OR_RETURN(auto deserialized_key,
+                         Deserialize(entry.key(), type->AsMap()->key_type()));
+        ZETASQL_ASSIGN_OR_RETURN(
+            auto deserialized_value,
+            Deserialize(entry.value(), type->AsMap()->value_type()));
+        map_entries.push_back(std::make_pair(std::move(deserialized_key),
+                                             std::move(deserialized_value)));
+      }
+      return MakeMap(type, std::move(map_entries));
+    }
+    // TODO: b/365163099 - The cases above are tech debt, and should be moved
+    // into their respective DeserializeValueContent implementations.
     default: {
       ValueContent content;
       ZETASQL_RETURN_IF_ERROR(type->DeserializeValueContent(value_proto, &content));
@@ -1775,22 +1931,6 @@ uint64_t Value::TypedMap::physical_byte_size() const {
 }
 
 int64_t Value::TypedMap::num_elements() const { return map_.size(); }
-std::vector<
-    std::pair<internal::NullableValueContent, internal::NullableValueContent>>
-Value::TypedMap::value_content_entries() const {
-  std::vector<
-      std::pair<internal::NullableValueContent, internal::NullableValueContent>>
-      elements;
-  elements.reserve(map_.size());
-  for (const auto& [key, value] : map_) {
-    elements.push_back(std::make_pair(
-        key.is_null() ? internal::NullableValueContent()
-                      : internal::NullableValueContent(key.GetContent()),
-        value.is_null() ? internal::NullableValueContent()
-                        : internal::NullableValueContent(value.GetContent())));
-  }
-  return elements;
-}
 
 std::optional<internal::NullableValueContent>
 Value::TypedMap::GetContentMapValueByKey(

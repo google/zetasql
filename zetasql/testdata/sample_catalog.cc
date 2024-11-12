@@ -18,6 +18,7 @@
 
 #include "zetasql/public/builtin_function_options.h"
 #include "zetasql/public/language_options.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/testdata/sample_catalog_impl.h"
 #include "zetasql/base/check.h"
 

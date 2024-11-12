@@ -176,4 +176,12 @@ TEST(DeprecationWarnings, StatusToDeprecationWarning) {
       StatusIs(absl::StatusCode::kInternal, HasSubstr("extra payload")));
 }
 
+TEST(Errors, FirstCharLower) {
+  EXPECT_EQ("", FirstCharLower(""));
+  EXPECT_EQ("abc", FirstCharLower("abc"));
+  EXPECT_EQ("abc", FirstCharLower("Abc"));
+  // This looks like a keyword, so don't lowercase part of it.
+  EXPECT_EQ("ABC", FirstCharLower("ABC"));
+}
+
 }  // namespace zetasql

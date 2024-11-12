@@ -25,7 +25,6 @@ tuning.
 
 <tr>
   <td><a href="#case_expr"><code>CASE expr</code></a>
-
 </td>
   <td>
     Compares the given expression to each successive <code>WHEN</code> clause
@@ -35,7 +34,6 @@ tuning.
 
 <tr>
   <td><a href="#case"><code>CASE</code></a>
-
 </td>
   <td>
     Evaluates the condition of each successive <code>WHEN</code> clause and
@@ -46,7 +44,6 @@ tuning.
 
 <tr>
   <td><a href="#coalesce"><code>COALESCE</code></a>
-
 </td>
   <td>
     Produces the value of the first non-<code>NULL</code> expression, if any,
@@ -56,7 +53,6 @@ tuning.
 
 <tr>
   <td><a href="#if"><code>IF</code></a>
-
 </td>
   <td>
     If an expression evaluates to <code>TRUE</code>, produces a specified
@@ -66,7 +62,6 @@ tuning.
 
 <tr>
   <td><a href="#ifnull"><code>IFNULL</code></a>
-
 </td>
   <td>
     If an expression evaluates to <code>NULL</code>, produces a specified
@@ -76,7 +71,6 @@ tuning.
 
 <tr>
   <td><a href="#nullif"><code>NULLIF</code></a>
-
 </td>
   <td>
     Produces <code>NULL</code> if the first expression that matches another
@@ -86,7 +80,6 @@ tuning.
 
 <tr>
   <td><a href="#nullifzero"><code>NULLIFZERO</code></a>
-
 </td>
   <td>
     Produces <code>NULL</code> if an expression is <code>0</code>,
@@ -96,7 +89,6 @@ tuning.
 
 <tr>
   <td><a href="#zeroifnull"><code>ZEROIFNULL</code></a>
-
 </td>
   <td>
     Produces <code>0</code> if an expression is <code>NULL</code>, otherwise

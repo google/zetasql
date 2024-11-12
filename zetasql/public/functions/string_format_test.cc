@@ -24,6 +24,7 @@
 #include "zetasql/base/logging.h"
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/common/testing/testing_proto_util.h"
+#include "zetasql/public/types/graph_element_type.h"
 #include "zetasql/testdata/test_schema.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -162,6 +163,16 @@ TEST_P(StringFormatTest, TestBadJsonValue) {
 }
 
 INSTANTIATE_TEST_SUITE_P(CanonicalizedZero, StringFormatTest, testing::Bool());
+
+TEST(CheckStringFormat, TestUnsupportedType) {
+  TypeFactory type_factory;
+  const zetasql::GraphElementType* graph_element_type = nullptr;
+  ZETASQL_ASSERT_OK(type_factory.MakeGraphElementType(
+      {"aml"}, GraphElementType::ElementKind::kNode, {}, &graph_element_type));
+  EXPECT_THAT(CheckStringFormatUtf8ArgumentTypes("%t", {graph_element_type},
+                                                 ProductMode::PRODUCT_EXTERNAL),
+              StatusIs(absl::StatusCode::kUnimplemented));
+}
 
 }  // namespace functions
 }  // namespace zetasql

@@ -1872,7 +1872,7 @@ TEST(FunctionSignatureTests, TestIsTemplatedArgument) {
     // values.
     enum_size += SignatureArgumentKind_IsValid(i);
   }
-  ASSERT_EQ(27, enum_size);
+  ASSERT_EQ(31, enum_size);
 
   std::set<SignatureArgumentKind> templated_kinds;
   templated_kinds.insert(ARG_TYPE_ANY_1);
@@ -1899,6 +1899,9 @@ TEST(FunctionSignatureTests, TestIsTemplatedArgument) {
   templated_kinds.insert(ARG_TYPE_DESCRIPTOR);
   templated_kinds.insert(ARG_TYPE_LAMBDA);
   templated_kinds.insert(ARG_RANGE_TYPE_ANY_1);
+  templated_kinds.insert(ARG_TYPE_GRAPH_NODE);
+  templated_kinds.insert(ARG_TYPE_GRAPH_EDGE);
+  templated_kinds.insert(ARG_TYPE_GRAPH_PATH);
   templated_kinds.insert(ARG_TYPE_SEQUENCE);
 
   std::set<SignatureArgumentKind> non_templated_kinds;
@@ -2299,6 +2302,24 @@ TEST(FunctionSignatureTests,
   EXPECT_TRUE(
       equatable_array_arg.options().array_element_must_support_equality());
   TestArgumentTypeOptionsSerialization(equatable_array_arg);
+}
+
+TEST(FunctionSignatureTests, GraphFunctionArgumentType) {
+  FunctionArgumentType node_arg(ARG_TYPE_GRAPH_NODE),
+      edge_arg(ARG_TYPE_GRAPH_EDGE), element_arg(ARG_TYPE_GRAPH_ELEMENT),
+      path_arg(ARG_TYPE_GRAPH_PATH);
+  EXPECT_TRUE(node_arg.IsScalar());
+  EXPECT_TRUE(edge_arg.IsScalar());
+  EXPECT_TRUE(element_arg.IsScalar());
+  EXPECT_TRUE(path_arg.IsScalar());
+  EXPECT_EQ(node_arg.UserFacingName(PRODUCT_INTERNAL), "GRAPH_NODE");
+  EXPECT_EQ(edge_arg.UserFacingName(PRODUCT_INTERNAL), "GRAPH_EDGE");
+  EXPECT_EQ(element_arg.UserFacingName(PRODUCT_INTERNAL), "GRAPH_ELEMENT");
+  EXPECT_EQ(path_arg.UserFacingName(PRODUCT_INTERNAL), "GRAPH_PATH");
+  EXPECT_EQ(node_arg.DebugString(), "<graph_node>");
+  EXPECT_EQ(edge_arg.DebugString(), "<graph_edge>");
+  EXPECT_EQ(element_arg.DebugString(), "<graph_element>");
+  EXPECT_EQ(path_arg.DebugString(), "<graph_path>");
 }
 
 TEST(FunctionSignatureTests, LambdaArgumentTypeConstructedDirectlyIsInvalid) {

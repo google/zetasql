@@ -16,7 +16,7 @@ NOTE: These functions return a runtime error if overflow occurs; result
 values are bounded by the defined [`DATE` range][data-types-link-to-date_type]
 and [`TIMESTAMP` range][data-types-link-to-timestamp_type].
 
-### Function list
+## Function list
 
 <table>
   <thead>
@@ -28,8 +28,7 @@ and [`TIMESTAMP` range][data-types-link-to-timestamp_type].
   <tbody>
 
 <tr>
-  <td><a href="#current_timestamp"><code>CURRENT_TIMESTAMP</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#current_timestamp"><code>CURRENT_TIMESTAMP</code></a>
 </td>
   <td>
     Returns the current date and time as a <code>TIMESTAMP</code> object.
@@ -37,8 +36,7 @@ and [`TIMESTAMP` range][data-types-link-to-timestamp_type].
 </tr>
 
 <tr>
-  <td><a href="#extract"><code>EXTRACT</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#extract"><code>EXTRACT</code></a>
 </td>
   <td>
     Extracts part of a <code>TIMESTAMP</code> value.
@@ -46,8 +44,7 @@ and [`TIMESTAMP` range][data-types-link-to-timestamp_type].
 </tr>
 
 <tr>
-  <td><a href="#format_timestamp"><code>FORMAT_TIMESTAMP</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#format_timestamp"><code>FORMAT_TIMESTAMP</code></a>
 </td>
   <td>
     Formats a <code>TIMESTAMP</code> value according to the specified
@@ -56,26 +53,35 @@ and [`TIMESTAMP` range][data-types-link-to-timestamp_type].
 </tr>
 
 <tr>
-  <td><a href="#parse_timestamp"><code>PARSE_TIMESTAMP</code></a>
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/array_functions.md#generate_timestamp_array"><code>GENERATE_TIMESTAMP_ARRAY</code></a>
+</td>
+  <td>
+    Generates an array of timestamps in a range.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/array_functions.md">Array functions</a>.
 
+  </td>
+</tr>
+
+<tr>
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#parse_timestamp"><code>PARSE_TIMESTAMP</code></a>
 </td>
   <td>
     Converts a <code>STRING</code> value to a <code>TIMESTAMP</code> value.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#string"><code>STRING</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#string"><code>STRING</code> (Timestamp)</a>
 </td>
   <td>
     Converts a <code>TIMESTAMP</code> value to a <code>STRING</code> value.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#timestamp"><code>TIMESTAMP</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#timestamp"><code>TIMESTAMP</code></a>
 </td>
   <td>
     Constructs a <code>TIMESTAMP</code> value.
@@ -83,8 +89,7 @@ and [`TIMESTAMP` range][data-types-link-to-timestamp_type].
 </tr>
 
 <tr>
-  <td><a href="#timestamp_add"><code>TIMESTAMP_ADD</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#timestamp_add"><code>TIMESTAMP_ADD</code></a>
 </td>
   <td>
     Adds a specified time interval to a <code>TIMESTAMP</code> value.
@@ -92,8 +97,7 @@ and [`TIMESTAMP` range][data-types-link-to-timestamp_type].
 </tr>
 
 <tr>
-  <td><a href="#timestamp_diff"><code>TIMESTAMP_DIFF</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#timestamp_diff"><code>TIMESTAMP_DIFF</code></a>
 </td>
   <td>
     Gets the number of unit boundaries between two <code>TIMESTAMP</code> values
@@ -102,8 +106,7 @@ and [`TIMESTAMP` range][data-types-link-to-timestamp_type].
 </tr>
 
 <tr>
-  <td><a href="#timestamp_from_unix_micros"><code>TIMESTAMP_FROM_UNIX_MICROS</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#timestamp_from_unix_micros"><code>TIMESTAMP_FROM_UNIX_MICROS</code></a>
 </td>
   <td>
     Similar to <code>TIMESTAMP_MICROS</code>, except that additionally, a
@@ -112,8 +115,7 @@ and [`TIMESTAMP` range][data-types-link-to-timestamp_type].
 </tr>
 
 <tr>
-  <td><a href="#timestamp_from_unix_millis"><code>TIMESTAMP_FROM_UNIX_MILLIS</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#timestamp_from_unix_millis"><code>TIMESTAMP_FROM_UNIX_MILLIS</code></a>
 </td>
   <td>
     Similar to <code>TIMESTAMP_MILLIS</code>, except that additionally, a
@@ -122,8 +124,7 @@ and [`TIMESTAMP` range][data-types-link-to-timestamp_type].
 </tr>
 
 <tr>
-  <td><a href="#timestamp_from_unix_seconds"><code>TIMESTAMP_FROM_UNIX_SECONDS</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#timestamp_from_unix_seconds"><code>TIMESTAMP_FROM_UNIX_SECONDS</code></a>
 </td>
   <td>
     Similar to <code>TIMESTAMP_SECONDS</code>, except that additionally, a
@@ -132,38 +133,37 @@ and [`TIMESTAMP` range][data-types-link-to-timestamp_type].
 </tr>
 
 <tr>
-  <td><a href="#timestamp_micros"><code>TIMESTAMP_MICROS</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#timestamp_micros"><code>TIMESTAMP_MICROS</code></a>
 </td>
   <td>
     Converts the number of microseconds since
-    1970-01-01 00:00:00 UTC to a <code>TIMESTAMP</value>.
+    1970-01-01 00:00:00 UTC to a <code>TIMESTAMP</code>.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#timestamp_millis"><code>TIMESTAMP_MILLIS</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#timestamp_millis"><code>TIMESTAMP_MILLIS</code></a>
 </td>
   <td>
     Converts the number of milliseconds since
-    1970-01-01 00:00:00 UTC to a <code>TIMESTAMP</value>.
+    1970-01-01 00:00:00 UTC to a <code>TIMESTAMP</code>.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#timestamp_seconds"><code>TIMESTAMP_SECONDS</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#timestamp_seconds"><code>TIMESTAMP_SECONDS</code></a>
 </td>
   <td>
     Converts the number of seconds since
-    1970-01-01 00:00:00 UTC to a <code>TIMESTAMP</value>.
+    1970-01-01 00:00:00 UTC to a <code>TIMESTAMP</code>.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#timestamp_sub"><code>TIMESTAMP_SUB</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#timestamp_sub"><code>TIMESTAMP_SUB</code></a>
 </td>
   <td>
     Subtracts a specified time interval from a <code>TIMESTAMP</code> value.
@@ -171,48 +171,51 @@ and [`TIMESTAMP` range][data-types-link-to-timestamp_type].
 </tr>
 
 <tr>
-  <td><a href="#timestamp_trunc"><code>TIMESTAMP_TRUNC</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#timestamp_trunc"><code>TIMESTAMP_TRUNC</code></a>
 </td>
   <td>
-    Truncates a <code>TIMESTAMP</code> value.
+    
+    Truncates a <code>TIMESTAMP</code> or
+    <code>DATETIME</code> value at a particular
+    granularity.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#unix_micros"><code>UNIX_MICROS</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#unix_micros"><code>UNIX_MICROS</code></a>
 </td>
   <td>
     Converts a <code>TIMESTAMP</code> value to the number of microseconds since
     1970-01-01 00:00:00 UTC.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#unix_millis"><code>UNIX_MILLIS</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#unix_millis"><code>UNIX_MILLIS</code></a>
 </td>
   <td>
     Converts a <code>TIMESTAMP</code> value to the number of milliseconds
     since 1970-01-01 00:00:00 UTC.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#unix_seconds"><code>UNIX_SECONDS</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#unix_seconds"><code>UNIX_SECONDS</code></a>
 </td>
   <td>
     Converts a <code>TIMESTAMP</code> value to the number of seconds since
     1970-01-01 00:00:00 UTC.
+    
   </td>
 </tr>
 
   </tbody>
 </table>
 
-### `CURRENT_TIMESTAMP`
+## `CURRENT_TIMESTAMP`
 
 ```sql
 CURRENT_TIMESTAMP()
@@ -257,7 +260,7 @@ SELECT CURRENT_TIMESTAMP() AS now;
 
 [timestamp-functions-link-to-range-variables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#range_variables
 
-### `EXTRACT`
+## `EXTRACT`
 
 ```sql
 EXTRACT(part FROM timestamp_expression [AT TIME ZONE time_zone])
@@ -464,24 +467,31 @@ SELECT
 
 [timestamp-link-to-timezone-definitions]: #timezone_definitions
 
-### `FORMAT_TIMESTAMP`
+## `FORMAT_TIMESTAMP`
 
 ```sql
-FORMAT_TIMESTAMP(format_string, timestamp[, time_zone])
+FORMAT_TIMESTAMP(format_string, timestamp_expr[, time_zone])
 ```
 
 **Description**
 
-Formats a timestamp according to the specified `format_string`.
+Formats a `TIMESTAMP` value according to the specified format string.
 
-See [Format elements for date and time parts][timestamp-format-elements]
-for a list of format elements that this function supports.
+**Definitions**
+
++   `format_string`: A `STRING` value that contains the
+    [format elements][timestamp-format-elements] to use with
+    `timestamp_expr`.
++   `timestamp_expr`: A `TIMESTAMP` value that represents the timestamp to format.
++   `time_zone`: A `STRING` value that represents a time zone. For more
+    information about how to use a time zone with a timestamp, see
+    [Time zone definitions][timestamp-link-to-timezone-definitions].
 
 **Return Data Type**
 
 `STRING`
 
-**Example**
+**Examples**
 
 ```sql
 SELECT FORMAT_TIMESTAMP("%c", TIMESTAMP "2050-12-25 15:30:55+00", "UTC")
@@ -529,7 +539,9 @@ SELECT FORMAT_TIMESTAMP("%Y-%m-%dT%H:%M:%SZ", TIMESTAMP "2050-12-25 15:30:55", "
 
 [timestamp-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
 
-### `PARSE_TIMESTAMP`
+[timestamp-link-to-timezone-definitions]: #timezone_definitions
+
+## `PARSE_TIMESTAMP`
 
 ```sql
 PARSE_TIMESTAMP(format_string, timestamp_string[, time_zone])
@@ -537,14 +549,22 @@ PARSE_TIMESTAMP(format_string, timestamp_string[, time_zone])
 
 **Description**
 
-Converts a [string representation of a timestamp][timestamp-format] to a
-`TIMESTAMP` object.
+Converts a `STRING` value to a `TIMESTAMP` value.
 
-`format_string` contains the [format elements][timestamp-format-elements]
-that define how `timestamp_string` is formatted. Each element in
-`timestamp_string` must have a corresponding element in `format_string`. The
-location of each element in `format_string` must match the location of
-each element in `timestamp_string`.
+**Definitions**
+
++   `format_string`: A `STRING` value that contains the
+    [format elements][timestamp-format-elements] to use with `timestamp_string`.
++   `timestamp_string`: A `STRING` value that represents the timestamp to parse.
++   `time_zone`: A `STRING` value that represents a time zone. For more
+    information about how to use a time zone with a timestamp, see
+    [Time zone definitions][timestamp-link-to-timezone-definitions].
+
+**Details**
+
+Each element in `timestamp_string` must have a corresponding element in
+`format_string`. The location of each element in `format_string` must match the
+location of each element in `timestamp_string`.
 
 ```sql
 -- This works because elements on both sides match.
@@ -562,22 +582,22 @@ SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008");
 
 When using `PARSE_TIMESTAMP`, keep the following in mind:
 
-+ **Unspecified fields.** Any unspecified field is initialized from `1970-01-01
++ Unspecified fields. Any unspecified field is initialized from `1970-01-01
   00:00:00.0`. This initialization value uses the time zone specified by the
   function's time zone argument, if present. If not, the initialization value
   uses the default time zone, which is implementation defined.  For instance, if the year
   is unspecified then it defaults to `1970`, and so on.
-+ **Case insensitivity.** Names, such as `Monday`, `February`, and so on, are
++ Case insensitivity. Names, such as `Monday`, `February`, and so on, are
   case insensitive.
-+ **Whitespace.** One or more consecutive white spaces in the format string
++ Whitespace. One or more consecutive white spaces in the format string
   matches zero or more consecutive white spaces in the timestamp string. In
   addition, leading and trailing white spaces in the timestamp string are always
   allowed, even if they are not in the format string.
-+ **Format precedence.** When two (or more) format elements have overlapping
++ Format precedence. When two (or more) format elements have overlapping
   information (for example both `%F` and `%Y` affect the year), the last one
   generally overrides any earlier ones, with some exceptions (see the
   descriptions of `%s`, `%C`, and `%y`).
-+ **Format divergence.** `%p` can be used with `am`, `AM`, `pm`, and `PM`.
++ Format divergence. `%p` can be used with `am`, `AM`, `pm`, and `PM`.
 
 **Return Data Type**
 
@@ -600,7 +620,9 @@ SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008") AS parsed;
 
 [timestamp-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
 
-### `STRING`
+[timestamp-link-to-timezone-definitions]: #timezone_definitions
+
+## `STRING`
 
 ```sql
 STRING(timestamp_expression[, time_zone])
@@ -631,7 +653,7 @@ SELECT STRING(TIMESTAMP "2008-12-25 15:30:00+00", "UTC") AS string;
 
 [timestamp-link-to-timezone-definitions]: #timezone_definitions
 
-### `TIMESTAMP`
+## `TIMESTAMP`
 
 ```sql
 TIMESTAMP(string_expression[, time_zone])
@@ -723,7 +745,7 @@ SELECT TIMESTAMP(DATE "2008-12-25") AS timestamp_date;
 
 [timestamp-link-to-timezone-definitions]: #timezone_definitions
 
-### `TIMESTAMP_ADD`
+## `TIMESTAMP_ADD`
 
 ```sql
 TIMESTAMP_ADD(timestamp_expression, INTERVAL int64_expression date_part)
@@ -764,7 +786,7 @@ SELECT
  *---------------------------------------------+---------------------------------------------*/
 ```
 
-### `TIMESTAMP_DIFF`
+## `TIMESTAMP_DIFF`
 
 ```sql
 TIMESTAMP_DIFF(end_timestamp, start_timestamp, granularity)
@@ -850,7 +872,7 @@ SELECT TIMESTAMP_DIFF("2001-02-01 01:00:00", "2001-02-01 00:00:01", HOUR) AS dif
  *---------------*/
 ```
 
-### `TIMESTAMP_FROM_UNIX_MICROS`
+## `TIMESTAMP_FROM_UNIX_MICROS`
 
 ```sql
 TIMESTAMP_FROM_UNIX_MICROS(int64_expression)
@@ -883,7 +905,7 @@ SELECT TIMESTAMP_FROM_UNIX_MICROS(1230219000000000) AS timestamp_value;
  *------------------------*/
 ```
 
-### `TIMESTAMP_FROM_UNIX_MILLIS`
+## `TIMESTAMP_FROM_UNIX_MILLIS`
 
 ```sql
 TIMESTAMP_FROM_UNIX_MILLIS(int64_expression)
@@ -916,7 +938,7 @@ SELECT TIMESTAMP_FROM_UNIX_MILLIS(1230219000000) AS timestamp_value;
  *------------------------*/
 ```
 
-### `TIMESTAMP_FROM_UNIX_SECONDS`
+## `TIMESTAMP_FROM_UNIX_SECONDS`
 
 ```sql
 TIMESTAMP_FROM_UNIX_SECONDS(int64_expression)
@@ -949,7 +971,7 @@ SELECT TIMESTAMP_FROM_UNIX_SECONDS(1230219000) AS timestamp_value;
  *------------------------*/
 ```
 
-### `TIMESTAMP_MICROS`
+## `TIMESTAMP_MICROS`
 
 ```sql
 TIMESTAMP_MICROS(int64_expression)
@@ -977,7 +999,7 @@ SELECT TIMESTAMP_MICROS(1230219000000000) AS timestamp_value;
  *------------------------*/
 ```
 
-### `TIMESTAMP_MILLIS`
+## `TIMESTAMP_MILLIS`
 
 ```sql
 TIMESTAMP_MILLIS(int64_expression)
@@ -1005,7 +1027,7 @@ SELECT TIMESTAMP_MILLIS(1230219000000) AS timestamp_value;
  *------------------------*/
 ```
 
-### `TIMESTAMP_SECONDS`
+## `TIMESTAMP_SECONDS`
 
 ```sql
 TIMESTAMP_SECONDS(int64_expression)
@@ -1033,7 +1055,7 @@ SELECT TIMESTAMP_SECONDS(1230219000) AS timestamp_value;
  *------------------------*/
 ```
 
-### `TIMESTAMP_SUB`
+## `TIMESTAMP_SUB`
 
 ```sql
 TIMESTAMP_SUB(timestamp_expression, INTERVAL int64_expression date_part)
@@ -1074,23 +1096,90 @@ SELECT
  *---------------------------------------------+---------------------------------------------*/
 ```
 
-### `TIMESTAMP_TRUNC`
+## `TIMESTAMP_TRUNC`
 
 ```sql
-TIMESTAMP_TRUNC(timestamp_expression, granularity[, time_zone])
+TIMESTAMP_TRUNC(timestamp_value, timestamp_granularity[, time_zone])
+```
+
+```sql
+TIMESTAMP_TRUNC(datetime_value, datetime_granularity)
 ```
 
 **Description**
 
-Truncates a `TIMESTAMP` value at a particular time granularity. The `TIMESTAMP`
-value is always rounded to the beginning of `granularity`.
+Truncates a `TIMESTAMP` or `DATETIME` value at a particular granularity.
 
 **Definitions**
 
-+ `timestamp_expression`: The `TIMESTAMP` value to truncate.
-+ `granularity`: The datetime part that represents the granularity. If
-  you passed in a `TIMESTAMP` value for the first argument, `granularity` can
-  be:
++ `timestamp_value`: A `TIMESTAMP` value to truncate.
++ `timestamp_granularity`: The truncation granularity for a `TIMESTAMP` value.
+  [Date granularities][timestamp-trunc-granularity-date] and
+  [time granularities][timestamp-trunc-granularity-time] can be used.
++ `time_zone`: A time zone to use with the `TIMESTAMP` value.
+  [Time zone parts][timestamp-time-zone-parts] can be used.
+  Use this argument if you want to use a time zone other than
+  the default time zone, which is implementation defined, as part of the
+  truncate operation.
+
+      Note: When truncating a timestamp to `MINUTE`
+    or `HOUR` parts, this function determines the civil time of the
+    timestamp in the specified (or default) time zone
+    and subtracts the minutes and seconds (when truncating to `HOUR`) or the
+    seconds (when truncating to `MINUTE`) from that timestamp.
+    While this provides intuitive results in most cases, the result is
+    non-intuitive near daylight savings transitions that are not hour-aligned.
++ `datetime_value`: A `DATETIME` value to truncate.
++ `datetime_granularity`: The truncation granularity for a `DATETIME` value.
+  [Date granularities][timestamp-trunc-granularity-date] and
+  [time granularities][timestamp-trunc-granularity-time] can be used.
+
+<a id="timestamp_trunc_granularity_date"></a>
+
+**Date granularity definitions**
+
+  + `DAY`: The day in the Gregorian calendar year that contains the
+    value to truncate.
+
+  + `WEEK`: The first day in the week that contains the
+    value to truncate. Weeks begin on Sundays. `WEEK` is equivalent to
+    `WEEK(SUNDAY)`.
+
+  + `WEEK(WEEKDAY)`: The first day in the week that contains the
+    value to truncate. Weeks begin on `WEEKDAY`. `WEEKDAY` must be one of the
+     following: `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`, `FRIDAY`,
+     or `SATURDAY`.
+
+  + `ISOWEEK`: The first day in the [ISO 8601 week][ISO-8601-week] that contains
+    the value to truncate. The ISO week begins on
+    Monday. The first ISO week of each ISO year contains the first Thursday of the
+    corresponding Gregorian calendar year.
+
+  + `MONTH`: The first day in the month that contains the
+    value to truncate.
+
+  + `QUARTER`: The first day in the quarter that contains the
+    value to truncate.
+
+  + `YEAR`: The first day in the year that contains the
+    value to truncate.
+
+  + `ISOYEAR`: The first day in the [ISO 8601][ISO-8601] week-numbering year
+    that contains the value to truncate. The ISO year is the
+    Monday of the first week where Thursday belongs to the corresponding
+    Gregorian calendar year.
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
+
+[ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
+
+<!-- mdlint on -->
+
+<a id="timestamp_trunc_granularity_time"></a>
+
+**Time granularity definitions**
 
   + `NANOSECOND`: If used, nothing is truncated from the value.
 
@@ -1104,71 +1193,28 @@ value is always rounded to the beginning of `granularity`.
 
   + `HOUR`: The nearest lesser than or equal hour.
 
-  + `DAY`: The day in the Gregorian calendar year that contains the
-    `TIMESTAMP` value.
+<a id="timestamp_time_zone_parts"></a>
 
-  + `WEEK`: The first day in the week that contains the
-    `TIMESTAMP` value. Weeks begin on Sundays. `WEEK` is equivalent to
-    `WEEK(SUNDAY)`.
+**Time zone part definitions**
 
-  + `WEEK(WEEKDAY)`: The first day in the week that contains the
-    `TIMESTAMP` value. Weeks begin on `WEEKDAY`. `WEEKDAY` must be one of the
-     following: `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`, `FRIDAY`,
-     or `SATURDAY`.
++ `MINUTE`
++ `HOUR`
++ `DAY`
++ `WEEK`
++ `WEEK(<WEEKDAY>)`
++ `ISOWEEK`
++ `MONTH`
++ `QUARTER`
++ `YEAR`
++ `ISOYEAR`
 
-  + `ISOWEEK`: The first day in the [ISO 8601 week][ISO-8601-week] that contains
-    the `TIMESTAMP` value. The ISO week begins on
-    Monday. The first ISO week of each ISO year contains the first Thursday of the
-    corresponding Gregorian calendar year.
+**Details**
 
-  + `MONTH`: The first day in the month that contains the
-    `TIMESTAMP` value.
-
-  + `QUARTER`: The first day in the quarter that contains the
-    `TIMESTAMP` value.
-
-  + `YEAR`: The first day in the year that contains the
-    `TIMESTAMP` value.
-
-  + `ISOYEAR`: The first day in the [ISO 8601][ISO-8601] week-numbering year
-    that contains the `TIMESTAMP` value. The ISO year is the
-    Monday of the first week where Thursday belongs to the corresponding
-    Gregorian calendar year.
-
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
-
-[ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
-
-<!-- mdlint on -->
-
-+ `time_zone`: Use this parameter if you want to use a time zone other than
-  the default time zone, which is implementation defined, as part of the
-  truncate operation. This can be:
-
-    + `MINUTE`
-    + `HOUR`
-    + `DAY`
-    + `WEEK`
-    + `WEEK(<WEEKDAY>)`
-    + `ISOWEEK`
-    + `MONTH`
-    + `QUARTER`
-    + `YEAR`
-    + `ISOYEAR`
-
-When truncating a timestamp to `MINUTE`
-or`HOUR` parts, `TIMESTAMP_TRUNC` determines the civil time of the
-timestamp in the specified (or default) time zone
-and subtracts the minutes and seconds (when truncating to `HOUR`) or the seconds
-(when truncating to `MINUTE`) from that timestamp.
-While this provides intuitive results in most cases, the result is
-non-intuitive near daylight savings transitions that are not hour-aligned.
+The resulting value is always rounded to the beginning of `granularity`.
 
 **Return Data Type**
 
-`TIMESTAMP`
+The same data type as the first argument passed into this function.
 
 **Examples**
 
@@ -1233,7 +1279,13 @@ SELECT
 
 [timestamp-link-to-timezone-definitions]: #timezone_definitions
 
-### `UNIX_MICROS`
+[timestamp-trunc-granularity-date]: #timestamp_trunc_granularity_date
+
+[timestamp-trunc-granularity-time]: #timestamp_trunc_granularity_time
+
+[timestamp-time-zone-parts]: #timestamp_time_zone_parts
+
+## `UNIX_MICROS`
 
 ```sql
 UNIX_MICROS(timestamp_expression)
@@ -1271,7 +1323,7 @@ SELECT UNIX_MICROS(TIMESTAMP "1970-01-01 00:00:00.0000018+00") AS micros;
  *------------------*/
 ```
 
-### `UNIX_MILLIS`
+## `UNIX_MILLIS`
 
 ```sql
 UNIX_MILLIS(timestamp_expression)
@@ -1308,7 +1360,7 @@ SELECT UNIX_MILLIS(TIMESTAMP "1970-01-01 00:00:00.0018+00") AS millis;
  *---------------*/
 ```
 
-### `UNIX_SECONDS`
+## `UNIX_SECONDS`
 
 ```sql
 UNIX_SECONDS(timestamp_expression)
@@ -1345,6 +1397,8 @@ SELECT UNIX_SECONDS(TIMESTAMP "1970-01-01 00:00:01.8+00") AS seconds;
  *------------*/
 ```
 
+## Supplemental materials
+
 ### How time zones work with timestamp functions 
 <a id="timezone_definitions"></a>
 
@@ -1375,7 +1429,7 @@ or time zone offset from UTC (for example, -08).
 To learn more about how time zones work with the `TIMESTAMP` type, see
 [Time zones][data-types-timezones].
 
-[timezone-by-name]: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+[data-types-timezones]: https://github.com/google/zetasql/blob/master/docs/data-types.md#time_zones
 
 [data-types-timezones]: https://github.com/google/zetasql/blob/master/docs/data-types.md#time_zones
 

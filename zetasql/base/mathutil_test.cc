@@ -29,7 +29,6 @@
 #include "gtest/gtest.h"
 #include "absl/base/macros.h"
 #include "absl/log/log.h"
-#include "zetasql/base/mathlimits.h"
 
 namespace zetasql_base {
 namespace {
@@ -89,9 +88,9 @@ void TestSimpleUtils() {
   const Type kZero = 0.0;
   const Type kNegZero = -0.0;
   const Type kFinite = 2.67;
-  const Type kNaN = MathLimits<Type>::kNaN;
-  const Type kPosInf = MathLimits<Type>::kPosInf;
-  const Type kNegInf = MathLimits<Type>::kNegInf;
+  const Type kNaN = std::numeric_limits<Type>::quiet_NaN();
+  const Type kPosInf = std::numeric_limits<Type>::infinity();
+  const Type kNegInf = -std::numeric_limits<Type>::infinity();
 
   EXPECT_TRUE(MathUtil::Min(kZero, kNegZero) == kNegZero);
   EXPECT_TRUE(MathUtil::Min(kNegZero, kZero) == kNegZero);
@@ -99,51 +98,51 @@ void TestSimpleUtils() {
   // are indistinguishable w.r.t. == :
   EXPECT_TRUE(kNegZero == kZero);
 
-  EXPECT_TRUE(MathLimits<Type>::IsNaN(MathUtil::Min(kNaN, kFinite)));
-  EXPECT_TRUE(MathLimits<Type>::IsNaN(MathUtil::Min(kFinite, kNaN)));
-  EXPECT_TRUE(MathLimits<Type>::IsNaN(MathUtil::Min(kNaN, kNaN)));
-  EXPECT_TRUE(MathLimits<Type>::IsNaN(MathUtil::Min(kNaN, -kNaN)));
-  EXPECT_TRUE(MathLimits<Type>::IsNaN(MathUtil::Min(kNaN, kPosInf)));
-  EXPECT_TRUE(MathLimits<Type>::IsNaN(MathUtil::Min(kNaN, kNegInf)));
-  EXPECT_TRUE(MathLimits<Type>::IsNaN(MathUtil::Min(kPosInf, kNaN)));
-  EXPECT_TRUE(MathLimits<Type>::IsNaN(MathUtil::Min(kNegInf, kNaN)));
+  EXPECT_TRUE(std::isnan(MathUtil::Min(kNaN, kFinite)));
+  EXPECT_TRUE(std::isnan(MathUtil::Min(kFinite, kNaN)));
+  EXPECT_TRUE(std::isnan(MathUtil::Min(kNaN, kNaN)));
+  EXPECT_TRUE(std::isnan(MathUtil::Min(kNaN, -kNaN)));
+  EXPECT_TRUE(std::isnan(MathUtil::Min(kNaN, kPosInf)));
+  EXPECT_TRUE(std::isnan(MathUtil::Min(kNaN, kNegInf)));
+  EXPECT_TRUE(std::isnan(MathUtil::Min(kPosInf, kNaN)));
+  EXPECT_TRUE(std::isnan(MathUtil::Min(kNegInf, kNaN)));
 
   EXPECT_TRUE(MathUtil::Min(kPosInf, kFinite) == kFinite);
   EXPECT_TRUE(MathUtil::Min(kFinite, kPosInf) == kFinite);
-  EXPECT_TRUE(MathLimits<Type>::IsPosInf(MathUtil::Min(kPosInf, kPosInf)));
-  EXPECT_TRUE(MathLimits<Type>::IsNegInf(MathUtil::Min(kPosInf, kNegInf)));
-  EXPECT_TRUE(MathLimits<Type>::IsNegInf(MathUtil::Min(kNegInf, kPosInf)));
+  EXPECT_EQ(MathUtil::Min(kPosInf, kPosInf), kPosInf);
+  EXPECT_EQ(MathUtil::Min(kPosInf, kNegInf), kNegInf);
+  EXPECT_EQ(MathUtil::Min(kNegInf, kPosInf), kNegInf);
 
-  EXPECT_TRUE(MathLimits<Type>::IsNegInf(MathUtil::Min(kNegInf, kFinite)));
-  EXPECT_TRUE(MathLimits<Type>::IsNegInf(MathUtil::Min(kFinite, kNegInf)));
-  EXPECT_TRUE(MathLimits<Type>::IsNegInf(MathUtil::Min(kNegInf, kNegInf)));
+  EXPECT_EQ(MathUtil::Min(kNegInf, kFinite), kNegInf);
+  EXPECT_EQ(MathUtil::Min(kFinite, kNegInf), kNegInf);
+  EXPECT_EQ(MathUtil::Min(kNegInf, kNegInf), kNegInf);
 
   EXPECT_TRUE(MathUtil::Abs(kZero) == kZero);
   EXPECT_TRUE(MathUtil::Abs(kNegZero) == kZero);
   EXPECT_TRUE(MathUtil::Abs(kFinite) == kFinite);
   EXPECT_TRUE(MathUtil::Abs(-kFinite) == kFinite);
-  EXPECT_TRUE(MathLimits<Type>::IsNaN(MathUtil::Abs(kNaN)));
-  EXPECT_TRUE(MathLimits<Type>::IsPosInf(MathUtil::Abs(kPosInf)));
-  EXPECT_TRUE(MathLimits<Type>::IsPosInf(MathUtil::Abs(kNegInf)));
+  EXPECT_TRUE(std::isnan(MathUtil::Abs(kNaN)));
+  EXPECT_EQ(MathUtil::Abs(kPosInf), kPosInf);
+  EXPECT_EQ(MathUtil::Abs(kNegInf), kPosInf);
 
-  EXPECT_TRUE(MathLimits<Type>::IsNaN(MathUtil::AbsDiff(kNaN, kFinite)));
-  EXPECT_TRUE(MathLimits<Type>::IsNaN(MathUtil::AbsDiff(kFinite, kNaN)));
-  EXPECT_TRUE(MathLimits<Type>::IsNaN(MathUtil::AbsDiff(kNaN, kNaN)));
-  EXPECT_TRUE(MathLimits<Type>::IsNaN(MathUtil::AbsDiff(kNaN, -kNaN)));
-  EXPECT_TRUE(MathLimits<Type>::IsNaN(MathUtil::AbsDiff(kNaN, kPosInf)));
-  EXPECT_TRUE(MathLimits<Type>::IsNaN(MathUtil::AbsDiff(kNaN, kNegInf)));
-  EXPECT_TRUE(MathLimits<Type>::IsNaN(MathUtil::AbsDiff(kPosInf, kNaN)));
-  EXPECT_TRUE(MathLimits<Type>::IsNaN(MathUtil::AbsDiff(kNegInf, kNaN)));
+  EXPECT_TRUE(std::isnan(MathUtil::AbsDiff(kNaN, kFinite)));
+  EXPECT_TRUE(std::isnan(MathUtil::AbsDiff(kFinite, kNaN)));
+  EXPECT_TRUE(std::isnan(MathUtil::AbsDiff(kNaN, kNaN)));
+  EXPECT_TRUE(std::isnan(MathUtil::AbsDiff(kNaN, -kNaN)));
+  EXPECT_TRUE(std::isnan(MathUtil::AbsDiff(kNaN, kPosInf)));
+  EXPECT_TRUE(std::isnan(MathUtil::AbsDiff(kNaN, kNegInf)));
+  EXPECT_TRUE(std::isnan(MathUtil::AbsDiff(kPosInf, kNaN)));
+  EXPECT_TRUE(std::isnan(MathUtil::AbsDiff(kNegInf, kNaN)));
 
-  EXPECT_TRUE(MathLimits<Type>::IsPosInf(MathUtil::AbsDiff(kPosInf, kFinite)));
-  EXPECT_TRUE(MathLimits<Type>::IsPosInf(MathUtil::AbsDiff(kFinite, kPosInf)));
-  EXPECT_TRUE(MathLimits<Type>::IsNaN(MathUtil::AbsDiff(kPosInf, kPosInf)));
-  EXPECT_TRUE(MathLimits<Type>::IsPosInf(MathUtil::AbsDiff(kPosInf, kNegInf)));
-  EXPECT_TRUE(MathLimits<Type>::IsPosInf(MathUtil::AbsDiff(kNegInf, kPosInf)));
+  EXPECT_EQ(MathUtil::AbsDiff(kPosInf, kFinite), kPosInf);
+  EXPECT_EQ(MathUtil::AbsDiff(kFinite, kPosInf), kPosInf);
+  EXPECT_TRUE(std::isnan(MathUtil::AbsDiff(kPosInf, kPosInf)));
+  EXPECT_EQ(MathUtil::AbsDiff(kPosInf, kNegInf), kPosInf);
+  EXPECT_EQ(MathUtil::AbsDiff(kNegInf, kPosInf), kPosInf);
 
-  EXPECT_TRUE(MathLimits<Type>::IsPosInf(MathUtil::AbsDiff(kNegInf, kFinite)));
-  EXPECT_TRUE(MathLimits<Type>::IsPosInf(MathUtil::AbsDiff(kFinite, kNegInf)));
-  EXPECT_TRUE(MathLimits<Type>::IsNaN(MathUtil::AbsDiff(kNegInf, kNegInf)));
+  EXPECT_EQ(MathUtil::AbsDiff(kNegInf, kFinite), kPosInf);
+  EXPECT_EQ(MathUtil::AbsDiff(kFinite, kNegInf), kPosInf);
+  EXPECT_TRUE(std::isnan(MathUtil::AbsDiff(kNegInf, kNegInf)));
 }
 
 TEST(MathUtil, SimpleUtils) {
@@ -171,24 +170,26 @@ void TestCeilOfRatio(const IntegralType test_data[][kNumTestArguments],
     EXPECT_EQ(expected_floor, floor_1)
         << "FloorOfRatio fails with numerator = " << numerator
         << ", denominator = " << denominator
-        << (MathLimits<IntegralType>::kIsSigned ? "signed " : "unsigned ")
+        << (std::numeric_limits<IntegralType>::is_signed ? "signed "
+                                                         : "unsigned ")
         << (8 * sizeof(IntegralType)) << " bits";
     IntegralType ceil_1 = MathUtil::CeilOrFloorOfRatio<IntegralType, true>(
         numerator, denominator);
     EXPECT_EQ(expected_ceil, ceil_1)
         << "CeilOfRatio fails with numerator = " << numerator
         << ", denominator = " << denominator
-        << (MathLimits<IntegralType>::kIsSigned ? "signed " : "unsigned ")
+        << (std::numeric_limits<IntegralType>::is_signed ? "signed "
+                                                         : "unsigned ")
         << (8 * sizeof(IntegralType)) << " bits";
   }
 }
 
 template<typename UnsignedIntegralType>
 void TestCeilOfRatioUnsigned() {
-  typedef MathLimits<UnsignedIntegralType> Limits;
-  EXPECT_TRUE(Limits::kIsInteger);
-  EXPECT_TRUE(!Limits::kIsSigned);
-  const UnsignedIntegralType kMax = Limits::kMax;
+  static_assert(std::numeric_limits<UnsignedIntegralType>::is_integer);
+  static_assert(!std::numeric_limits<UnsignedIntegralType>::is_signed);
+  constexpr UnsignedIntegralType kMax =
+      std::numeric_limits<UnsignedIntegralType>::max();
   const UnsignedIntegralType kTestData[][kNumTestArguments] = {
 // Numerator  | Denominator | Expected floor of ratio | Expected ceil of ratio |
       // When numerator = 0, the result is always zero
@@ -215,11 +216,10 @@ void TestCeilOfRatioUnsigned() {
 
 template<typename SignedInteger>
 void TestCeilOfRatioSigned() {
-  typedef MathLimits<SignedInteger> Limits;
-  EXPECT_TRUE(Limits::kIsInteger);
-  EXPECT_TRUE(Limits::kIsSigned);
-  const SignedInteger kMin = Limits::kMin;
-  const SignedInteger kMax = Limits::kMax;
+  static_assert(std::numeric_limits<SignedInteger>::is_integer);
+  static_assert(std::numeric_limits<SignedInteger>::is_signed);
+  constexpr SignedInteger kMin = std::numeric_limits<SignedInteger>::lowest();
+  constexpr SignedInteger kMax = std::numeric_limits<SignedInteger>::max();
   const SignedInteger kTestData[][kNumTestArguments] = {
 // Numerator  | Denominator | Expected floor of ratio | Expected ceil of ratio |
       // When numerator = 0, the result is always zero

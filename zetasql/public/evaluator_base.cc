@@ -824,7 +824,22 @@ absl::Status Evaluator::ExecuteAfterPrepareLocked(
         algebrizer_parameters_.named_parameters(), QUERY_PARAMETER,
         &parameters_list));
   } else {
-    parameters_list = parameters.positional_parameters();
+    // Take only the number of positional parameters used, to ensure the
+    // slots match the TupleSchema created for params, which accounted only
+    // for referenced parameters.
+    size_t min_required_param_count =
+        algebrizer_parameters_.is_named()
+            ? 0
+            : algebrizer_parameters_.positional_parameters().size();
+    if (parameters.positional_parameters().size() < min_required_param_count) {
+      return ::zetasql_base::InvalidArgumentErrorBuilder()
+             << "Too few positional parameters. Expected at least "
+             << min_required_param_count << " but found only: "
+             << parameters.positional_parameters().size();
+    }
+    for (int i = 0; i < min_required_param_count; ++i) {
+      parameters_list.push_back(parameters.positional_parameters()[i]);
+    }
   }
   ExpressionOptions new_options = std::move(options);
   new_options.ordered_columns = std::move(columns_list);

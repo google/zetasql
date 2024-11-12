@@ -665,6 +665,23 @@ std::string ResolvedInsertStmt::InsertModeToString(InsertMode insert_mode) {
   }
 }
 
+std::string ResolvedOnConflictClause::GetConflictActionString() const {
+  return ConflictActionToString(conflict_action_);
+}
+
+std::string ResolvedOnConflictClause::ConflictActionToString(
+    ConflictAction action) {
+  switch (action) {
+    case ResolvedOnConflictClause::NOTHING:
+      return "NOTHING";
+    case ResolvedOnConflictClause::UPDATE:
+      return "UPDATE";
+    default:
+      ABSL_LOG(ERROR) << "Invalid on conflict action mode: " << action;
+      return absl::StrCat("INVALID_ON_CONFLICT_ACTION(", action, ")");
+  }
+}
+
 std::string ResolvedInsertStmt::GetInsertModeString() const {
   return InsertModeToString(insert_mode_);
 }
@@ -805,6 +822,25 @@ FunctionEnums::Volatility ResolvedCreateFunctionStmt::volatility() const {
   }
 }
 
+std::string ResolvedGraphLabelNaryExpr::GraphLogicalOpTypeToString(
+    GraphLogicalOpType logical_op_type) {
+  switch (logical_op_type) {
+    case ResolvedGraphLabelNaryExpr::NOT:
+      return "NOT";
+    case ResolvedGraphLabelNaryExpr::OR:
+      return "OR";
+    case ResolvedGraphLabelNaryExpr::AND:
+      return "AND";
+    default:
+      ABSL_LOG(ERROR) << "Invalid Logical Type: " << logical_op_type;
+      return absl::StrCat("INVALID_LOGICAL_TYPE(", logical_op_type, ")");
+  }
+}
+
+std::string ResolvedGraphLabelNaryExpr::GetGraphLogicalOpTypeString() const {
+  return GraphLogicalOpTypeToString(op_);
+}
+
 void ResolvedStaticDescribeScan::CollectDebugStringFields(
     std::vector<DebugStringField>* fields) const {
   SUPER::CollectDebugStringFields(fields);
@@ -824,6 +860,14 @@ void ResolvedStaticDescribeScan::CollectDebugStringFields(
 
 std::string ResolvedStaticDescribeScan::GetNameForDebugString() const {
   return SUPER::GetNameForDebugString();
+}
+
+const ResolvedScan* ResolvedPipeIfScan::GetSelectedCaseScan() const {
+  if (selected_case() == -1) {
+    return input_scan();
+  } else {
+    return if_case_list()[selected_case()]->subpipeline()->scan();
+  }
 }
 
 }  // namespace zetasql

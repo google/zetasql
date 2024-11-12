@@ -1,0 +1,524 @@
+# Test file for multi-level aggregate queries that fail because the query is
+# invalid.
+[default language_features=V_1_4_MULTILEVEL_AGGREGATION,V_1_3_WITH_GROUP_ROWS,V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE,V_1_1_HAVING_IN_AGGREGATE,V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE,ANALYTIC_FUNCTIONS,V_1_3_QUALIFY,V_1_4_GROUPING_BUILTIN,V_1_2_GROUP_BY_STRUCT,V_1_4_ENFORCE_CONDITIONAL_EVALUATION,V_1_4_GROUPING_SETS,GROUP_BY_ROLLUP,V_1_3_PIVOT]
+[default show_unparsed]
+# GROUP BY modifier not supported on scalar functions.
+SELECT
+  ABS(ANY_VALUE(int64) GROUP BY string)
+FROM SimpleTypes;
+--
+ERROR: GROUP BY in arguments is not supported on scalar functions [at 3:24]
+  ABS(ANY_VALUE(int64) GROUP BY string)
+                       ^
+==
+
+# Display appropriate error message when attempting to group by an expression
+# containing GROUP BY modifiers.
+SELECT
+  ABS(ANY_VALUE(int64) GROUP BY string)
+FROM SimpleTypes
+GROUP BY 1
+--
+ERROR: Column 1 contains a GROUP ROWS subquery or a GROUP BY modifier, which is not allowed in GROUP BY [at 4:10]
+GROUP BY 1
+         ^
+==
+
+# Multi-level aggregation fails when language feature is not enabled.
+[language_features=]
+SELECT
+  SUM(ANY_VALUE(int64) GROUP BY string)
+FROM SimpleTypes;
+--
+ERROR: Multi-level aggregation is not yet supported. [at 2:24]
+  SUM(ANY_VALUE(int64) GROUP BY string)
+                       ^
+==
+
+# GROUP BY modifier must be specified when invoking a multi-level aggregate expr
+SELECT
+  SUM(ANY_VALUE(int64))
+FROM SimpleTypes;
+--
+ERROR: Multi-level aggregation requires the enclosing aggregate function to have one or more GROUP BY modifiers. [at 2:3]
+  SUM(ANY_VALUE(int64))
+  ^
+==
+
+# GROUP BY modifier must be specified when invoking a multi-level aggregate expr
+# In this case, SUM is missing a GROUP BY modifier (ANY_VALUE has one).
+SELECT
+  SUM(
+    ANY_VALUE(AVG(int64) GROUP BY bool)
+  )
+FROM SimpleTypes;
+--
+ERROR: Multi-level aggregation requires the enclosing aggregate function to have one or more GROUP BY modifiers. [at 2:3]
+  SUM(
+  ^
+==
+
+# GROUP BY modifier must be specified when invoking a multi-level aggregate expr
+# In this case, ANY_VALUE is missing a GROUP BY modifier (SUM has one).
+SELECT
+  SUM(
+    ANY_VALUE(AVG(int64))
+  GROUP BY bool)
+FROM SimpleTypes;
+--
+ERROR: Multi-level aggregation requires the enclosing aggregate function to have one or more GROUP BY modifiers. [at 3:5]
+    ANY_VALUE(AVG(int64))
+    ^
+==
+
+==
+
+# GROUP BY modifier must be a groupable type.
+SELECT
+  SUM(ANY_VALUE(int64) GROUP BY json)
+FROM SimpleTypes;
+--
+ERROR: GROUP BY modifier has type JSON, which is not groupable. [at 2:33]
+  SUM(ANY_VALUE(int64) GROUP BY json)
+                                ^
+==
+
+# GROUP BY modifier cannot contain an aggregate expression
+SELECT
+  SUM(ANY_VALUE(int64) GROUP BY SUM(double))
+FROM SimpleTypes;
+--
+ERROR: Aggregate function SUM not allowed in GROUP BY inside aggregate [at 2:33]
+  SUM(ANY_VALUE(int64) GROUP BY SUM(double))
+                                ^
+==
+
+# GROUP BY modifier cannot contain an aggregate expression
+SELECT
+  SUM(ANY_VALUE(int64) GROUP BY GROUPING(double))
+FROM SimpleTypes
+GROUP BY double;
+--
+ERROR: Aggregate function GROUPING not allowed in GROUP BY inside aggregate [at 2:33]
+  SUM(ANY_VALUE(int64) GROUP BY GROUPING(double))
+                                ^
+==
+
+# GROUP BY modifier cannot contain an analytic expression
+SELECT
+  SUM(ANY_VALUE(int64) GROUP BY SUM(double) OVER ())
+FROM SimpleTypes;
+--
+ERROR: Analytic function not allowed in GROUP BY inside aggregate [at 2:33]
+  SUM(ANY_VALUE(int64) GROUP BY SUM(double) OVER ())
+                                ^
+==
+
+# GROUP BY modifier cannot contain an analytic expression
+SELECT
+  SUM(ANY_VALUE(int64) GROUP BY FIRST_VALUE(double) OVER ())
+FROM SimpleTypes;
+--
+ERROR: Analytic function not allowed in GROUP BY inside aggregate [at 2:33]
+  SUM(ANY_VALUE(int64) GROUP BY FIRST_VALUE(double) OVER ())
+                                ^
+==
+
+# Analytic expressions cannot be arguments for a multi-level aggregate function
+SELECT
+  SUM(ANY_VALUE(int64) OVER() GROUP BY double)
+FROM SimpleTypes;
+--
+ERROR: Analytic function not allowed in multi-level aggregate [at 2:7]
+  SUM(ANY_VALUE(int64) OVER() GROUP BY double)
+      ^
+==
+
+# Aliases disallowed for arguments to multi-level aggregate functions
+SELECT
+  SUM(
+    {{ANY_VALUE(int64) AS alias| double + double AS alias}}
+  GROUP BY double)
+FROM SimpleTypes;
+--
+ALTERNATION GROUP: ANY_VALUE(int64) AS alias
+--
+ERROR: Unexpected function call argument alias found at SUM [at 3:22]
+    ANY_VALUE(int64) AS alias
+                     ^
+--
+ALTERNATION GROUP:  double + double AS alias
+--
+ERROR: Unexpected function call argument alias found at SUM [at 3:22]
+     double + double AS alias
+                     ^
+==
+
+# GROUP BY modifier cannot contain hints
+SELECT
+  SUM(ANY_VALUE(int64) GROUP @{abc=1} BY bool)
+FROM SimpleTypes;
+--
+ERROR: Hints are not supported inside an aggregate function. [at 2:30]
+  SUM(ANY_VALUE(int64) GROUP @{abc=1} BY bool)
+                             ^
+==
+
+# GROUP BY modifier cannot use ordinals
+SELECT
+  SUM(ANY_VALUE(int64) GROUP BY 1)
+FROM SimpleTypes
+GROUP BY bool
+--
+ERROR: GROUP BY modifiers cannot specify ordinals. [at 2:33]
+  SUM(ANY_VALUE(int64) GROUP BY 1)
+                                ^
+==
+
+# GROUP BY modifier cannot use NULL
+SELECT
+  SUM(ANY_VALUE(int64) GROUP BY NULL)
+FROM SimpleTypes
+GROUP BY bool
+--
+ERROR: GROUP BY modifiers cannot be literal values. [at 2:33]
+  SUM(ANY_VALUE(int64) GROUP BY NULL)
+                                ^
+==
+
+# GROUP BY modifier cannot use an empty group
+SELECT
+  SUM(ANY_VALUE(int64) GROUP BY ())
+FROM SimpleTypes
+--
+ERROR: GROUP BY () is not supported inside an aggregate function. [at 2:33]
+  SUM(ANY_VALUE(int64) GROUP BY ())
+                                ^
+==
+
+# GROUP BY ALL, ROLLUP, CUBE, GROUPING SETs not supported as a GROUP BY modifier
+SELECT
+  SUM(ANY_VALUE(int64) GROUP BY
+   {{ALL|ROLLUP(bool, double)|CUBE(bool, double)|GROUPING SETS(bool, double)}}
+  )
+FROM SimpleTypes;
+--
+ALTERNATION GROUP: ALL
+--
+ERROR: Syntax error: Unexpected keyword ALL [at 3:4]
+   ALL
+   ^
+--
+ALTERNATION GROUP: ROLLUP(bool, double)
+--
+ERROR: GROUP BY ROLLUP is not supported inside an aggregate function. [at 3:4]
+   ROLLUP(bool, double)
+   ^
+--
+ALTERNATION GROUP: CUBE(bool, double)
+--
+ERROR: GROUP BY CUBE is not supported inside an aggregate function. [at 3:4]
+   CUBE(bool, double)
+   ^
+--
+ALTERNATION GROUP: GROUPING SETS(bool, double)
+--
+ERROR: GROUP BY GROUPING SETS is not supported inside an aggregate function. [at 3:4]
+   GROUPING SETS(bool, double)
+   ^
+==
+
+# GROUP AND ORDER BY is only supported in pipes.
+[language_features=V_1_4_MULTILEVEL_AGGREGATION,PIPES]
+SELECT
+  SUM(ANY_VALUE(int64) GROUP AND ORDER BY bool)
+FROM SimpleTypes;
+--
+ERROR: GROUP AND ORDER BY is not supported outside pipe AGGREGATE. [at 2:24]
+  SUM(ANY_VALUE(int64) GROUP AND ORDER BY bool)
+                       ^
+==
+
+# GROUP BY can only support order specification in in pipes.
+[language_features=V_1_4_MULTILEVEL_AGGREGATION,PIPES]
+SELECT
+  SUM(ANY_VALUE(int64) GROUP BY double ASC)
+FROM SimpleTypes;
+--
+ERROR: GROUP BY does not support order specification outside pipe AGGREGATE [at 2:40]
+  SUM(ANY_VALUE(int64) GROUP BY double ASC)
+                                       ^
+==
+
+# GROUP BY modifiers cannot have aliases
+[language_features=V_1_4_MULTILEVEL_AGGREGATION,PIPES]
+SELECT
+  SUM(ANY_VALUE(int64) GROUP BY bool AS some_alias)
+FROM SimpleTypes;
+--
+ERROR: GROUP BY expressions in an aggregate function cannot have aliases. [at 2:38]
+  SUM(ANY_VALUE(int64) GROUP BY bool AS some_alias)
+                                     ^
+==
+
+# GROUP BY modifiers not supported on analytic functions.
+SELECT
+  SUM(ANY_VALUE(int64) GROUP BY bool) OVER ()
+FROM SimpleTypes;
+--
+ERROR: GROUP BY modifiers not supported on analytic function calls. [at 2:3]
+  SUM(ANY_VALUE(int64) GROUP BY bool) OVER ()
+  ^
+==
+
+# GROUP BY modifiers not supported on analytic functions WITH GROUP ROWS
+SELECT
+  SUM(ANY_VALUE(X) GROUP BY bool) WITH GROUP ROWS(
+    SELECT int64 AS X FROM GROUP_ROWS()
+  ) OVER ()
+FROM SimpleTypes;
+--
+ERROR: GROUP BY modifiers not supported on analytic function calls. [at 2:3]
+  SUM(ANY_VALUE(X) GROUP BY bool) WITH GROUP ROWS(
+  ^
+==
+
+# `int64` is not a grouping key within the SUM(...) aggregate function.
+SELECT
+  SUM(int64 + ANY_VALUE(int64) GROUP BY bool)
+FROM SimpleTypes;
+--
+ERROR: multi-level aggregate expression references column int64 which is neither grouped nor aggregated [at 2:7]
+  SUM(int64 + ANY_VALUE(int64) GROUP BY bool)
+      ^
+==
+
+# `doubly_nested_struct.e` is not a grouping key within the SUM(...) aggregate
+# function.
+SELECT
+  SUM(doubly_nested_struct.e + key GROUP BY key)
+FROM DoublyNestedStructTable
+GROUP BY {{doubly_nested_struct.f|doubly_nested_struct.f.c|doubly_nested_struct.f.d}};
+--
+ERROR: multi-level aggregate expression references doubly_nested_struct.e which is neither grouped nor aggregated [at 2:7]
+  SUM(doubly_nested_struct.e + key GROUP BY key)
+      ^
+==
+
+# `doubly_nested_struct.f.d.a` is not a grouping key within the SUM(...)
+# aggregate function (it is within the MIN(...) aggregate function though)
+SELECT
+  SUM(
+    MIN(doubly_nested_struct.f.d.a + key GROUP BY doubly_nested_struct.f.d) +
+    doubly_nested_struct.f.d.a
+  GROUP BY key)
+FROM DoublyNestedStructTable
+GROUP BY doubly_nested_struct.f.c;
+--
+ERROR: multi-level aggregate expression references doubly_nested_struct.f.d.a which is neither grouped nor aggregated [at 4:5]
+    doubly_nested_struct.f.d.a
+    ^
+==
+
+# ORDER BY clause cannot use ordinals
+SELECT
+  ARRAY_AGG(ANY_VALUE(int64) GROUP BY int32 ORDER BY 1)
+FROM SimpleTypes;
+--
+ERROR: Aggregate functions do not allow ORDER BY by index in arguments [at 2:45]
+  ARRAY_AGG(ANY_VALUE(int64) GROUP BY int32 ORDER BY 1)
+                                            ^
+==
+
+# ORDER BY clause cannot reference pre-grouping columns.
+SELECT
+  ARRAY_AGG(ANY_VALUE(int64) GROUP BY int32 ORDER BY int64)
+FROM SimpleTypes;
+--
+ERROR: An expression references column int64 which is neither grouped nor aggregated [at 2:54]
+  ARRAY_AGG(ANY_VALUE(int64) GROUP BY int32 ORDER BY int64)
+                                                     ^
+==
+
+# ORDER BY clause cannot use expressions (even if they only reference
+# post-grouping columns).
+SELECT
+  ARRAY_AGG(ANY_VALUE(int64) GROUP BY int32 ORDER BY int32 + int32)
+FROM SimpleTypes;
+--
+ERROR: ORDER BY argument is neither an aggregate function nor a grouping key. [at 2:54]
+  ARRAY_AGG(ANY_VALUE(int64) GROUP BY int32 ORDER BY int32 + int32)
+                                                     ^
+==
+
+# ORDER BY clause cannot use expressions (even if they only reference
+# post-grouping columns).
+SELECT
+  ARRAY_AGG(
+    STRING_AGG(
+      string
+      GROUP BY string
+      ORDER BY CONCAT(string, string)
+    )
+    GROUP BY int64
+  )
+FROM SimpleTypes;
+--
+ERROR: ORDER BY argument is neither an aggregate function nor a grouping key. [at 6:16]
+      ORDER BY CONCAT(string, string)
+               ^
+==
+
+# `doubly_nested_struct.e` is not visible post-grouping, and so cannot be
+# referenced in the ORDER BY clause.
+SELECT
+  ARRAY_AGG(key GROUP BY key ORDER BY doubly_nested_struct.e)
+FROM DoublyNestedStructTable
+GROUP BY {{doubly_nested_struct.f|doubly_nested_struct.f.c|doubly_nested_struct.f.d}};
+--
+ERROR: An expression references doubly_nested_struct.e which is neither grouped nor aggregated [at 2:39]
+  ARRAY_AGG(key GROUP BY key ORDER BY doubly_nested_struct.e)
+                                      ^
+==
+
+# `doubly_nested_struct.f.d.a` is not visible post-grouping for the
+# ARRAY_AGG(...) aggregate function (it is within the MIN(...) aggregate
+# function though)
+SELECT
+  ARRAY_AGG(
+    MIN(doubly_nested_struct.f.d.a + key GROUP BY doubly_nested_struct.f.d) +
+    key
+  GROUP BY key
+  ORDER BY doubly_nested_struct.f.d.a)
+FROM DoublyNestedStructTable
+GROUP BY doubly_nested_struct.f.c;
+--
+ERROR: An expression references doubly_nested_struct.f.d.a which is neither grouped nor aggregated [at 6:12]
+  ORDER BY doubly_nested_struct.f.d.a)
+           ^
+==
+
+# ORDER BY clause cannot use aggregation if GROUP BY modifiers are not specified
+SELECT
+  ARRAY_AGG(int64 ORDER BY SUM(int64))
+FROM SimpleTypes;
+--
+ERROR: Multi-level aggregation requires the enclosing aggregate function to have one or more GROUP BY modifiers. [at 2:3]
+  ARRAY_AGG(int64 ORDER BY SUM(int64))
+  ^
+==
+
+# Grouping constness across correlated subqueries
+SELECT
+  SUM(1),
+  (
+    SELECT
+      SUM(AVG(S2.double) + S1.int64 GROUP BY S1.string)
+    FROM SimpleTypes AS S2
+    GROUP BY S1.int64, S1.int32
+  )
+FROM SimpleTypes AS S1
+GROUP BY S1.int64, S1.int32;
+--
+ERROR: GROUP BY inside aggregate expression references S1.string which is neither grouped nor aggregated [at 5:46]
+      SUM(AVG(S2.double) + S1.int64 GROUP BY S1.string)
+                                             ^
+==
+
+# GROUPING function cannot be a multi-level aggregate function.
+SELECT
+  GROUPING(string GROUP BY bool)
+FROM SimpleTypes
+GROUP BY {{string,int64|ROLLUP(string,int64)|CUBE(string,int64)|GROUPING SETS(string,int64)}}
+--
+ERROR: GROUPING function does not support multi-level aggregation [at 2:3]
+  GROUPING(string GROUP BY bool)
+  ^
+==
+
+# TODO: Improve the error message for the ROLLUP/CUBE/SETS
+# alternation.
+# GROUPING function cannot be used within a multi-level aggregate function.
+SELECT
+  MIN(GROUPING(string) GROUP BY bool)
+FROM SimpleTypes
+GROUP BY {{string,int64|ROLLUP(string,int64)|CUBE(string,int64)|GROUPING SETS(string,int64)}}
+--
+ALTERNATION GROUP: string,int64
+--
+ERROR: GROUPING function is not supported with multi-level aggregate expression [at 2:3]
+  MIN(GROUPING(string) GROUP BY bool)
+  ^
+--
+ALTERNATION GROUPS:
+    ROLLUP(string,int64)
+    CUBE(string,int64)
+    GROUPING SETS(string,int64)
+--
+ERROR: GROUPING must have an argument that exists within the group-by expression list. [at 2:7]
+  MIN(GROUPING(string) GROUP BY bool)
+      ^
+==
+
+# GROUPING function cannot be used within a multi-level aggregate function.
+SELECT
+  MIN(GROUPING(bool) GROUP BY bool)
+FROM SimpleTypes
+GROUP BY {{string,int64|ROLLUP(string,int64)|CUBE(string,int64)|GROUPING SETS(string,int64)}}
+--
+ERROR: GROUPING function is not supported with multi-level aggregate expression [at 2:3]
+  MIN(GROUPING(bool) GROUP BY bool)
+  ^
+==
+
+# GROUPING function cannot be used within a multi-level aggregate function.
+SELECT
+  ARRAY_AGG(bool GROUP BY bool ORDER BY GROUPING(bool))
+FROM SimpleTypes
+GROUP BY {{string,int64|ROLLUP(string,int64)|CUBE(string,int64)|GROUPING SETS(string,int64)}};
+--
+ERROR: GROUPING function not allowed in ORDER BY modifier of a multi-level aggregate. [at 2:32]
+  ARRAY_AGG(bool GROUP BY bool ORDER BY GROUPING(bool))
+                               ^
+==
+
+# Multi-level aggregates in the HAVING clause cannot reference aggregate
+# expression aliases from the SELECT list.
+SELECT
+  SUM(ANY_VALUE(int64) GROUP BY bool) AS multi_level_agg
+FROM SimpleTypes
+GROUP BY string
+HAVING SUM(multi_level_agg GROUP BY int32) > 0
+--
+ERROR: Aggregations of aggregations are not allowed [at 5:12]
+HAVING SUM(multi_level_agg GROUP BY int32) > 0
+           ^
+==
+
+# Ensure that grouping-constness is checked for aggregate functions in the PIVOT
+# clause.
+SELECT *
+FROM (
+  SELECT int64, double, int32, string, bool, bytes FROM SimpleTypes
+)
+PIVOT(
+  SUM(double GROUP BY int64) AS agg1
+  FOR int64 IN (0, 1)
+);
+--
+ERROR: multi-level aggregate expression references column double which is neither grouped nor aggregated [at 6:7]
+  SUM(double GROUP BY int64) AS agg1
+      ^
+==
+
+# Ensure that volatile grouping expressions are not considered grouping consts.
+# ('KEYS.REWRAP_KEYSET' is a volatile function).
+[language_features=V_1_4_MULTILEVEL_AGGREGATION,ENCRYPTION]
+SELECT
+  SUM(KEYS.REWRAP_KEYSET(string, string, bytes) + ANY_VALUE(int64) GROUP BY int32)
+FROM SimpleTypes
+GROUP BY KEYS.REWRAP_KEYSET(string, string, bytes)
+--
+ERROR: multi-level aggregate expression references column string which is neither grouped nor aggregated [at 2:26]
+  SUM(KEYS.REWRAP_KEYSET(string, string, bytes) + ANY_VALUE(int64) GROUP BY i...
+                         ^

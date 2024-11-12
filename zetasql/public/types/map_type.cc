@@ -46,6 +46,7 @@
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
+#include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -382,16 +383,37 @@ bool MapType::ValueContentEquals(
 
 absl::Status MapType::SerializeValueContent(const ValueContent& value,
                                             ValueProto* value_proto) const {
-  // TODO: Implement SerializeValueContent.
-  return absl::UnimplementedError(
-      "SerializeValueContent is not yet supported.");
+  const internal::ValueContentMap* value_content_map =
+      value.GetAs<internal::ValueContentMapRef*>()->value();
+  auto* map_proto = value_proto->mutable_map_value();
+
+  for (const auto& [key, value] : *value_content_map) {
+    auto* map_entry = map_proto->add_entry();
+    if (!key.is_null()) {
+      ZETASQL_RETURN_IF_ERROR(key_type_->SerializeValueContent(
+          key.value_content(), map_entry->mutable_key()));
+    } else {
+      // Populate the key with an empty ValueProto.
+      map_entry->mutable_key();
+    }
+    if (!value.is_null()) {
+      ZETASQL_RETURN_IF_ERROR(value_type_->SerializeValueContent(
+          value.value_content(), map_entry->mutable_value()));
+    } else {
+      // Populate the value with an empty ValueProto.
+      map_entry->mutable_value();
+    }
+  }
+  return absl::OkStatus();
 }
 
 absl::Status MapType::DeserializeValueContent(const ValueProto& value_proto,
                                               ValueContent* value) const {
-  // TODO: Implement DeserializeValueContent.
-  return absl::UnimplementedError(
-      "DeserializeValueContent is not yet supported.");
+  // TODO: b/365163099 - Implement the deserialization logic here, instead of in
+  // Value.
+  ZETASQL_RET_CHECK_FAIL()
+      << "DeserializeValueContent should not be called for MAP. The "
+         "deserialization logic is implemented directly in the Value class.";
 }
 
 bool MapType::ValueContentLess(const ValueContent& x, const ValueContent& y,
@@ -401,44 +423,67 @@ bool MapType::ValueContentLess(const ValueContent& x, const ValueContent& y,
   return false;
 }
 
-// TODO: When we add non-debug printing, should refactor to
-// be implemented alongside existing ARRAY and STRUCT print logic.
 std::string MapType::FormatValueContent(
     const ValueContent& value, const FormatValueContentOptions& options) const {
-
-  // For now, print only the map size if we are not in debug mode.
-  // TODO: determine a stable literal syntax for MAP type.
-  if (options.mode != Type::FormatValueContentOptions::Mode::kDebug) {
-    ABSL_LOG(ERROR) << "Map printing not yet implemented.";
-    return "Map printing not yet implemented.";
+  if (!ThreadHasEnoughStack()) {
+    return std::string(kFormatValueContentOutOfStackError);
   }
 
+  const internal::ValueContentMap* value_content_map =
+      value.GetAs<internal::ValueContentMapRef*>()->value();
   std::string result;
 
+  switch (options.mode) {
+    case Type::FormatValueContentOptions::Mode::kDebug:
+      FormatValueContentDebugModeImpl(value_content_map, options, &result);
+      return result;
+    case Type::FormatValueContentOptions::Mode::kSQLLiteral:
+    case Type::FormatValueContentOptions::Mode::kSQLExpression:
+      FormatValueContentSqlModeImpl(value_content_map, options, &result);
+      return result;
+  }
+}
+
+void MapType::FormatValueContentDebugModeImpl(
+    const internal::ValueContentMap* value_content_map,
+    const FormatValueContentOptions& options, std::string* result) const {
   if (options.verbose) {
-    absl::StrAppend(&result, "Map{");
-  } else {
-    result = "{";
+    absl::StrAppend(result, "Map");
   }
 
-  internal::ValueContentMap* value_content_map =
-      value.GetAs<internal::ValueContentMapRef*>()->value();
-
+  absl::StrAppend(result, "{");
   absl::StrAppend(
-      &result, absl::StrJoin(
-                   *value_content_map, ", ",
-                   [options, this](std::string* out, const auto& map_entry) {
-                     auto& [key, value] = map_entry;
-                     std::string key_str =
-                         DebugFormatNullableValueContentForContainer(
-                             key, this->key_type_, options);
-                     std::string value_str =
-                         DebugFormatNullableValueContentForContainer(
-                             value, this->value_type_, options);
-                     absl::StrAppend(out, key_str, ": ", value_str);
-                   }));
-  absl::StrAppend(&result, "}");
-  return result;
+      result,
+      absl::StrJoin(*value_content_map, ", ",
+                    [options, this](std::string* out, const auto& map_entry) {
+                      auto& [key, value] = map_entry;
+                      std::string key_str =
+                          DebugFormatNullableValueContentForContainer(
+                              key, this->key_type_, options);
+                      std::string value_str =
+                          DebugFormatNullableValueContentForContainer(
+                              value, this->value_type_, options);
+                      absl::StrAppend(out, key_str, ": ", value_str);
+                    }));
+  absl::StrAppend(result, "}");
+}
+
+void MapType::FormatValueContentSqlModeImpl(
+    const internal::ValueContentMap* value_content_map,
+    const FormatValueContentOptions& options, std::string* result) const {
+  absl::StrAppend(result, "MAP_FROM_ARRAY([");
+  absl::StrAppend(
+      result,
+      absl::StrJoin(*value_content_map, ", ",
+                    [options, this](std::string* out, const auto& map_entry) {
+                      auto& [key, value] = map_entry;
+                      std::string key_str = FormatNullableValueContent(
+                          key, this->key_type_, options);
+                      std::string value_str = FormatNullableValueContent(
+                          value, this->value_type_, options);
+                      absl::StrAppend(out, "(", key_str, ", ", value_str, ")");
+                    }));
+  absl::StrAppend(result, "])");
 }
 
 const Type* GetMapKeyType(const Type* map_type) {

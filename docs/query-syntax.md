@@ -61,7 +61,7 @@ SELECT
 <span class="var">select_all</span>:
   [ <span class="var">expression</span>. ]*
   [ EXCEPT ( <span class="var">column_name</span> [, ...] ) ]
-  [ REPLACE ( <span class="var">expression</span> [ AS ] <span class="var">column_name</span> [, ...] ) ]
+  [ REPLACE ( <span class="var">expression</span> AS <span class="var">column_name</span> [, ...] ) ]
 
 <span class="var">select_expression</span>:
   <span class="var">expression</span> [ [ AS ] <span class="var">alias</span> ]
@@ -230,6 +230,59 @@ A `SELECT DISTINCT` statement discards duplicate rows and returns only the
 remaining rows. `SELECT DISTINCT` cannot return columns of the following types:
 
 +  `PROTO`
++  `GRAPH_ELEMENT`
+
+In the following example, `SELECT DISTINCT` is used to produce distinct arrays:
+
+```sql
+WITH PlayerStats AS (
+  SELECT ['Coolidge', 'Adams'] as Name, 3 as PointsScored UNION ALL
+  SELECT ['Adams', 'Buchanan'], 0 UNION ALL
+  SELECT ['Coolidge', 'Adams'], 1 UNION ALL
+  SELECT ['Kiran', 'Noam'], 1)
+SELECT DISTINCT Name
+
+/*------------------+
+ | Name             |
+ +------------------+
+ | [Coolidge,Adams] |
+ | [Adams,Buchanan] |
+ | [Kiran,Noam]     |
+ +------------------*/
+```
+
+In the following example, `SELECT DISTINCT` is used to produce distinct structs:
+
+```sql
+WITH
+  PlayerStats AS (
+    SELECT
+      STRUCT<last_name STRING, first_name STRING, age INT64>(
+        'Adams', 'Noam', 20) AS Player,
+      3 AS PointsScored UNION ALL
+    SELECT ('Buchanan', 'Jie', 19), 0 UNION ALL
+    SELECT ('Adams', 'Noam', 20), 4 UNION ALL
+    SELECT ('Buchanan', 'Jie', 19), 13
+  )
+SELECT DISTINCT Player
+FROM PlayerStats;
+
+/*--------------------------+
+ | player                   |
+ +--------------------------+
+ | {                        |
+ |   last_name: "Adams",    |
+ |   first_name: "Noam",    |
+ |   age: 20                |
+ |  }                       |
+ +--------------------------+
+ | {                        |
+ |   last_name: "Buchanan", |
+ |   first_name: "Jie",     |
+ |   age: 19                |
+ |  }                       |
+ +---------------------------*/
+```
 
 ### `SELECT ALL`
 
@@ -393,6 +446,7 @@ FROM <span class="var">from_clause</span>[, ...]
     | <span class="var">field_path</span>
     | <a href="#unnest_operator"><span class="var">unnest_operator</span></a>
     | <span class="var"><a href="#cte_name">cte_name</a></span> [ <span class="var">as_alias</span> ]
+    | <a href="#graph_table_operator_clause_from"><span class="var">graph_table_operator</span></a> [ <span class="var">as_alias</span> ]
   }
 
 <span class="var">as_alias</span>:
@@ -417,6 +471,11 @@ See [UNPIVOT operator][unpivot-operator].
 <a id="tablesample_operator_clause"></a>
 
 See [TABLESAMPLE operator][tablesample-operator].
+
+#### `graph_table_operator` 
+<a id="graph_table_operator_clause_from"></a>
+
+See [GRAPH_TABLE operator][graph-table-operator].
 
 #### `table_name`
 
@@ -1626,6 +1685,13 @@ sampled rows are from the `US` and none of them are from the `VN` partition.
 As a result, the output of the second query doesn't contain the `SUM` estimate
 for the group `VN`. We refer to this as the _missing-group problem_, which
 can be solved with [stratified sampling][stratified-sampling].
+
+## `GRAPH_TABLE` operator 
+<a id="graph_table_operator_redirect"></a>
+
+To learn more about this operator, see
+[`GRAPH_TABLE` operator][graph-table-operator] in the
+Graph Query Language (GQL) reference guide.
 
 ## Join operation 
 <a id="join_types"></a>
@@ -3053,9 +3119,78 @@ GROUP BY last_name;
  +--------------+-----------*/
 ```
 
-`GROUP BY` can group rows by the value of an array.
-`GROUP BY` will group two arrays if they have the same number of elements and
-all corresponding elements are in the same groups, or if both arrays are `NULL`.
+You can use the `GROUP BY` clause with arrays. The following query executes
+because the array elements being grouped are the same length and group type:
+
+```sql
+WITH PlayerStats AS (
+  SELECT ['Coolidge', 'Adams'] as Name, 3 as PointsScored UNION ALL
+  SELECT ['Adams', 'Buchanan'], 0 UNION ALL
+  SELECT ['Coolidge', 'Adams'], 1 UNION ALL
+  SELECT ['Kiran', 'Noam'], 1)
+SELECT SUM(PointsScored) AS total_points, name
+FROM PlayerStats
+GROUP BY Name;
+
+/*--------------+------------------+
+ | total_points | name             |
+ +--------------+------------------+
+ | 4            | [Coolidge,Adams] |
+ | 0            | [Adams,Buchanan] |
+ | 1            | [Kiran,Noam]     |
+ +--------------+------------------*/
+```
+
+You can use the `GROUP BY` clause with structs. The following query executes
+because the struct fields being grouped have the same group types:
+
+```sql
+WITH
+  TeamStats AS (
+    SELECT
+      ARRAY<STRUCT<last_name STRING, first_name STRING, age INT64>>[
+        ('Adams', 'Noam', 20), ('Buchanan', 'Jie', 19)] AS Team,
+      3 AS PointsScored
+    UNION ALL
+    SELECT [('Coolidge', 'Kiran', 21), ('Yang', 'Jason', 22)], 4
+    UNION ALL
+    SELECT [('Adams', 'Noam', 20), ('Buchanan', 'Jie', 19)], 10
+    UNION ALL
+    SELECT [('Coolidge', 'Kiran', 21), ('Yang', 'Jason', 22)], 7
+  )
+SELECT
+  SUM(PointsScored) AS total_points,
+  Team
+FROM TeamStats
+GROUP BY Team;
+
+/*--------------+--------------------------+
+ | total_points | teams                    |
+ +--------------+--------------------------+
+ | 13           | [{                       |
+ |              |    last_name: "Adams",   |
+ |              |    first_name: "Noam",   |
+ |              |    age: 20               |
+ |              |  },{                     |
+ |              |    last_name: "Buchanan",|
+ |              |    first_name: "Jie",    |
+ |              |    age: 19               |
+ |              |  }]                      |
+ +-----------------------------------------+
+ | 11           | [{                       |
+ |              |    last_name: "Coolidge",|
+ |              |    first_name: "Kiran",  |
+ |              |    age: 21               |
+ |              |  },{                     |
+ |              |    last_name: "Yang",    |
+ |              |    first_name: "Jason",  |
+ |              |    age: 22               |
+ |              |  }]                      |
+ +--------------+--------------------------*/
+```
+
+To learn more about the data types that are supported for values in the
+`GROUP BY` clause, see [Groupable data types][data-type-properties].
 
 #### Group rows by column ordinals 
 <a id="group_by_col_ordinals"></a>
@@ -6233,7 +6368,7 @@ Common items that this expression can represent include
 tables,
 [value tables][value-tables],
 [subqueries][subquery-concepts],
-[table value functions (TVFs)][tvf-concepts],
+[table-valued functions (TVFs)][tvf-concepts],
 [joins][query-joins], and [parenthesized joins][query-joins].
 
 In general, a range variable provides a reference to the rows of a table
@@ -6810,6 +6945,10 @@ Results:
 [analysis-rules]: https://github.com/google/zetasql/blob/master/docs/analysis-rules.md
 
 [privacy-view]: https://github.com/google/zetasql/blob/master/docs/analysis-rules.md#privacy_view
+
+[graph-table-operator]: https://github.com/google/zetasql/blob/master/docs/graph-sql-queries.md#graph_table_operator
+
+[graph-hints-gql]: https://github.com/google/zetasql/blob/master/docs/graph-query-statements.md#graph_hints
 
 [coalesce]: https://github.com/google/zetasql/blob/master/docs/conditional_expressions.md#coalesce
 

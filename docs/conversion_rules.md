@@ -396,6 +396,26 @@ ZetaSQL supports the following parameter coercions:
       <td><code>PROTO</code></td>
     </tr>
 
+    <tr>
+      <td><code>GRAPH_ELEMENT</code> parameter</td>
+      <td>
+        
+
+<span><code>GRAPH_ELEMENT</code></span><br />
+
+        <p>
+          Coercion is only allowed from one graph element type to another
+          graph element type if the second graph element type is a supertype of
+          the first. After the conversion, the graph element type can access the
+          properties that are described in its supertype.
+        </p>
+        <p>
+          With <code>GRAPH_ELEMENT</code> coercion, the property reference
+          returns <code>NULL</code>.
+        </p>
+      </td>
+    </tr>
+
   </tbody>
 </table>
 
@@ -588,6 +608,26 @@ or more supertypes, including itself, which defines its set of supertypes.
 
 <span><code>GEOGRAPHY</code></span><br />
 </td>
+    </tr>
+
+    <tr>
+      <td><code>GRAPH_ELEMENT</code></td>
+      <td>
+        <code>GRAPH_ELEMENT</code>. A graph element can be a supertype of
+        another graph element if the following is true:
+        <ul>
+          <li>
+            Graph element <code>a</code> is a supertype of graph element
+            <code>b</code> and they're the same element kind.
+          </li>
+          <li>
+            Graph element <code>a</code>'s property type list is a
+            compatible superset of graph element <code>b</code>'s
+            property type list. This means that properties with the same name
+            must also have the same type.
+          </li>
+        </ul>
+      </td>
     </tr>
 
     <tr>

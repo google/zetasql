@@ -27,15 +27,19 @@
 #include "zetasql/compliance/test_util.h"
 #include "zetasql/public/builtin_function.h"
 #include "zetasql/public/builtin_function_options.h"
+#include "zetasql/public/catalog.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/type.h"
+#include "absl/container/flat_hash_set.h"
 #include "zetasql/base/check.h"
 #include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_join.h"
+#include "absl/types/span.h"
 #include "google/protobuf/compiler/importer.h"
+#include "google/protobuf/descriptor.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
@@ -91,6 +95,17 @@ absl::Status TestDatabaseCatalog::BuiltinFunctionCache::SetLanguageOptions(
   }
   return absl::OkStatus();
 }
+
+absl::Status TestDatabaseCatalog::IsInitialized() const {
+  if (catalog_ == nullptr) {
+    return absl::FailedPreconditionError(
+        "TestDatabaseCatalog is not initialized. "
+        "TestDatabaseCatalog::SetTestDatabase() must be called first, "
+        "before calling any other methods.");
+  }
+  return absl::OkStatus();
+}
+
 void TestDatabaseCatalog::BuiltinFunctionCache::DumpStats() {
   ABSL_LOG(INFO) << "BuiltinFunctionCache: hit: " << cache_hit_ << " / "
             << total_calls_ << "("
@@ -180,6 +195,29 @@ void TestDatabaseCatalog::AddTable(const std::string& table_name,
   catalog_->AddOwnedTable(simple_table);
 }
 
+absl::Status TestDatabaseCatalog::FindTable(
+    const absl::Span<const std::string> path, const Table** table,
+    const Catalog::FindOptions& options) {
+  ZETASQL_RETURN_IF_ERROR(IsInitialized());
+  return catalog_->FindTable(path, table, options);
+}
+
+absl::Status TestDatabaseCatalog::GetTables(
+    absl::flat_hash_set<const Table*>* output) const {
+  ZETASQL_RETURN_IF_ERROR(IsInitialized());
+  ZETASQL_RET_CHECK_NE(output, nullptr);
+  ZETASQL_RET_CHECK(output->empty());
+  return catalog_->GetTables(output);
+}
+
+absl::Status TestDatabaseCatalog::GetTypes(
+    absl::flat_hash_set<const Type*>* output) const {
+  ZETASQL_RETURN_IF_ERROR(IsInitialized());
+  ZETASQL_RET_CHECK_NE(output, nullptr);
+  ZETASQL_RET_CHECK(output->empty());
+  return catalog_->GetTypes(output);
+}
+
 absl::Status TestDatabaseCatalog::SetTestDatabase(const TestDatabase& test_db) {
   catalog_ = std::make_unique<SimpleCatalog>("root_catalog", type_factory_);
   // Prepare proto importer.
@@ -204,11 +242,14 @@ absl::Status TestDatabaseCatalog::SetTestDatabase(const TestDatabase& test_db) {
   return absl::OkStatus();
 }
 
-void TestDatabaseCatalog::SetLanguageOptions(
+absl::Status TestDatabaseCatalog::SetLanguageOptions(
     const LanguageOptions& language_options) {
-  if (catalog_ != nullptr) {
-    ZETASQL_CHECK_OK(
-        function_cache_->SetLanguageOptions(language_options, catalog_.get()));
+  if (catalog_ == nullptr) {
+    return absl::FailedPreconditionError(
+        "Cannot set language options since underlying catalog is unexpectedly "
+        "null. TestDatabaseCatalog::SetTestDatabase() must be called first, "
+        "before calling TestDatabaseCatalog::SetLanguageOptions().");
   }
+  return function_cache_->SetLanguageOptions(language_options, catalog_.get());
 }
 }  // namespace zetasql

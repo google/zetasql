@@ -19,7 +19,6 @@ syntax = "proto2";
 
 package zetasql;
 
-option cc_enable_arenas = true;
 option java_package = "com.google.zetasql";
 option java_outer_classname = "ZetaSQLSimpleValue";
 

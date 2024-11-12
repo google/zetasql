@@ -23,7 +23,6 @@ information on data type literals and constructors, see
 
 <tr>
   <td><a href="#array_type">Array type</a>
-
 </td>
   <td>
     An ordered list of zero or more elements of non-array values.<br/>
@@ -33,17 +32,16 @@ information on data type literals and constructors, see
 
 <tr>
   <td><a href="#boolean_type">Boolean type</a>
-
 </td>
   <td>
     A value that can be either <code>TRUE</code> or <code>FALSE</code>.<br/>
-    SQL type name: <code>BOOL</code>
+    SQL type name: <code>BOOL</code><br/>
+    SQL aliases: <code>BOOLEAN</code>
   </td>
 </tr>
 
 <tr>
   <td><a href="#bytes_type">Bytes type</a>
-
 </td>
   <td>
     Variable-length binary data.<br/>
@@ -53,7 +51,6 @@ information on data type literals and constructors, see
 
 <tr>
   <td><a href="#date_type">Date type</a>
-
 </td>
   <td>
     A Gregorian calendar date, independent of time zone.<br/>
@@ -63,7 +60,6 @@ information on data type literals and constructors, see
 
 <tr>
   <td><a href="#datetime_type">Datetime type</a>
-
 </td>
   <td>
     A Gregorian date and a time, as they might be displayed on a watch,
@@ -74,7 +70,6 @@ information on data type literals and constructors, see
 
 <tr>
   <td><a href="#enum_type">Enum type</a>
-
 </td>
   <td>
     Named type that enumerates a list of possible values.<br/>
@@ -84,7 +79,6 @@ information on data type literals and constructors, see
 
 <tr>
   <td><a href="#geography_type">Geography type</a>
-
 </td>
   <td>
     A collection of points, linestrings, and polygons, which is represented as a
@@ -94,8 +88,16 @@ information on data type literals and constructors, see
 </tr>
 
 <tr>
-  <td><a href="#interval_type">Interval type</a>
+  <td><a href="#graph_element_type">Graph element type</a>
+</td>
+  <td>
+    An element in a property graph.<br/>
+    SQL type name: <code>GRAPH_ELEMENT</code>
+  </td>
+</tr>
 
+<tr>
+  <td><a href="#interval_type">Interval type</a>
 </td>
   <td>
     A duration of time, without referring to any specific point in time.<br/>
@@ -105,7 +107,6 @@ information on data type literals and constructors, see
 
 <tr>
   <td><a href="#json_type">JSON type</a>
-
 </td>
   <td>
     Represents JSON, a lightweight data-interchange format.<br/>
@@ -115,7 +116,6 @@ information on data type literals and constructors, see
 
 <tr>
   <td><a href="#numeric_types">Numeric types</a>
-
 </td>
   <td>
     <p>
@@ -187,7 +187,6 @@ information on data type literals and constructors, see
 
 <tr>
   <td><a href="#protocol_buffer_type">Protocol buffer type</a>
-
 </td>
   <td>
     A protocol buffer.<br/>
@@ -197,7 +196,6 @@ information on data type literals and constructors, see
 
 <tr>
   <td><a href="#range_type">Range type</a>
-
 </td>
   <td>
     Contiguous range between two dates, datetimes, or timestamps.<br/>
@@ -207,7 +205,6 @@ information on data type literals and constructors, see
 
 <tr>
   <td><a href="#string_type">String type</a>
-
 </td>
   <td>
     Variable-length character data.<br/>
@@ -217,7 +214,6 @@ information on data type literals and constructors, see
 
 <tr>
   <td><a href="#struct_type">Struct type</a>
-
 </td>
   <td>
     Container of ordered fields.<br/>
@@ -227,7 +223,6 @@ information on data type literals and constructors, see
 
 <tr>
   <td><a href="#time_type">Time type</a>
-
 </td>
   <td>
     A time of day, as might be displayed on a clock, independent of a specific
@@ -238,7 +233,6 @@ information on data type literals and constructors, see
 
 <tr>
   <td><a href="#timestamp_type">Timestamp type</a>
-
 </td>
   <td>
     A timestamp value represents an absolute point in time,
@@ -259,7 +253,8 @@ properties in mind:
 ### Nullable data types
 
 For nullable data types, `NULL` is a valid value. Currently, all existing
-data types are nullable. Conditions apply for
+data types are nullable, except
+for `GRAPH_ELEMENT`. Conditions apply for
 [arrays][array-nulls].
 
 ### Orderable data types
@@ -271,6 +266,7 @@ Applies to all data types except for:
 + `STRUCT`
 + `GEOGRAPHY`
 + `JSON`
++ `GRAPH_ELEMENT`
 
 #### Ordering `NULL`s 
 <a id="orderable_nulls"></a>
@@ -350,6 +346,7 @@ Groupable data types can generally appear in an expression following `GROUP BY`,
 + `PROTO`
 + `GEOGRAPHY`
 + `JSON`
++ `GRAPH_ELEMENT`
 
 #### Grouping with floating point types
 
@@ -367,7 +364,8 @@ both grouping done by a `GROUP BY` clause and grouping done by the
 + 0 or -0 &mdash; All zero values are considered equal when grouping.
 + `+inf`
 
-#### Grouping with arrays
+#### Grouping with arrays 
+<a id="group_with_arrays"></a>
 
 An `ARRAY` type is groupable if its element type is
 groupable.
@@ -379,7 +377,8 @@ is true:
 + The two arrays have the same number of elements and all corresponding
   elements are in the same groups.
 
-#### Grouping with structs
+#### Grouping with structs 
+<a id="group_with_structs"></a>
 
 A `STRUCT` type is groupable if its field types are
 groupable.
@@ -708,12 +707,17 @@ SELECT
 </thead>
 <tbody>
 <tr>
-<td><code>BOOL</code></td>
+<td>
+  <code>BOOL</code><br/>
+  <code>BOOLEAN</code>
+</td>
 <td>Boolean values are represented by the keywords <code>TRUE</code> and
 <code>FALSE</code> (case-insensitive).</td>
 </tr>
 </tbody>
 </table>
+
+`BOOLEAN` is an alias for `BOOL`.
 
 Boolean values are sorted in this order, from least to greatest:
 
@@ -1141,6 +1145,54 @@ A geography is the result of, or an argument to, a
 
 [geography-functions]: https://github.com/google/zetasql/blob/master/docs/geography_functions.md
 
+## Graph element type 
+<a id="graph_element_type"></a>
+
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GRAPH_ELEMENT</code></td>
+<td>
+  An element in a property graph.
+</td>
+</tr>
+</tbody>
+</table>
+
+A variable with a `GRAPH_ELEMENT` type is produced by a graph query.
+The generated type has this format:
+
+```
+GRAPH_ELEMENT<T>
+```
+
+A graph element can be one of two kinds: a node or edge.
+A graph element is similar to the struct type, except that fields are
+graph properties, and you can only access graph properties by name.
+A graph element can represent nodes or edges from multiple node or edge tables
+if multiple such tables match the given label expression.
+
+**Example**
+
+In the following example, `n` represents a graph element in the
+[`FinGraph`][fin-graph] property graph:
+
+```sql
+GRAPH FinGraph
+MATCH (n:Person)
+RETURN n.name
+```
+
+[graph-query]: https://github.com/google/zetasql/blob/master/docs/graph-intro.md
+
+[fin-graph]: https://github.com/google/zetasql/blob/master/docs/graph-schema-statements.md#fin_graph
+
 ## Interval type 
 <a id="interval_type"></a>
 
@@ -1546,7 +1598,6 @@ Floating point values are approximate numeric values with fractional components.
   <td id="float-type" style="vertical-align:middle"><code>FLOAT</code>
     <br><code>FLOAT32</code></td>
 <td>
-  
   Single precision (approximate) numeric values.
 </td>
 </tr>
@@ -2653,17 +2704,44 @@ SELECT UNIX_MILLIS(TIMESTAMP '2008-12-25 15:30:00 America/Los_Angeles') AS milli
 SELECT UNIX_MILLIS(TIMESTAMP '2008-12-25 15:30:00-08:00') AS millis;
 ```
 
-#### Offset from Coordinated Universal Time (UTC) 
-<a id="utc_offset"></a>
+#### Specify Coordinated Universal Time (UTC) 
+<a id="utc"></a>
 
-Format:
-
-```
-{+|-}H[H][:M[M]]
-```
+You can specify UTC using the following suffix:
 
 ```
 {Z|z}
+```
+
+You can also specify UTC using the following time zone name:
+
+```
+{Etc/UTC}
+```
+
+The `Z` suffix is a placeholder that implies UTC when converting an [RFC
+3339-format][rfc-3339-format] value to a `TIMESTAMP` value. The value `Z` isn't
+a valid time zone for functions that accept a time zone. If you're specifying a
+time zone, or you're unsure of the format to use to specify UTC, we recommend
+using the `Etc/UTC` time zone name.
+
+The `Z` suffix isn't case sensitive. When using the `Z` suffix, no space is
+allowed between the `Z` and the rest of the timestamp. The following are
+examples of using the `Z` suffix and the `Etc/UTC` time zone name:
+
+```
+SELECT TIMESTAMP '2014-09-27T12:30:00.45Z'
+SELECT TIMESTAMP '2014-09-27 12:30:00.45z'
+SELECT TIMESTAMP '2014-09-27T12:30:00.45 Etc/UTC'
+```
+
+#### Specify an offset from Coordinated Universal Time (UTC) 
+<a id="utc_offset"></a>
+
+You can specify the offset from UTC using the following format:
+
+```
+{+|-}H[H][:M[M]]
 ```
 
 Examples:
@@ -2674,7 +2752,6 @@ Examples:
 +3:00
 +07:30
 -7
-Z
 ```
 
 When using this format, no space is allowed between the time zone and the rest
@@ -2682,10 +2759,9 @@ of the timestamp.
 
 ```
 2014-09-27 12:30:00.45-8:00
-2014-09-27T12:30:00.45Z
 ```
 
-#### Time zone name
+#### Time zone name {: #time_zone_name}
 
 Format:
 
@@ -2738,6 +2814,8 @@ are done using Unix-style timestamps, which do not reflect leap seconds. Leap
 seconds are only observable through functions that measure real-world time. In
 these functions, it is possible for a timestamp second to be skipped or repeated
 when there is a leap second.
+
+[rfc-3339-format]: https://datatracker.ietf.org/doc/html/rfc3339#page-10
 
 [tz-database]: http://www.iana.org/time-zones
 

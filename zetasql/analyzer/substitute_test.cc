@@ -23,7 +23,6 @@
 
 #include "zetasql/base/atomic_sequence_num.h"
 #include "zetasql/base/logging.h"
-#include "zetasql/analyzer/all_rewriters.h"
 #include "zetasql/base/testing/status_matchers.h"  
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/analyzer_options.h"
@@ -51,7 +50,6 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
-#include "zetasql/base/status.h"
 
 namespace zetasql {
 namespace {

@@ -1,0 +1,10 @@
+--- src/core/BUILD
++++ src/core/BUILD
+@@ -2563,6 +2563,7 @@
+     external_deps = [
+         "absl/container:flat_hash_map",
+         "absl/log:check",
++        "absl/status",
+         "absl/strings",
+         "absl/strings:str_format",
+     ],

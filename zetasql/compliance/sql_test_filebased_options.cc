@@ -24,18 +24,11 @@
 #include <vector>
 
 #include "zetasql/base/logging.h"
-#include "google/protobuf/text_format.h"
-#include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/compliance/parameters_test_util.h"
 #include "zetasql/compliance/test_driver.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.pb.h"
-#include "zetasql/public/types/type_factory.h"
-#include "gtest/gtest.h"
-#include "absl/container/btree_map.h"
-#include "absl/container/btree_set.h"
 #include "absl/container/flat_hash_set.h"
-#include "absl/container/node_hash_set.h"
 #include "absl/flags/flag.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
@@ -44,6 +37,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
+#include "file_based_test_driver/test_case_options.h"
 #include "zetasql/base/file_util.h"  
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
@@ -63,6 +57,8 @@ constexpr absl::string_view kLoadProtoNames = "load_proto_names";
 constexpr absl::string_view kName = "name";
 constexpr absl::string_view kParameters = "parameters";
 constexpr absl::string_view kPrepareDatabase = "prepare_database";
+constexpr absl::string_view kReserveMatchRecognize = "reserve_match_recognize";
+constexpr absl::string_view kReserveGraphTable = "reserve_graph_table";
 
 constexpr absl::string_view kExtractLabels = "extract_labels";  // boolean flag
 
@@ -245,6 +241,8 @@ FilebasedSQLTestFileOptions::ProcessTestCase(absl::string_view test_case,
   case_opts->sql_ = absl::StripAsciiWhitespace(test_case_string);
 
   case_opts->prepare_database_ = options_->GetBool(kPrepareDatabase);
+  case_opts->reserve_match_recognize_ =
+      options_->GetBool(kReserveMatchRecognize);
 
   case_opts->extract_labels_ = options_->GetBool(kExtractLabels);
 
@@ -300,6 +298,8 @@ FilebasedSQLTestFileOptions::FilebasedSQLTestFileOptions(
   options_->RegisterString(kLoadProtoNames, "");
   options_->RegisterString(kLoadEnumNames, "");
   options_->RegisterBool(kPrepareDatabase, false);
+  options_->RegisterBool(kReserveMatchRecognize, false);
+  options_->RegisterBool(kReserveGraphTable, false);
   options_->RegisterBool(kExtractLabels, false);
   options_->RegisterString(kRequiredFeatures, "");
   options_->RegisterString(kForbiddenFeatures, "");

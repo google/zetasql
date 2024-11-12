@@ -6,7 +6,7 @@
 
 ZetaSQL supports the following time functions.
 
-### Function list
+## Function list
 
 <table>
   <thead>
@@ -18,8 +18,7 @@ ZetaSQL supports the following time functions.
   <tbody>
 
 <tr>
-  <td><a href="#current_time"><code>CURRENT_TIME</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/time_functions.md#current_time"><code>CURRENT_TIME</code></a>
 </td>
   <td>
     Returns the current time as a <code>TIME</code> value.
@@ -27,8 +26,7 @@ ZetaSQL supports the following time functions.
 </tr>
 
 <tr>
-  <td><a href="#extract"><code>EXTRACT</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/time_functions.md#extract"><code>EXTRACT</code></a>
 </td>
   <td>
     Extracts part of a <code>TIME</code> value.
@@ -36,8 +34,7 @@ ZetaSQL supports the following time functions.
 </tr>
 
 <tr>
-  <td><a href="#format_time"><code>FORMAT_TIME</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/time_functions.md#format_time"><code>FORMAT_TIME</code></a>
 </td>
   <td>
     Formats a <code>TIME</code> value according to the specified format string.
@@ -45,17 +42,16 @@ ZetaSQL supports the following time functions.
 </tr>
 
 <tr>
-  <td><a href="#parse_time"><code>PARSE_TIME</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/time_functions.md#parse_time"><code>PARSE_TIME</code></a>
 </td>
   <td>
     Converts a <code>STRING</code> value to a <code>TIME</code> value.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#time"><code>TIME</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/time_functions.md#time"><code>TIME</code></a>
 </td>
   <td>
     Constructs a <code>TIME</code> value.
@@ -63,8 +59,7 @@ ZetaSQL supports the following time functions.
 </tr>
 
 <tr>
-  <td><a href="#time_add"><code>TIME_ADD</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/time_functions.md#time_add"><code>TIME_ADD</code></a>
 </td>
   <td>
     Adds a specified time interval to a <code>TIME</code> value.
@@ -72,8 +67,7 @@ ZetaSQL supports the following time functions.
 </tr>
 
 <tr>
-  <td><a href="#time_diff"><code>TIME_DIFF</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/time_functions.md#time_diff"><code>TIME_DIFF</code></a>
 </td>
   <td>
     Gets the number of unit boundaries between two <code>TIME</code> values at
@@ -82,8 +76,7 @@ ZetaSQL supports the following time functions.
 </tr>
 
 <tr>
-  <td><a href="#time_sub"><code>TIME_SUB</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/time_functions.md#time_sub"><code>TIME_SUB</code></a>
 </td>
   <td>
     Subtracts a specified time interval from a <code>TIME</code> value.
@@ -91,18 +84,17 @@ ZetaSQL supports the following time functions.
 </tr>
 
 <tr>
-  <td><a href="#time_trunc"><code>TIME_TRUNC</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/time_functions.md#time_trunc"><code>TIME_TRUNC</code></a>
 </td>
   <td>
-    Truncates a <code>TIME</code> value.
+    Truncates a <code>TIME</code> value at a particular granularity.
   </td>
 </tr>
 
   </tbody>
 </table>
 
-### `CURRENT_TIME`
+## `CURRENT_TIME`
 
 ```sql
 CURRENT_TIME([time_zone])
@@ -145,7 +137,7 @@ SELECT CURRENT_TIME() as now;
 
 [time-link-to-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#timezone_definitions
 
-### `EXTRACT`
+## `EXTRACT`
 
 ```sql
 EXTRACT(part FROM time_expression)
@@ -188,16 +180,21 @@ SELECT EXTRACT(HOUR FROM TIME "15:30:00") as hour;
  *------------------*/
 ```
 
-### `FORMAT_TIME`
+## `FORMAT_TIME`
 
 ```sql
-FORMAT_TIME(format_string, time_object)
+FORMAT_TIME(format_string, time_expr)
 ```
 
 **Description**
-Formats a `TIME` object according to the specified `format_string`. See
-[Supported Format Elements For TIME][time-format-elements]
-for a list of format elements that this function supports.
+
+Formats a `TIME` value according to the specified format string.
+
+**Definitions**
+
++   `format_string`: A `STRING` value that contains the
+    [format elements][time-format-elements] to use with `time_expr`.
++   `time_expr`: A `TIME` value that represents the time to format.
 
 **Return Data Type**
 
@@ -217,7 +214,7 @@ SELECT FORMAT_TIME("%R", TIME "15:30:00") as formatted_time;
 
 [time-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
 
-### `PARSE_TIME`
+## `PARSE_TIME`
 
 ```sql
 PARSE_TIME(format_string, time_string)
@@ -225,14 +222,19 @@ PARSE_TIME(format_string, time_string)
 
 **Description**
 
-Converts a [string representation of time][time-format] to a
-`TIME` object.
+Converts a `STRING` value to a `TIME` value.
 
-`format_string` contains the [format elements][time-format-elements]
-that define how `time_string` is formatted. Each element in
-`time_string` must have a corresponding element in `format_string`. The
-location of each element in `format_string` must match the location of
-each element in `time_string`.
+**Definitions**
+
++   `format_string`: A `STRING` value that contains the
+    [format elements][time-format-elements] to use with `time_string`.
++   `time_string`: A `STRING` value that represents the time to parse.
+
+**Details**
+
+Each element in `time_string` must have a corresponding element in
+`format_string`. The location of each element in `format_string` must match the
+location of each element in `time_string`.
 
 ```sql
 -- This works because elements on both sides match.
@@ -250,16 +252,16 @@ SELECT PARSE_TIME("%T", "07:30:00");
 
 When using `PARSE_TIME`, keep the following in mind:
 
-+ **Unspecified fields.** Any unspecified field is initialized from
++ Unspecified fields. Any unspecified field is initialized from
   `00:00:00.0`. For instance, if `seconds` is unspecified then it
   defaults to `00`, and so on.
-+ **Whitespace.** One or more consecutive white spaces in the format string
++ Whitespace. One or more consecutive white spaces in the format string
   matches zero or more consecutive white spaces in the `TIME` string. In
   addition, leading and trailing white spaces in the `TIME` string are always
   allowed, even if they are not in the format string.
-+ **Format precedence.** When two (or more) format elements have overlapping
++ Format precedence. When two (or more) format elements have overlapping
   information, the last one generally overrides any earlier ones.
-+ **Format divergence.** `%p` can be used with `am`, `AM`, `pm`, and `PM`.
++ Format divergence. `%p` can be used with `am`, `AM`, `pm`, and `PM`.
 
 **Return Data Type**
 
@@ -291,7 +293,7 @@ SELECT PARSE_TIME('%I:%M:%S %p', '2:23:38 pm') AS parsed_time;
 
 [time-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
 
-### `TIME`
+## `TIME`
 
 ```sql
 1. TIME(hour, minute, second)
@@ -341,7 +343,7 @@ SELECT TIME(DATETIME "2008-12-25 15:30:00.000000") AS time_dt;
 
 [time-link-to-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#timezone_definitions
 
-### `TIME_ADD`
+## `TIME_ADD`
 
 ```sql
 TIME_ADD(time_expression, INTERVAL int64_expression part)
@@ -383,7 +385,7 @@ SELECT
  *-----------------------------+------------------------*/
 ```
 
-### `TIME_DIFF`
+## `TIME_DIFF`
 
 ```sql
 TIME_DIFF(start_time, end_time, granularity)
@@ -441,7 +443,7 @@ SELECT
  *----------------------------+------------------------+------------------------*/
 ```
 
-### `TIME_SUB`
+## `TIME_SUB`
 
 ```sql
 TIME_SUB(time_expression, INTERVAL int64_expression part)
@@ -483,23 +485,25 @@ SELECT
  *-----------------------------+------------------------*/
 ```
 
-### `TIME_TRUNC`
+## `TIME_TRUNC`
 
 ```sql
-TIME_TRUNC(time_expression, granularity)
+TIME_TRUNC(time_value, time_granularity)
 ```
 
 **Description**
 
-Truncates a `TIME` value at a particular time granularity. The `TIME` value
-is always rounded to the beginning of `granularity`.
+Truncates a `TIME` value at a particular granularity.
 
 **Definitions**
 
-+ `time_expression`: The `TIME` value to truncate.
-+ `granularity`: The time part that represents the granularity. If
-  you passed in a `TIME` value for the first argument, `granularity` can
-  be:
++ `time_value`: The `TIME` value to truncate.
++ `time_granularity`: The truncation granularity for a `TIME` value.
+  [Time granularities][time-trunc-granularity-time] can be used.
+
+<a id="time_trunc_granularity_time"></a>
+
+**Time granularity definitions**
 
   + `NANOSECOND`: If used, nothing is truncated from the value.
 
@@ -512,6 +516,10 @@ is always rounded to the beginning of `granularity`.
   + `MINUTE`: The nearest lesser than or equal minute.
 
   + `HOUR`: The nearest lesser than or equal hour.
+
+**Details**
+
+The resulting value is always rounded to the beginning of `granularity`.
 
 **Return Data Type**
 
@@ -530,6 +538,8 @@ SELECT
  | 15:30:00                   | 15:00:00               |
  *----------------------------+------------------------*/
 ```
+
+[time-trunc-granularity-time]: #time_trunc_granularity_time
 
 [time-to-string]: https://github.com/google/zetasql/blob/master/docs/conversion_functions.md#cast
 

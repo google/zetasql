@@ -17,11 +17,14 @@
 #include "zetasql/tools/execute_query/execute_query_tool.h"
 
 #include <algorithm>
+#include <array>
+#include <cstdint>
 #include <functional>
 #include <iostream>
 #include <memory>
 #include <optional>
 #include <ostream>
+#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -41,25 +44,36 @@
 #include "zetasql/public/evaluator_table_iterator.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/function_signature.h"
+#include "zetasql/public/functions/like.h"
 #include "zetasql/public/multi_catalog.h"
 #include "zetasql/public/parse_helpers.h"
 #include "zetasql/public/parse_resume_location.h"
 #include "zetasql/public/parse_tokens.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/simple_catalog_util.h"
+#include "zetasql/public/sql_constant.h"
 #include "zetasql/public/sql_formatter.h"
+#include "zetasql/public/strings.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/proto_type.h"
+#include "zetasql/reference_impl/statement_evaluator.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/resolved_ast/sql_builder.h"
+#include "zetasql/scripting/script_executor.h"
+#include "zetasql/scripting/script_segment.h"
 #include "zetasql/tools/execute_query/execute_query_proto_writer.h"
 #include "zetasql/tools/execute_query/execute_query_writer.h"
 #include "zetasql/tools/execute_query/selectable_catalog.h"
+#include "zetasql/tools/execute_query/value_as_table_adapter.h"
+#include "zetasql/base/case.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/flags/flag.h"
+#include "absl/functional/any_invocable.h"
 #include "zetasql/base/check.h"
+#include "absl/log/log.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -67,12 +81,14 @@
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/str_join.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/strip.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/descriptor_database.h"
 #include "google/protobuf/message.h"
+#include "re2/re2.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
@@ -100,18 +116,27 @@ ABSL_FLAG(std::string, catalog, "none",
 
 ABSL_FLAG(zetasql::internal::EnabledAstRewrites, enabled_ast_rewrites,
           zetasql::internal::EnabledAstRewrites{
-              .enabled_ast_rewrites = zetasql::internal::GetAllRewrites()},
+              .enabled_ast_rewrites = zetasql::internal::GetRewrites(
+                  /*include_in_development=*/false,
+                  /*include_default_disabled=*/true)},
           "The AST Rewrites to enable in the analyzer, format is:"
           "\n   <BASE>[,+<ADDED_OPTION>][,-<REMOVED_OPTION>]..."
           "\n Where BASE is one of:"
-          "\n   'NONE'    : the empty set"
-          "\n   'ALL'     :   all possible rewrites, including those in"
-          " development"
-          "\n   'DEFAULTS': all ResolvedASTRewrite's with 'default_enabled' set"
+          "\n   'NONE': The empty set"
+          "\n   'ALL': All possible rewrites, including those in "
+          "development. Not recommended, in-development rewrites may produce "
+          "incorrect results"
+          "\n   'ALL_MINUS_DEV': (Default) All rewrites except those in "
+          "development"
+          "\n   'DEFAULTS': All ResolvedASTRewrite's with 'default_enabled' "
+          "set. Not recommended, in-development rewrites may produce incorrect "
+          "results"
+          "\n   'DEFAULTS_MINUS_DEV': All rewrites with 'default_enabled' set, "
+          "except those in development"
           "\n"
-          "\n enum values must be listed with 'REWRITE_' stripped"
+          "\n Enum values must be listed with 'REWRITE_' stripped"
           "\n Example:"
-          "\n    --enabled_ast_rewrites='DEFAULT,-FLATTEN,+ANONYMIZATION'"
+          "\n    --enabled_ast_rewrites='DEFAULTS,-FLATTEN,+ANONYMIZATION'"
           "\n Will enable all the default options plus ANONYMIZATION, but"
           " excluding flatten");
 
@@ -162,7 +187,8 @@ ABSL_FLAG(std::string, output_mode, "box",
 ABSL_FLAG(std::string, sql_mode, "query",
           "How to interpret the input sql. Available choices:"
           "\nquery"
-          "\nexpression");
+          "\nexpression"
+          "\nscript");
 
 ABSL_FLAG(
     int64_t, evaluator_max_value_byte_size, -1 /* sentinel for unset*/,
@@ -178,6 +204,11 @@ ABSL_FLAG(
   storing accumulated rows (e.g., during an ORDER BY query). Exceeding this
   limit results in an error.)");
 
+ABSL_FLAG(
+    int64_t, max_statements_to_execute, 1000,
+    "The limit on number of statements allowed for execution. Post this "
+    "limit, script is considered to have infinite loop and returned error.");
+
 namespace zetasql {
 
 namespace {
@@ -185,7 +216,157 @@ using ToolMode = ExecuteQueryConfig::ToolMode;
 using SqlMode = ExecuteQueryConfig::SqlMode;
 using parser::macros::DiagnosticOptions;
 using parser::macros::ExpansionOutput;
+
+struct SqlModeMap {
+  constexpr SqlModeMap(absl::string_view mode_name, SqlMode mode_enum)
+      : mode_name(mode_name), mode_enum(mode_enum) {}
+
+  absl::string_view mode_name;
+  SqlMode mode_enum;
+};
+
+constexpr auto kSqlModeMap = std::array<SqlModeMap, 3>({{
+    SqlModeMap("query", SqlMode::kQuery),
+    SqlModeMap("expression", SqlMode::kExpression),
+    SqlModeMap("script", SqlMode::kScript),
+}});
+
+// This callback is used to store the results of the statements executed.
+// Current implementation stores the vector of all the results.
+// Mapping of query/statement to result shall be done when needed.
+// Note: Results of all the queries are stored. Even the result of the table
+// expression in FOR loop.
+class EvaluatorCallback : public StatementEvaluatorCallback {
+ public:
+  explicit EvaluatorCallback(ExecuteQueryWriter& writer,
+                             const absl::flat_hash_set<ToolMode>& tool_modes)
+      : StatementEvaluatorCallback(/*bytes_per_iterator=*/100),
+        writer_(writer),
+        tool_modes_(tool_modes),
+        executed_statement_count_(0) {}
+
+  // Result is ignored if status is not ok.
+  // Caller is expected to stop the execution after an error is encountered.
+  // As the caller gets the error status, errors is not stored in this callback.
+  void OnStatementResult(
+      const ScriptSegment& segment, const ResolvedStatement* resolved_stmt,
+      const absl::StatusOr<Value>& status_or_result) override {
+    absl::string_view segment_text = segment.GetSegmentText();
+    if (segment_text.empty() || resolved_stmt == nullptr) {
+      // The callback is also called for declarations etc
+      return;
+    }
+
+    absl::Status status =
+        ProcessResult(segment_text, resolved_stmt, status_or_result);
+    if (!status.ok()) {
+      ABSL_LOG(ERROR) << "Failed to process result for statement: " << segment_text
+                 << " status: " << status;
+    }
+  }
+
+ private:
+  absl::Status ProcessResult(absl::string_view segment_text,
+                             const ResolvedStatement* resolved_stmt,
+                             const absl::StatusOr<Value>& result) {
+    // In script mode, we want to always print the statement text, so we always
+    // call StartStatement() with is_first as false.
+    ZETASQL_RETURN_IF_ERROR(writer_.StartStatement(/*is_first=*/false));
+    (void)writer_.statement_text(segment_text);
+    if (tool_modes_.contains(ToolMode::kResolve)) {
+      ZETASQL_RETURN_IF_ERROR(writer_.resolved(*resolved_stmt));
+    }
+    if (result.ok()) {
+      const Value& value = result.value();
+      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueAsTableAdapter> adapter,
+                       ValueAsTableAdapter::Create(value));
+      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       adapter->CreateEvaluatorTableIterator());
+      ZETASQL_RETURN_IF_ERROR(writer_.executed(*resolved_stmt, std::move(iter)));
+    } else {
+      ZETASQL_RETURN_IF_ERROR(writer_.executed(result.status().ToString()));
+    }
+
+    executed_statement_count_++;
+    return absl::OkStatus();
+  }
+
+ private:
+  ExecuteQueryWriter& writer_;
+  const absl::flat_hash_set<ToolMode>& tool_modes_;
+  int executed_statement_count_;
+};
+
 }  // namespace
+
+std::optional<ToolMode> ExecuteQueryConfig::parse_tool_mode(
+    absl::string_view mode) {
+  static const auto* kToolModeMap =
+      new absl::flat_hash_map<absl::string_view, ToolMode>({
+          {"parse", ToolMode::kParse},
+          {"parser", ToolMode::kParse},
+          {"unparse", ToolMode::kUnparse},
+          {"unparser", ToolMode::kUnparse},
+          {"resolve", ToolMode::kResolve},
+          {"resolver", ToolMode::kResolve},
+          {"analyze", ToolMode::kResolve},
+          {"analyzer", ToolMode::kResolve},
+          {"sql_builder", ToolMode::kUnAnalyze},
+          {"sqlbuilder", ToolMode::kUnAnalyze},
+          {"unanalyze", ToolMode::kUnAnalyze},
+          {"unanalyzer", ToolMode::kUnAnalyze},
+          {"unresolve", ToolMode::kUnAnalyze},
+          {"unresolver", ToolMode::kUnAnalyze},
+          {"explain", ToolMode::kExplain},
+          {"execute", ToolMode::kExecute},
+      });
+
+  std::string mode_lower{absl::AsciiStrToLower(mode)};
+  auto it = kToolModeMap->find(mode_lower);
+  if (it == kToolModeMap->end()) {
+    return std::nullopt;
+  }
+  return it->second;
+}
+
+absl::string_view ExecuteQueryConfig::tool_mode_name(ToolMode tool_mode) {
+  static const auto* kToolModeNames =
+      new absl::flat_hash_map<ToolMode, absl::string_view>({
+          {ToolMode::kParse, "parse"},
+          {ToolMode::kUnparse, "unparse"},
+          {ToolMode::kResolve, "analyze"},
+          {ToolMode::kUnAnalyze, "unanalyze"},
+          {ToolMode::kExplain, "explain"},
+          {ToolMode::kExecute, "execute"},
+      });
+
+  auto it = kToolModeNames->find(tool_mode);
+  ABSL_CHECK(it != kToolModeNames->end())
+      << "Unknown tool mode: " << static_cast<int>(tool_mode);
+  return it->second;
+}
+
+// Returns the sql mode if the mode string matches one of the sql modes.
+std::optional<SqlMode> ExecuteQueryConfig::parse_sql_mode(
+    absl::string_view mode) {
+  std::string mode_lower{absl::AsciiStrToLower(mode)};
+  for (const SqlModeMap& sql_mode : kSqlModeMap) {
+    if (mode_lower == sql_mode.mode_name) {
+      return sql_mode.mode_enum;
+    }
+  }
+  return std::nullopt;
+}
+
+// Returns the name of the sql mode.
+absl::string_view ExecuteQueryConfig::sql_mode_name(SqlMode sql_mode_enum) {
+  for (const SqlModeMap& sql_mode : kSqlModeMap) {
+    if (sql_mode.mode_enum == sql_mode_enum) {
+      return sql_mode.mode_name;
+    }
+  }
+  ABSL_LOG(FATAL) << "Unknown sql mode: " << static_cast<int>(sql_mode_enum);
+}
 
 absl::Status SetToolModeFromFlags(ExecuteQueryConfig& config) {
   const std::vector<std::string> mode = absl::GetFlag(FLAGS_mode);
@@ -212,17 +393,15 @@ absl::Status SetToolModeFromFlags(ExecuteQueryConfig& config) {
 }
 
 absl::Status SetSqlModeFromFlags(ExecuteQueryConfig& config) {
-  const std::string sql_mode = absl::GetFlag(FLAGS_sql_mode);
-  if (sql_mode == "query") {
-    config.set_sql_mode(SqlMode::kQuery);
+  const std::string sql_mode_str = absl::GetFlag(FLAGS_sql_mode);
+  std::optional<SqlMode> sql_mode =
+      ExecuteQueryConfig::parse_sql_mode(sql_mode_str);
+  if (sql_mode.has_value()) {
+    config.set_sql_mode(*sql_mode);
     return absl::OkStatus();
-  } else if (sql_mode == "expression") {
-    config.set_sql_mode(SqlMode::kExpression);
-    return absl::OkStatus();
-  } else {
-    return zetasql_base::InvalidArgumentErrorBuilder()
-           << "Invalid --sql_mode: '" << sql_mode << "'";
   }
+  return zetasql_base::InvalidArgumentErrorBuilder()
+         << "Invalid --sql_mode: '" << sql_mode_str << "'";
 }
 
 static absl::Status SetFoldLiteralCastFromFlags(ExecuteQueryConfig& config) {
@@ -360,8 +539,7 @@ static absl::StatusOr<std::unique_ptr<const Table>> MakeTableFromTableSpec(
   }
 }
 
-absl::Status ExecuteQueryConfig::SetCatalogFromString(
-    const std::string& value) {
+absl::Status ExecuteQueryConfig::SetCatalogFromString(absl::string_view value) {
   ZETASQL_ASSIGN_OR_RETURN(SelectableCatalog * selectable_catalog,
                    FindSelectableCatalog(value));
 
@@ -469,6 +647,9 @@ absl::Status InitializeExecuteQueryConfig(ExecuteQueryConfig& config) {
   config.mutable_analyzer_options()
       .mutable_language()
       ->SetSupportsAllStatementKinds();
+  config.mutable_analyzer_options()
+      .mutable_language()
+      ->EnableAllReservableKeywords();
 
   // Used to pretty print error message in tandem with
   // ExecuteQueryLoopPrintErrorHandler.
@@ -619,6 +800,15 @@ static absl::StatusOr<const ASTNode*> ParseSql(
       *at_end_of_input = true;
       break;
     }
+    case SqlMode::kScript: {
+      ZETASQL_RET_CHECK(at_end_of_input == nullptr);
+      parser_options.set_language_options(config.analyzer_options().language());
+      ZETASQL_RETURN_IF_ERROR(ParseScript(
+          sql, parser_options,
+          config.analyzer_options().error_message_options(), parser_output));
+      root = (*parser_output)->script();
+      break;
+    }
   }
   ZETASQL_RET_CHECK_NE(root, nullptr);
   return root;
@@ -665,6 +855,11 @@ static absl::StatusOr<const ResolvedNode*> AnalyzeSql(
           config.type_factory(), config.catalog(), analyzer_output));
       resolved_node = (*analyzer_output)->resolved_expr();
       break;
+    }
+    case SqlMode::kScript: {
+      // AnalyzeSql is never really called in script mode. But just in case...
+      return absl::UnimplementedError(
+          "Analysis is not supported in \"script\" sql_mode.");
     }
   }
 
@@ -761,6 +956,34 @@ static absl::Status HandleDDL(
       ZETASQL_RETURN_IF_ERROR(writer.log("Table registered."));
       break;
     }
+    case RESOLVED_CREATE_CONSTANT_STMT: {
+      const auto* stmt = resolved_node->GetAs<ResolvedCreateConstantStmt>();
+      ZETASQL_ASSIGN_OR_RETURN(auto owned_constant,
+                       MakeConstantFromCreateConstant(*stmt));
+      SQLConstant* sql_constant = owned_constant.get();
+
+      if (!config.wrapper_catalog()->AddOwnedConstantIfNotPresent(
+              std::move(owned_constant))) {
+        return zetasql_base::InvalidArgumentErrorBuilder() << "Constant already exists";
+      }
+      ZETASQL_RETURN_IF_ERROR(writer.log("Constant registered."));
+
+      if (config.has_tool_mode(ToolMode::kExecute)) {
+        PreparedExpression expression{sql_constant->constant_expression(),
+                                      config.evaluator_options()};
+        ZETASQL_RETURN_IF_ERROR(
+            expression.Prepare(config.analyzer_options(), config.catalog()));
+
+        PreparedExpressionBase::ExpressionOptions expression_options;
+        expression_options.parameters = config.query_parameter_values();
+        ZETASQL_ASSIGN_OR_RETURN(Value value, expression.ExecuteAfterPrepare(
+                                          std::move(expression_options)));
+
+        ZETASQL_RETURN_IF_ERROR(sql_constant->SetEvaluationResult(value));
+        ZETASQL_RETURN_IF_ERROR(writer.log("Constant evaluated."));
+      }
+      break;
+    }
     default:
       // Not a DDL statement so we don't need AddFunctionArtifacts below.
       return absl::OkStatus();
@@ -775,7 +998,8 @@ static absl::Status HandleDDL(
 
 static absl::Status ExplainAndOrExecuteSql(const ResolvedNode* resolved_node,
                                            ExecuteQueryConfig& config,
-                                           ExecuteQueryWriter& writer) {
+                                           ExecuteQueryWriter& writer,
+                                           absl::string_view sql) {
   switch (config.sql_mode()) {
     case SqlMode::kQuery: {
       ZETASQL_RET_CHECK_EQ(resolved_node->node_kind(), RESOLVED_QUERY_STMT);
@@ -803,6 +1027,9 @@ static absl::Status ExplainAndOrExecuteSql(const ResolvedNode* resolved_node,
     case SqlMode::kExpression: {
       ZETASQL_RET_CHECK(resolved_node->IsExpression());
 
+      // Note there is similar expression evaluation code in the handling
+      // for RESOLVED_CREATE_CONSTANT_STMT.  Keep them in sync.
+      // If the code gets longer, extract common methods.
       PreparedExpression expression{resolved_node->GetAs<ResolvedExpr>(),
                                     config.evaluator_options()};
       ZETASQL_RETURN_IF_ERROR(
@@ -823,6 +1050,43 @@ static absl::Status ExplainAndOrExecuteSql(const ResolvedNode* resolved_node,
       }
 
       return absl::OkStatus();
+    }
+    case SqlMode::kScript: {
+      ScriptExecutorOptions script_executor_options;
+      script_executor_options.PopulateFromAnalyzerOptions(
+          config.analyzer_options());
+      EvaluatorOptions evaluator_options;
+      ParameterValueList positional_parameters;
+      TypeFactory type_factory;
+      EvaluatorCallback callback(writer, config.tool_modes());
+      auto evaluator = std::make_unique<StatementEvaluatorImpl>(
+          config.analyzer_options(), evaluator_options, positional_parameters,
+          &type_factory, config.catalog(), &callback);
+      absl::StatusOr<std::unique_ptr<ScriptExecutor>> script_executor =
+          ScriptExecutor::Create(sql, script_executor_options, evaluator.get());
+      if (!script_executor.ok()) {
+        return script_executor.status();
+      }
+      absl::Status status = absl::OkStatus();
+      int64_t executed_statement_count = 0;
+      // Breaks out of the loop if the script has reached the maximum execution
+      // limit or an error is encountered. Results of the previous (successful)
+      // statements are still added to the ExecuteQueryWriter.
+      while (executed_statement_count <
+                 absl::GetFlag(FLAGS_max_statements_to_execute) &&
+             status.ok() && !(*script_executor)->IsComplete()) {
+        status = (*script_executor)->ExecuteNext();
+        executed_statement_count += 1;
+      }
+
+      if (executed_statement_count >=
+          absl::GetFlag(FLAGS_max_statements_to_execute)) {
+        return absl::InvalidArgumentError(
+            absl::StrCat("Potential infinite loop in the script. Script has "
+                         "reached maximum execution limit: ",
+                         absl::GetFlag(FLAGS_max_statements_to_execute)));
+      }
+      return status;
     }
   }
 }
@@ -994,6 +1258,146 @@ static absl::Status ExecuteDescribe(const ResolvedNode* resolved_node,
   return absl::OkStatus();
 }
 
+// Recursively collects all the catalogs that are enumerable.
+absl::Status GetEnumerableCatalogs(
+    const Catalog* catalog,
+    absl::flat_hash_set<const EnumerableCatalog*>& enumerable_catalogs) {
+  if (!catalog->Is<EnumerableCatalog>()) {
+    return absl::OkStatus();
+  }
+
+  const EnumerableCatalog* enumerable_catalog =
+      catalog->GetAs<EnumerableCatalog>();
+  auto result = enumerable_catalogs.insert(enumerable_catalog);
+  if (!result.second) {
+    return absl::OkStatus();
+  }
+
+  if (result.second) {
+    absl::flat_hash_set<const Catalog*> nested_catalogs;
+    ZETASQL_RETURN_IF_ERROR(enumerable_catalog->GetCatalogs(&nested_catalogs));
+    for (const auto& nested : nested_catalogs) {
+      ZETASQL_RETURN_IF_ERROR(GetEnumerableCatalogs(nested, enumerable_catalogs));
+    }
+  }
+  return absl::OkStatus();
+}
+
+// This is a rudimentary implementation of
+//   SHOW object_type name [LIKE pattern]
+// It can print a simple list of tables, functions and TVFs.
+// If object_type is one of those, it'll print objects just of that type.
+//
+// This is implemented in execute_query rather than in the reference
+// implementation because SHOW is engine-defined behavior and does not
+// have a specified correct answer that could be compliance tested.
+//
+// Note that [object_type] is in plural, i.e. SHOW TABLES rather than SHOW TABLE
+static absl::Status ExecuteShow(const ResolvedNode* resolved_node,
+                                ExecuteQueryConfig& config,
+                                ExecuteQueryWriter& writer) {
+  ZETASQL_RET_CHECK_EQ(resolved_node->node_kind(), RESOLVED_SHOW_STMT);
+  const ResolvedShowStmt* show_stmt = resolved_node->GetAs<ResolvedShowStmt>();
+  const std::string object_type =
+      absl::AsciiStrToLower(show_stmt->identifier());
+
+  // Set up a filter for the LIKE pattern.
+  std::unique_ptr<RE2> like_regexp;
+  if (show_stmt->like_expr() != nullptr) {
+    Value like_pattern = show_stmt->like_expr()->value();
+    ZETASQL_RET_CHECK(like_pattern.has_content());
+    if (like_pattern.type_kind() != TypeKind::TYPE_STRING) {
+      return zetasql_base::InvalidArgumentErrorBuilder()
+             << "The LIKE pattern must be a string.";
+    }
+
+    RE2::Options options;
+    options.set_case_sensitive(false);
+    ZETASQL_RETURN_IF_ERROR(functions::CreateLikeRegexpWithOptions(
+        like_pattern.string_value(), options, &like_regexp));
+  }
+  absl::AnyInvocable<bool(const std::string&)> like_filter =
+      [&like_regexp](absl::string_view value) -> bool {
+    return like_regexp ? RE2::FullMatch(value, *like_regexp) : true;
+  };
+
+  // We can't look for objects in config.catalog() directly, since that is a
+  // MultiCatalog which is not enumerable. Instead, we'll collect all the
+  // enumerable catalogs accessible from the main catalog and use that set.
+  absl::flat_hash_set<const EnumerableCatalog*> enumerable_catalogs;
+  const Catalog* catalog = config.catalog();
+  ZETASQL_RET_CHECK(catalog->Is<MultiCatalog>()) << "Expected a MultiCatalog";
+  if (catalog->Is<MultiCatalog>()) {
+    const MultiCatalog* multi_catalog = catalog->GetAs<MultiCatalog>();
+    for (const auto& child_catalog : multi_catalog->catalogs()) {
+      ZETASQL_RETURN_IF_ERROR(
+          GetEnumerableCatalogs(child_catalog, enumerable_catalogs));
+    }
+  }
+
+  auto sorted_strings = [](const absl::flat_hash_set<std::string>& set) {
+    std::vector<std::string> v(set.begin(), set.end());
+    std::sort(v.begin(), v.end(), zetasql_base::CaseLess());
+    return absl::StrJoin(v, "\n");
+  };
+
+  int object_count = 0;
+  if (object_type == "tables") {
+    absl::flat_hash_set<std::string> table_names;
+    for (const EnumerableCatalog* enumerable_catalog : enumerable_catalogs) {
+      absl::flat_hash_set<const Table*> tables;
+      ZETASQL_RETURN_IF_ERROR(enumerable_catalog->GetTables(&tables));
+      for (const auto& table : tables) {
+        if (like_filter(table->Name())) {
+          table_names.insert(table->Name());
+        }
+      }
+    }
+    object_count += table_names.size();
+    ZETASQL_RETURN_IF_ERROR(writer.executed(sorted_strings(table_names)));
+  } else if (object_type == "functions") {
+    absl::flat_hash_set<std::string> function_names;
+    for (const EnumerableCatalog* enumerable_catalog : enumerable_catalogs) {
+      absl::flat_hash_set<const Function*> functions;
+      ZETASQL_RETURN_IF_ERROR(enumerable_catalog->GetFunctions(&functions));
+      for (const auto& function : functions) {
+        if (IsInternalAlias(function->Name())) continue;
+        const std::string& full_name =
+            function->FullName(/*include_group=*/false);
+        if (like_filter(full_name)) {
+          function_names.insert(full_name);
+        }
+      }
+    }
+    object_count += function_names.size();
+    ZETASQL_RETURN_IF_ERROR(writer.executed(sorted_strings(function_names)));
+  } else if (object_type == "tvfs") {
+    absl::flat_hash_set<std::string> tvf_names;
+    for (const EnumerableCatalog* enumerable_catalog : enumerable_catalogs) {
+      absl::flat_hash_set<const TableValuedFunction*> tvfs;
+      ZETASQL_RETURN_IF_ERROR(enumerable_catalog->GetTableValuedFunctions(&tvfs));
+      for (const auto& tvf : tvfs) {
+        if (like_filter(tvf->Name())) {
+          tvf_names.insert(tvf->Name());
+        }
+      }
+    }
+    object_count += tvf_names.size();
+    ZETASQL_RETURN_IF_ERROR(writer.executed(sorted_strings(tvf_names)));
+  } else {
+    return zetasql_base::InvalidArgumentErrorBuilder()
+           << "Unsupported object type: " << show_stmt->identifier();
+  }
+
+  // TODO: Remove this once we have table output.
+  if (object_count == 0) {
+    ZETASQL_RETURN_IF_ERROR(
+        writer.executed(absl::StrCat("No matching ", object_type, " found")));
+  }
+
+  return absl::OkStatus();
+}
+
 static absl::StatusOr<absl::string_view> ExtractNextStatement(
     absl::string_view script, const ExecuteQueryConfig& config,
     const ParseResumeLocation& start_location) {
@@ -1021,6 +1425,41 @@ static absl::StatusOr<absl::string_view> ExtractNextStatement(
   }
 
   return statement_text;
+}
+
+static absl::Status ExecuteScript(absl::string_view script,
+                                  ExecuteQueryConfig& config,
+                                  ExecuteQueryWriter& writer) {
+  std::unique_ptr<ParserOutput> parser_output;
+  absl::StatusOr<const ASTNode*> ast =
+      ParseSql(script, config, nullptr, nullptr, &parser_output);
+  if (!ast.ok()) {
+    return MaybeUpdateErrorFromPayload(
+        ErrorMessageOptions{
+            .mode = ErrorMessageMode::ERROR_MESSAGE_MULTI_LINE_WITH_CARET,
+            .attach_error_location_payload = false},
+        script, ast.status());
+  }
+
+  if (config.has_tool_mode(ToolMode::kParse) ||
+      config.has_tool_mode(ToolMode::kUnparse)) {
+    ZETASQL_RETURN_IF_ERROR(WriteParsedAndOrUnparsedAst(*ast, config, writer));
+  }
+  if (config.has_tool_mode(ToolMode::kExecute)) {
+    ZETASQL_RETURN_IF_ERROR(ExplainAndOrExecuteSql(nullptr, config, writer, script));
+  }
+  if (!config.has_tool_mode(ToolMode::kExecute) &&
+      (config.has_tool_mode(ToolMode::kResolve) ||
+       config.has_tool_mode(ToolMode::kUnAnalyze))) {
+    return absl::UnavailableError(
+        "Analysis is not supported for scripts. "
+        "Individual statements can be analyzed while they are executed if "
+        "both \"execute\" and \"analyze\" are specified.");
+  }
+  if (config.has_tool_mode(ToolMode::kExplain)) {
+    return absl::UnavailableError("Explanation is not supported for scripts.");
+  }
+  return absl::OkStatus();
 }
 
 // Process the next statement from script, updating `parse_result_location`
@@ -1080,7 +1519,8 @@ static absl::Status ExecuteOneQuery(absl::string_view script,
       config.has_tool_mode(ToolMode::kExecute)) {
     if (resolved_node->node_kind() == RESOLVED_QUERY_STMT ||
         resolved_node->IsExpression()) {
-      ZETASQL_RETURN_IF_ERROR(ExplainAndOrExecuteSql(resolved_node, config, writer));
+      ZETASQL_RETURN_IF_ERROR(
+          ExplainAndOrExecuteSql(resolved_node, config, writer, script));
     } else if (config.has_tool_mode(ToolMode::kExplain)) {
       return absl::InvalidArgumentError(
           absl::StrCat("The statement ", resolved_node->node_kind_string(),
@@ -1089,6 +1529,8 @@ static absl::Status ExecuteOneQuery(absl::string_view script,
       ZETASQL_RET_CHECK(config.has_tool_mode(ToolMode::kExecute));
       if (resolved_node->node_kind() == RESOLVED_DESCRIBE_STMT) {
         ZETASQL_RETURN_IF_ERROR(ExecuteDescribe(resolved_node, config, writer));
+      } else if (resolved_node->node_kind() == RESOLVED_SHOW_STMT) {
+        ZETASQL_RETURN_IF_ERROR(ExecuteShow(resolved_node, config, writer));
       } else if (executed_as_ddl) {
         // Execution handled in HandleDDL above.
       } else {
@@ -1129,6 +1571,10 @@ absl::Status ExecuteQuery(absl::string_view sql, ExecuteQueryConfig& config,
 
     // macro expansion
     ZETASQL_ASSIGN_OR_RETURN(script, ExpandMacros(script, config, writer));
+  }
+  if (config.sql_mode() == SqlMode::kScript) {
+    ZETASQL_RETURN_IF_ERROR(ExecuteScript(script, config, writer));
+    return absl::OkStatus();
   }
 
   auto parse_resume_location = ParseResumeLocation::FromString(script);

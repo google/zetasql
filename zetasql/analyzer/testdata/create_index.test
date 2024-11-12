@@ -119,6 +119,39 @@ CreateIndexStmt
       +-field_descriptor=timestamp_seconds
       +-default_value=1970-01-01 00:00:00+00
       +-format=TIMESTAMP_SECONDS
+
+==
+
+[show_unparsed]
+# Proto field with OPTIONS.
+create index i1 on TestTable(KitchenSink.timestamp_seconds OPTIONS(k1="v1"));
+--
+CreateIndexStmt
++-name_path=i1
++-table_name_path=TestTable
++-table_scan=
+| +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
++-is_unique=FALSE
++-index_item_list=
+| +-IndexItem
+|   +-column_ref=
+|   | +-ColumnRef(type=TIMESTAMP, column=TestTable.timestamp_seconds#4)
+|   +-descending=FALSE
+|   +-option_list=
+|     +-k1 := Literal(type=STRING, value="v1")
++-computed_columns_list=
+  +-timestamp_seconds#4 :=
+    +-GetProtoField
+      +-type=TIMESTAMP
+      +-expr=
+      | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+      +-field_descriptor=timestamp_seconds
+      +-default_value=1970-01-01 00:00:00+00
+      +-format=TIMESTAMP_SECONDS
+
+[UNPARSED_SQL]
+CREATE INDEX i1 ON TestTable(KitchenSink.timestamp_seconds OPTIONS(k1 = "v1"));
+
 ==
 
 # Create index on the whole array works.
@@ -1314,6 +1347,87 @@ create search index i1 on ComplexTypes (TestStruct.c);
 ERROR: CREATE SEARCH INDEX does not yet support expressions to define index keys, only column name is supported [at 1:41]
 create search index i1 on ComplexTypes (TestStruct.c);
                                         ^
+
+==
+
+# Create search index with duplicate keys in list of OPTIONS.
+create search index i1 on ComplexTypes (key OPTIONS(k1=v1, k1=v2), TestStruct OPTIONS(k2=v2))
+--
+ERROR: Duplicate option name k1 [at 1:60]
+...search index i1 on ComplexTypes (key OPTIONS(k1=v1, k1=v2), TestStruct OPT...
+                                                       ^
+
+==
+
+# Create search index with ALL COLUMNS and non-path expression in list of OPTIONS.
+create search index i1 on KeyValue(ALL COLUMNS WITH COLUMN OPTIONS(Key + 1 OPTIONS(k1=v1)));
+--
+ERROR: Non-path index key expression for CREATE INDEX is notsupported yet [at 1:68]
+...i1 on KeyValue(ALL COLUMNS WITH COLUMN OPTIONS(Key + 1 OPTIONS(k1=v1)));
+                                                  ^
+
+==
+
+[show_unparsed]
+# Create search index single option on columns.
+create search index i1 on ComplexTypes (key OPTIONS(k1="v1"), TestStruct OPTIONS(k2="v2"))
+--
+CreateIndexStmt
++-name_path=i1
++-table_name_path=ComplexTypes
++-table_scan=
+| +-TableScan(column_list=ComplexTypes.[key#1, TestStruct#5], table=ComplexTypes, column_index_list=[0, 4])
++-is_unique=FALSE
++-is_search=TRUE
++-index_item_list=
+  +-IndexItem
+  | +-column_ref=
+  | | +-ColumnRef(type=INT32, column=ComplexTypes.key#1)
+  | +-descending=FALSE
+  | +-option_list=
+  |   +-k1 := Literal(type=STRING, value="v1")
+  +-IndexItem
+    +-column_ref=
+    | +-ColumnRef(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, column=ComplexTypes.TestStruct#5)
+    +-descending=FALSE
+    +-option_list=
+      +-k2 := Literal(type=STRING, value="v2")
+
+[UNPARSED_SQL]
+CREATE SEARCH INDEX i1 ON ComplexTypes(key OPTIONS(k1 = "v1"), TestStruct OPTIONS(k2 = "v2"));
+
+==
+
+[show_unparsed]
+# Create search index with multiple options on columns.
+create search index i1 on ComplexTypes (KitchenSink OPTIONS(k1="v1", k2="v2"), TestStruct OPTIONS(k3="v3"))
+--
+CreateIndexStmt
++-name_path=i1
++-table_name_path=ComplexTypes
++-table_scan=
+| +-TableScan(column_list=ComplexTypes.[KitchenSink#3, TestStruct#5], table=ComplexTypes, column_index_list=[2, 4])
++-is_unique=FALSE
++-is_search=TRUE
++-index_item_list=
+  +-IndexItem
+  | +-column_ref=
+  | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=ComplexTypes.KitchenSink#3)
+  | +-descending=FALSE
+  | +-option_list=
+  |   +-k1 := Literal(type=STRING, value="v1")
+  |   +-k2 := Literal(type=STRING, value="v2")
+  +-IndexItem
+    +-column_ref=
+    | +-ColumnRef(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, column=ComplexTypes.TestStruct#5)
+    +-descending=FALSE
+    +-option_list=
+      +-k3 := Literal(type=STRING, value="v3")
+
+[UNPARSED_SQL]
+CREATE SEARCH INDEX i1 ON ComplexTypes(KitchenSink OPTIONS(k1 = "v1", k2 = "v2"), TestStruct OPTIONS(k3 =
+  "v3"));
+
 ==
 
 # Create a search index and index all columns should succeed.
@@ -1343,6 +1457,135 @@ create search index i1 on ComplexTypes (`ALL COLUMNS`);
 ERROR: Unrecognized name: `ALL COLUMNS` [at 1:41]
 create search index i1 on ComplexTypes (`ALL COLUMNS`);
                                         ^
+
+==
+
+# Create search index ALL COLUMNS using WITH COLUMN OPTIONS but no options specified.
+create search index i1 on ComplexTypes (ALL COLUMNS WITH COLUMN OPTIONS(key, TestStruct))
+--
+ERROR: There must be at least one option specified in WITH COLUMN OPTIONS clause. [at 1:73]
+...i1 on ComplexTypes (ALL COLUMNS WITH COLUMN OPTIONS(key, TestStruct))
+                                                       ^
+
+==
+
+# Create search index ALL COLUMNS using WITH COLUMN OPTIONS but no options specified on one key expression and empty options specified on the other.
+create search index i1 on ComplexTypes (ALL COLUMNS WITH COLUMN OPTIONS(key, TestStruct OPTIONS()))
+--
+ERROR: There must be at least one option specified in WITH COLUMN OPTIONS clause. [at 1:73]
+...i1 on ComplexTypes (ALL COLUMNS WITH COLUMN OPTIONS(key, TestStruct OPTION...
+                                                       ^
+
+==
+
+# Create search index ALL COLUMNS using WITH COLUMN OPTIONS but empty list of options specified.
+create search index i1 on ComplexTypes (ALL COLUMNS WITH COLUMN OPTIONS(key OPTIONS(), TestStruct OPTIONS()))
+--
+ERROR: There must be at least one option specified in WITH COLUMN OPTIONS clause. [at 1:73]
+...i1 on ComplexTypes (ALL COLUMNS WITH COLUMN OPTIONS(key OPTIONS(), TestStr...
+                                                       ^
+
+==
+
+# Create search index ALL COLUMNS using WITH COLUMN OPTIONS but empty list of options specified in one key expression.
+create search index i1 on ComplexTypes (ALL COLUMNS WITH COLUMN OPTIONS(key OPTIONS(k=v), TestStruct OPTIONS()))
+--
+ERROR: There must be at least one option specified in WITH COLUMN OPTIONS clause. [at 1:91]
+...ALL COLUMNS WITH COLUMN OPTIONS(key OPTIONS(k=v), TestStruct OPTIONS()))
+                                                     ^
+
+==
+
+# Create search index ALL COLUMNS using WITH COLUMN OPTIONS but empty list of options in one key expression.
+create search index i1 on ComplexTypes (ALL COLUMNS WITH COLUMN OPTIONS(key, TestStruct OPTIONS(k=v)))
+--
+ERROR: There must be at least one option specified in WITH COLUMN OPTIONS clause. [at 1:73]
+...i1 on ComplexTypes (ALL COLUMNS WITH COLUMN OPTIONS(key, TestStruct OPTION...
+                                                       ^
+
+==
+
+# Create search index ALL COLUMNS using WITH COLUMN OPTIONS with unknown column.
+create search index i1 on ComplexTypes (ALL COLUMNS WITH COLUMN OPTIONS(UnknownColumn OPTIONS(k1=v1)))
+--
+ERROR: Unrecognized name: UnknownColumn [at 1:73]
+...i1 on ComplexTypes (ALL COLUMNS WITH COLUMN OPTIONS(UnknownColumn OPTIONS(...
+                                                       ^
+
+==
+
+# Create search index ALL COLUMNS using WITH COLUMN OPTIONS with duplicate option.
+create search index i1 on ComplexTypes (ALL COLUMNS WITH COLUMN OPTIONS(key OPTIONS(k1=v1, k1=v2), TestStruct(k2=v2)))
+--
+ERROR: Duplicate option name k1 [at 1:92]
+...ALL COLUMNS WITH COLUMN OPTIONS(key OPTIONS(k1=v1, k1=v2), TestStruct(k2=v...
+                                                      ^
+
+==
+
+[show_unparsed]
+# Create search index ALL COLUMNS with OPTIONS.
+create search index i1 on ComplexTypes (ALL COLUMNS WITH COLUMN OPTIONS(key OPTIONS(k1="v1"), TestStruct OPTIONS(k2="v2")))
+--
+CreateIndexStmt
++-name_path=i1
++-table_name_path=ComplexTypes
++-table_scan=
+| +-TableScan(column_list=ComplexTypes.[key#1, TestStruct#5], table=ComplexTypes, column_index_list=[0, 4])
++-is_unique=FALSE
++-is_search=TRUE
++-index_all_columns=TRUE
++-index_item_list=
+  +-IndexItem
+  | +-column_ref=
+  | | +-ColumnRef(type=INT32, column=ComplexTypes.key#1)
+  | +-descending=FALSE
+  | +-option_list=
+  |   +-k1 := Literal(type=STRING, value="v1")
+  +-IndexItem
+    +-column_ref=
+    | +-ColumnRef(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, column=ComplexTypes.TestStruct#5)
+    +-descending=FALSE
+    +-option_list=
+      +-k2 := Literal(type=STRING, value="v2")
+
+[UNPARSED_SQL]
+CREATE SEARCH INDEX i1 ON ComplexTypes(ALL COLUMNS WITH COLUMN OPTIONS(key OPTIONS(k1 = "v1"), TestStruct OPTIONS(k2 =
+  "v2")));
+
+==
+
+[show_unparsed]
+# Create search index ALL COLUMNS with multiple OPTIONS on same column.
+create search index i1 on ComplexTypes (ALL COLUMNS WITH COLUMN OPTIONS(key OPTIONS(k1="v1", k2="v2"), TestStruct OPTIONS(k3="v3")))
+--
+CreateIndexStmt
++-name_path=i1
++-table_name_path=ComplexTypes
++-table_scan=
+| +-TableScan(column_list=ComplexTypes.[key#1, TestStruct#5], table=ComplexTypes, column_index_list=[0, 4])
++-is_unique=FALSE
++-is_search=TRUE
++-index_all_columns=TRUE
++-index_item_list=
+  +-IndexItem
+  | +-column_ref=
+  | | +-ColumnRef(type=INT32, column=ComplexTypes.key#1)
+  | +-descending=FALSE
+  | +-option_list=
+  |   +-k1 := Literal(type=STRING, value="v1")
+  |   +-k2 := Literal(type=STRING, value="v2")
+  +-IndexItem
+    +-column_ref=
+    | +-ColumnRef(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, column=ComplexTypes.TestStruct#5)
+    +-descending=FALSE
+    +-option_list=
+      +-k3 := Literal(type=STRING, value="v3")
+
+[UNPARSED_SQL]
+CREATE SEARCH INDEX i1 ON ComplexTypes(ALL COLUMNS WITH COLUMN OPTIONS(key OPTIONS(k1 = "v1", k2 = "v2"),
+TestStruct OPTIONS(k3 = "v3")));
+
 ==
 
 [disallow_duplicate_options]

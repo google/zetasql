@@ -299,6 +299,7 @@ std::vector<FunctionTestCall> GetFunctionTestsNativeJsonValueArray();
 std::vector<FunctionTestCall> GetFunctionTestsJsonQueryLax();
 std::vector<FunctionTestCall> GetFunctionTestsToJsonString();
 std::vector<FunctionTestCall> GetFunctionTestsToJson();
+std::vector<FunctionTestCall> GetFunctionTestsSafeToJson();
 std::vector<QueryParamsWithResult> GetFunctionTestsJsonIsNull();
 std::vector<FunctionTestCall> GetFunctionTestsParseJson();
 std::vector<FunctionTestCall> GetFunctionTestsConvertJson();
@@ -328,6 +329,7 @@ std::vector<FunctionTestCall> GetFunctionTestsError();
 std::vector<FunctionTestCall> GetFunctionTestsBytesStringConversion();
 
 std::vector<FunctionTestCall> GetFunctionTestsRangeComparisons();
+std::vector<FunctionTestCall> GetFunctionTestsUuidComparisons();
 std::vector<FunctionTestCall> GetFunctionTestsRangeOverlaps();
 std::vector<FunctionTestCall> GetFunctionTestsRangeIntersect();
 std::vector<FunctionTestCall> GetFunctionTestsGenerateTimestampRangeArray();
@@ -353,6 +355,8 @@ std::vector<FunctionTestCall> GetFunctionTestsEditDistance();
 std::vector<FunctionTestCall> GetFunctionTestsEditDistanceBytes();
 std::vector<FunctionTestCall> GetFunctionTestsSplitSubstr(
     bool skip_collation = false);
+
+std::vector<QueryParamsWithResult> GetFunctionTestsMapCast();
 
 }  // namespace zetasql
 

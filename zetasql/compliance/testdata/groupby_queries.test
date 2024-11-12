@@ -2151,6 +2151,112 @@ ARRAY<STRUCT<
   {34, "1", -1}
 ]
 ==
+[prepare_database]
+[required_features=V_1_4_UUID_TYPE]
+CREATE TABLE UuidTable AS
+SELECT CAST(1 AS int64) as row_id,
+       CAST("1" AS string) as str_val,
+       CAST('00000000-0000-0000-0000-000000000001' AS UUID) as uuid_val
+UNION ALL
+SELECT CAST(2 AS int64) as row_id,
+       CAST("1" AS string) as str_val,
+       CAST('00000000-0000-0000-0000-000000000001' AS UUID) as uuid_val
+UNION ALL
+SELECT CAST(3 AS int64) as row_id,
+       CAST("1" AS string) as str_val,
+       CAST('00000000-0000-0000-0000-000000000001' AS UUID) as uuid_val
+       UNION ALL
+SELECT CAST(4 AS int64) as row_id,
+       CAST("2" AS string) as str_val,
+       CAST('00000000-0000-0000-0000-000000000022' AS UUID) as uuid_val
+UNION ALL
+SELECT CAST(5 AS int64) as row_id,
+       CAST("2" AS string) as str_val,
+       CAST('00000000-0000-0000-0000-000000000022' AS UUID) as uuid_val
+UNION ALL
+SELECT CAST(6 AS int64) as row_id,
+       CAST("3" AS string) as str_val,
+       CAST('00000000-0333-0000-0000-000000000333' AS UUID) as uuid_val
+       UNION ALL
+SELECT CAST(7 AS int64) as row_id,
+       CAST("4" AS string) as str_val,
+       CAST('00000000-4444-0000-0000-000000004444' AS UUID) as uuid_val
+UNION ALL
+SELECT CAST(8 AS int64) as row_id,
+       CAST(NULL AS string) as str_val,
+       CAST(NULL AS uuid) as uuid_val
+UNION ALL
+SELECT CAST(9 AS int64) as row_id,
+       CAST(NULL AS string) as str_val,
+       CAST(NULL AS uuid) as uuid_val
+       UNION ALL
+SELECT CAST(10 AS int64) as row_id,
+       CAST("6" AS string) as str_val,
+       CAST('00000000-0005-5555-0000-000000055555' AS UUID) as uuid_val
+UNION ALL
+SELECT CAST(11 AS int64) as row_id,
+       CAST("432" AS string) as str_val,
+       CAST("ffffffff-ffff-ffff-ffff-ffffffffffff" AS uuid) as uuid_val
+UNION ALL
+SELECT CAST(12 AS int64) as row_id,
+       CAST("432" AS string) as str_val,
+       CAST("ffffffff-ffff-ffff-ffff-ffffffffffff" AS uuid) as uuid_val
+--
+ARRAY<STRUCT<row_id INT64, str_val STRING, uuid_val UUID>>[
+  {
+    1,
+    "1",
+    00000000-0000-0000-0000-000000000001
+  },
+  {
+    2,
+    "1",
+    00000000-0000-0000-0000-000000000001
+  },
+  {
+    3,
+    "1",
+    00000000-0000-0000-0000-000000000001
+  },
+  {
+    4,
+    "2",
+    00000000-0000-0000-0000-000000000022
+  },
+  {
+    5,
+    "2",
+    00000000-0000-0000-0000-000000000022
+  },
+  {
+    6,
+    "3",
+    00000000-0333-0000-0000-000000000333
+  },
+  {
+    7,
+    "4",
+    00000000-4444-0000-0000-000000004444
+  },
+  {8, NULL, NULL},
+  {9, NULL, NULL},
+  {
+    10,
+    "6",
+    00000000-0005-5555-0000-000000055555
+  },
+  {
+    11,
+    "432",
+    ffffffff-ffff-ffff-ffff-ffffffffffff
+  },
+  {
+    12,
+    "432",
+    ffffffff-ffff-ffff-ffff-ffffffffffff
+  }
+]
+==
 [name=groupby_expr_in_select]
 SELECT int64_val + 1 FROM AllTypesTable GROUP BY int64_val + 1
 --
@@ -3357,6 +3463,40 @@ ARRAY<STRUCT<
   {
     578960446186580977117854925043439539266.34992332820282019728792003956564819967,
     1
+  }
+]
+==
+[required_features=V_1_4_UUID_TYPE]
+[name=groupby_single_base_column_uuid]
+SELECT uuid_val, count(*) as cnt FROM UuidTable t
+GROUP BY uuid_val
+ORDER BY uuid_val ASC
+--
+ARRAY<STRUCT<uuid_val UUID, cnt INT64>>[known order:
+  {NULL, 2},
+  {
+    00000000-0000-0000-0000-000000000001,
+    3
+  },
+  {
+    00000000-0000-0000-0000-000000000022,
+    2
+  },
+  {
+    00000000-0005-5555-0000-000000055555,
+    1
+  },
+  {
+    00000000-0333-0000-0000-000000000333,
+    1
+  },
+  {
+    00000000-4444-0000-0000-000000004444,
+    1
+  },
+  {
+    ffffffff-ffff-ffff-ffff-ffffffffffff,
+    2
   }
 ]
 ==

@@ -125,6 +125,8 @@ class TypeDeserializer {
   }
 
  private:
+  absl::StatusOr<const GraphElementType*> DeserializeGraphElementType(
+      const GraphElementTypeProto& graph_element_type_proto) const;
 
   // Not owned.
   TypeFactory* type_factory_;

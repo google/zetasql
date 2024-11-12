@@ -45,6 +45,7 @@
 #include "zetasql/common/internal_value.h"
 #include "zetasql/proto/anon_output_with_report.pb.h"
 #include "zetasql/public/anonymization_utils.h"
+#include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/cast.h"
 #include "zetasql/public/catalog_helper.h"
 #include "zetasql/public/civil_time.h"
@@ -64,6 +65,7 @@
 #include "zetasql/public/interval_value.h"
 #include "zetasql/public/types/timestamp_util.h"
 #include "zetasql/public/types/type.h"
+#include "zetasql/public/uuid_value.h"
 #include "zetasql/reference_impl/functions/like.h"
 #include "zetasql/reference_impl/operator.h"
 #include "zetasql/reference_impl/tuple.h"
@@ -315,7 +317,7 @@ bool InvokeRoundTernary(typename TernaryRoundExecutor<OutType, InType1, InType2,
 
 template <typename OutType, typename FunctionType, class... Args>
 bool InvokeString(FunctionType function, Value* result, absl::Status* status,
-                  Args... args) {
+                  const Args&... args) {
   OutType out;
   if constexpr (std::is_invocable_v<decltype(function), Args..., OutType*,
                                     absl::Status*>) {
@@ -336,7 +338,7 @@ bool InvokeString(FunctionType function, Value* result, absl::Status* status,
 
 template <typename OutType, typename FunctionType, class... Args>
 bool InvokeBytes(FunctionType function, Value* result, absl::Status* status,
-                 Args... args) {
+                 const Args&... args) {
   OutType out;
   if (!function(args..., &out, status)) {
     return false;
@@ -369,7 +371,7 @@ bool InvokeNullableBytes(FunctionType function, Value* result,
 
 template <typename OutType, typename FunctionType, class... Args>
 bool Invoke(FunctionType function, Value* result, absl::Status* status,
-            Args... args) {
+            const Args&... args) {
   OutType out;
   if (!function(args..., &out, status)) {
     return false;
@@ -608,6 +610,7 @@ FunctionMap::FunctionMap() {
     RegisterFunction(FunctionKind::kJsonValueArray, "json_value_array",
                      "JsonValueArray");
     RegisterFunction(FunctionKind::kToJson, "to_json", "ToJson");
+    RegisterFunction(FunctionKind::kSafeToJson, "safe_to_json", "SafeToJson");
     RegisterFunction(FunctionKind::kJsonSubscript, "json_subscript",
                      "JsonSubscript");
     RegisterFunction(FunctionKind::kStringArray, "string_array", "StringArray");
@@ -1082,6 +1085,39 @@ FunctionMap::FunctionMap() {
                      "ArrayOffsets");
     RegisterFunction(FunctionKind::kArrayFindAll, "array_find_all",
                      "ArrayFindAll");
+    RegisterFunction(FunctionKind::kPropertyExists, "property_exists",
+                     "PropertyExists");
+    RegisterFunction(FunctionKind::kSameGraphElement, "same",
+                     "SameGraphElement");
+    RegisterFunction(FunctionKind::kAllDifferentGraphElement, "all_different",
+                     "AllDifferentGraphElement");
+    RegisterFunction(FunctionKind::kIsSourceNode, "$is_source_node",
+                     "IsSourceNode");
+    RegisterFunction(FunctionKind::kIsDestNode, "$is_dest_node", "IsDestNode");
+    RegisterFunction(FunctionKind::kLabels, "labels", "Labels");
+    RegisterFunction(FunctionKind::kPropertyNames, "property_names",
+                     "PropertyNames");
+    RegisterFunction(FunctionKind::kElementDefinitionName,
+                     "element_definition_name", "ElementDefinitionName");
+    RegisterFunction(FunctionKind::kElementId, "element_id", "ElementId");
+    RegisterFunction(FunctionKind::kSourceNodeId, "source_node_id",
+                     "SourceNodeId");
+    RegisterFunction(FunctionKind::kDestinationNodeId, "destination_node_id",
+                     "DestinationNodeId");
+    RegisterFunction(FunctionKind::kPathLength, "path_length", "PathLength");
+    RegisterFunction(FunctionKind::kPathNodes, "nodes", "Nodes");
+    RegisterFunction(FunctionKind::kPathEdges, "edges", "Edges");
+    RegisterFunction(FunctionKind::kPathFirst, "path_first", "PathFirst");
+    RegisterFunction(FunctionKind::kPathLast, "path_last", "PathLast");
+    RegisterFunction(FunctionKind::kPathCreate, "path", "PathCreate");
+    RegisterFunction(FunctionKind::kUncheckedPathCreate, "$unchecked_path",
+                     "UncheckedPathCreate");
+    RegisterFunction(FunctionKind::kPathConcat, "$path_concat", "PathConcat");
+    RegisterFunction(FunctionKind::kUncheckedPathConcat,
+                     "$unchecked_path_concat", "UncheckedPathConcat");
+    RegisterFunction(FunctionKind::kIsTrail, "is_trail", "IsTrail");
+    RegisterFunction(FunctionKind::kIsAcyclic, "is_acyclic", "IsAcyclic");
+    RegisterFunction(FunctionKind::kIsSimple, "is_simple", "IsSimple");
     RegisterFunction(FunctionKind::kCosineDistance, "cosine_distance",
                      "CosineDistance");
     RegisterFunction(FunctionKind::kApproxCosineDistance,
@@ -1131,8 +1167,14 @@ FunctionMap::FunctionMap() {
     RegisterFunction(FunctionKind::kMapInsert, "map_insert", "MapInsert");
     RegisterFunction(FunctionKind::kMapInsertOrReplace, "map_insert_or_replace",
                      "MapInsertOrReplace");
+    RegisterFunction(FunctionKind::kMapReplaceKeysAndLambda,
+                     "map_replace_keys_and_lambda", "MapReplaceKeysAndLambda");
     RegisterFunction(FunctionKind::kMapReplaceKeyValuePairs,
                      "map_replace_key_value_pairs", "MapReplaceKeyValuePairs");
+    RegisterFunction(FunctionKind::kMapCardinality, "map_cardinality",
+                     "MapCardinality");
+    RegisterFunction(FunctionKind::kMapDelete, "map_delete", "MapDelete");
+    RegisterFunction(FunctionKind::kMapFilter, "map_filter", "MapFilter");
   }();
 }  // NOLINT(readability/fn_size)
 
@@ -2114,10 +2156,7 @@ static absl::StatusOr<const InlineLambdaExpr*> GetLambdaArgumentForArrayZip(
     absl::Span<const std::unique_ptr<AlgebraArg>> arguments) {
   const InlineLambdaExpr* inline_lambda_expr = nullptr;
   for (const std::unique_ptr<AlgebraArg>& arg : arguments) {
-    if (arg->value_expr() == nullptr) {
-      // If an argument to ARRAY_ZIP is not a value expression, it is a
-      // lambda. Note that we cannot directly check `inline_lambda_expr() ==
-      // nullptr` because it will crash if the argument is not a lambda.
+    if (arg->has_inline_lambda_expr()) {
       ZETASQL_RET_CHECK_EQ(inline_lambda_expr, nullptr)
           << "Multiple lambda arguments are found for ARRAY_ZIP: "
           << inline_lambda_expr->DebugString() << " and " << arg->DebugString();
@@ -2292,12 +2331,12 @@ BuiltinScalarFunction::CreateValidatedRaw(
       return new CaseConverterFunction(kind, output_type);
     case FunctionKind::kArrayFilter:
       ZETASQL_RET_CHECK_EQ(2, arguments.size());
-      ZETASQL_RET_CHECK(arguments[1]->inline_lambda_expr() != nullptr);
+      ZETASQL_RET_CHECK(arguments[1]->has_inline_lambda_expr());
       return new ArrayFilterFunction(
           kind, output_type, arguments[1]->mutable_inline_lambda_expr());
     case FunctionKind::kArrayTransform:
       ZETASQL_RET_CHECK_EQ(2, arguments.size());
-      ZETASQL_RET_CHECK(arguments[1]->inline_lambda_expr() != nullptr);
+      ZETASQL_RET_CHECK(arguments[1]->has_inline_lambda_expr());
       return new ArrayTransformFunction(
           kind, output_type, arguments[1]->mutable_inline_lambda_expr());
     case FunctionKind::kLength:
@@ -2375,10 +2414,10 @@ BuiltinScalarFunction::CreateValidatedRaw(
       return new ArrayIsDistinctFunction(kind, output_type);
     case FunctionKind::kArrayIncludes:
       ZETASQL_RET_CHECK_EQ(arguments.size(), 2);
-      if (arguments[1]->value_expr() != nullptr) {
+      if (arguments[1]->has_value_expr()) {
         return new ArrayIncludesFunction();
       } else {
-        ZETASQL_RET_CHECK(arguments[1]->inline_lambda_expr() != nullptr);
+        ZETASQL_RET_CHECK(arguments[1]->has_inline_lambda_expr());
         return new ArrayIncludesFunctionWithLambda(
             kind, output_type, arguments[1]->mutable_inline_lambda_expr());
       }
@@ -2677,11 +2716,11 @@ ArrayFindFunctions::CreateCall(
   ZETASQL_RET_CHECK_LE(collator_list.size(), 1);
 
   std::unique_ptr<BuiltinScalarFunction> function;
-  if (arguments[1]->value_expr() != nullptr) {
+  if (arguments[1]->has_value_expr()) {
     function = std::make_unique<ArrayFindFunctions>(kind, output_type,
                                                     std::move(collator_list));
   } else {
-    ZETASQL_RET_CHECK(arguments[1]->inline_lambda_expr() != nullptr);
+    ZETASQL_RET_CHECK(arguments[1]->has_inline_lambda_expr());
     function = std::make_unique<ArrayFindFunctions>(
         kind, output_type, std::move(collator_list),
         arguments[1]->mutable_inline_lambda_expr());
@@ -3622,6 +3661,7 @@ bool ComparisonFunction::Eval(absl::Span<const TupleData* const> params,
     case FCT2(FunctionKind::kLessOrEqual, TYPE_NUMERIC, TYPE_NUMERIC):
     case FCT2(FunctionKind::kLessOrEqual, TYPE_BIGNUMERIC, TYPE_BIGNUMERIC):
     case FCT2(FunctionKind::kLessOrEqual, TYPE_RANGE, TYPE_RANGE):
+    case FCT2(FunctionKind::kLessOrEqual, TYPE_UUID, TYPE_UUID):
       *result = Value::Bool(x.LessThan(y) || x.Equals(y));
       return true;
 
@@ -4404,6 +4444,21 @@ absl::StatusOr<Value> ArrayMinMaxFunction::Eval(
       }
       return Value::Interval(min_value);
     }
+    case FCT(FunctionKind::kArrayMin, TYPE_UUID): {
+      UuidValue min_value = UuidValue::MaxValue();
+      for (const Value& element : args[0].elements()) {
+        if (element.is_null()) {
+          continue;
+        }
+        has_non_null = true;
+        ZETASQL_RETURN_IF_ERROR(element.uuid_value().status());
+        min_value = std::min(min_value, *element.uuid_value());
+      }
+      if (!has_non_null) {
+        return output_null;
+      }
+      return Value::Uuid(min_value);
+    }
     case FCT(FunctionKind::kArrayMin, TYPE_RANGE): {
       Value min_value = Value::Null(output_type());
       for (const Value& element : args[0].elements()) {
@@ -4567,6 +4622,21 @@ absl::StatusOr<Value> ArrayMinMaxFunction::Eval(
         return output_null;
       }
       return Value::BigNumeric(max_value);
+    }
+    case FCT(FunctionKind::kArrayMax, TYPE_UUID): {
+      UuidValue max_value = UuidValue::MinValue();
+      for (const Value& element : args[0].elements()) {
+        if (element.is_null()) {
+          continue;
+        }
+        has_non_null = true;
+        ZETASQL_RETURN_IF_ERROR(element.uuid_value().status());
+        max_value = std::max(max_value, *element.uuid_value());
+      }
+      if (!has_non_null) {
+        return output_null;
+      }
+      return Value::Uuid(max_value);
     }
     case FCT(FunctionKind::kArrayMax, TYPE_STRING): {
       std::string max_value;
@@ -5368,6 +5438,7 @@ class BuiltinAggregateAccumulator : public AggregateAccumulator {
   NumericValue out_numeric_;           // Min, Max
   BigNumericValue out_bignumeric_;     // Min, Max
   Value out_range_;                    // Min, Max
+  UuidValue out_uuid_;                 // Min, Max
   NumericValue::SumAggregator numeric_aggregator_;        // Avg, Sum
   BigNumericValue::SumAggregator bignumeric_aggregator_;  // Avg, Sum
   IntervalValue::SumAggregator interval_aggregator_;      // Sum
@@ -5575,20 +5646,45 @@ static absl::Status SetAnonBuilderEpsilon(const Value& arg, T* builder) {
   return absl::OkStatus();
 }
 
+template <typename BuilderT>
+static absl::Status MaybeSetAnonBuilderMaxGroupsContributed(const Value& arg,
+                                                            BuilderT* builder) {
+  // Do nothing when arg is NULL, which means the user did not provide a
+  // max_groups_contributed option on the query.
+  if (arg.is_null()) {
+    return absl::OkStatus();
+  }
+  // The DP Library only accepts int32_t values. The rewriter ensures that the
+  // value is between 1 and the max int32_t.
+  builder->SetMaxPartitionsContributed(static_cast<int32_t>(arg.int64_value()));
+  return absl::OkStatus();
+}
+
+template <typename BuilderT>
+absl::Status SetValuesFromStructInDpBuilder(const Value& struct_value,
+                                            BuilderT* builder) {
+  ZETASQL_RET_CHECK(!struct_value.is_null());
+
+  const Value epsilon = struct_value.FindFieldByName("epsilon");
+  ZETASQL_RET_CHECK(epsilon.is_valid());
+  const Value max_groups_contributed =
+      struct_value.FindFieldByName("max_groups_contributed");
+  ZETASQL_RET_CHECK(max_groups_contributed.is_valid());
+
+  ZETASQL_RETURN_IF_ERROR(SetAnonBuilderEpsilon(epsilon, builder));
+  return MaybeSetAnonBuilderMaxGroupsContributed(max_groups_contributed,
+                                                 builder);
+}
+
 template <typename T>
 static absl::Status InitializeAnonBuilder(absl::Span<const Value> args,
                                           T* builder) {
-  // The last two args represent 'delta' and 'epsilon'.  If clamping
-  // bounds are explicitly set, then there will be two additional args
-  // that are args 0 and 1.
-  // TODO: Remove the delta argument.  When delta is set, we
-  // compute k_threshold from delta/epsilon/kappa, and the delta value
-  // is no longer relevant to the function itself.
-  ZETASQL_RET_CHECK(args.size() == 2 || args.size() == 4) << args.size();
+  // The last element in args represents a struct with options to be passed to
+  // the builder. If clamping bounds are explicitly set, then there will be two
+  // additional args that are args 0 and 1.
+  ZETASQL_RET_CHECK(args.size() == 1 || args.size() == 3) << args.size();
 
-  int epsilon_offset = 1;
-
-  if (args.size() == 4) {
+  if (args.size() == 3) {
     if (args[0].type()->IsDouble()) {
       ZETASQL_RET_CHECK(args[1].type()->IsDouble()) << args[1].type()->DebugString();
       builder->SetLower(args[0].double_value())
@@ -5598,10 +5694,9 @@ static absl::Status InitializeAnonBuilder(absl::Span<const Value> args,
       ZETASQL_RET_CHECK(args[1].type()->IsInt64()) << args[1].type()->DebugString();
       builder->SetLower(args[0].int64_value()).SetUpper(args[1].int64_value());
     }
-    epsilon_offset = 3;
   }
 
-  return SetAnonBuilderEpsilon<T>(args[epsilon_offset], builder);
+  return SetValuesFromStructInDpBuilder(args.back(), builder);
 }
 
 template <>
@@ -5609,18 +5704,14 @@ absl::Status
 InitializeAnonBuilder<::differential_privacy::Quantiles<double>::Builder>(
     absl::Span<const Value> args,
     ::differential_privacy::Quantiles<double>::Builder* builder) {
-  // The current implementation always expects 5 arguments (until b/205277450 is
+  // The current implementation always expects 4 arguments (until b/205277450 is
   // fixed and optional clamping bounds is supported):
   //   * args[0] is the input value to quantiles
   //   * args[1] is the lower clamped bound
   //   * args[2] is the upper clamped bound
-  //   * args[3] is delta
-  //   * args[4] is epsilon
-  // TODO: Remove the delta argument.  When delta is set, we
-  // compute k_threshold from delta/epsilon/kappa, and the delta value
-  // is no longer relevant to the function itself.
+  //   * args[3] is a struct with additional values to be passed to the builder
 
-  ZETASQL_RET_CHECK(args.size() == 5) << args.size();
+  ZETASQL_RET_CHECK(args.size() == 4) << args.size();
 
   // Create a vector of n+1 quantile boundaries, representing the requested n
   // quantiles.
@@ -5633,8 +5724,6 @@ InitializeAnonBuilder<::differential_privacy::Quantiles<double>::Builder>(
 
   builder->SetQuantiles(quantiles);
 
-  int epsilon_offset = 2;
-
   // TODO: Add "if (args.size() == 5)" clause for these four lines
   //   when optional lower and upper bounds can be supported, since then there
   //   may only be three args, instead of assuming there will always be five
@@ -5642,11 +5731,8 @@ InitializeAnonBuilder<::differential_privacy::Quantiles<double>::Builder>(
   ZETASQL_RET_CHECK(args[1].type()->IsDouble()) << args[1].type()->DebugString();
   ZETASQL_RET_CHECK(args[2].type()->IsDouble()) << args[2].type()->DebugString();
   builder->SetLower(args[1].double_value()).SetUpper(args[2].double_value());
-  epsilon_offset = 4;
 
-  return SetAnonBuilderEpsilon<
-      ::differential_privacy::Quantiles<double>::Builder>(args[epsilon_offset],
-                                                          builder);
+  return SetValuesFromStructInDpBuilder(args.back(), builder);
 }
 
 // For functions which return an array of elements from their per-user
@@ -5757,11 +5843,9 @@ BuildDPAlgorithm(bool is_report_function, const std::vector<Value>& args,
     builder.SetMaxContributionsPerPartition(
         anonymization::kPerUserArrayAggLimit);
   }
-  // The last two args represent 'delta' and 'epsilon'.  If clamping
-  // bounds are explicitly set, then there will be one additional arg at 0.
-  // TODO: Remove the delta argument. When delta is set, we compute
-  // group_selection_threshold from delta/epsilon/max_groups_contributed, and
-  // the delta value is no longer relevant to the function itself.
+  // The last element in args is a struct containing information to be passed to
+  // the builder. If clamping bounds are explicitly set, then there will be one
+  // additional arg at 0.
 
   const int report_offset = is_report_function ? 1 : 0;
   const int expected_arg_count_report =
@@ -5770,14 +5854,13 @@ BuildDPAlgorithm(bool is_report_function, const std::vector<Value>& args,
   ZETASQL_RET_CHECK(args.size() == expected_arg_count_report ||
             args.size() == (expected_arg_count_report + 1))
       << args.size();
-  const size_t epsilon_offset = args.size() - 1;
   if (args.size() == (expected_arg_count_report + 1)) {
     const int contribution_bounds_offset =
         contribution_bounds_base_offset + report_offset;
     ZETASQL_RETURN_IF_ERROR(CheckAndSetContributionBounds(
         args[contribution_bounds_offset], &builder));
   }
-  ZETASQL_RETURN_IF_ERROR(SetAnonBuilderEpsilon(args[epsilon_offset], &builder));
+  ZETASQL_RETURN_IF_ERROR(SetValuesFromStructInDpBuilder(args.back(), &builder));
   return builder.Build();
 }
 
@@ -5786,7 +5869,7 @@ absl::StatusOr<std::unique_ptr<::differential_privacy::Algorithm<ValueType>>>
 BuildDPAlgorithm(bool is_report_function, const std::vector<Value>& args) {
   return BuildDPAlgorithm<AlgorithmType, ValueType>(
       is_report_function, args,
-      /*expected_base_arg_count=*/2,
+      /*expected_base_arg_count=*/1,
       /*contribution_bounds_base_offset=*/0,
       typename AlgorithmType<ValueType>::Builder());
 }
@@ -5796,10 +5879,10 @@ absl::StatusOr<std::unique_ptr<::differential_privacy::Algorithm<double>>>
 BuildDPAlgorithm<::differential_privacy::Quantiles, double>(
     bool is_report_function, const std::vector<Value>& args) {
   ::differential_privacy::Quantiles<double>::Builder builder;
-  // The current implementation always expects 4 arguments (until b/205277450 is
+  // The current implementation always expects 3 arguments (until b/205277450 is
   // fixed and optional contribution bounds are supported).
   const int report_offset = is_report_function ? 1 : 0;
-  ZETASQL_RET_CHECK(args.size() == (4 + report_offset)) << args.size();
+  ZETASQL_RET_CHECK(args.size() == (3 + report_offset)) << args.size();
   // Create a vector of n+1 quantile boundaries, representing the requested n
   // quantiles.
   double number_of_quantile_boundaries = args[0].int64_value() + 1;
@@ -5811,7 +5894,7 @@ BuildDPAlgorithm<::differential_privacy::Quantiles, double>(
   builder.SetQuantiles(quantiles);
   return BuildDPAlgorithm<::differential_privacy::Quantiles, double>(
       is_report_function, args,
-      /*expected_base_arg_count=*/3,
+      /*expected_base_arg_count=*/2,
       /*contribution_bounds_base_offset=*/1, std::move(builder));
 }
 
@@ -5914,6 +5997,9 @@ absl::Status BuiltinAggregateAccumulator::Reset() {
     case FCT(FunctionKind::kMax, TYPE_INTERVAL):
       out_interval_ = IntervalValue::MinValue();
       break;
+    case FCT(FunctionKind::kMax, TYPE_UUID):
+      out_uuid_ = UuidValue::MinValue();
+      break;
     case FCT(FunctionKind::kMax, TYPE_STRING):
     case FCT(FunctionKind::kMax, TYPE_BYTES):
       out_string_.clear();
@@ -5957,6 +6043,9 @@ absl::Status BuiltinAggregateAccumulator::Reset() {
       break;
     case FCT(FunctionKind::kMin, TYPE_INTERVAL):
       out_interval_ = IntervalValue::MaxValue();
+      break;
+    case FCT(FunctionKind::kMin, TYPE_UUID):
+      out_uuid_ = UuidValue::MaxValue();
       break;
     case FCT(FunctionKind::kMin, TYPE_STRING):
     case FCT(FunctionKind::kMin, TYPE_BYTES):
@@ -6413,6 +6502,13 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
       out_uint64_ = std::max(out_uint64_, value.uint64_value());
       break;
     }
+    case FCT(FunctionKind::kMax, TYPE_UUID): {
+      if (!value.uuid_value().ok()) {
+        return false;
+      }
+      out_uuid_ = std::max(out_uuid_, *value.uuid_value());
+      break;
+    }
     case FCT(FunctionKind::kMax, TYPE_STRING): {
       bytes_to_return = out_string_.size();
       if (count_ <= 1) {
@@ -6512,6 +6608,13 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
     }
     case FCT(FunctionKind::kMin, TYPE_INTERVAL): {
       out_interval_ = std::min(out_interval_, value.interval_value());
+      break;
+    }
+    case FCT(FunctionKind::kMin, TYPE_UUID): {
+      if (!value.uuid_value().ok()) {
+        return false;
+      }
+      out_uuid_ = std::min(out_uuid_, *value.uuid_value());
       break;
     }
     case FCT(FunctionKind::kMin, TYPE_STRING): {
@@ -7967,6 +8070,9 @@ absl::StatusOr<Value> BuiltinAggregateAccumulator::GetFinalResultInternal(
     case FCT(FunctionKind::kMin, TYPE_INTERVAL):
       return count_ > 0 ? Value::Interval(out_interval_)
                         : Value::NullInterval();
+    case FCT(FunctionKind::kMax, TYPE_UUID):
+    case FCT(FunctionKind::kMin, TYPE_UUID):
+      return count_ > 0 ? Value::Uuid(out_uuid_) : Value::NullUuid();
     case FCT(FunctionKind::kMax, TYPE_ENUM):
     case FCT(FunctionKind::kMin, TYPE_ENUM):
       return count_ > 0 ? Value::Enum(output_type->AsEnum(), out_int64_,
@@ -10129,14 +10235,15 @@ absl::StatusOr<Value> CivilTimeConstructionAndConversionFunction::Eval(
   }
 }
 
-// This function converts INT64 to TIMESTAMP, and also support identity
+// This function converts INT64/UINT64 to TIMESTAMP, and also support identity
 // "conversion" from TIMESTAMP to TIMESTAMP.
 absl::StatusOr<Value> TimestampFromIntFunction::Eval(
     absl::Span<const TupleData* const> params, absl::Span<const Value> args,
     EvaluationContext* context) const {
   // In the LEGACY mode, other types such as TYPE_STRING can match
   // the signature, but reference implementation doesn't support them.
-  if ((args[0].type_kind() != TYPE_INT64 && !args[0].type()->IsTimestamp()) ||
+  if ((args[0].type_kind() != TYPE_INT64 &&
+       args[0].type_kind() != TYPE_UINT64 && !args[0].type()->IsTimestamp()) ||
       !output_type()->IsTimestamp()) {
     ZETASQL_RET_CHECK_FAIL() << "Unsupported function: " << debug_name();
   }
@@ -10163,17 +10270,34 @@ absl::StatusOr<Value> TimestampFromIntFunction::Eval(
       ZETASQL_RET_CHECK_FAIL() << "Unexpected function kind";
   }
 
-  const int64_t value = args[0].int64_value();
-  if (value < types::kTimestampMin / scale ||
-      value > types::kTimestampMax / scale) {
-    return MakeEvalError() << "Input value " << args[0].int64_value()
+  auto out_of_range_error = [](auto value) -> absl::Status {
+    return MakeEvalError() << "Input value " << value
                            << " cannot be converted into a TIMESTAMP, because"
                            << " it would be out of the allowed range between "
                            << types::kTimestampMin << " to "
                            << types::kTimestampMax << " (microseconds)";
-  }
+  };
 
-  return Value::TimestampFromUnixMicros(value * scale);
+  switch (args[0].type_kind()) {
+    case TYPE_INT64: {
+      const int64_t& value = args[0].int64_value();
+      if (value < types::kTimestampMin / scale ||
+          value > types::kTimestampMax / scale) {
+        return out_of_range_error(value);
+      }
+      return Value::TimestampFromUnixMicros(value * scale);
+    }
+    case TYPE_UINT64: {
+      const uint64_t& value = args[0].uint64_value();
+      // Check the upper bound for UINT64. Lower bound will always be safe (0).
+      if (value > types::kTimestampMax / scale) {
+        return out_of_range_error(value);
+      }
+      return Value::TimestampFromUnixMicros(value * scale);
+    }
+    default:
+      ZETASQL_RET_CHECK_FAIL() << "Unsupported function: " << debug_name();
+  }
 }
 
 absl::StatusOr<Value> IntFromTimestampFunction::Eval(

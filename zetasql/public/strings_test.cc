@@ -89,8 +89,8 @@ static void TestAlwaysQuotedIdentifier(absl::string_view orig) {
 
 // <quoted> takes a string literal of the form '...', r'...', "..." or r"...".
 // <unquoted> is the expected parsed form of <quoted>.
-static void TestQuotedString(const std::string& unquoted,
-                             const std::string& quoted) {
+static void TestQuotedString(absl::string_view unquoted,
+                             absl::string_view quoted) {
   std::string actual_unquoted, error;
   int error_offset;
   ZETASQL_EXPECT_OK(ParseStringLiteral(quoted, &actual_unquoted, &error, &error_offset))
@@ -98,7 +98,7 @@ static void TestQuotedString(const std::string& unquoted,
   EXPECT_EQ(unquoted, actual_unquoted) << "quoted: " << quoted;
 }
 
-static void TestString(const std::string& unquoted) {
+static void TestString(absl::string_view unquoted) {
   TestQuotedString(unquoted, ToStringLiteral(unquoted));
   TestQuotedString(unquoted,
                    absl::StrCat("'''", EscapeString(unquoted), "'''"));
@@ -106,7 +106,7 @@ static void TestString(const std::string& unquoted) {
                    absl::StrCat("\"\"\"", EscapeString(unquoted), "\"\"\""));
 }
 
-static void TestRawString(const std::string& unquoted) {
+static void TestRawString(absl::string_view unquoted) {
   const std::string quote = (!absl::StrContains(unquoted, "'")) ? "'" : "\"";
   TestQuotedString(unquoted, absl::StrCat("r", quote, unquoted, quote));
   TestQuotedString(unquoted, absl::StrCat("r\"", unquoted, "\""));
@@ -134,7 +134,7 @@ static void TestBytesEscaping(absl::string_view unquoted,
 }
 
 // <quoted> takes a byte literal of the form b'...', b'''...'''
-static void TestBytesLiteral(const std::string& quoted) {
+static void TestBytesLiteral(absl::string_view quoted) {
   std::string unquoted, error;
   int error_offset;
   // Parse the literal.
@@ -164,8 +164,8 @@ static void TestBytesLiteral(const std::string& quoted) {
 
 // <quoted> takes a raw byte literal of the form rb'...', br'...', rb'''...'''
 // or br'''...'''. <unquoted> is the expected parsed form of <quoted>.
-static void TestQuotedRawBytesLiteral(const std::string& unquoted,
-                                      const std::string& quoted) {
+static void TestQuotedRawBytesLiteral(absl::string_view unquoted,
+                                      absl::string_view quoted) {
   std::string actual_unquoted, error;
   int error_offset;
   ZETASQL_EXPECT_OK(ParseBytesLiteral(quoted, &actual_unquoted, nullptr, nullptr))
@@ -180,11 +180,11 @@ static void TestQuotedRawBytesLiteral(const std::string& unquoted,
 }
 
 // <unquoted> takes a string of not escaped unquoted bytes.
-static void TestUnescapedBytes(const std::string& unquoted) {
+static void TestUnescapedBytes(absl::string_view unquoted) {
   TestBytesLiteral(ToBytesLiteral(unquoted));
 }
 
-static void TestRawBytes(const std::string& unquoted) {
+static void TestRawBytes(absl::string_view unquoted) {
   const std::string quote = (!absl::StrContains(unquoted, "'")) ? "'" : "\"";
   TestQuotedRawBytesLiteral(unquoted,
                             absl::StrCat("rb", quote, unquoted, quote));
@@ -203,7 +203,7 @@ static void TestParseString(absl::string_view orig) {
   ZETASQL_EXPECT_OK(ParseStringLiteral(orig, &parsed)) << orig;
 }
 
-static void TestParseBytes(const std::string& orig) {
+static void TestParseBytes(absl::string_view orig) {
   std::string parsed;
   ZETASQL_EXPECT_OK(ParseBytesLiteral(orig, &parsed)) << orig;
 }
@@ -834,7 +834,7 @@ TEST(StringsTest, QuotedForms) {
   EXPECT_EQ("`safe_cAst`", ToAlwaysQuotedIdentifierLiteral("safe_cAst"));
 }
 
-static void ExpectParsedString(const std::string& expected,
+static void ExpectParsedString(absl::string_view expected,
                                std::vector<std::string> quoted_strings) {
   for (const std::string& quoted : quoted_strings) {
     std::string parsed, error_string;
@@ -854,7 +854,7 @@ static void ExpectParsedString(const std::string& expected,
   }
 }
 
-static void ExpectParsedBytes(const std::string& expected,
+static void ExpectParsedBytes(absl::string_view expected,
                               std::vector<std::string> quoted_strings) {
   for (const std::string& quoted : quoted_strings) {
     std::string parsed, error_string;

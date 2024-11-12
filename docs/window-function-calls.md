@@ -356,7 +356,7 @@ Only aggregate analytic functions can use a window frame clause.
 If a boundary extends beyond the beginning or end of a partition,
 the window frame will only include rows from within that partition.
 
-You can't use a window frame clause with
+You can't use a window frame clause with some
 [navigation functions][navigation-functions-reference] and
 [numbering functions][numbering-functions-reference],
 such as  `RANK()`.

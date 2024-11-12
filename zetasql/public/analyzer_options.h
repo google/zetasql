@@ -26,8 +26,10 @@
 #include <utility>
 #include <vector>
 
+#include "zetasql/base/arena.h"
 #include "zetasql/base/atomic_sequence_num.h"
 #include "zetasql/parser/parser.h"
+#include "zetasql/proto/options.pb.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/error_helpers.h"
 #include "zetasql/public/id_string.h"
@@ -43,6 +45,8 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
+#include "absl/time/time.h"
 #include "absl/types/span.h"
 
 namespace zetasql {
@@ -206,6 +210,7 @@ struct AllowedHintsAndOptions {
       differential_privacy_options_lower = {
           {"delta", {types::DoubleType()}},
           {"epsilon", {types::DoubleType()}},
+          {"group_selection_epsilon", {types::DoubleType()}},
           {"max_groups_contributed", {types::Int64Type()}},
           {"max_rows_contributed", {types::Int64Type()}},
           {"privacy_unit_column",
@@ -725,6 +730,15 @@ class AnalyzerOptions {
     return data_->preserve_column_aliases;
   }
 
+  // Controls whether an aggregate expression is allowed as a standalone
+  // expression.
+  void set_allow_aggregate_standalone_expression(bool value) {
+    data_->allow_aggregate_standalone_expression = value;
+  }
+  bool allow_aggregate_standalone_expression() const {
+    return data_->allow_aggregate_standalone_expression;
+  }
+
   // Returns the ParserOptions to use for these AnalyzerOptions, including the
   // same id_string_pool() and arena() values.
   ParserOptions GetParserOptions() const;
@@ -807,18 +821,36 @@ class AnalyzerOptions {
     data_->error_message_stability = stability;
   }
 
+  // Controls whether enhanced error redaction is enabled.
+  //
+  // When enabled, error redaction attempts to preserve enough information about
+  // the error to make it readable to a human, while still keeping it stable so
+  // that the unredacted error message can change without breaking tests that
+  // rely on the redacted error message. When enabled, only specific types of
+  // error message support redaction (see error_helpers.cc for details).
+  //
+  // This value is ignored when error_message_stability() is PRODUCTION.
+  bool enable_enhanced_error_redaction() const {
+    return data_->enhanced_error_redaction;
+  }
+  void set_enhanced_error_redaction(bool enable) {
+    data_->enhanced_error_redaction = enable;
+  }
+
   // Returns the ErrorMessageOptions to use for this AnalyzerOptions.
   ErrorMessageOptions error_message_options() const {
     return ErrorMessageOptions{
         .mode = data_->error_message_mode,
         .attach_error_location_payload = data_->attach_error_location_payload,
         .stability = data_->error_message_stability,
+        .enhanced_error_redaction = data_->enhanced_error_redaction,
     };
   }
 
  private:
   // Defined in zetasql/common/internal_analyzer_options.h.
   friend class InternalAnalyzerOptions;
+  friend class AnalyzerOptionsTest;
 
   // ======================================================================
   // NOTE: Please update options.proto and AnalyzerOptions.java accordingly
@@ -834,12 +866,6 @@ class AnalyzerOptions {
   struct Data {
     // These options determine the language that is accepted.
     LanguageOptions language_options;
-
-    // This stores a default CycleDetector that will be installed into
-    // find_options.cycle_detector by default.  Analyzer code expects
-    // that field to be set under FindOptions, but it's meant primarily
-    // for internal use rather than user configuration.
-    std::shared_ptr<CycleDetector> owned_cycle_detector;
 
     // These options are used for name lookups into the catalog, i.e., for
     // Catalog::Find*() calls.
@@ -987,6 +1013,10 @@ class AnalyzerOptions {
     // function columns. See set_preserve_column_aliases() for details.
     bool preserve_column_aliases = true;
 
+    // Controls whether an aggregate expression is a allowed as a standalone
+    // expression.
+    bool allow_aggregate_standalone_expression = false;
+
     // Target output column types for a query.
     std::vector<const Type*> target_column_types;
 
@@ -1011,7 +1041,7 @@ class AnalyzerOptions {
     // same.
     bool preserve_unnecessary_cast = false;
 
-    bool show_function_signature_mismatch_details = false;
+    bool show_function_signature_mismatch_details = true;
 
     // If true, and a Catalog FindTable lookup for a Table name fails, then
     // check the name to see if it is a valid TVF name. If it is a valid TVF
@@ -1032,7 +1062,16 @@ class AnalyzerOptions {
 
     // These options determine the behaviors of rewrites.
     RewriteOptions rewrite_options;
+
+    // Controls whether redaction of errors is enabled and, if so, whether to
+    // redact payloads or just messages. Default behavior is no redaction.
     ErrorMessageStability error_message_stability;
+
+    // If true, enables enhanced error redaction mode (see corresponding field
+    // in ErrorMessageOptions for details).
+    //
+    // Ignored when error_message_stability does not enable redaction.
+    bool enhanced_error_redaction = false;
   };
   std::unique_ptr<Data> data_;
 

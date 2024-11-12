@@ -1,0 +1,120 @@
+# Tests for the FOR UPDATE clause with join clauses.
+
+[default language_features=V_1_4_FOR_UPDATE]
+
+# Comma CROSS JOIN and FOR UPDATE in query
+select t1.id, t2.val from t1, t2 for update;
+--
+QueryStatement [43-86] [select t1....for update]
+  Query [43-86] [select t1....for update]
+    Select [43-75] [select t1....from t1, t2]
+      SelectList [50-63] [t1.id, t2.val]
+        SelectColumn [50-55] [t1.id]
+          PathExpression [50-55] [t1.id]
+            Identifier(t1) [50-52] [t1]
+            Identifier(id) [53-55] [id]
+        SelectColumn [57-63] [t2.val]
+          PathExpression [57-63] [t2.val]
+            Identifier(t2) [57-59] [t2]
+            Identifier(val) [60-63] [val]
+      FromClause [64-75] [from t1, t2]
+        Join(COMMA) [69-75] [t1, t2]
+          TablePathExpression [69-71] [t1]
+            PathExpression [69-71] [t1]
+              Identifier(t1) [69-71] [t1]
+          Location [71-72] [,]
+          TablePathExpression [73-75] [t2]
+            PathExpression [73-75] [t2]
+              Identifier(t2) [73-75] [t2]
+    LockMode [76-86] [for update]
+--
+SELECT
+  t1.id,
+  t2.val
+FROM
+  t1,
+  t2
+FOR UPDATE
+==
+
+# CROSS JOIN and FOR UPDATE in query
+select t1.id, t2.val from t1 CROSS JOIN t2 for update;
+--
+QueryStatement [0-53] [select t1....for update]
+  Query [0-53] [select t1....for update]
+    Select [0-42] [select t1....CROSS JOIN t2]
+      SelectList [7-20] [t1.id, t2.val]
+        SelectColumn [7-12] [t1.id]
+          PathExpression [7-12] [t1.id]
+            Identifier(t1) [7-9] [t1]
+            Identifier(id) [10-12] [id]
+        SelectColumn [14-20] [t2.val]
+          PathExpression [14-20] [t2.val]
+            Identifier(t2) [14-16] [t2]
+            Identifier(val) [17-20] [val]
+      FromClause [21-42] [from t1 CROSS JOIN t2]
+        Join(CROSS) [26-42] [t1 CROSS JOIN t2]
+          TablePathExpression [26-28] [t1]
+            PathExpression [26-28] [t1]
+              Identifier(t1) [26-28] [t1]
+          Location [29-39] [CROSS JOIN]
+          TablePathExpression [40-42] [t2]
+            PathExpression [40-42] [t2]
+              Identifier(t2) [40-42] [t2]
+    LockMode [43-53] [for update]
+--
+SELECT
+  t1.id,
+  t2.val
+FROM
+  t1
+  CROSS JOIN
+  t2
+FOR UPDATE
+==
+
+# JOIN with condition and FOR UPDATE in query
+select t1.id, t2.val from t1 JOIN t2 ON t1.id = t2.id for update;
+--
+QueryStatement [0-64] [select t1....for update]
+  Query [0-64] [select t1....for update]
+    Select [0-53] [select t1....id = t2.id]
+      SelectList [7-20] [t1.id, t2.val]
+        SelectColumn [7-12] [t1.id]
+          PathExpression [7-12] [t1.id]
+            Identifier(t1) [7-9] [t1]
+            Identifier(id) [10-12] [id]
+        SelectColumn [14-20] [t2.val]
+          PathExpression [14-20] [t2.val]
+            Identifier(t2) [14-16] [t2]
+            Identifier(val) [17-20] [val]
+      FromClause [21-53] [from t1 JOIN...id = t2.id]
+        Join [26-53] [t1 JOIN t2 ON t1.id = t2.id]
+          TablePathExpression [26-28] [t1]
+            PathExpression [26-28] [t1]
+              Identifier(t1) [26-28] [t1]
+          Location [29-33] [JOIN]
+          TablePathExpression [34-36] [t2]
+            PathExpression [34-36] [t2]
+              Identifier(t2) [34-36] [t2]
+          OnClause [37-53] [ON t1.id = t2.id]
+            BinaryExpression(=) [40-53] [t1.id = t2.id]
+              PathExpression [40-45] [t1.id]
+                Identifier(t1) [40-42] [t1]
+                Identifier(id) [43-45] [id]
+              PathExpression [48-53] [t2.id]
+                Identifier(t2) [48-50] [t2]
+                Identifier(id) [51-53] [id]
+    LockMode [54-64] [for update]
+--
+SELECT
+  t1.id,
+  t2.val
+FROM
+  t1
+  JOIN
+  t2
+  ON t1.id = t2.id
+FOR UPDATE
+==
+

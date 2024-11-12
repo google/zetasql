@@ -22,6 +22,7 @@
 # suppression you can invoke with --config=clang
 build:clang --action_env=BAZEL_CXXOPTS="-std=c++17"
 build:clang --cxxopt=-std=c++17
+build:clang --cxxopt=-Wno-module-import-in-extern-c
 build:clang --cxxopt=-Wno-deprecated-declarations
 build:clang --cxxopt=-Wno-range-loop-analysis
 build:clang --cxxopt=-Wno-inconsistent-missing-override
@@ -54,6 +55,8 @@ build:g++ --cxxopt=-Wno-stringop-truncation
 
 # C++17 is required to build ZetaSQL, hence `-cxxopt=-std=c++17`. On MacOS
 # `--host_cxxopt=-std=c++17` is also needed.
-build --cxxopt=-std=c++17 --host_cxxopt=-std=c++17
-run --cxxopt=-std=c++17 --host_cxxopt=-std=c++17
-test --cxxopt=-std=c++17 --host_cxxopt=-std=c++17
+# "--enable_bzlmod=false" is required because grpc does not support bzlmod yet.
+# "--java_runtime_version=remotejdk_11": to make the build more hermetic.
+build --cxxopt=-std=c++17 --host_cxxopt=-std=c++17 --config=clang --enable_bzlmod=false --java_runtime_version=remotejdk_11
+run --cxxopt=-std=c++17 --host_cxxopt=-std=c++17 --config=clang --enable_bzlmod=false --java_runtime_version=remotejdk_11
+test --cxxopt=-std=c++17 --host_cxxopt=-std=c++17 --config=clang --enable_bzlmod=false --java_runtime_version=remotejdk_11

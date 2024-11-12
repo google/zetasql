@@ -16,8 +16,8 @@
 
 #include "zetasql/parser/keywords.h"
 
-#include <fstream>
-#include <iostream>
+#include <cstdlib>
+#include <fstream>  
 #include <set>
 #include <string>
 #include <vector>
@@ -27,8 +27,9 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/flags/flag.h"
+#include "absl/strings/ascii.h"
 #include "absl/strings/str_cat.h"
-#include "absl/strings/str_join.h"
+#include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 #include "re2/re2.h"
 
@@ -80,7 +81,7 @@ std::vector<std::string> GetSectionFromFile(
   int line_number = 0;
   for (const std::string& line : FileLines(file_path)) {
     ++line_number;
-    if (line.find(absl::StrCat("END_", section_delimiter)) !=
+    if (line.find(absl::StrCat(section_delimiter, "_END")) !=
         std::string::npos) {
       EXPECT_TRUE(in_section) << line_number;
       in_section = false;
@@ -88,7 +89,7 @@ std::vector<std::string> GetSectionFromFile(
     if (in_section) {
       result.push_back(line);
     }
-    if (line.find(absl::StrCat("BEGIN_", section_delimiter)) !=
+    if (line.find(absl::StrCat(section_delimiter, "_START")) !=
         std::string::npos) {
       EXPECT_FALSE(in_section) << line_number;
       EXPECT_FALSE(seen_section) << line_number;
@@ -141,7 +142,7 @@ std::set<std::string> ExtractTokenizerKeywordsFromLines(
   return result;
 }
 
-// Gets bison token names for reserved or non-reserved keywords depending on
+// Gets token names for reserved or non-reserved keywords depending on
 // 'reserved', in lowercase.
 //
 // Keywords are returned here, as they appear in the Bison grammar
@@ -169,16 +170,18 @@ std::set<std::string> GetAllKeywordsSet() {
   return result;
 }
 
-std::string GetBisonParserPath() {
+std::string GetGrammarPath() {
   return zetasql_base::JoinPath(
       getenv("TEST_SRCDIR"),
-      "com_google_zetasql/zetasql/parser/bison_parser.y");
+      "com_google_zetasql/zetasql/parser");
+}
+
+std::string GetBisonParserPath() {
+  return zetasql_base::JoinPath(GetGrammarPath(), "zetasql.tm");
 }
 
 std::string GetFlexTokenizerPath() {
-  return zetasql_base::JoinPath(
-      getenv("TEST_SRCDIR"),
-      "com_google_zetasql/zetasql/parser/flex_tokenizer.l");
+  return zetasql_base::JoinPath(GetGrammarPath(), "flex_tokenizer.l");
 }
 
 TEST(GetAllKeywords, NonReservedMatchesGrammarKeywordAsIdentifier) {
@@ -195,7 +198,7 @@ TEST(GetAllKeywords, NonReservedMatchesGrammarKeywordAsIdentifier) {
 TEST(GetAllKeywords, NonReservedMatchesGrammarNonReserved) {
   std::set<std::string> grammar_non_reserved_keywords =
       ExtractKeywordsFromLines(
-          GetSectionFromFile(GetBisonParserPath(), "NON_RESERVED_KEYWORDS"));
+          GetSectionFromFile(GetBisonParserPath(), "SENTINEL_NONRESERVED_KW"));
 
   std::set<std::string> non_reserved_keywords =
       GetKeywordsSetForBisonGrammar(false /* reserved */);
@@ -210,9 +213,7 @@ TEST(GetAllKeywords, AllKeywordsHaveTokenizerRules) {
 
   std::set<std::string> all_keywords = GetAllKeywordsSet();
 
-  // This tests that all the tokenizer rule keywords have an associated defined
-  // keyword, but not necessarily that all keywords are used in tokenizer rules.
-  EXPECT_THAT(tokenizer_keywords, ::testing::IsSubsetOf(all_keywords));
+  EXPECT_THAT(tokenizer_keywords, ::testing::ContainerEq(all_keywords));
 }
 
 TEST(ParserTest, DontAddNewReservedKeywords) {

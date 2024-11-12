@@ -199,6 +199,45 @@ ARRAY<STRUCT<
   }
 ]
 ==
+[prepare_database]
+[required_features=V_1_4_UUID_TYPE]
+CREATE TABLE UuidTable AS
+SELECT
+  1 as row_id,
+  cast("00000000-0000-0000-0000-000000000000" AS uuid) as uuid_val UNION ALL
+SELECT
+  2 as row_id,
+  cast("9d3da323-4c20-360f-bd9b-ec54feec54f0" AS uuid) as uuid_val UNION ALL
+SELECT
+  3 as row_id,
+  cast("9d3da323-4c20-360f-bd9b-ec54feec54f0" AS uuid) as uuid_val UNION ALL
+SELECT
+  4 as row_id,
+  cast("ffffffff-ffff-ffff-ffff-ffffffffffff" AS uuid) as uuid_val UNION ALL
+SELECT
+  5 as row_id,
+  cast(NULL AS uuid) as uuid_val
+--
+ARRAY<STRUCT<row_id INT64, uuid_val UUID>>[
+  {
+    1,
+    00000000-0000-0000-0000-000000000000
+  },
+  {
+    2,
+    9d3da323-4c20-360f-bd9b-ec54feec54f0
+  },
+  {
+    3,
+    9d3da323-4c20-360f-bd9b-ec54feec54f0
+  },
+  {
+    4,
+    ffffffff-ffff-ffff-ffff-ffffffffffff
+  },
+  {5, NULL}
+]
+==
 
 [required_features=RANGE_TYPE]
 [prepare_database]
@@ -1089,6 +1128,52 @@ ARRAY<STRUCT<
     6,
     NULL,
     NULL
+  }
+]
+==
+[required_features=V_1_4_UUID_TYPE]
+[name=uuid_key_join]
+SELECT t1.uuid_val, t1.row_id, t2.uuid_val, t2.row_id
+FROM (
+  SELECT uuid_val, row_id FROM UuidTable WHERE MOD(row_id, 2) = 0
+) AS t1
+JOIN (
+  SELECT uuid_val, row_id FROM UuidTable WHERE MOD(row_id, 2) = 1
+) AS t2
+USING (uuid_val)
+--
+ARRAY<STRUCT<uuid_val UUID, row_id INT64, uuid_val UUID, row_id INT64>>[
+  {
+    9d3da323-4c20-360f-bd9b-ec54feec54f0,
+    2,
+    9d3da323-4c20-360f-bd9b-ec54feec54f0,
+    3
+  }
+]
+==
+[required_features=V_1_4_UUID_TYPE]
+[name=uuid_key_left_join]
+SELECT t1.uuid_val, t1.row_id, t2.uuid_val, t2.row_id
+FROM (
+  SELECT uuid_val, row_id FROM UuidTable WHERE MOD(row_id, 2) = 0
+) AS t1
+LEFT JOIN (
+  SELECT uuid_val, row_id FROM UuidTable WHERE MOD(row_id, 2) = 1
+) AS t2
+USING (uuid_val)
+--
+ARRAY<STRUCT<uuid_val UUID, row_id INT64, uuid_val UUID, row_id INT64>>[unknown order:
+  {
+    ffffffff-ffff-ffff-ffff-ffffffffffff,
+    4,
+    NULL,
+    NULL
+  },
+  {
+    9d3da323-4c20-360f-bd9b-ec54feec54f0,
+    2,
+    9d3da323-4c20-360f-bd9b-ec54feec54f0,
+    3
   }
 ]
 ==

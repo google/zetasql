@@ -35,7 +35,6 @@
 #include <variant>
 #include <vector>
 
-
 #include "zetasql/base/logging.h"
 #include "zetasql/base/path.h"
 #include "google/protobuf/text_format.h"     
@@ -77,7 +76,6 @@
 #include "absl/cleanup/cleanup.h"
 #include "absl/container/btree_set.h"
 #include "absl/container/flat_hash_map.h"
-#include "absl/container/flat_hash_set.h"
 #include "absl/container/node_hash_set.h"
 #include "absl/flags/flag.h"
 #include "absl/functional/bind_front.h"
@@ -297,8 +295,7 @@ class Stats {
                              KnownErrorMode was_mode, KnownErrorMode new_mode);
 
   // As above, but a no-op if `check_only` is true.
-  void RecordFailedStatement(const std::string& msg,
-                             const std::string& location,
+  void RecordFailedStatement(absl::string_view msg, const std::string& location,
                              const std::string& full_name,
                              const KnownErrorMode was_mode,
                              const KnownErrorMode new_mode, bool check_only) {
@@ -1796,7 +1793,7 @@ void SQLTestBase::StepSkipUnsupportedTest() {
     return;
   }
 
-  bool engine_supports_suffient_features = true;
+  bool engine_supports_sufficient_features = true;
   // The reference implementation can be configured to run tests with any
   // combination of language features enabled. All other engines will skip
   // tests that require an incompatible set of features.
@@ -1804,7 +1801,7 @@ void SQLTestBase::StepSkipUnsupportedTest() {
     for (LanguageFeature required_feature :
          test_case_options_->required_features()) {
       if (!driver_language_options().LanguageFeatureEnabled(required_feature)) {
-        engine_supports_suffient_features = false;
+        engine_supports_sufficient_features = false;
         break;
       }
     }
@@ -1812,7 +1809,7 @@ void SQLTestBase::StepSkipUnsupportedTest() {
     for (LanguageFeature forbidden_feature :
          test_case_options_->forbidden_features()) {
       if (driver_language_options().LanguageFeatureEnabled(forbidden_feature)) {
-        engine_supports_suffient_features = false;
+        engine_supports_sufficient_features = false;
         break;
       }
     }
@@ -1828,7 +1825,7 @@ void SQLTestBase::StepSkipUnsupportedTest() {
   }
 
   bool skip_test =
-      !engine_supports_suffient_features ||
+      !engine_supports_sufficient_features ||
       status_or_skip_test_for_primary_key_mode.value() ||
       absl::GetFlag(FLAGS_zetasql_compliance_accept_all_test_output);
 
@@ -1951,6 +1948,53 @@ void SQLTestBase::StepPrepareDatabase() {
                         "All [prepare_database] must be placed at the top "
                         "of a *.test file");
     CheckCancellation(status, "Wrong placement of prepare_database");
+  }
+
+  if (GetStatementKind(sql_) == RESOLVED_CREATE_PROPERTY_GRAPH_STMT) {
+    TypeFactory type_factory;
+    // Setup catalog with current test_db_ as property graph creation will be
+    // based on existing tables.
+    TestDatabaseCatalog test_catalog(&type_factory);
+    CheckCancellation(
+        test_catalog.SetTestDatabase(test_db_),
+        "Failed to set test database before property graph creation");
+    LanguageOptions lang_options;
+    lang_options.set_product_mode(zetasql::ProductMode::PRODUCT_INTERNAL);
+    lang_options.EnableMaximumLanguageFeaturesForDevelopment();
+    lang_options.AddSupportedStatementKind(RESOLVED_CREATE_PROPERTY_GRAPH_STMT);
+    CheckCancellation(
+        test_catalog.SetLanguageOptions(lang_options),
+        "Failed to set language options before property graph creation");
+    AnalyzerOptions options(lang_options);
+    std::vector<std::unique_ptr<const AnalyzerOutput>> artifacts;
+    CheckCancellation(AddPropertyGraphFromCreatePropertyGraphStmt(
+                          sql_, options, artifacts, *test_catalog.catalog()),
+                      "Failed to populate property graph");
+    ABSL_DCHECK(!artifacts.empty());
+    auto& analyzer_output = artifacts.front();
+    ABSL_DCHECK(analyzer_output != nullptr);
+    ABSL_DCHECK(analyzer_output->resolved_statement() != nullptr)
+        << analyzer_output->resolved_node()->DebugString();
+    ABSL_DCHECK(analyzer_output->resolved_statement()
+               ->Is<ResolvedCreatePropertyGraphStmt>());
+    auto name_path = analyzer_output->resolved_statement()
+                         ->GetAs<ResolvedCreatePropertyGraphStmt>()
+                         ->name_path();
+    std::string graph_name = name_path.back();
+
+    SQLBuilder::SQLBuilderOptions sql_builder_options(lang_options);
+    SQLBuilder sql_builder(std::move(sql_builder_options));
+    CheckCancellation(
+        analyzer_output->resolved_statement()->Accept(&sql_builder),
+        "SqlBuilder failed on the ResolvedCreatePropertyGraphStmt");
+    auto [_, is_new] =
+        test_db_.property_graph_defs.insert({graph_name, sql_builder.sql()});
+    if (!is_new) {
+      CheckCancellation(absl::InvalidArgumentError(absl::StrFormat(
+                            "Property graph %s already exists", graph_name)),
+                        "Failed to create graph DDL");
+    }
+    return;
   }
 
   if (GetStatementKind(sql_) == RESOLVED_CREATE_FUNCTION_STMT) {
@@ -2199,6 +2243,12 @@ SQLTestBase::TestResults SQLTestBase::RunTestWithFeaturesEnabled(
   LanguageOptions language_options =
       reference_driver()->GetSupportedLanguageOptions();
   language_options.SetEnabledLanguageFeatures(features_set);
+  if (test_case_options_->reserve_match_recognize()) {
+    ZETASQL_CHECK_OK(language_options.EnableReservableKeyword("MATCH_RECOGNIZE"));
+  }
+  if (test_case_options_->reserve_graph_table()) {
+    ZETASQL_CHECK_OK(language_options.EnableReservableKeyword("GRAPH_TABLE"));
+  }
   AutoLanguageOptions auto_options(reference_driver());
   reference_driver()->SetLanguageOptions(language_options);
   return ExecuteTestCase();
@@ -2240,7 +2290,7 @@ void SQLTestBase::ParseAndCompareExpectedResults(TestResults& test_result) {
 }
 
 void SQLTestBase::CheckCancellation(const absl::Status& status,
-                                    const std::string& reason) {
+                                    absl::string_view reason) {
   if (!status.ok()) {
     if (nullptr != test_result_) {
       // Code-based tests and random statements do not have test_result_
@@ -2486,6 +2536,8 @@ std::string SQLTestBase::ValueToSafeString(const Value& value) const {
     case TYPE_RANGE:
       return absl::StrFormat("_%s_%s", ValueToSafeString(value.start()),
                              ValueToSafeString(value.end()));
+    case TYPE_MAP:
+      return absl::StrCat("_", SignatureOfCompositeValue(value));
     default:
       // TODO: This debugstring needs to be escaped for regex unsafe
       //     characters. And probably spaces too?

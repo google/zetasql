@@ -21,9 +21,13 @@
 #include <utility>
 #include <vector>
 
+#include "zetasql/common/errors.h"
 #include "zetasql/public/civil_time.h"
 #include "zetasql/public/functions/range.h"
+#include "zetasql/public/interval_value.h"
+#include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/type.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "zetasql/reference_impl/evaluation.h"
 #include "zetasql/reference_impl/function.h"
@@ -33,7 +37,6 @@
 #include "absl/time/time.h"
 #include "zetasql/base/source_location.h"
 #include "absl/types/span.h"
-#include "zetasql/base/source_location.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 

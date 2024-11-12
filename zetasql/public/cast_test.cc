@@ -283,6 +283,200 @@ TEST(ConversionTest, ConversionMatchTest) {
   }
 }
 
+TEST(GraphCastTests, GraphElementTypeTest) {
+  const Value graph_node_no_properties = GraphNode(
+      {"graph_name"}, "id1", {}, {"label1"}, "ElementTable", type_factory);
+
+  const Value graph_node_no_properties_different_label = GraphNode(
+      {"graph_name"}, "id2", {}, {"label2"}, "ElementTable", type_factory);
+
+  const Value graph_node_no_properties_different_name = GraphNode(
+      {"graph_name"}, "id1", {}, {"label1"}, "NewElementTable", type_factory);
+
+  const Value graph_node_a_b =
+      GraphNode({"graph_name"}, "id1",
+                {{"a", Value::String("v0")}, {"b", Value::Int32(1)}},
+                {"label1"}, "ElementTable", type_factory);
+
+  const Value graph_node_a_null_b =
+      GraphNode({"graph_name"}, "id1",
+                {{"a", Value::NullString()}, {"b", Value::Int32(1)}},
+                {"label1"}, "ElementTable", type_factory);
+
+  const Value graph_node_a_null_b_null =
+      GraphNode({"graph_name"}, "id1",
+                {{"a", Value::NullString()}, {"b", Value::NullInt32()}},
+                {"label1"}, "ElementTable", type_factory);
+
+  const Value graph_node_a_int_b = GraphNode(
+      {"graph_name"}, "id1", {{"a", Value::Int32(10)}, {"b", Value::Int32(1)}},
+      {"label1"}, "ElementTable", type_factory);
+
+  const Value graph_node_b_c = GraphNode(
+      {"graph_name"}, "id1", {{"b", Value::Int32(1)}, {"c", Value::Int32(1)}},
+      {"label1"}, "ElementTable", type_factory);
+
+  const Value graph_edge_a_b = GraphEdge(
+      {"graph_name"}, "id1",
+      {{"a", Value::String("v0")}, {"b", Value::Int32(1)}}, {"label2"},
+      "ElementTable", "src_node_id", "dst_node_id", type_factory);
+
+  const Value different_graph_node_a_b =
+      GraphNode({"new_graph_name"}, "id1",
+                {{"a", Value::String("v0")}, {"b", Value::Int32(1)}},
+                {"label3"}, "ElementTable", type_factory);
+
+  EXPECT_THAT(CastValue(graph_node_b_c, absl::UTCTimeZone(), LanguageOptions(),
+                        graph_node_a_b.type()),
+              IsOkAndHolds(graph_node_a_null_b));
+
+  EXPECT_THAT(CastValue(graph_node_no_properties, absl::UTCTimeZone(),
+                        LanguageOptions(), graph_node_a_b.type()),
+              IsOkAndHolds(graph_node_a_null_b_null));
+
+  EXPECT_THAT(CastValue(graph_node_a_b, absl::UTCTimeZone(), LanguageOptions(),
+                        graph_node_no_properties.type()),
+              IsOkAndHolds(graph_node_no_properties));
+
+  // CastValue has no effect on labels.
+  EXPECT_THAT(CastValue(graph_node_a_b, absl::UTCTimeZone(), LanguageOptions(),
+                        graph_node_no_properties_different_label.type()),
+              IsOkAndHolds(graph_node_no_properties));
+
+  // CastValue has no effect on definition name.
+  EXPECT_THAT(CastValue(graph_node_a_b, absl::UTCTimeZone(), LanguageOptions(),
+                        graph_node_no_properties_different_name.type()),
+              IsOkAndHolds(graph_node_no_properties));
+
+  EXPECT_THAT(CastValue(graph_node_a_b, absl::UTCTimeZone(), LanguageOptions(),
+                        graph_node_a_int_b.type()),
+              StatusIs(absl::StatusCode::kInternal,
+                       HasSubstr("property of the same name must have the "
+                                 "same value type")));
+  EXPECT_THAT(CastValue(graph_edge_a_b, absl::UTCTimeZone(), LanguageOptions(),
+                        graph_node_a_b.type()),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("between node and edge type")));
+
+  EXPECT_THAT(CastValue(different_graph_node_a_b, absl::UTCTimeZone(),
+                        LanguageOptions(), graph_node_a_b.type()),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("with different graph references")));
+}
+
+TEST(GraphCastTests, GraphPathTypeTest) {
+  using test_values::MakeGraphPathType;
+  const Value graph_node_no_properties = GraphNode(
+      {"graph_name"}, "id1", {}, {"label1"}, "ElementTable", type_factory);
+
+  const Value graph_node_no_properties_different_label = GraphNode(
+      {"graph_name"}, "id2", {}, {"label2"}, "ElementTable", type_factory);
+
+  const Value graph_node_a_b =
+      GraphNode({"graph_name"}, "id1",
+                {{"a", Value::String("v0")}, {"b", Value::Int32(1)}},
+                {"label1"}, "ElementTable", type_factory);
+
+  const Value graph_node_a_null_b =
+      GraphNode({"graph_name"}, "id1",
+                {{"a", Value::NullString()}, {"b", Value::Int32(1)}},
+                {"label1"}, "ElementTable", type_factory);
+
+  const Value graph_node_a_int_b = GraphNode(
+      {"graph_name"}, "id1", {{"a", Value::Int32(10)}, {"b", Value::Int32(1)}},
+      {"label1"}, "ElementTable", type_factory);
+
+  const Value graph_node_b_c = GraphNode(
+      {"graph_name"}, "id1", {{"b", Value::Int32(1)}, {"c", Value::Int32(1)}},
+      {"label1"}, "ElementTable", type_factory);
+
+  const Value different_graph_node_no_properties =
+      GraphNode({"different_graph_name"}, "id1", {}, {"label1"}, "ElementTable",
+                type_factory);
+
+  const Value graph_edge_no_properties =
+      GraphEdge({"graph_name"}, "id1", {}, {"label2"}, "ElementTable", "id1",
+                "id2", type_factory);
+
+  const Value graph_edge_a_b =
+      GraphEdge({"graph_name"}, "id1",
+                {{"a", Value::String("v0")}, {"b", Value::Int32(1)}},
+                {"label2"}, "ElementTable", "id1", "id2", type_factory);
+
+  const Value graph_edge_a_null_b_null =
+      GraphEdge({"graph_name"}, "id1",
+                {{"a", Value::NullString()}, {"b", Value::NullInt32()}},
+                {"label2"}, "ElementTable", "id1", "id2", type_factory);
+
+  const Value different_graph_edge_no_properties =
+      GraphEdge({"different_graph_name"}, "id1", {}, {"label1"}, "ElementTable",
+                "id1", "id2", type_factory);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      Value path_node_b_c_edge_empty,
+      Value::MakeGraphPath(
+          MakeGraphPathType(graph_node_b_c.type()->AsGraphElement(),
+                            graph_edge_no_properties.type()->AsGraphElement()),
+          {graph_node_b_c}));
+  const GraphPathType* path_type_node_a_b_edge_empty =
+      MakeGraphPathType(graph_node_a_b.type()->AsGraphElement(),
+                        graph_edge_no_properties.type()->AsGraphElement());
+  ZETASQL_ASSERT_OK_AND_ASSIGN(Value path_node_a_b_edge_empty,
+                       Value::MakeGraphPath(path_type_node_a_b_edge_empty,
+                                            {graph_node_a_null_b}));
+  EXPECT_THAT(CastValue(path_node_b_c_edge_empty, absl::UTCTimeZone(),
+                        LanguageOptions(), path_type_node_a_b_edge_empty),
+              IsOkAndHolds(path_node_a_b_edge_empty));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      Value path_node_empty_edge_a_b,
+      Value::MakeGraphPath(
+          MakeGraphPathType(graph_node_no_properties.type()->AsGraphElement(),
+                            graph_edge_a_b.type()->AsGraphElement()),
+          {graph_node_no_properties, graph_edge_a_b,
+           graph_node_no_properties_different_label}));
+  const GraphPathType* path_type_node_empty_edge_empty =
+      MakeGraphPathType(graph_node_no_properties.type()->AsGraphElement(),
+                        graph_edge_no_properties.type()->AsGraphElement());
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      Value path_node_empty_edge_empty,
+      Value::MakeGraphPath(path_type_node_empty_edge_empty,
+                           {graph_node_no_properties, graph_edge_no_properties,
+                            graph_node_no_properties_different_label}));
+  EXPECT_THAT(CastValue(path_node_empty_edge_a_b, absl::UTCTimeZone(),
+                        LanguageOptions(), path_type_node_empty_edge_empty),
+              IsOkAndHolds(path_node_empty_edge_empty));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      Value path_node_empty_edge_a_null_b_null,
+      Value::MakeGraphPath(path_node_empty_edge_a_b.type()->AsGraphPath(),
+                           {graph_node_no_properties, graph_edge_a_null_b_null,
+                            graph_node_no_properties_different_label}));
+  EXPECT_THAT(CastValue(path_node_empty_edge_empty, absl::UTCTimeZone(),
+                        LanguageOptions(), path_node_empty_edge_a_b.type()),
+              IsOkAndHolds(path_node_empty_edge_a_null_b_null));
+
+  const GraphPathType* path_type_node_a_int_b_edge_empty =
+      MakeGraphPathType(graph_node_a_int_b.type()->AsGraphElement(),
+                        graph_edge_no_properties.type()->AsGraphElement());
+  EXPECT_THAT(CastValue(path_node_a_b_edge_empty, absl::UTCTimeZone(),
+                        LanguageOptions(), path_type_node_a_int_b_edge_empty),
+              StatusIs(absl::StatusCode::kInternal,
+                       HasSubstr("property of the same name must have the "
+                                 "same value type")));
+
+  const GraphPathType* different_graph_path_type = MakeGraphPathType(
+      different_graph_node_no_properties.type()->AsGraphElement(),
+      different_graph_edge_no_properties.type()->AsGraphElement());
+  EXPECT_THAT(
+      CastValue(path_node_empty_edge_empty, absl::UTCTimeZone(),
+                LanguageOptions(), different_graph_path_type),
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Cannot cast between graph element types with different "
+                    "graph references")));
+}
+
 static void ExecuteTest(const QueryParamsWithResult& test_case) {
   ABSL_CHECK_EQ(1, test_case.num_params());
   const Value& from_value = test_case.param(0);

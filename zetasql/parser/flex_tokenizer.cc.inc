@@ -19,19 +19,21 @@
 // functions. Mostly we use this to define macros to customize flex behavior and
 // to call from the various rules.
 
-#include "zetasql/parser/bison_token_codes.h"
 #include "zetasql/parser/flex_tokenizer.h"  
+#include "zetasql/parser/token_codes.h"
 #include "zetasql/public/parse_location.h"  
-#include "absl/strings/escaping.h"  
-#include "absl/strings/str_format.h"  
-#include "absl/strings/string_view.h"  
+#include "absl/strings/escaping.h"        
+#include "absl/strings/str_format.h"      
+#include "absl/strings/string_view.h"     
 
 using Tokens = zetasql::parser::TokenKinds;
 
 #undef YY_DECL
 #define YY_DECL                                                        \
-  int zetasql::parser::ZetaSqlFlexTokenizer::GetNextTokenFlexImpl( \
+  Tokens zetasql::parser::LegacyFlexTokenizer::GetNextTokenFlexImpl( \
       ParseLocationRange* location)
+
+#define yyterminate() return Tokens::EOI;
 
 // This action is executed for every token that is matched, before the defined
 // actions are executed. We use this to keep location up to date. We abuse the

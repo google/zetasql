@@ -136,6 +136,10 @@ class MatcherCollection : public MatcherBase<CandidateT> {
     return absl::StrCat(collection_name_, " matcher collection");
   }
 
+  void AddMatcher(std::unique_ptr<MatcherBase<CandidateT>> matcher) {
+    matchers_.push_back(std::move(matcher));
+  }
+
  protected:
   // Returns true if any matcher in the collection matches 'candidate'. As long
   // as at least one matcher matches, the match count is incremented once.

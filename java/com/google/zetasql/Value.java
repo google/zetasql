@@ -30,6 +30,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
 import com.google.common.primitives.Bytes;
@@ -61,7 +62,11 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -101,6 +106,8 @@ public class Value implements Serializable {
   private final Value start;
   // End element of a range Value.
   private final Value end;
+  // Map of entries for a map Value
+  private final ImmutableMap<Value, Value> mapEntries;
   // Deserialized NUMERIC/BIGNUMERIC value if the type is TYPE_NUMERIC or TYPE_BIGNUMERIC.
   private final BigDecimal numericValue;
   // Deserialized INTERVAL value if the type is TYPE_INTERVAL.
@@ -135,6 +142,7 @@ public class Value implements Serializable {
     this.isNull = true;
     this.fields = null;
     this.elements = null;
+    this.mapEntries = null;
     this.numericValue = null;
     this.intervalValue = null;
     this.start = null;
@@ -149,6 +157,7 @@ public class Value implements Serializable {
     this.isNull = Value.isNullValue(proto);
     this.fields = null;
     this.elements = null;
+    this.mapEntries = null;
     this.numericValue = null;
     this.intervalValue = null;
     this.start = null;
@@ -166,6 +175,7 @@ public class Value implements Serializable {
     this.isNull = Value.isNullValue(proto);
     this.fields = null;
     this.elements = ImmutableList.copyOf(elements);
+    this.mapEntries = null;
     this.numericValue = null;
     this.intervalValue = null;
     this.start = null;
@@ -183,6 +193,7 @@ public class Value implements Serializable {
     this.isNull = Value.isNullValue(proto);
     this.fields = ImmutableList.copyOf(fields);
     this.elements = null;
+    this.mapEntries = null;
     this.numericValue = null;
     this.intervalValue = null;
     this.start = null;
@@ -200,10 +211,29 @@ public class Value implements Serializable {
     this.isNull = Value.isNullValue(proto);
     this.fields = null;
     this.elements = null;
+    this.mapEntries = null;
     this.numericValue = null;
     this.intervalValue = null;
     this.start = start;
     this.end = end;
+    this.uuidValue = null;
+  }
+
+  /**
+   * Creates a map of a given type, proto and fields. Assuming the proto contains the serialized map
+   * entries.
+   */
+  private Value(MapType type, ValueProto proto, Map<Value, Value> mapEntries) {
+    this.type = checkNotNull(type);
+    this.proto = checkNotNull(proto);
+    this.isNull = Value.isNullValue(proto);
+    this.mapEntries = ImmutableMap.copyOf(mapEntries);
+    this.fields = null;
+    this.elements = null;
+    this.numericValue = null;
+    this.intervalValue = null;
+    this.start = null;
+    this.end = null;
     this.uuidValue = null;
   }
 
@@ -214,6 +244,7 @@ public class Value implements Serializable {
     this.isNull = Value.isNullValue(proto);
     this.fields = null;
     this.elements = null;
+    this.mapEntries = null;
     this.numericValue = numericValue;
     this.intervalValue = null;
     this.start = null;
@@ -228,6 +259,7 @@ public class Value implements Serializable {
     this.isNull = Value.isNullValue(proto);
     this.fields = null;
     this.elements = null;
+    this.mapEntries = null;
     this.numericValue = null;
     this.intervalValue = intervalValue;
     this.start = null;
@@ -242,6 +274,7 @@ public class Value implements Serializable {
     this.isNull = Value.isNullValue(proto);
     this.fields = null;
     this.elements = null;
+    this.mapEntries = null;
     this.numericValue = null;
     this.intervalValue = null;
     this.start = null;
@@ -529,6 +562,18 @@ public class Value implements Serializable {
     return end;
   }
 
+  /** Returns the map of entries, if the type is map */
+  public ImmutableMap<Value, Value> getMapEntries() {
+    Preconditions.checkState(getType().getKind() == TypeKind.TYPE_MAP);
+    return mapEntries;
+  }
+
+  /** Returns the number of map entries, if the type is map. */
+  public int getMapEntriesCount() {
+    Preconditions.checkState(getType().getKind() == TypeKind.TYPE_MAP);
+    return mapEntries.size();
+  }
+
   /**
    * Returns false if 'this' and 'other' have different type kinds.
    *
@@ -669,6 +714,11 @@ public class Value implements Serializable {
           return other.getUuidValue().compareTo(getUuidValue()) == 0;
         }
         return false;
+      case TYPE_MAP:
+        if (other.getType().equivalent(type)) {
+          return other.getMapEntries().equals(getMapEntries());
+        }
+        return false;
       default:
         throw new IllegalStateException("Shouldn't happen: compare with unsupported type " + type);
     }
@@ -746,12 +796,31 @@ public class Value implements Serializable {
       case TYPE_JSON:
         return getJsonValue().hashCode();
       case TYPE_RANGE:
-        ImmutableList<HashCode> hashCodes =
-            ImmutableList.of(
-                HashCode.fromInt(start().hashCode()), HashCode.fromInt(end().hashCode()));
-        return Hashing.combineOrdered(hashCodes).asInt();
+        {
+          ImmutableList<HashCode> hashCodes =
+              ImmutableList.of(
+                  HashCode.fromInt(start().hashCode()), HashCode.fromInt(end().hashCode()));
+          return Hashing.combineOrdered(hashCodes).asInt();
+        }
       case TYPE_UUID:
         return uuidValue.hashCode();
+      case TYPE_MAP:
+        {
+          if (getMapEntriesCount() == 0) {
+            return type.hashCode() * 659;
+          }
+          List<HashCode> hashCodes = new ArrayList<>();
+          for (Entry<Value, Value> entry : getMapEntries().entrySet()) {
+            hashCodes.add(
+                // Use combineOrdered on each entry since "a" => "b" not equivalent to "b" => "a".
+                Hashing.combineOrdered(
+                    ImmutableList.of(
+                        HashCode.fromInt(entry.getKey().hashCode()),
+                        HashCode.fromInt(entry.getValue().hashCode()))));
+          }
+          // Use combineUnordered to combine the entries, since MAP is unordered.
+          return Hashing.combineUnordered(hashCodes).asInt();
+        }
       default:
         // Shouldn't happen, but it's a bad idea to throw from hashCode().
         return super.hashCode();
@@ -870,6 +939,59 @@ public class Value implements Serializable {
           String result = start().debugString(verbose) + ", " + end().debugString(verbose);
           return String.format("%s%s)", verbose ? "Range[" : "[", result);
         }
+      case TYPE_GRAPH_ELEMENT:
+        {
+          String type =
+              "GraphElement"
+                  + (verbose
+                      ? String.format("<%s>", getType().asGraphElement().debugString(false))
+                      : "");
+          if (isNull()) {
+            return verbose ? String.format("%s(NULL)", type) : "NULL";
+          }
+          return String.format("%s(...)", type);
+        }
+      case TYPE_GRAPH_PATH:
+        {
+          String type =
+              "GraphPath"
+                  + (verbose
+                      ? String.format(
+                          "<node: %s, edge: %s>",
+                          getType().asGraphPath().getNodeType().debugString(false),
+                          getType().asGraphPath().getEdgeType().debugString(false))
+                      : "");
+          if (isNull()) {
+            return verbose ? String.format("%s(NULL)", type) : "NULL";
+          }
+          return String.format("%s(...)", type);
+        }
+      case TYPE_MAP:
+        {
+          if (isNull()) {
+            MapType mapType = getType().asMap();
+            return verbose
+                ? String.format(
+                    "Map<%s, %s>(NULL)",
+                    mapType.getKeyType().debugString(false),
+                    mapType.getValueType().debugString(false))
+                : "NULL";
+          }
+          // Ensure that debug strings will be printed in a deterministic way
+          List<Entry<Value, Value>> entriesOrdered = new ArrayList<>(getMapEntries().entrySet());
+          entriesOrdered.sort(comparingMapEntryByKey());
+
+          StringBuilder result = new StringBuilder();
+          entriesOrdered.forEach(
+              entry ->
+                  result
+                      .append(result.length() == 0 ? "" : ", ")
+                      .append(entry.getKey().debugString(verbose))
+                      .append(": ")
+                      .append(entry.getValue().debugString(verbose)));
+          return String.format("%s%s}", verbose ? "Map{" : "{", result);
+        }
+
       default:
         throw new IllegalStateException(
             "Unexpected type kind expected internally only: " + getType().getKind());
@@ -1051,6 +1173,16 @@ public class Value implements Serializable {
     if (type.isRange()) {
       return String.format("RANGE(%s, %s)", start().getSQL(), end().getSQL());
     }
+    if (type.isMap()) {
+      ImmutableList<String> elementsSql =
+          getMapEntries().entrySet().stream()
+              .sorted(comparingMapEntryByKey())
+              .map(
+                  entry ->
+                      String.format("(%s, %s)", entry.getKey().getSQL(), entry.getValue().getSQL()))
+              .collect(ImmutableList.toImmutableList());
+      return String.format("MAP_FROM_ARRAY([%s])", Joiner.on(", ").join(elementsSql));
+    }
 
     return s;
   }
@@ -1146,6 +1278,18 @@ public class Value implements Serializable {
           type.typeName(),
           ZetaSQLStrings.convertSimpleValueToString(start(), /* verbose= */ false),
           ZetaSQLStrings.convertSimpleValueToString(end(), /* verbose= */ false));
+    }
+    if (type.isMap()) {
+      ImmutableList<String> elementsSql =
+          getMapEntries().entrySet().stream()
+              .sorted(comparingMapEntryByKey())
+              .map(
+                  entry ->
+                      String.format(
+                          "(%s, %s)",
+                          entry.getKey().getSQLLiteral(), entry.getValue().getSQLLiteral()))
+              .collect(ImmutableList.toImmutableList());
+      return String.format("MAP_FROM_ARRAY([%s])", Joiner.on(", ").join(elementsSql));
     }
 
     return s;
@@ -1410,6 +1554,18 @@ public class Value implements Serializable {
           throw typeMismatchException(type, proto);
         }
         return new Value(TypeKind.TYPE_UUID, proto, deserializeUuid(proto.getUuidValue()));
+      case TYPE_MAP:
+        if (!proto.hasMapValue()) {
+          throw typeMismatchException(type, proto);
+        }
+        Type keyType = type.asMap().getKeyType();
+        Type valueType = type.asMap().getValueType();
+        Map<Value, Value> mapEntries = new HashMap<>();
+        for (ZetaSQLValue.ValueProto.MapEntry entry : proto.getMapValue().getEntryList()) {
+          mapEntries.put(
+              deserialize(keyType, entry.getKey()), deserialize(valueType, entry.getValue()));
+        }
+        return new Value(type.asMap(), proto, mapEntries);
 
       default:
         throw new IllegalArgumentException("Should not happen: unsupported type " + type);
@@ -1456,6 +1612,17 @@ public class Value implements Serializable {
         Type elementType = type.asRange().getElementType();
         return isSupportedTypeKind(elementType)
             && RangeType.isValidElementType(elementType.getKind());
+      case TYPE_GRAPH_ELEMENT:
+        return type.asGraphElement().getPropertyTypeList().stream()
+            .allMatch(propertyType -> isSupportedTypeKind(propertyType.getType()));
+      case TYPE_GRAPH_PATH:
+        {
+          GraphPathType path = type.asGraphPath();
+          return isSupportedTypeKind(path.getNodeType()) && isSupportedTypeKind(path.getEdgeType());
+        }
+      case TYPE_MAP:
+        return isSupportedTypeKind(type.asMap().getKeyType())
+            && isSupportedTypeKind(type.asMap().getValueType());
       default:
         return false;
     }
@@ -1723,9 +1890,17 @@ public class Value implements Serializable {
     return new Value(type, proto, values);
   }
 
+  // A comparator used internally to ensure deterministic order for map entries when creating a MAP
+  // string representation. Unlike the C++ implementation, this sorts the stringified representation
+  // of the key, not the key value directly.
+  // If this becomes an issue, we will need to implement an equivalent of Value::LessThan() in Java.
+  private static Comparator<Entry<Value, Value>> comparingMapEntryByKey() {
+    return Comparator.comparing(Entry::getKey, Comparator.comparing(Value::toString));
+  }
+
   // This is a helper function only used by createRangeValue. Returns a negative integer, zero, or a
   // positive integer if the first value is less than, equal to, or greater than the second value.
-  private static long compare(Value first, Value second) {
+  private static long compareRangeBoundValues(Value first, Value second) {
     Preconditions.checkArgument(first.getType().equals(second.getType()));
     Type type = first.getType();
 
@@ -1758,13 +1933,50 @@ public class Value implements Serializable {
     Preconditions.checkNotNull(end);
     Preconditions.checkArgument(start.getType().equals(end.getType()));
     Preconditions.checkArgument(start.getType().equals(type.getElementType()));
-    Preconditions.checkArgument(start.isNull() || end.isNull() || compare(start, end) < 0);
+    Preconditions.checkArgument(
+        start.isNull() || end.isNull() || compareRangeBoundValues(start, end) < 0);
 
     ValueProto proto =
         ValueProto.newBuilder()
             .setRangeValue(Range.newBuilder().setStart(start.proto).setEnd(end.proto))
             .build();
     return new Value(type, proto, start, end);
+  }
+
+  /** Returns a map Value of a given {@code type} and {@code mapEntries} */
+  public static Value createMapValue(MapType type, Map<Value, Value> mapEntries) {
+    Preconditions.checkNotNull(type);
+    Preconditions.checkArgument(isSupportedTypeKind(type));
+    Preconditions.checkNotNull(mapEntries);
+
+    ImmutableList<ValueProto.MapEntry> mapEntriesProto =
+        mapEntries.entrySet().stream()
+            .map(
+                entry -> {
+                  Preconditions.checkArgument(
+                      type.getKeyType().equals(entry.getKey().getType()),
+                      "Key type %s does not match expected %s for key %s",
+                      entry.getKey().getType(),
+                      type.getKeyType(),
+                      entry.getKey());
+                  Preconditions.checkArgument(
+                      type.getValueType().equals(entry.getValue().getType()),
+                      "Value type %s does not match expected %s for value %s",
+                      entry.getValue().getType(),
+                      type.getValueType(),
+                      entry.getValue());
+
+                  return ValueProto.MapEntry.newBuilder()
+                      .setKey(entry.getKey().proto)
+                      .setValue(entry.getValue().proto)
+                      .build();
+                })
+            .collect(ImmutableList.toImmutableList());
+    ValueProto proto =
+        ValueProto.newBuilder()
+            .setMapValue(ValueProto.Map.newBuilder().addAllEntry(mapEntriesProto))
+            .build();
+    return new Value(type, proto, mapEntries);
   }
 
   /** Returns an empty array Value of given {@code type}. */

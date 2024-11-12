@@ -87,6 +87,7 @@ cc_library(
         ":type_helpers",
         ":type_parameter_constraints",
         "//zetasql/analyzer:resolver",
+        "//zetasql/base:check",
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
         "//zetasql/common:status_payload_utils",
@@ -97,6 +98,7 @@ cc_library(
         "//zetasql/public:error_helpers",
         "//zetasql/public:evaluator",
         "//zetasql/public:evaluator_table_iterator",
+        "//zetasql/public:id_string",
         "//zetasql/public:language_options",
         "//zetasql/public:multi_catalog",
         "//zetasql/public:options_cc_proto",
@@ -109,6 +111,7 @@ cc_library(
         "//zetasql/scripting:error_helpers",
         "//zetasql/scripting:parsed_script",
         "//zetasql/scripting:script_executor",
+        "//zetasql/scripting:type_aliases",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
@@ -150,6 +153,7 @@ cc_library(
         "evaluation.cc",
         "function.cc",
         "operator.cc",
+        "pattern_matching_op.cc",
         "relational_op.cc",
         "tuple.cc",
         "tuple_comparator.cc",
@@ -183,6 +187,7 @@ cc_library(
         "//zetasql/common:internal_value",
         "//zetasql/proto:anon_output_with_report_cc_proto",
         "//zetasql/public/types",
+        "//zetasql/public:builtin_function_cc_proto",
         "//zetasql/public:catalog",
         "//zetasql/public:civil_time",
         "//zetasql/public:coercer",
@@ -197,6 +202,7 @@ cc_library(
         "//zetasql/public:proto_value_conversion",
         "//zetasql/public:type",
         "//zetasql/public:type_cc_proto",
+        "//zetasql/public:uuid_value",
         "//zetasql/public:value",
         "//zetasql/public/functions:arithmetics",
         "//zetasql/public/functions:bitcast",
@@ -218,6 +224,8 @@ cc_library(
         "//zetasql/public/functions:regexp",
         "//zetasql/public/functions:string",
         "//zetasql/public/functions:like",
+        "//zetasql/public/functions/match_recognize:compiled_pattern",
+        "//zetasql/public/functions/match_recognize:match_partition",
         "//zetasql/public/proto:type_annotation_cc_proto",
         "//zetasql/reference_impl/functions:like",
         "//zetasql/resolved_ast",
@@ -344,6 +352,7 @@ cc_library(
     name = "algebrizer",
     srcs = [
         "algebrizer.cc",
+        "algebrizer_graph.cc",
     ],
     hdrs = [
         "algebrizer.h",
@@ -367,6 +376,7 @@ cc_library(
         "//zetasql/base:no_destructor",
         "//zetasql/base:optional_ref",
         "//zetasql/base:ret_check",
+        "//zetasql/base:source_location",
         "//zetasql/base:status",
         "//zetasql/base:stl_util",
         "//zetasql/common:aggregate_null_handling",
@@ -380,6 +390,7 @@ cc_library(
         "//zetasql/public:evaluator_table_iterator",
         "//zetasql/public:function",
         "//zetasql/public:id_string",
+        "//zetasql/public:interval_value",
         "//zetasql/public:language_options",
         "//zetasql/public:numeric_value",
         "//zetasql/public:simple_catalog",
@@ -391,6 +402,7 @@ cc_library(
         "//zetasql/public/functions:date_time_util",
         "//zetasql/public/functions:differential_privacy_cc_proto",
         "//zetasql/public/functions:json",
+        "//zetasql/public/functions/match_recognize:compiled_pattern",
         "//zetasql/public/proto:type_annotation_cc_proto",
         "//zetasql/public/types",
         "//zetasql/resolved_ast",
@@ -600,8 +612,6 @@ zetasql_compliance_test(
     ],
 )
 
-# TODO: These should be nested in (not-yet) stripping above.
-
 cc_test(
     name = "tuple_test",
     size = "small",
@@ -702,6 +712,30 @@ cc_test(
         "@com_google_absl//absl/types:optional",
         "@com_google_absl//absl/types:span",
         "@com_google_protobuf//:protobuf_lite",
+    ],
+)
+
+cc_test(
+    name = "pattern_matching_op_test",
+    size = "small",
+    srcs = ["pattern_matching_op_test.cc"],
+    deps = [
+        ":common",
+        ":evaluation",
+        ":test_relational_op",
+        ":tuple_test_util",
+        "//zetasql/base",
+        "//zetasql/base:status",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/common/match_recognize:test_pattern_resolver",
+        "//zetasql/public:type",
+        "//zetasql/public:type_cc_proto",
+        "//zetasql/public:value",
+        "//zetasql/public/functions/match_recognize:compiled_pattern",
+        "//zetasql/resolved_ast",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/types:span",
     ],
 )
 

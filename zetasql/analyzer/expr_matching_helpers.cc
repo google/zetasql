@@ -269,6 +269,13 @@ bool GetSourceColumnAndNamePath(const ResolvedExpr* resolved_expr,
         struct_type->field(get_struct_field->field_idx()).name));
     resolved_expr = get_struct_field->expr();
   }
+  while (resolved_expr->node_kind() == RESOLVED_GRAPH_GET_ELEMENT_PROPERTY) {
+    const ResolvedGraphGetElementProperty* get_element_property =
+        resolved_expr->GetAs<ResolvedGraphGetElementProperty>();
+    name_path->mutable_name_path()->push_back(
+        id_string_pool->Make(get_element_property->property()->Name()));
+    resolved_expr = get_element_property->expr();
+  }
   std::reverse(name_path->mutable_name_path()->begin(),
                name_path->mutable_name_path()->end());
   if (resolved_expr->node_kind() == RESOLVED_COLUMN_REF) {

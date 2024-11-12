@@ -444,8 +444,18 @@ create external table t(a int64)
 with partition columns(b int64 primary key)
 options (x = 5)
 --
-ERROR: column annotations are unsupported in TableElementList [at 2:24]
+ERROR: column attributes are unsupported for columns in WITH PARTITION COLUMNS clause [at 2:24]
 with partition columns(b int64 primary key)
+                       ^
+==
+
+[language_features=CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
+create external table t(a int64)
+with partition columns(b int64 options(description="partition column"))
+options (x = 5)
+--
+ERROR: column options are unsupported for columns in WITH PARTITION COLUMNS clause [at 2:24]
+with partition columns(b int64 options(description="partition column"))
                        ^
 ==
 
@@ -464,7 +474,7 @@ create external table t(a int64)
 with partition columns(b int64 not null)
 options (x = 5)
 --
-ERROR: column annotations are unsupported in TableElementList [at 2:24]
+ERROR: column attributes are unsupported for columns in WITH PARTITION COLUMNS clause [at 2:24]
 with partition columns(b int64 not null)
                        ^
 ==

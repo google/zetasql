@@ -6,7 +6,7 @@
 
 ZetaSQL supports the following protocol buffer functions.
 
-### Function list
+## Function list
 
 <table>
   <thead>
@@ -18,8 +18,7 @@ ZetaSQL supports the following protocol buffer functions.
   <tbody>
 
 <tr>
-  <td><a href="#enum_value_descriptor_proto"><code>ENUM_VALUE_DESCRIPTOR_PROTO</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/protocol_buffer_functions.md#enum_value_descriptor_proto"><code>ENUM_VALUE_DESCRIPTOR_PROTO</code></a>
 </td>
   <td>
     Gets the enum value descriptor proto
@@ -28,8 +27,7 @@ ZetaSQL supports the following protocol buffer functions.
 </tr>
 
 <tr>
-  <td><a href="#proto_extract"><code>EXTRACT</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/protocol_buffer_functions.md#proto_extract"><code>EXTRACT</code></a>
 </td>
   <td>
     Extracts a value or metadata from a protocol buffer.
@@ -37,8 +35,7 @@ ZetaSQL supports the following protocol buffer functions.
 </tr>
 
 <tr>
-  <td><a href="#filter_fields"><code>FILTER_FIELDS</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/protocol_buffer_functions.md#filter_fields"><code>FILTER_FIELDS</code></a>
 </td>
   <td>
     Removed unwanted fields from a protocol buffer.
@@ -46,17 +43,16 @@ ZetaSQL supports the following protocol buffer functions.
 </tr>
 
 <tr>
-  <td><a href="#from_proto"><code>FROM_PROTO</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/protocol_buffer_functions.md#from_proto"><code>FROM_PROTO</code></a>
 </td>
   <td>
     Converts a protocol buffer value into ZetaSQL value.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#proto_default_if_null"><code>PROTO_DEFAULT_IF_NULL</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/protocol_buffer_functions.md#proto_default_if_null"><code>PROTO_DEFAULT_IF_NULL</code></a>
 </td>
   <td>
     Produces the default protocol buffer field value if the
@@ -66,8 +62,7 @@ ZetaSQL supports the following protocol buffer functions.
 </tr>
 
 <tr>
-  <td><a href="#proto_map_contains_key"><code>PROTO_MAP_CONTAINS_KEY</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/protocol_buffer_functions.md#proto_map_contains_key"><code>PROTO_MAP_CONTAINS_KEY</code></a>
 </td>
   <td>
     Checks if a protocol buffer map field contains a given key.
@@ -75,8 +70,7 @@ ZetaSQL supports the following protocol buffer functions.
 </tr>
 
 <tr>
-  <td><a href="#proto_modify_map"><code>PROTO_MODIFY_MAP</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/protocol_buffer_functions.md#proto_modify_map"><code>PROTO_MODIFY_MAP</code></a>
 </td>
   <td>
     Modifies a protocol buffer map field.
@@ -84,8 +78,7 @@ ZetaSQL supports the following protocol buffer functions.
 </tr>
 
 <tr>
-  <td><a href="#replace_fields"><code>REPLACE_FIELDS</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/protocol_buffer_functions.md#replace_fields"><code>REPLACE_FIELDS</code></a>
 </td>
   <td>
     Replaces the values in one or more protocol buffer fields.
@@ -93,18 +86,18 @@ ZetaSQL supports the following protocol buffer functions.
 </tr>
 
 <tr>
-  <td><a href="#to_proto"><code>TO_PROTO</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/protocol_buffer_functions.md#to_proto"><code>TO_PROTO</code></a>
 </td>
   <td>
     Converts a ZetaSQL value into a protocol buffer value.
+    
   </td>
 </tr>
 
   </tbody>
 </table>
 
-### `ENUM_VALUE_DESCRIPTOR_PROTO`
+## `ENUM_VALUE_DESCRIPTOR_PROTO`
 
 ```sql
 ENUM_VALUE_DESCRIPTOR_PROTO(proto_enum)
@@ -155,7 +148,7 @@ FROM
  *-------------------------------------------------+-----------------+----------------------------+---------------------------*/
 ```
 
-### `EXTRACT` 
+## `EXTRACT` 
 <a id="proto_extract"></a>
 
 ```sql
@@ -321,7 +314,7 @@ FROM AlbumList;
 
 [has-value]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#checking_if_a_field_has_a_value
 
-### `FILTER_FIELDS`
+## `FILTER_FIELDS`
 
 ```sql
 FILTER_FIELDS(
@@ -575,7 +568,7 @@ FROM MusicAwards;
 
 [querying-proto-extensions]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#extensions
 
-### `FROM_PROTO`
+## `FROM_PROTO`
 
 ```sql
 FROM_PROTO(expression)
@@ -765,7 +758,7 @@ SELECT FROM_PROTO(DATE '2019-10-30')
  *------------*/
 ```
 
-### `PROTO_DEFAULT_IF_NULL`
+## `PROTO_DEFAULT_IF_NULL`
 
 ```sql
 PROTO_DEFAULT_IF_NULL(proto_field_expression)
@@ -832,7 +825,7 @@ default value for `country`.
  *-----------------*/
 ```
 
-### `PROTO_MAP_CONTAINS_KEY`
+## `PROTO_MAP_CONTAINS_KEY`
 
 ```sql
 PROTO_MAP_CONTAINS_KEY(proto_map_field_expression, key)
@@ -886,7 +879,7 @@ FROM
 
 [proto-map]: https://developers.google.com/protocol-buffers/docs/proto3#maps
 
-### `PROTO_MODIFY_MAP`
+## `PROTO_MODIFY_MAP`
 
 ```sql
 PROTO_MODIFY_MAP(proto_map_field_expression, key_value_pair[, ...])
@@ -952,7 +945,7 @@ FROM
 
 [proto-map]: https://developers.google.com/protocol-buffers/docs/proto3#maps
 
-### `REPLACE_FIELDS`
+## `REPLACE_FIELDS`
 
 ```sql
 REPLACE_FIELDS(proto_expression, value AS field_path [, ... ])
@@ -964,12 +957,12 @@ Returns a copy of a protocol buffer, replacing the values in one or more fields.
 `field_path` is a delimited path to the protocol buffer field that is replaced.
 When using `replace_fields`, the following limitations apply:
 
-+ If `value` is `NULL`, it un-sets `field_path` or returns an error if the last
-  component of `field_path` is a required field.
-+ Replacing subfields will succeed only if the message containing the field is
-  set.
-+ Replacing subfields of repeated field is not allowed.
-+ A repeated field can be replaced with an `ARRAY` value.
++   If `value` is `NULL`, it un-sets `field_path` or returns an error if the
+    last component of `field_path` is a required field.
++   Replacing subfields will succeed only if the message containing the field is
+    set.
++   Replacing subfields of repeated field isn't allowed.
++   A repeated field can be replaced with an `ARRAY` value.
 
 **Return type**
 
@@ -1045,7 +1038,7 @@ AS proto;
  *-----------------------------------------------------------------------------*/
 ```
 
-### `TO_PROTO`
+## `TO_PROTO`
 
 ```
 TO_PROTO(expression)

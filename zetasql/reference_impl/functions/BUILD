@@ -30,6 +30,7 @@ cc_library(
     srcs = ["register_all.cc"],
     hdrs = ["register_all.h"],
     deps = [
+        ":graph",
         ":hash",
         ":json",
         ":map",
@@ -44,11 +45,16 @@ cc_library(
     srcs = ["hash.cc"],
     hdrs = ["hash.h"],
     deps = [
+        "//zetasql/base:ret_check",
+        "//zetasql/public:type_cc_proto",
         "//zetasql/public:value",
         "//zetasql/public/functions:hash",
+        "//zetasql/public/types",
         "//zetasql/reference_impl:evaluation",
         "@com_google_absl//absl/log",
         "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings:string_view",
+        "@com_google_absl//absl/types:span",
     ],
 )
 
@@ -57,11 +63,14 @@ cc_library(
     srcs = ["json.cc"],
     hdrs = ["json.h"],
     deps = [
+        "//zetasql/base:check",
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
         "//zetasql/common:errors",
+        "//zetasql/common:internal_value",
         "//zetasql/public:json_value",
         "//zetasql/public:language_options",
+        "//zetasql/public:options_cc_proto",
         "//zetasql/public:type_cc_proto",
         "//zetasql/public:value",
         "//zetasql/public/functions:json",
@@ -71,8 +80,10 @@ cc_library(
         "//zetasql/public/functions:unsupported_fields_cc_proto",
         "//zetasql/public/types",
         "//zetasql/reference_impl:evaluation",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/types:span",
     ],
 )
 
@@ -84,6 +95,7 @@ cc_library(
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
         "//zetasql/public:collator",
+        "//zetasql/public:type_cc_proto",
         "//zetasql/public:value",
         "//zetasql/public/functions:string_with_collation",
         "//zetasql/public/types",
@@ -106,6 +118,7 @@ cc_library(
         "//zetasql/base:status",
         "//zetasql/public:collator",
         "//zetasql/public:type",
+        "//zetasql/public:type_cc_proto",
         "//zetasql/public:value",
         "//zetasql/public/functions:like",
         "//zetasql/public/functions:string_with_collation",
@@ -124,11 +137,13 @@ cc_library(
     srcs = ["uuid.cc"],
     hdrs = ["uuid.h"],
     deps = [
+        "//zetasql/base:ret_check",
         "//zetasql/public:value",
         "//zetasql/public/functions:uuid",
         "//zetasql/public/types",
         "//zetasql/reference_impl:evaluation",
         "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/types:span",
     ],
 )
 
@@ -140,7 +155,10 @@ cc_library(
         "//zetasql/base:ret_check",
         "//zetasql/base:source_location",
         "//zetasql/base:status",
+        "//zetasql/common:errors",
         "//zetasql/public:civil_time",
+        "//zetasql/public:interval_value",
+        "//zetasql/public:type_cc_proto",
         "//zetasql/public:value",
         "//zetasql/public/functions:range",
         "//zetasql/public/types",
@@ -153,11 +171,34 @@ cc_library(
 )
 
 cc_library(
+    name = "graph",
+    srcs = ["graph.cc"],
+    hdrs = ["graph.h"],
+    deps = [
+        "//zetasql/base:ret_check",
+        "//zetasql/base:status",
+        "//zetasql/public:coercer",
+        "//zetasql/public:type",
+        "//zetasql/public:value",
+        "//zetasql/public/functions:json_format",
+        "//zetasql/reference_impl:evaluation",
+        "@com_google_absl//absl/algorithm:container",
+        "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings:string_view",
+        "@com_google_absl//absl/time",
+        "@com_google_absl//absl/types:span",
+    ],
+)
+
+cc_library(
     name = "map",
     srcs = ["map.cc"],
     hdrs = ["map.h"],
     deps = [
         "//zetasql/base:check",
+        "//zetasql/base:optional_ref",
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
         "//zetasql/common:errors",

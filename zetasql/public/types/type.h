@@ -53,8 +53,11 @@ namespace zetasql {
 class ArrayType;
 class EnumType;
 class ExtendedType;
+class GraphElementType;
+class GraphPathType;
 class LanguageOptions;
 class MapType;
+class MeasureType;
 class ProtoType;
 class RangeType;
 class StructType;
@@ -100,6 +103,7 @@ class Type {
   bool IsBytes() const { return kind_ == TYPE_BYTES; }
   bool IsDate() const { return kind_ == TYPE_DATE; }
   bool IsTimestamp() const { return kind_ == TYPE_TIMESTAMP; }
+  bool IsTimestampPicos() const { return kind_ == TYPE_TIMESTAMP_PICOS; }
 
   bool IsTime() const { return kind_ == TYPE_TIME; }
   bool IsDatetime() const { return kind_ == TYPE_DATETIME; }
@@ -110,6 +114,7 @@ class Type {
   bool IsTokenListType() const { return kind_ == TYPE_TOKENLIST; }
   bool IsRangeType() const { return kind_ == TYPE_RANGE; }
   bool IsMapType() const { return kind_ == TYPE_MAP; }
+  bool IsMeasureType() const { return kind_ == TYPE_MEASURE; }
 
   // DEPRECATED, use UsingFeatureV12CivilTimeType() instead.
   //
@@ -148,6 +153,8 @@ class Type {
   bool IsProto() const { return kind_ == TYPE_PROTO; }
   bool IsStructOrProto() const { return IsStruct() || IsProto(); }
   bool IsRange() const { return kind_ == TYPE_RANGE; }
+  bool IsGraphElement() const { return kind_ == TYPE_GRAPH_ELEMENT; }
+  bool IsGraphPath() const { return kind_ == TYPE_GRAPH_PATH; }
   bool IsMap() const { return kind_ == TYPE_MAP; }
 
   bool IsFloatingPoint() const { return IsFloat() || IsDouble(); }
@@ -217,7 +224,10 @@ class Type {
   virtual const EnumType* AsEnum() const { return nullptr; }
   virtual const ExtendedType* AsExtendedType() const { return nullptr; }
   virtual const RangeType* AsRange() const { return nullptr; }
+  virtual const GraphElementType* AsGraphElement() const { return nullptr; }
+  virtual const GraphPathType* AsGraphPath() const { return nullptr; }
   virtual const MapType* AsMap() const { return nullptr; }
+  virtual const MeasureType* AsMeasure() const { return nullptr; }
 
   // Returns true if the type supports grouping with respect to the
   // 'language_options'. E.g. struct type supports grouping if the
@@ -504,6 +514,7 @@ class Type {
   // non-NULL, then <field_id> is set to
   // - the field index for STRUCTs;
   // - the field tag number for PROTOs;
+  // - the property type index for GRAPH_ELEMENTs;
   // <include_pseudo_fields> specifies whether virtual fields should be
   // returned or used for ambiguity check.
   HasFieldResult HasField(const std::string& name, int* field_id = nullptr,
@@ -885,8 +896,11 @@ class Type {
   friend class ArrayType;
   friend class StructType;
   friend class RangeType;
+  friend class GraphElementType;
+  friend class GraphPathType;
   friend class MapType;
   friend class NullableValueContentComparator;
+  friend class MeasureType;
 
   const internal::TypeStore* type_store_;  // Used for lifetime checking only.
   const TypeKind kind_;

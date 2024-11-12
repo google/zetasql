@@ -23,6 +23,7 @@
 #include "zetasql/common/errors.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/constant.h"
+#include "zetasql/public/property_graph.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/type_parameters.h"
@@ -246,12 +247,24 @@ static std::string ToStringImpl(ResolvedSampleScan::SampleUnit unit) {
   ABSL_LOG(ERROR) << "Invalid SampleUnit: " << unit;
   return absl::StrCat("INVALID_SAMPLE_UNIT(", unit, ")");
 }
+static std::string ToStringImpl(ResolvedMatchRecognizePatternOperation::MatchRecognizePatternOperationType op_type) {
+  std::string name = ResolvedMatchRecognizePatternOperationEnums::MatchRecognizePatternOperationType_Name(op_type);
+  if (!name.empty()) {
+    return name;
+  }
+  ABSL_LOG(ERROR) << "Invalid SubqueryType: " << op_type;
+  return absl::StrCat("INVALID_SUBQUERY_TYPE(", op_type, ")");
+}
 static std::string ToStringImpl(FieldFormat::Format format) {
   const std::string& str = FieldFormat_Format_Name(format);
   return !str.empty() ? str : absl::StrCat("INVALID_FORMAT(", format, ")");
 }
 static std::string ToStringImpl(ResolvedInsertStmt::InsertMode insert_mode) {
   return ResolvedInsertStmt::InsertModeToString(insert_mode);
+}
+static std::string ToStringImpl(
+  ResolvedOnConflictClause::ConflictAction conflict_action) {
+  return ResolvedOnConflictClause::ConflictActionToString(conflict_action);
 }
 static std::string ToStringImpl(
     ResolvedAggregateHavingModifier::HavingModifierKind kind) {
@@ -327,7 +340,7 @@ static std::string ToStringImpl(const Type* type) {
 }
 static std::string ToStringImpl(const google::protobuf::FieldDescriptor* field) {
   return field->is_extension() ?
-      absl::StrCat("[", field->full_name(), "]"): field->name();
+      absl::StrCat("[", field->full_name(), "]"): std::string(field->name());
 }
 static std::string ToStringVectorFieldDescriptor(const std::vector<const google::protobuf::FieldDescriptor*>& field_vector) {
   std::string output;
@@ -341,7 +354,7 @@ static std::string ToStringVectorFieldDescriptor(const std::vector<const google:
 }
 
 static std::string ToStringImpl(const google::protobuf::OneofDescriptor* oneof) {
-  return oneof->name();
+  return std::string(oneof->name());
 }
 
 static std::string ToStringImpl(const ResolvedColumn& column) {
@@ -432,7 +445,24 @@ static std::string ToStringImpl(
       return absl::StrCat("INVALID_GENERATED_MODE(", mode, ")");
   }
 }
-
+static std::string ToStringImpl(ResolvedMatchRecognizeScanEnums::AfterMatchSkipMode mode) {
+  std::string name =
+      ResolvedMatchRecognizeScanEnums::AfterMatchSkipMode_Name(mode);
+  if (!name.empty()) {
+    return name;
+  }
+  ABSL_LOG(ERROR) << "Invalid AfterMatchSkipMode: " << mode;
+  return absl::StrCat("INVALID_AFTER_MATCH_SKIP_MODE(", mode, ")");
+}
+static std::string ToStringImpl(ResolvedMatchRecognizePatternAnchorEnums::Mode mode) {
+  std::string name =
+      ResolvedMatchRecognizePatternAnchorEnums::Mode_Name(mode);
+  if (!name.empty()) {
+    return name;
+  }
+  ABSL_LOG(ERROR) << "Invalid Mode: " << mode;
+  return absl::StrCat("INVALID_MODE(", mode, ")");
+}
 static std::string ToStringImpl(ResolvedOption::AssignmentOp assignment_op) {
   switch (assignment_op) {
     case ResolvedOptionEnums::ADD_ASSIGN:
@@ -442,6 +472,15 @@ static std::string ToStringImpl(ResolvedOption::AssignmentOp assignment_op) {
     default:
       return "=";
   }
+}
+
+static std::string ToStringImpl(
+  ResolvedLockMode::LockStrengthType lock_strength_type) {
+  std::string name =
+      ResolvedLockModeEnums::LockStrengthType_Name(lock_strength_type);
+  if (!name.empty()) return name;
+  ABSL_LOG(ERROR) << "Invalid LockStrengthType: " << lock_strength_type;
+  return absl::StrCat("INVALID_LOCK_STRENGTH_TYPE(", lock_strength_type, ")");
 }
 
 // Most vector<std::string> fields are identifier paths so we format
@@ -1083,6 +1122,178 @@ absl::StatusOr<TypeModifiers>
         const TypeModifiersProto& proto,
         const ResolvedNode::RestoreParams& params) {
   return TypeModifiers::Deserialize(proto);
+}
+
+static std::string ToStringImpl(const PropertyGraph* property_graph) {
+  return property_graph == nullptr ? "<null>" : property_graph->FullName();
+}
+
+
+static absl::Status SaveToImpl(
+    const PropertyGraph* property_graph,
+    FileDescriptorSetMap* file_descriptor_set_map,
+    PropertyGraphRefProto* proto) {
+  proto->set_full_name(property_graph->FullName());
+  return absl::OkStatus();
+}
+
+template<>
+absl::StatusOr<const PropertyGraph*> RestoreFromImpl(
+    const PropertyGraphRefProto& proto,
+    const ResolvedNode::RestoreParams& params) {
+  const PropertyGraph* propery_graph;
+  const std::vector<std::string> path = absl::StrSplit(proto.full_name(), '.');
+  // The first part in full_name() is params.catalog.
+  ZETASQL_RETURN_IF_ERROR(params.catalog->FindPropertyGraph(
+      absl::MakeSpan(path).subspan(1), propery_graph));
+  return propery_graph;
+}
+
+static std::string ToStringImpl(const GraphPropertyDeclaration* property) {
+  return property == nullptr ? "<null>" :
+      absl::StrCat(property->Name(), "(", property->Type()->DebugString(),")");
+}
+
+static absl::Status SaveToImpl(
+    const GraphPropertyDeclaration* propery_declaration,
+    FileDescriptorSetMap* file_descriptor_set_map,
+    GraphPropertyDeclarationRefProto* proto) {
+  const std::string property_full_name = propery_declaration->FullName();
+  const auto pos = property_full_name.find_last_of('.');
+  ZETASQL_RET_CHECK(pos != std::string::npos);
+  const auto full_graph_name = property_full_name.substr(0, pos);
+  proto->mutable_property_graph()->set_full_name(full_graph_name);
+  proto->set_name(propery_declaration->Name());
+  return absl::OkStatus();
+}
+
+template<>
+absl::StatusOr<const GraphPropertyDeclaration*> RestoreFromImpl(
+    const GraphPropertyDeclarationRefProto& proto,
+    const ResolvedNode::RestoreParams& params) {
+  ZETASQL_ASSIGN_OR_RETURN(const PropertyGraph* property_graph,
+    RestoreFromImpl<const PropertyGraph*>(proto.property_graph(), params));
+  const GraphPropertyDeclaration* propery_declaration;
+  ZETASQL_RETURN_IF_ERROR(property_graph->FindPropertyDeclarationByName(
+        proto.name(), propery_declaration));
+  return propery_declaration;
+}
+
+static std::string ToStringImpl(
+    const std::vector<const GraphElementTable*>& table_list) {
+  if (table_list.empty()) {
+    return "[]";
+  } else {
+  return absl::StrCat(
+      "[",
+      absl::StrJoin(table_list, ",",
+                    [](std::string* out, const GraphElementTable* table) {
+                      absl::StrAppend(out, table->FullName());
+                    }),
+      "]");
+      }
+}
+
+// TODO: Migrate helper functions to dedicated .cc file.
+static std::string ToStringImpl(const GraphElementLabel* graph_element_label) {
+  return graph_element_label == nullptr ? "<null>"
+                                        : graph_element_label->FullName();
+}
+
+
+static absl::Status SaveToImpl(const GraphElementLabel* graph_element_label,
+                               FileDescriptorSetMap* file_descriptor_set_map,
+                               GraphElementLabelRefProto* proto) {
+  const std::string property_full_name = graph_element_label->FullName();
+  const auto pos = property_full_name.find_last_of('.');
+  ZETASQL_RET_CHECK(pos != std::string::npos);
+  const auto full_graph_name = property_full_name.substr(0, pos);
+  proto->mutable_property_graph()->set_full_name(full_graph_name);
+  proto->set_name(graph_element_label->Name());
+  return absl::OkStatus();
+}
+
+template <>
+absl::StatusOr<const GraphElementLabel*> RestoreFromImpl(
+    const GraphElementLabelRefProto& proto,
+    const ResolvedNode::RestoreParams& params) {
+  ZETASQL_ASSIGN_OR_RETURN(const PropertyGraph* property_graph,
+    RestoreFromImpl<const PropertyGraph*>(proto.property_graph(), params));
+  const GraphElementLabel* graph_element_label;
+  ZETASQL_RETURN_IF_ERROR(
+      property_graph->FindLabelByName(proto.name(), graph_element_label));
+  return graph_element_label;
+}
+
+static std::string ToStringImpl(
+    ResolvedGraphEdgeScan::EdgeOrientation edge_orientation) {
+  std::string name =
+      ResolvedGraphEdgeScanEnums::EdgeOrientation_Name(edge_orientation);
+  if (!name.empty()) return name;
+  ABSL_LOG(ERROR) << "Invalid EdgeOrientation: " << edge_orientation;
+  return absl::StrCat("INVALID_EDGE_ORIENTATION(", edge_orientation, ")");
+}
+
+static std::string ToStringImpl(
+    const std::vector<const GraphElementLabel*>& label_list) {
+  return absl::StrCat(
+      "[",
+      absl::StrJoin(label_list, ", ",
+                    [](std::string* out, const GraphElementLabel* label) {
+                      absl::StrAppend(out, ToStringImpl(label));
+                    }),
+      "]");
+}
+
+static std::string ToStringImpl(const GraphElementTable* graph_element_table) {
+  return graph_element_table == nullptr ? "<null>"
+                                        : graph_element_table->Name();
+}
+
+static absl::Status SaveToImpl(
+    const GraphElementTable* element_table,
+    FileDescriptorSetMap* file_descriptor_set_map,
+    GraphElementTableRefProto* proto) {
+  const std::string element_table_full_name = element_table->FullName();
+  const auto pos = element_table_full_name.find_last_of('.');
+  ZETASQL_RET_CHECK(pos != std::string::npos);
+  const auto full_graph_name = element_table_full_name.substr(0, pos);
+  proto->mutable_property_graph()->set_full_name(full_graph_name);
+  proto->set_name(element_table->Name());
+  return absl::OkStatus();
+}
+
+template<>
+absl::StatusOr<const GraphElementTable*> RestoreFromImpl(
+    const GraphElementTableRefProto& proto,
+    const ResolvedNode::RestoreParams& params) {
+  ZETASQL_ASSIGN_OR_RETURN(const PropertyGraph* property_graph,
+    RestoreFromImpl<const PropertyGraph*>(proto.property_graph(), params));
+  const GraphElementTable* element_table;
+  ZETASQL_RETURN_IF_ERROR(property_graph->FindElementTableByName(proto.name(),
+                                                         element_table));
+  return element_table;
+}
+
+static std::string ToStringImpl(
+    ResolvedGraphPathMode::PathMode path_mode) {
+  std::string name = ResolvedGraphPathModeEnums::PathMode_Name(path_mode);
+  if (!name.empty()) {
+    return name;
+  }
+  ABSL_LOG(ERROR) << "Invalid PathMode: " << path_mode;
+  return absl::StrCat("INVALID_PATH_MODE(", path_mode, ")");
+}
+
+static std::string ToStringImpl(
+    ResolvedGraphPathSearchPrefix::PathSearchPrefixType prefix_type) {
+  std::string name =
+      ResolvedGraphPathSearchPrefixEnums::PathSearchPrefixType_Name(prefix_type);
+  if (!name.empty()) {
+    return name;
+  }
+  ABSL_LOG(ERROR) << "Invalid PathSearchPrefixType: " << prefix_type;
+  return absl::StrCat("INVALID_PATH_SEARCH_PREFIX_TYPE(", prefix_type, ")");
 }
 
 }  // anonymous namespace

@@ -39,12 +39,14 @@ import com.google.zetasql.ZetaSQLOptions.ProductMode;
 import com.google.zetasql.ZetaSQLType.ArrayTypeProto;
 import com.google.zetasql.ZetaSQLType.EnumTypeProto;
 import com.google.zetasql.ZetaSQLType.MapTypeProto;
+import com.google.zetasql.ZetaSQLType.MeasureTypeProto;
 import com.google.zetasql.ZetaSQLType.ProtoTypeProto;
 import com.google.zetasql.ZetaSQLType.RangeTypeProto;
 import com.google.zetasql.ZetaSQLType.StructFieldProto;
 import com.google.zetasql.ZetaSQLType.StructTypeProto;
 import com.google.zetasql.ZetaSQLType.TypeKind;
 import com.google.zetasql.ZetaSQLType.TypeProto;
+import com.google.zetasql.GraphElementType.PropertyType;
 import com.google.zetasql.StructType.StructField;
 import java.io.Serializable;
 import java.util.Collection;
@@ -77,6 +79,7 @@ public abstract class TypeFactory implements Serializable {
           .put("bytes", TypeKind.TYPE_BYTES) // external
           .put("date", TypeKind.TYPE_DATE) // external
           .put("timestamp", TypeKind.TYPE_TIMESTAMP) // external
+          .put("timestamp_picos", TypeKind.TYPE_TIMESTAMP_PICOS) // external
           .put("time", TypeKind.TYPE_TIME) // external
           .put("datetime", TypeKind.TYPE_DATETIME) // external
           .put("interval", TypeKind.TYPE_INTERVAL) // external
@@ -98,6 +101,7 @@ public abstract class TypeFactory implements Serializable {
           "bytes",
           "date",
           "timestamp",
+          "timestamp_picos",
           "time",
           "datetime",
           "interval",
@@ -189,6 +193,68 @@ public abstract class TypeFactory implements Serializable {
   /** Returns a MapType that contains the given {@code keyType} and {@code valueType}. */
   public static MapType createMapType(Type keyType, Type valueType) {
     return new MapType(keyType, valueType);
+  }
+
+  /** Returns a MeasureType that produces the given {@code resultType} when aggregated. */
+  public static MeasureType createMeasureType(Type resultType) {
+    return new MeasureType(resultType);
+  }
+
+  /** Returns a GraphElementType that contains the given {@code properties}. */
+  public static GraphElementType createGraphElementType(
+      List<String> graphReference,
+      ZetaSQLType.GraphElementTypeProto.ElementKind kind,
+      Collection<PropertyType> propertyTypes) {
+    if (graphReference.isEmpty()) {
+      throw new IllegalArgumentException("Graph reference cannot be empty");
+    }
+    if (kind != ZetaSQLType.GraphElementTypeProto.ElementKind.KIND_NODE
+        && kind != ZetaSQLType.GraphElementTypeProto.ElementKind.KIND_EDGE) {
+      throw new IllegalArgumentException(String.format("Invalid element kind: %s", kind));
+    }
+    Map<String, PropertyType> propertyTypeByName = new HashMap<>();
+    for (PropertyType propertyType : propertyTypes) {
+      String propertyTypeName = Ascii.toLowerCase(propertyType.getName());
+      PropertyType existingPropertyType =
+          propertyTypeByName.putIfAbsent(propertyTypeName, propertyType);
+      if (existingPropertyType != null && !existingPropertyType.equals(propertyType)) {
+        throw new IllegalArgumentException(
+            String.format("Incompatible property type with name: %s", propertyTypeName));
+      }
+    }
+    return new GraphElementType(graphReference, kind, ImmutableSet.copyOf(propertyTypes));
+  }
+
+  public static GraphPathType createGraphPathType(
+      GraphElementType nodeType, GraphElementType edgeType) {
+    if (nodeType.getElementKind() != ZetaSQLType.GraphElementTypeProto.ElementKind.KIND_NODE) {
+      throw new IllegalArgumentException(
+          String.format("Invalid node type: %s", nodeType.getElementKind()));
+    }
+    if (edgeType.getElementKind() != ZetaSQLType.GraphElementTypeProto.ElementKind.KIND_EDGE) {
+      throw new IllegalArgumentException(
+          String.format("Invalid edge type: %s", edgeType.getElementKind()));
+    }
+    boolean graphReferencesMatch = true;
+    if (nodeType.getGraphReference().size() != edgeType.getGraphReference().size()) {
+      graphReferencesMatch = false;
+    } else {
+      for (int i = 0; i < nodeType.getGraphReference().size(); ++i) {
+        if (!Ascii.equalsIgnoreCase(
+            nodeType.getGraphReference().get(i), edgeType.getGraphReference().get(i))) {
+          graphReferencesMatch = false;
+          break;
+        }
+      }
+    }
+    if (!graphReferencesMatch) {
+      throw new IllegalArgumentException(
+          String.format(
+              "Graph references do not match between the node and edge type: %s and %s",
+              nodeType.getGraphReference(), edgeType.getGraphReference()));
+    }
+
+    return new GraphPathType(nodeType, edgeType);
   }
 
   /**
@@ -326,8 +392,18 @@ public abstract class TypeFactory implements Serializable {
         case TYPE_RANGE:
           return deserializeRangeType(proto, pools);
 
+        case TYPE_GRAPH_ELEMENT:
+          return deserializeGraphElementType(proto, pools);
+
+        case TYPE_GRAPH_PATH:
+          return deserializeGraphPathType(proto, pools);
+
         case TYPE_MAP:
           return deserializeMapType(proto, pools);
+
+        case TYPE_MEASURE:
+          return deserializeMeasureType(proto, pools);
+
         default:
           throw new IllegalArgumentException(
               String.format("proto.type_kind: %s", proto.getTypeKind()));
@@ -420,10 +496,45 @@ public abstract class TypeFactory implements Serializable {
       return createRangeType(deserialize(rangeType.getElementType(), pools));
     }
 
+    private GraphElementType deserializeGraphElementType(
+        TypeProto proto, List<? extends DescriptorPool> pools) {
+      return deserializeGraphElementType(proto.getGraphElementType(), pools);
+    }
+
+    private GraphElementType deserializeGraphElementType(
+        ZetaSQLType.GraphElementTypeProto graphElementType,
+        List<? extends DescriptorPool> pools) {
+      ImmutableList.Builder<PropertyType> propertyTypes = ImmutableList.builder();
+      for (ZetaSQLType.GraphElementTypeProto.PropertyTypeProto propertyType :
+          graphElementType.getPropertyTypeList()) {
+        propertyTypes.add(
+            new PropertyType(
+                propertyType.getName(), deserialize(propertyType.getValueType(), pools)));
+      }
+      return createGraphElementType(
+          graphElementType.getGraphReferenceList(),
+          graphElementType.getKind(),
+          propertyTypes.build());
+    }
+
+    private GraphPathType deserializeGraphPathType(
+        TypeProto proto, List<? extends DescriptorPool> pools) {
+      ZetaSQLType.GraphPathTypeProto graphPath = proto.getGraphPathType();
+      return createGraphPathType(
+          deserializeGraphElementType(graphPath.getNodeType(), pools),
+          deserializeGraphElementType(graphPath.getEdgeType(), pools));
+    }
+
     private MapType deserializeMapType(TypeProto proto, List<? extends DescriptorPool> pools) {
       MapTypeProto mapType = proto.getMapType();
       return createMapType(
           deserialize(mapType.getKeyType(), pools), deserialize(mapType.getValueType(), pools));
+    }
+
+    private MeasureType deserializeMeasureType(
+        TypeProto proto, List<? extends DescriptorPool> pools) {
+      MeasureTypeProto measureType = proto.getMeasureType();
+      return createMeasureType(deserialize(measureType.getResultType(), pools));
     }
   }
 

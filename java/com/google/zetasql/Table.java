@@ -47,6 +47,8 @@ public interface Table extends Serializable {
 
   public Optional<ImmutableList<Integer>> getPrimaryKey();
 
+  public Optional<ImmutableList<Integer>> getRowIdentityColumns();
+
   public Column findColumnByName(String name);
 
   /**

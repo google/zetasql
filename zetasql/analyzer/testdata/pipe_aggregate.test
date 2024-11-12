@@ -654,6 +654,44 @@ QueryStmt
               +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
 ==
 
+# b/361331822 - Dot-star in the aggregate list was hitting a RET_CHECK before.
+FROM KeyValue kv
+|> AGGREGATE kv.*
+   GROUP BY key
+--
+ERROR: Pipe AGGREGATE cannot include non-aggregate expressions [at 2:14]
+|> AGGREGATE kv.*
+             ^
+==
+
+FROM KeyValue kv
+|> AGGREGATE kv.*
+   GROUP BY key, value
+--
+ERROR: Pipe AGGREGATE cannot include non-aggregate expressions [at 2:14]
+|> AGGREGATE kv.*
+             ^
+==
+
+FROM KeyValue kv
+|> AGGREGATE struct(key).*
+   GROUP BY key, value
+--
+ERROR: Pipe AGGREGATE cannot include non-aggregate expressions [at 2:14]
+|> AGGREGATE struct(key).*
+             ^
+==
+
+SELECT STRUCT(1 AS x) s
+|> AS T
+|> AGGREGATE T.s.*
+{{|GROUP BY T.s.x}}
+--
+ERROR: Pipe AGGREGATE cannot include non-aggregate expressions [at 3:14]
+|> AGGREGATE T.s.*
+             ^
+==
+
 # GROUP BY ALL is not allowed.
 # This is currently caught by the parser, but there is still an
 # analyzer error for this, since parser implementation details may
@@ -830,58 +868,64 @@ QueryStmt
               +-ColumnRef(type=INT64, column=$groupby.y#5)
 ==
 
-# ROLLUP with duplicate columns and with expressions.
+# ROLLUP with duplicate columns.
 # We get an output column for each unique item in the list.
 select 1 x, 2 y
-|> AGGREGATE COUNT(*) GROUP BY ROLLUP(x,x,y,x,x+y,x+y)
+|> EXTEND x+y AS z
+|> AGGREGATE COUNT(*) GROUP BY ROLLUP(x,x,y,x,z,z)
 --
 QueryStmt
 +-output_column_list=
-| +-$groupby.x#4 AS x [INT64]
-| +-$groupby.y#5 AS y [INT64]
-| +-$groupby.$groupbycol3#6 AS `$groupbycol3` [INT64]
-| +-$aggregate.$agg1#3 AS `$col1` [INT64]
+| +-$groupby.x#5 AS x [INT64]
+| +-$groupby.y#6 AS y [INT64]
+| +-$groupby.z#7 AS z [INT64]
+| +-$aggregate.$agg1#4 AS `$col1` [INT64]
 +-query=
   +-AggregateScan
-    +-column_list=[$groupby.x#4, $groupby.y#5, $groupby.$groupbycol3#6, $aggregate.$agg1#3]
+    +-column_list=[$groupby.x#5, $groupby.y#6, $groupby.z#7, $aggregate.$agg1#4]
     +-input_scan=
     | +-ProjectScan
-    |   +-column_list=$query.[x#1, y#2]
+    |   +-column_list=[$query.x#1, $query.y#2, $pipe_extend.z#3]
     |   +-expr_list=
-    |   | +-x#1 := Literal(type=INT64, value=1)
-    |   | +-y#2 := Literal(type=INT64, value=2)
+    |   | +-z#3 :=
+    |   |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |   |     +-ColumnRef(type=INT64, column=$query.x#1)
+    |   |     +-ColumnRef(type=INT64, column=$query.y#2)
     |   +-input_scan=
-    |     +-SingleRowScan
+    |     +-ProjectScan
+    |       +-column_list=$query.[x#1, y#2]
+    |       +-expr_list=
+    |       | +-x#1 := Literal(type=INT64, value=1)
+    |       | +-y#2 := Literal(type=INT64, value=2)
+    |       +-input_scan=
+    |         +-SingleRowScan
     +-group_by_list=
-    | +-x#4 := ColumnRef(type=INT64, column=$query.x#1)
-    | +-y#5 := ColumnRef(type=INT64, column=$query.y#2)
-    | +-$groupbycol3#6 :=
-    |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
-    |     +-ColumnRef(type=INT64, column=$query.x#1)
-    |     +-ColumnRef(type=INT64, column=$query.y#2)
+    | +-x#5 := ColumnRef(type=INT64, column=$query.x#1)
+    | +-y#6 := ColumnRef(type=INT64, column=$query.y#2)
+    | +-z#7 := ColumnRef(type=INT64, column=$pipe_extend.z#3)
     +-aggregate_list=
-    | +-$agg1#3 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+    | +-$agg1#4 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
     +-grouping_set_list=
       +-Rollup
         +-rollup_column_list=
           +-GroupingSetMultiColumn
           | +-column_list=
-          |   +-ColumnRef(type=INT64, column=$groupby.x#4)
+          |   +-ColumnRef(type=INT64, column=$groupby.x#5)
           +-GroupingSetMultiColumn
           | +-column_list=
-          |   +-ColumnRef(type=INT64, column=$groupby.x#4)
+          |   +-ColumnRef(type=INT64, column=$groupby.x#5)
           +-GroupingSetMultiColumn
           | +-column_list=
-          |   +-ColumnRef(type=INT64, column=$groupby.y#5)
+          |   +-ColumnRef(type=INT64, column=$groupby.y#6)
           +-GroupingSetMultiColumn
           | +-column_list=
-          |   +-ColumnRef(type=INT64, column=$groupby.x#4)
+          |   +-ColumnRef(type=INT64, column=$groupby.x#5)
           +-GroupingSetMultiColumn
           | +-column_list=
-          |   +-ColumnRef(type=INT64, column=$groupby.$groupbycol3#6)
+          |   +-ColumnRef(type=INT64, column=$groupby.z#7)
           +-GroupingSetMultiColumn
             +-column_list=
-              +-ColumnRef(type=INT64, column=$groupby.$groupbycol3#6)
+              +-ColumnRef(type=INT64, column=$groupby.z#7)
 ==
 
 # For GROUPING SETS, we get an output column for each unique item.
@@ -1515,3 +1559,1313 @@ QueryStmt
             +-type_annotation_map={Collation:"und:ci"}
             +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
           +-collation_list=[und:ci]
+==
+
+# Supported equivalent expressions in ROLLUP/CUBE/GROUPING SETS are
+# deduplicated, and the output columns are the unique set of aliases, in the
+# order of leftmost occurrence.
+
+# Literal replacement generally doesn't work correctly for expressions, it can't
+# replace all literals in the query, see reported bug b/284358915.
+[no_enable_literal_replacement]
+[language_features=PIPES,GROUP_BY_ROLLUP{{|,V_1_4_GROUPING_SETS}}]
+FROM KeyValue
+|> EXTEND STRUCT<f1 INT64, f2 STRING>(key, value) AS kv_struct1
+|> EXTEND STRUCT<f1 INT64, f2 STRING>(key+1, UPPER(value)) AS kv_struct2
+|> AGGREGATE COUNT(*)
+   GROUP BY {{ROLLUP|CUBE|GROUPING SETS}}(
+      value,
+      IFNULL(kv_struct1, kv_struct2).f1,
+      IFNULL(kv_struct1, kv_struct2).f1,
+      value)
+--
+ALTERNATION GROUP: ROLLUP
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.value#6 AS value [STRING]
+| +-$groupby.f1#7 AS f1 [INT64]
+| +-$aggregate.$agg1#5 AS `$col1` [INT64]
++-query=
+  +-AggregateScan
+    +-column_list=[$groupby.value#6, $groupby.f1#7, $aggregate.$agg1#5]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $pipe_extend.kv_struct1#3, $pipe_extend.kv_struct2#4]
+    |   +-expr_list=
+    |   | +-kv_struct2#4 :=
+    |   |   +-MakeStruct
+    |   |     +-type=STRUCT<f1 INT64, f2 STRING>
+    |   |     +-field_list=
+    |   |       +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |   |       | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    |   |       | +-Literal(type=INT64, value=1)
+    |   |       +-FunctionCall(ZetaSQL:upper(STRING) -> STRING)
+    |   |         +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+    |   +-input_scan=
+    |     +-ProjectScan
+    |       +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $pipe_extend.kv_struct1#3]
+    |       +-expr_list=
+    |       | +-kv_struct1#3 :=
+    |       |   +-MakeStruct
+    |       |     +-type=STRUCT<f1 INT64, f2 STRING>
+    |       |     +-field_list=
+    |       |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    |       |       +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+    |       +-input_scan=
+    |         +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+    +-group_by_list=
+    | +-value#6 := ColumnRef(type=STRING, column=KeyValue.Value#2)
+    | +-f1#7 :=
+    |   +-GetStructField
+    |     +-type=INT64
+    |     +-expr=
+    |     | +-FunctionCall(ZetaSQL:ifnull(STRUCT<f1 INT64, f2 STRING>, STRUCT<f1 INT64, f2 STRING>) -> STRUCT<f1 INT64, f2 STRING>)
+    |     |   +-ColumnRef(type=STRUCT<f1 INT64, f2 STRING>, column=$pipe_extend.kv_struct1#3)
+    |     |   +-ColumnRef(type=STRUCT<f1 INT64, f2 STRING>, column=$pipe_extend.kv_struct2#4)
+    |     +-field_idx=0
+    +-aggregate_list=
+    | +-$agg1#5 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+    +-grouping_set_list=
+    | +-GroupingSet
+    | | +-group_by_column_list=
+    | |   +-ColumnRef(type=STRING, column=$groupby.value#6)
+    | |   +-ColumnRef(type=INT64, column=$groupby.f1#7)
+    | +-GroupingSet
+    | | +-group_by_column_list=
+    | |   +-ColumnRef(type=STRING, column=$groupby.value#6)
+    | |   +-ColumnRef(type=INT64, column=$groupby.f1#7)
+    | +-GroupingSet
+    | | +-group_by_column_list=
+    | |   +-ColumnRef(type=STRING, column=$groupby.value#6)
+    | |   +-ColumnRef(type=INT64, column=$groupby.f1#7)
+    | +-GroupingSet
+    | | +-group_by_column_list=
+    | |   +-ColumnRef(type=STRING, column=$groupby.value#6)
+    | +-GroupingSet
+    +-rollup_column_list=
+      +-ColumnRef(type=STRING, column=$groupby.value#6)
+      +-ColumnRef(type=INT64, column=$groupby.f1#7)
+      +-ColumnRef(type=INT64, column=$groupby.f1#7)
+      +-ColumnRef(type=STRING, column=$groupby.value#6)
+--
+ALTERNATION GROUP: CUBE
+--
+ERROR: GROUP BY CUBE is unsupported [at 5:13]
+   GROUP BY CUBE(
+            ^
+--
+ALTERNATION GROUP: GROUPING SETS
+--
+ERROR: GROUP BY GROUPING SETS is unsupported [at 5:13]
+   GROUP BY GROUPING SETS(
+            ^
+--
+ALTERNATION GROUP: ,V_1_4_GROUPING_SETS,ROLLUP
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.value#6 AS value [STRING]
+| +-$groupby.f1#7 AS f1 [INT64]
+| +-$aggregate.$agg1#5 AS `$col1` [INT64]
++-query=
+  +-AggregateScan
+    +-column_list=[$groupby.value#6, $groupby.f1#7, $aggregate.$agg1#5]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $pipe_extend.kv_struct1#3, $pipe_extend.kv_struct2#4]
+    |   +-expr_list=
+    |   | +-kv_struct2#4 :=
+    |   |   +-MakeStruct
+    |   |     +-type=STRUCT<f1 INT64, f2 STRING>
+    |   |     +-field_list=
+    |   |       +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |   |       | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    |   |       | +-Literal(type=INT64, value=1)
+    |   |       +-FunctionCall(ZetaSQL:upper(STRING) -> STRING)
+    |   |         +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+    |   +-input_scan=
+    |     +-ProjectScan
+    |       +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $pipe_extend.kv_struct1#3]
+    |       +-expr_list=
+    |       | +-kv_struct1#3 :=
+    |       |   +-MakeStruct
+    |       |     +-type=STRUCT<f1 INT64, f2 STRING>
+    |       |     +-field_list=
+    |       |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    |       |       +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+    |       +-input_scan=
+    |         +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+    +-group_by_list=
+    | +-value#6 := ColumnRef(type=STRING, column=KeyValue.Value#2)
+    | +-f1#7 :=
+    |   +-GetStructField
+    |     +-type=INT64
+    |     +-expr=
+    |     | +-FunctionCall(ZetaSQL:ifnull(STRUCT<f1 INT64, f2 STRING>, STRUCT<f1 INT64, f2 STRING>) -> STRUCT<f1 INT64, f2 STRING>)
+    |     |   +-ColumnRef(type=STRUCT<f1 INT64, f2 STRING>, column=$pipe_extend.kv_struct1#3)
+    |     |   +-ColumnRef(type=STRUCT<f1 INT64, f2 STRING>, column=$pipe_extend.kv_struct2#4)
+    |     +-field_idx=0
+    +-aggregate_list=
+    | +-$agg1#5 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+    +-grouping_set_list=
+      +-Rollup
+        +-rollup_column_list=
+          +-GroupingSetMultiColumn
+          | +-column_list=
+          |   +-ColumnRef(type=STRING, column=$groupby.value#6)
+          +-GroupingSetMultiColumn
+          | +-column_list=
+          |   +-ColumnRef(type=INT64, column=$groupby.f1#7)
+          +-GroupingSetMultiColumn
+          | +-column_list=
+          |   +-ColumnRef(type=INT64, column=$groupby.f1#7)
+          +-GroupingSetMultiColumn
+            +-column_list=
+              +-ColumnRef(type=STRING, column=$groupby.value#6)
+--
+ALTERNATION GROUP: ,V_1_4_GROUPING_SETS,CUBE
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.value#6 AS value [STRING]
+| +-$groupby.f1#7 AS f1 [INT64]
+| +-$aggregate.$agg1#5 AS `$col1` [INT64]
++-query=
+  +-AggregateScan
+    +-column_list=[$groupby.value#6, $groupby.f1#7, $aggregate.$agg1#5]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $pipe_extend.kv_struct1#3, $pipe_extend.kv_struct2#4]
+    |   +-expr_list=
+    |   | +-kv_struct2#4 :=
+    |   |   +-MakeStruct
+    |   |     +-type=STRUCT<f1 INT64, f2 STRING>
+    |   |     +-field_list=
+    |   |       +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |   |       | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    |   |       | +-Literal(type=INT64, value=1)
+    |   |       +-FunctionCall(ZetaSQL:upper(STRING) -> STRING)
+    |   |         +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+    |   +-input_scan=
+    |     +-ProjectScan
+    |       +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $pipe_extend.kv_struct1#3]
+    |       +-expr_list=
+    |       | +-kv_struct1#3 :=
+    |       |   +-MakeStruct
+    |       |     +-type=STRUCT<f1 INT64, f2 STRING>
+    |       |     +-field_list=
+    |       |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    |       |       +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+    |       +-input_scan=
+    |         +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+    +-group_by_list=
+    | +-value#6 := ColumnRef(type=STRING, column=KeyValue.Value#2)
+    | +-f1#7 :=
+    |   +-GetStructField
+    |     +-type=INT64
+    |     +-expr=
+    |     | +-FunctionCall(ZetaSQL:ifnull(STRUCT<f1 INT64, f2 STRING>, STRUCT<f1 INT64, f2 STRING>) -> STRUCT<f1 INT64, f2 STRING>)
+    |     |   +-ColumnRef(type=STRUCT<f1 INT64, f2 STRING>, column=$pipe_extend.kv_struct1#3)
+    |     |   +-ColumnRef(type=STRUCT<f1 INT64, f2 STRING>, column=$pipe_extend.kv_struct2#4)
+    |     +-field_idx=0
+    +-aggregate_list=
+    | +-$agg1#5 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+    +-grouping_set_list=
+      +-Cube
+        +-cube_column_list=
+          +-GroupingSetMultiColumn
+          | +-column_list=
+          |   +-ColumnRef(type=STRING, column=$groupby.value#6)
+          +-GroupingSetMultiColumn
+          | +-column_list=
+          |   +-ColumnRef(type=INT64, column=$groupby.f1#7)
+          +-GroupingSetMultiColumn
+          | +-column_list=
+          |   +-ColumnRef(type=INT64, column=$groupby.f1#7)
+          +-GroupingSetMultiColumn
+            +-column_list=
+              +-ColumnRef(type=STRING, column=$groupby.value#6)
+--
+ALTERNATION GROUP: ,V_1_4_GROUPING_SETS,GROUPING SETS
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.value#6 AS value [STRING]
+| +-$groupby.f1#7 AS f1 [INT64]
+| +-$aggregate.$agg1#5 AS `$col1` [INT64]
++-query=
+  +-AggregateScan
+    +-column_list=[$groupby.value#6, $groupby.f1#7, $aggregate.$agg1#5]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $pipe_extend.kv_struct1#3, $pipe_extend.kv_struct2#4]
+    |   +-expr_list=
+    |   | +-kv_struct2#4 :=
+    |   |   +-MakeStruct
+    |   |     +-type=STRUCT<f1 INT64, f2 STRING>
+    |   |     +-field_list=
+    |   |       +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |   |       | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    |   |       | +-Literal(type=INT64, value=1)
+    |   |       +-FunctionCall(ZetaSQL:upper(STRING) -> STRING)
+    |   |         +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+    |   +-input_scan=
+    |     +-ProjectScan
+    |       +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $pipe_extend.kv_struct1#3]
+    |       +-expr_list=
+    |       | +-kv_struct1#3 :=
+    |       |   +-MakeStruct
+    |       |     +-type=STRUCT<f1 INT64, f2 STRING>
+    |       |     +-field_list=
+    |       |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    |       |       +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+    |       +-input_scan=
+    |         +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+    +-group_by_list=
+    | +-value#6 := ColumnRef(type=STRING, column=KeyValue.Value#2)
+    | +-f1#7 :=
+    |   +-GetStructField
+    |     +-type=INT64
+    |     +-expr=
+    |     | +-FunctionCall(ZetaSQL:ifnull(STRUCT<f1 INT64, f2 STRING>, STRUCT<f1 INT64, f2 STRING>) -> STRUCT<f1 INT64, f2 STRING>)
+    |     |   +-ColumnRef(type=STRUCT<f1 INT64, f2 STRING>, column=$pipe_extend.kv_struct1#3)
+    |     |   +-ColumnRef(type=STRUCT<f1 INT64, f2 STRING>, column=$pipe_extend.kv_struct2#4)
+    |     +-field_idx=0
+    +-aggregate_list=
+    | +-$agg1#5 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+    +-grouping_set_list=
+      +-GroupingSet
+      | +-group_by_column_list=
+      |   +-ColumnRef(type=STRING, column=$groupby.value#6)
+      +-GroupingSet
+      | +-group_by_column_list=
+      |   +-ColumnRef(type=INT64, column=$groupby.f1#7)
+      +-GroupingSet
+      | +-group_by_column_list=
+      |   +-ColumnRef(type=INT64, column=$groupby.f1#7)
+      +-GroupingSet
+        +-group_by_column_list=
+          +-ColumnRef(type=STRING, column=$groupby.value#6)
+==
+
+# Supported expression type GetStructField will be deduplicated.
+# The first two kv_struct1.f1 are deduplicated, and the second kv_struct2.f1
+# is kept, we end up with two f1 fields in the group by list.
+FROM KeyValue
+|> EXTEND STRUCT<f1 INT64, f2 STRING>(key, value) AS kv_struct1
+|> EXTEND STRUCT<f1 INT64, f2 STRING>(key+1, UPPER(value)) AS kv_struct2
+|> AGGREGATE COUNT(*)
+   GROUP BY {{ROLLUP|CUBE|GROUPING SETS}}(
+     kv_struct1.f1,
+     kv_struct1.f1,
+     kv_struct2.f1)
+--
+ALTERNATION GROUP: ROLLUP
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.f1#6 AS f1 [INT64]
+| +-$groupby.f1#7 AS f1 [INT64]
+| +-$aggregate.$agg1#5 AS `$col1` [INT64]
++-query=
+  +-AggregateScan
+    +-column_list=[$groupby.f1#6, $groupby.f1#7, $aggregate.$agg1#5]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $pipe_extend.kv_struct1#3, $pipe_extend.kv_struct2#4]
+    |   +-expr_list=
+    |   | +-kv_struct2#4 :=
+    |   |   +-MakeStruct
+    |   |     +-type=STRUCT<f1 INT64, f2 STRING>
+    |   |     +-field_list=
+    |   |       +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |   |       | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    |   |       | +-Literal(type=INT64, value=1)
+    |   |       +-FunctionCall(ZetaSQL:upper(STRING) -> STRING)
+    |   |         +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+    |   +-input_scan=
+    |     +-ProjectScan
+    |       +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $pipe_extend.kv_struct1#3]
+    |       +-expr_list=
+    |       | +-kv_struct1#3 :=
+    |       |   +-MakeStruct
+    |       |     +-type=STRUCT<f1 INT64, f2 STRING>
+    |       |     +-field_list=
+    |       |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    |       |       +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+    |       +-input_scan=
+    |         +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+    +-group_by_list=
+    | +-f1#6 :=
+    | | +-GetStructField
+    | |   +-type=INT64
+    | |   +-expr=
+    | |   | +-ColumnRef(type=STRUCT<f1 INT64, f2 STRING>, column=$pipe_extend.kv_struct1#3)
+    | |   +-field_idx=0
+    | +-f1#7 :=
+    |   +-GetStructField
+    |     +-type=INT64
+    |     +-expr=
+    |     | +-ColumnRef(type=STRUCT<f1 INT64, f2 STRING>, column=$pipe_extend.kv_struct2#4)
+    |     +-field_idx=0
+    +-aggregate_list=
+    | +-$agg1#5 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+    +-grouping_set_list=
+      +-Rollup
+        +-rollup_column_list=
+          +-GroupingSetMultiColumn
+          | +-column_list=
+          |   +-ColumnRef(type=INT64, column=$groupby.f1#6)
+          +-GroupingSetMultiColumn
+          | +-column_list=
+          |   +-ColumnRef(type=INT64, column=$groupby.f1#6)
+          +-GroupingSetMultiColumn
+            +-column_list=
+              +-ColumnRef(type=INT64, column=$groupby.f1#7)
+--
+ALTERNATION GROUP: CUBE
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.f1#6 AS f1 [INT64]
+| +-$groupby.f1#7 AS f1 [INT64]
+| +-$aggregate.$agg1#5 AS `$col1` [INT64]
++-query=
+  +-AggregateScan
+    +-column_list=[$groupby.f1#6, $groupby.f1#7, $aggregate.$agg1#5]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $pipe_extend.kv_struct1#3, $pipe_extend.kv_struct2#4]
+    |   +-expr_list=
+    |   | +-kv_struct2#4 :=
+    |   |   +-MakeStruct
+    |   |     +-type=STRUCT<f1 INT64, f2 STRING>
+    |   |     +-field_list=
+    |   |       +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |   |       | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    |   |       | +-Literal(type=INT64, value=1)
+    |   |       +-FunctionCall(ZetaSQL:upper(STRING) -> STRING)
+    |   |         +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+    |   +-input_scan=
+    |     +-ProjectScan
+    |       +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $pipe_extend.kv_struct1#3]
+    |       +-expr_list=
+    |       | +-kv_struct1#3 :=
+    |       |   +-MakeStruct
+    |       |     +-type=STRUCT<f1 INT64, f2 STRING>
+    |       |     +-field_list=
+    |       |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    |       |       +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+    |       +-input_scan=
+    |         +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+    +-group_by_list=
+    | +-f1#6 :=
+    | | +-GetStructField
+    | |   +-type=INT64
+    | |   +-expr=
+    | |   | +-ColumnRef(type=STRUCT<f1 INT64, f2 STRING>, column=$pipe_extend.kv_struct1#3)
+    | |   +-field_idx=0
+    | +-f1#7 :=
+    |   +-GetStructField
+    |     +-type=INT64
+    |     +-expr=
+    |     | +-ColumnRef(type=STRUCT<f1 INT64, f2 STRING>, column=$pipe_extend.kv_struct2#4)
+    |     +-field_idx=0
+    +-aggregate_list=
+    | +-$agg1#5 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+    +-grouping_set_list=
+      +-Cube
+        +-cube_column_list=
+          +-GroupingSetMultiColumn
+          | +-column_list=
+          |   +-ColumnRef(type=INT64, column=$groupby.f1#6)
+          +-GroupingSetMultiColumn
+          | +-column_list=
+          |   +-ColumnRef(type=INT64, column=$groupby.f1#6)
+          +-GroupingSetMultiColumn
+            +-column_list=
+              +-ColumnRef(type=INT64, column=$groupby.f1#7)
+--
+ALTERNATION GROUP: GROUPING SETS
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.f1#6 AS f1 [INT64]
+| +-$groupby.f1#7 AS f1 [INT64]
+| +-$aggregate.$agg1#5 AS `$col1` [INT64]
++-query=
+  +-AggregateScan
+    +-column_list=[$groupby.f1#6, $groupby.f1#7, $aggregate.$agg1#5]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $pipe_extend.kv_struct1#3, $pipe_extend.kv_struct2#4]
+    |   +-expr_list=
+    |   | +-kv_struct2#4 :=
+    |   |   +-MakeStruct
+    |   |     +-type=STRUCT<f1 INT64, f2 STRING>
+    |   |     +-field_list=
+    |   |       +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |   |       | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    |   |       | +-Literal(type=INT64, value=1)
+    |   |       +-FunctionCall(ZetaSQL:upper(STRING) -> STRING)
+    |   |         +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+    |   +-input_scan=
+    |     +-ProjectScan
+    |       +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $pipe_extend.kv_struct1#3]
+    |       +-expr_list=
+    |       | +-kv_struct1#3 :=
+    |       |   +-MakeStruct
+    |       |     +-type=STRUCT<f1 INT64, f2 STRING>
+    |       |     +-field_list=
+    |       |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    |       |       +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+    |       +-input_scan=
+    |         +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+    +-group_by_list=
+    | +-f1#6 :=
+    | | +-GetStructField
+    | |   +-type=INT64
+    | |   +-expr=
+    | |   | +-ColumnRef(type=STRUCT<f1 INT64, f2 STRING>, column=$pipe_extend.kv_struct1#3)
+    | |   +-field_idx=0
+    | +-f1#7 :=
+    |   +-GetStructField
+    |     +-type=INT64
+    |     +-expr=
+    |     | +-ColumnRef(type=STRUCT<f1 INT64, f2 STRING>, column=$pipe_extend.kv_struct2#4)
+    |     +-field_idx=0
+    +-aggregate_list=
+    | +-$agg1#5 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+    +-grouping_set_list=
+      +-GroupingSet
+      | +-group_by_column_list=
+      |   +-ColumnRef(type=INT64, column=$groupby.f1#6)
+      +-GroupingSet
+      | +-group_by_column_list=
+      |   +-ColumnRef(type=INT64, column=$groupby.f1#6)
+      +-GroupingSet
+        +-group_by_column_list=
+          +-ColumnRef(type=INT64, column=$groupby.f1#7)
+==
+
+# Unsupported equivalent expressions in ROLLUP/CUBE/GROUPING SETS fail the
+# query. STRUCT<f1 INT64>(key) is not a supported expression type in equivalent
+# expression detection method.
+[language_features=PIPES,GROUP_BY_ROLLUP,V_1_4_GROUPING_SETS,V_1_2_GROUP_BY_STRUCT]
+FROM KeyValue
+|> AGGREGATE COUNT(*) GROUP BY {{ROLLUP|CUBE|GROUPING SETS}}
+    (STRUCT<f1 INT64>(key).f1, STRUCT<f1 INT64>(key).f1, value, value)
+--
+ERROR: Unable to check whether multiple grouping set expressions are equivalent, so the output column list cannot be determined; Consider using the EXTEND operator to pre-compute these expressions and assign names, and then reference those columns by name here [at 3:32]
+    (STRUCT<f1 INT64>(key).f1, STRUCT<f1 INT64>(key).f1, value, value)
+                               ^
+==
+
+# Equivalent expressions in non-grouping sets queries won't be deduplicated.
+[no_enable_literal_replacement]
+[language_features=PIPES,GROUP_BY_ROLLUP,V_1_2_GROUP_BY_STRUCT{{|,V_1_4_GROUPING_SETS}}]
+FROM KeyValue
+|> AGGREGATE COUNT(*) GROUP BY STRUCT(key), STRUCT(key), value, value
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.$groupbycol1#4 AS `$groupbycol1` [STRUCT<key INT64>]
+| +-$groupby.$groupbycol2#5 AS `$groupbycol2` [STRUCT<key INT64>]
+| +-$groupby.value#6 AS value [STRING]
+| +-$groupby.value#6 AS value [STRING]
+| +-$aggregate.$agg1#3 AS `$col1` [INT64]
++-query=
+  +-AggregateScan
+    +-column_list=[$groupby.$groupbycol1#4, $groupby.$groupbycol2#5, $groupby.value#6, $aggregate.$agg1#3]
+    +-input_scan=
+    | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+    +-group_by_list=
+    | +-$groupbycol1#4 :=
+    | | +-MakeStruct
+    | |   +-type=STRUCT<key INT64>
+    | |   +-field_list=
+    | |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    | +-$groupbycol2#5 :=
+    | | +-MakeStruct
+    | |   +-type=STRUCT<key INT64>
+    | |   +-field_list=
+    | |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    | +-value#6 := ColumnRef(type=STRING, column=KeyValue.Value#2)
+    +-aggregate_list=
+      +-$agg1#3 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+==
+
+[no_enable_literal_replacement]
+# Volatile expressions won't be deduplicated, neither fail the query.
+# The expression IF(RAND() > 0.5, kv_struct1, kv_struct2).f1 is a supported type
+# in equivalent-expression detection method. However, it is a volatile
+# expression containing RAND(), which won't be deduplicated.
+FROM KeyValue
+|> EXTEND STRUCT<f1 INT64, f2 STRING>(key, value) AS kv_struct1
+|> EXTEND STRUCT<f1 INT64, f2 STRING>(key+1, UPPER(value)) AS kv_struct2
+|> AGGREGATE COUNT(*)
+   GROUP BY {{ROLLUP|CUBE|GROUPING SETS}}(
+    IF(RAND() > 0.5, kv_struct1, kv_struct2).f1,
+    IF(RAND() > 0.5, kv_struct1, kv_struct2).f1,
+    value, value)
+--
+ALTERNATION GROUP: ROLLUP
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.f1#6 AS f1 [INT64]
+| +-$groupby.f1#7 AS f1 [INT64]
+| +-$groupby.value#8 AS value [STRING]
+| +-$aggregate.$agg1#5 AS `$col1` [INT64]
++-query=
+  +-AggregateScan
+    +-column_list=[$groupby.f1#6, $groupby.f1#7, $groupby.value#8, $aggregate.$agg1#5]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $pipe_extend.kv_struct1#3, $pipe_extend.kv_struct2#4]
+    |   +-expr_list=
+    |   | +-kv_struct2#4 :=
+    |   |   +-MakeStruct
+    |   |     +-type=STRUCT<f1 INT64, f2 STRING>
+    |   |     +-field_list=
+    |   |       +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |   |       | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    |   |       | +-Literal(type=INT64, value=1)
+    |   |       +-FunctionCall(ZetaSQL:upper(STRING) -> STRING)
+    |   |         +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+    |   +-input_scan=
+    |     +-ProjectScan
+    |       +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $pipe_extend.kv_struct1#3]
+    |       +-expr_list=
+    |       | +-kv_struct1#3 :=
+    |       |   +-MakeStruct
+    |       |     +-type=STRUCT<f1 INT64, f2 STRING>
+    |       |     +-field_list=
+    |       |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    |       |       +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+    |       +-input_scan=
+    |         +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+    +-group_by_list=
+    | +-f1#6 :=
+    | | +-GetStructField
+    | |   +-type=INT64
+    | |   +-expr=
+    | |   | +-FunctionCall(ZetaSQL:if(BOOL, STRUCT<f1 INT64, f2 STRING>, STRUCT<f1 INT64, f2 STRING>) -> STRUCT<f1 INT64, f2 STRING>)
+    | |   |   +-FunctionCall(ZetaSQL:$greater(DOUBLE, DOUBLE) -> BOOL)
+    | |   |   | +-FunctionCall(ZetaSQL:rand() -> DOUBLE)
+    | |   |   | +-Literal(type=DOUBLE, value=0.5)
+    | |   |   +-ColumnRef(type=STRUCT<f1 INT64, f2 STRING>, column=$pipe_extend.kv_struct1#3)
+    | |   |   +-ColumnRef(type=STRUCT<f1 INT64, f2 STRING>, column=$pipe_extend.kv_struct2#4)
+    | |   +-field_idx=0
+    | +-f1#7 :=
+    | | +-GetStructField
+    | |   +-type=INT64
+    | |   +-expr=
+    | |   | +-FunctionCall(ZetaSQL:if(BOOL, STRUCT<f1 INT64, f2 STRING>, STRUCT<f1 INT64, f2 STRING>) -> STRUCT<f1 INT64, f2 STRING>)
+    | |   |   +-FunctionCall(ZetaSQL:$greater(DOUBLE, DOUBLE) -> BOOL)
+    | |   |   | +-FunctionCall(ZetaSQL:rand() -> DOUBLE)
+    | |   |   | +-Literal(type=DOUBLE, value=0.5)
+    | |   |   +-ColumnRef(type=STRUCT<f1 INT64, f2 STRING>, column=$pipe_extend.kv_struct1#3)
+    | |   |   +-ColumnRef(type=STRUCT<f1 INT64, f2 STRING>, column=$pipe_extend.kv_struct2#4)
+    | |   +-field_idx=0
+    | +-value#8 := ColumnRef(type=STRING, column=KeyValue.Value#2)
+    +-aggregate_list=
+    | +-$agg1#5 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+    +-grouping_set_list=
+      +-Rollup
+        +-rollup_column_list=
+          +-GroupingSetMultiColumn
+          | +-column_list=
+          |   +-ColumnRef(type=INT64, column=$groupby.f1#6)
+          +-GroupingSetMultiColumn
+          | +-column_list=
+          |   +-ColumnRef(type=INT64, column=$groupby.f1#7)
+          +-GroupingSetMultiColumn
+          | +-column_list=
+          |   +-ColumnRef(type=STRING, column=$groupby.value#8)
+          +-GroupingSetMultiColumn
+            +-column_list=
+              +-ColumnRef(type=STRING, column=$groupby.value#8)
+--
+ALTERNATION GROUP: CUBE
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.f1#6 AS f1 [INT64]
+| +-$groupby.f1#7 AS f1 [INT64]
+| +-$groupby.value#8 AS value [STRING]
+| +-$aggregate.$agg1#5 AS `$col1` [INT64]
++-query=
+  +-AggregateScan
+    +-column_list=[$groupby.f1#6, $groupby.f1#7, $groupby.value#8, $aggregate.$agg1#5]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $pipe_extend.kv_struct1#3, $pipe_extend.kv_struct2#4]
+    |   +-expr_list=
+    |   | +-kv_struct2#4 :=
+    |   |   +-MakeStruct
+    |   |     +-type=STRUCT<f1 INT64, f2 STRING>
+    |   |     +-field_list=
+    |   |       +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |   |       | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    |   |       | +-Literal(type=INT64, value=1)
+    |   |       +-FunctionCall(ZetaSQL:upper(STRING) -> STRING)
+    |   |         +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+    |   +-input_scan=
+    |     +-ProjectScan
+    |       +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $pipe_extend.kv_struct1#3]
+    |       +-expr_list=
+    |       | +-kv_struct1#3 :=
+    |       |   +-MakeStruct
+    |       |     +-type=STRUCT<f1 INT64, f2 STRING>
+    |       |     +-field_list=
+    |       |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    |       |       +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+    |       +-input_scan=
+    |         +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+    +-group_by_list=
+    | +-f1#6 :=
+    | | +-GetStructField
+    | |   +-type=INT64
+    | |   +-expr=
+    | |   | +-FunctionCall(ZetaSQL:if(BOOL, STRUCT<f1 INT64, f2 STRING>, STRUCT<f1 INT64, f2 STRING>) -> STRUCT<f1 INT64, f2 STRING>)
+    | |   |   +-FunctionCall(ZetaSQL:$greater(DOUBLE, DOUBLE) -> BOOL)
+    | |   |   | +-FunctionCall(ZetaSQL:rand() -> DOUBLE)
+    | |   |   | +-Literal(type=DOUBLE, value=0.5)
+    | |   |   +-ColumnRef(type=STRUCT<f1 INT64, f2 STRING>, column=$pipe_extend.kv_struct1#3)
+    | |   |   +-ColumnRef(type=STRUCT<f1 INT64, f2 STRING>, column=$pipe_extend.kv_struct2#4)
+    | |   +-field_idx=0
+    | +-f1#7 :=
+    | | +-GetStructField
+    | |   +-type=INT64
+    | |   +-expr=
+    | |   | +-FunctionCall(ZetaSQL:if(BOOL, STRUCT<f1 INT64, f2 STRING>, STRUCT<f1 INT64, f2 STRING>) -> STRUCT<f1 INT64, f2 STRING>)
+    | |   |   +-FunctionCall(ZetaSQL:$greater(DOUBLE, DOUBLE) -> BOOL)
+    | |   |   | +-FunctionCall(ZetaSQL:rand() -> DOUBLE)
+    | |   |   | +-Literal(type=DOUBLE, value=0.5)
+    | |   |   +-ColumnRef(type=STRUCT<f1 INT64, f2 STRING>, column=$pipe_extend.kv_struct1#3)
+    | |   |   +-ColumnRef(type=STRUCT<f1 INT64, f2 STRING>, column=$pipe_extend.kv_struct2#4)
+    | |   +-field_idx=0
+    | +-value#8 := ColumnRef(type=STRING, column=KeyValue.Value#2)
+    +-aggregate_list=
+    | +-$agg1#5 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+    +-grouping_set_list=
+      +-Cube
+        +-cube_column_list=
+          +-GroupingSetMultiColumn
+          | +-column_list=
+          |   +-ColumnRef(type=INT64, column=$groupby.f1#6)
+          +-GroupingSetMultiColumn
+          | +-column_list=
+          |   +-ColumnRef(type=INT64, column=$groupby.f1#7)
+          +-GroupingSetMultiColumn
+          | +-column_list=
+          |   +-ColumnRef(type=STRING, column=$groupby.value#8)
+          +-GroupingSetMultiColumn
+            +-column_list=
+              +-ColumnRef(type=STRING, column=$groupby.value#8)
+--
+ALTERNATION GROUP: GROUPING SETS
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.f1#6 AS f1 [INT64]
+| +-$groupby.f1#7 AS f1 [INT64]
+| +-$groupby.value#8 AS value [STRING]
+| +-$aggregate.$agg1#5 AS `$col1` [INT64]
++-query=
+  +-AggregateScan
+    +-column_list=[$groupby.f1#6, $groupby.f1#7, $groupby.value#8, $aggregate.$agg1#5]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $pipe_extend.kv_struct1#3, $pipe_extend.kv_struct2#4]
+    |   +-expr_list=
+    |   | +-kv_struct2#4 :=
+    |   |   +-MakeStruct
+    |   |     +-type=STRUCT<f1 INT64, f2 STRING>
+    |   |     +-field_list=
+    |   |       +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |   |       | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    |   |       | +-Literal(type=INT64, value=1)
+    |   |       +-FunctionCall(ZetaSQL:upper(STRING) -> STRING)
+    |   |         +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+    |   +-input_scan=
+    |     +-ProjectScan
+    |       +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $pipe_extend.kv_struct1#3]
+    |       +-expr_list=
+    |       | +-kv_struct1#3 :=
+    |       |   +-MakeStruct
+    |       |     +-type=STRUCT<f1 INT64, f2 STRING>
+    |       |     +-field_list=
+    |       |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    |       |       +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+    |       +-input_scan=
+    |         +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+    +-group_by_list=
+    | +-f1#6 :=
+    | | +-GetStructField
+    | |   +-type=INT64
+    | |   +-expr=
+    | |   | +-FunctionCall(ZetaSQL:if(BOOL, STRUCT<f1 INT64, f2 STRING>, STRUCT<f1 INT64, f2 STRING>) -> STRUCT<f1 INT64, f2 STRING>)
+    | |   |   +-FunctionCall(ZetaSQL:$greater(DOUBLE, DOUBLE) -> BOOL)
+    | |   |   | +-FunctionCall(ZetaSQL:rand() -> DOUBLE)
+    | |   |   | +-Literal(type=DOUBLE, value=0.5)
+    | |   |   +-ColumnRef(type=STRUCT<f1 INT64, f2 STRING>, column=$pipe_extend.kv_struct1#3)
+    | |   |   +-ColumnRef(type=STRUCT<f1 INT64, f2 STRING>, column=$pipe_extend.kv_struct2#4)
+    | |   +-field_idx=0
+    | +-f1#7 :=
+    | | +-GetStructField
+    | |   +-type=INT64
+    | |   +-expr=
+    | |   | +-FunctionCall(ZetaSQL:if(BOOL, STRUCT<f1 INT64, f2 STRING>, STRUCT<f1 INT64, f2 STRING>) -> STRUCT<f1 INT64, f2 STRING>)
+    | |   |   +-FunctionCall(ZetaSQL:$greater(DOUBLE, DOUBLE) -> BOOL)
+    | |   |   | +-FunctionCall(ZetaSQL:rand() -> DOUBLE)
+    | |   |   | +-Literal(type=DOUBLE, value=0.5)
+    | |   |   +-ColumnRef(type=STRUCT<f1 INT64, f2 STRING>, column=$pipe_extend.kv_struct1#3)
+    | |   |   +-ColumnRef(type=STRUCT<f1 INT64, f2 STRING>, column=$pipe_extend.kv_struct2#4)
+    | |   +-field_idx=0
+    | +-value#8 := ColumnRef(type=STRING, column=KeyValue.Value#2)
+    +-aggregate_list=
+    | +-$agg1#5 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+    +-grouping_set_list=
+      +-GroupingSet
+      | +-group_by_column_list=
+      |   +-ColumnRef(type=INT64, column=$groupby.f1#6)
+      +-GroupingSet
+      | +-group_by_column_list=
+      |   +-ColumnRef(type=INT64, column=$groupby.f1#7)
+      +-GroupingSet
+      | +-group_by_column_list=
+      |   +-ColumnRef(type=STRING, column=$groupby.value#8)
+      +-GroupingSet
+        +-group_by_column_list=
+          +-ColumnRef(type=STRING, column=$groupby.value#8)
+==
+
+# Unsupported equivalent expressions can be added to EXTEND operator, and
+# referenced in the ROLLUP/CUBE/GROUPING SETS.
+[no_enable_literal_replacement]
+[language_features=PIPES,GROUP_BY_ROLLUP,V_1_4_GROUPING_SETS,V_1_2_GROUP_BY_STRUCT]
+FROM KeyValue
+|> EXTEND STRUCT(key) AS key_struct
+|> AGGREGATE COUNT(*) GROUP BY {{ROLLUP|CUBE|GROUPING SETS}}(key_struct, key_struct)
+--
+ALTERNATION GROUP: ROLLUP
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.key_struct#5 AS key_struct [STRUCT<key INT64>]
+| +-$aggregate.$agg1#4 AS `$col1` [INT64]
++-query=
+  +-AggregateScan
+    +-column_list=[$groupby.key_struct#5, $aggregate.$agg1#4]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=[KeyValue.Key#1, $pipe_extend.key_struct#3]
+    |   +-expr_list=
+    |   | +-key_struct#3 :=
+    |   |   +-MakeStruct
+    |   |     +-type=STRUCT<key INT64>
+    |   |     +-field_list=
+    |   |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    |   +-input_scan=
+    |     +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
+    +-group_by_list=
+    | +-key_struct#5 := ColumnRef(type=STRUCT<key INT64>, column=$pipe_extend.key_struct#3)
+    +-aggregate_list=
+    | +-$agg1#4 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+    +-grouping_set_list=
+      +-Rollup
+        +-rollup_column_list=
+          +-GroupingSetMultiColumn
+          | +-column_list=
+          |   +-ColumnRef(type=STRUCT<key INT64>, column=$groupby.key_struct#5)
+          +-GroupingSetMultiColumn
+            +-column_list=
+              +-ColumnRef(type=STRUCT<key INT64>, column=$groupby.key_struct#5)
+--
+ALTERNATION GROUP: CUBE
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.key_struct#5 AS key_struct [STRUCT<key INT64>]
+| +-$aggregate.$agg1#4 AS `$col1` [INT64]
++-query=
+  +-AggregateScan
+    +-column_list=[$groupby.key_struct#5, $aggregate.$agg1#4]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=[KeyValue.Key#1, $pipe_extend.key_struct#3]
+    |   +-expr_list=
+    |   | +-key_struct#3 :=
+    |   |   +-MakeStruct
+    |   |     +-type=STRUCT<key INT64>
+    |   |     +-field_list=
+    |   |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    |   +-input_scan=
+    |     +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
+    +-group_by_list=
+    | +-key_struct#5 := ColumnRef(type=STRUCT<key INT64>, column=$pipe_extend.key_struct#3)
+    +-aggregate_list=
+    | +-$agg1#4 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+    +-grouping_set_list=
+      +-Cube
+        +-cube_column_list=
+          +-GroupingSetMultiColumn
+          | +-column_list=
+          |   +-ColumnRef(type=STRUCT<key INT64>, column=$groupby.key_struct#5)
+          +-GroupingSetMultiColumn
+            +-column_list=
+              +-ColumnRef(type=STRUCT<key INT64>, column=$groupby.key_struct#5)
+--
+ALTERNATION GROUP: GROUPING SETS
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.key_struct#5 AS key_struct [STRUCT<key INT64>]
+| +-$aggregate.$agg1#4 AS `$col1` [INT64]
++-query=
+  +-AggregateScan
+    +-column_list=[$groupby.key_struct#5, $aggregate.$agg1#4]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=[KeyValue.Key#1, $pipe_extend.key_struct#3]
+    |   +-expr_list=
+    |   | +-key_struct#3 :=
+    |   |   +-MakeStruct
+    |   |     +-type=STRUCT<key INT64>
+    |   |     +-field_list=
+    |   |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    |   +-input_scan=
+    |     +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
+    +-group_by_list=
+    | +-key_struct#5 := ColumnRef(type=STRUCT<key INT64>, column=$pipe_extend.key_struct#3)
+    +-aggregate_list=
+    | +-$agg1#4 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+    +-grouping_set_list=
+      +-GroupingSet
+      | +-group_by_column_list=
+      |   +-ColumnRef(type=STRUCT<key INT64>, column=$groupby.key_struct#5)
+      +-GroupingSet
+        +-group_by_column_list=
+          +-ColumnRef(type=STRUCT<key INT64>, column=$groupby.key_struct#5)
+==
+
+# Anonymous expressions in ROLLUP/CUBE/GROUPING SETS are not supported.
+FROM KeyValue
+|> AGGREGATE COUNT(*)
+   GROUP BY {{ROLLUP|CUBE|GROUPING SETS}}(key+1, UPPER(value))
+--
+ALTERNATION GROUP: ROLLUP
+--
+ERROR: Anonymous columns are not allowed in grouping sets; Consider using the EXTEND operator to pre-compute these expressions and assign names, and then reference those columns by name here [at 3:20]
+   GROUP BY ROLLUP(key+1, UPPER(value))
+                   ^
+--
+ALTERNATION GROUP: CUBE
+--
+ERROR: Anonymous columns are not allowed in grouping sets; Consider using the EXTEND operator to pre-compute these expressions and assign names, and then reference those columns by name here [at 3:18]
+   GROUP BY CUBE(key+1, UPPER(value))
+                 ^
+--
+ALTERNATION GROUP: GROUPING SETS
+--
+ERROR: Anonymous columns are not allowed in grouping sets; Consider using the EXTEND operator to pre-compute these expressions and assign names, and then reference those columns by name here [at 3:27]
+   GROUP BY GROUPING SETS(key+1, UPPER(value))
+                          ^
+==
+
+# Anonymous expressions pre-computed in EXTEND operator and referenced in
+# ROLLUP/CUBE/GROUPING SETS are allowed.
+FROM KeyValue
+|> EXTEND key+1 AS key_plus_1, UPPER(value) AS value_upper
+|> AGGREGATE COUNT(*)
+     GROUP BY {{ROLLUP|CUBE|GROUPING SETS}}(key_plus_1, value_upper)
+--
+ALTERNATION GROUP: ROLLUP
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.key_plus_1#6 AS key_plus_1 [INT64]
+| +-$groupby.value_upper#7 AS value_upper [STRING]
+| +-$aggregate.$agg1#5 AS `$col1` [INT64]
++-query=
+  +-AggregateScan
+    +-column_list=[$groupby.key_plus_1#6, $groupby.value_upper#7, $aggregate.$agg1#5]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $pipe_extend.key_plus_1#3, $pipe_extend.value_upper#4]
+    |   +-expr_list=
+    |   | +-key_plus_1#3 :=
+    |   | | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |   | |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    |   | |   +-Literal(type=INT64, value=1)
+    |   | +-value_upper#4 :=
+    |   |   +-FunctionCall(ZetaSQL:upper(STRING) -> STRING)
+    |   |     +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+    |   +-input_scan=
+    |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+    +-group_by_list=
+    | +-key_plus_1#6 := ColumnRef(type=INT64, column=$pipe_extend.key_plus_1#3)
+    | +-value_upper#7 := ColumnRef(type=STRING, column=$pipe_extend.value_upper#4)
+    +-aggregate_list=
+    | +-$agg1#5 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+    +-grouping_set_list=
+      +-Rollup
+        +-rollup_column_list=
+          +-GroupingSetMultiColumn
+          | +-column_list=
+          |   +-ColumnRef(type=INT64, column=$groupby.key_plus_1#6)
+          +-GroupingSetMultiColumn
+            +-column_list=
+              +-ColumnRef(type=STRING, column=$groupby.value_upper#7)
+--
+ALTERNATION GROUP: CUBE
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.key_plus_1#6 AS key_plus_1 [INT64]
+| +-$groupby.value_upper#7 AS value_upper [STRING]
+| +-$aggregate.$agg1#5 AS `$col1` [INT64]
++-query=
+  +-AggregateScan
+    +-column_list=[$groupby.key_plus_1#6, $groupby.value_upper#7, $aggregate.$agg1#5]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $pipe_extend.key_plus_1#3, $pipe_extend.value_upper#4]
+    |   +-expr_list=
+    |   | +-key_plus_1#3 :=
+    |   | | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |   | |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    |   | |   +-Literal(type=INT64, value=1)
+    |   | +-value_upper#4 :=
+    |   |   +-FunctionCall(ZetaSQL:upper(STRING) -> STRING)
+    |   |     +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+    |   +-input_scan=
+    |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+    +-group_by_list=
+    | +-key_plus_1#6 := ColumnRef(type=INT64, column=$pipe_extend.key_plus_1#3)
+    | +-value_upper#7 := ColumnRef(type=STRING, column=$pipe_extend.value_upper#4)
+    +-aggregate_list=
+    | +-$agg1#5 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+    +-grouping_set_list=
+      +-Cube
+        +-cube_column_list=
+          +-GroupingSetMultiColumn
+          | +-column_list=
+          |   +-ColumnRef(type=INT64, column=$groupby.key_plus_1#6)
+          +-GroupingSetMultiColumn
+            +-column_list=
+              +-ColumnRef(type=STRING, column=$groupby.value_upper#7)
+--
+ALTERNATION GROUP: GROUPING SETS
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.key_plus_1#6 AS key_plus_1 [INT64]
+| +-$groupby.value_upper#7 AS value_upper [STRING]
+| +-$aggregate.$agg1#5 AS `$col1` [INT64]
++-query=
+  +-AggregateScan
+    +-column_list=[$groupby.key_plus_1#6, $groupby.value_upper#7, $aggregate.$agg1#5]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $pipe_extend.key_plus_1#3, $pipe_extend.value_upper#4]
+    |   +-expr_list=
+    |   | +-key_plus_1#3 :=
+    |   | | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |   | |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    |   | |   +-Literal(type=INT64, value=1)
+    |   | +-value_upper#4 :=
+    |   |   +-FunctionCall(ZetaSQL:upper(STRING) -> STRING)
+    |   |     +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+    |   +-input_scan=
+    |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+    +-group_by_list=
+    | +-key_plus_1#6 := ColumnRef(type=INT64, column=$pipe_extend.key_plus_1#3)
+    | +-value_upper#7 := ColumnRef(type=STRING, column=$pipe_extend.value_upper#4)
+    +-aggregate_list=
+    | +-$agg1#5 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+    +-grouping_set_list=
+      +-GroupingSet
+      | +-group_by_column_list=
+      |   +-ColumnRef(type=INT64, column=$groupby.key_plus_1#6)
+      +-GroupingSet
+        +-group_by_column_list=
+          +-ColumnRef(type=STRING, column=$groupby.value_upper#7)
+==
+
+# Anonymous expressions in regular group by are allowed.
+FROM KeyValue
+|> AGGREGATE COUNT(*) GROUP BY key+1, key+1, UPPER(value)
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.$groupbycol1#4 AS `$groupbycol1` [INT64]
+| +-$groupby.$groupbycol2#5 AS `$groupbycol2` [INT64]
+| +-$groupby.$groupbycol3#6 AS `$groupbycol3` [STRING]
+| +-$aggregate.$agg1#3 AS `$col1` [INT64]
++-query=
+  +-AggregateScan
+    +-column_list=[$groupby.$groupbycol1#4, $groupby.$groupbycol2#5, $groupby.$groupbycol3#6, $aggregate.$agg1#3]
+    +-input_scan=
+    | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+    +-group_by_list=
+    | +-$groupbycol1#4 :=
+    | | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    | |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    | |   +-Literal(type=INT64, value=1)
+    | +-$groupbycol2#5 :=
+    | | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    | |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    | |   +-Literal(type=INT64, value=1)
+    | +-$groupbycol3#6 :=
+    |   +-FunctionCall(ZetaSQL:upper(STRING) -> STRING)
+    |     +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+    +-aggregate_list=
+      +-$agg1#3 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+==
+
+# Anonymous expressions in regular ROLLUP/GROUPING SETS/CUBE are allowed.
+[no_enable_literal_replacement]
+SELECT key+1, UPPER(value)
+FROM KeyValue
+GROUP BY {{ROLLUP|GROUPING SETS|CUBE}}(key+1, UPPER(value))
+--
+ALTERNATION GROUP: ROLLUP
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.$groupbycol1#3 AS `$col1` [INT64]
+| +-$groupby.$groupbycol2#4 AS `$col2` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=$groupby.[$groupbycol1#3, $groupbycol2#4]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=$groupby.[$groupbycol1#3, $groupbycol2#4]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-group_by_list=
+        | +-$groupbycol1#3 :=
+        | | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+        | |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        | |   +-Literal(type=INT64, value=1)
+        | +-$groupbycol2#4 :=
+        |   +-FunctionCall(ZetaSQL:upper(STRING) -> STRING)
+        |     +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+        +-grouping_set_list=
+          +-Rollup
+            +-rollup_column_list=
+              +-GroupingSetMultiColumn
+              | +-column_list=
+              |   +-ColumnRef(type=INT64, column=$groupby.$groupbycol1#3)
+              +-GroupingSetMultiColumn
+                +-column_list=
+                  +-ColumnRef(type=STRING, column=$groupby.$groupbycol2#4)
+--
+ALTERNATION GROUP: GROUPING SETS
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.$groupbycol1#3 AS `$col1` [INT64]
+| +-$groupby.$groupbycol2#4 AS `$col2` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=$groupby.[$groupbycol1#3, $groupbycol2#4]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=$groupby.[$groupbycol1#3, $groupbycol2#4]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-group_by_list=
+        | +-$groupbycol1#3 :=
+        | | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+        | |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        | |   +-Literal(type=INT64, value=1)
+        | +-$groupbycol2#4 :=
+        |   +-FunctionCall(ZetaSQL:upper(STRING) -> STRING)
+        |     +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+        +-grouping_set_list=
+          +-GroupingSet
+          | +-group_by_column_list=
+          |   +-ColumnRef(type=INT64, column=$groupby.$groupbycol1#3)
+          +-GroupingSet
+            +-group_by_column_list=
+              +-ColumnRef(type=STRING, column=$groupby.$groupbycol2#4)
+--
+ALTERNATION GROUP: CUBE
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.$groupbycol1#3 AS `$col1` [INT64]
+| +-$groupby.$groupbycol2#4 AS `$col2` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=$groupby.[$groupbycol1#3, $groupbycol2#4]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=$groupby.[$groupbycol1#3, $groupbycol2#4]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-group_by_list=
+        | +-$groupbycol1#3 :=
+        | | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+        | |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        | |   +-Literal(type=INT64, value=1)
+        | +-$groupbycol2#4 :=
+        |   +-FunctionCall(ZetaSQL:upper(STRING) -> STRING)
+        |     +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+        +-grouping_set_list=
+          +-Cube
+            +-cube_column_list=
+              +-GroupingSetMultiColumn
+              | +-column_list=
+              |   +-ColumnRef(type=INT64, column=$groupby.$groupbycol1#3)
+              +-GroupingSetMultiColumn
+                +-column_list=
+                  +-ColumnRef(type=STRING, column=$groupby.$groupbycol2#4)
+==
+
+[language_features=PIPES,V_1_4_MULTILEVEL_AGGREGATION,V_1_1_ORDER_BY_IN_AGGREGATE]
+FROM SimpleTypes
+|> AGGREGATE
+  SUM(
+    int32 + int64 +
+    AVG(
+      double + int32 + MIN(int64)
+      GROUP BY double
+    )
+    GROUP BY int32
+  ),
+  ARRAY_AGG(string GROUP BY string ORDER BY AVG(double))
+  {{GROUP BY int64| GROUP AND ORDER BY int64}}
+--
+ALTERNATION GROUP: GROUP BY int64
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.int64#20 AS int64 [INT64]
+| +-$aggregate.$agg1#28 AS `$col1` [DOUBLE]
+| +-$aggregate.$agg2#32 AS `$col2` [ARRAY<STRING>]
++-query=
+  +-AggregateScan
+    +-column_list=[$groupby.int64#20, $aggregate.$agg1#28, $aggregate.$agg2#32]
+    +-input_scan=
+    | +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, string#5, double#9], table=SimpleTypes, column_index_list=[0, 1, 4, 8])
+    +-group_by_list=
+    | +-int64#20 := ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    +-aggregate_list=
+      +-$agg1#28 :=
+      | +-AggregateFunctionCall(ZetaSQL:sum(DOUBLE) -> DOUBLE)
+      |   +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+      |     +-Cast(INT64 -> DOUBLE)
+      |     | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+      |     |   +-Cast(INT32 -> INT64)
+      |     |   | +-ColumnRef(type=INT32, column=$group_by_list.$groupbymod#22)
+      |     |   +-ColumnRef(type=INT64, column=$group_by_list.$groupbymod#21)
+      |     +-ColumnRef(type=DOUBLE, column=$aggregate.$agg1#27)
+      |   +-group_by_list=
+      |   | +-$groupbymod#21 := ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+      |   | +-$groupbymod#22 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+      |   +-group_by_aggregate_list=
+      |     +-$agg1#27 :=
+      |       +-AggregateFunctionCall(ZetaSQL:avg(DOUBLE) -> DOUBLE)
+      |         +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+      |           +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+      |           | +-ColumnRef(type=DOUBLE, column=$group_by_list.$groupbymod#25)
+      |           | +-Cast(INT32 -> DOUBLE)
+      |           |   +-ColumnRef(type=INT32, column=$group_by_list.$groupbymod#24)
+      |           +-Cast(INT64 -> DOUBLE)
+      |             +-ColumnRef(type=INT64, column=$aggregate.$agg1#26)
+      |         +-group_by_list=
+      |         | +-$groupbymod#23 := ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+      |         | +-$groupbymod#24 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+      |         | +-$groupbymod#25 := ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+      |         +-group_by_aggregate_list=
+      |           +-$agg1#26 :=
+      |             +-AggregateFunctionCall(ZetaSQL:min(INT64) -> INT64)
+      |               +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+      +-$agg2#32 :=
+        +-AggregateFunctionCall(ZetaSQL:array_agg(STRING) -> ARRAY<STRING>)
+          +-ColumnRef(type=STRING, column=$group_by_list.$groupbymod#30)
+          +-order_by_item_list=
+          | +-OrderByItem
+          |   +-column_ref=
+          |     +-ColumnRef(type=DOUBLE, column=$aggregate.$agg1#31)
+          +-group_by_list=
+          | +-$groupbymod#29 := ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+          | +-$groupbymod#30 := ColumnRef(type=STRING, column=SimpleTypes.string#5)
+          +-group_by_aggregate_list=
+            +-$agg1#31 :=
+              +-AggregateFunctionCall(ZetaSQL:avg(DOUBLE) -> DOUBLE)
+                +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+--
+ALTERNATION GROUP:  GROUP AND ORDER BY int64
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.int64#20 AS int64 [INT64]
+| +-$aggregate.$agg1#28 AS `$col1` [DOUBLE]
+| +-$aggregate.$agg2#32 AS `$col2` [ARRAY<STRING>]
++-query=
+  +-OrderByScan
+    +-column_list=[$groupby.int64#20, $aggregate.$agg1#28, $aggregate.$agg2#32]
+    +-is_ordered=TRUE
+    +-input_scan=
+    | +-AggregateScan
+    |   +-column_list=[$groupby.int64#20, $aggregate.$agg1#28, $aggregate.$agg2#32]
+    |   +-input_scan=
+    |   | +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, string#5, double#9], table=SimpleTypes, column_index_list=[0, 1, 4, 8])
+    |   +-group_by_list=
+    |   | +-int64#20 := ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    |   +-aggregate_list=
+    |     +-$agg1#28 :=
+    |     | +-AggregateFunctionCall(ZetaSQL:sum(DOUBLE) -> DOUBLE)
+    |     |   +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    |     |     +-Cast(INT64 -> DOUBLE)
+    |     |     | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |     |     |   +-Cast(INT32 -> INT64)
+    |     |     |   | +-ColumnRef(type=INT32, column=$group_by_list.$groupbymod#22)
+    |     |     |   +-ColumnRef(type=INT64, column=$group_by_list.$groupbymod#21)
+    |     |     +-ColumnRef(type=DOUBLE, column=$aggregate.$agg1#27)
+    |     |   +-group_by_list=
+    |     |   | +-$groupbymod#21 := ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    |     |   | +-$groupbymod#22 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    |     |   +-group_by_aggregate_list=
+    |     |     +-$agg1#27 :=
+    |     |       +-AggregateFunctionCall(ZetaSQL:avg(DOUBLE) -> DOUBLE)
+    |     |         +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    |     |           +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    |     |           | +-ColumnRef(type=DOUBLE, column=$group_by_list.$groupbymod#25)
+    |     |           | +-Cast(INT32 -> DOUBLE)
+    |     |           |   +-ColumnRef(type=INT32, column=$group_by_list.$groupbymod#24)
+    |     |           +-Cast(INT64 -> DOUBLE)
+    |     |             +-ColumnRef(type=INT64, column=$aggregate.$agg1#26)
+    |     |         +-group_by_list=
+    |     |         | +-$groupbymod#23 := ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    |     |         | +-$groupbymod#24 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    |     |         | +-$groupbymod#25 := ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    |     |         +-group_by_aggregate_list=
+    |     |           +-$agg1#26 :=
+    |     |             +-AggregateFunctionCall(ZetaSQL:min(INT64) -> INT64)
+    |     |               +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    |     +-$agg2#32 :=
+    |       +-AggregateFunctionCall(ZetaSQL:array_agg(STRING) -> ARRAY<STRING>)
+    |         +-ColumnRef(type=STRING, column=$group_by_list.$groupbymod#30)
+    |         +-order_by_item_list=
+    |         | +-OrderByItem
+    |         |   +-column_ref=
+    |         |     +-ColumnRef(type=DOUBLE, column=$aggregate.$agg1#31)
+    |         +-group_by_list=
+    |         | +-$groupbymod#29 := ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    |         | +-$groupbymod#30 := ColumnRef(type=STRING, column=SimpleTypes.string#5)
+    |         +-group_by_aggregate_list=
+    |           +-$agg1#31 :=
+    |             +-AggregateFunctionCall(ZetaSQL:avg(DOUBLE) -> DOUBLE)
+    |               +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    +-order_by_item_list=
+      +-OrderByItem
+        +-column_ref=
+          +-ColumnRef(type=INT64, column=$groupby.int64#20)

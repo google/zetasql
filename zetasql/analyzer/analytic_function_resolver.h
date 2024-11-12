@@ -29,6 +29,7 @@
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "absl/container/btree_map.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 
 namespace zetasql {
 
@@ -171,6 +172,28 @@ class AnalyticFunctionResolver {
       ExprResolutionInfo* expr_resolution_info,
       std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
 
+  // Resolves PARTITION BY that is not part of an OVER() clause.
+  // This is the case in MATCH_RECOGNIZE.
+  absl::StatusOr<std::unique_ptr<const ResolvedWindowPartitioning>>
+  ResolveStandalonePartitionBy(const ASTPartitionBy* ast_partition_by,
+                               bool force_rename_columns,
+                               ExprResolutionInfo* expr_resolution_info);
+
+  // Resolves ORDER BY that is not part of an OVER() clause.
+  // This is the case in MATCH_RECOGNIZE.
+  absl::StatusOr<std::unique_ptr<const ResolvedWindowOrdering>>
+  ResolveStandaloneOrderBy(const ASTOrderBy* ast_order_by,
+                           ExprResolutionInfo* expr_resolution_info);
+
+  // Add a wrapper scan if there are any computed columns for partitioning or
+  // ordering expressions, which have been resolved and stored on this object
+  // during a call to `ResolveOverClauseAndCreateAnalyticColumn()` or
+  // `ResolveStandalonePartitionByAndOrderBy()`.
+  // That list of computed columns is cleared as part of this call.
+  absl::StatusOr<std::unique_ptr<const ResolvedScan>>
+  AddMissingPartitioningAndOrderingExpressions(
+      std::unique_ptr<const ResolvedScan> input_scan);
+
   // Creates an AnalyticScan for all analytic functions and updates <scan> with
   // the new AnalyticScan. If computed columns are required for
   // partitioning/ordering expressions, a wrapper ProjectScan is created around
@@ -292,8 +315,8 @@ class AnalyticFunctionResolver {
   // <ast_to_resolved_info_map_>.
   absl::Status ResolveWindowPartitionByPreAggregation(
       const ASTPartitionBy* ast_partition_by,
-      ExprResolutionInfo* expr_resolution_info,
-      WindowExprInfoList** partition_by_info_out);
+      ExprResolutionInfo* expr_resolution_info, bool allow_ordinals,
+      const char* clause_name, WindowExprInfoList** partition_by_info_out);
 
   // Performs initial resolution of window ORDER BY. It calls
   // ResolveWindowOperationExpression() for each ordering expression, stores the
@@ -305,14 +328,13 @@ class AnalyticFunctionResolver {
   // floating point order key.
   absl::Status ResolveWindowOrderByPreAggregation(
       const ASTOrderBy* ast_order_by, bool is_in_range_window,
-      ExprResolutionInfo* expr_resolution_info,
-      WindowExprInfoList** order_by_info_out);
+      ExprResolutionInfo* expr_resolution_info, bool allow_ordinals,
+      const char* clause_name, WindowExprInfoList** order_by_info_out);
 
   // Resolves a window (partitioning/ordering expression) expression.
   absl::Status ResolveWindowExpression(
-      const char* clause_name, const ASTExpression* ast_expr,
-      ExprResolutionInfo* expr_resolution_info,
-      std::unique_ptr<WindowExprInfo>* resolved_item_out,
+      const ASTExpression* ast_expr, ExprResolutionInfo* expr_resolution_info,
+      bool allow_ordinals, std::unique_ptr<WindowExprInfo>* resolved_item_out,
       const Type** expr_type_out);
 
   // Returns a ResolvedAnalyticFunctionGroup in
@@ -331,7 +353,7 @@ class AnalyticFunctionResolver {
   // reference partitioning columns if applicable.
   absl::Status ResolveWindowPartitionByPostAggregation(
       const ASTPartitionBy* ast_partition_by,
-      QueryResolutionInfo* query_resolution_info,
+      QueryResolutionInfo* query_resolution_info, bool force_rename_columns,
       std::unique_ptr<const ResolvedWindowPartitioning>*
           resolved_window_partitioning_out);
 
@@ -346,13 +368,16 @@ class AnalyticFunctionResolver {
           resolved_window_ordering_out);
 
   // Creates a ResolvedColumnRef for a window (partitioning/ordering) expression
-  // in <window_expr_info>. A ResolvedComputedColumn is created if the
-  // expression is not a column reference or it references a SELECT-list
-  // expression in <select_column_state_list> that is not a column reference.
+  // in <window_expr_info>. A ResolvedComputedColumn is created if:
+  // 1. `expression` is not a column reference, or
+  // 2. `force_rename_columns` is set (even if the expression is a column
+  //    reference), or
+  // 3. `expression` references a SELECT-list expression in
+  //    `select_column_state_list` that is not a column reference.
   // For the latter case, the SELECT-list expression is rewritten to reference
   // the window expression.
   absl::Status AddColumnForWindowExpression(
-      IdString query_alias, IdString column_alias,
+      IdString query_alias, IdString column_alias, bool force_rename_columns,
       QueryResolutionInfo* query_resolution_info,
       WindowExprInfo* window_expr_info);
 

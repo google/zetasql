@@ -1,0 +1,134 @@
+# Tests for the FOR UPDATE clause with all the combinations of ORDER BY, LIMIT
+# and OFFSET clauses.
+
+[default language_features=V_1_4_FOR_UPDATE]
+
+# ORDER BY and FOR UPDATE in query.
+select a, b from Table1 order by a for update;
+--
+QueryStatement [36-81] [select a,...for update]
+  Query [36-81] [select a,...for update]
+    Select [36-59] [select a, b from Table1]
+      SelectList [43-47] [a, b]
+        SelectColumn [43-44] [a]
+          PathExpression [43-44] [a]
+            Identifier(a) [43-44] [a]
+        SelectColumn [46-47] [b]
+          PathExpression [46-47] [b]
+            Identifier(b) [46-47] [b]
+      FromClause [48-59] [from Table1]
+        TablePathExpression [53-59] [Table1]
+          PathExpression [53-59] [Table1]
+            Identifier(Table1) [53-59] [Table1]
+    OrderBy [60-70] [order by a]
+      OrderingExpression(ASC) [69-70] [a]
+        PathExpression [69-70] [a]
+          Identifier(a) [69-70] [a]
+    LockMode [71-81] [for update]
+--
+SELECT
+  a,
+  b
+FROM
+  Table1
+ORDER BY a
+FOR UPDATE
+==
+
+# LIMIT and FOR UPDATE in query.
+select a, b from Table1 limit 3 for update;
+--
+QueryStatement [0-42] [select a,...for update]
+  Query [0-42] [select a,...for update]
+    Select [0-23] [select a, b from Table1]
+      SelectList [7-11] [a, b]
+        SelectColumn [7-8] [a]
+          PathExpression [7-8] [a]
+            Identifier(a) [7-8] [a]
+        SelectColumn [10-11] [b]
+          PathExpression [10-11] [b]
+            Identifier(b) [10-11] [b]
+      FromClause [12-23] [from Table1]
+        TablePathExpression [17-23] [Table1]
+          PathExpression [17-23] [Table1]
+            Identifier(Table1) [17-23] [Table1]
+    LimitOffset [24-31] [limit 3]
+      IntLiteral(3) [30-31] [3]
+    LockMode [32-42] [for update]
+--
+SELECT
+  a,
+  b
+FROM
+  Table1
+LIMIT 3
+FOR UPDATE
+==
+
+# LIMIT, OFFSET and FOR UPDATE in query.
+select a, b from Table1 limit 3 offset 1 for update;
+--
+QueryStatement [0-51] [select a,...for update]
+  Query [0-51] [select a,...for update]
+    Select [0-23] [select a, b from Table1]
+      SelectList [7-11] [a, b]
+        SelectColumn [7-8] [a]
+          PathExpression [7-8] [a]
+            Identifier(a) [7-8] [a]
+        SelectColumn [10-11] [b]
+          PathExpression [10-11] [b]
+            Identifier(b) [10-11] [b]
+      FromClause [12-23] [from Table1]
+        TablePathExpression [17-23] [Table1]
+          PathExpression [17-23] [Table1]
+            Identifier(Table1) [17-23] [Table1]
+    LimitOffset [24-40] [limit 3 offset 1]
+      IntLiteral(3) [30-31] [3]
+      IntLiteral(1) [39-40] [1]
+    LockMode [41-51] [for update]
+--
+SELECT
+  a,
+  b
+FROM
+  Table1
+LIMIT 3 OFFSET 1
+FOR UPDATE
+==
+
+# LIMIT, OFFSET, ORDER BY and FOR UPDATE in query.
+select a, b from Table1 order by a limit 3 offset 1 for update;
+--
+QueryStatement [0-62] [select a,...for update]
+  Query [0-62] [select a,...for update]
+    Select [0-23] [select a, b from Table1]
+      SelectList [7-11] [a, b]
+        SelectColumn [7-8] [a]
+          PathExpression [7-8] [a]
+            Identifier(a) [7-8] [a]
+        SelectColumn [10-11] [b]
+          PathExpression [10-11] [b]
+            Identifier(b) [10-11] [b]
+      FromClause [12-23] [from Table1]
+        TablePathExpression [17-23] [Table1]
+          PathExpression [17-23] [Table1]
+            Identifier(Table1) [17-23] [Table1]
+    OrderBy [24-34] [order by a]
+      OrderingExpression(ASC) [33-34] [a]
+        PathExpression [33-34] [a]
+          Identifier(a) [33-34] [a]
+    LimitOffset [35-51] [limit 3 offset 1]
+      IntLiteral(3) [41-42] [3]
+      IntLiteral(1) [50-51] [1]
+    LockMode [52-62] [for update]
+--
+SELECT
+  a,
+  b
+FROM
+  Table1
+ORDER BY a
+LIMIT 3 OFFSET 1
+FOR UPDATE
+==
+

@@ -95,6 +95,8 @@ public class TypeTest {
         Arrays.asList(TypeKind.TYPE_STRUCT, TypeKind.TYPE_PROTO),
         Type::isStructOrProto,
         "isStructOrProto");
+    verifyIsType(
+        Arrays.asList(TypeKind.TYPE_TIMESTAMP_PICOS), Type::isTimestampPicos, "isTimestampPicos");
   }
 
   /**
@@ -133,6 +135,7 @@ public class TypeTest {
     types.add(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC));
     types.add(TypeFactory.createSimpleType(TypeKind.TYPE_JSON));
     types.add(TypeFactory.createSimpleType(TypeKind.TYPE_UUID));
+    types.add(TypeFactory.createSimpleType(TypeKind.TYPE_TIMESTAMP_PICOS));
 
     for (Type type : types) {
       String typeString = type.getKind().toString();
@@ -152,11 +155,13 @@ public class TypeTest {
 
   @Test
   public void classAndProtoSize() {
+    // TODO: b/350555383 - Add serialization/de-serialization code for
+    // MeasureType, once MeasureType class exists.
     assertWithMessage(
             "The number of fields of TypeProto has changed, "
                 + "please also update the serialization code accordingly.")
         .that(TypeProto.getDescriptor().getFields())
-    .hasSize(9);
+        .hasSize(12);
     assertWithMessage(
             "The number of fields in Type class has changed, "
                 + "please also update the proto and serialization code accordingly.")

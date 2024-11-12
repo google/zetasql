@@ -926,12 +926,12 @@ public class SimpleCatalogTest {
             "The number of fields of SimpleCatalogProto has changed, "
                 + "please also update the serialization code accordingly.")
         .that(SimpleCatalogProto.getDescriptor().getFields())
-        .hasSize(12);
+        .hasSize(13);
     assertWithMessage(
             "The number of fields in SimpleCatalog class has changed, "
                 + "please also update the proto and serialization code accordingly.")
         .that(TestUtil.getNonStaticFieldCount(SimpleCatalog.class))
-        .isEqualTo(21);
+        .isEqualTo(22);
   }
 
   @Test
@@ -970,5 +970,20 @@ public class SimpleCatalogTest {
     assertThrows(
         IllegalArgumentException.class,
         () -> catalog.addSimpleTable("table1", new SimpleTable("table1")));
+
+    // insert a property graph with existing name of a table
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> catalog.addSimplePropertyGraph(new SimplePropertyGraph(ImmutableList.of("table1"))));
+
+    catalog.addSimplePropertyGraph(new SimplePropertyGraph(ImmutableList.of("table2")));
+    // insert a property graph with existing name
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> catalog.addSimplePropertyGraph(new SimplePropertyGraph(ImmutableList.of("table2"))));
+    // insert a table with existing name of a property graph
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> catalog.addSimpleTable("table2", new SimpleTable("table2")));
   }
 }

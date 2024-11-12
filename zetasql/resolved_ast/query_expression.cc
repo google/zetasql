@@ -160,6 +160,9 @@ std::string QueryExpression::GetSQLQuery() const {
   if (!unpivot_.empty()) {
     absl::StrAppend(&sql, unpivot_);
   }
+  if (!match_recognize_.empty()) {
+    absl::StrAppend(&sql, match_recognize_);
+  }
 
   if (!where_.empty()) {
     absl::StrAppend(&sql, " WHERE ", where_);
@@ -278,6 +281,10 @@ std::string QueryExpression::GetSQLQuery() const {
 
   if (!offset_.empty()) {
     absl::StrAppend(&sql, " OFFSET ", offset_);
+  }
+
+  if (!lock_mode_.empty()) {
+    absl::StrAppend(&sql, " FOR ", lock_mode_);
   }
 
   return sql;
@@ -421,6 +428,23 @@ bool QueryExpression::TrySetUnpivotClause(absl::string_view unpivot) {
   return true;
 }
 
+bool QueryExpression::TrySetMatchRecognizeClause(
+    absl::string_view match_recognize) {
+  if (!CanSetMatchRecognizeClause()) {
+    return false;
+  }
+  match_recognize_ = match_recognize;
+  return true;
+}
+
+bool QueryExpression::TrySetLockModeClause(absl::string_view lock_mode) {
+  if (!CanSetLockModeClause()) {
+    return false;
+  }
+  lock_mode_ = lock_mode;
+  return true;
+}
+
 bool QueryExpression::CanFormSQLQuery() const { return !CanSetSelectClause(); }
 
 bool QueryExpression::CanSetWithClause() const { return !HasWithClause(); }
@@ -451,9 +475,17 @@ bool QueryExpression::CanSetOffsetClause() const { return !HasOffsetClause(); }
 bool QueryExpression::CanSetWithAnonymizationClause() const {
   return !HasWithAnonymizationClause();
 }
-bool QueryExpression::CanSetPivotClause() const { return !HasPivotClause(); }
+bool QueryExpression::CanSetPivotClause() const {
+  return !HasMatchRecognizeClause() && !HasPivotClause() && !HasUnpivotClause();
+}
 bool QueryExpression::CanSetUnpivotClause() const {
-  return !HasUnpivotClause();
+  return !HasMatchRecognizeClause() && !HasPivotClause() && !HasUnpivotClause();
+}
+bool QueryExpression::CanSetMatchRecognizeClause() const {
+  return !HasMatchRecognizeClause() && !HasPivotClause() && !HasUnpivotClause();
+}
+bool QueryExpression::CanSetLockModeClause() const {
+  return HasFromClause() && !HasLockModeClause();
 }
 
 const std::vector<std::pair<std::string, std::string>>&
@@ -573,6 +605,8 @@ void QueryExpression::ClearAllClauses() {
   with_recursive_ = false;
   pivot_.clear();
   unpivot_.clear();
+  match_recognize_.clear();
+  lock_mode_.clear();
 }
 
 }  // namespace zetasql

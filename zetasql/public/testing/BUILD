@@ -14,10 +14,8 @@
 # limitations under the License.
 #
 
-# Placeholder: load py_binary
-
 package(
-    default_visibility = ["//zetasql/base:zetasql_implementation"],
+    default_visibility = ["//visibility:public"],
 )
 
 cc_library(
@@ -28,6 +26,7 @@ cc_library(
     deps = [
         "//zetasql/base:ret_check",
         "//zetasql/public:language_options",
+        "//zetasql/public:options_cc_proto",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_file_based_test_driver//file_based_test_driver:test_case_options",

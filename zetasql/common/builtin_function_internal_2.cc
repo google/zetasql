@@ -32,6 +32,7 @@
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/public/value.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
@@ -312,6 +313,7 @@ void GetDatetimeConversionFunctions(
   const Type* timestamp_type = type_factory->get_timestamp();
   const Type* datetime_type = type_factory->get_datetime();
   const Type* int64_type = type_factory->get_int64();
+  const Type* uint64_type = type_factory->get_uint64();
   const Type* string_type = type_factory->get_string();
 
   const Function::Mode SCALAR = Function::SCALAR;
@@ -345,24 +347,47 @@ void GetDatetimeConversionFunctions(
                       FN_DATE_FROM_STRING,
                       date_time_constructor_options},
                  });
-  InsertSimpleFunction(
+
+  FunctionSignatureOptions timestamp_from_unix_uint64_options =
+      FunctionSignatureOptions().AddRequiredLanguageFeature(
+          FEATURE_TIMESTAMP_FROM_UNIX_FUNCTIONS_WITH_UINT64);
+
+  InsertFunction(
       functions, options, "timestamp_from_unix_seconds", SCALAR,
-      {{timestamp_type, {int64_type}, FN_TIMESTAMP_FROM_UNIX_SECONDS_INT64},
-       {timestamp_type,
-        {timestamp_type},
-        FN_TIMESTAMP_FROM_UNIX_SECONDS_TIMESTAMP}});
-  InsertSimpleFunction(
+      {
+          {timestamp_type, {int64_type}, FN_TIMESTAMP_FROM_UNIX_SECONDS_INT64},
+          {timestamp_type,
+           {timestamp_type},
+           FN_TIMESTAMP_FROM_UNIX_SECONDS_TIMESTAMP},
+          {timestamp_type,
+           {uint64_type},
+           FN_TIMESTAMP_FROM_UNIX_SECONDS_UINT64,
+           timestamp_from_unix_uint64_options},
+      });
+  InsertFunction(
       functions, options, "timestamp_from_unix_millis", SCALAR,
-      {{timestamp_type, {int64_type}, FN_TIMESTAMP_FROM_UNIX_MILLIS_INT64},
-       {timestamp_type,
-        {timestamp_type},
-        FN_TIMESTAMP_FROM_UNIX_MILLIS_TIMESTAMP}});
-  InsertSimpleFunction(
+      {
+          {timestamp_type, {int64_type}, FN_TIMESTAMP_FROM_UNIX_MILLIS_INT64},
+          {timestamp_type,
+           {timestamp_type},
+           FN_TIMESTAMP_FROM_UNIX_MILLIS_TIMESTAMP},
+          {timestamp_type,
+           {uint64_type},
+           FN_TIMESTAMP_FROM_UNIX_MILLIS_UINT64,
+           timestamp_from_unix_uint64_options},
+      });
+  InsertFunction(
       functions, options, "timestamp_from_unix_micros", SCALAR,
-      {{timestamp_type, {int64_type}, FN_TIMESTAMP_FROM_UNIX_MICROS_INT64},
-       {timestamp_type,
-        {timestamp_type},
-        FN_TIMESTAMP_FROM_UNIX_MICROS_TIMESTAMP}});
+      {
+          {timestamp_type, {int64_type}, FN_TIMESTAMP_FROM_UNIX_MICROS_INT64},
+          {timestamp_type,
+           {timestamp_type},
+           FN_TIMESTAMP_FROM_UNIX_MICROS_TIMESTAMP},
+          {timestamp_type,
+           {uint64_type},
+           FN_TIMESTAMP_FROM_UNIX_MICROS_UINT64,
+           timestamp_from_unix_uint64_options},
+      });
   std::vector<FunctionSignatureOnHeap> timestamp_signatures{
       {timestamp_type,
        {string_type, {string_type, OPTIONAL}},
@@ -1977,6 +2002,21 @@ absl::Status GetBooleanFunctions(TypeFactory* type_factory,
            FunctionSignatureOptions().set_uses_operation_collation()},
           {bool_type, {int64_type, uint64_type}, FN_EQUAL_INT64_UINT64},
           {bool_type, {uint64_type, int64_type}, FN_EQUAL_UINT64_INT64},
+          // TODO: Remove these signatures.
+          {bool_type,
+           {ARG_TYPE_GRAPH_NODE, ARG_TYPE_GRAPH_NODE},
+           FN_EQUAL_GRAPH_NODE,
+           FunctionSignatureOptions()
+               .set_is_hidden(true)
+               .AddRequiredLanguageFeature(
+                   LanguageFeature::FEATURE_V_1_4_SQL_GRAPH)},
+          {bool_type,
+           {ARG_TYPE_GRAPH_EDGE, ARG_TYPE_GRAPH_EDGE},
+           FN_EQUAL_GRAPH_EDGE,
+           FunctionSignatureOptions()
+               .set_is_hidden(true)
+               .AddRequiredLanguageFeature(
+                   LanguageFeature::FEATURE_V_1_4_SQL_GRAPH)},
       },
       FunctionOptions()
           .set_supports_safe_error_mode(false)
@@ -1996,6 +2036,21 @@ absl::Status GetBooleanFunctions(TypeFactory* type_factory,
            FunctionSignatureOptions().set_uses_operation_collation()},
           {bool_type, {int64_type, uint64_type}, FN_NOT_EQUAL_INT64_UINT64},
           {bool_type, {uint64_type, int64_type}, FN_NOT_EQUAL_UINT64_INT64},
+          // TODO: Remove these signatures.
+          {bool_type,
+           {ARG_TYPE_GRAPH_NODE, ARG_TYPE_GRAPH_NODE},
+           FN_NOT_EQUAL_GRAPH_NODE,
+           FunctionSignatureOptions()
+               .set_is_hidden(true)
+               .AddRequiredLanguageFeature(
+                   LanguageFeature::FEATURE_V_1_4_SQL_GRAPH)},
+          {bool_type,
+           {ARG_TYPE_GRAPH_EDGE, ARG_TYPE_GRAPH_EDGE},
+           FN_NOT_EQUAL_GRAPH_EDGE,
+           FunctionSignatureOptions()
+               .set_is_hidden(true)
+               .AddRequiredLanguageFeature(
+                   LanguageFeature::FEATURE_V_1_4_SQL_GRAPH)},
       },
       FunctionOptions()
           .set_supports_safe_error_mode(false)

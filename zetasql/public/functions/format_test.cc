@@ -28,6 +28,7 @@
 #include "zetasql/public/civil_time.h"
 #include "zetasql/public/functions/format_max_output_width.h"
 #include "zetasql/public/functions/string_format.h"
+#include "zetasql/public/types/graph_element_type.h"
 #include "zetasql/public/value.h"
 #include "zetasql/testdata/test_schema.pb.h"
 #include "zetasql/testing/test_function.h"

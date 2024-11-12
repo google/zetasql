@@ -193,6 +193,15 @@ TEST(ErrorMatcherTest, CollectionMatcher) {
   ABSL_LOG(INFO) << matchers.MatcherSummary();
 }
 
+TEST(ErrorMatcherTest, CollectionMatcher_AddMatcher) {
+  MatcherCollection<absl::Status> matchers("TestCollection", {});
+  const absl::Status s = absl::InvalidArgumentError("test");
+  EXPECT_FALSE(matchers.Matches(s));
+  matchers.AddMatcher(std::make_unique<StatusErrorCodeMatcher>(
+      absl::StatusCode::kInvalidArgument));
+  EXPECT_TRUE(matchers.Matches(s));
+}
+
 TEST(ErrorMatcherTest, ProtoFieldIsDefaultMatcher) {
   ProtoFieldIsDefaultMatcher<zetasql_test__::KitchenSinkPB, std::string>
       matcher("bool_val", std::make_unique<SubstringMatcher>("match"));

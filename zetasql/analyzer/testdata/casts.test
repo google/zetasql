@@ -5665,3 +5665,21 @@ select CAST("" as float(18446744073709551615));
 ERROR: Integer type parameters must fall in the domain of INT64. Supplied value '18446744073709551615' is outside that range. Specific types typically have tighter bounds specific to that type. [at 2:25]
 select CAST("" as float(18446744073709551615));
                         ^
+
+==
+
+[language_features=TIMESTAMP_PICO_TYPE]
+select cast('abc' as TIMESTAMP_PICOS);
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [TIMESTAMP_PICOS]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-Cast(STRING -> TIMESTAMP_PICOS)
+    |     +-Literal(type=STRING, value="abc")
+    +-input_scan=
+      +-SingleRowScan

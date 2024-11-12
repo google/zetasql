@@ -22,6 +22,7 @@
 
 #include "zetasql/common/float_margin.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/types/graph_element_type.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/types/value_equality_check_options.h"
@@ -114,6 +115,54 @@ Value Map(
   return *map;
 }
 
+namespace {
+
+const GraphElementType* InferGraphElementType(
+    absl::Span<const std::string> graph_reference,
+    GraphElementType::ElementKind element_kind,
+    absl::Span<const std::pair<std::string, Value>> properties,
+    TypeFactory* type_factory) {
+  std::vector<GraphElementType::PropertyType> property_types;
+  property_types.reserve(properties.size());
+  for (const auto& property : properties) {
+    property_types.emplace_back(property.first, property.second.type());
+  }
+  return MakeGraphElementType(graph_reference, element_kind, property_types,
+                              type_factory);
+}
+
+}  // namespace
+
+Value GraphNode(absl::Span<const std::string> graph_reference,
+                absl::string_view identifier,
+                absl::Span<const std::pair<std::string, Value>> properties,
+                absl::Span<const std::string> labels,
+                absl::string_view definition_name, TypeFactory* type_factory) {
+  const GraphElementType* graph_element_type = InferGraphElementType(
+      graph_reference, GraphElementType::kNode, properties, type_factory);
+  absl::StatusOr<Value> graph_element = Value::MakeGraphNode(
+      graph_element_type, identifier, properties, labels, definition_name);
+  ZETASQL_CHECK_OK(graph_element);  // Crash ok
+  return *graph_element;
+}
+
+Value GraphEdge(absl::Span<const std::string> graph_reference,
+                absl::string_view identifier,
+                absl::Span<const std::pair<std::string, Value>> properties,
+                absl::Span<const std::string> labels,
+                absl::string_view definition_name,
+                absl::string_view source_node_identifier,
+                absl::string_view dest_node_identifier,
+                TypeFactory* type_factory) {
+  const GraphElementType* graph_element_type = InferGraphElementType(
+      graph_reference, GraphElementType::kEdge, properties, type_factory);
+  absl::StatusOr<Value> graph_element = Value::MakeGraphEdge(
+      graph_element_type, identifier, properties, labels, definition_name,
+      source_node_identifier, dest_node_identifier);
+  ZETASQL_CHECK_OK(graph_element);  // Crash ok
+  return *graph_element;
+}
+
 const ArrayType* MakeArrayType(const Type* element_type,
                                TypeFactory* type_factory) {
   const ArrayType* array_type;
@@ -156,6 +205,28 @@ const RangeType* MakeRangeType(const Type* element_type,
   absl::Status status = type_factory->MakeRangeType(element_type, &range_type);
   ZETASQL_CHECK_OK(status);  // Crash ok
   return range_type;
+}
+
+const GraphElementType* MakeGraphElementType(
+    absl::Span<const std::string> graph_reference,
+    GraphElementType::ElementKind element_kind,
+    absl::Span<const GraphElementType::PropertyType> property_types,
+    TypeFactory* type_factory) {
+  const GraphElementType* graph_element_type;
+  type_factory = type_factory ? type_factory : static_type_factory();
+  ZETASQL_CHECK_OK(type_factory->MakeGraphElementType(
+      graph_reference, element_kind, property_types, &graph_element_type));
+  return graph_element_type;
+}
+
+const GraphPathType* MakeGraphPathType(const GraphElementType* node_type,
+                                       const GraphElementType* edge_type,
+                                       TypeFactory* type_factory) {
+  const GraphPathType* graph_path_type;
+  type_factory = type_factory ? type_factory : static_type_factory();
+  ZETASQL_CHECK_OK(
+      type_factory->MakeGraphPathType(node_type, edge_type, &graph_path_type));
+  return graph_path_type;
 }
 
 absl::StatusOr<const Type*> MakeMapType(const Type* key_type,

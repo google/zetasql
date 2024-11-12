@@ -25,6 +25,7 @@
 #include <utility>
 #include <vector>
 
+#include "zetasql/common/function_utils.h"
 #include "zetasql/proto/function.pb.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/parse_location.h"
@@ -36,7 +37,9 @@
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/ascii.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 #include "zetasql/base/ret_check.h"
@@ -145,6 +148,16 @@ std::string TableValuedFunction::GetSignatureUserFacingText(
           absl::AsciiStrToUpper(FullName()) :
           FullName(),
       "(", absl::StrJoin(argument_texts, ", "), ")");
+}
+
+std::string TableValuedFunction::GetSQL(
+    std::vector<std::string> inputs, const FunctionSignature* signature) const {
+  UpdateArgsForGetSQL(signature, &inputs);
+  std::string name = FullName();
+  if (this->tvf_options_.uses_upper_case_sql_name) {
+    absl::AsciiStrToUpper(&name);
+  }
+  return absl::StrCat(name, "(", absl::StrJoin(inputs, ", "), ")");
 }
 
 std::string TableValuedFunction::DebugString() const {

@@ -24,7 +24,7 @@ and custom precision.
 
 ZetaSQL supports the following HLL++ functions:
 
-### Function list
+## Function list
 
 <table>
   <thead>
@@ -36,8 +36,7 @@ ZetaSQL supports the following HLL++ functions:
   <tbody>
 
 <tr>
-  <td><a href="#hll_countextract"><code>HLL_COUNT.EXTRACT</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/hll_functions.md#hll_countextract"><code>HLL_COUNT.EXTRACT</code></a>
 </td>
   <td>
     Extracts a cardinality estimate of an HLL++ sketch.
@@ -45,8 +44,7 @@ ZetaSQL supports the following HLL++ functions:
 </tr>
 
 <tr>
-  <td><a href="#hll_countinit"><code>HLL_COUNT.INIT</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/hll_functions.md#hll_countinit"><code>HLL_COUNT.INIT</code></a>
 </td>
   <td>
     Aggregates values of the same underlying type into a new HLL++ sketch.
@@ -54,8 +52,7 @@ ZetaSQL supports the following HLL++ functions:
 </tr>
 
 <tr>
-  <td><a href="#hll_countmerge"><code>HLL_COUNT.MERGE</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/hll_functions.md#hll_countmerge"><code>HLL_COUNT.MERGE</code></a>
 </td>
   <td>
     Merges HLL++ sketches of the same underlying type into a new sketch, and
@@ -64,8 +61,7 @@ ZetaSQL supports the following HLL++ functions:
 </tr>
 
 <tr>
-  <td><a href="#hll_countmerge_partial"><code>HLL_COUNT.MERGE_PARTIAL</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/hll_functions.md#hll_countmerge_partial"><code>HLL_COUNT.MERGE_PARTIAL</code></a>
 </td>
   <td>
     Merges HLL++ sketches of the same underlying type into a new sketch.
@@ -75,7 +71,7 @@ ZetaSQL supports the following HLL++ functions:
   </tbody>
 </table>
 
-### `HLL_COUNT.EXTRACT`
+## `HLL_COUNT.EXTRACT`
 
 ```
 HLL_COUNT.EXTRACT(sketch)
@@ -133,7 +129,7 @@ FROM
 
 [hll-link-to-research-whitepaper]: https://research.google.com/pubs/pub40671.html
 
-### `HLL_COUNT.INIT`
+## `HLL_COUNT.INIT`
 
 ```
 HLL_COUNT.INIT(input [, precision])
@@ -205,7 +201,7 @@ GROUP BY country;
 
 [precision_hll]: https://github.com/google/zetasql/blob/master/docs/sketches.md#precision_hll
 
-### `HLL_COUNT.MERGE`
+## `HLL_COUNT.MERGE`
 
 ```
 HLL_COUNT.MERGE(sketch)
@@ -267,7 +263,7 @@ FROM
 
 [hll-link-to-research-whitepaper]: https://research.google.com/pubs/pub40671.html
 
-### `HLL_COUNT.MERGE_PARTIAL`
+## `HLL_COUNT.MERGE_PARTIAL`
 
 ```
 HLL_COUNT.MERGE_PARTIAL(sketch)

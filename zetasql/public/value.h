@@ -37,6 +37,7 @@
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/timestamp_pico_value.h"
 #include "zetasql/public/token_list.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
@@ -175,6 +176,8 @@ class Value {
   // does not fit into an int64_t.
   absl::Status ToUnixNanos(int64_t* nanos) const;  // REQUIRES: timestamp type.
 
+  const TimestampPicoValue& timestamp_pico_value() const;
+
   // Returns time and datetime values at micros precision as bitwise encoded
   // int64_t, see public/civil_time.h for the encoding.
   int64_t ToPacked64TimeMicros() const;      // REQUIRES: time type
@@ -285,6 +288,53 @@ class Value {
   // Range-specific methods. REQUIRES: !is_null(), type_kind() == TYPE_RANGE
   const Value& start() const;
   const Value& end() const;
+
+  // GraphElement-specific methods.
+  // REQUIRES: !is_null(), type_kind() == TYPE_GRAPH_ELEMENT
+  bool IsNode() const;
+  bool IsEdge() const;
+
+  // Returns an identifier uniquely identifies the graph element in a graph.
+  absl::string_view GetIdentifier() const;
+
+  // Returns the definition name of the graph element.
+  absl::string_view GetDefinitionName() const;
+
+  // Returns all the labels of the graph element, sorted by alphabet order
+  // case-insensitively.
+  absl::Span<const std::string> GetLabels() const;
+
+  // Returns the source/destination node identifier of the edge.
+  // REQUIRES: IsEdge()
+  absl::string_view GetSourceNodeIdentifier() const;
+  absl::string_view GetDestNodeIdentifier() const;
+
+  // Returns the names of all properties that exist on the names of the graph
+  // element, sorted by alphabet order case-insensitively.
+  std::vector<std::string> property_names() const;
+
+  // Returns all the property values of the graph element.
+  absl::Span<const Value> property_values() const;
+
+  // Returns the value of the property with the given 'name'. If one doesn't
+  // exist, returns an error status.
+  // Note that Value is designed to be copied cheaply.
+  absl::StatusOr<Value> FindPropertyByName(const std::string& name) const;
+
+  // GraphPath-specific methods
+  // Returns the number of graph elements in the path.
+  // REQUIRES: !is_null(), type_kind() == TYPE_GRAPH_PATH
+  int num_graph_elements() const;
+
+  // Returns all graph elements in the path.
+  // REQUIRES: !is_null(), type_kind() == TYPE_GRAPH_PATH
+  absl::Span<const Value> graph_elements() const;
+
+  // Returns the `i`th graph element of a path. If `i` is even, the type of the
+  // returned type will be equal the path type's node_type(); otherwise will be
+  // equal to the path type's edge_type().
+  // REQUIRES: !is_null(), type_kind() == TYPE_GRAPH_PATH
+  const Value& graph_element(int i) const;
 
   // Returns true if 'this' equals 'that' or both are null. This is *not* SQL
   // equality which returns null when either value is null. Returns false if
@@ -456,6 +506,10 @@ class Value {
   static Value Date(int32_t v);
   // Creates a timestamp value from absl::Time at nanoseconds precision.
   static Value Timestamp(absl::Time t);
+
+  // Creates a timestamp value from TimestampPico at picoseconds precision.
+  static Value TimestampPicos(TimestampPicoValue t);
+
   // Creates a timestamp value from Unix micros.
   static Value TimestampFromUnixMicros(int64_t v);
 
@@ -551,6 +605,8 @@ class Value {
       return Value::NullString();
     } else if constexpr (std::is_same_v<T, UuidValue>) {
       return Value::NullUuid();
+    } else if constexpr (std::is_same_v<T, TimestampPicoValue>) {
+      return Value::NullTimestampPicos();
     } else {
       constexpr int kNumBits = sizeof(T) * CHAR_BIT;
       if constexpr (std::is_signed_v<T>) {
@@ -583,6 +639,7 @@ class Value {
   static Value NullString();
   static Value NullDate();
   static Value NullTimestamp();
+  static Value NullTimestampPicos();
   static Value NullTime();
   static Value NullDatetime();
   static Value NullInterval();
@@ -736,6 +793,66 @@ class Value {
   static absl::StatusOr<Value> MakeRangeFromValidatedInputs(
       const RangeType* range_type, const Value& start, const Value& end);
 
+  // Creates a graph node. A node has an identifier, a list of properties, a
+  // definition name and a list of labels.
+  // - <identifier> should not be empty;
+  // - <properties> must be a subset of what is declared in <graph_element_type>
+  // with matching types. otherwise returns an error.
+  typedef std::pair<std::string, Value> Property;
+  static absl::StatusOr<Value> MakeGraphNode(
+      const GraphElementType* graph_element_type, absl::string_view identifier,
+      absl::Span<const Property> properties,
+      absl::Span<const std::string> labels, absl::string_view definition_name);
+  static absl::StatusOr<Value> MakeGraphNode(
+      const GraphElementType* graph_element_type, std::string identifier,
+      std::vector<Property> properties, std::vector<std::string> labels,
+      std::string definition_name);
+
+  // Creates a graph edge. An edge has an identifier, a source node identifier,
+  // a destination node identifier, a definition name, and a list of properties.
+  // - <identifier>, <source/dest_node_identifier> should not be empty;
+  // - <properties> must be a subset of what is declared in <graph_element_type>
+  // with matching types. otherwise returns an error.
+  static absl::StatusOr<Value> MakeGraphEdge(
+      const GraphElementType* graph_element_type, absl::string_view identifier,
+      absl::Span<const Property> properties,
+      absl::Span<const std::string> labels, absl::string_view definition_name,
+      absl::string_view source_node_identifier,
+      absl::string_view dest_node_identifier);
+  static absl::StatusOr<Value> MakeGraphEdge(
+      const GraphElementType* graph_element_type, std::string identifier,
+      std::vector<Property> properties, std::vector<std::string> labels,
+      std::string definition_name, std::string source_node_identifier,
+      std::string dest_node_identifier);
+
+  ABSL_DEPRECATED("Inline me!")
+  static absl::StatusOr<Value> MakeGraphNode(
+      const GraphElementType* graph_element_type, absl::string_view identifier,
+      absl::Span<const Property> properties,
+      absl::Span<const std::string> labels) {
+    return MakeGraphNode(graph_element_type, identifier, properties, labels,
+                         /*definition_name=*/"");
+  }
+
+  ABSL_DEPRECATED("Inline me!")
+  static absl::StatusOr<Value> MakeGraphEdge(
+      const GraphElementType* graph_element_type, absl::string_view identifier,
+      absl::Span<const Property> properties,
+      absl::Span<const std::string> labels,
+      absl::string_view source_node_identifier,
+      absl::string_view dest_node_identifier) {
+    return MakeGraphEdge(graph_element_type, identifier, properties, labels,
+                         /*definition_name=*/"", source_node_identifier,
+                         dest_node_identifier);
+  }
+
+  // Create a graph path. A path is a list of interleaved nodes and edges given
+  // in <graph_elements>. The length of <graph_elements> must be odd (starts
+  // and ends with a graph node). None of the values in <graph_elements> can be
+  // null: if they are, an error is returned.
+  static absl::StatusOr<Value> MakeGraphPath(
+      const GraphPathType* graph_path_type, std::vector<Value> graph_elements);
+
 #ifndef SWIG  // TODO: Investigate SWIG compatibility for MAP.
   // Creates a map of the given 'map_type' initialized with 'map_entries' as the
   // key/value pairs. The type of each key and value must match the key and
@@ -805,6 +922,15 @@ class Value {
   class TypedList;                 // Defined in value_inl.h
   class TypedMap;                  // Defined in value_inl.h
 
+  class GraphElementValue;  // Defined in value_inl.h
+  class GraphPathValue;     // Defined in value_inl.h
+
+  // REQUIRES: !is_null(), type_kind() == TYPE_GRAPH_ELEMENT
+  const GraphElementValue* graph_element_value() const;
+
+  // REQUIRES: !is_null(), type_kind() == TYPE_GRAPH_PATH
+  const GraphPathValue* graph_path_value() const;
+
   // Specifies whether an array value preserves or ignores order (public array
   // values always preserve order). The enum values are designed to be used with
   // boolean AND and OR.
@@ -851,6 +977,9 @@ class Value {
 
   // Constructs a timestamp value.
   explicit Value(absl::Time t);
+
+  // Constructs a timestamp_pico value.
+  explicit Value(const TimestampPicoValue& t);
 
   // Constructs a TIME value.
   explicit Value(TimeValue time);
@@ -927,6 +1056,14 @@ class Value {
       bool is_validated, const Value& start, const Value& end,
       const RangeType* range_type = nullptr);
 
+  // Builds a graph element (node or edge). See MakeGraphNode/Edge for more
+  // explanation.
+  static absl::StatusOr<Value> MakeGraphElement(
+      const GraphElementType* graph_element_type, std::string identifier,
+      std::vector<Property>, std::vector<std::string> labels,
+      std::string definition_name, std::string source_node_identifier,
+      std::string dest_node_identifier);
+
 #ifndef SWIG  // TODO: Investigate SWIG compatibility for MAP.
 
   // Creates a map of the given 'map_type' initialized with the entries in
@@ -948,12 +1085,15 @@ class Value {
   // Type cannot create a list of Values because it cannot depend on
   // "value" package. Thus for Array/Struct/Range types that need list of
   // values, we will create them from Value directly.
+  // Similarly for GraphElementType and GraphPath.
   // TODO: This can be avoided when we create virtual value list
   // interface which can be defined outside of "value", but Value provides its
   // implementation which it feeds to above types.
   bool DoesTypeUseValueList() const {
     return metadata_.type_kind() == TYPE_ARRAY ||
            metadata_.type_kind() == TYPE_STRUCT ||
+           metadata_.type_kind() == TYPE_GRAPH_ELEMENT ||
+           metadata_.type_kind() == TYPE_GRAPH_PATH ||
            metadata_.type_kind() == TYPE_RANGE;
   }
 
@@ -1104,6 +1244,8 @@ class Value {
         numeric_ptr_;  // Owned. Used for values of TYPE_NUMERIC.
     internal::BigNumericRef*
         bignumeric_ptr_;           // Owned. Used for values of TYPE_BIGNUMERIC.
+    internal::TimestampPicoRef*
+        timestamp_pico_ptr_;  // Owned. Used for values of TYPE_TIMESTAMP_NANO.
     internal::JSONRef* json_ptr_;  // Owned. Used for values of TYPE_JSON.
     internal::IntervalRef*
         interval_ptr_;  // Owned. Used for values of TYPE_INTERVAL.
@@ -1150,6 +1292,7 @@ Value Date(int32_t v);
 Value Date(absl::CivilDay d);
 Value Timestamp(absl::Time t);
 Value TimestampFromUnixMicros(int64_t v);
+Value TimestampPico(TimestampPicoValue t);
 
 Value Time(TimeValue time);
 Value TimeFromPacked64Micros(int64_t v);
@@ -1190,6 +1333,7 @@ Value NullString();
 Value NullBytes();
 Value NullDate();
 Value NullTimestamp();
+Value NullTimestampPico();
 Value NullTime();
 Value NullDatetime();
 Value NullInterval();
@@ -1221,6 +1365,7 @@ Value JsonArray(absl::Span<const JSONValue> values);
 // 'values' are JSON values (e.g. '{"a": 10}') and not literal strings values.
 Value UnvalidatedJsonStringArray(absl::Span<const std::string> values);
 Value TimestampArray(absl::Span<const absl::Time> values);
+Value TimestampPicosArray(absl::Span<const TimestampPicoValue> values);
 
 }  // namespace values
 }  // namespace zetasql

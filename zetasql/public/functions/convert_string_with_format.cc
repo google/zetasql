@@ -1501,8 +1501,9 @@ absl::StatusOr<ParsedNumberString> ParseFormattedRealNumber(
     // A sanity check of the format of number_string. It is generated using a
     // format string that is either "%#.4f" or "%#.4e", thus it must match the
     // regex used here.
-    ZETASQL_RET_CHECK(
-        RE2::FullMatch(number_string, "-?[0-9]+\\.[0-9]*(e(\\+|-)[0-9]+)?"))
+    static constexpr LazyRE2 kNumberStringRegexp = {
+        "-?[0-9]+\\.[0-9]*(e(\\+|-)[0-9]+)?"};
+    ZETASQL_RET_CHECK(RE2::FullMatch(number_string, *kNumberStringRegexp))
         << "Input: " << number_string;
 
     // decimal point is guaranteed to exist in number_string, since we used flag

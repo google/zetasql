@@ -454,11 +454,34 @@ SELECT a.ROWNUM, a.albumtitle AS title FROM (SELECT a FROM AlbumReviewData AS a)
 
 <!-- mdlint on -->
 
+## Property graphs 
+<a id="property_graphs"></a>
+
+A property graph is a directed graph that includes the following parts:
+
++ Nodes: Each node has a set of labels and properties. Each label has a
+  name identifier and determines a set of properties. Each property has a
+  name identifier and a value type.
++ Edges: Similar to nodes, each edge has
+  a set of labels and properties. Additionally, directed edges
+  include source nodes and destination nodes.
++ Labels: A label is identified by a unique name in the property graph and
+  determines a set of properties. Nodes and edges can expose the same set of
+  properties, using the same label.
++ Properties: A property is identified by a unique name in a property graph.
+  Properties declared on any label on a node or edge table are declared across
+  the whole enclosing property graph, so they must always be consistent.
+
+To create a property graph on top of a relational dataset, see the
+[CREATE PROPERTY GRAPH statement][create-property-graph] in the DDL.
+
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
 [data-types]: https://github.com/google/zetasql/blob/master/docs/data-types.md
 
 [data-manipulation-language]: https://github.com/google/zetasql/blob/master/docs/data-manipulation-language.md
+
+[create-property-graph]: https://github.com/google/zetasql/blob/master/docs/data-definition-language.md#create_property_graph
 
 <!-- mdlint on -->
 

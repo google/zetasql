@@ -21,6 +21,7 @@
 #include <functional>
 #include <limits>
 #include <memory>
+#include <new>
 #include <optional>
 #include <set>
 #include <string>
@@ -81,10 +82,10 @@ class FunctionArgumentTypeOptions {
   typedef FunctionEnums::NamedArgumentKind NamedArgumentKind;
   using ArgumentAliasKind = FunctionEnums::ArgumentAliasKind;
 
-  FunctionArgumentTypeOptions() = default;
+  FunctionArgumentTypeOptions() : data_(new Data{}) {};
 
   explicit FunctionArgumentTypeOptions(ArgumentCardinality cardinality)
-      : cardinality_(cardinality) {}
+      : data_(new Data{.cardinality = cardinality}) {}
 
   // This constructs a set of argument type options to specify a required schema
   // for a relation argument of a table-valued function. If this required schema
@@ -106,163 +107,184 @@ class FunctionArgumentTypeOptions {
   FunctionArgumentTypeOptions(const TVFRelation& relation_input_schema,
                               bool extra_relation_input_columns_allowed);
 
-  ArgumentCardinality cardinality() const { return cardinality_; }
-  bool must_be_constant() const { return must_be_constant_; }
-  bool must_be_constant_expression() const {
-    return must_be_constant_expression_;
+  FunctionArgumentTypeOptions(const FunctionArgumentTypeOptions& options)
+      : data_(std::make_unique<Data>(*options.data_)) {}
+  FunctionArgumentTypeOptions& operator=(
+      const FunctionArgumentTypeOptions& options) {
+    data_ = std::make_unique<Data>(*options.data_);
+    return *this;
   }
-  bool must_be_non_null() const { return must_be_non_null_; }
-  bool is_not_aggregate() const { return is_not_aggregate_; }
-  bool must_support_equality() const { return must_support_equality_; }
-  bool must_support_ordering() const { return must_support_ordering_; }
-  bool must_support_grouping() const { return must_support_grouping_; }
+  FunctionArgumentTypeOptions(FunctionArgumentTypeOptions&& options) noexcept
+      : data_(std::move(options.data_)) {}
+  FunctionArgumentTypeOptions& operator=(
+      FunctionArgumentTypeOptions&& options) noexcept {
+    data_ = std::move(options).data_;
+    return *this;
+  }
+
+  ~FunctionArgumentTypeOptions() = default;
+
+  ArgumentCardinality cardinality() const { return data_->cardinality; }
+  bool must_be_constant() const { return data_->must_be_constant; }
+  bool must_be_constant_expression() const {
+    return data_->must_be_constant_expression;
+  }
+  bool must_be_non_null() const { return data_->must_be_non_null; }
+  bool is_not_aggregate() const { return data_->is_not_aggregate; }
+  bool must_support_equality() const { return data_->must_support_equality; }
+  bool must_support_ordering() const { return data_->must_support_ordering; }
+  bool must_support_grouping() const { return data_->must_support_grouping; }
 
   bool array_element_must_support_equality() const {
-    return array_element_must_support_equality_;
+    return data_->array_element_must_support_equality;
   }
   bool array_element_must_support_ordering() const {
-    return array_element_must_support_ordering_;
+    return data_->array_element_must_support_ordering;
   }
   bool array_element_must_support_grouping() const {
-    return array_element_must_support_grouping_;
+    return data_->array_element_must_support_grouping;
   }
 
-  bool has_min_value() const { return has_min_value_; }
-  bool has_max_value() const { return has_max_value_; }
-  const int64_t min_value() const { return min_value_; }
-  const int64_t max_value() const { return max_value_; }
+  bool has_min_value() const { return data_->has_min_value; }
+  bool has_max_value() const { return data_->has_max_value; }
+  const int64_t min_value() const { return data_->min_value; }
+  const int64_t max_value() const { return data_->max_value; }
 
   bool has_relation_input_schema() const {
-    return relation_input_schema_ != nullptr;
+    return data_->relation_input_schema != nullptr;
   }
 
   const std::optional<int> get_resolve_descriptor_names_table_offset() const {
-    return descriptor_resolution_table_offset_;
+    return data_->descriptor_resolution_table_offset;
   }
 
   const TVFRelation& relation_input_schema() const {
     ABSL_DCHECK(has_relation_input_schema());
-    return *relation_input_schema_;
+    return *data_->relation_input_schema;
   }
 
   bool extra_relation_input_columns_allowed() const {
-    return extra_relation_input_columns_allowed_;
+    return data_->extra_relation_input_columns_allowed;
   }
-  bool has_argument_name() const { return !argument_name_.empty(); }
+  bool has_argument_name() const { return !data_->argument_name.empty(); }
   const std::string& argument_name() const {
     ABSL_DCHECK(has_argument_name());
-    return argument_name_;
+    return data_->argument_name;
   }
 
   // Determines whether the argument name must or must not be specified when the
   // associated function is called. When not <has_argument_name()>, this is
   // irrelevant.
-  NamedArgumentKind named_argument_kind() const { return named_argument_kind_; }
+  NamedArgumentKind named_argument_kind() const {
+    return data_->named_argument_kind;
+  }
 
-  ArgumentAliasKind argument_alias_kind() const { return argument_alias_kind_; }
+  ArgumentAliasKind argument_alias_kind() const {
+    return data_->argument_alias_kind;
+  }
 
   ProcedureArgumentMode procedure_argument_mode() const {
-    return procedure_argument_mode_;
+    return data_->procedure_argument_mode;
   }
 
   FunctionArgumentTypeOptions& set_cardinality(ArgumentCardinality c) {
-    cardinality_ = c;
+    data_->cardinality = c;
     return *this;
   }
   FunctionArgumentTypeOptions& set_must_be_constant(bool v = true) {
-    must_be_constant_ = v;
+    data_->must_be_constant = v;
     return *this;
   }
   FunctionArgumentTypeOptions& set_must_be_constant_expression(bool v = true) {
-    must_be_constant_expression_ = v;
+    data_->must_be_constant_expression = v;
     return *this;
   }
   FunctionArgumentTypeOptions& set_must_be_non_null(bool v = true) {
-    must_be_non_null_ = v;
+    data_->must_be_non_null = v;
     return *this;
   }
   FunctionArgumentTypeOptions& set_is_not_aggregate(bool v = true) {
-    is_not_aggregate_ = v;
+    data_->is_not_aggregate = v;
     return *this;
   }
   FunctionArgumentTypeOptions& set_must_support_equality(bool v = true) {
-    must_support_equality_ = v;
+    data_->must_support_equality = v;
     return *this;
   }
   FunctionArgumentTypeOptions& set_must_support_ordering(bool v = true) {
-    must_support_ordering_ = v;
+    data_->must_support_ordering = v;
     return *this;
   }
   FunctionArgumentTypeOptions& set_must_support_grouping(bool v = true) {
-    must_support_grouping_ = v;
+    data_->must_support_grouping = v;
     return *this;
   }
   FunctionArgumentTypeOptions& set_array_element_must_support_equality(
       bool v = true) {
-    array_element_must_support_equality_ = v;
+    data_->array_element_must_support_equality = v;
     return *this;
   }
   FunctionArgumentTypeOptions& set_array_element_must_support_ordering(
       bool v = true) {
-    array_element_must_support_ordering_ = v;
+    data_->array_element_must_support_ordering = v;
     return *this;
   }
   FunctionArgumentTypeOptions& set_array_element_must_support_grouping(
       bool v = true) {
-    array_element_must_support_grouping_ = v;
+    data_->array_element_must_support_grouping = v;
     return *this;
   }
   FunctionArgumentTypeOptions& set_min_value(int64_t value) {
-    has_min_value_ = true;
-    min_value_ = value;
+    data_->has_min_value = true;
+    data_->min_value = value;
     return *this;
   }
   FunctionArgumentTypeOptions& set_max_value(int64_t value) {
-    has_max_value_ = true;
-    max_value_ = value;
+    data_->has_max_value = true;
+    data_->max_value = value;
     return *this;
   }
   FunctionArgumentTypeOptions& set_relation_input_schema(
       std::shared_ptr<TVFRelation> relation_input_schema) {
-    relation_input_schema_ = std::move(relation_input_schema);
+    data_->relation_input_schema = std::move(relation_input_schema);
     return *this;
   }
   FunctionArgumentTypeOptions& set_extra_relation_input_columns_allowed(
       bool v = true) {
-    extra_relation_input_columns_allowed_ = v;
+    data_->extra_relation_input_columns_allowed = v;
     return *this;
   }
   FunctionArgumentTypeOptions& set_argument_name(absl::string_view name,
                                                  NamedArgumentKind kind) {
-    argument_name_ = name;
-    named_argument_kind_ = kind;
+    data_->argument_name = name;
+    data_->named_argument_kind = kind;
     return *this;
   }
 
   FunctionArgumentTypeOptions& set_argument_alias_kind(
       ArgumentAliasKind argument_alias_kind) {
-    argument_alias_kind_ = argument_alias_kind;
+    data_->argument_alias_kind = argument_alias_kind;
     return *this;
   }
 
   FunctionArgumentTypeOptions& set_procedure_argument_mode(
       ProcedureArgumentMode mode) {
-    procedure_argument_mode_ = mode;
+    data_->procedure_argument_mode = mode;
     return *this;
   }
   FunctionArgumentTypeOptions& set_allow_coercion_from(
       std::function<bool(const zetasql::Type*)> allow_coercion_from) {
-    allow_coercion_from_ = allow_coercion_from;
+    data_->allow_coercion_from = allow_coercion_from;
     return *this;
   }
   FunctionArgumentTypeOptions& set_resolve_descriptor_names_table_offset(
       int table_offset) {
-    descriptor_resolution_table_offset_ = table_offset;
+    data_->descriptor_resolution_table_offset = table_offset;
     return *this;
   }
 
   std::function<bool(const zetasql::Type*)> allow_coercion_from() const {
-    return allow_coercion_from_;
+    return data_->allow_coercion_from;
   }
 
   static absl::Status Deserialize(
@@ -288,26 +310,26 @@ class FunctionArgumentTypeOptions {
   // class object.
   FunctionArgumentTypeOptions& set_argument_name_parse_location(
       const ParseLocationRange& argument_name_parse_location) {
-    argument_name_parse_location_ = argument_name_parse_location;
+    data_->argument_name_parse_location = argument_name_parse_location;
     return *this;
   }
 
   // Gets the ParseLocationRange of the argument name.
   std::optional<ParseLocationRange> argument_name_parse_location() const {
-    return argument_name_parse_location_;
+    return data_->argument_name_parse_location;
   }
 
   // Sets the ParseLocationRange of the argument type. Returns the modified
   // class object.
   FunctionArgumentTypeOptions& set_argument_type_parse_location(
       const ParseLocationRange& argument_type_parse_location) {
-    argument_type_parse_location_ = argument_type_parse_location;
+    data_->argument_type_parse_location = argument_type_parse_location;
     return *this;
   }
 
   // Gets the ParseLocationRange of the argument type.
   std::optional<ParseLocationRange> argument_type_parse_location() const {
-    return argument_type_parse_location_;
+    return data_->argument_type_parse_location;
   }
 
   // Sets the default value of this argument. Only optional arguments can
@@ -326,196 +348,206 @@ class FunctionArgumentTypeOptions {
   // as all the FunctionSignature instances created using this object.
   FunctionArgumentTypeOptions& set_default(Value default_value) {
     ABSL_DCHECK(default_value.is_valid()) << "Default value must be valid";
-    default_ = std::move(default_value);
+    data_->default_value = std::move(default_value);
     return *this;
   }
 
   // Returns true if a default value has been defined for this argument.
-  bool has_default() const { return default_.has_value(); }
+  bool has_default() const { return data_->default_value.has_value(); }
 
   // Gets the default value of this argument. Cannot use <default> here because
   // it is a C++ reserved word.
-  const std::optional<Value>& get_default() const { return default_; }
+  const std::optional<Value>& get_default() const {
+    return data_->default_value;
+  }
 
   // Clears the default argument value set to this object.
   FunctionArgumentTypeOptions& clear_default() {
-    default_ = std::nullopt;
+    data_->default_value = std::nullopt;
     return *this;
   }
 
-  // See comments on argument_collation_mode_ field.
+  // See comments on `argument_collation_mode` field.
   ArgumentCollationMode argument_collation_mode() const {
-    return argument_collation_mode_;
+    return data_->argument_collation_mode;
   }
 
-  // See comments on uses_array_element_for_collation_ field.
+  // See comments on `uses_array_element_for_collation` field.
   bool uses_array_element_for_collation() const {
-    return uses_array_element_for_collation_;
+    return data_->uses_array_element_for_collation;
   }
 
-  // See comments on uses_array_element_for_collation_ field.
+  // See comments on `uses_array_element_for_collation` field.
   FunctionArgumentTypeOptions& set_uses_array_element_for_collation(
       bool uses_array_element_for_collation = true) {
-    uses_array_element_for_collation_ = uses_array_element_for_collation;
+    data_->uses_array_element_for_collation = uses_array_element_for_collation;
     return *this;
   }
 
-  // See comments on argument_collation_mode_ field.
+  // See comments on `argument_collation_mode` field.
   FunctionArgumentTypeOptions& set_argument_collation_mode(
       ArgumentCollationMode argument_collation_mode) {
-    argument_collation_mode_ = argument_collation_mode;
+    data_->argument_collation_mode = argument_collation_mode;
     return *this;
   }
 
  private:
-  ArgumentCardinality cardinality_ = FunctionEnums::REQUIRED;
+  friend class FunctionSerializationTests;
+  // The size of FunctionArgumentTypeOptions has grown over time contributing to
+  // large stack frames. Large stack frames are problematic given the recursive
+  // nature of SQL compilers, therefore, the data members of this class are
+  // always allocated on the heap to increase the complexity of SQL that may be
+  // compiled on small stacks.
+  struct Data {
+    ArgumentCardinality cardinality = FunctionEnums::REQUIRED;
 
-  // Function argument always has value NOT_SET.
-  // Procedure argument is in one of the 3 modes:
-  // IN: argument is used only for input to the procedure. It is also the
-  //     default mode for procedure argument if no mode is specified.
-  // OUT: argument is used as output of the procedure.
-  // INOUT: argument is used both for input to and output from the procedure.
-  ProcedureArgumentMode procedure_argument_mode_ = FunctionEnums::NOT_SET;
+    // Function argument always has value NOT_SET.
+    // Procedure argument is in one of the 3 modes:
+    // IN: argument is used only for input to the procedure. It is also the
+    //     default mode for procedure argument if no mode is specified.
+    // OUT: argument is used as output of the procedure.
+    // INOUT: argument is used both for input to and output from the procedure.
+    ProcedureArgumentMode procedure_argument_mode = FunctionEnums::NOT_SET;
 
-  // These are min or max values (inclusive) for this argument.
-  // If the argument has a literal value that is outside this range, the
-  // analyzer will give an error.
-  int64_t min_value_ = std::numeric_limits<int64_t>::lowest();
-  int64_t max_value_ = std::numeric_limits<int64_t>::max();
+    // These are min or max values (inclusive) for this argument.
+    // If the argument has a literal value that is outside this range, the
+    // analyzer will give an error.
+    int64_t min_value = std::numeric_limits<int64_t>::lowest();
+    int64_t max_value = std::numeric_limits<int64_t>::max();
 
-  // This is a list of required column names and types for a relation argument
-  // to a table-valued function. This is NULL if this is a non-relation
-  // argument. For more information, please refer to the comment for the
-  // constructor that fills this field.
-  // TODO: Rename this to 'relation_schema' since this can apply for
-  // the output table of table-valued functions too.
-  std::shared_ptr<const TVFRelation> relation_input_schema_;
+    // This is a list of required column names and types for a relation argument
+    // to a table-valued function. This is NULL if this is a non-relation
+    // argument. For more information, please refer to the comment for the
+    // constructor that fills this field.
+    // TODO: Rename this to 'relation_schema' since this can apply for
+    // the output table of table-valued functions too.
+    std::shared_ptr<const TVFRelation> relation_input_schema;
 
-  // Callback to support custom argument coercion in addition to standard
-  // coercion rules.
-  std::function<bool(const zetasql::Type*)> allow_coercion_from_;
+    // Callback to support custom argument coercion in addition to standard
+    // coercion rules.
+    std::function<bool(const zetasql::Type*)> allow_coercion_from;
 
-  // Optional user visible name for referring to the function argument by name
-  // using explicit syntax: name => value. For CREATE [AGGREGATE/TABLE] FUNCTION
-  // statements, this comes from the name specified for each argument in the
-  // statement's function signature. In other cases, engines may assign this in
-  // custom ways as needed.
-  std::string argument_name_;
+    // Optional user visible name for referring to the function argument by name
+    // using explicit syntax: name => value. For CREATE [AGGREGATE/TABLE]
+    // FUNCTION statements, this comes from the name specified for each argument
+    // in the statement's function signature. In other cases, engines may assign
+    // this in custom ways as needed.
+    std::string argument_name;
 
-  // Optional parse location range for argument name. It is populated by
-  // resolver only when analyzing UDFs and TVFs. <record_parse_locations>
-  // must also be set to true in the ZetaSQL analyzer options.
-  std::optional<ParseLocationRange> argument_name_parse_location_;
+    // Optional parse location range for argument name. It is populated by
+    // resolver only when analyzing UDFs and TVFs. <record_parse_locations>
+    // must also be set to true in the ZetaSQL analyzer options.
+    std::optional<ParseLocationRange> argument_name_parse_location;
 
-  // Optional parse location range for argument type. It is populated by
-  // resolver only when analyzing UDFs and TVFs. <record_parse_locations>
-  // must also be set to true in the ZetaSQL analyzer options.
-  std::optional<ParseLocationRange> argument_type_parse_location_;
+    // Optional parse location range for argument type. It is populated by
+    // resolver only when analyzing UDFs and TVFs. <record_parse_locations>
+    // must also be set to true in the ZetaSQL analyzer options.
+    std::optional<ParseLocationRange> argument_type_parse_location;
 
-  // Optional argument offset for descriptor argument types, which is only
-  // populated for descriptor arguments whose columns should be resolved
-  // from the table argument in the same tvf call at the specified argument
-  // offset. The value must be the offset of an argument with table type.
-  std::optional<int> descriptor_resolution_table_offset_;
+    // Optional argument offset for descriptor argument types, which is only
+    // populated for descriptor arguments whose columns should be resolved
+    // from the table argument in the same tvf call at the specified argument
+    // offset. The value must be the offset of an argument with table type.
+    std::optional<int> descriptor_resolution_table_offset;
 
-  // Optional value that holds the default value of the argument, if applicable.
-  std::optional<Value> default_;
+    // Optional value that holds the default value of the argument, if
+    // applicable.
+    std::optional<Value> default_value;
 
-  // Defines how a function argument's collation should affect the function.
-  // Can be used as a bit mask to check whether AFFECTS_OPERATION or
-  // AFFECTS_PROPAGATION bit is set.
-  // See FunctionEnums::ArgumentCollationMode for mode definitions.
-  // See also FunctionSignatureOptions::propagates_collation_ and
-  // uses_operation_collation_.
-  ArgumentCollationMode argument_collation_mode_ =
-      FunctionEnums::AFFECTS_OPERATION_AND_PROPAGATION;
+    // Defines how a function argument's collation should affect the function.
+    // Can be used as a bit mask to check whether AFFECTS_OPERATION or
+    // AFFECTS_PROPAGATION bit is set.
+    // See FunctionEnums::ArgumentCollationMode for mode definitions.
+    // See also FunctionSignatureOptions::propagates_collation_ and
+    // uses_operation_collation_.
+    ArgumentCollationMode argument_collation_mode =
+        FunctionEnums::AFFECTS_OPERATION_AND_PROPAGATION;
 
-  // Determines whether the argument name must or must not be specified when the
-  // associated function is called.
-  NamedArgumentKind named_argument_kind_ = FunctionEnums::POSITIONAL_ONLY;
+    // Determines whether the argument name must or must not be specified when
+    // the associated function is called.
+    NamedArgumentKind named_argument_kind = FunctionEnums::POSITIONAL_ONLY;
 
-  // Determines whether aliases are supported for a function argument.
-  // An argument alias is an identifier associated with a function argument in
-  // the form of F(<arg> AS <alias>).
-  ArgumentAliasKind argument_alias_kind_ = FunctionEnums::ARGUMENT_NON_ALIASED;
+    // Determines whether aliases are supported for a function argument.
+    // An argument alias is an identifier associated with a function argument in
+    // the form of F(<arg> AS <alias>).
+    ArgumentAliasKind argument_alias_kind = FunctionEnums::ARGUMENT_NON_ALIASED;
 
-  // If true on function input argument, uses the array element's collation when
-  // calculating the function's propagation or operation collation.
-  // If true on function's result_type, the propagation collation should be set
-  // on the array element.
-  // The option should only be turned on when the type of the
-  // FunctionArgumentType is array.
-  bool uses_array_element_for_collation_ = false;
+    // If true on function input argument, uses the array element's collation
+    // when calculating the function's propagation or operation collation. If
+    // true on function's result_type, the propagation collation should be set
+    // on the array element.
+    // The option should only be turned on when the type of the
+    // FunctionArgumentType is array.
+    bool uses_array_element_for_collation = false;
 
-  // If true, this argument must be constant.
-  // Currently, this means the argument must be a literal or parameter.
-  // This is checked after overload resolution, so a function cannot be
-  // overloaded on constant vs non-constant arguments.
-  bool must_be_constant_ = false;
+    // If true, this argument must be constant.
+    // Currently, this means the argument must be a literal or parameter.
+    // This is checked after overload resolution, so a function cannot be
+    // overloaded on constant vs non-constant arguments.
+    bool must_be_constant = false;
 
-  // If true, this argument must be constant expression or value.
-  //
-  // Rules:
-  // - literals and parameters are constant
-  // - column references are not constant
-  // - correlated column references
-  // - scalar functions are constant if FunctionOptions::volatility is
-  //   IMMUTABLE or STABLE, and if all arguments are constant
-  // - aggregate and analytic functions are not constant
-  // - DDL CONSTANTs
-  // - expression subqueries are not constant
-  // - built-in operators like CAST and CASE and struct field access are
-  //   constant if all arguments are constant
-  // - UDF argument references
-  bool must_be_constant_expression_ = false;
+    // If true, this argument must be constant expression or value.
+    //
+    // Rules:
+    // - literals and parameters are constant
+    // - column references are not constant
+    // - correlated column references
+    // - scalar functions are constant if FunctionOptions::volatility is
+    //   IMMUTABLE or STABLE, and if all arguments are constant
+    // - aggregate and analytic functions are not constant
+    // - DDL CONSTANTs
+    // - expression subqueries are not constant
+    // - built-in operators like CAST and CASE and struct field access are
+    //   constant if all arguments are constant
+    // - UDF argument references
+    bool must_be_constant_expression = false;
 
-  // If true, this argument cannot be NULL.
-  // An error will be returned if this overload is chosen and the argument
-  // is a literal NULL.
-  bool must_be_non_null_ = false;
+    // If true, this argument cannot be NULL.
+    // An error will be returned if this overload is chosen and the argument
+    // is a literal NULL.
+    bool must_be_non_null = false;
 
-  // If true, this argument is a NOT AGGREGATE argument to an aggregate
-  // function.  This means that the argument must have a constant value over
-  // all rows passed to the same aggregate function call.
-  // Currently, this is enforced the same as must_be_constant_.
-  // This is ignored for non-aggregate functions.
-  bool is_not_aggregate_ = false;
+    // If true, this argument is a NOT AGGREGATE argument to an aggregate
+    // function.  This means that the argument must have a constant value over
+    // all rows passed to the same aggregate function call.
+    // Currently, this is enforced the same as `must_be_constant`.
+    // This is ignored for non-aggregate functions.
+    bool is_not_aggregate = false;
 
-  // If true, this argument must have a type with SupportsEquality().
-  // This is checked after choosing a concrete signature.
-  bool must_support_equality_ = false;
+    // If true, this argument must have a type with SupportsEquality().
+    // This is checked after choosing a concrete signature.
+    bool must_support_equality = false;
 
-  // If true, this argument must have a type with SupportsOrdering().
-  // This is checked after choosing a concrete signature.
-  bool must_support_ordering_ = false;
+    // If true, this argument must have a type with SupportsOrdering().
+    // This is checked after choosing a concrete signature.
+    bool must_support_ordering = false;
 
-  // If true, this argument must have a type with SupportsGrouping().
-  bool must_support_grouping_ = false;
+    // If true, this argument must have a type with SupportsGrouping().
+    bool must_support_grouping = false;
 
-  // If true, this argument must be an array type and have an element type with
-  // SupportsEquality().
-  // This is checked after choosing a concrete signature.
-  bool array_element_must_support_equality_ = false;
+    // If true, this argument must be an array type and have an element type
+    // with SupportsEquality(). This is checked after choosing a concrete
+    // signature.
+    bool array_element_must_support_equality = false;
 
-  // If true, this argument must be an array type and have an element type with
-  // SupportsOrdering().
-  // This is checked after choosing a concrete signature.
-  bool array_element_must_support_ordering_ = false;
+    // If true, this argument must be an array type and have an element type
+    // with SupportsOrdering(). This is checked after choosing a concrete
+    // signature.
+    bool array_element_must_support_ordering = false;
 
-  // If true, this argument must be an array type and have an element type with
-  // SupportsGrouping().
-  bool array_element_must_support_grouping_ = false;
+    // If true, this argument must be an array type and have an element type
+    // with SupportsGrouping().
+    bool array_element_must_support_grouping = false;
 
-  bool has_min_value_ = false;
-  bool has_max_value_ = false;
+    bool has_min_value = false;
+    bool has_max_value = false;
 
-  // If true, the provided input relation may contain extra column names besides
-  // those required in 'relation_input_schema_'. Otherwise, ZetaSQL rejects
-  // the query if the provided relation contains such extra columns.
-  bool extra_relation_input_columns_allowed_ = true;
-
-  // Copyable
+    // If true, the provided input relation may contain extra column names
+    // besides those required in `relation_input_schema`. Otherwise, ZetaSQL
+    // rejects the query if the provided relation contains such extra columns.
+    bool extra_relation_input_columns_allowed = true;
+  };
+  std::unique_ptr<Data> data_;
 };
 
 // A type for an argument or result value in a function signature.  Types
@@ -634,7 +666,8 @@ class FunctionArgumentType {
                                     extra_relation_input_columns_allowed));
   }
 
-  ~FunctionArgumentType() {}
+  FunctionArgumentType(const FunctionArgumentType& other) = default;
+  FunctionArgumentType& operator=(const FunctionArgumentType& other) = default;
 
   // Deserialization of ParseLocationRange would refer to the filename in
   // ParseLocationRangeProto as string_view.
@@ -1009,7 +1042,7 @@ using ComputeResultAnnotationsCallback =
 
 class FunctionSignatureOptions {
  public:
-  FunctionSignatureOptions() {}
+  FunctionSignatureOptions() = default;
 
   // Setter/getter for a callback to check if a concrete argument list is valid
   // for a matched concrete signature.
@@ -1297,7 +1330,7 @@ class FunctionSignature {
   FunctionSignature(FunctionArgumentType result_type,
                     FunctionArgumentTypeList arguments, int64_t context_id);
 
-  FunctionSignature(FunctionArgumentType result_type,
+  FunctionSignature(const FunctionArgumentType& result_type,
                     FunctionArgumentTypeList arguments, int64_t context_id,
                     FunctionSignatureOptions options);
 
@@ -1317,7 +1350,8 @@ class FunctionSignature {
   // this will be checked when resolving function calls with this signature.
   absl::Status init_status() const { return init_status_; }
 
-  ~FunctionSignature() {}
+  FunctionSignature(const FunctionSignature& other) = default;
+  FunctionSignature& operator=(const FunctionSignature& other) = default;
 
   static absl::StatusOr<std::unique_ptr<FunctionSignature>> Deserialize(
       const FunctionSignatureProto& proto,

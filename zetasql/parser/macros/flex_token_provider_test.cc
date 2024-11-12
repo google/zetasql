@@ -20,8 +20,8 @@
 #include <ostream>
 
 #include "zetasql/base/testing/status_matchers.h"
-#include "zetasql/parser/bison_token_codes.h"
-#include "zetasql/parser/macros/token_with_location.h"
+#include "zetasql/parser/tm_token.h"
+#include "zetasql/parser/token_with_location.h"
 #include "zetasql/public/parse_location.h"
 #include "gtest/gtest.h"
 #include "absl/strings/str_format.h"
@@ -76,7 +76,7 @@ TEST(FlexTokenProviderTest, RawTokenizerMode) {
   FlexTokenProvider token_provider = MakeTokenProvider(input);
   EXPECT_THAT(token_provider.ConsumeNextToken(),
               IsOkAndHoldsToken(TokenWithLocation{
-                  .kind = COMMENT,
+                  .kind = Token::COMMENT,
                   .location = MakeLocation(0, 11),
                   .text = "/*comment*/",
                   .preceding_whitespaces = "",
@@ -84,7 +84,7 @@ TEST(FlexTokenProviderTest, RawTokenizerMode) {
 
   EXPECT_THAT(token_provider.ConsumeNextToken(),
               IsOkAndHoldsToken(TokenWithLocation{
-                  .kind = DECIMAL_INTEGER_LITERAL,
+                  .kind = Token::DECIMAL_INTEGER_LITERAL,
                   .location = MakeLocation(12, 15),
                   .text = "123",
                   .preceding_whitespaces = " ",
@@ -96,7 +96,7 @@ TEST(FlexTokenProviderTest, AlwaysEndsWithEOF) {
   FlexTokenProvider flex_token_provider = MakeTokenProvider(input);
   EXPECT_THAT(flex_token_provider.ConsumeNextToken(),
               IsOkAndHoldsToken(TokenWithLocation{
-                  .kind = TokenKinds::YYEOF,
+                  .kind = Token::EOI,
                   .location = MakeLocation(2, 2),
                   .text = "",
                   .preceding_whitespaces = "\t\t",
@@ -104,7 +104,7 @@ TEST(FlexTokenProviderTest, AlwaysEndsWithEOF) {
   // No preceding whitespaces for the second EOF.
   EXPECT_THAT(flex_token_provider.ConsumeNextToken(),
               IsOkAndHoldsToken(TokenWithLocation{
-                  .kind = TokenKinds::YYEOF,
+                  .kind = Token::EOI,
                   .location = MakeLocation(2, 2),
                   .text = "",
                   .preceding_whitespaces = "",
@@ -115,7 +115,7 @@ TEST(FlexTokenProviderTest, CanPeekToken) {
   absl::string_view input = "\t123 identifier";
   FlexTokenProvider flex_token_provider = MakeTokenProvider(input);
   const TokenWithLocation int_token{
-      .kind = TokenKinds::DECIMAL_INTEGER_LITERAL,
+      .kind = Token::DECIMAL_INTEGER_LITERAL,
       .location = MakeLocation(1, 4),
       .text = "123",
       .preceding_whitespaces = "\t",
@@ -128,7 +128,7 @@ TEST(FlexTokenProviderTest, CanPeekToken) {
               IsOkAndHoldsToken(int_token));
 
   const TokenWithLocation identifier_token{
-      .kind = TokenKinds::IDENTIFIER,
+      .kind = Token::IDENTIFIER,
       .location = MakeLocation(5, 15),
       .text = "identifier",
       .preceding_whitespaces = " ",
@@ -146,7 +146,7 @@ TEST(FlexTokenProviderTest, TracksCountOfConsumedTokensIncludingEOF) {
   FlexTokenProvider flex_token_provider = MakeTokenProvider(input);
 
   TokenWithLocation first_token{
-      .kind = TokenKinds::KW_SELECT,
+      .kind = Token::KW_SELECT,
       .location = MakeLocation(0, 6),
       .text = "SELECT",
       .preceding_whitespaces = "",
@@ -161,7 +161,7 @@ TEST(FlexTokenProviderTest, TracksCountOfConsumedTokensIncludingEOF) {
   EXPECT_EQ(flex_token_provider.num_consumed_tokens(), 1);
 
   TokenWithLocation second_token{
-      .kind = TokenKinds::YYEOF,
+      .kind = Token::EOI,
       .location = MakeLocation(6, 6),
       .text = "",
       .preceding_whitespaces = "",

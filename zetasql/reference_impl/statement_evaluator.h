@@ -29,6 +29,7 @@
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_resume_location.h"
+#include "zetasql/public/simple_catalog.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/scripting/parsed_script.h"
 #include "zetasql/scripting/script_executor.h"
@@ -172,7 +173,7 @@ class StatementEvaluatorImpl : public StatementEvaluator {
     return initial_analyzer_options_;
   }
   const EvaluatorOptions& options() const { return options_; }
-  const absl::variant<ParameterValueList, ParameterValueMap>& parameters()
+  const std::variant<ParameterValueList, ParameterValueMap>& parameters()
       const {
     return parameters_;
   }
@@ -223,6 +224,10 @@ class StatementEvaluatorImpl : public StatementEvaluator {
 
     // Set during Evaluate().
     StatementEvaluatorImpl* evaluator_ = nullptr;
+    // Used to maintain script variables. This is recreated for every
+    // evaluation, and is maintained within the Evaluation object to ensure that
+    // the lifetime of the variables is bound to that of the evaluation itself.
+    std::unique_ptr<SimpleCatalog> variables_catalog_;
   };
 
   class StatementEvaluation : public Evaluation {
@@ -300,7 +305,7 @@ class StatementEvaluatorImpl : public StatementEvaluator {
   const AnalyzerOptions initial_analyzer_options_;
 
   EvaluatorOptions options_;
-  const absl::variant<ParameterValueList, ParameterValueMap> parameters_;
+  const std::variant<ParameterValueList, ParameterValueMap> parameters_;
   TypeFactory* type_factory_;
   Catalog* catalog_;
   StatementEvaluatorCallback* callback_;

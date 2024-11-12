@@ -72,7 +72,6 @@ statement.
       <td><code>ARRAY</code></td>
       <td>Array position. Must be used with <code>OFFSET</code> or <code>ORDINAL</code>&mdash;see
       <a href="#array_functions">Array Functions</a>
-
 .</td>
       <td>Binary</td>
     </tr>
@@ -329,30 +328,34 @@ statement.
   </tbody>
 </table>
 
+For example, the logical expression:
+
+`x OR y AND z`
+
+is interpreted as:
+
+`( x OR ( y AND z ) )`
+
 Operators with the same precedence are left associative. This means that those
 operators are grouped together starting from the left and moving right. For
 example, the expression:
 
 `x AND y AND z`
 
-is interpreted as
+is interpreted as:
 
 `( ( x AND y ) AND z )`
 
 The expression:
 
-```
-x * y / z
-```
+`x * y / z`
 
 is interpreted as:
 
-```
-( ( x * y ) / z )
-```
+`( ( x * y ) / z )`
 
 All comparison operators have the same priority, but comparison operators are
-not associative. Therefore, parentheses are required in order to resolve
+not associative. Therefore, parentheses are required to resolve
 ambiguity. For example:
 
 `(x < y) IS FALSE`
@@ -370,70 +373,60 @@ ambiguity. For example:
 
 <tr>
   <td><a href="#field_access_operator">Field access operator</a>
-
 </td>
   <td>Gets the value of a field.</td>
 </tr>
 
 <tr>
   <td><a href="#array_subscript_operator">Array subscript operator</a>
-
 </td>
   <td>Gets a value from an array at a specific position.</td>
 </tr>
 
 <tr>
   <td><a href="#struct_subscript_operator">Struct subscript operator</a>
-
 </td>
   <td>Gets the value of a field at a selected position in a struct.</td>
 </tr>
 
 <tr>
   <td><a href="#json_subscript_operator">JSON subscript operator</a>
-
 </td>
   <td>Gets a value of an array element or field in a JSON expression.</td>
 </tr>
 
 <tr>
   <td><a href="#proto_subscript_operator">Protocol buffer map subscript operator</a>
-
 </td>
   <td>Gets the value in a protocol buffer map for a given key.</td>
 </tr>
 
 <tr>
   <td><a href="#array_el_field_operator">Array elements field access operator</a>
-
 </td>
   <td>Traverses through the levels of a nested data type inside an array.</td>
 </tr>
 
 <tr>
   <td><a href="#arithmetic_operators">Arithmetic operators</a>
-
 </td>
   <td>Performs arithmetic operations.</td>
 </tr>
 
 <tr>
   <td><a href="#date_arithmetics_operators">Date arithmetics operators</a>
-
 </td>
   <td>Performs arithmetic operations on dates.</td>
 </tr>
 
 <tr>
   <td><a href="#datetime_subtraction">Datetime subtraction</a>
-
 </td>
   <td>Computes the difference between two datetimes as an interval.</td>
 </tr>
 
 <tr>
   <td><a href="#interval_arithmetic_operators">Interval arithmetic operators</a>
-
 </td>
   <td>
     Adds an interval to a datetime or subtracts an interval from a datetime.
@@ -442,14 +435,12 @@ ambiguity. For example:
 
 <tr>
   <td><a href="#bitwise_operators">Bitwise operators</a>
-
 </td>
   <td>Performs bit manipulation.</td>
 </tr>
 
 <tr>
   <td><a href="#logical_operators">Logical operators</a>
-
 </td>
   <td>
     Tests for the truth of some condition and produces <code>TRUE</code>,
@@ -458,8 +449,60 @@ ambiguity. For example:
 </tr>
 
 <tr>
-  <td><a href="#comparison_operators">Comparison operators</a>
+  <td><a href="#graph_concatenation_operator">Graph concatenation operator</a>
+</td>
+  <td>
+    Combines multiple graph paths into one and preserves the original order of
+    the nodes and edges.
+  </td>
+</tr>
 
+<tr>
+  <td><a href="#graph_logical_operators">Graph logical operators</a>
+</td>
+  <td>
+    Tests for the truth of a condition in a graph and produces either
+    <code>TRUE</code> or <code>FALSE</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#graph_predicates">Graph predicates</a>
+</td>
+  <td>
+    Tests for the truth of a condition for a graph element and produces
+    <code>TRUE</code>, <code>FALSE</code>, or <code>NULL</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#is_destination_predicate"><code>IS DESTINATION</code> predicate</a>
+</td>
+  <td>In a graph, checks to see if a node is or isn't the destination of an edge.</td>
+</tr>
+
+<tr>
+  <td><a href="#is_source_predicate"><code>IS SOURCE</code> predicate</a>
+</td>
+  <td>In a graph, checks to see if a node is or isn't the source of an edge.</td>
+</tr>
+
+<tr>
+  <td><a href="#property_exists_predicate"><code>PROPERTY_EXISTS</code> predicate</a>
+</td>
+  <td>In a graph, checks to see if a property exists for an element.</td>
+</tr>
+
+<tr>
+  <td><a href="#same_predicate"><code>SAME</code> predicate</a>
+</td>
+  <td>
+    In a graph, determines if all graph elements in a list bind to the same node or edge.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#comparison_operators">Comparison operators</a>
 </td>
   <td>
     Compares operands and produces the results of the comparison as a
@@ -469,21 +512,18 @@ ambiguity. For example:
 
 <tr>
   <td><a href="#exists_operator"><code>EXISTS</code> operator</a>
-
 </td>
   <td>Checks if a subquery produces one or more rows.</td>
 </tr>
 
 <tr>
   <td><a href="#in_operators"><code>IN</code> operator</a>
-
 </td>
   <td>Checks for an equal value in a set of values.</td>
 </tr>
 
 <tr>
   <td><a href="#is_operators"><code>IS</code> operators</a>
-
 </td>
   <td>
     Checks for the truth of a condition and produces either <code>TRUE</code> or
@@ -493,42 +533,36 @@ ambiguity. For example:
 
 <tr>
   <td><a href="#is_distinct"><code>IS DISTINCT FROM</code> operator</a>
-
 </td>
   <td>Checks if values are considered to be distinct from each other.</td>
 </tr>
 
 <tr>
   <td><a href="#like_operator"><code>LIKE</code> operator</a>
-
 </td>
   <td>Checks if values are like or not like one another.</td>
 </tr>
 
 <tr>
   <td><a href="#like_operator_quantified">Quantified <code>LIKE</code> operator</a>
-
 </td>
   <td>Checks a search value for matches against several patterns.</td>
 </tr>
 
 <tr>
   <td><a href="#new_operator"><code>NEW</code> operator</a>
-
 </td>
   <td>Creates a protocol buffer.</td>
 </tr>
 
 <tr>
   <td><a href="#concatenation_operator">Concatenation operator</a>
-
 </td>
   <td>Combines multiple values into one.</td>
 </tr>
 
 <tr>
   <td><a href="#with_expression"><code>WITH</code> expression</a>
-
 </td>
   <td>Creates variables for re-use and produces a result expression.</td>
 </tr>
@@ -553,6 +587,7 @@ Input values:
 + `STRUCT`
 + `PROTO`
 + `JSON`
++ `GRAPH_ELEMENT`
 
 Note: If the field to access is within a `STRUCT`, you can use the
 [struct subscript operator][struct-subscript-operator] to access the field by
@@ -567,6 +602,8 @@ a field by position is useful when fields are un-named or have ambiguous names.
   the protocol buffer, an error is thrown.
 + For `JSON`: `JSON`. If a field is not found in a JSON value, a SQL `NULL` is
   returned.
++ For `GRAPH_ELEMENT`: SQL data type of `fieldname`. If a field (property) is
+  not found in the graph element, an error is produced.
 
 **Example**
 
@@ -1746,6 +1783,355 @@ SELECT entry FROM entry_table WHERE entry IS NULL
 ```
 
 [three-valued-logic]: https://en.wikipedia.org/wiki/Three-valued_logic
+
+### Graph concatenation operator 
+<a id="graph_concatenation_operator"></a>
+
+```sql
+graph_path || graph_path [ || ... ]
+```
+
+**Description**
+
+Combines multiple graph paths into one and preserves the original order of the
+nodes and edges.
+
+Arguments:
+
++ `graph_path`: A `GRAPH_PATH` value that represents a graph path to
+  concatenate.
+
+**Details**
+
+This operator produces an error if the last node in the first path isn't the
+same as the first node in the second path.
+
+```sql
+-- This successfully produces the concatenated path called `full_path`.
+MATCH
+  p=(src:Account)-[t1:Transfers]->(mid:Account),
+  q=(mid)-[t2:Transfers]->(dst:Account)
+LET full_path = p || q
+```
+
+```sql
+-- This produces an error because the first node of the path to be concatenated
+-- (mid2) is not equal to the last node of the previous path (mid1).
+MATCH
+  p=(src:Account)-[t1:Transfers]->(mid1:Account),
+  q=(mid2:Account)-[t2:Transfers]->(dst:Account)
+LET full_path = p || q
+```
+
+The first node in each subsequent path is removed from the
+concatenated path.
+
+```sql
+-- The concatenated path called `full_path` contains these elements:
+-- src, t1, mid, t2, dst.
+MATCH
+  p=(src:Account)-[t1:Transfers]->(mid:Account),
+  q=(mid)-[t2:Transfers]->(dst:Account)
+LET full_path = p || q
+```
+
+If any `graph_path` is `NULL`, produces `NULL`.
+
+**Example**
+
+In the following query, a path called `p` and `q` are concatenated. Notice that
+`mid` is used at the end of the first path and at the beginning of the
+second path. Also notice that the duplicate `mid` is removed from the
+concatenated path called `full_path`:
+
+```sql
+GRAPH FinGraph
+MATCH
+  p=(src:Account)-[t1:Transfers]->(mid:Account),
+  q = (mid)-[t2:Transfers]->(dst:Account)
+LET full_path = p || q
+RETURN
+  JSON_QUERY(TO_JSON(full_path)[0], '$.labels') AS element_a,
+  JSON_QUERY(TO_JSON(full_path)[1], '$.labels') AS element_b,
+  JSON_QUERY(TO_JSON(full_path)[2], '$.labels') AS element_c,
+  JSON_QUERY(TO_JSON(full_path)[3], '$.labels') AS element_d,
+  JSON_QUERY(TO_JSON(full_path)[4], '$.labels') AS element_e,
+  JSON_QUERY(TO_JSON(full_path)[5], '$.labels') AS element_f
+
+/*-------------------------------------------------------------------------------------*
+ | element_a   | element_b     | element_c   | element_d     | element_e   | element_f |
+ +-------------------------------------------------------------------------------------+
+ | ["Account"] | ["Transfers"] | ["Account"] | ["Transfers"] | ["Account"] |           |
+ | ...         | ...           | ...         | ...           | ...         | ...       |
+ *-------------------------------------------------------------------------------------/*
+```
+
+The following query produces an error because the last node for `p` must
+be the first node for `q`:
+
+```sql
+-- Error: `mid1` and `mid2` are not equal.
+GRAPH FinGraph
+MATCH
+  p=(src:Account)-[t1:Transfers]->(mid1:Account),
+  q=(mid2:Account)-[t2:Transfers]->(dst:Account)
+LET full_path = p || q
+RETURN TO_JSON(full_path) AS results
+```
+
+The following query produces an error because the path called `p` is `NULL`:
+
+```sql
+-- Error: a graph path is NULL.
+GRAPH FinGraph
+MATCH
+  p=NULL,
+  q=(mid:Account)-[t2:Transfers]->(dst:Account)
+LET full_path = p || q
+RETURN TO_JSON(full_path) AS results
+```
+
+### Graph logical operators 
+<a id="graph_logical_operators"></a>
+
+ZetaSQL supports the following logical operators in
+[element pattern label expressions][element-pattern-definition]:
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Syntax</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>NOT</code></td>
+      <td style="white-space:nowrap"><code>!X</code></td>
+      <td>
+        Returns <code>TRUE</code> if <code>X</code> is not included, otherwise,
+        returns <code>FALSE</code>.
+      </td>
+    </tr>
+    <tr>
+      <td><code>OR</code></td>
+      <td style="white-space:nowrap"><code>X | Y</code></td>
+      <td>
+        Returns <code>TRUE</code> if either <code>X</code> or <code>Y</code> is
+        included, otherwise, returns <code>FALSE</code>.
+      </td>
+    </tr>
+    <tr>
+      <td><code>AND</code></td>
+      <td style="white-space:nowrap"><code>X & Y</code></td>
+      <td>
+        Returns <code>TRUE</code> if both <code>X</code> and <code>Y</code> are
+        included, otherwise, returns <code>FALSE</code>.
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+[element-pattern-definition]: https://github.com/google/zetasql/blob/master/docs/graph-patterns.md#element_pattern_definition
+
+### Graph predicates 
+<a id="graph_predicates"></a>
+
+ZetaSQL supports the following graph-specific predicates in
+graph expressions. A predicate can produce `TRUE`, `FALSE`, or `NULL`.
+
++   [`PROPERTY_EXISTS` predicate][property-exists-predicate]
++   [`IS SOURCE` predicate][is-source-predicate]
++   [`IS DESTINATION` predicate][is-destination-predicate]
++   [`SAME` predicate][same-predicate]
+
+[property-exists-predicate]: #property_exists_predicate
+
+[is-source-predicate]: #is_source_predicate
+
+[is-destination-predicate]: #is_destination_predicate
+
+[same-predicate]: #same_predicate
+
+### `IS DESTINATION` predicate 
+<a id="is_destination_predicate"></a>
+
+```sql
+node IS [ NOT ] DESTINATION [ OF ] edge
+```
+
+**Description**
+
+In a graph, checks to see if a node is or isn't the destination of an edge.
+Can produce `TRUE`, `FALSE`, or `NULL`.
+
+Arguments:
+
++ `node`: The graph pattern variable for the node element.
++ `edge`: The graph pattern variable for the edge element.
+
+**Examples**
+
+```sql
+GRAPH FinGraph
+MATCH (a:Account)-[transfer:Transfers]-(b:Account)
+WHERE a IS DESTINATION of transfer
+RETURN a.id AS a_id, b.id AS b_id
+
+/*-------------+
+ | a_id | b_id |
+ +-------------+
+ | 16   | 7    |
+ | 16   | 7    |
+ | 20   | 16   |
+ | 7    | 20   |
+ | 16   | 20   |
+ +-------------*/
+```
+
+```sql
+GRAPH FinGraph
+MATCH (a:Account)-[transfer:Transfers]-(b:Account)
+WHERE b IS DESTINATION of transfer
+RETURN a.id AS a_id, b.id AS b_id
+
+/*-------------+
+ | a_id | b_id |
+ +-------------+
+ | 7    | 16   |
+ | 7    | 16   |
+ | 16   | 20   |
+ | 20   | 7    |
+ | 20   | 16   |
+ +-------------*/
+```
+
+### `IS SOURCE` predicate 
+<a id="is_source_predicate"></a>
+
+```sql
+node IS [ NOT ] SOURCE [ OF ] edge
+```
+
+**Description**
+
+In a graph, checks to see if a node is or isn't the source of an edge.
+Can produce `TRUE`, `FALSE`, or `NULL`.
+
+Arguments:
+
++ `node`: The graph pattern variable for the node element.
++ `edge`: The graph pattern variable for the edge element.
+
+**Examples**
+
+```sql
+GRAPH FinGraph
+MATCH (a:Account)-[transfer:Transfers]-(b:Account)
+WHERE a IS SOURCE of transfer
+RETURN a.id AS a_id, b.id AS b_id
+
+/*-------------+
+ | a_id | b_id |
+ +-------------+
+ | 20   | 7    |
+ | 7    | 16   |
+ | 7    | 16   |
+ | 20   | 16   |
+ | 16   | 20   |
+ +-------------*/
+```
+
+```sql
+GRAPH FinGraph
+MATCH (a:Account)-[transfer:Transfers]-(b:Account)
+WHERE b IS SOURCE of transfer
+RETURN a.id AS a_id, b.id AS b_id
+
+/*-------------+
+ | a_id | b_id |
+ +-------------+
+ | 7    | 20   |
+ | 16   | 7    |
+ | 16   | 7    |
+ | 16   | 20   |
+ | 20   | 16   |
+ +-------------*/
+```
+
+### `PROPERTY_EXISTS` predicate 
+<a id="property_exists_predicate"></a>
+
+```sql
+PROPERTY_EXISTS(element, element_property)
+```
+
+**Description**
+
+In a graph, checks to see if a property exists for an element.
+Can produce `TRUE`, `FALSE`, or `NULL`.
+
+Arguments:
+
++ `element`: The graph pattern variable for a node or edge element.
++ `element_property`: The name of the property to look for in `element`.
+  The property name must refer to a property in the graph. If the property
+  does not exist in the graph, an error is produced. The property name is
+  resolved in a case-insensitive manner.
+
+**Example**
+
+```sql
+GRAPH FinGraph
+MATCH (n:Person|Account WHERE PROPERTY_EXISTS(n, name))
+RETURN n.name
+
+/*------+
+ | name |
+ +------+
+ | Alex |
+ | Dana |
+ | Lee  |
+ +------*/
+```
+
+### `SAME` predicate 
+<a id="same_predicate"></a>
+
+```sql
+SAME (element, element[, element])
+```
+
+**Description**
+
+In a graph, determines if all graph elements in a list bind to the same node or
+edge. Can produce `TRUE`, `FALSE`, or `NULL`.
+
+Arguments:
+
++ `element`: The graph pattern variable for a node or edge element.
+
+**Example**
+
+The following query checks to see if `a` and `b` are not the same person.
+
+```sql
+GRAPH FinGraph
+MATCH (src:Account)<-[transfer:Transfers]-(dest:Account)
+WHERE NOT SAME(src, dest)
+RETURN src.id AS source_id, dest.id AS destination_id
+
+/*----------------------------+
+ | source_id | destination_id |
+ +----------------------------+
+ | 7         | 20             |
+ | 16        | 7              |
+ | 16        | 7              |
+ | 16        | 20             |
+ | 20        | 16             |
+ +----------------------------*/
+```
 
 ### Comparison operators 
 <a id="comparison_operators"></a>
@@ -3033,7 +3419,7 @@ NEW Universe {
     radius_miles: 432,690
     age: 4,603,000,000
   }
-  constellations [{
+  constellations: [{
     name: "Libra"
     index: 0
   }, {
@@ -3092,6 +3478,12 @@ The concatenation operator combines multiple values into one.
 </tr>
 </tbody>
 </table>
+
+Note: The concatenation operator is translated into a nested
+[`CONCAT`][concat] function call. For example, `'A' || 'B' || 'C'` becomes
+`CONCAT('A', CONCAT('B', 'C'))`.
+
+[concat]: #concat
 
 ### `WITH` expression 
 <a id="with_expression"></a>
@@ -3218,7 +3610,6 @@ tuning.
 
 <tr>
   <td><a href="#case_expr"><code>CASE expr</code></a>
-
 </td>
   <td>
     Compares the given expression to each successive <code>WHEN</code> clause
@@ -3228,7 +3619,6 @@ tuning.
 
 <tr>
   <td><a href="#case"><code>CASE</code></a>
-
 </td>
   <td>
     Evaluates the condition of each successive <code>WHEN</code> clause and
@@ -3239,7 +3629,6 @@ tuning.
 
 <tr>
   <td><a href="#coalesce"><code>COALESCE</code></a>
-
 </td>
   <td>
     Produces the value of the first non-<code>NULL</code> expression, if any,
@@ -3249,7 +3638,6 @@ tuning.
 
 <tr>
   <td><a href="#if"><code>IF</code></a>
-
 </td>
   <td>
     If an expression evaluates to <code>TRUE</code>, produces a specified
@@ -3259,7 +3647,6 @@ tuning.
 
 <tr>
   <td><a href="#ifnull"><code>IFNULL</code></a>
-
 </td>
   <td>
     If an expression evaluates to <code>NULL</code>, produces a specified
@@ -3269,7 +3656,6 @@ tuning.
 
 <tr>
   <td><a href="#nullif"><code>NULLIF</code></a>
-
 </td>
   <td>
     Produces <code>NULL</code> if the first expression that matches another
@@ -3279,7 +3665,6 @@ tuning.
 
 <tr>
   <td><a href="#nullifzero"><code>NULLIFZERO</code></a>
-
 </td>
   <td>
     Produces <code>NULL</code> if an expression is <code>0</code>,
@@ -3289,7 +3674,6 @@ tuning.
 
 <tr>
   <td><a href="#zeroifnull"><code>ZEROIFNULL</code></a>
-
 </td>
   <td>
     Produces <code>0</code> if an expression is <code>NULL</code>, otherwise
@@ -3705,7 +4089,6 @@ functions work, see [AEAD encryption concepts][aead-encryption-concepts].
 
 <tr>
   <td><a href="#aeaddecrypt_bytes"><code>AEAD.DECRYPT_BYTES</code></a>
-
 </td>
   <td>
     Uses the matching key from a keyset to decrypt a
@@ -3715,7 +4098,6 @@ functions work, see [AEAD encryption concepts][aead-encryption-concepts].
 
 <tr>
   <td><a href="#aeaddecrypt_string"><code>AEAD.DECRYPT_STRING</code></a>
-
 </td>
   <td>
     Uses the matching key from a keyset to decrypt a <code>BYTES</code>
@@ -3725,7 +4107,6 @@ functions work, see [AEAD encryption concepts][aead-encryption-concepts].
 
 <tr>
   <td><a href="#aeadencrypt"><code>AEAD.ENCRYPT</code></a>
-
 </td>
   <td>
     Encrypts <code>STRING</code> plaintext, using the primary cryptographic key
@@ -3735,7 +4116,6 @@ functions work, see [AEAD encryption concepts][aead-encryption-concepts].
 
 <tr>
   <td><a href="#deterministic_decrypt_bytes"><code>DETERMINISTIC_DECRYPT_BYTES</code></a>
-
 </td>
   <td>
     Uses the matching key from a keyset to decrypt a <code>BYTES</code>
@@ -3745,7 +4125,6 @@ functions work, see [AEAD encryption concepts][aead-encryption-concepts].
 
 <tr>
   <td><a href="#deterministic_decrypt_string"><code>DETERMINISTIC_DECRYPT_STRING</code></a>
-
 </td>
   <td>
     Uses the matching key from a keyset to decrypt a <code>BYTES</code>
@@ -3755,7 +4134,6 @@ functions work, see [AEAD encryption concepts][aead-encryption-concepts].
 
 <tr>
   <td><a href="#deterministic_encrypt"><code>DETERMINISTIC_ENCRYPT</code></a>
-
 </td>
   <td>
     Encrypts <code>STRING</code> plaintext, using the primary cryptographic key
@@ -3765,7 +4143,6 @@ functions work, see [AEAD encryption concepts][aead-encryption-concepts].
 
 <tr>
   <td><a href="#keysadd_key_from_raw_bytes"><code>KEYS.ADD_KEY_FROM_RAW_BYTES</code></a>
-
 </td>
   <td>
     Adds a key to a keyset, and return the new keyset as a serialized
@@ -3775,7 +4152,6 @@ functions work, see [AEAD encryption concepts][aead-encryption-concepts].
 
 <tr>
   <td><a href="#keyskeyset_from_json"><code>KEYS.KEYSET_FROM_JSON</code></a>
-
 </td>
   <td>
     Converts a <code>STRING</code> JSON keyset to a serialized
@@ -3785,7 +4161,6 @@ functions work, see [AEAD encryption concepts][aead-encryption-concepts].
 
 <tr>
   <td><a href="#keyskeyset_length"><code>KEYS.KEYSET_LENGTH</code></a>
-
 </td>
   <td>
     Gets the number of keys in the provided keyset.
@@ -3794,7 +4169,6 @@ functions work, see [AEAD encryption concepts][aead-encryption-concepts].
 
 <tr>
   <td><a href="#keyskeyset_to_json"><code>KEYS.KEYSET_TO_JSON</code></a>
-
 </td>
   <td>
     Gets a JSON <code>STRING</code> representation of a keyset.
@@ -3803,7 +4177,6 @@ functions work, see [AEAD encryption concepts][aead-encryption-concepts].
 
 <tr>
   <td><a href="#keysnew_keyset"><code>KEYS.NEW_KEYSET</code></a>
-
 </td>
   <td>
     Gets a serialized keyset containing a new key based on the key type.
@@ -3812,7 +4185,6 @@ functions work, see [AEAD encryption concepts][aead-encryption-concepts].
 
 <tr>
   <td><a href="#keysrotate_keyset"><code>KEYS.ROTATE_KEYSET</code></a>
-
 </td>
   <td>
     Adds a new primary cryptographic key to a keyset, based on the key type.
@@ -4557,7 +4929,6 @@ To learn about the syntax for aggregate function calls, see
 
 <tr>
   <td><a href="#any_value"><code>ANY_VALUE</code></a>
-
 </td>
   <td>
     Gets an expression for some row.
@@ -4565,62 +4936,125 @@ To learn about the syntax for aggregate function calls, see
 </tr>
 
 <tr>
-  <td><a href="#array_agg"><code>ARRAY_AGG</code></a>
+  <td><a href="#approx_count_distinct"><code>APPROX_COUNT_DISTINCT</code></a>
+</td>
+  <td>
+    Gets the approximate result for <code>COUNT(DISTINCT expression)</code>.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/approximate_aggregate_functions.md">Approximate aggregate functions</a>.
 
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#approx_quantiles"><code>APPROX_QUANTILES</code></a>
+</td>
+  <td>
+    Gets the approximate quantile boundaries.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/approximate_aggregate_functions.md">Approximate aggregate functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#approx_top_count"><code>APPROX_TOP_COUNT</code></a>
+</td>
+  <td>
+    Gets the approximate top elements and their approximate count.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/approximate_aggregate_functions.md">Approximate aggregate functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#approx_top_sum"><code>APPROX_TOP_SUM</code></a>
+</td>
+  <td>
+    Gets the approximate top elements and sum, based on the approximate sum
+    of an assigned weight.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/approximate_aggregate_functions.md">Approximate aggregate functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#array_agg"><code>ARRAY_AGG</code></a>
 </td>
   <td>
     Gets an array of values.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#array_concat_agg"><code>ARRAY_CONCAT_AGG</code></a>
-
 </td>
   <td>
     Concatenates arrays and returns a single array as a result.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#avg"><code>AVG</code></a>
-
 </td>
   <td>
     Gets the average of non-<code>NULL</code> values.
+    
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#dp_avg"><code>AVG</code> (Differential Privacy)</a>
+</td>
+  <td>
+    <code>DIFFERENTIAL_PRIVACY</code>-supported <code>AVG</code>.<br/><br/>
+    Gets the differentially-private average of non-<code>NULL</code>,
+    non-<code>NaN</code> values in a query with a
+    <code>DIFFERENTIAL_PRIVACY</code> clause.
+    <br><br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md">Differential privacy functions</a>.
+
   </td>
 </tr>
 
 <tr>
   <td><a href="#bit_and"><code>BIT_AND</code></a>
-
 </td>
   <td>
     Performs a bitwise AND operation on an expression.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#bit_or"><code>BIT_OR</code></a>
-
 </td>
   <td>
     Performs a bitwise OR operation on an expression.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#bit_xor"><code>BIT_XOR</code></a>
-
 </td>
   <td>
     Performs a bitwise XOR operation on an expression.
+    
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#corr"><code>CORR</code></a>
+</td>
+  <td>
+    Computes the Pearson coefficient of correlation of a set of number pairs.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/statistical_aggregate_functions.md">Statistical aggregate functions</a>.
+
   </td>
 </tr>
 
 <tr>
   <td><a href="#count"><code>COUNT</code></a>
-
 </td>
   <td>
     Gets the number of rows in the input, or the number of rows with an
@@ -4629,17 +5063,52 @@ To learn about the syntax for aggregate function calls, see
 </tr>
 
 <tr>
-  <td><a href="#countif"><code>COUNTIF</code></a>
-
+  <td><a href="#dp_count"><code>COUNT</code> (Differential Privacy)</a>
 </td>
   <td>
-    Gets the count of <code>TRUE</code> values for an expression.
+    <code>DIFFERENTIAL_PRIVACY</code>-supported <code>COUNT</code>.<br/><br/>
+    Signature 1: Gets the differentially-private count of rows in a query with a
+    <code>DIFFERENTIAL_PRIVACY</code> clause.
+    <br/>
+    <br/>
+    Signature 2: Gets the differentially-private count of rows with a
+    non-<code>NULL</code> expression in a query with a
+    <code>DIFFERENTIAL_PRIVACY</code> clause.
+    <br><br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md">Differential privacy functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#countif"><code>COUNTIF</code></a>
+</td>
+  <td>
+    Gets the number of <code>TRUE</code> values for an expression.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#covar_pop"><code>COVAR_POP</code></a>
+</td>
+  <td>
+    Computes the population covariance of a set of number pairs.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/statistical_aggregate_functions.md">Statistical aggregate functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#covar_samp"><code>COVAR_SAMP</code></a>
+</td>
+  <td>
+    Computes the sample covariance of a set of number pairs.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/statistical_aggregate_functions.md">Statistical aggregate functions</a>.
+
   </td>
 </tr>
 
 <tr>
   <td><a href="#grouping"><code>GROUPING</code></a>
-
 </td>
   <td>
     Checks if a groupable value in the <code>GROUP BY</code> clause is
@@ -4649,7 +5118,6 @@ To learn about the syntax for aggregate function calls, see
 
 <tr>
   <td><a href="#logical_and"><code>LOGICAL_AND</code></a>
-
 </td>
   <td>
     Gets the logical AND of all non-<code>NULL</code> expressions.
@@ -4658,7 +5126,6 @@ To learn about the syntax for aggregate function calls, see
 
 <tr>
   <td><a href="#logical_or"><code>LOGICAL_OR</code></a>
-
 </td>
   <td>
     Gets the logical OR of all non-<code>NULL</code> expressions.
@@ -4667,16 +5134,15 @@ To learn about the syntax for aggregate function calls, see
 
 <tr>
   <td><a href="#max"><code>MAX</code></a>
-
 </td>
   <td>
     Gets the maximum non-<code>NULL</code> value.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#min"><code>MIN</code></a>
-
 </td>
   <td>
     Gets the minimum non-<code>NULL</code> value.
@@ -4684,21 +5150,139 @@ To learn about the syntax for aggregate function calls, see
 </tr>
 
 <tr>
-  <td><a href="#string_agg"><code>STRING_AGG</code></a>
+  <td><a href="#dp_percentile_cont"><code>PERCENTILE_CONT</code> (Differential Privacy)</a>
+</td>
+  <td>
+    <code>DIFFERENTIAL_PRIVACY</code>-supported <code>PERCENTILE_CONT</code>.<br/><br/>
+    Computes a differentially-private percentile across privacy unit columns
+    in a query with a <code>DIFFERENTIAL_PRIVACY</code> clause.
+    <br><br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md">Differential privacy functions</a>.
 
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_extent"><code>ST_EXTENT</code></a>
+</td>
+  <td>
+    Gets the bounding box for a group of <code>GEOGRAPHY</code> values.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md">Geography functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_union_agg"><code>ST_UNION_AGG</code></a>
+</td>
+  <td>
+    Aggregates over <code>GEOGRAPHY</code> values and gets their
+    point set union.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md">Geography functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#stddev"><code>STDDEV</code></a>
+</td>
+  <td>
+    An alias of the <code>STDDEV_SAMP</code> function.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/statistical_aggregate_functions.md">Statistical aggregate functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#stddev_pop"><code>STDDEV_POP</code></a>
+</td>
+  <td>
+    Computes the population (biased) standard deviation of the values.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/statistical_aggregate_functions.md">Statistical aggregate functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#stddev_samp"><code>STDDEV_SAMP</code></a>
+</td>
+  <td>
+    Computes the sample (unbiased) standard deviation of the values.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/statistical_aggregate_functions.md">Statistical aggregate functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#string_agg"><code>STRING_AGG</code></a>
 </td>
   <td>
     Concatenates non-<code>NULL</code> <code>STRING</code> or
     <code>BYTES</code> values.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#sum"><code>SUM</code></a>
-
 </td>
   <td>
     Gets the sum of non-<code>NULL</code> values.
+    
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#dp_sum"><code>SUM</code> (Differential Privacy)</a>
+</td>
+  <td>
+    <code>DIFFERENTIAL_PRIVACY</code>-supported <code>SUM</code>.<br/><br/>
+    Gets the differentially-private sum of non-<code>NULL</code>,
+    non-<code>NaN</code> values in a query with a
+    <code>DIFFERENTIAL_PRIVACY</code> clause.
+    <br><br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md">Differential privacy functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#var_pop"><code>VAR_POP</code></a>
+</td>
+  <td>
+    Computes the population (biased) variance of the values.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/statistical_aggregate_functions.md">Statistical aggregate functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#dp_var_pop"><code>VAR_POP</code> (Differential Privacy)</a>
+</td>
+  <td>
+    <code>DIFFERENTIAL_PRIVACY</code>-supported <code>VAR_POP</code> (Differential Privacy).<br/><br/>
+    Computes the differentially-private population (biased) variance of values
+    in a query with a <code>DIFFERENTIAL_PRIVACY</code> clause.
+    <br><br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md">Differential privacy functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#var_samp"><code>VAR_SAMP</code></a>
+</td>
+  <td>
+    Computes the sample (unbiased) variance of the values.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/statistical_aggregate_functions.md">Statistical aggregate functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#variance"><code>VARIANCE</code></a>
+</td>
+  <td>
+    An alias of <code>VAR_SAMP</code>.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/statistical_aggregate_functions.md">Statistical aggregate functions</a>.
+
   </td>
 </tr>
 
@@ -5395,14 +5979,10 @@ SELECT BIT_XOR(DISTINCT x) AS bit_xor FROM UNNEST([1234, 5678, 1234]) AS x;
 
 ### `COUNT`
 
-1.
-
 ```sql
 COUNT(*)
-[OVER over_clause]
+[ OVER over_clause ]
 ```
-
-2.
 
 ```sql
 COUNT(
@@ -5425,16 +6005,26 @@ window_specification:
 
 **Description**
 
-1. Returns the number of rows in the input.
-2. Returns the number of rows with `expression` evaluated to any value other
-   than `NULL`.
+Gets the number of rows in the input or the number of rows with an
+expression evaluated to any value other than `NULL`.
 
-To learn more about the optional aggregate clauses that you can pass
-into this function, see
-[Aggregate function calls][aggregate-function-calls].
+**Definitions**
 
-This function can be used with the
-[`AGGREGATION_THRESHOLD` clause][agg-threshold-clause].
++ `*`: Use this value to get the number of all rows in the input.
++ `expression`: A value of any data type that represents the expression to
+  evaluate. If `DISTINCT` is present,
+  `expression` can only be a data type that is
+  [groupable][groupable-data-types].
++   `DISTINCT`: To learn more, see
+    [Aggregate function calls][aggregate-function-calls].
++   `HAVING { MAX | MIN }`: To learn more, see
+    [Aggregate function calls][aggregate-function-calls].
++   `OVER`: To learn more, see
+    [Aggregate function calls][aggregate-function-calls].
++   `over_clause`: To learn more, see
+    [Aggregate function calls][aggregate-function-calls].
++   `window_specification`: To learn more, see
+    [Window function calls][window-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
@@ -5442,10 +6032,9 @@ This function can be used with the
 
 [agg-threshold-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#agg_threshold_clause
 
-<!-- mdlint on -->
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
 
-To learn more about the `OVER` clause and how to use it, see
-[Window function calls][window-function-calls].
+<!-- mdlint on -->
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
@@ -5453,22 +6042,34 @@ To learn more about the `OVER` clause and how to use it, see
 
 <!-- mdlint on -->
 
-This function with DISTINCT supports specifying [collation][collation].
+**Details**
+
+To count the number of distinct values of an expression for which a
+certain condition is satisfied, you can use the following recipe:
+
+```sql
+COUNT(DISTINCT IF(condition, expression, NULL))
+```
+
+`IF` returns the value of `expression` if `condition` is `TRUE`, or
+`NULL` otherwise. The surrounding `COUNT(DISTINCT ...)` ignores the `NULL`
+values, so it counts only the distinct values of `expression` for which
+`condition` is `TRUE`.
+
+To count the number of non-distinct values of an expression for which a
+certain condition is satisfied, consider using the
+[`COUNTIF`][countif] function.
+
+This function with <code>DISTINCT</code> supports specifying [collation][collation].
 
 [collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
 
 `COUNT` can be used with differential privacy. For more information, see
 [Differentially private aggregate functions][dp-functions].
 
-**Supported Argument Types**
+**Return type**
 
-`expression` can be any data type. If
-`DISTINCT` is present, `expression` can only be a data type that is
-[groupable][agg-data-type-properties].
-
-**Return Data Types**
-
-INT64
+`INT64`
 
 **Examples**
 
@@ -5523,19 +6124,7 @@ FROM UNNEST([1, 4, NULL, 4, 5]) AS x;
  *------+------------+---------*/
 ```
 
-If you want to count the number of distinct values of an expression for which a
-certain condition is satisfied, this is one recipe that you can use:
-
-```sql
-COUNT(DISTINCT IF(condition, expression, NULL))
-```
-
-Here, `IF` will return the value of `expression` if `condition` is `TRUE`, or
-`NULL` otherwise. The surrounding `COUNT(DISTINCT ...)` will ignore the `NULL`
-values, so it will count only the distinct values of `expression` for which
-`condition` is `TRUE`.
-
-For example, to count the number of distinct positive values of `x`:
+The following query counts the number of distinct positive values of `x`:
 
 ```sql
 SELECT COUNT(DISTINCT IF(x > 0, x, NULL)) AS distinct_positive
@@ -5548,8 +6137,8 @@ FROM UNNEST([1, -2, 4, 1, -5, 4, 1, 3, -6, 1]) AS x;
  *-------------------*/
 ```
 
-Or to count the number of distinct dates on which a certain kind of event
-occurred:
+The following query counts the number of distinct dates on which a certain kind
+of event occurred:
 
 ```sql
 WITH Events AS (
@@ -5577,7 +6166,33 @@ FROM Events;
  *------------------------------*/
 ```
 
-[agg-data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data_type_properties
+The following query counts the number of distinct `id`s that exist in both
+the `customers` and `vendor` tables:
+
+```sql
+WITH
+  customers AS (
+    SELECT 1934 AS id, 'a' AS team UNION ALL
+    SELECT 2991, 'b' UNION ALL
+    SELECT 3988, 'c'),
+  vendors AS (
+    SELECT 1934 AS id, 'd' AS team UNION ALL
+    SELECT 2991, 'e' UNION ALL
+    SELECT 4366, 'f')
+SELECT
+  COUNT(DISTINCT IF(id IN (SELECT id FROM customers), id, NULL)) AS result
+FROM vendors;
+
+/*--------*
+ | result |
+ +--------+
+ | 2      |
+ *--------*/
+```
+
+[countif]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#countif
+
+[groupable-data-types]: https://github.com/google/zetasql/blob/master/docs/data-types.md#groupable_data_types
 
 [dp-functions]: #aggregate-dp-functions
 
@@ -5604,30 +6219,21 @@ window_specification:
 
 **Description**
 
-Returns the count of `TRUE` values for `expression`. Returns `0` if there are
-zero input rows, or if `expression` evaluates to `FALSE` or `NULL` for all rows.
+Gets the number of `TRUE` values for an expression.
 
-Since `expression` must be a `BOOL`, the form `COUNTIF(DISTINCT ...)` is
-generally not useful: there is only one distinct value of `TRUE`. So
-`COUNTIF(DISTINCT ...)` will return 1 if `expression` evaluates to `TRUE` for
-one or more input rows, or 0 otherwise.
-Usually when someone wants to combine `COUNTIF` and `DISTINCT`, they
-want to count the number of distinct values of an expression for which a certain
-condition is satisfied. One recipe to achieve this is the following:
+**Definitions**
 
-```sql
-COUNT(DISTINCT IF(condition, expression, NULL))
-```
-
-Note that this uses `COUNT`, not `COUNTIF`; the `IF` part has been moved inside.
-To learn more, see the examples for [`COUNT`](#count).
-
-To learn more about the optional aggregate clauses that you can pass
-into this function, see
-[Aggregate function calls][aggregate-function-calls].
-
-This function can be used with the
-[`AGGREGATION_THRESHOLD` clause][agg-threshold-clause].
++ `expression`: A `BOOL` value that represents the expression to evaluate.
++   `DISTINCT`: To learn more, see
+    [Aggregate function calls][aggregate-function-calls].
++   `HAVING { MAX | MIN }`: To learn more, see
+    [Aggregate function calls][aggregate-function-calls].
++   `OVER`: To learn more, see
+    [Aggregate function calls][aggregate-function-calls].
++   `over_clause`: To learn more, see
+    [Aggregate function calls][aggregate-function-calls].
++   `window_specification`: To learn more, see
+    [Window function calls][window-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
@@ -5635,10 +6241,9 @@ This function can be used with the
 
 [agg-threshold-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#agg_threshold_clause
 
-<!-- mdlint on -->
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
 
-To learn more about the `OVER` clause and how to use it, see
-[Window function calls][window-function-calls].
+<!-- mdlint on -->
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
@@ -5646,13 +6251,15 @@ To learn more about the `OVER` clause and how to use it, see
 
 <!-- mdlint on -->
 
-**Supported Argument Types**
+**Details**
 
-BOOL
+The function signature `COUNTIF(DISTINCT ...)` is generally not useful. If you
+would like to use `DISTINCT`, use `COUNT` with `DISTINCT IF`. For more
+information, see the [`COUNT`][count] function.
 
-**Return Data Types**
+**Return type**
 
-INT64
+`INT64`
 
 **Examples**
 
@@ -5687,6 +6294,8 @@ FROM UNNEST([5, -2, 3, 6, -10, NULL, -7, 4, 0]) AS x;
  | -10  | 2            |
  *------+--------------*/
 ```
+
+[count]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#count
 
 ### `GROUPING`
 
@@ -6484,38 +7093,38 @@ sketches. If you would like to specify precision with sketches, see:
 
 <tr>
   <td><a href="#approx_count_distinct"><code>APPROX_COUNT_DISTINCT</code></a>
-
 </td>
   <td>
     Gets the approximate result for <code>COUNT(DISTINCT expression)</code>.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#approx_quantiles"><code>APPROX_QUANTILES</code></a>
-
 </td>
   <td>
     Gets the approximate quantile boundaries.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#approx_top_count"><code>APPROX_TOP_COUNT</code></a>
-
 </td>
   <td>
     Gets the approximate top elements and their approximate count.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#approx_top_sum"><code>APPROX_TOP_SUM</code></a>
-
 </td>
   <td>
     Gets the approximate top elements and sum, based on the approximate sum
     of an assigned weight.
+    
   </td>
 </tr>
 
@@ -6743,9 +7352,9 @@ APPROX_TOP_SUM(
 
 **Description**
 
-Returns the approximate top elements of `expression`, based on the sum of an
-assigned `weight`. The `number` parameter specifies the number of elements
-returned.
+Returns the approximate top elements of `expression`, ordered by the sum of the
+`weight` values provided for each unique value of `expression`. The `number`
+parameter specifies the number of elements returned.
 
 If the `weight` input is negative or `NaN`, this function returns an error.
 
@@ -6865,7 +7474,6 @@ ZetaSQL supports the following array functions.
 
 <tr>
   <td><a href="#array"><code>ARRAY</code></a>
-
 </td>
   <td>
     Produces an array with one element for each row in a subquery.
@@ -6873,8 +7481,17 @@ ZetaSQL supports the following array functions.
 </tr>
 
 <tr>
-  <td><a href="#array_avg"><code>ARRAY_AVG</code></a>
+  <td><a href="#array_agg"><code>ARRAY_AGG</code></a>
+</td>
+  <td>
+    Gets an array of values.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md">Aggregate functions</a>.
 
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#array_avg"><code>ARRAY_AVG</code></a>
 </td>
   <td>
     Gets the average of non-<code>NULL</code> values in an array.
@@ -6883,7 +7500,6 @@ ZetaSQL supports the following array functions.
 
 <tr>
   <td><a href="#array_concat"><code>ARRAY_CONCAT</code></a>
-
 </td>
   <td>
     Concatenates one or more arrays with the same element type into a
@@ -6892,8 +7508,17 @@ ZetaSQL supports the following array functions.
 </tr>
 
 <tr>
-  <td><a href="#array_filter"><code>ARRAY_FILTER</code></a>
+  <td><a href="#array_concat_agg"><code>ARRAY_CONCAT_AGG</code></a>
+</td>
+  <td>
+    Concatenates arrays and returns a single array as a result.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md">Aggregate functions</a>.
 
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#array_filter"><code>ARRAY_FILTER</code></a>
 </td>
   <td>
     Takes an array, filters out unwanted elements, and returns the results
@@ -6903,7 +7528,6 @@ ZetaSQL supports the following array functions.
 
 <tr>
   <td><a href="#array_first"><code>ARRAY_FIRST</code></a>
-
 </td>
   <td>
     Gets the first element in an array.
@@ -6912,7 +7536,6 @@ ZetaSQL supports the following array functions.
 
 <tr>
   <td><a href="#array_includes"><code>ARRAY_INCLUDES</code></a>
-
 </td>
   <td>
     Checks if there is an element in the array that is
@@ -6922,7 +7545,6 @@ ZetaSQL supports the following array functions.
 
 <tr>
   <td><a href="#array_includes_all"><code>ARRAY_INCLUDES_ALL</code></a>
-
 </td>
   <td>
     Checks if all search values are in an array.
@@ -6931,7 +7553,6 @@ ZetaSQL supports the following array functions.
 
 <tr>
   <td><a href="#array_includes_any"><code>ARRAY_INCLUDES_ANY</code></a>
-
 </td>
   <td>
     Checks if any search values are in an array.
@@ -6940,7 +7561,6 @@ ZetaSQL supports the following array functions.
 
 <tr>
   <td><a href="#array_is_distinct"><code>ARRAY_IS_DISTINCT</code></a>
-
 </td>
   <td>
     Checks if an array contains no repeated elements.
@@ -6949,7 +7569,6 @@ ZetaSQL supports the following array functions.
 
 <tr>
   <td><a href="#array_last"><code>ARRAY_LAST</code></a>
-
 </td>
   <td>
     Gets the last element in an array.
@@ -6958,7 +7577,6 @@ ZetaSQL supports the following array functions.
 
 <tr>
   <td><a href="#array_length"><code>ARRAY_LENGTH</code></a>
-
 </td>
   <td>
     Gets the number of elements in an array.
@@ -6967,7 +7585,6 @@ ZetaSQL supports the following array functions.
 
 <tr>
   <td><a href="#array_max"><code>ARRAY_MAX</code></a>
-
 </td>
   <td>
     Gets the maximum non-<code>NULL</code> value in an array.
@@ -6976,7 +7593,6 @@ ZetaSQL supports the following array functions.
 
 <tr>
   <td><a href="#array_min"><code>ARRAY_MIN</code></a>
-
 </td>
   <td>
     Gets the minimum non-<code>NULL</code> value in an array.
@@ -6985,7 +7601,6 @@ ZetaSQL supports the following array functions.
 
 <tr>
   <td><a href="#array_reverse"><code>ARRAY_REVERSE</code></a>
-
 </td>
   <td>
     Reverses the order of elements in an array.
@@ -6994,7 +7609,6 @@ ZetaSQL supports the following array functions.
 
 <tr>
   <td><a href="#array_slice"><code>ARRAY_SLICE</code></a>
-
 </td>
   <td>
     Produces an array containing zero or more consecutive elements from an
@@ -7004,7 +7618,6 @@ ZetaSQL supports the following array functions.
 
 <tr>
   <td><a href="#array_sum"><code>ARRAY_SUM</code></a>
-
 </td>
   <td>
     Gets the sum of non-<code>NULL</code> values in an array.
@@ -7013,17 +7626,16 @@ ZetaSQL supports the following array functions.
 
 <tr>
   <td><a href="#array_to_string"><code>ARRAY_TO_STRING</code></a>
-
 </td>
   <td>
     Produces a concatenation of the elements in an array as a
     <code>STRING</code> value.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#array_transform"><code>ARRAY_TRANSFORM</code></a>
-
 </td>
   <td>
     Transforms the elements of an array, and returns the results in a new
@@ -7033,7 +7645,6 @@ ZetaSQL supports the following array functions.
 
 <tr>
   <td><a href="#array_zip"><code>ARRAY_ZIP</code></a>
-
 </td>
   <td>
     Combines elements from two to four arrays into one array.
@@ -7042,7 +7653,6 @@ ZetaSQL supports the following array functions.
 
 <tr>
   <td><a href="#flatten"><code>FLATTEN</code></a>
-
 </td>
   <td>
     Flattens arrays of nested data to create a single flat array.
@@ -7051,7 +7661,6 @@ ZetaSQL supports the following array functions.
 
 <tr>
   <td><a href="#generate_array"><code>GENERATE_ARRAY</code></a>
-
 </td>
   <td>
     Generates an array of values in a range.
@@ -7060,19 +7669,124 @@ ZetaSQL supports the following array functions.
 
 <tr>
   <td><a href="#generate_date_array"><code>GENERATE_DATE_ARRAY</code></a>
-
 </td>
   <td>
     Generates an array of dates in a range.
+    
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#generate_range_array"><code>GENERATE_RANGE_ARRAY</code></a>
+</td>
+  <td>
+    Splits a range into an array of subranges.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/range-functions.md">Range functions</a>.
+
   </td>
 </tr>
 
 <tr>
   <td><a href="#generate_timestamp_array"><code>GENERATE_TIMESTAMP_ARRAY</code></a>
-
 </td>
   <td>
     Generates an array of timestamps in a range.
+    
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#json_array"><code>JSON_ARRAY</code></a>
+</td>
+  <td>
+    Creates a JSON array.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#json_array_append"><code>JSON_ARRAY_APPEND</code></a>
+</td>
+  <td>
+    Appends JSON data to the end of a JSON array.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#json_array_insert"><code>JSON_ARRAY_INSERT</code></a>
+</td>
+  <td>
+    Inserts JSON data into a JSON array.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#json_extract_array"><code>JSON_EXTRACT_ARRAY</code></a>
+</td>
+  <td>
+    (Deprecated)
+    Extracts a JSON array and converts it to
+    a SQL <code>ARRAY&lt;JSON-formatted STRING&gt;</code>
+     or
+    <code>ARRAY&lt;JSON&gt;</code>
+    
+    value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#json_extract_string_array"><code>JSON_EXTRACT_STRING_ARRAY</code></a>
+</td>
+  <td>
+    (Deprecated)
+    Extracts a JSON array of scalar values and converts it to a SQL
+    <code>ARRAY&lt;STRING&gt;</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#json_query_array"><code>JSON_QUERY_ARRAY</code></a>
+</td>
+  <td>
+    Extracts a JSON array and converts it to
+    a SQL <code>ARRAY&lt;JSON-formatted STRING&gt;</code>
+     or
+    <code>ARRAY&lt;JSON&gt;</code>
+    
+    value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#json_value_array"><code>JSON_VALUE_ARRAY</code></a>
+</td>
+  <td>
+    Extracts a JSON array of scalar values and converts it to a SQL
+    <code>ARRAY&lt;STRING&gt;</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#range_bucket"><code>RANGE_BUCKET</code></a>
+</td>
+  <td>
+    Scans through a sorted array and returns the 0-based position
+    of a point's upper bound.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/mathematical_functions.md">Mathematical functions</a>.
+
   </td>
 </tr>
 
@@ -8844,6 +9558,8 @@ FROM
  *--------------------------------------------------------------------------*/
 ```
 
+### Supplemental materials
+
 ### OFFSET and ORDINAL
 
 For information about using `OFFSET` and `ORDINAL` with arrays, see
@@ -8874,47 +9590,76 @@ ZetaSQL supports the following bit functions.
   <tbody>
 
 <tr>
-  <td><a href="#bit_cast_to_int32"><code>BIT_CAST_TO_INT32</code></a>
+  <td><a href="#bit_and"><code>BIT_AND</code></a>
+</td>
+  <td>
+    Performs a bitwise AND operation on an expression.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md">Aggregate functions</a>.
 
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#bit_cast_to_int32"><code>BIT_CAST_TO_INT32</code></a>
 </td>
   <td>
     Cast bits to an <code>INT32</code> value.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#bit_cast_to_int64"><code>BIT_CAST_TO_INT64</code></a>
-
 </td>
   <td>
     Cast bits to an <code>INT64</code> value.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#bit_cast_to_uint32"><code>BIT_CAST_TO_UINT32</code></a>
-
 </td>
   <td>
     Cast bits to an <code>UINT32</code> value.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#bit_cast_to_uint64"><code>BIT_CAST_TO_UINT64</code></a>
-
 </td>
   <td>
     Cast bits to an <code>UINT64</code> value.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#bit_count"><code>BIT_COUNT</code></a>
-
 </td>
   <td>
     Gets the number of bits that are set in an input expression.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#bit_or"><code>BIT_OR</code></a>
+</td>
+  <td>
+    Performs a bitwise OR operation on an expression.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md">Aggregate functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#bit_xor"><code>BIT_XOR</code></a>
+</td>
+  <td>
+    Performs a bitwise XOR operation on an expression.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md">Aggregate functions</a>.
+
   </td>
 </tr>
 
@@ -9114,8 +9859,79 @@ learn more about implicit and explicit conversion [here][conversion-rules].
   <tbody>
 
 <tr>
-  <td><a href="#cast"><code>CAST</code></a>
+  <td><a href="#array_to_string"><code>ARRAY_TO_STRING</code></a>
+</td>
+  <td>
+    Produces a concatenation of the elements in an array as a
+    <code>STRING</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/array_functions.md">Array functions</a>.
 
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#bit_cast_to_int32"><code>BIT_CAST_TO_INT32</code></a>
+</td>
+  <td>
+    Cast bits to an <code>INT32</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/bit_functions.md">Bit functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#bit_cast_to_int64"><code>BIT_CAST_TO_INT64</code></a>
+</td>
+  <td>
+    Cast bits to an <code>INT64</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/bit_functions.md">Bit functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#bit_cast_to_uint32"><code>BIT_CAST_TO_UINT32</code></a>
+</td>
+  <td>
+    Cast bits to an <code>UINT32</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/bit_functions.md">Bit functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#bit_cast_to_uint64"><code>BIT_CAST_TO_UINT64</code></a>
+</td>
+  <td>
+    Cast bits to an <code>UINT64</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/bit_functions.md">Bit functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#bool_for_json"><code>BOOL</code></a>
+</td>
+  <td>
+    Converts a JSON boolean to a SQL <code>BOOL</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#bool_array_for_json"><code>BOOL_ARRAY</code></a>
+</td>
+  <td>
+    Converts a JSON array of booleans to a
+    SQL <code>ARRAY&lt;BOOL&gt;</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#cast"><code>CAST</code></a>
 </td>
   <td>
     Convert the results of an expression to the given type.
@@ -9123,8 +9939,309 @@ learn more about implicit and explicit conversion [here][conversion-rules].
 </tr>
 
 <tr>
-  <td><a href="#parse_bignumeric"><code>PARSE_BIGNUMERIC</code></a>
+  <td><a href="#chr"><code>CHR</code></a>
+</td>
+  <td>
+    Converts a Unicode code point to a character.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md">String functions</a>.
 
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#code_points_to_bytes"><code>CODE_POINTS_TO_BYTES</code></a>
+</td>
+  <td>
+    Converts an array of extended ASCII code points to a
+    <code>BYTES</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md">String aggregate functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#code_points_to_string"><code>CODE_POINTS_TO_STRING</code></a>
+</td>
+  <td>
+    Converts an array of extended ASCII code points to a
+    <code>STRING</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md">String aggregate functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#date_from_unix_date"><code>DATE_FROM_UNIX_DATE</code></a>
+</td>
+  <td>
+    Interprets an <code>INT64</code> expression as the number of days
+    since 1970-01-01.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/date_functions.md">Date functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#from_base32"><code>FROM_BASE32</code></a>
+</td>
+  <td>
+    Converts a base32-encoded <code>STRING</code> value into a
+    <code>BYTES</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md">String functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#from_base64"><code>FROM_BASE64</code></a>
+</td>
+  <td>
+    Converts a base64-encoded <code>STRING</code> value into a
+    <code>BYTES</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md">String functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#from_hex"><code>FROM_HEX</code></a>
+</td>
+  <td>
+    Converts a hexadecimal-encoded <code>STRING</code> value into a
+    <code>BYTES</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md">String functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#from_proto"><code>FROM_PROTO</code></a>
+</td>
+  <td>
+    Converts a protocol buffer value into ZetaSQL value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/protocol_buffer_functions.md">Protocol buffer functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#int32_for_json"><code>INT32</code></a>
+</td>
+  <td>
+    Converts a JSON number to a SQL <code>INT32</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#int32_array_for_json"><code>INT32_ARRAY</code></a>
+</td>
+  <td>
+    Converts a JSON number to a SQL <code>ARRAY&lt;INT32&gt;</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#int64_for_json"><code>INT64</code></a>
+</td>
+  <td>
+    Converts a JSON number to a SQL <code>INT64</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#int64_array_for_json"><code>INT64_ARRAY</code></a>
+</td>
+  <td>
+    Converts a JSON array of numbers to a
+    SQL <code>ARRAY&lt;INT64&gt;</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#lax_bool"><code>LAX_BOOL</code></a>
+</td>
+  <td>
+    Attempts to convert a JSON value to a SQL <code>BOOL</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#lax_bool_array"><code>LAX_BOOL_ARRAY</code></a>
+</td>
+  <td>
+    Attempts to convert a JSON value to a
+    SQL <code>ARRAY&lt;BOOL&gt;</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td>
+  
+  <a href="#lax_double"><code>LAX_DOUBLE</code></a>
+
+  
+  </td>
+  <td>
+    Attempts to convert a JSON value to a
+    SQL <code>DOUBLE</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td>
+    
+      <a href="#lax_double_array"><code>LAX_DOUBLE_ARRAY</code></a>
+
+    
+  </td>
+  <td>
+    Attempts to convert a JSON value to a
+    SQL <code>ARRAY&lt;DOUBLE&gt;</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td>
+    
+      <a href="#lax_float"><code>LAX_FLOAT</code></a>
+
+    
+  </td>
+  <td>
+    Attempts to convert a JSON value to a
+    SQL <code>FLOAT</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td>
+    
+      <a href="#lax_float_array"><code>LAX_FLOAT_ARRAY</code></a>
+
+    
+  </td>
+  <td>
+    Attempts to convert a JSON value to a
+    SQL <code>ARRAY&gt;FLOAT&lt;</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#lax_int32"><code>LAX_INT32</code></a>
+</td>
+  <td>
+    Attempts to convert a JSON value to a SQL <code>INT32</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#lax_int32_array"><code>LAX_INT32_ARRAY</code></a>
+</td>
+  <td>
+    Attempts to convert a JSON value to a
+    SQL <code>ARRAY&lt;INT32&gt;</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#lax_int64"><code>LAX_INT64</code></a>
+</td>
+  <td>
+    Attempts to convert a JSON value to a SQL <code>INT64</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#lax_int64_array"><code>LAX_INT64_ARRAY</code></a>
+</td>
+  <td>
+    Attempts to convert a JSON value to a
+    SQL <code>ARRAY&lt;INT64&gt;</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#lax_string"><code>LAX_STRING</code></a>
+</td>
+  <td>
+    Attempts to convert a JSON value to a SQL <code>STRING</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#lax_string_array"><code>LAX_STRING_ARRAY</code></a>
+</td>
+  <td>
+    Attempts to convert a JSON value to a
+    SQL <code>ARRAY&lt;STRING&gt;</code>value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#lax_uint32"><code>LAX_UINT32</code></a>
+</td>
+  <td>
+    Attempts to convert a JSON value to a SQL <code>UINT32</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#lax_uint64"><code>LAX_UINT64</code></a>
+</td>
+  <td>
+    Attempts to convert a JSON value to a SQL <code>UINT64</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#lax_uint64_array"><code>LAX_UINT64_ARRAY</code></a>
+</td>
+  <td>
+    Attempts to convert a JSON value to a
+    SQL <code>ARRAY&lt;UINT64&gt;</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#parse_bignumeric"><code>PARSE_BIGNUMERIC</code></a>
 </td>
   <td>
     Converts a <code>STRING</code> value to a <code>BIGNUMERIC</code> value.
@@ -9132,8 +10249,38 @@ learn more about implicit and explicit conversion [here][conversion-rules].
 </tr>
 
 <tr>
-  <td><a href="#parse_numeric"><code>PARSE_NUMERIC</code></a>
+  <td><a href="#parse_date"><code>PARSE_DATE</code></a>
+</td>
+  <td>
+    Converts a <code>STRING</code> value to a <code>DATE</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/date_functions.md">Date functions</a>.
 
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#parse_datetime"><code>PARSE_DATETIME</code></a>
+</td>
+  <td>
+    Converts a <code>STRING</code> value to a <code>DATETIME</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/datetime_functions.md">Datetime functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#parse_json"><code>PARSE_JSON</code></a>
+</td>
+  <td>
+    Converts a JSON-formatted <code>STRING</code> value to a
+    <code>JSON</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#parse_numeric"><code>PARSE_NUMERIC</code></a>
 </td>
   <td>
     Converts a <code>STRING</code> value to a <code>NUMERIC</code> value.
@@ -9141,12 +10288,265 @@ learn more about implicit and explicit conversion [here][conversion-rules].
 </tr>
 
 <tr>
-  <td><a href="#safe_casting"><code>SAFE_CAST</code></a>
+  <td><a href="#parse_time"><code>PARSE_TIME</code></a>
+</td>
+  <td>
+    Converts a <code>STRING</code> value to a <code>TIME</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/time_functions.md">Time functions</a>.
 
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#parse_timestamp"><code>PARSE_TIMESTAMP</code></a>
+</td>
+  <td>
+    Converts a <code>STRING</code> value to a <code>TIMESTAMP</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md">Timestamp functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#safe_casting"><code>SAFE_CAST</code></a>
 </td>
   <td>
     Similar to the <code>CAST</code> function, but returns <code>NULL</code>
     when a runtime error is produced.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#safe_convert_bytes_to_string"><code>SAFE_CONVERT_BYTES_TO_STRING</code></a>
+</td>
+  <td>
+    Converts a <code>BYTES</code> value to a <code>STRING</code> value and
+    replace any invalid UTF-8 characters with the Unicode replacement character,
+    <code>U+FFFD</code>.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md">String functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#string_for_json"><code>STRING</code> (JSON)</a>
+</td>
+  <td>
+    Converts a JSON string to a SQL <code>STRING</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#string_array_for_json"><code>STRING_ARRAY</code></a>
+</td>
+  <td>
+    Converts a JSON array of strings to a SQL <code>ARRAY&lt;STRING&gt;</code>
+    value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#string"><code>STRING</code> (Timestamp)</a>
+</td>
+  <td>
+    Converts a <code>TIMESTAMP</code> value to a <code>STRING</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md">Timestamp functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#timestamp_micros"><code>TIMESTAMP_MICROS</code></a>
+</td>
+  <td>
+    Converts the number of microseconds since
+    1970-01-01 00:00:00 UTC to a <code>TIMESTAMP</code>.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md">Timestamp functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#timestamp_millis"><code>TIMESTAMP_MILLIS</code></a>
+</td>
+  <td>
+    Converts the number of milliseconds since
+    1970-01-01 00:00:00 UTC to a <code>TIMESTAMP</code>.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md">Timestamp functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#timestamp_seconds"><code>TIMESTAMP_SECONDS</code></a>
+</td>
+  <td>
+    Converts the number of seconds since
+    1970-01-01 00:00:00 UTC to a <code>TIMESTAMP</code>.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md">Timestamp functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#to_base32"><code>TO_BASE32</code></a>
+</td>
+  <td>
+    Converts a <code>BYTES</code> value to a
+    base32-encoded <code>STRING</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md">String functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#to_base64"><code>TO_BASE64</code></a>
+</td>
+  <td>
+    Converts a <code>BYTES</code> value to a
+    base64-encoded <code>STRING</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md">String functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#to_code_points"><code>TO_CODE_POINTS</code></a>
+</td>
+  <td>
+    Converts a <code>STRING</code> or <code>BYTES</code> value into an array of
+    extended ASCII code points.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md">String functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#to_hex"><code>TO_HEX</code></a>
+</td>
+  <td>
+    Converts a <code>BYTES</code> value to a
+    hexadecimal <code>STRING</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/string_functions.md">String functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#to_json"><code>TO_JSON</code></a>
+</td>
+  <td>
+    Converts a SQL value to a JSON value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#to_json_string"><code>TO_JSON_STRING</code></a>
+</td>
+  <td>
+    Converts a SQL value to a JSON-formatted <code>STRING</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#to_proto"><code>TO_PROTO</code></a>
+</td>
+  <td>
+    Converts a ZetaSQL value into a protocol buffer value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/protocol_buffer_functions.md">Protocol buffer functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#uint32_for_json"><code>UINT32</code></a>
+</td>
+  <td>
+    Converts a JSON number to a SQL <code>UINT32</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#uint32_array_for_json"><code>UINT32_ARRAY</code></a>
+</td>
+  <td>
+    Converts a JSON number to a
+    SQL <code>ARRAY&lt;UINT32&gt;</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#uint64_for_json"><code>UINT64</code></a>
+</td>
+  <td>
+    Converts a JSON number to a SQL <code>UINT64</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#uint64_array_for_json"><code>UINT64_ARRAY</code></a>
+</td>
+  <td>
+    Converts a JSON number to a SQL <code>ARRAY&lt;UINT64&gt;</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#unix_date"><code>UNIX_DATE</code></a>
+</td>
+  <td>
+    Converts a <code>DATE</code> value to the number of days since 1970-01-01.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/date_functions.md">Date functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#unix_micros"><code>UNIX_MICROS</code></a>
+</td>
+  <td>
+    Converts a <code>TIMESTAMP</code> value to the number of microseconds since
+    1970-01-01 00:00:00 UTC.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md">Timestamp functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#unix_millis"><code>UNIX_MILLIS</code></a>
+</td>
+  <td>
+    Converts a <code>TIMESTAMP</code> value to the number of milliseconds
+    since 1970-01-01 00:00:00 UTC.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md">Timestamp functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#unix_seconds"><code>UNIX_SECONDS</code></a>
+</td>
+  <td>
+    Converts a <code>TIMESTAMP</code> value to the number of seconds since
+    1970-01-01 00:00:00 UTC.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md">Timestamp functions</a>.
+
   </td>
 </tr>
 
@@ -10998,135 +12398,7 @@ are replaced with the unicode replacement character, `U+FFFD`.
 
 [formatting-syntax]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#formatting_syntax
 
-### Other conversion functions 
-<a id="other_conv_functions"></a>
-
-You can learn more about these conversion functions elsewhere in the
-documentation:
-
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-Conversion function                    | From               | To
--------                                | --------           | -------
-[ARRAY_TO_STRING][ARRAY_STRING]        | ARRAY              | STRING
-[BIT_CAST_TO_INT32][BIT_I32]           | UINT32             | INT32
-[BIT_CAST_TO_INT64][BIT_I64]           | UINT64             | INT64
-[BIT_CAST_TO_UINT32][BIT_U32]          | INT32              | UINT32
-[BIT_CAST_TO_UINT64][BIT_U64]          | INT64              | UINT64
-[BOOL][JSON_TO_BOOL]                   | JSON               | BOOL
-[DATE][T_DATE]                         | Various data types | DATE
-[DATE_FROM_UNIX_DATE][T_DATE_FROM_UNIX_DATE] | INT64        | DATE
-[DATETIME][T_DATETIME]                 | Various data types | DATETIME
-[DOUBLE][JSON_TO_DOUBLE] | JSON            | DOUBLE
-[FROM_BASE32][F_B32]                   | STRING             | BYTEs
-[FROM_BASE64][F_B64]                   | STRING             | BYTES
-[FROM_HEX][F_HEX]                      | STRING             | BYTES
-[FROM_PROTO][F_PROTO]                  | PROTO value        | Most data types
-[INT64][JSON_TO_INT64]                 | JSON               | INT64
-[PARSE_DATE][P_DATE]                   | STRING             | DATE
-[PARSE_DATETIME][P_DATETIME]           | STRING             | DATETIME
-[PARSE_JSON][P_JSON]                   | STRING             | JSON
-[PARSE_TIME][P_TIME]                   | STRING             | TIME
-[PARSE_TIMESTAMP][P_TIMESTAMP]         | STRING             | TIMESTAMP
-[SAFE_CONVERT_BYTES_TO_STRING][SC_BTS] | BYTES              | STRING
-[STRING][STRING_TIMESTAMP]             | TIMESTAMP          | STRING
-[STRING][JSON_TO_STRING]               | JSON               | STRING
-[TIME][T_TIME]                         | Various data types | TIME
-[TIMESTAMP][T_TIMESTAMP]               | Various data types | TIMESTAMP
-[TIMESTAMP_FROM_UNIX_MICROS][T_TIMESTAMP_FROM_UNIX_MICROS]   | INT64               | TIMESTAMP
-[TIMESTAMP_FROM_UNIX_MILLIS][T_TIMESTAMP_FROM_UNIX_MILLIS]   | INT64               | TIMESTAMP
-[TIMESTAMP_FROM_UNIX_SECONDS][T_TIMESTAMP_FROM_UNIX_SECONDS] | INT64               | TIMESTAMP
-[TIMESTAMP_MICROS][T_TIMESTAMP_MICROS] | INT64              | TIMESTAMP
-[TIMESTAMP_MILLIS][T_TIMESTAMP_MILLIS] | INT64              | TIMESTAMP
-[TIMESTAMP_SECONDS][T_TIMESTAMP_SECONDS] | INT64            | TIMESTAMP
-[TO_BASE32][T_B32]                     | BYTES              | STRING
-[TO_BASE64][T_B64]                     | BYTES              | STRING
-[TO_HEX][T_HEX]                        | BYTES              | STRING
-[TO_JSON][T_JSON]                      | All data types     | JSON
-[TO_JSON_STRING][T_JSON_STRING]        | All data types     | STRING
-[TO_PROTO][T_PROTO]                    | Most data types    | PROTO value
-
-<!-- mdlint on -->
-
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
 [conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md
-
-[ARRAY_STRING]: #array_to_string
-
-[BIT_I32]: #bit_cast_to_int32
-
-[BIT_U32]: #bit_cast_to_uint32
-
-[BIT_I64]: #bit_cast_to_int64
-
-[BIT_U64]: #bit_cast_to_uint64
-
-[F_B32]: #from_base32
-
-[F_B64]: #from_base64
-
-[F_HEX]: #from_hex
-
-[F_PROTO]: #from_proto
-
-[P_DATE]: #parse_date
-
-[P_DATETIME]: #parse_datetime
-
-[P_JSON]: #parse_json
-
-[P_TIME]: #parse_time
-
-[P_TIMESTAMP]: #parse_timestamp
-
-[SC_BTS]: #safe_convert_bytes_to_string
-
-[STRING_TIMESTAMP]: #string
-
-[T_B32]: #to_base32
-
-[T_B64]: #to_base64
-
-[T_HEX]: #to_hex
-
-[T_JSON]: #to_json
-
-[T_JSON_STRING]: #to_json_string
-
-[T_PROTO]: #to_proto
-
-[T_DATE]: #date
-
-[T_DATETIME]: #datetime
-
-[T_TIMESTAMP]: #timestamp
-
-[T_TIME]: #time
-
-[JSON_TO_BOOL]: #bool_for_json
-
-[JSON_TO_STRING]: #string_for_json
-
-[JSON_TO_INT64]: #int64_for_json
-
-[JSON_TO_DOUBLE]: #double_for_json
-
-[T_DATE_FROM_UNIX_DATE]: #date_from_unix_date
-
-[T_TIMESTAMP_FROM_UNIX_MICROS]: #timestamp_from_unix_micros
-
-[T_TIMESTAMP_FROM_UNIX_MILLIS]: #timestamp_from_unix_millis
-
-[T_TIMESTAMP_FROM_UNIX_SECONDS]: #timestamp_from_unix_seconds
-
-[T_TIMESTAMP_MICROS]: #timestamp_micros
-
-[T_TIMESTAMP_MILLIS]: #timestamp_millis
-
-[T_TIMESTAMP_SECONDS]: #timestamp_seconds
-
-<!-- mdlint on -->
 
 ## Date functions
 
@@ -11145,7 +12417,6 @@ ZetaSQL supports the following date functions.
 
 <tr>
   <td><a href="#current_date"><code>CURRENT_DATE</code></a>
-
 </td>
   <td>
     Returns the current date as a <code>DATE</code> value.
@@ -11154,7 +12425,6 @@ ZetaSQL supports the following date functions.
 
 <tr>
   <td><a href="#date"><code>DATE</code></a>
-
 </td>
   <td>
     Constructs a <code>DATE</code> value.
@@ -11163,7 +12433,6 @@ ZetaSQL supports the following date functions.
 
 <tr>
   <td><a href="#date_add"><code>DATE_ADD</code></a>
-
 </td>
   <td>
     Adds a specified time interval to a <code>DATE</code> value.
@@ -11172,7 +12441,6 @@ ZetaSQL supports the following date functions.
 
 <tr>
   <td><a href="#date_diff"><code>DATE_DIFF</code></a>
-
 </td>
   <td>
     Gets the number of unit boundaries between two <code>DATE</code> values
@@ -11182,17 +12450,16 @@ ZetaSQL supports the following date functions.
 
 <tr>
   <td><a href="#date_from_unix_date"><code>DATE_FROM_UNIX_DATE</code></a>
-
 </td>
   <td>
     Interprets an <code>INT64</code> expression as the number of days
     since 1970-01-01.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#date_sub"><code>DATE_SUB</code></a>
-
 </td>
   <td>
     Subtracts a specified time interval from a <code>DATE</code> value.
@@ -11201,16 +12468,18 @@ ZetaSQL supports the following date functions.
 
 <tr>
   <td><a href="#date_trunc"><code>DATE_TRUNC</code></a>
-
 </td>
   <td>
-    Truncates a <code>DATE</code> value.
+    
+    Truncates a <code>DATE</code>, <code>DATETIME</code>, or
+    <code>TIMESTAMP</code> value at a particular
+    granularity.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#extract"><code>EXTRACT</code></a>
-
 </td>
   <td>
     Extracts part of a date from a <code>DATE</code> value.
@@ -11219,7 +12488,6 @@ ZetaSQL supports the following date functions.
 
 <tr>
   <td><a href="#format_date"><code>FORMAT_DATE</code></a>
-
 </td>
   <td>
     Formats a <code>DATE</code> value according to a specified format string.
@@ -11227,8 +12495,17 @@ ZetaSQL supports the following date functions.
 </tr>
 
 <tr>
-  <td><a href="#last_day"><code>LAST_DAY</code></a>
+  <td><a href="#generate_date_array"><code>GENERATE_DATE_ARRAY</code></a>
+</td>
+  <td>
+    Generates an array of dates in a range.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/array_functions.md">Array functions</a>.
 
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#last_day"><code>LAST_DAY</code></a>
 </td>
   <td>
     Gets the last day in a specified time period that contains a
@@ -11238,19 +12515,19 @@ ZetaSQL supports the following date functions.
 
 <tr>
   <td><a href="#parse_date"><code>PARSE_DATE</code></a>
-
 </td>
   <td>
     Converts a <code>STRING</code> value to a <code>DATE</code> value.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#unix_date"><code>UNIX_DATE</code></a>
-
 </td>
   <td>
     Converts a <code>DATE</code> value to the number of days since 1970-01-01.
+    
   </td>
 </tr>
 
@@ -11624,49 +12901,81 @@ SELECT DATE_SUB(DATE '2008-12-25', INTERVAL 5 DAY) AS five_days_ago;
 ### `DATE_TRUNC`
 
 ```sql
-DATE_TRUNC(date_expression, granularity)
+DATE_TRUNC(date_value, date_granularity)
+```
+
+```sql
+DATE_TRUNC(datetime_value, datetime_granularity)
+```
+
+```sql
+DATE_TRUNC(timestamp_value, timestamp_granularity[, time_zone])
 ```
 
 **Description**
 
-Truncates a `DATE` value at a particular time granularity. The `DATE` value
-is always rounded to the beginning of `granularity`.
+Truncates a `DATE`, `DATETIME`, or `TIMESTAMP` value at a particular
+granularity.
 
 **Definitions**
 
-+ `date_expression`: The `DATE` value to truncate.
-+ `granularity`: The date part that represents the granularity. If
-  you passed in a `DATE` value for the first argument, `granularity` can
-  be:
++ `date_value`: A `DATE` value to truncate.
++ `date_granularity`: The truncation granularity for a `DATE` value.
+  [Date granularities][date-trunc-granularity-date] can be used.
++ `datetime_value`: A `DATETIME` value to truncate.
++ `datetime_granularity`: The truncation granularity for a `DATETIME` value.
+  [Date granularities][date-trunc-granularity-date] and
+  [time granularities][date-trunc-granularity-time] can be used.
++ `timestamp_value`: A `TIMESTAMP` value to truncate.
++ `timestamp_granularity`: The truncation granularity for a `TIMESTAMP` value.
+  [Date granularities][date-trunc-granularity-date] and
+  [time granularities][date-trunc-granularity-time] can be used.
++ `time_zone`: A time zone to use with the `TIMESTAMP` value.
+  [Time zone parts][date-time-zone-parts] can be used.
+  Use this argument if you want to use a time zone other than
+  the default time zone, which is implementation defined, as part of the
+  truncate operation.
+
+      Note: When truncating a timestamp to `MINUTE`
+    or `HOUR` parts, this function determines the civil time of the
+    timestamp in the specified (or default) time zone
+    and subtracts the minutes and seconds (when truncating to `HOUR`) or the
+    seconds (when truncating to `MINUTE`) from that timestamp.
+    While this provides intuitive results in most cases, the result is
+    non-intuitive near daylight savings transitions that are not hour-aligned.
+
+<a id="date_trunc_granularity_date"></a>
+
+**Date granularity definitions**
 
   + `DAY`: The day in the Gregorian calendar year that contains the
-    `DATE` value.
+    value to truncate.
 
   + `WEEK`: The first day in the week that contains the
-    `DATE` value. Weeks begin on Sundays. `WEEK` is equivalent to
+    value to truncate. Weeks begin on Sundays. `WEEK` is equivalent to
     `WEEK(SUNDAY)`.
 
   + `WEEK(WEEKDAY)`: The first day in the week that contains the
-    `DATE` value. Weeks begin on `WEEKDAY`. `WEEKDAY` must be one of the
+    value to truncate. Weeks begin on `WEEKDAY`. `WEEKDAY` must be one of the
      following: `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`, `FRIDAY`,
      or `SATURDAY`.
 
   + `ISOWEEK`: The first day in the [ISO 8601 week][ISO-8601-week] that contains
-    the `DATE` value. The ISO week begins on
+    the value to truncate. The ISO week begins on
     Monday. The first ISO week of each ISO year contains the first Thursday of the
     corresponding Gregorian calendar year.
 
   + `MONTH`: The first day in the month that contains the
-    `DATE` value.
+    value to truncate.
 
   + `QUARTER`: The first day in the quarter that contains the
-    `DATE` value.
+    value to truncate.
 
   + `YEAR`: The first day in the year that contains the
-    `DATE` value.
+    value to truncate.
 
   + `ISOYEAR`: The first day in the [ISO 8601][ISO-8601] week-numbering year
-    that contains the `DATE` value. The ISO year is the
+    that contains the value to truncate. The ISO year is the
     Monday of the first week where Thursday belongs to the corresponding
     Gregorian calendar year.
 
@@ -11678,9 +12987,44 @@ is always rounded to the beginning of `granularity`.
 
 <!-- mdlint on -->
 
+<a id="date_trunc_granularity_time"></a>
+
+**Time granularity definitions**
+
+  + `NANOSECOND`: If used, nothing is truncated from the value.
+
+  + `MICROSECOND`: The nearest lesser than or equal microsecond.
+
+  + `MILLISECOND`: The nearest lesser than or equal millisecond.
+
+  + `SECOND`: The nearest lesser than or equal second.
+
+  + `MINUTE`: The nearest lesser than or equal minute.
+
+  + `HOUR`: The nearest lesser than or equal hour.
+
+<a id="date_time_zone_parts"></a>
+
+**Time zone part definitions**
+
++ `MINUTE`
++ `HOUR`
++ `DAY`
++ `WEEK`
++ `WEEK(<WEEKDAY>)`
++ `ISOWEEK`
++ `MONTH`
++ `QUARTER`
++ `YEAR`
++ `ISOYEAR`
+
+**Details**
+
+The resulting value is always rounded to the beginning of `granularity`.
+
 **Return Data Type**
 
-`DATE`
+The same data type as the first argument passed into this function.
 
 **Examples**
 
@@ -11728,6 +13072,12 @@ SELECT
  | 2014-12-29       | 2015           |
  *------------------+----------------*/
 ```
+
+[date-trunc-granularity-date]: #date_trunc_granularity_date
+
+[date-trunc-granularity-time]: #date_trunc_granularity_time
+
+[date-time-zone-parts]: #date_time_zone_parts
 
 ### `EXTRACT`
 
@@ -11848,14 +13198,17 @@ FORMAT_DATE(format_string, date_expr)
 
 **Description**
 
-Formats the `date_expr` according to the specified `format_string`.
+Formats a `DATE` value according to a specified format string.
 
-See [Supported Format Elements For DATE][date-format-elements]
-for a list of format elements that this function supports.
+**Definitions**
+
++   `format_string`: A `STRING` value that contains the
+    [format elements][date-format-elements] to use with `date_expr`.
++   `date_expr`: A `DATE` value that represents the date to format.
 
 **Return Data Type**
 
-STRING
+`STRING`
 
 **Examples**
 
@@ -11995,14 +13348,19 @@ PARSE_DATE(format_string, date_string)
 
 **Description**
 
-Converts a [string representation of date][date-format] to a
-`DATE` object.
+Converts a `STRING` value to a `DATE` value.
 
-`format_string` contains the [format elements][date-format-elements]
-that define how `date_string` is formatted. Each element in
-`date_string` must have a corresponding element in `format_string`. The
-location of each element in `format_string` must match the location of
-each element in `date_string`.
+**Definitions**
+
++   `format_string`: A `STRING` value that contains the
+    [format elements][date-format-elements] to use with `date_string`.
++   `date_string`: A `STRING` value that represents the date to parse.
+
+**Details**
+
+Each element in `date_string` must have a corresponding element in
+`format_string`. The location of each element in `format_string` must match the
+location of each element in `date_string`.
 
 ```sql
 -- This works because elements on both sides match.
@@ -12020,20 +13378,20 @@ SELECT PARSE_DATE('%F', '2000-12-30');
 
 When using `PARSE_DATE`, keep the following in mind:
 
-+ **Unspecified fields.** Any unspecified field is initialized from `1970-01-01`.
-+ **Case insensitivity.** Names, such as `Monday`, `February`, and so on, are
++ Unspecified fields. Any unspecified field is initialized from `1970-01-01`.
++ Case insensitivity. Names, such as `Monday`, `February`, and so on, are
   case insensitive.
-+ **Whitespace.** One or more consecutive white spaces in the format string
++ Whitespace. One or more consecutive white spaces in the format string
   matches zero or more consecutive white spaces in the date string. In
   addition, leading and trailing white spaces in the date string are always
   allowed -- even if they are not in the format string.
-+ **Format precedence.** When two (or more) format elements have overlapping
++ Format precedence. When two (or more) format elements have overlapping
   information (for example both `%F` and `%Y` affect the year), the last one
   generally overrides any earlier ones.
 
 **Return Data Type**
 
-DATE
+`DATE`
 
 **Examples**
 
@@ -12108,7 +13466,6 @@ ZetaSQL supports the following datetime functions.
 
 <tr>
   <td><a href="#current_datetime"><code>CURRENT_DATETIME</code></a>
-
 </td>
   <td>
     Returns the current date and time as a <code>DATETIME</code> value.
@@ -12117,7 +13474,6 @@ ZetaSQL supports the following datetime functions.
 
 <tr>
   <td><a href="#datetime"><code>DATETIME</code></a>
-
 </td>
   <td>
     Constructs a <code>DATETIME</code> value.
@@ -12126,7 +13482,6 @@ ZetaSQL supports the following datetime functions.
 
 <tr>
   <td><a href="#datetime_add"><code>DATETIME_ADD</code></a>
-
 </td>
   <td>
     Adds a specified time interval to a <code>DATETIME</code> value.
@@ -12135,7 +13490,6 @@ ZetaSQL supports the following datetime functions.
 
 <tr>
   <td><a href="#datetime_diff"><code>DATETIME_DIFF</code></a>
-
 </td>
   <td>
     Gets the number of unit boundaries between two <code>DATETIME</code> values
@@ -12145,7 +13499,6 @@ ZetaSQL supports the following datetime functions.
 
 <tr>
   <td><a href="#datetime_sub"><code>DATETIME_SUB</code></a>
-
 </td>
   <td>
     Subtracts a specified time interval from a <code>DATETIME</code> value.
@@ -12154,16 +13507,18 @@ ZetaSQL supports the following datetime functions.
 
 <tr>
   <td><a href="#datetime_trunc"><code>DATETIME_TRUNC</code></a>
-
 </td>
   <td>
-    Truncates a <code>DATETIME</code> value.
+    
+    Truncates a <code>DATETIME</code> or
+    <code>TIMESTAMP</code> value at a particular
+    granularity.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#extract"><code>EXTRACT</code></a>
-
 </td>
   <td>
     Extracts part of a date and time from a <code>DATETIME</code> value.
@@ -12172,7 +13527,6 @@ ZetaSQL supports the following datetime functions.
 
 <tr>
   <td><a href="#format_datetime"><code>FORMAT_DATETIME</code></a>
-
 </td>
   <td>
     Formats a <code>DATETIME</code> value according to a specified
@@ -12182,7 +13536,6 @@ ZetaSQL supports the following datetime functions.
 
 <tr>
   <td><a href="#last_day"><code>LAST_DAY</code></a>
-
 </td>
   <td>
     Gets the last day in a specified time period that contains a
@@ -12192,10 +13545,10 @@ ZetaSQL supports the following datetime functions.
 
 <tr>
   <td><a href="#parse_datetime"><code>PARSE_DATETIME</code></a>
-
 </td>
   <td>
     Converts a <code>STRING</code> value to a <code>DATETIME</code> value.
+    
   </td>
 </tr>
 
@@ -12523,20 +13876,87 @@ SELECT
 ### `DATETIME_TRUNC`
 
 ```sql
-DATETIME_TRUNC(datetime_expression, granularity)
+DATETIME_TRUNC(datetime_value, datetime_granularity)
+```
+
+```sql
+DATETIME_TRUNC(timestamp_value, timestamp_granularity[, time_zone])
 ```
 
 **Description**
 
-Truncates a `DATETIME` value at a particular time granularity. The `DATETIME`
-value is always rounded to the beginning of `granularity`.
+Truncates a `DATETIME` or `TIMESTAMP` value at a particular granularity.
 
 **Definitions**
 
-+ `datetime_expression`: The `DATETIME` value to truncate.
-+ `granularity`: The datetime part that represents the granularity. If
-  you passed in a `DATETIME` value for the first argument, `granularity` can
-  be:
++ `datetime_value`: A `DATETIME` value to truncate.
++ `datetime_granularity`: The truncation granularity for a `DATETIME` value.
+  [Date granularities][datetime-trunc-granularity-date] and
+  [time granularities][datetime-trunc-granularity-time] can be used.
++ `timestamp_value`: A `TIMESTAMP` value to truncate.
++ `timestamp_granularity`: The truncation granularity for a `TIMESTAMP` value.
+  [Date granularities][datetime-trunc-granularity-date] and
+  [time granularities][datetime-trunc-granularity-time] can be used.
++ `time_zone`: A time zone to use with the `TIMESTAMP` value.
+  [Time zone parts][datetime-time-zone-parts] can be used.
+  Use this argument if you want to use a time zone other than
+  the default time zone, which is implementation defined, as part of the
+  truncate operation.
+
+      Note: When truncating a timestamp to `MINUTE`
+    or `HOUR` parts, this function determines the civil time of the
+    timestamp in the specified (or default) time zone
+    and subtracts the minutes and seconds (when truncating to `HOUR`) or the
+    seconds (when truncating to `MINUTE`) from that timestamp.
+    While this provides intuitive results in most cases, the result is
+    non-intuitive near daylight savings transitions that are not hour-aligned.
+
+<a id="datetime_trunc_granularity_date"></a>
+
+**Date granularity definitions**
+
+  + `DAY`: The day in the Gregorian calendar year that contains the
+    value to truncate.
+
+  + `WEEK`: The first day in the week that contains the
+    value to truncate. Weeks begin on Sundays. `WEEK` is equivalent to
+    `WEEK(SUNDAY)`.
+
+  + `WEEK(WEEKDAY)`: The first day in the week that contains the
+    value to truncate. Weeks begin on `WEEKDAY`. `WEEKDAY` must be one of the
+     following: `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`, `FRIDAY`,
+     or `SATURDAY`.
+
+  + `ISOWEEK`: The first day in the [ISO 8601 week][ISO-8601-week] that contains
+    the value to truncate. The ISO week begins on
+    Monday. The first ISO week of each ISO year contains the first Thursday of the
+    corresponding Gregorian calendar year.
+
+  + `MONTH`: The first day in the month that contains the
+    value to truncate.
+
+  + `QUARTER`: The first day in the quarter that contains the
+    value to truncate.
+
+  + `YEAR`: The first day in the year that contains the
+    value to truncate.
+
+  + `ISOYEAR`: The first day in the [ISO 8601][ISO-8601] week-numbering year
+    that contains the value to truncate. The ISO year is the
+    Monday of the first week where Thursday belongs to the corresponding
+    Gregorian calendar year.
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
+
+[ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
+
+<!-- mdlint on -->
+
+<a id="datetime_trunc_granularity_time"></a>
+
+**Time granularity definitions**
 
   + `NANOSECOND`: If used, nothing is truncated from the value.
 
@@ -12550,48 +13970,28 @@ value is always rounded to the beginning of `granularity`.
 
   + `HOUR`: The nearest lesser than or equal hour.
 
-  + `DAY`: The day in the Gregorian calendar year that contains the
-    `DATETIME` value.
+<a id="datetime_time_zone_parts"></a>
 
-  + `WEEK`: The first day in the week that contains the
-    `DATETIME` value. Weeks begin on Sundays. `WEEK` is equivalent to
-    `WEEK(SUNDAY)`.
+**Time zone part definitions**
 
-  + `WEEK(WEEKDAY)`: The first day in the week that contains the
-    `DATETIME` value. Weeks begin on `WEEKDAY`. `WEEKDAY` must be one of the
-     following: `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`, `FRIDAY`,
-     or `SATURDAY`.
++ `MINUTE`
++ `HOUR`
++ `DAY`
++ `WEEK`
++ `WEEK(<WEEKDAY>)`
++ `ISOWEEK`
++ `MONTH`
++ `QUARTER`
++ `YEAR`
++ `ISOYEAR`
 
-  + `ISOWEEK`: The first day in the [ISO 8601 week][ISO-8601-week] that contains
-    the `DATETIME` value. The ISO week begins on
-    Monday. The first ISO week of each ISO year contains the first Thursday of the
-    corresponding Gregorian calendar year.
+**Details**
 
-  + `MONTH`: The first day in the month that contains the
-    `DATETIME` value.
-
-  + `QUARTER`: The first day in the quarter that contains the
-    `DATETIME` value.
-
-  + `YEAR`: The first day in the year that contains the
-    `DATETIME` value.
-
-  + `ISOYEAR`: The first day in the [ISO 8601][ISO-8601] week-numbering year
-    that contains the `DATETIME` value. The ISO year is the
-    Monday of the first week where Thursday belongs to the corresponding
-    Gregorian calendar year.
-
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
-
-[ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
-
-<!-- mdlint on -->
+The resulting value is always rounded to the beginning of `granularity`.
 
 **Return Data Type**
 
-`DATETIME`
+The same data type as the first argument passed into this function.
 
 **Examples**
 
@@ -12643,6 +14043,12 @@ SELECT
  | 2014-12-29 00:00:00 | 2015           |
  *---------------------+----------------*/
 ```
+
+[datetime-trunc-granularity-date]: #datetime_trunc_granularity_date
+
+[datetime-trunc-granularity-time]: #datetime_trunc_granularity_time
+
+[datetime-time-zone-parts]: #datetime_time_zone_parts
 
 ### `EXTRACT`
 
@@ -12772,14 +14178,20 @@ FROM table;
 ### `FORMAT_DATETIME`
 
 ```sql
-FORMAT_DATETIME(format_string, datetime_expression)
+FORMAT_DATETIME(format_string, datetime_expr)
 ```
 
 **Description**
 
-Formats a `DATETIME` object according to the specified `format_string`. See
-[Supported Format Elements For DATETIME][datetime-format-elements]
-for a list of format elements that this function supports.
+Formats a `DATETIME` value according to a specified format string.
+
+**Definitions**
+
++   `format_string`: A `STRING` value that contains the
+    [format elements][datetime-format-elements] to use with
+    `datetime_expr`.
++   `datetime_expr`: A `DATETIME` value that represents the date and time to
+    format.
 
 **Return Data Type**
 
@@ -12929,14 +14341,20 @@ PARSE_DATETIME(format_string, datetime_string)
 
 **Description**
 
-Converts a [string representation of a datetime][datetime-format] to a
-`DATETIME` object.
+Converts a `STRING` value to a `DATETIME` value.
 
-`format_string` contains the [format elements][datetime-format-elements]
-that define how `datetime_string` is formatted. Each element in
-`datetime_string` must have a corresponding element in `format_string`. The
-location of each element in `format_string` must match the location of
-each element in `datetime_string`.
+**Definitions**
+
++   `format_string`: A `STRING` value that contains the
+    [format elements][datetime-format-elements] to use with `datetime_string`.
++   `datetime_string`: A `STRING` value that represents the date and time to
+    parse.
+
+**Details**
+
+Each element in `datetime_string` must have a corresponding element in
+`format_string`. The location of each element in `format_string` must match the
+location of each element in `datetime_string`.
 
 ```sql
 -- This works because elements on both sides match.
@@ -12954,23 +14372,23 @@ SELECT PARSE_DATETIME("%c", "Thu Dec 25 07:30:00 2008");
 
 `PARSE_DATETIME` parses `string` according to the following rules:
 
-+ **Unspecified fields.** Any unspecified field is initialized from
++ Unspecified fields. Any unspecified field is initialized from
   `1970-01-01 00:00:00.0`. For example, if the year is unspecified then it
   defaults to `1970`.
-+ **Case insensitivity.** Names, such as `Monday` and `February`,
++ Case insensitivity. Names, such as `Monday` and `February`,
   are case insensitive.
-+ **Whitespace.** One or more consecutive white spaces in the format string
++ Whitespace. One or more consecutive white spaces in the format string
   matches zero or more consecutive white spaces in the
   `DATETIME` string. Leading and trailing
   white spaces in the `DATETIME` string are always
   allowed, even if they are not in the format string.
-+ **Format precedence.** When two or more format elements have overlapping
++ Format precedence. When two or more format elements have overlapping
   information, the last one generally overrides any earlier ones, with some
   exceptions. For example, both `%F` and `%Y` affect the year, so the earlier
   element overrides the later. See the descriptions
   of `%s`, `%C`, and `%y` in
   [Supported Format Elements For DATETIME][datetime-format-elements].
-+ **Format divergence.** `%p` can be used with `am`, `AM`, `pm`, and `PM`.
++ Format divergence. `%p` can be used with `am`, `AM`, `pm`, and `PM`.
 
 **Return Data Type**
 
@@ -13039,7 +14457,6 @@ ZetaSQL supports the following debugging functions.
 
 <tr>
   <td><a href="#error"><code>ERROR</code></a>
-
 </td>
   <td>
     Produces an error with a custom error message.
@@ -13048,7 +14465,6 @@ ZetaSQL supports the following debugging functions.
 
 <tr>
   <td><a href="#iferror"><code>IFERROR</code></a>
-
 </td>
   <td>
     Evaluates a try expression, and if an evaluation error is produced, returns
@@ -13058,7 +14474,6 @@ ZetaSQL supports the following debugging functions.
 
 <tr>
   <td><a href="#iserror"><code>ISERROR</code></a>
-
 </td>
   <td>
     Evaluates a try expression, and if an evaluation error is produced, returns
@@ -13068,7 +14483,6 @@ ZetaSQL supports the following debugging functions.
 
 <tr>
   <td><a href="#nulliferror"><code>NULLIFERROR</code></a>
-
 </td>
   <td>
     Evaluates a try expression, and if an evaluation error is produced, returns
@@ -13523,20 +14937,19 @@ determine the optimal privacy parameters for your dataset and organization.
   <tbody>
 
 <tr>
-  <td><a href="#dp_avg"><code>AVG</code></a>
-
+  <td><a href="#dp_avg"><code>AVG</code> (Differential Privacy)</a>
 </td>
   <td>
     <code>DIFFERENTIAL_PRIVACY</code>-supported <code>AVG</code>.<br/><br/>
     Gets the differentially-private average of non-<code>NULL</code>,
     non-<code>NaN</code> values in a query with a
     <code>DIFFERENTIAL_PRIVACY</code> clause.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#dp_count"><code>COUNT</code></a>
-
+  <td><a href="#dp_count"><code>COUNT</code> (Differential Privacy)</a>
 </td>
   <td>
     <code>DIFFERENTIAL_PRIVACY</code>-supported <code>COUNT</code>.<br/><br/>
@@ -13547,46 +14960,46 @@ determine the optimal privacy parameters for your dataset and organization.
     Signature 2: Gets the differentially-private count of rows with a
     non-<code>NULL</code> expression in a query with a
     <code>DIFFERENTIAL_PRIVACY</code> clause.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#dp_percentile_cont"><code>PERCENTILE_CONT</code></a>
-
+  <td><a href="#dp_percentile_cont"><code>PERCENTILE_CONT</code> (Differential Privacy)</a>
 </td>
   <td>
     <code>DIFFERENTIAL_PRIVACY</code>-supported <code>PERCENTILE_CONT</code>.<br/><br/>
     Computes a differentially-private percentile across privacy unit columns
     in a query with a <code>DIFFERENTIAL_PRIVACY</code> clause.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#dp_sum"><code>SUM</code></a>
-
+  <td><a href="#dp_sum"><code>SUM</code> (Differential Privacy)</a>
 </td>
   <td>
     <code>DIFFERENTIAL_PRIVACY</code>-supported <code>SUM</code>.<br/><br/>
     Gets the differentially-private sum of non-<code>NULL</code>,
     non-<code>NaN</code> values in a query with a
     <code>DIFFERENTIAL_PRIVACY</code> clause.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#dp_var_pop"><code>VAR_POP</code></a>
-
+  <td><a href="#dp_var_pop"><code>VAR_POP</code> (Differential Privacy)</a>
 </td>
   <td>
-    <code>DIFFERENTIAL_PRIVACY</code>-supported <code>VAR_POP</code>.<br/><br/>
+    <code>DIFFERENTIAL_PRIVACY</code>-supported <code>VAR_POP</code> (Differential Privacy).<br/><br/>
     Computes the differentially-private population (biased) variance of values
     in a query with a <code>DIFFERENTIAL_PRIVACY</code> clause.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#anon_avg"><code>ANON_AVG</code></a>
-
 </td>
   <td>
     Deprecated.
@@ -13598,7 +15011,6 @@ determine the optimal privacy parameters for your dataset and organization.
 
 <tr>
   <td><a href="#anon_count"><code>ANON_COUNT</code></a>
-
 </td>
   <td>
     Deprecated.
@@ -13616,7 +15028,6 @@ determine the optimal privacy parameters for your dataset and organization.
 
 <tr>
   <td><a href="#anon_percentile_cont"><code>ANON_PERCENTILE_CONT</code></a>
-
 </td>
   <td>
     Deprecated.
@@ -13627,7 +15038,6 @@ determine the optimal privacy parameters for your dataset and organization.
 
 <tr>
   <td><a href="#anon_quantiles"><code>ANON_QUANTILES</code></a>
-
 </td>
   <td>
     Deprecated.
@@ -13638,7 +15048,6 @@ determine the optimal privacy parameters for your dataset and organization.
 
 <tr>
   <td><a href="#anon_stddev_pop"><code>ANON_STDDEV_POP</code></a>
-
 </td>
   <td>
     Deprecated.
@@ -13649,7 +15058,6 @@ determine the optimal privacy parameters for your dataset and organization.
 
 <tr>
   <td><a href="#anon_sum"><code>ANON_SUM</code></a>
-
 </td>
   <td>
     Deprecated.
@@ -13661,7 +15069,6 @@ determine the optimal privacy parameters for your dataset and organization.
 
 <tr>
   <td><a href="#anon_var_pop"><code>ANON_VAR_POP</code></a>
-
 </td>
   <td>
     Deprecated.
@@ -15023,6 +16430,8 @@ GROUP BY item;
 
 [dp-clamp-between]: #dp_clamp_between
 
+### Supplemental materials
+
 ### Clamp values in a differentially private aggregate function 
 <a id="dp_clamping"></a>
 
@@ -15294,11 +16703,7 @@ GROUP BY item;
 Note: For more information about when and when not to use
 noise, see [Remove noise][dp-noise].
 
-[dp-guide]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md
-
 [dp-syntax]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_clause
-
-[agg-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 
 [dp-example-views]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_views
 
@@ -15309,6 +16714,761 @@ noise, see [Remove noise][dp-noise].
 [dp-clamped-named]: #dp_clamped_named
 
 [dp-clamped-named-imp]: #dp_clamped_named_implicit
+
+[dp-guide]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md
+
+[dp-syntax]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_clause
+
+[agg-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
+
+## GQL functions
+
+ZetaSQL supports the following GQL functions:
+
+### Function list
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+
+<tr>
+  <td>
+    
+    <a href="#destination_node_id"><code>DESTINATION_NODE_ID</code></a>
+
+    
+  </td>
+  <td>Gets a unique identifier of a graph edge's destination node.</td>
+</tr>
+
+<tr>
+  <td>
+    
+    <a href="#edges"><code>EDGES</code></a>
+
+    
+  </td>
+  <td>
+    Gets the edges in a graph path. The resulting array retains the
+    original order in the graph path.
+  </td>
+</tr>
+
+<tr>
+  <td>
+    
+    <a href="#element_id"><code>ELEMENT_ID</code></a>
+
+    
+  </td>
+  <td>Gets a graph element's unique identifier.</td>
+</tr>
+
+<tr>
+  <td>
+    
+    <a href="#is_acyclic"><code>IS_ACYCLIC</code></a>
+
+    
+  </td>
+  <td>Checks if a graph path has a repeating node.</td>
+</tr>
+
+<tr>
+  <td>
+    
+    <a href="#is_trail"><code>IS_TRAIL</code></a>
+
+    
+  </td>
+  <td>Checks if a graph path has a repeating edge.</td>
+</tr>
+
+<tr>
+  <td>
+    
+    <a href="#labels"><code>LABELS</code></a>
+
+    
+  </td>
+  <td>Gets the labels associated with a graph element.</td>
+</tr>
+
+<tr>
+  <td>
+    
+    <a href="#nodes"><code>NODES</code></a>
+
+    
+  </td>
+  <td>
+    Gets the nodes in a graph path. The resulting array retains the
+    original order in the graph path.
+  </td>
+</tr>
+
+<tr>
+  <td>
+    
+    <a href="#path"><code>PATH</code></a>
+
+    
+  </td>
+  <td>Creates a graph path from a list of graph elements.</td>
+</tr>
+
+<tr>
+  <td>
+    
+    <a href="#path_first"><code>PATH_FIRST</code></a>
+
+    
+  </td>
+  <td>Gets the first node in a graph path.</td>
+</tr>
+
+<tr>
+  <td>
+    
+    <a href="#path_last"><code>PATH_LAST</code></a>
+
+    
+  </td>
+  <td>Gets the last node in a graph path.</td>
+</tr>
+
+<tr>
+  <td>
+    
+    <a href="#path_length"><code>PATH_LENGTH</code></a>
+
+    
+  </td>
+  <td>Gets the number of edges in a graph path.</td>
+</tr>
+
+<tr>
+  <td>
+    
+    <a href="#property_names"><code>PROPERTY_NAMES</code></a>
+
+    
+  </td>
+  <td>Gets the property names associated with a graph element.</td>
+</tr>
+
+<tr>
+  <td>
+    
+    <a href="#source_node_id"><code>SOURCE_NODE_ID</code></a>
+
+    
+  </td>
+  <td>Gets a unique identifier of a graph edge's source node.</td>
+</tr>
+
+  </tbody>
+</table>
+
+### `DESTINATION_NODE_ID`
+
+```sql
+DESTINATION_NODE_ID(edge_element)
+```
+
+**Description**
+
+Gets a unique identifier of a graph edge's destination node. The unique identifier is only valid for the scope of the query where it is obtained.
+
+**Arguments**
+
++   `edge_element`: A `GRAPH_ELEMENT` value that represents an edge.
+
+**Details**
+
+Returns `NULL` if `edge_element` is `NULL`.
+
+**Return type**
+
+`STRING`
+
+**Examples**
+
+```sql
+GRAPH FinGraph
+MATCH (:Person)-[o:Owns]->(a:Account)
+RETURN a.id AS account_id, DESTINATION_NODE_ID(o) AS destination_node_id
+
+/*------------------------------------------+
+ |account_id | destination_node_id          |
+ +-----------|------------------------------+
+ | 7         | mUZpbkdyYXBoLkFjY291bnQAeJEO |
+ | 16        | mUZpbkdyYXBoLkFjY291bnQAeJEg |
+ | 20        | mUZpbkdyYXBoLkFjY291bnQAeJEo |
+ +------------------------------------------*/
+```
+
+Note that the actual identifiers obtained may be different from what's shown above.
+
+### `EDGES`
+
+```sql
+EDGES(graph_path)
+```
+
+**Description**
+
+Gets the edges in a graph path. The resulting array retains the
+original order in the graph path.
+
+**Definitions**
+
++   `graph_path`: A `GRAPH_PATH` value that represents a graph path.
+
+**Details**
+
+If `graph_path` is `NULL`, returns `NULL`.
+
+**Return type**
+
+`ARRAY<GRAPH_ELEMENT>`
+
+**Examples**
+
+```sql
+GRAPH FinGraph
+MATCH p=(src:Account)-[t1:Transfers]->(mid:Account)-[t2:Transfers]->(dst:Account)
+LET es = EDGES(p)
+RETURN
+  LABELS(es[0]) AS labels,
+  es[0].to_id AS to_account;
+
+/*----------------------------*
+ | labels        | to_account |
+ +----------------------------+
+ | ["Transfers"] | 7          |
+ | ["Transfers"] | 7          |
+ | ["Transfers"] | 16         |
+ | ["Transfers"] | 16         |
+ | ["Transfers"] | 16         |
+ | ["Transfers"] | 20         |
+ | ["Transfers"] | 20         |
+ *----------------------------/*
+```
+
+### `ELEMENT_ID`
+
+```sql
+ELEMENT_ID(element)
+```
+
+**Description**
+
+Gets a graph element's unique identifier. The unique identifier is only valid for the scope of the query where it is obtained.
+
+**Arguments**
+
++   `element`: A `GRAPH_ELEMENT` value.
+
+**Details**
+
+Returns `NULL` if `element` is `NULL`.
+
+**Return type**
+
+`STRING`
+
+**Examples**
+
+```sql
+GRAPH FinGraph
+MATCH (p:Person)-[o:Owns]->(:Account)
+RETURN p.name AS name, ELEMENT_ID(p) AS node_element_id, ELEMENT_ID(o) AS edge_element_id
+
+/*--------------------------------------------------------------------------------------------------------------------------------------------+
+ | name | node_element_id              | edge_element_id         .                                                                            |
+ +------|------------------------------|------------------------------------------------------------------------------------------------------+
+ | Alex | mUZpbkdyYXBoLlBlcnNvbgB4kQI= | mUZpbkdyYXBoLlBlcnNvbk93bkFjY291bnQAeJECkQ6ZRmluR3JhcGguUGVyc29uAHiRAplGaW5HcmFwaC5BY2NvdW50AHiRDg== |
+ | Dana | mUZpbkdyYXBoLlBlcnNvbgB4kQQ= | mUZpbkdyYXBoLlBlcnNvbk93bkFjY291bnQAeJEGkSCZRmluR3JhcGguUGVyc29uAHiRBplGaW5HcmFwaC5BY2NvdW50AHiRIA== |
+ | Lee  | mUZpbkdyYXBoLlBlcnNvbgB4kQY= | mUZpbkdyYXBoLlBlcnNvbk93bkFjY291bnQAeJEEkSiZRmluR3JhcGguUGVyc29uAHiRBJlGaW5HcmFwaC5BY2NvdW50AHiRKA== |
+ +--------------------------------------------------------------------------------------------------------------------------------------------*/
+```
+
+Note that the actual identifiers obtained may be different from what's shown above.
+
+### `IS_ACYCLIC`
+
+```sql
+IS_ACYCLIC(graph_path)
+```
+
+**Description**
+
+Checks if a graph path has a repeating node. Returns `TRUE` if a repetition is
+found, otherwise returns `FALSE`.
+
+**Definitions**
+
++   `graph_path`: A `GRAPH_PATH` value that represents a graph path.
+
+**Details**
+
+Two nodes are considered equal if they compare as equal.
+
+Returns `NULL` if `graph_path` is `NULL`.
+
+**Return type**
+
+`BOOL`
+
+**Examples**
+
+```sql
+GRAPH FinGraph
+MATCH p=(src:Account)-[t1:Transfers]->(mid:Account)-[t2:Transfers]->(dst:Account)
+RETURN src.id AS source_account_id, IS_ACYCLIC(p) AS is_acyclic_path
+
+/*-------------------------------------*
+ | source_account_id | is_acyclic_path |
+ +-------------------------------------+
+ | 16                | TRUE            |
+ | 20                | TRUE            |
+ | 20                | TRUE            |
+ | 16                | FALSE           |
+ | 7                 | TRUE            |
+ | 7                 | TRUE            |
+ | 20                | FALSE           |
+ *-------------------------------------*/
+```
+
+### `IS_TRAIL`
+
+```sql
+IS_TRAIL(graph_path)
+```
+
+**Description**
+
+Checks if a graph path has a repeating edge. Returns `TRUE` if a repetition is
+found, otherwise returns `FALSE`.
+
+**Definitions**
+
++   `graph_path`: A `GRAPH_PATH` value that represents a graph path.
+
+**Details**
+
+Returns `NULL` if `graph_path` is `NULL`.
+
+**Return type**
+
+`BOOL`
+
+**Examples**
+
+```sql
+GRAPH FinGraph
+MATCH
+  p=(a1:Account)-[t1:Transfers]->(a2:Account)-[t2:Transfers]->
+    (a3:Account)-[t3:Transfers]->(a4:Account)
+WHERE a1.id < a4.id
+RETURN
+  IS_TRAIL(p) AS is_trail_path, t1.id as t1_id, t2.id as t2_id, t3.id as t3_id
+
+/*---------------+-------+-------+-------+
+ | is_trail_path | t1_id | t2_id | t3_id |
+ +---------------+-------+-------+-------+
+ | FALSE         | 16    | 20    | 16    |
+ | TRUE          | 7     | 16    | 20    |
+ | TRUE          | 7     | 16    | 20    |
+ +---------------+-------+-------+-------*/
+```
+
+### `LABELS`
+
+```sql
+LABELS(element)
+```
+
+**Description**
+
+Gets the labels associated with a graph element and preserves the original case
+of each label.
+
+**Arguments**
+
++   `element`: A `GRAPH_ELEMENT` value that represents the graph element to
+    extract labels from.
+
+**Details**
+
+Returns `NULL` if `element` is `NULL`.
+
+**Return type**
+
+`ARRAY<STRING>`
+
+**Examples**
+
+```sql
+GRAPH FinGraph
+MATCH (n:Person|Account)
+RETURN LABELS(n) AS label, n.id
+
+/*----------------+
+ | label     | id |
+ +----------------+
+ | [Account] | 7  |
+ | [Account] | 16 |
+ | [Account] | 20 |
+ | [Person]  | 1  |
+ | [Person]  | 2  |
+ | [Person]  | 3  |
+ +----------------*/
+```
+
+### `NODES`
+
+```sql
+NODES(graph_path)
+```
+
+**Description**
+
+Gets the nodes in a graph path. The resulting array retains the
+original order in the graph path.
+
+**Definitions**
+
++   `graph_path`: A `GRAPH_PATH` value that represents a graph path.
+
+**Details**
+
+Returns `NULL` if `graph_path` is `NULL`.
+
+**Return type**
+
+`ARRAY<GRAPH_ELEMENT>`
+
+**Examples**
+
+```sql
+GRAPH FinGraph
+MATCH p=(src:Account)-[t1:Transfers]->(mid:Account)-[t2:Transfers]->(dst:Account)
+LET ns = NODES(p)
+RETURN
+  JSON_QUERY(TO_JSON(ns)[0], '$.labels') AS labels,
+  JSON_QUERY(TO_JSON(ns)[0], '$.properties.nick_name') AS nick_name;
+
+/*--------------------------------*
+ | labels      | nick_name        |
+ +--------------------------------+
+ | ["Account"] | "Vacation Fund"  |
+ | ["Account"] | "Rainy Day Fund" |
+ | ["Account"] | "Rainy Day Fund" |
+ | ["Account"] | "Rainy Day Fund" |
+ | ["Account"] | "Vacation Fund"  |
+ | ["Account"] | "Vacation Fund"  |
+ | ["Account"] | "Vacation Fund"  |
+ | ["Account"] | "Rainy Day Fund" |
+ *--------------------------------/*
+```
+
+### `PATH`
+
+```sql
+PATH(graph_element[, ...])
+```
+
+**Description**
+
+Creates a graph path from a list of graph elements.
+
+**Definitions**
+
++   `graph_element`: A `GRAPH_ELEMENT` value that represents a graph element,
+    such as a node or edge, to add to a graph path.
+
+**Details**
+
+This function produces an error if:
+
++ A graph element is `NULL`.
++ Nodes aren't interleaved with edges.
++ An edge doesn't connect to neighboring nodes.
+
+**Return type**
+
+`GRAPH_PATH`
+
+**Examples**
+
+```sql
+GRAPH FinGraph
+MATCH (src:Account)-[t1:Transfers]->(mid:Account)-[t2:Transfers]->(dst:Account)
+LET p = PATH(src, t1, mid, t2, dst)
+RETURN
+  JSON_QUERY(TO_JSON(p)[0], '$.labels') AS element_a,
+  JSON_QUERY(TO_JSON(p)[1], '$.labels') AS element_b,
+  JSON_QUERY(TO_JSON(p)[2], '$.labels') AS element_c
+
+/*-------------------------------------------*
+ | element_a   | element_b     | element_c   |
+ +-------------------------------------------+
+ | ["Account"] | ["Transfers"] | ["Account"] |
+ | ...         | ...           | ...         |
+ *-------------------------------------------*/
+```
+
+```sql
+-- Error: in 'p', a graph element is NULL.
+GRAPH FinGraph
+MATCH (src:Account)-[t1:Transfers]->(mid:Account)-[t2:Transfers]->(dst:Account)
+LET p = PATH(src, NULL, mid, t2, dst)
+RETURN TO_JSON(p) AS results
+```
+
+```sql
+-- Error: in 'p', 'src' and 'mid' are nodes that should be interleaved with an
+-- edge.
+GRAPH FinGraph
+MATCH (src:Account)-[t1:Transfers]->(mid:Account)-[t2:Transfers]->(dst:Account)
+LET p = PATH(src, mid, t2, dst)
+RETURN TO_JSON(p) AS results
+```
+
+```sql
+-- Error: in 'p', 't2' is an edge that does not connect to a neighboring node on
+-- the right.
+GRAPH FinGraph
+MATCH (src:Account)-[t1:Transfers]->(mid:Account)-[t2:Transfers]->(dst:Account)
+LET p = PATH(src, t2, mid)
+RETURN TO_JSON(p) AS results
+```
+
+### `PATH_FIRST`
+
+```sql
+PATH_FIRST(graph_path)
+```
+
+**Description**
+
+Gets the first node in a graph path.
+
+**Definitions**
+
++   `graph_path`: A `GRAPH_PATH` value that represents the graph path to
+    extract the first node from.
+
+**Details**
+
+Returns `NULL` if `graph_path` is `NULL`.
+
+**Return type**
+
+`GRAPH_ELEMENT`
+
+**Examples**
+
+```sql
+GRAPH FinGraph
+MATCH p=(src:Account)-[t1:Transfers]->(mid:Account)-[t2:Transfers]->(dst:Account)
+LET f = PATH_FIRST(p)
+RETURN
+  LABELS(f) AS labels,
+  f.nick_name AS nick_name;
+
+/*--------------------------*
+ | labels  | nick_name      |
+ +--------------------------+
+ | Account | Vacation Fund  |
+ | Account | Rainy Day Fund |
+ | Account | Rainy Day Fund |
+ | Account | Vacation Fund  |
+ | Account | Vacation Fund  |
+ | Account | Vacation Fund  |
+ | Account | Rainy Day Fund |
+ *--------------------------/*
+```
+
+### `PATH_LAST`
+
+```sql
+PATH_LAST(graph_path)
+```
+
+**Description**
+
+Gets the last node in a graph path.
+
+**Definitions**
+
++   `graph_path`: A `GRAPH_PATH` value that represents the graph path to
+    extract the last node from.
+
+**Details**
+
+Returns `NULL` if `graph_path` is `NULL`.
+
+**Return type**
+
+`GRAPH_ELEMENT`
+
+**Examples**
+
+```sql
+GRAPH FinGraph
+MATCH p=(src:Account)-[t1:Transfers]->(mid:Account)-[t2:Transfers]->(dst:Account)
+LET f = PATH_LAST(p)
+RETURN
+  LABELS(f) AS labels,
+  f.nick_name AS nick_name;
+
+/*--------------------------*
+ | labels  | nick_name      |
+ +--------------------------+
+ | Account | Vacation Fund  |
+ | Account | Vacation Fund  |
+ | Account | Vacation Fund  |
+ | Account | Vacation Fund  |
+ | Account | Rainy Day Fund |
+ | Account | Rainy Day Fund |
+ | Account | Rainy Day Fund |
+ *--------------------------/*
+```
+
+### `PATH_LENGTH`
+
+```sql
+PATH_LENGTH(graph_path)
+```
+
+**Description**
+
+Gets the number of edges in a graph path.
+
+**Definitions**
+
++   `graph_path`: A `GRAPH_PATH` value that represents the graph path with the
+    edges to count.
+
+**Details**
+
+Returns `NULL` if `graph_path` is `NULL`.
+
+**Return type**
+
+`INT64`
+
+**Examples**
+
+```sql
+GRAPH FinGraph
+MATCH p=(src:Account)-[t1:Transfers]->(mid:Account)-[t2:Transfers]->(dst:Account)
+RETURN PATH_LENGTH(p) AS results
+
+/*---------*
+ | results |
+ +---------+
+ | 2       |
+ | 2       |
+ | 2       |
+ | 2       |
+ | 2       |
+ | 2       |
+ | 2       |
+ *---------*/
+```
+
+### `PROPERTY_NAMES`
+
+```sql
+PROPERTY_NAMES(element)
+```
+
+**Description**
+
+Gets the name of each property associated with a graph element and preserves
+the original case of each name.
+
+**Arguments**
+
++   `element`: A `GRAPH_ELEMENT` value.
+
+**Details**
+
+Returns `NULL` if `element` is `NULL`.
+
+**Return type**
+
+`ARRAY<STRING>`
+
+**Examples**
+
+```sql
+GRAPH FinGraph
+MATCH (n:Person|Account)
+RETURN PROPERTY_NAMES(n) AS property_names, n.id
+
+/*-----------------------------------------------+
+ | label                                    | id |
+ +-----------------------------------------------+
+ | [create_time, id, is_blocked, nick_name] | 7  |
+ | [create_time, id, is_blocked, nick_name] | 16 |
+ | [create_time, id, is_blocked, nick_name] | 20 |
+ | [birthday, city, country, id, name]      | 1  |
+ | [birthday, city, country, id, name]      | 2  |
+ | [birthday, city, country, id, name]      | 3  |
+ +-----------------------------------------------*/
+```
+
+### `SOURCE_NODE_ID`
+
+```sql
+SOURCE_NODE_ID(edge_element)
+```
+
+**Description**
+
+Gets a unique identifier of a graph edge's source node. The unique identifier is only valid for the scope of the query where it is obtained.
+
+**Arguments**
+
++   `edge_element`: A `GRAPH_ELEMENT` value that represents an edge.
+
+**Details**
+
+Returns `NULL` if `edge_element` is `NULL`.
+
+**Return type**
+
+`STRING`
+
+**Examples**
+
+```sql
+GRAPH FinGraph
+MATCH (p:Person)-[o:Owns]->(:Account)
+RETURN p.name AS name, SOURCE_NODE_ID(o) AS source_node_id
+
+/*-------------------------------------+
+ | name | source_node_id               |
+ +------|------------------------------+
+ | Alex | mUZpbkdyYXBoLlBlcnNvbgB4kQI= |
+ | Dana | mUZpbkdyYXBoLlBlcnNvbgB4kQQ= |
+ | Lee  | mUZpbkdyYXBoLlBlcnNvbgB4kQY= |
+ +-------------------------------------*/
+```
+
+Note that the actual identifiers obtained may be different from what's shown above.
+
+[functions-and-operators]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md
 
 ## Geography functions
 
@@ -15518,7 +17678,6 @@ behavior:
 
 <tr>
   <td><a href="#s2_cellidfrompoint"><code>S2_CELLIDFROMPOINT</code></a>
-
 </td>
   <td>
     Gets the S2 cell ID covering a point <code>GEOGRAPHY</code> value.
@@ -15527,7 +17686,6 @@ behavior:
 
 <tr>
   <td><a href="#s2_coveringcellids"><code>S2_COVERINGCELLIDS</code></a>
-
 </td>
   <td>
     Gets an array of S2 cell IDs that cover a <code>GEOGRAPHY</code> value.
@@ -15536,7 +17694,6 @@ behavior:
 
 <tr>
   <td><a href="#st_accum"><code>ST_ACCUM</code></a>
-
 </td>
   <td>
     Aggregates <code>GEOGRAPHY</code> values into an array of
@@ -15546,7 +17703,6 @@ behavior:
 
 <tr>
   <td><a href="#st_angle"><code>ST_ANGLE</code></a>
-
 </td>
   <td>
     Takes three point <code>GEOGRAPHY</code> values, which represent two
@@ -15556,7 +17712,6 @@ behavior:
 
 <tr>
   <td><a href="#st_area"><code>ST_AREA</code></a>
-
 </td>
   <td>
     Gets the area covered by the polygons in a <code>GEOGRAPHY</code> value.
@@ -15565,7 +17720,6 @@ behavior:
 
 <tr>
   <td><a href="#st_asbinary"><code>ST_ASBINARY</code></a>
-
 </td>
   <td>
     Converts a <code>GEOGRAPHY</code> value to a
@@ -15575,7 +17729,6 @@ behavior:
 
 <tr>
   <td><a href="#st_asgeojson"><code>ST_ASGEOJSON</code></a>
-
 </td>
   <td>
     Converts a <code>GEOGRAPHY</code> value to a <code>STRING</code>
@@ -15585,7 +17738,6 @@ behavior:
 
 <tr>
   <td><a href="#st_askml"><code>ST_ASKML</code></a>
-
 </td>
   <td>
     Converts a <code>GEOGRAPHY</code> value to a <code>STRING</code>
@@ -15595,7 +17747,6 @@ behavior:
 
 <tr>
   <td><a href="#st_astext"><code>ST_ASTEXT</code></a>
-
 </td>
   <td>
     Converts a <code>GEOGRAPHY</code> value to a
@@ -15605,7 +17756,6 @@ behavior:
 
 <tr>
   <td><a href="#st_azimuth"><code>ST_AZIMUTH</code></a>
-
 </td>
   <td>
     Gets the azimuth of a line segment formed by two
@@ -15615,7 +17765,6 @@ behavior:
 
 <tr>
   <td><a href="#st_boundary"><code>ST_BOUNDARY</code></a>
-
 </td>
   <td>
     Gets the union of component boundaries in a
@@ -15625,7 +17774,6 @@ behavior:
 
 <tr>
   <td><a href="#st_boundingbox"><code>ST_BOUNDINGBOX</code></a>
-
 </td>
   <td>
     Gets the bounding box for a <code>GEOGRAPHY</code> value.
@@ -15634,7 +17782,6 @@ behavior:
 
 <tr>
   <td><a href="#st_buffer"><code>ST_BUFFER</code></a>
-
 </td>
   <td>
     Gets the buffer around a <code>GEOGRAPHY</code> value, using a specific
@@ -15644,7 +17791,6 @@ behavior:
 
 <tr>
   <td><a href="#st_bufferwithtolerance"><code>ST_BUFFERWITHTOLERANCE</code></a>
-
 </td>
   <td>
     Gets the buffer around a <code>GEOGRAPHY</code> value, using tolerance.
@@ -15653,7 +17799,6 @@ behavior:
 
 <tr>
   <td><a href="#st_centroid"><code>ST_CENTROID</code></a>
-
 </td>
   <td>
     Gets the centroid of a <code>GEOGRAPHY</code> value.
@@ -15662,7 +17807,6 @@ behavior:
 
 <tr>
   <td><a href="#st_closestpoint"><code>ST_CLOSESTPOINT</code></a>
-
 </td>
   <td>
     Gets the point on a <code>GEOGRAPHY</code> value which is closest to any
@@ -15672,17 +17816,16 @@ behavior:
 
 <tr>
   <td><a href="#st_clusterdbscan"><code>ST_CLUSTERDBSCAN</code></a>
-
 </td>
   <td>
     Performs DBSCAN clustering on a group of <code>GEOGRAPHY</code> values and
     produces a 0-based cluster number for this row.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#st_contains"><code>ST_CONTAINS</code></a>
-
 </td>
   <td>
     Checks if one <code>GEOGRAPHY</code> value contains another
@@ -15692,7 +17835,6 @@ behavior:
 
 <tr>
   <td><a href="#st_convexhull"><code>ST_CONVEXHULL</code></a>
-
 </td>
   <td>
     Returns the convex hull for a <code>GEOGRAPHY</code> value.
@@ -15701,7 +17843,6 @@ behavior:
 
 <tr>
   <td><a href="#st_coveredby"><code>ST_COVEREDBY</code></a>
-
 </td>
   <td>
     Checks if all points of a <code>GEOGRAPHY</code> value are on the boundary
@@ -15711,7 +17852,6 @@ behavior:
 
 <tr>
   <td><a href="#st_covers"><code>ST_COVERS</code></a>
-
 </td>
   <td>
     Checks if all points of a <code>GEOGRAPHY</code> value are on the boundary
@@ -15721,7 +17861,6 @@ behavior:
 
 <tr>
   <td><a href="#st_difference"><code>ST_DIFFERENCE</code></a>
-
 </td>
   <td>
     Gets the point set difference between two <code>GEOGRAPHY</code> values.
@@ -15730,7 +17869,6 @@ behavior:
 
 <tr>
   <td><a href="#st_dimension"><code>ST_DIMENSION</code></a>
-
 </td>
   <td>
     Gets the dimension of the highest-dimensional element in a
@@ -15740,7 +17878,6 @@ behavior:
 
 <tr>
   <td><a href="#st_disjoint"><code>ST_DISJOINT</code></a>
-
 </td>
   <td>
     Checks if two <code>GEOGRAPHY</code> values are disjoint (do not intersect).
@@ -15749,7 +17886,6 @@ behavior:
 
 <tr>
   <td><a href="#st_distance"><code>ST_DISTANCE</code></a>
-
 </td>
   <td>
     Gets the shortest distance in meters between two <code>GEOGRAPHY</code>
@@ -15759,7 +17895,6 @@ behavior:
 
 <tr>
   <td><a href="#st_dump"><code>ST_DUMP</code></a>
-
 </td>
   <td>
     Returns an array of simple <code>GEOGRAPHY</code> components in a
@@ -15769,7 +17904,6 @@ behavior:
 
 <tr>
   <td><a href="#st_dumppoints"><code>ST_DUMPPOINTS</code></a>
-
 </td>
   <td>
     Produces an array of <code>GEOGRAPHY</code> points with all points, line
@@ -15779,7 +17913,6 @@ behavior:
 
 <tr>
   <td><a href="#st_dwithin"><code>ST_DWITHIN</code></a>
-
 </td>
   <td>
     Checks if any points in two <code>GEOGRAPHY</code> values are within a given
@@ -15789,7 +17922,6 @@ behavior:
 
 <tr>
   <td><a href="#st_endpoint"><code>ST_ENDPOINT</code></a>
-
 </td>
   <td>
     Gets the last point of a linestring <code>GEOGRAPHY</code> value.
@@ -15798,7 +17930,6 @@ behavior:
 
 <tr>
   <td><a href="#st_equals"><code>ST_EQUALS</code></a>
-
 </td>
   <td>
     Checks if two <code>GEOGRAPHY</code> values represent the same
@@ -15808,16 +17939,15 @@ behavior:
 
 <tr>
   <td><a href="#st_extent"><code>ST_EXTENT</code></a>
-
 </td>
   <td>
     Gets the bounding box for a group of <code>GEOGRAPHY</code> values.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#st_exteriorring"><code>ST_EXTERIORRING</code></a>
-
 </td>
   <td>
     Returns a linestring <code>GEOGRAPHY</code> value that corresponds to the
@@ -15827,7 +17957,6 @@ behavior:
 
 <tr>
   <td><a href="#st_geogfrom"><code>ST_GEOGFROM</code></a>
-
 </td>
   <td>
     Converts a <code>STRING</code> or <code>BYTES</code> value
@@ -15837,7 +17966,6 @@ behavior:
 
 <tr>
   <td><a href="#st_geogfromgeojson"><code>ST_GEOGFROMGEOJSON</code></a>
-
 </td>
   <td>
     Converts a <code>STRING</code> GeoJSON geometry value into a
@@ -15847,7 +17975,6 @@ behavior:
 
 <tr>
   <td><a href="#st_geogfromkml"><code>ST_GEOGFROMKML</code></a>
-
 </td>
   <td>
     Converts a <code>STRING</code> KML geometry value into a
@@ -15857,7 +17984,6 @@ behavior:
 
 <tr>
   <td><a href="#st_geogfromtext"><code>ST_GEOGFROMTEXT</code></a>
-
 </td>
   <td>
     Converts a <code>STRING</code> WKT geometry value into a
@@ -15867,7 +17993,6 @@ behavior:
 
 <tr>
   <td><a href="#st_geogfromwkb"><code>ST_GEOGFROMWKB</code></a>
-
 </td>
   <td>
     Converts a <code>BYTES</code> or hexadecimal-text <code>STRING</code> WKT
@@ -15877,7 +18002,6 @@ behavior:
 
 <tr>
   <td><a href="#st_geogpoint"><code>ST_GEOGPOINT</code></a>
-
 </td>
   <td>
     Creates a point <code>GEOGRAPHY</code> value for a given longitude and
@@ -15887,7 +18011,6 @@ behavior:
 
 <tr>
   <td><a href="#st_geogpointfromgeohash"><code>ST_GEOGPOINTFROMGEOHASH</code></a>
-
 </td>
   <td>
     Gets a point <code>GEOGRAPHY</code> value that is in the middle of a
@@ -15897,7 +18020,6 @@ behavior:
 
 <tr>
   <td><a href="#st_geohash"><code>ST_GEOHASH</code></a>
-
 </td>
   <td>
     Converts a point <code>GEOGRAPHY</code> value to a <code>STRING</code>
@@ -15907,7 +18029,6 @@ behavior:
 
 <tr>
   <td><a href="#st_geometrytype"><code>ST_GEOMETRYTYPE</code></a>
-
 </td>
   <td>
     Gets the Open Geospatial Consortium (OGC) geometry type for a
@@ -15917,14 +18038,12 @@ behavior:
 
 <tr>
   <td><a href="#st_hausdorffdistance"><code>ST_HAUSDORFFDISTANCE</code></a>
-
 </td>
   <td>Gets the discrete Hausdorff distance between two geometries.</td>
 </tr>
 
 <tr>
   <td><a href="#st_interiorrings"><code>ST_INTERIORRINGS</code></a>
-
 </td>
   <td>
     Gets the interior rings of a polygon <code>GEOGRAPHY</code> value.
@@ -15933,7 +18052,6 @@ behavior:
 
 <tr>
   <td><a href="#st_intersection"><code>ST_INTERSECTION</code></a>
-
 </td>
   <td>
     Gets the point set intersection of two <code>GEOGRAPHY</code> values.
@@ -15942,7 +18060,6 @@ behavior:
 
 <tr>
   <td><a href="#st_intersects"><code>ST_INTERSECTS</code></a>
-
 </td>
   <td>
     Checks if at least one point appears in two <code>GEOGRAPHY</code>
@@ -15952,7 +18069,6 @@ behavior:
 
 <tr>
   <td><a href="#st_intersectsbox"><code>ST_INTERSECTSBOX</code></a>
-
 </td>
   <td>
     Checks if a <code>GEOGRAPHY</code> value intersects a rectangle.
@@ -15961,7 +18077,6 @@ behavior:
 
 <tr>
   <td><a href="#st_isclosed"><code>ST_ISCLOSED</code></a>
-
 </td>
   <td>
     Checks if all components in a <code>GEOGRAPHY</code> value are closed.
@@ -15970,7 +18085,6 @@ behavior:
 
 <tr>
   <td><a href="#st_iscollection"><code>ST_ISCOLLECTION</code></a>
-
 </td>
   <td>
     Checks if the total number of points, linestrings, and polygons is
@@ -15980,7 +18094,6 @@ behavior:
 
 <tr>
   <td><a href="#st_isempty"><code>ST_ISEMPTY</code></a>
-
 </td>
   <td>
     Checks if a <code>GEOGRAPHY</code> value is empty.
@@ -15989,7 +18102,6 @@ behavior:
 
 <tr>
   <td><a href="#st_isring"><code>ST_ISRING</code></a>
-
 </td>
   <td>
     Checks if a <code>GEOGRAPHY</code> value is a closed, simple
@@ -15999,7 +18111,6 @@ behavior:
 
 <tr>
   <td><a href="#st_length"><code>ST_LENGTH</code></a>
-
 </td>
   <td>
     Gets the total length of lines in a <code>GEOGRAPHY</code> value.
@@ -16008,7 +18119,6 @@ behavior:
 
 <tr>
   <td><a href="#st_lineinterpolatepoint"><code>ST_LINEINTERPOLATEPOINT</code></a>
-
 </td>
   <td>
     Gets a point at a specific fraction in a linestring <code>GEOGRAPHY</code>
@@ -16018,7 +18128,6 @@ behavior:
 
 <tr>
   <td><a href="#st_linelocatepoint"><code>ST_LINELOCATEPOINT</code></a>
-
 </td>
   <td>
     Gets a section of a linestring <code>GEOGRAPHY</code> value between the
@@ -16028,7 +18137,6 @@ behavior:
 
 <tr>
   <td><a href="#st_linesubstring"><code>ST_LINESUBSTRING</code></a>
-
 </td>
   <td>
     Gets a segment of a single linestring at a specific starting and
@@ -16038,7 +18146,6 @@ behavior:
 
 <tr>
   <td><a href="#st_makeline"><code>ST_MAKELINE</code></a>
-
 </td>
   <td>
     Creates a linestring <code>GEOGRAPHY</code> value by concatenating the point
@@ -16048,7 +18155,6 @@ behavior:
 
 <tr>
   <td><a href="#st_makepolygon"><code>ST_MAKEPOLYGON</code></a>
-
 </td>
   <td>
     Constructs a polygon <code>GEOGRAPHY</code> value by combining
@@ -16058,7 +18164,6 @@ behavior:
 
 <tr>
   <td><a href="#st_makepolygonoriented"><code>ST_MAKEPOLYGONORIENTED</code></a>
-
 </td>
   <td>
     Constructs a polygon <code>GEOGRAPHY</code> value, using an array of
@@ -16069,7 +18174,6 @@ behavior:
 
 <tr>
   <td><a href="#st_maxdistance"><code>ST_MAXDISTANCE</code></a>
-
 </td>
   <td>
     Gets the longest distance between two non-empty
@@ -16079,7 +18183,6 @@ behavior:
 
 <tr>
   <td><a href="#st_npoints"><code>ST_NPOINTS</code></a>
-
 </td>
   <td>
     An alias of <code>ST_NUMPOINTS</code>.
@@ -16088,7 +18191,6 @@ behavior:
 
 <tr>
   <td><a href="#st_numgeometries"><code>ST_NUMGEOMETRIES</code></a>
-
 </td>
   <td>
     Gets the number of geometries in a <code>GEOGRAPHY</code> value.
@@ -16097,7 +18199,6 @@ behavior:
 
 <tr>
   <td><a href="#st_numpoints"><code>ST_NUMPOINTS</code></a>
-
 </td>
   <td>
     Gets the number of vertices in the a <code>GEOGRAPHY</code> value.
@@ -16106,7 +18207,6 @@ behavior:
 
 <tr>
   <td><a href="#st_perimeter"><code>ST_PERIMETER</code></a>
-
 </td>
   <td>
     Gets the length of the boundary of the polygons in a
@@ -16116,7 +18216,6 @@ behavior:
 
 <tr>
   <td><a href="#st_pointn"><code>ST_POINTN</code></a>
-
 </td>
   <td>
     Gets the point at a specific index of a linestring <code>GEOGRAPHY</code>
@@ -16126,7 +18225,6 @@ behavior:
 
 <tr>
   <td><a href="#st_simplify"><code>ST_SIMPLIFY</code></a>
-
 </td>
   <td>
     Converts a <code>GEOGRAPHY</code> value into a simplified
@@ -16136,7 +18234,6 @@ behavior:
 
 <tr>
   <td><a href="#st_snaptogrid"><code>ST_SNAPTOGRID</code></a>
-
 </td>
   <td>
     Produces a <code>GEOGRAPHY</code> value, where each vertex has
@@ -16146,7 +18243,6 @@ behavior:
 
 <tr>
   <td><a href="#st_startpoint"><code>ST_STARTPOINT</code></a>
-
 </td>
   <td>
     Gets the first point of a linestring <code>GEOGRAPHY</code> value.
@@ -16155,7 +18251,6 @@ behavior:
 
 <tr>
   <td><a href="#st_touches"><code>ST_TOUCHES</code></a>
-
 </td>
   <td>
     Checks if two <code>GEOGRAPHY</code> values intersect and their interiors
@@ -16165,7 +18260,6 @@ behavior:
 
 <tr>
   <td><a href="#st_union"><code>ST_UNION</code></a>
-
 </td>
   <td>
     Gets the point set union of multiple <code>GEOGRAPHY</code> values.
@@ -16174,17 +18268,16 @@ behavior:
 
 <tr>
   <td><a href="#st_union_agg"><code>ST_UNION_AGG</code></a>
-
 </td>
   <td>
     Aggregates over <code>GEOGRAPHY</code> values and gets their
     point set union.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#st_within"><code>ST_WITHIN</code></a>
-
 </td>
   <td>
     Checks if one <code>GEOGRAPHY</code> value contains another
@@ -16194,7 +18287,6 @@ behavior:
 
 <tr>
   <td><a href="#st_x"><code>ST_X</code></a>
-
 </td>
   <td>
     Gets the longitude from a point <code>GEOGRAPHY</code> value.
@@ -16203,7 +18295,6 @@ behavior:
 
 <tr>
   <td><a href="#st_y"><code>ST_Y</code></a>
-
 </td>
   <td>
     Gets the latitude from a point <code>GEOGRAPHY</code> value.
@@ -17173,7 +19264,7 @@ be in the difference.
 **Example**
 
 The following query illustrates the difference between `geog1`, a larger polygon
-`POLYGON((0 0, 10 0, 10 10, 0 0))` and `geog1`, a smaller polygon
+`POLYGON((0 0, 10 0, 10 10, 0 0))` and `geog2`, a smaller polygon
 `POLYGON((4 2, 6 2, 8 6, 4 2))` that intersects with `geog1`. The result is
 `geog1` with a hole where `geog2` intersects with it.
 
@@ -17434,19 +19525,24 @@ ST_EQUALS(geography_1, geography_2)
 
 **Description**
 
-Returns `TRUE` if `geography_1` and `geography_2` represent the same
+Checks if two `GEOGRAPHY` values represent the same `GEOGRAPHY` value. Returns
+`TRUE` if the values are the same, otherwise returns `FALSE`.
 
-`GEOGRAPHY` value. More precisely, this means that
-one of the following conditions holds:
-+   `ST_COVERS(geography_1, geography_2) = TRUE` and `ST_COVERS(geography_2,
-    geography_1) = TRUE`
+**Definitions**
+
++ `geography_1`: The first `GEOGRAPHY` value to compare.
++ `geography_2`: The second `GEOGRAPHY` value to compare.
+
+**Details**
+
+As long as they still represent the same geometric structure, two
+`GEOGRAPHY` values can be equal even if the ordering of points or vertices
+differ. This means that one of the following conditions must be true for this
+function to return `TRUE`:
+
++   Both `ST_COVERS(geography_1, geography_2)` and
+    `ST_COVERS(geography_2, geography_1)` are `TRUE`.
 +   Both `geography_1` and `geography_2` are empty.
-
-Therefore, two `GEOGRAPHY`s may be equal even if the
-ordering of points or vertices differ, as long as they still represent the same
-geometric structure.
-
-**Constraints**
 
 `ST_EQUALS` is not guaranteed to be a transitive function.
 
@@ -19342,7 +21438,6 @@ ZetaSQL supports the following hash functions.
 
 <tr>
   <td><a href="#farm_fingerprint"><code>FARM_FINGERPRINT</code></a>
-
 </td>
   <td>
     Computes the fingerprint of a <code>STRING</code> or
@@ -19352,7 +21447,6 @@ ZetaSQL supports the following hash functions.
 
 <tr>
   <td><a href="#md5"><code>MD5</code></a>
-
 </td>
   <td>
     Computes the hash of a <code>STRING</code> or
@@ -19362,7 +21456,6 @@ ZetaSQL supports the following hash functions.
 
 <tr>
   <td><a href="#sha1"><code>SHA1</code></a>
-
 </td>
   <td>
     Computes the hash of a <code>STRING</code> or
@@ -19372,7 +21465,6 @@ ZetaSQL supports the following hash functions.
 
 <tr>
   <td><a href="#sha256"><code>SHA256</code></a>
-
 </td>
   <td>
     Computes the hash of a <code>STRING</code> or
@@ -19382,7 +21474,6 @@ ZetaSQL supports the following hash functions.
 
 <tr>
   <td><a href="#sha512"><code>SHA512</code></a>
-
 </td>
   <td>
     Computes the hash of a <code>STRING</code> or
@@ -19591,7 +21682,6 @@ ZetaSQL supports the following HLL++ functions:
 
 <tr>
   <td><a href="#hll_countextract"><code>HLL_COUNT.EXTRACT</code></a>
-
 </td>
   <td>
     Extracts a cardinality estimate of an HLL++ sketch.
@@ -19600,7 +21690,6 @@ ZetaSQL supports the following HLL++ functions:
 
 <tr>
   <td><a href="#hll_countinit"><code>HLL_COUNT.INIT</code></a>
-
 </td>
   <td>
     Aggregates values of the same underlying type into a new HLL++ sketch.
@@ -19609,7 +21698,6 @@ ZetaSQL supports the following HLL++ functions:
 
 <tr>
   <td><a href="#hll_countmerge"><code>HLL_COUNT.MERGE</code></a>
-
 </td>
   <td>
     Merges HLL++ sketches of the same underlying type into a new sketch, and
@@ -19619,7 +21707,6 @@ ZetaSQL supports the following HLL++ functions:
 
 <tr>
   <td><a href="#hll_countmerge_partial"><code>HLL_COUNT.MERGE_PARTIAL</code></a>
-
 </td>
   <td>
     Merges HLL++ sketches of the same underlying type into a new sketch.
@@ -19912,7 +21999,6 @@ ZetaSQL supports the following interval functions.
 
 <tr>
   <td><a href="#extract"><code>EXTRACT</code></a>
-
 </td>
   <td>
     Extracts part of an <code>INTERVAL</code> value.
@@ -19921,7 +22007,6 @@ ZetaSQL supports the following interval functions.
 
 <tr>
   <td><a href="#justify_days"><code>JUSTIFY_DAYS</code></a>
-
 </td>
   <td>
     Normalizes the day part of an <code>INTERVAL</code> value.
@@ -19930,7 +22015,6 @@ ZetaSQL supports the following interval functions.
 
 <tr>
   <td><a href="#justify_hours"><code>JUSTIFY_HOURS</code></a>
-
 </td>
   <td>
     Normalizes the time part of an <code>INTERVAL</code> value.
@@ -19939,7 +22023,6 @@ ZetaSQL supports the following interval functions.
 
 <tr>
   <td><a href="#justify_interval"><code>JUSTIFY_INTERVAL</code></a>
-
 </td>
   <td>
     Normalizes the day and time parts of an <code>INTERVAL</code> value.
@@ -19948,7 +22031,6 @@ ZetaSQL supports the following interval functions.
 
 <tr>
   <td><a href="#make_interval"><code>MAKE_INTERVAL</code></a>
-
 </td>
   <td>
     Constructs an <code>INTERVAL</code> value.
@@ -20364,6 +22446,9 @@ behavior:
         <a href="#to_json"><code>TO_JSON</code></a><br>
         
         
+        <a href="#safe_to_json"><code>SAFE_TO_JSON</code></a><br>
+        
+        
         <a href="#to_json_string"><code>TO_JSON_STRING</code></a><br>
         
       </td>
@@ -20439,18 +22524,21 @@ behavior:
 
 <tr>
   <td><a href="#bool_for_json"><code>BOOL</code></a>
-
 </td>
   <td>
     Converts a JSON boolean to a SQL <code>BOOL</code> value.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#bool_array_for_json"><code>BOOL</code></a>
-
+  <td><a href="#bool_array_for_json"><code>BOOL_ARRAY</code></a>
 </td>
-  <td> Converts a JSON array of booleans to a SQL <code>ARRAY&lt;BOOL&gt;</code> value.</td>
+  <td>
+    Converts a JSON array of booleans to a
+    SQL <code>ARRAY&lt;BOOL&gt;</code> value.
+    
+  </td>
 </tr>
 
 <tr>
@@ -20498,60 +22586,70 @@ behavior:
 
 <tr>
   <td><a href="#int32_for_json"><code>INT32</code></a>
-
 </td>
   <td>
     Converts a JSON number to a SQL <code>INT32</code> value.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#int32_array_for_json"><code>INT32_ARRAY</code></a>
-
 </td>
-  <td>Converts a JSON number to a SQL <code>ARRAY&lt;INT32&gt;</code> value.</td>
+  <td>
+    Converts a JSON number to a SQL <code>ARRAY&lt;INT32&gt;</code> value.
+    
+  </td>
 </tr>
 
 <tr>
   <td><a href="#int64_for_json"><code>INT64</code></a>
-
 </td>
   <td>
     Converts a JSON number to a SQL <code>INT64</code> value.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#int64_array_for_json"><code>INT64_ARRAY</code></a>
-
 </td>
-  <td>Converts a JSON array of numbers to a SQL <code>ARRAY&lt;INT64&gt;</code> value.</td>
+  <td>
+    Converts a JSON array of numbers to a
+    SQL <code>ARRAY&lt;INT64&gt;</code> value.
+    
+  </td>
 </tr>
 
 <tr>
   <td><a href="#json_array"><code>JSON_ARRAY</code></a>
-
 </td>
-  <td>Creates a JSON array.</td>
+  <td>
+    Creates a JSON array.
+    
+  </td>
 </tr>
 
 <tr>
   <td><a href="#json_array_append"><code>JSON_ARRAY_APPEND</code></a>
-
 </td>
-  <td>Appends JSON data to the end of a JSON array.</td>
+  <td>
+    Appends JSON data to the end of a JSON array.
+    
+  </td>
 </tr>
 
 <tr>
   <td><a href="#json_array_insert"><code>JSON_ARRAY_INSERT</code></a>
-
 </td>
-  <td>Inserts JSON data into a JSON array.</td>
+  <td>
+    Inserts JSON data into a JSON array.
+    
+  </td>
 </tr>
 
 <tr>
   <td><a href="#json_extract"><code>JSON_EXTRACT</code></a>
-
 </td>
   <td>
     (Deprecated)
@@ -20566,7 +22664,6 @@ behavior:
 
 <tr>
   <td><a href="#json_extract_array"><code>JSON_EXTRACT_ARRAY</code></a>
-
 </td>
   <td>
     (Deprecated)
@@ -20576,12 +22673,12 @@ behavior:
     <code>ARRAY&lt;JSON&gt;</code>
     
     value.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#json_extract_scalar"><code>JSON_EXTRACT_SCALAR</code></a>
-
 </td>
   <td>
     (Deprecated)
@@ -20592,25 +22689,23 @@ behavior:
 
 <tr>
   <td><a href="#json_extract_string_array"><code>JSON_EXTRACT_STRING_ARRAY</code></a>
-
 </td>
   <td>
     (Deprecated)
     Extracts a JSON array of scalar values and converts it to a SQL
     <code>ARRAY&lt;STRING&gt;</code> value.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#json_object"><code>JSON_OBJECT</code></a>
-
 </td>
   <td>Creates a JSON object.</td>
 </tr>
 
 <tr>
   <td><a href="#json_query"><code>JSON_QUERY</code></a>
-
 </td>
   <td>
     Extracts a JSON value and converts it to a SQL
@@ -20624,7 +22719,6 @@ behavior:
 
 <tr>
   <td><a href="#json_query_array"><code>JSON_QUERY_ARRAY</code></a>
-
 </td>
   <td>
     Extracts a JSON array and converts it to
@@ -20633,33 +22727,30 @@ behavior:
     <code>ARRAY&lt;JSON&gt;</code>
     
     value.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#json_remove"><code>JSON_REMOVE</code></a>
-
 </td>
   <td>Produces JSON with the specified JSON data removed.</td>
 </tr>
 
 <tr>
   <td><a href="#json_set"><code>JSON_SET</code></a>
-
 </td>
   <td>Inserts or replaces JSON data.</td>
 </tr>
 
 <tr>
   <td><a href="#json_strip_nulls"><code>JSON_STRIP_NULLS</code></a>
-
 </td>
   <td>Removes JSON nulls from JSON objects and JSON arrays.</td>
 </tr>
 
 <tr>
   <td><a href="#json_type"><code>JSON_TYPE</code></a>
-
 </td>
   <td>
     Gets the JSON type of the outermost JSON value and converts the name of
@@ -20669,7 +22760,6 @@ behavior:
 
 <tr>
   <td><a href="#json_value"><code>JSON_VALUE</code></a>
-
 </td>
   <td>
     Extracts a JSON scalar value and converts it to a SQL
@@ -20679,28 +22769,31 @@ behavior:
 
 <tr>
   <td><a href="#json_value_array"><code>JSON_VALUE_ARRAY</code></a>
-
 </td>
   <td>
     Extracts a JSON array of scalar values and converts it to a SQL
     <code>ARRAY&lt;STRING&gt;</code> value.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#lax_bool"><code>LAX_BOOL</code></a>
-
 </td>
   <td>
     Attempts to convert a JSON value to a SQL <code>BOOL</code> value.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#lax_bool_array"><code>LAX_BOOL_ARRAY</code></a>
-
 </td>
-  <td>Attempts to convert a JSON value to a SQL <code>ARRAY&lt;BOOL&gt;</code> value.</td>
+  <td>
+    Attempts to convert a JSON value to a
+    SQL <code>ARRAY&lt;BOOL&gt;</code> value.
+    
+  </td>
 </tr>
 
 <tr>
@@ -20713,6 +22806,7 @@ behavior:
   <td>
     Attempts to convert a JSON value to a
     SQL <code>DOUBLE</code> value.
+    
   </td>
 </tr>
 
@@ -20723,7 +22817,11 @@ behavior:
 
     
   </td>
-  <td>Attempts to convert a JSON value to a SQL <code>ARRAY&lt;DOUBLE&gt;</code> value.</td>
+  <td>
+    Attempts to convert a JSON value to a
+    SQL <code>ARRAY&lt;DOUBLE&gt;</code> value.
+    
+  </td>
 </tr>
 
 <tr>
@@ -20733,7 +22831,11 @@ behavior:
 
     
   </td>
-  <td>Attempts to convert a JSON value to a SQL <code>FLOAT</code> value.</td>
+  <td>
+    Attempts to convert a JSON value to a
+    SQL <code>FLOAT</code> value.
+    
+  </td>
 </tr>
 
 <tr>
@@ -20743,167 +22845,199 @@ behavior:
 
     
   </td>
-  <td> Attempts to convert a JSON value to a SQL <code>ARRAY&gt;FLOAT&lt;</code> value.</td>
+  <td>
+    Attempts to convert a JSON value to a
+    SQL <code>ARRAY&gt;FLOAT&lt;</code> value.
+    
+  </td>
 </tr>
 
 <tr>
   <td><a href="#lax_int32"><code>LAX_INT32</code></a>
-
 </td>
   <td>
     Attempts to convert a JSON value to a SQL <code>INT32</code> value.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#lax_int32_array"><code>LAX_INT32_ARRAY</code></a>
-
 </td>
-  <td>Attempts to convert a JSON value to a SQL <code>ARRAY&lt;INT32&gt;</code> value.</td>
+  <td>
+    Attempts to convert a JSON value to a
+    SQL <code>ARRAY&lt;INT32&gt;</code> value.
+    
+  </td>
 </tr>
 
 <tr>
   <td><a href="#lax_int64"><code>LAX_INT64</code></a>
-
 </td>
   <td>
     Attempts to convert a JSON value to a SQL <code>INT64</code> value.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#lax_int64_array"><code>LAX_INT64_ARRAY</code></a>
-
 </td>
-  <td>Attempts to convert a JSON value to a SQL <code>ARRAY&lt;INT64&gt;</code> value.</td>
+  <td>
+    Attempts to convert a JSON value to a
+    SQL <code>ARRAY&lt;INT64&gt;</code> value.
+    
+  </td>
 </tr>
 
 <tr>
   <td><a href="#lax_string"><code>LAX_STRING</code></a>
-
 </td>
   <td>
     Attempts to convert a JSON value to a SQL <code>STRING</code> value.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#lax_string_array"><code>LAX_STRING_ARRAY</code></a>
-
 </td>
-  <td>Attempts to convert a JSON value to a SQL <code>ARRAY&lt;STRING&gt;</code>value.</td>
+  <td>
+    Attempts to convert a JSON value to a
+    SQL <code>ARRAY&lt;STRING&gt;</code>value.
+    
+  </td>
 </tr>
 
 <tr>
   <td><a href="#lax_uint32"><code>LAX_UINT32</code></a>
-
 </td>
   <td>
     Attempts to convert a JSON value to a SQL <code>UINT32</code> value.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#lax_uint32_array"><code>LAX_UINT32_ARRAY</code></a>
-
 </td>
-  <td>Attempts to convert a JSON value to a SQL <code>ARRAY&lt;UINT32&gt;</code> value.</td>
+  <td>
+    Attempts to convert a JSON value to a
+    SQL <code>ARRAY&lt;UINT32&gt;</code> value.
+    
+  </td>
 </tr>
 
 <tr>
   <td><a href="#lax_uint64"><code>LAX_UINT64</code></a>
-
 </td>
   <td>
     Attempts to convert a JSON value to a SQL <code>UINT64</code> value.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#lax_uint64_array"><code>LAX_UINT64_ARRAY</code></a>
-
 </td>
-  <td>Attempts to convert a JSON value to a SQL <code>ARRAY&lt;UINT64&gt;</code> value.</td>
+  <td>
+    Attempts to convert a JSON value to a
+    SQL <code>ARRAY&lt;UINT64&gt;</code> value.
+    
+  </td>
 </tr>
 
 <tr>
   <td><a href="#parse_json"><code>PARSE_JSON</code></a>
-
 </td>
   <td>
     Converts a JSON-formatted <code>STRING</code> value to a
     <code>JSON</code> value.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#string_for_json"><code>STRING</code></a>
+  <td><a href="#safe_to_json"><code>SAFE_TO_JSON</code></a>
+</td>
+  <td>
+    Similar to the `TO_JSON` function, but for each unsupported field in the
+    input argument, produces a JSON null instead of an error.
+  </td>
+</tr>
 
+<tr>
+  <td><a href="#string_for_json"><code>STRING</code> (JSON)</a>
 </td>
   <td>
     Converts a JSON string to a SQL <code>STRING</code> value.
+    
   </td>
 </tr>
 
 <tr>
-  <td>
-    <a href="#string_array_for_json"><code>STRING_ARRAY</code></a>
-
-  </td>
+  <td><a href="#string_array_for_json"><code>STRING_ARRAY</code></a>
+</td>
   <td>
     Converts a JSON array of strings to a SQL <code>ARRAY&lt;STRING&gt;</code>
     value.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#to_json"><code>TO_JSON</code></a>
-
 </td>
   <td>
     Converts a SQL value to a JSON value.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#to_json_string"><code>TO_JSON_STRING</code></a>
-
 </td>
   <td>
     Converts a SQL value to a JSON-formatted <code>STRING</code> value.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#uint32_for_json"><code>UINT32</code></a>
-
 </td>
   <td>
     Converts a JSON number to a SQL <code>UINT32</code> value.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#uint32_array_for_json"><code>UINT32_ARRAY</code></a>
-
 </td>
-  <td>Converts a JSON number to a SQL <code>ARRAY&lt;UINT32&gt;</code> value.</td>
+  <td>
+    Converts a JSON number to a
+    SQL <code>ARRAY&lt;UINT32&gt;</code> value.
+    
+  </td>
 </tr>
 
 <tr>
   <td><a href="#uint64_for_json"><code>UINT64</code></a>
-
 </td>
   <td>
     Converts a JSON number to a SQL <code>UINT64</code> value.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#uint64_array_for_json"><code>UINT64_ARRAY</code></a>
-
 </td>
-  <td>Converts a JSON number to a SQL <code>ARRAY&lt;UINT64&gt;</code> value.</td>
+  <td>
+    Converts a JSON number to a SQL <code>ARRAY&lt;UINT64&gt;</code> value.
+    
+  </td>
 </tr>
 
   </tbody>
@@ -27630,6 +29764,75 @@ SELECT PARSE_JSON('"red"') AS json_data;
  *------------------------------*/
 ```
 
+### `SAFE_TO_JSON`
+
+```sql
+SAFE_TO_JSON(sql_value)
+```
+
+**Description**
+
+Similar to the `TO_JSON` function, but for each unsupported field in the
+input argument, produces a JSON null instead of an error.
+
+Arguments:
+
++   `sql_value`: The SQL value to convert to a JSON value. You can review the
+    ZetaSQL data types that this function supports and their
+    [JSON encodings][json-encodings].
+
+**Return type**
+
+`JSON`
+
+**Example**
+
+The following queries are functionally the same, except that `SAFE_TO_JSON`
+produces a JSON null instead of an error when a hypothetical unsupported
+data type is encountered:
+
+```sql
+-- Produces a JSON null.
+SELECT SAFE_TO_JSON(CAST(b'' AS UNSUPPORTED_TYPE)) as result;
+```
+
+```sql
+-- Produces an error.
+SELECT TO_JSON(CAST(b'' AS UNSUPPORTED_TYPE), stringify_wide_numbers=>TRUE) as result;
+```
+
+In the following query, the value for `ut` is ignored because the value is an
+unsupported type:
+
+```sql
+SELECT SAFE_TO_JSON(STRUCT(CAST(b'' AS UNSUPPORTED_TYPE) AS ut) AS result;
+
+/*--------------*
+ | result       |
+ +--------------+
+ | {"ut": null} |
+ *--------------*/
+```
+
+The following array produces a JSON null instead of an error because the data
+type for the array is not supported.
+
+```sql
+SELECT SAFE_TO_JSON([
+        CAST(b'' AS UNSUPPORTED_TYPE),
+        CAST(b'' AS UNSUPPORTED_TYPE),
+        CAST(b'' AS UNSUPPORTED_TYPE),
+    ]) AS result;
+
+/*------------*
+ | result     |
+ +------------+
+ | null       |
+ *------------*/
+```
+
+[json-encodings]: #json_encodings
+
 ### `STRING` 
 <a id="string_for_json"></a>
 
@@ -28186,6 +30389,106 @@ SELECT UINT64_ARRAY(JSON '[null]') AS result; -- Throws an error
 SELECT UINT64_ARRAY(JSON 'null') AS result; -- Throws an error
 ```
 
+### Supplemental materials
+
+### Differences between the JSON and JSON-formatted STRING types 
+<a id="differences_json_and_string"></a>
+
+Many JSON functions accept two input types:
+
++  [`JSON`][JSON-type] type
++  `STRING` type
+
+The `STRING` version of the extraction functions behaves differently than the
+`JSON` version, mainly because `JSON` type values are always validated whereas
+JSON-formatted `STRING` type values are not.
+
+#### Non-validation of `STRING` inputs
+
+The following `STRING` is invalid JSON because it is missing a trailing `}`:
+
+```
+{"hello": "world"
+```
+
+The JSON function reads the input from the beginning and stops as soon as the
+field to extract is found, without reading the remainder of the input. A parsing
+error is not produced.
+
+With the `JSON` type, however, `JSON '{"hello": "world"'` returns a parsing
+error.
+
+For example:
+
+```sql
+SELECT JSON_VALUE('{"hello": "world"', "$.hello") AS hello;
+
+/*-------*
+ | hello |
+ +-------+
+ | world |
+ *-------*/
+```
+
+```sql
+SELECT JSON_VALUE(JSON '{"hello": "world"', "$.hello") AS hello;
+-- An error is returned: Invalid JSON literal: syntax error while parsing
+-- object - unexpected end of input; expected '}'
+```
+
+#### No strict validation of extracted values
+
+In the following examples, duplicated keys are not removed when using a
+JSON-formatted string. Similarly, keys order is preserved. For the `JSON`
+type, `JSON '{"key": 1, "key": 2}'` will result in `JSON '{"key":1}'` during
+parsing.
+
+```sql
+SELECT JSON_QUERY('{"key": 1, "key": 2}', "$") AS string;
+
+/*-------------------*
+ | string            |
+ +-------------------+
+ | {"key":1,"key":2} |
+ *-------------------*/
+```
+
+```sql
+SELECT JSON_QUERY(JSON '{"key": 1, "key": 2}', "$") AS json;
+
+/*-----------*
+ | json      |
+ +-----------+
+ | {"key":1} |
+ *-----------*/
+```
+
+#### JSON `null`
+
+When using a JSON-formatted `STRING` type in a JSON function, a JSON `null`
+value is extracted as a SQL `NULL` value.
+
+When using a JSON type in a JSON function, a JSON `null` value returns a JSON
+`null` value.
+
+```sql
+WITH t AS (
+  SELECT '{"name": null}' AS json_string, JSON '{"name": null}' AS json)
+SELECT JSON_QUERY(json_string, "$.name") AS name_string,
+  JSON_QUERY(json_string, "$.name") IS NULL AS name_string_is_null,
+  JSON_QUERY(json, "$.name") AS name_json,
+  JSON_QUERY(json, "$.name") IS NULL AS name_json_is_null
+FROM t;
+
+/*-------------+---------------------+-----------+-------------------*
+ | name_string | name_string_is_null | name_json | name_json_is_null |
+ +-------------+---------------------+-----------+-------------------+
+ | NULL        | true                | null      | false             |
+ *-------------+---------------------+-----------+-------------------*/
+```
+
+[JSON-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#json_type
+
 ### JSON encodings 
 <a id="json_encodings"></a>
 
@@ -28319,6 +30622,26 @@ The following SQL to JSON encodings are supported:
         SQL input with stringify_wide_numbers=>TRUE:
         <code>9007199254740993</code><br />
         JSON output: <code>"9007199254740993"</code><br />
+      </td>
+    </tr>
+    
+    
+    
+    
+    <tr>
+      <td>INTERVAL</td>
+      <td>string<td>
+        SQL input: <code>INTERVAL '10:20:30.52' HOUR TO SECOND</code><br />
+        JSON output: <code>"PT10H20M30.52S"</code><br />
+        <hr />
+        SQL input: <code>INTERVAL 1 SECOND</code><br />
+        JSON output: <code>"PT1S"</code><br />
+        <hr />
+        <code>INTERVAL -25 MONTH</code><br />
+        JSON output: <code>"P-2Y-1M"</code><br />
+        <hr />
+        <code>INTERVAL '1 5:30' DAY TO MINUTE</code><br />
+        JSON output: <code>"P1DT5H30M"</code><br />
       </td>
     </tr>
     
@@ -28640,6 +30963,54 @@ The following SQL to JSON encodings are supported:
     
     
     <tr>
+      <td>GRAPH_ELEMENT</td>
+      <td>
+        <p>object</p>
+        <p>
+          The object can contain zero or more key-value pairs.
+          Each value is formatted according to its type.
+        </p>
+        <p>
+          For <code>TO_JSON</code>, graph
+          element (node or edge) objects are supported.
+        </p>
+        <ul>
+          <li>
+            The graph element identifier is only valid within the scope of the
+            same query response and cannot be used to correlate entities across
+            different queries.
+          </li>
+          <li>
+            Field names that aren't valid UTF-8 might result in unparseable
+            JSON.
+          </li>
+          <li>
+            The result may include internal key-value pairs that are not defined
+            by the users.
+          </li>
+          <li>
+            The conversion can fail if the object contains values of unsupported
+            types.
+          </li>
+        </ul>
+      </td>
+      <td>
+        SQL:
+        <br />
+<pre>GRAPH FinGraph
+MATCH (p:Person WHERE p.name = 'Dana')
+RETURN TO_JSON(p) AS dana_json;</pre>
+        <br />
+        JSON output (truncated):
+        <br />
+<pre>{"identifier":"ZGFuYQ==","kind":"node","labels":["Person"],"properties":{"id":2,"name":"Dana"}}</pre>
+      </td>
+    </tr>
+    
+    
+    
+    
+    <tr>
       <td>RANGE</td>
       <td>
         <p>range</p>
@@ -28780,108 +31151,6 @@ The JSONPath format supports these operators:
 
   </tbody>
 </table>
-
-### Differences between the JSON and JSON-formatted STRING types 
-<a id="differences_json_and_string"></a>
-
-Many JSON functions accept two input types:
-
-+  [`JSON`][JSON-type] type
-+  `STRING` type
-
-The `STRING` version of the extraction functions behaves differently than the
-`JSON` version, mainly because `JSON` type values are always validated whereas
-JSON-formatted `STRING` type values are not.
-
-#### Non-validation of `STRING` inputs
-
-The following `STRING` is invalid JSON because it is missing a trailing `}`:
-
-```
-{"hello": "world"
-```
-
-The JSON function reads the input from the beginning and stops as soon as the
-field to extract is found, without reading the remainder of the input. A parsing
-error is not produced.
-
-With the `JSON` type, however, `JSON '{"hello": "world"'` returns a parsing
-error.
-
-For example:
-
-```sql
-SELECT JSON_VALUE('{"hello": "world"', "$.hello") AS hello;
-
-/*-------*
- | hello |
- +-------+
- | world |
- *-------*/
-```
-
-```sql
-SELECT JSON_VALUE(JSON '{"hello": "world"', "$.hello") AS hello;
--- An error is returned: Invalid JSON literal: syntax error while parsing
--- object - unexpected end of input; expected '}'
-```
-
-#### No strict validation of extracted values
-
-In the following examples, duplicated keys are not removed when using a
-JSON-formatted string. Similarly, keys order is preserved. For the `JSON`
-type, `JSON '{"key": 1, "key": 2}'` will result in `JSON '{"key":1}'` during
-parsing.
-
-```sql
-SELECT JSON_QUERY('{"key": 1, "key": 2}', "$") AS string;
-
-/*-------------------*
- | string            |
- +-------------------+
- | {"key":1,"key":2} |
- *-------------------*/
-```
-
-```sql
-SELECT JSON_QUERY(JSON '{"key": 1, "key": 2}', "$") AS json;
-
-/*-----------*
- | json      |
- +-----------+
- | {"key":1} |
- *-----------*/
-```
-
-#### JSON `null`
-
-When using a JSON-formatted `STRING` type in a JSON function, a JSON `null`
-value is extracted as a SQL `NULL` value.
-
-When using a JSON type in a JSON function, a JSON `null` value returns a JSON
-`null` value.
-
-```sql
-WITH t AS (
-  SELECT '{"name": null}' AS json_string, JSON '{"name": null}' AS json)
-SELECT JSON_QUERY(json_string, "$.name") AS name_string,
-  JSON_QUERY(json_string, "$.name") IS NULL AS name_string_is_null,
-  JSON_QUERY(json, "$.name") AS name_json,
-  JSON_QUERY(json, "$.name") IS NULL AS name_json_is_null
-FROM t;
-
-/*-------------+---------------------+-----------+-------------------*
- | name_string | name_string_is_null | name_json | name_json_is_null |
- +-------------+---------------------+-----------+-------------------+
- | NULL        | true                | null      | false             |
- *-------------+---------------------+-----------+-------------------*/
-```
-
-[JSONPath-format]: #JSONPath_format
-
-[JSON-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#json_type
-
-[JSONPath-mode]: #JSONPath_mode
 
 ## Mathematical functions
 
@@ -29049,7 +31318,6 @@ All mathematical functions have the following behaviors:
 
 <tr>
   <td><a href="#abs"><code>ABS</code></a>
-
 </td>
   <td>
     Computes the absolute value of <code>X</code>.
@@ -29058,7 +31326,6 @@ All mathematical functions have the following behaviors:
 
 <tr>
   <td><a href="#acos"><code>ACOS</code></a>
-
 </td>
   <td>
     Computes the inverse cosine of <code>X</code>.
@@ -29067,7 +31334,6 @@ All mathematical functions have the following behaviors:
 
 <tr>
   <td><a href="#acosh"><code>ACOSH</code></a>
-
 </td>
   <td>
     Computes the inverse hyperbolic cosine of <code>X</code>.
@@ -29076,7 +31342,6 @@ All mathematical functions have the following behaviors:
 
 <tr>
   <td><a href="#asin"><code>ASIN</code></a>
-
 </td>
   <td>
     Computes the inverse sine of <code>X</code>.
@@ -29085,7 +31350,6 @@ All mathematical functions have the following behaviors:
 
 <tr>
   <td><a href="#asinh"><code>ASINH</code></a>
-
 </td>
   <td>
     Computes the inverse hyperbolic sine of <code>X</code>.
@@ -29094,7 +31358,6 @@ All mathematical functions have the following behaviors:
 
 <tr>
   <td><a href="#atan"><code>ATAN</code></a>
-
 </td>
   <td>
     Computes the inverse tangent of <code>X</code>.
@@ -29103,7 +31366,6 @@ All mathematical functions have the following behaviors:
 
 <tr>
   <td><a href="#atan2"><code>ATAN2</code></a>
-
 </td>
   <td>
     Computes the inverse tangent of <code>X/Y</code>, using the signs of
@@ -29113,7 +31375,6 @@ All mathematical functions have the following behaviors:
 
 <tr>
   <td><a href="#atanh"><code>ATANH</code></a>
-
 </td>
   <td>
     Computes the inverse hyperbolic tangent of <code>X</code>.
@@ -29121,8 +31382,30 @@ All mathematical functions have the following behaviors:
 </tr>
 
 <tr>
-  <td><a href="#cbrt"><code>CBRT</code></a>
+  <td><a href="#avg"><code>AVG</code></a>
+</td>
+  <td>
+    Gets the average of non-<code>NULL</code> values.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md">Aggregate functions</a>.
 
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#dp_avg"><code>AVG</code> (Differential Privacy)</a>
+</td>
+  <td>
+    <code>DIFFERENTIAL_PRIVACY</code>-supported <code>AVG</code>.<br/><br/>
+    Gets the differentially-private average of non-<code>NULL</code>,
+    non-<code>NaN</code> values in a query with a
+    <code>DIFFERENTIAL_PRIVACY</code> clause.
+    <br><br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md">Differential privacy functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#cbrt"><code>CBRT</code></a>
 </td>
   <td>
     Computes the cube root of <code>X</code>.
@@ -29131,7 +31414,6 @@ All mathematical functions have the following behaviors:
 
 <tr>
   <td><a href="#ceil"><code>CEIL</code></a>
-
 </td>
   <td>
     Gets the smallest integral value that is not less than <code>X</code>.
@@ -29140,7 +31422,6 @@ All mathematical functions have the following behaviors:
 
 <tr>
   <td><a href="#ceiling"><code>CEILING</code></a>
-
 </td>
   <td>
     Synonym of <code>CEIL</code>.
@@ -29149,7 +31430,6 @@ All mathematical functions have the following behaviors:
 
 <tr>
   <td><a href="#cos"><code>COS</code></a>
-
 </td>
   <td>
     Computes the cosine of <code>X</code>.
@@ -29158,7 +31438,6 @@ All mathematical functions have the following behaviors:
 
 <tr>
   <td><a href="#cosh"><code>COSH</code></a>
-
 </td>
   <td>
     Computes the hyperbolic cosine of <code>X</code>.
@@ -29167,14 +31446,12 @@ All mathematical functions have the following behaviors:
 
 <tr>
   <td><a href="#cosine_distance"><code>COSINE_DISTANCE</code></a>
-
 </td>
   <td>Computes the cosine distance between two vectors.</td>
 </tr>
 
 <tr>
   <td><a href="#cot"><code>COT</code></a>
-
 </td>
   <td>
     Computes the cotangent of <code>X</code>.
@@ -29183,7 +31460,6 @@ All mathematical functions have the following behaviors:
 
 <tr>
   <td><a href="#coth"><code>COTH</code></a>
-
 </td>
   <td>
     Computes the hyperbolic cotangent of <code>X</code>.
@@ -29192,7 +31468,6 @@ All mathematical functions have the following behaviors:
 
 <tr>
   <td><a href="#csc"><code>CSC</code></a>
-
 </td>
   <td>
     Computes the cosecant of <code>X</code>.
@@ -29201,7 +31476,6 @@ All mathematical functions have the following behaviors:
 
 <tr>
   <td><a href="#csch"><code>CSCH</code></a>
-
 </td>
   <td>
     Computes the hyperbolic cosecant of <code>X</code>.
@@ -29210,7 +31484,6 @@ All mathematical functions have the following behaviors:
 
 <tr>
   <td><a href="#div"><code>DIV</code></a>
-
 </td>
   <td>
     Divides integer <code>X</code> by integer <code>Y</code>.
@@ -29219,7 +31492,6 @@ All mathematical functions have the following behaviors:
 
 <tr>
   <td><a href="#exp"><code>EXP</code></a>
-
 </td>
   <td>
     Computes <code>e</code> to the power of <code>X</code>.
@@ -29228,14 +31500,12 @@ All mathematical functions have the following behaviors:
 
 <tr>
   <td><a href="#euclidean_distance"><code>EUCLIDEAN_DISTANCE</code></a>
-
 </td>
   <td>Computes the Euclidean distance between two vectors.</td>
 </tr>
 
 <tr>
   <td><a href="#floor"><code>FLOOR</code></a>
-
 </td>
   <td>
     Gets the largest integral value that is not greater than <code>X</code>.
@@ -29244,7 +31514,6 @@ All mathematical functions have the following behaviors:
 
 <tr>
   <td><a href="#greatest"><code>GREATEST</code></a>
-
 </td>
   <td>
     Gets the greatest value among <code>X1,...,XN</code>.
@@ -29253,7 +31522,6 @@ All mathematical functions have the following behaviors:
 
 <tr>
   <td><a href="#ieee_divide"><code>IEEE_DIVIDE</code></a>
-
 </td>
   <td>
     Divides <code>X</code> by <code>Y</code>, but does not generate errors for
@@ -29263,7 +31531,6 @@ All mathematical functions have the following behaviors:
 
 <tr>
   <td><a href="#is_inf"><code>IS_INF</code></a>
-
 </td>
   <td>
     Checks if <code>X</code> is positive or negative infinity.
@@ -29272,7 +31539,6 @@ All mathematical functions have the following behaviors:
 
 <tr>
   <td><a href="#is_nan"><code>IS_NAN</code></a>
-
 </td>
   <td>
     Checks if <code>X</code> is a <code>NaN</code> value.
@@ -29281,7 +31547,6 @@ All mathematical functions have the following behaviors:
 
 <tr>
   <td><a href="#least"><code>LEAST</code></a>
-
 </td>
   <td>
     Gets the least value among <code>X1,...,XN</code>.
@@ -29290,7 +31555,6 @@ All mathematical functions have the following behaviors:
 
 <tr>
   <td><a href="#ln"><code>LN</code></a>
-
 </td>
   <td>
     Computes the natural logarithm of <code>X</code>.
@@ -29299,7 +31563,6 @@ All mathematical functions have the following behaviors:
 
 <tr>
   <td><a href="#log"><code>LOG</code></a>
-
 </td>
   <td>
    Computes the natural logarithm of <code>X</code> or the logarithm of
@@ -29309,7 +31572,6 @@ All mathematical functions have the following behaviors:
 
 <tr>
   <td><a href="#log10"><code>LOG10</code></a>
-
 </td>
   <td>
     Computes the natural logarithm of <code>X</code> to base 10.
@@ -29317,8 +31579,17 @@ All mathematical functions have the following behaviors:
 </tr>
 
 <tr>
-  <td><a href="#mod"><code>MOD</code></a>
+  <td><a href="#max"><code>MAX</code></a>
+</td>
+  <td>
+    Gets the maximum non-<code>NULL</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md">Aggregate functions</a>.
 
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#mod"><code>MOD</code></a>
 </td>
   <td>
     Gets the remainder of the division of <code>X</code> by <code>Y</code>.
@@ -29327,7 +31598,6 @@ All mathematical functions have the following behaviors:
 
 <tr>
   <td><a href="#pi"><code>PI</code></a>
-
 </td>
   <td>
     Produces the mathematical constant π as a
@@ -29337,7 +31607,6 @@ All mathematical functions have the following behaviors:
 
 <tr>
   <td><a href="#pi_bignumeric"><code>PI_BIGNUMERIC</code></a>
-
 </td>
   <td>
     Produces the mathematical constant π as a <code>BIGNUMERIC</code> value.
@@ -29346,7 +31615,6 @@ All mathematical functions have the following behaviors:
 
 <tr>
   <td><a href="#pi_numeric"><code>PI_NUMERIC</code></a>
-
 </td>
   <td>
     Produces the mathematical constant π as a <code>NUMERIC</code> value.
@@ -29355,7 +31623,6 @@ All mathematical functions have the following behaviors:
 
 <tr>
   <td><a href="#pow"><code>POW</code></a>
-
 </td>
   <td>
     Produces the value of <code>X</code> raised to the power of <code>Y</code>.
@@ -29364,7 +31631,6 @@ All mathematical functions have the following behaviors:
 
 <tr>
   <td><a href="#power"><code>POWER</code></a>
-
 </td>
   <td>
     Synonym of <code>POW</code>.
@@ -29373,7 +31639,6 @@ All mathematical functions have the following behaviors:
 
 <tr>
   <td><a href="#rand"><code>RAND</code></a>
-
 </td>
   <td>
     Generates a pseudo-random value of type
@@ -29384,17 +31649,16 @@ All mathematical functions have the following behaviors:
 
 <tr>
   <td><a href="#range_bucket"><code>RANGE_BUCKET</code></a>
-
 </td>
   <td>
     Scans through a sorted array and returns the 0-based position
     of a point's upper bound.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#round"><code>ROUND</code></a>
-
 </td>
   <td>
     Rounds <code>X</code> to the nearest integer or rounds <code>X</code>
@@ -29404,7 +31668,6 @@ All mathematical functions have the following behaviors:
 
 <tr>
   <td><a href="#safe_add"><code>SAFE_ADD</code></a>
-
 </td>
   <td>
     Equivalent to the addition operator (<code>X + Y</code>), but returns
@@ -29414,7 +31677,6 @@ All mathematical functions have the following behaviors:
 
 <tr>
   <td><a href="#safe_divide"><code>SAFE_DIVIDE</code></a>
-
 </td>
   <td>
     Equivalent to the division operator (<code>X / Y</code>), but returns
@@ -29424,7 +31686,6 @@ All mathematical functions have the following behaviors:
 
 <tr>
   <td><a href="#safe_multiply"><code>SAFE_MULTIPLY</code></a>
-
 </td>
   <td>
     Equivalent to the multiplication operator (<code>X * Y</code>),
@@ -29434,7 +31695,6 @@ All mathematical functions have the following behaviors:
 
 <tr>
   <td><a href="#safe_negate"><code>SAFE_NEGATE</code></a>
-
 </td>
   <td>
     Equivalent to the unary minus operator (<code>-X</code>), but returns
@@ -29444,7 +31704,6 @@ All mathematical functions have the following behaviors:
 
 <tr>
   <td><a href="#safe_subtract"><code>SAFE_SUBTRACT</code></a>
-
 </td>
   <td>
     Equivalent to the subtraction operator (<code>X - Y</code>), but
@@ -29454,7 +31713,6 @@ All mathematical functions have the following behaviors:
 
 <tr>
   <td><a href="#sec"><code>SEC</code></a>
-
 </td>
   <td>
     Computes the secant of <code>X</code>.
@@ -29463,7 +31721,6 @@ All mathematical functions have the following behaviors:
 
 <tr>
   <td><a href="#sech"><code>SECH</code></a>
-
 </td>
   <td>
     Computes the hyperbolic secant of <code>X</code>.
@@ -29472,7 +31729,6 @@ All mathematical functions have the following behaviors:
 
 <tr>
   <td><a href="#sign"><code>SIGN</code></a>
-
 </td>
   <td>
     Produces -1 , 0, or +1 for negative, zero, and positive arguments
@@ -29482,7 +31738,6 @@ All mathematical functions have the following behaviors:
 
 <tr>
   <td><a href="#sin"><code>SIN</code></a>
-
 </td>
   <td>
     Computes the sine of <code>X</code>.
@@ -29491,7 +31746,6 @@ All mathematical functions have the following behaviors:
 
 <tr>
   <td><a href="#sinh"><code>SINH</code></a>
-
 </td>
   <td>
     Computes the hyperbolic sine of <code>X</code>.
@@ -29500,7 +31754,6 @@ All mathematical functions have the following behaviors:
 
 <tr>
   <td><a href="#sqrt"><code>SQRT</code></a>
-
 </td>
   <td>
     Computes the square root of <code>X</code>.
@@ -29508,8 +31761,30 @@ All mathematical functions have the following behaviors:
 </tr>
 
 <tr>
-  <td><a href="#tan"><code>TAN</code></a>
+  <td><a href="#sum"><code>SUM</code></a>
+</td>
+  <td>
+    Gets the sum of non-<code>NULL</code> values.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md">Aggregate functions</a>.
 
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#dp_sum"><code>SUM</code> (Differential Privacy)</a>
+</td>
+  <td>
+    <code>DIFFERENTIAL_PRIVACY</code>-supported <code>SUM</code>.<br/><br/>
+    Gets the differentially-private sum of non-<code>NULL</code>,
+    non-<code>NaN</code> values in a query with a
+    <code>DIFFERENTIAL_PRIVACY</code> clause.
+    <br><br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md">Differential privacy functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#tan"><code>TAN</code></a>
 </td>
   <td>
     Computes the tangent of <code>X</code>.
@@ -29518,7 +31793,6 @@ All mathematical functions have the following behaviors:
 
 <tr>
   <td><a href="#tanh"><code>TANH</code></a>
-
 </td>
   <td>
     Computes the hyperbolic tangent of <code>X</code>.
@@ -29527,7 +31801,6 @@ All mathematical functions have the following behaviors:
 
 <tr>
   <td><a href="#trunc"><code>TRUNC</code></a>
-
 </td>
   <td>
     Rounds a number like <code>ROUND(X)</code> or <code>ROUND(X, N)</code>,
@@ -30200,7 +32473,7 @@ Computes the [cosine distance][wiki-cosine-distance] between two vectors.
 
     ```sql
     -- sparse vector ARRAY<STRUCT<INT64, DOUBLE>>
-    [(1, 10.0), (2: 30.0), (5, 40.0)]
+    [(1, 10.0), (2, 30.0), (5, 40.0)]
     ```
 
     ```sql
@@ -30212,11 +32485,11 @@ Computes the [cosine distance][wiki-cosine-distance] between two vectors.
     particular order. The following sparse vectors are equivalent:
 
     ```sql
-    [('a', 10.0), ('b': 30.0), ('d': 40.0)]
+    [('a', 10.0), ('b', 30.0), ('d', 40.0)]
     ```
 
     ```sql
-    [('d': 40.0), ('a', 10.0), ('b': 30.0)]
+    [('d', 40.0), ('a', 10.0), ('b', 30.0)]
     ```
 +   Both  non-sparse vectors
     in this function must share the same dimensions, and if they don't, an error
@@ -30759,7 +33032,7 @@ Computes the [Euclidean distance][wiki-euclidean-distance] between two vectors.
 
     ```sql
     -- sparse vector ARRAY<STRUCT<INT64, DOUBLE>>
-    [(1, 10.0), (2: 30.0), (5, 40.0)]
+    [(1, 10.0), (2, 30.0), (5, 40.0)]
     ```
 
     ```sql
@@ -30771,11 +33044,11 @@ Computes the [Euclidean distance][wiki-euclidean-distance] between two vectors.
     particular order. The following sparse vectors are equivalent:
 
     ```sql
-    [('a', 10.0), ('b': 30.0), ('d': 40.0)]
+    [('a', 10.0), ('b', 30.0), ('d', 40.0)]
     ```
 
     ```sql
-    [('d': 40.0), ('a', 10.0), ('b': 30.0)]
+    [('d', 40.0), ('a', 10.0), ('b', 30.0)]
     ```
 +   Both  non-sparse vectors
     in this function must share the same dimensions, and if they don't, an error
@@ -31181,7 +33454,7 @@ equal to zero.
       <td><code>+inf</code></td>
     </tr>
     <tr>
-      <td><code>X &lt; 0</code></td>
+      <td><code>X &lt;= 0</code></td>
       <td>Error</td>
     </tr>
   </tbody>
@@ -32585,65 +34858,65 @@ For all navigation functions, the result data type is the same type as
 
 <tr>
   <td><a href="#first_value"><code>FIRST_VALUE</code></a>
-
 </td>
   <td>
     Gets a value for the first row in the current window frame.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#lag"><code>LAG</code></a>
-
 </td>
   <td>
     Gets a value for a preceding row.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#last_value"><code>LAST_VALUE</code></a>
-
 </td>
   <td>
     Gets a value for the last row in the current window frame.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#lead"><code>LEAD</code></a>
-
 </td>
   <td>
     Gets a value for a subsequent row.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#nth_value"><code>NTH_VALUE</code></a>
-
 </td>
   <td>
     Gets a value for the Nth row of the current window frame.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#percentile_cont"><code>PERCENTILE_CONT</code></a>
-
 </td>
   <td>
     Computes the specified percentile for a value, using
     linear interpolation.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#percentile_disc"><code>PERCENTILE_DISC</code></a>
-
 </td>
   <td>
     Computes the specified percentile for a discrete value.
+    
   </td>
 </tr>
 
@@ -33483,7 +35756,6 @@ ZetaSQL supports the following Net functions.
 
 <tr>
   <td><a href="#netformat_ip"><code>NET.FORMAT_IP</code></a>
-
 </td>
   <td>
     (Deprecated) Converts an
@@ -33494,7 +35766,6 @@ ZetaSQL supports the following Net functions.
 
 <tr>
   <td><a href="#netformat_packed_ip"><code>NET.FORMAT_PACKED_IP</code></a>
-
 </td>
   <td>
     (Deprecated) Converts an
@@ -33505,7 +35776,6 @@ ZetaSQL supports the following Net functions.
 
 <tr>
   <td><a href="#nethost"><code>NET.HOST</code></a>
-
 </td>
   <td>
    Gets the hostname from a URL.
@@ -33514,7 +35784,6 @@ ZetaSQL supports the following Net functions.
 
 <tr>
   <td><a href="#netip_from_string"><code>NET.IP_FROM_STRING</code></a>
-
 </td>
   <td>
     Converts an IPv4 or IPv6 address from a <code>STRING</code> value to
@@ -33524,7 +35793,6 @@ ZetaSQL supports the following Net functions.
 
 <tr>
   <td><a href="#netip_in_net"><code>NET.IP_IN_NET</code></a>
-
 </td>
   <td>
     Checks if an IP address is in a subnet.
@@ -33533,7 +35801,6 @@ ZetaSQL supports the following Net functions.
 
 <tr>
   <td><a href="#netip_net_mask"><code>NET.IP_NET_MASK</code></a>
-
 </td>
   <td>
     Gets a network mask.
@@ -33542,7 +35809,6 @@ ZetaSQL supports the following Net functions.
 
 <tr>
   <td><a href="#netip_to_string"><code>NET.IP_TO_STRING</code></a>
-
 </td>
   <td>
     Converts an IPv4 or IPv6 address from a <code>BYTES</code> value in
@@ -33552,7 +35818,6 @@ ZetaSQL supports the following Net functions.
 
 <tr>
   <td><a href="#netip_trunc"><code>NET.IP_TRUNC</code></a>
-
 </td>
   <td>
     Converts a <code>BYTES</code>  IPv4 or IPv6 address in
@@ -33562,7 +35827,6 @@ ZetaSQL supports the following Net functions.
 
 <tr>
   <td><a href="#netipv4_from_int64"><code>NET.IPV4_FROM_INT64</code></a>
-
 </td>
   <td>
     Converts an IPv4 address from an <code>INT64</code> value to a
@@ -33572,7 +35836,6 @@ ZetaSQL supports the following Net functions.
 
 <tr>
   <td><a href="#netipv4_to_int64"><code>NET.IPV4_TO_INT64</code></a>
-
 </td>
   <td>
     Converts an IPv4 address from a <code>BYTES</code> value in network
@@ -33582,7 +35845,6 @@ ZetaSQL supports the following Net functions.
 
 <tr>
   <td><a href="#netmake_net"><code>NET.MAKE_NET</code></a>
-
 </td>
   <td>
     Takes a IPv4 or IPv6 address and the prefix length, and produces a
@@ -33592,7 +35854,6 @@ ZetaSQL supports the following Net functions.
 
 <tr>
   <td><a href="#netparse_ip"><code>NET.PARSE_IP</code></a>
-
 </td>
   <td>
     (Deprecated) Converts an
@@ -33603,7 +35864,6 @@ ZetaSQL supports the following Net functions.
 
 <tr>
   <td><a href="#netparse_packed_ip"><code>NET.PARSE_PACKED_IP</code></a>
-
 </td>
   <td>
     (Deprecated) Converts an
@@ -33614,7 +35874,6 @@ ZetaSQL supports the following Net functions.
 
 <tr>
   <td><a href="#netpublic_suffix"><code>NET.PUBLIC_SUFFIX</code></a>
-
 </td>
   <td>
     Gets the public suffix from a URL.
@@ -33623,7 +35882,6 @@ ZetaSQL supports the following Net functions.
 
 <tr>
   <td><a href="#netreg_domain"><code>NET.REG_DOMAIN</code></a>
-
 </td>
   <td>
     Gets the registered or registrable domain from a URL.
@@ -33632,7 +35890,6 @@ ZetaSQL supports the following Net functions.
 
 <tr>
   <td><a href="#netsafe_ip_from_string"><code>NET.SAFE_IP_FROM_STRING</code></a>
-
 </td>
   <td>
     Similar to the <code>NET.IP_FROM_STRING</code>, but returns
@@ -34357,56 +36614,56 @@ numbering functions.
 
 <tr>
   <td><a href="#cume_dist"><code>CUME_DIST</code></a>
-
 </td>
   <td>
     Gets the cumulative distribution (relative position (0,1]) of each row
     within a window.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#dense_rank"><code>DENSE_RANK</code></a>
-
 </td>
   <td>
     Gets the dense rank (1-based, no gaps) of each row within a window.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#ntile"><code>NTILE</code></a>
-
 </td>
   <td>
     Gets the quantile bucket number (1-based) of each row within a window.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#percent_rank"><code>PERCENT_RANK</code></a>
-
 </td>
   <td>
     Gets the percentile rank (from 0 to 1) of each row within a window.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#rank"><code>RANK</code></a>
-
 </td>
   <td>
     Gets the rank (1-based) of each row within a window.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#row_number"><code>ROW_NUMBER</code></a>
-
 </td>
   <td>
     Gets the sequential row number (1-based) of each row within a window.
+    
   </td>
 </tr>
 
@@ -34937,7 +37194,6 @@ ZetaSQL supports the following protocol buffer functions.
 
 <tr>
   <td><a href="#enum_value_descriptor_proto"><code>ENUM_VALUE_DESCRIPTOR_PROTO</code></a>
-
 </td>
   <td>
     Gets the enum value descriptor proto
@@ -34947,7 +37203,6 @@ ZetaSQL supports the following protocol buffer functions.
 
 <tr>
   <td><a href="#proto_extract"><code>EXTRACT</code></a>
-
 </td>
   <td>
     Extracts a value or metadata from a protocol buffer.
@@ -34956,7 +37211,6 @@ ZetaSQL supports the following protocol buffer functions.
 
 <tr>
   <td><a href="#filter_fields"><code>FILTER_FIELDS</code></a>
-
 </td>
   <td>
     Removed unwanted fields from a protocol buffer.
@@ -34965,16 +37219,15 @@ ZetaSQL supports the following protocol buffer functions.
 
 <tr>
   <td><a href="#from_proto"><code>FROM_PROTO</code></a>
-
 </td>
   <td>
     Converts a protocol buffer value into ZetaSQL value.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#proto_default_if_null"><code>PROTO_DEFAULT_IF_NULL</code></a>
-
 </td>
   <td>
     Produces the default protocol buffer field value if the
@@ -34985,7 +37238,6 @@ ZetaSQL supports the following protocol buffer functions.
 
 <tr>
   <td><a href="#proto_map_contains_key"><code>PROTO_MAP_CONTAINS_KEY</code></a>
-
 </td>
   <td>
     Checks if a protocol buffer map field contains a given key.
@@ -34994,7 +37246,6 @@ ZetaSQL supports the following protocol buffer functions.
 
 <tr>
   <td><a href="#proto_modify_map"><code>PROTO_MODIFY_MAP</code></a>
-
 </td>
   <td>
     Modifies a protocol buffer map field.
@@ -35003,7 +37254,6 @@ ZetaSQL supports the following protocol buffer functions.
 
 <tr>
   <td><a href="#replace_fields"><code>REPLACE_FIELDS</code></a>
-
 </td>
   <td>
     Replaces the values in one or more protocol buffer fields.
@@ -35012,10 +37262,10 @@ ZetaSQL supports the following protocol buffer functions.
 
 <tr>
   <td><a href="#to_proto"><code>TO_PROTO</code></a>
-
 </td>
   <td>
     Converts a ZetaSQL value into a protocol buffer value.
+    
   </td>
 </tr>
 
@@ -35882,12 +38132,12 @@ Returns a copy of a protocol buffer, replacing the values in one or more fields.
 `field_path` is a delimited path to the protocol buffer field that is replaced.
 When using `replace_fields`, the following limitations apply:
 
-+ If `value` is `NULL`, it un-sets `field_path` or returns an error if the last
-  component of `field_path` is a required field.
-+ Replacing subfields will succeed only if the message containing the field is
-  set.
-+ Replacing subfields of repeated field is not allowed.
-+ A repeated field can be replaced with an `ARRAY` value.
++   If `value` is `NULL`, it un-sets `field_path` or returns an error if the
+    last component of `field_path` is a required field.
++   Replacing subfields will succeed only if the message containing the field is
+    set.
++   Replacing subfields of repeated field isn't allowed.
++   A repeated field can be replaced with an `ARRAY` value.
 
 **Return type**
 
@@ -36148,14 +38398,16 @@ ZetaSQL supports the following range functions.
 
 <tr>
   <td><a href="#generate_range_array"><code>GENERATE_RANGE_ARRAY</code></a>
-
 </td>
-  <td>Splits a range into an array of subranges.</td>
+  <td>
+    Splits a range into an array of subranges.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/range-functions.md">Range functions</a>.
+
+  </td>
 </tr>
 
 <tr>
   <td><a href="#range"><code>RANGE</code></a>
-
 </td>
   <td>
     Constructs a range of <code>DATE</code>, <code>DATETIME</code>,
@@ -36164,8 +38416,18 @@ ZetaSQL supports the following range functions.
 </tr>
 
 <tr>
-  <td><a href="#range_contains"><code>RANGE_CONTAINS</code></a>
+  <td><a href="#range_bucket"><code>RANGE_BUCKET</code></a>
+</td>
+  <td>
+    Scans through a sorted array and returns the 0-based position
+    of a point's upper bound.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/mathematical_functions.md">Mathematical functions</a>.
 
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#range_contains"><code>RANGE_CONTAINS</code></a>
 </td>
   <td>
   Signature 1: Checks if one range is in another range.
@@ -36176,35 +38438,33 @@ ZetaSQL supports the following range functions.
 
 <tr>
   <td><a href="#range_end"><code>RANGE_END</code></a>
-
 </td>
   <td>Gets the upper bound of a range.</td>
 </tr>
 
 <tr>
   <td><a href="#range_intersect"><code>RANGE_INTERSECT</code></a>
-
 </td>
   <td>Gets a segment of two ranges that intersect.</td>
 </tr>
 
 <tr>
   <td><a href="#range_overlaps"><code>RANGE_OVERLAPS</code></a>
-
 </td>
   <td>Checks if two ranges overlap.</td>
 </tr>
 
 <tr>
   <td><a href="#range_sessionize"><code>RANGE_SESSIONIZE</code></a>
-
 </td>
-  <td>Produces a table of sessionized ranges.</td>
+  <td>
+    Produces a table of sessionized ranges.
+    
+  </td>
 </tr>
 
 <tr>
   <td><a href="#range_start"><code>RANGE_START</code></a>
-
 </td>
   <td>Gets the lower bound of a range.</td>
 </tr>
@@ -36985,7 +39245,6 @@ ZetaSQL supports the following security functions.
 
 <tr>
   <td><a href="#session_user"><code>SESSION_USER</code></a>
-
 </td>
   <td>
     Get the email address or principal identifier of the user that is running
@@ -37047,82 +39306,82 @@ To learn about the syntax for aggregate function calls, see
 
 <tr>
   <td><a href="#corr"><code>CORR</code></a>
-
 </td>
   <td>
     Computes the Pearson coefficient of correlation of a set of number pairs.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#covar_pop"><code>COVAR_POP</code></a>
-
 </td>
   <td>
     Computes the population covariance of a set of number pairs.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#covar_samp"><code>COVAR_SAMP</code></a>
-
 </td>
   <td>
     Computes the sample covariance of a set of number pairs.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#stddev"><code>STDDEV</code></a>
-
 </td>
   <td>
     An alias of the <code>STDDEV_SAMP</code> function.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#stddev_pop"><code>STDDEV_POP</code></a>
-
 </td>
   <td>
     Computes the population (biased) standard deviation of the values.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#stddev_samp"><code>STDDEV_SAMP</code></a>
-
 </td>
   <td>
     Computes the sample (unbiased) standard deviation of the values.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#var_pop"><code>VAR_POP</code></a>
-
 </td>
   <td>
     Computes the population (biased) variance of the values.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#var_samp"><code>VAR_SAMP</code></a>
-
 </td>
   <td>
     Computes the sample (unbiased) variance of the values.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#variance"><code>VARIANCE</code></a>
-
 </td>
   <td>
     An alias of <code>VAR_SAMP</code>.
+    
   </td>
 </tr>
 
@@ -38145,8 +40404,18 @@ canonical equivalence.
   <tbody>
 
 <tr>
-  <td><a href="#ascii"><code>ASCII</code></a>
+  <td><a href="#array_to_string"><code>ARRAY_TO_STRING</code></a>
+</td>
+  <td>
+    Produces a concatenation of the elements in an array as a
+    <code>STRING</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/array_functions.md">Array functions</a>.
 
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#ascii"><code>ASCII</code></a>
 </td>
   <td>
     Gets the ASCII code for the first character or byte in a <code>STRING</code>
@@ -38156,7 +40425,6 @@ canonical equivalence.
 
 <tr>
   <td><a href="#byte_length"><code>BYTE_LENGTH</code></a>
-
 </td>
   <td>
     Gets the number of <code>BYTES</code> in a <code>STRING</code> or
@@ -38166,7 +40434,6 @@ canonical equivalence.
 
 <tr>
   <td><a href="#char_length"><code>CHAR_LENGTH</code></a>
-
 </td>
   <td>
     Gets the number of characters in a <code>STRING</code> value.
@@ -38175,7 +40442,6 @@ canonical equivalence.
 
 <tr>
   <td><a href="#character_length"><code>CHARACTER_LENGTH</code></a>
-
 </td>
   <td>
     Synonym for <code>CHAR_LENGTH</code>.
@@ -38184,36 +40450,35 @@ canonical equivalence.
 
 <tr>
   <td><a href="#chr"><code>CHR</code></a>
-
 </td>
   <td>
     Converts a Unicode code point to a character.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#code_points_to_bytes"><code>CODE_POINTS_TO_BYTES</code></a>
-
 </td>
   <td>
     Converts an array of extended ASCII code points to a
     <code>BYTES</code> value.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#code_points_to_string"><code>CODE_POINTS_TO_STRING</code></a>
-
 </td>
   <td>
     Converts an array of extended ASCII code points to a
     <code>STRING</code> value.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#collate"><code>COLLATE</code></a>
-
 </td>
   <td>
     Combines a <code>STRING</code> value and a collation specification into a
@@ -38223,7 +40488,6 @@ canonical equivalence.
 
 <tr>
   <td><a href="#concat"><code>CONCAT</code></a>
-
 </td>
   <td>
     Concatenates one or more <code>STRING</code> or <code>BYTES</code>
@@ -38233,7 +40497,6 @@ canonical equivalence.
 
 <tr>
   <td><a href="#edit_distance"><code>EDIT_DISTANCE</code></a>
-
 </td>
   <td>
     Computes the Levenshtein distance between two <code>STRING</code>
@@ -38243,7 +40506,6 @@ canonical equivalence.
 
 <tr>
   <td><a href="#ends_with"><code>ENDS_WITH</code></a>
-
 </td>
   <td>
     Checks if a <code>STRING</code> or <code>BYTES</code> value is the suffix
@@ -38253,7 +40515,6 @@ canonical equivalence.
 
 <tr>
   <td><a href="#format_string"><code>FORMAT</code></a>
-
 </td>
   <td>
     Formats data and produces the results as a <code>STRING</code> value.
@@ -38262,37 +40523,37 @@ canonical equivalence.
 
 <tr>
   <td><a href="#from_base32"><code>FROM_BASE32</code></a>
-
 </td>
   <td>
     Converts a base32-encoded <code>STRING</code> value into a
     <code>BYTES</code> value.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#from_base64"><code>FROM_BASE64</code></a>
-
 </td>
   <td>
     Converts a base64-encoded <code>STRING</code> value into a
     <code>BYTES</code> value.
+    
+
   </td>
 </tr>
 
 <tr>
   <td><a href="#from_hex"><code>FROM_HEX</code></a>
-
 </td>
   <td>
     Converts a hexadecimal-encoded <code>STRING</code> value into a
     <code>BYTES</code> value.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#initcap"><code>INITCAP</code></a>
-
 </td>
   <td>
     Formats a <code>STRING</code> as proper case, which means that the first
@@ -38302,7 +40563,6 @@ canonical equivalence.
 
 <tr>
   <td><a href="#instr"><code>INSTR</code></a>
-
 </td>
   <td>
     Finds the position of a subvalue inside another value, optionally starting
@@ -38311,8 +40571,28 @@ canonical equivalence.
 </tr>
 
 <tr>
-  <td><a href="#left"><code>LEFT</code></a>
+  <td><a href="#lax_string"><code>LAX_STRING</code></a>
+</td>
+  <td>
+    Attempts to convert a JSON value to a SQL <code>STRING</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
 
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#lax_string_array"><code>LAX_STRING_ARRAY</code></a>
+</td>
+  <td>
+    Attempts to convert a JSON value to a
+    SQL <code>ARRAY&lt;STRING&gt;</code>value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#left"><code>LEFT</code></a>
 </td>
   <td>
     Gets the specified leftmost portion from a <code>STRING</code> or
@@ -38322,7 +40602,6 @@ canonical equivalence.
 
 <tr>
   <td><a href="#length"><code>LENGTH</code></a>
-
 </td>
   <td>
     Gets the length of a <code>STRING</code> or <code>BYTES</code> value.
@@ -38331,7 +40610,6 @@ canonical equivalence.
 
 <tr>
   <td><a href="#lower"><code>LOWER</code></a>
-
 </td>
   <td>
     Formats alphabetic characters in a <code>STRING</code> value as
@@ -38344,7 +40622,6 @@ canonical equivalence.
 
 <tr>
   <td><a href="#lpad"><code>LPAD</code></a>
-
 </td>
   <td>
     Prepends a <code>STRING</code> or <code>BYTES</code> value with a pattern.
@@ -38353,7 +40630,6 @@ canonical equivalence.
 
 <tr>
   <td><a href="#ltrim"><code>LTRIM</code></a>
-
 </td>
   <td>
     Identical to the <code>TRIM</code> function, but only removes leading
@@ -38363,7 +40639,6 @@ canonical equivalence.
 
 <tr>
   <td><a href="#normalize"><code>NORMALIZE</code></a>
-
 </td>
   <td>
     Case-sensitively normalizes the characters in a <code>STRING</code> value.
@@ -38372,7 +40647,6 @@ canonical equivalence.
 
 <tr>
   <td><a href="#normalize_and_casefold"><code>NORMALIZE_AND_CASEFOLD</code></a>
-
 </td>
   <td>
     Case-insensitively normalizes the characters in a <code>STRING</code> value.
@@ -38381,7 +40655,6 @@ canonical equivalence.
 
 <tr>
   <td><a href="#octet_length"><code>OCTET_LENGTH</code></a>
-
 </td>
   <td>
     Alias for <code>BYTE_LENGTH</code>.
@@ -38390,7 +40663,6 @@ canonical equivalence.
 
 <tr>
   <td><a href="#regexp_contains"><code>REGEXP_CONTAINS</code></a>
-
 </td>
   <td>
     Checks if a value is a partial match for a regular expression.
@@ -38399,7 +40671,6 @@ canonical equivalence.
 
 <tr>
   <td><a href="#regexp_extract"><code>REGEXP_EXTRACT</code></a>
-
 </td>
   <td>
     Produces a substring that matches a regular expression.
@@ -38408,7 +40679,6 @@ canonical equivalence.
 
 <tr>
   <td><a href="#regexp_extract_all"><code>REGEXP_EXTRACT_ALL</code></a>
-
 </td>
   <td>
     Produces an array of all substrings that match a
@@ -38418,7 +40688,6 @@ canonical equivalence.
 
 <tr>
   <td><a href="#regexp_instr"><code>REGEXP_INSTR</code></a>
-
 </td>
   <td>
     Finds the position of a regular expression match in a value, optionally
@@ -38428,7 +40697,6 @@ canonical equivalence.
 
 <tr>
   <td><a href="#regexp_match"><code>REGEXP_MATCH</code></a>
-
 </td>
   <td>
     (Deprecated) Checks if a value is a full match for a regular expression.
@@ -38437,7 +40705,6 @@ canonical equivalence.
 
 <tr>
   <td><a href="#regexp_replace"><code>REGEXP_REPLACE</code></a>
-
 </td>
   <td>
     Produces a <code>STRING</code> value where all substrings that match a
@@ -38447,7 +40714,6 @@ canonical equivalence.
 
 <tr>
   <td><a href="#regexp_substr"><code>REGEXP_SUBSTR</code></a>
-
 </td>
   <td>
     Synonym for <code>REGEXP_EXTRACT</code>.
@@ -38456,7 +40722,6 @@ canonical equivalence.
 
 <tr>
   <td><a href="#repeat"><code>REPEAT</code></a>
-
 </td>
   <td>
     Produces a <code>STRING</code> or <code>BYTES</code> value that consists of
@@ -38466,7 +40731,6 @@ canonical equivalence.
 
 <tr>
   <td><a href="#replace"><code>REPLACE</code></a>
-
 </td>
   <td>
     Replaces all occurrences of a pattern with another pattern in a
@@ -38476,7 +40740,6 @@ canonical equivalence.
 
 <tr>
   <td><a href="#reverse"><code>REVERSE</code></a>
-
 </td>
   <td>
     Reverses a <code>STRING</code> or <code>BYTES</code> value.
@@ -38485,7 +40748,6 @@ canonical equivalence.
 
 <tr>
   <td><a href="#right"><code>RIGHT</code></a>
-
 </td>
   <td>
     Gets the specified rightmost portion from a <code>STRING</code> or
@@ -38495,7 +40757,6 @@ canonical equivalence.
 
 <tr>
   <td><a href="#rpad"><code>RPAD</code></a>
-
 </td>
   <td>
     Appends a <code>STRING</code> or <code>BYTES</code> value with a pattern.
@@ -38504,7 +40765,6 @@ canonical equivalence.
 
 <tr>
   <td><a href="#rtrim"><code>RTRIM</code></a>
-
 </td>
   <td>
     Identical to the <code>TRIM</code> function, but only removes trailing
@@ -38514,18 +40774,17 @@ canonical equivalence.
 
 <tr>
   <td><a href="#safe_convert_bytes_to_string"><code>SAFE_CONVERT_BYTES_TO_STRING</code></a>
-
 </td>
   <td>
     Converts a <code>BYTES</code> value to a <code>STRING</code> value and
     replace any invalid UTF-8 characters with the Unicode replacement character,
     <code>U+FFFD</code>.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#soundex"><code>SOUNDEX</code></a>
-
 </td>
   <td>
     Gets the Soundex codes for words in a <code>STRING</code> value.
@@ -38534,7 +40793,6 @@ canonical equivalence.
 
 <tr>
   <td><a href="#split"><code>SPLIT</code></a>
-
 </td>
   <td>
     Splits a <code>STRING</code> or <code>BYTES</code> value, using a delimiter.
@@ -38542,8 +40800,17 @@ canonical equivalence.
 </tr>
 
 <tr>
-  <td><a href="#starts_with"><code>STARTS_WITH</code></a>
+  <td><a href="#split_substr"><code>SPLIT_SUBSTR</code></a>
+</td>
+  <td>
+    Returns the substring from an input string that's determined by a delimiter, a
+    location that indicates the first split of the substring to return, and the
+    number of splits to include.
+  </td>
+</tr>
 
+<tr>
+  <td><a href="#starts_with"><code>STARTS_WITH</code></a>
 </td>
   <td>
     Checks if a <code>STRING</code> or <code>BYTES</code> value is a
@@ -38552,8 +40819,49 @@ canonical equivalence.
 </tr>
 
 <tr>
-  <td><a href="#strpos"><code>STRPOS</code></a>
+  <td><a href="#string_for_json"><code>STRING</code> (JSON)</a>
+</td>
+  <td>
+    Converts a JSON string to a SQL <code>STRING</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
 
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#string_array_for_json"><code>STRING_ARRAY</code></a>
+</td>
+  <td>
+    Converts a JSON array of strings to a SQL <code>ARRAY&lt;STRING&gt;</code>
+    value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md">JSON functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#string"><code>STRING</code> (Timestamp)</a>
+</td>
+  <td>
+    Converts a <code>TIMESTAMP</code> value to a <code>STRING</code> value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md">Timestamp functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#string_agg"><code>STRING_AGG</code></a>
+</td>
+  <td>
+    Concatenates non-<code>NULL</code> <code>STRING</code> or
+    <code>BYTES</code> values.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md">Aggregate functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#strpos"><code>STRPOS</code></a>
 </td>
   <td>
     Finds the position of the first occurrence of a subvalue inside another
@@ -38563,7 +40871,6 @@ canonical equivalence.
 
 <tr>
   <td><a href="#substr"><code>SUBSTR</code></a>
-
 </td>
   <td>
     Gets a portion of a <code>STRING</code> or <code>BYTES</code> value.
@@ -38572,54 +40879,52 @@ canonical equivalence.
 
 <tr>
   <td><a href="#substring"><code>SUBSTRING</code></a>
-
 </td>
   <td>Alias for <code>SUBSTR</code></td>
 </tr>
 
 <tr>
   <td><a href="#to_base32"><code>TO_BASE32</code></a>
-
 </td>
   <td>
     Converts a <code>BYTES</code> value to a
     base32-encoded <code>STRING</code> value.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#to_base64"><code>TO_BASE64</code></a>
-
 </td>
   <td>
     Converts a <code>BYTES</code> value to a
     base64-encoded <code>STRING</code> value.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#to_code_points"><code>TO_CODE_POINTS</code></a>
-
 </td>
   <td>
     Converts a <code>STRING</code> or <code>BYTES</code> value into an array of
     extended ASCII code points.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#to_hex"><code>TO_HEX</code></a>
-
 </td>
   <td>
     Converts a <code>BYTES</code> value to a
     hexadecimal <code>STRING</code> value.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#translate"><code>TRANSLATE</code></a>
-
 </td>
   <td>
     Within a value, replaces each source character with the corresponding
@@ -38629,7 +40934,6 @@ canonical equivalence.
 
 <tr>
   <td><a href="#trim"><code>TRIM</code></a>
-
 </td>
   <td>
     Removes the specified leading and trailing Unicode code points or bytes
@@ -38639,7 +40943,6 @@ canonical equivalence.
 
 <tr>
   <td><a href="#unicode"><code>UNICODE</code></a>
-
 </td>
   <td>
     Gets the Unicode code point for the first character in a value.
@@ -38648,7 +40951,6 @@ canonical equivalence.
 
 <tr>
   <td><a href="#upper"><code>UPPER</code></a>
-
 </td>
   <td>
     Formats alphabetic characters in a <code>STRING</code> value as
@@ -41732,7 +44034,9 @@ SPLIT(value[, delimiter])
 
 **Description**
 
-Splits `value` using the `delimiter` argument.
+Splits a `STRING` or `BYTES` value, using a delimiter. The `delimiter` argument
+must be a literal character or sequence of characters. You can't split with a
+regular expression.
 
 For `STRING`, the default delimiter is the comma `,`.
 
@@ -41773,6 +44077,206 @@ FROM letters;
  | [a]                  |
  | [b, c, d]            |
  *----------------------*/
+```
+
+### `SPLIT_SUBSTR`
+
+```sql
+SPLIT_SUBSTR(value, delimiter, start_split[, count])
+```
+
+**Description**
+
+Returns a substring from an input `STRING` that's determined by a delimiter, a
+location that indicates the first split of the substring to return, and the
+number of splits to include in the returned substring.
+
+The `value` argument is the supplied `STRING` value from which a substring is
+returned.
+
+The `delimiter` argument is the delimiter used to split the input `STRING`. It
+must be a literal character or sequence of characters.
+
++ The `delimiter` argument can't be a regular expression.
++ Delimiter matching is from left to right.
++ If the delimiter is a sequence of characters, then two instances of the
+  delimiter in the input string can't overlap. For example, if the delimiter is
+  `**`, then the delimiters in the string `aa***bb***cc` are:
+    + The first two asterisks after `aa`.
+    + The first two asterisks after `bb`.
+
+The `start_split` argument is an integer that specifies the first split of the
+substring to return.
+
++ If `start_split` is `1`, then the returned substring starts from the first
+  split.
++ If `start_split` is `0` or less than the negative of the number of splits,
+  then `start_split` is treated as if it's `1` and returns a substring that
+  starts with the first split.
++ If `start_split` is greater than the number of splits, then an empty string is
+  returned.
++ If `start_split` is negative, then the splits are counted from the end of the
+  input string. If `start_split` is `-1`, then the last split in the input
+  string is returned.
+
+The optional `count` argument is an integer that specifies the maximum number
+of splits to include in the returned substring.
+
++ If `count` isn't specified, then the substring from the `start_split`
+  position to the end of the input string is returned.
++ If `count` is `0`, an empty string is returned.
++ If `count` is negative, an error is returned.
++ If the sum of `count` plus `start_split` is greater than the number of splits,
+  then a substring from `start_split` to the end of the input string is
+  returned.
+
+This function supports specifying [collation][collation].
+
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
+
+**Return type**
+
+`STRING`
+
+**Examples**
+
+The following example returns an empty string because `count` is `0`:
+
+```sql
+SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", 1, 0) AS example
+
+/*---------*
+ | example |
+ +---------+
+ |         |
+ *---------*/
+```
+
+The following example returns two splits starting with the first split:
+
+```sql
+SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", 1, 2) AS example
+
+/*---------*
+ | example |
+ +---------+
+ | www.abc |
+ *---------*/
+```
+
+The following example returns one split starting with the first split:
+
+```sql
+SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", 1, 1) AS example
+
+/*---------*
+ | example |
+ +---------+
+ | www     |
+ *---------*/
+```
+
+The following example returns splits from the right because `start_split` is a
+negative value:
+
+```sql
+SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", -1, 1) AS example
+
+/*---------*
+ | example |
+ +---------+
+ | com     |
+ *---------*/
+```
+
+The following example returns a substring with three splits, starting with the
+first split:
+
+```sql
+SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", 1, 3) AS example
+
+/*-------------*
+ | example     |
+ +-------------+
+ | www.abc.xyz |
+ *------------*/
+```
+
+If `start_split` is zero, then it's treated as if it's `1`. The following
+example returns three substrings starting with the first split:
+
+```sql
+SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", 0, 3) AS example
+
+/*-------------*
+ | example     |
+ +-------------+
+ | www.abc.xyz |
+ *------------*/
+```
+
+If `start_split` is greater than the number of splits, then an empty string is
+returned:
+
+```sql
+SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", 5, 3) AS example
+
+/*---------*
+ | example |
+ +---------+
+ |         |
+ *--------*/
+```
+
+In the following example, the `start_split` value (`-5`) is less than the
+negative of the number of splits (`-4`), so `start_split` is treated as `1`:
+
+```sql
+SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", -5, 3) AS example
+
+/*-------------*
+ | example     |
+ +-------------+
+ | www.abc.xyz |
+ *------------*/
+```
+
+In the following example, the substring from `start_split` to the end of the
+string is returned because `count` isn't specified:
+
+```sql
+SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", 3) AS example
+
+/*---------*
+ | example |
+ +---------+
+ | xyz.com |
+ *--------*/
+```
+
+The following two examples demonstrate how `SPLIT_SUBSTR` works with a
+multi-character delimiter that has overlapping matches in the input string. In
+each example, the input string contains instances of three asterisks in a row
+(`***`) and the delimiter is two asterisks (`**`).
+
+```sql
+SELECT SPLIT_SUBSTR('aaa***bbb***ccc', '**', 1, 2) AS example
+
+/*-----------*
+ | example   |
+ +-----------+
+ | aaa***bbb |
+ *----------*/
+```
+
+```sql
+SELECT SPLIT_SUBSTR('aaa***bbb***ccc', '**', 2, 2) AS example
+
+/*------------*
+ | example    |
+ +------------+
+ | *bbb***ccc |
+ *-----------*/
 ```
 
 ### `STARTS_WITH`
@@ -42414,7 +44918,6 @@ ZetaSQL supports the following time functions.
 
 <tr>
   <td><a href="#current_time"><code>CURRENT_TIME</code></a>
-
 </td>
   <td>
     Returns the current time as a <code>TIME</code> value.
@@ -42423,7 +44926,6 @@ ZetaSQL supports the following time functions.
 
 <tr>
   <td><a href="#extract"><code>EXTRACT</code></a>
-
 </td>
   <td>
     Extracts part of a <code>TIME</code> value.
@@ -42432,7 +44934,6 @@ ZetaSQL supports the following time functions.
 
 <tr>
   <td><a href="#format_time"><code>FORMAT_TIME</code></a>
-
 </td>
   <td>
     Formats a <code>TIME</code> value according to the specified format string.
@@ -42441,16 +44942,15 @@ ZetaSQL supports the following time functions.
 
 <tr>
   <td><a href="#parse_time"><code>PARSE_TIME</code></a>
-
 </td>
   <td>
     Converts a <code>STRING</code> value to a <code>TIME</code> value.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#time"><code>TIME</code></a>
-
 </td>
   <td>
     Constructs a <code>TIME</code> value.
@@ -42459,7 +44959,6 @@ ZetaSQL supports the following time functions.
 
 <tr>
   <td><a href="#time_add"><code>TIME_ADD</code></a>
-
 </td>
   <td>
     Adds a specified time interval to a <code>TIME</code> value.
@@ -42468,7 +44967,6 @@ ZetaSQL supports the following time functions.
 
 <tr>
   <td><a href="#time_diff"><code>TIME_DIFF</code></a>
-
 </td>
   <td>
     Gets the number of unit boundaries between two <code>TIME</code> values at
@@ -42478,7 +44976,6 @@ ZetaSQL supports the following time functions.
 
 <tr>
   <td><a href="#time_sub"><code>TIME_SUB</code></a>
-
 </td>
   <td>
     Subtracts a specified time interval from a <code>TIME</code> value.
@@ -42487,10 +44984,9 @@ ZetaSQL supports the following time functions.
 
 <tr>
   <td><a href="#time_trunc"><code>TIME_TRUNC</code></a>
-
 </td>
   <td>
-    Truncates a <code>TIME</code> value.
+    Truncates a <code>TIME</code> value at a particular granularity.
   </td>
 </tr>
 
@@ -42586,13 +45082,18 @@ SELECT EXTRACT(HOUR FROM TIME "15:30:00") as hour;
 ### `FORMAT_TIME`
 
 ```sql
-FORMAT_TIME(format_string, time_object)
+FORMAT_TIME(format_string, time_expr)
 ```
 
 **Description**
-Formats a `TIME` object according to the specified `format_string`. See
-[Supported Format Elements For TIME][time-format-elements]
-for a list of format elements that this function supports.
+
+Formats a `TIME` value according to the specified format string.
+
+**Definitions**
+
++   `format_string`: A `STRING` value that contains the
+    [format elements][time-format-elements] to use with `time_expr`.
++   `time_expr`: A `TIME` value that represents the time to format.
 
 **Return Data Type**
 
@@ -42620,14 +45121,19 @@ PARSE_TIME(format_string, time_string)
 
 **Description**
 
-Converts a [string representation of time][time-format] to a
-`TIME` object.
+Converts a `STRING` value to a `TIME` value.
 
-`format_string` contains the [format elements][time-format-elements]
-that define how `time_string` is formatted. Each element in
-`time_string` must have a corresponding element in `format_string`. The
-location of each element in `format_string` must match the location of
-each element in `time_string`.
+**Definitions**
+
++   `format_string`: A `STRING` value that contains the
+    [format elements][time-format-elements] to use with `time_string`.
++   `time_string`: A `STRING` value that represents the time to parse.
+
+**Details**
+
+Each element in `time_string` must have a corresponding element in
+`format_string`. The location of each element in `format_string` must match the
+location of each element in `time_string`.
 
 ```sql
 -- This works because elements on both sides match.
@@ -42645,16 +45151,16 @@ SELECT PARSE_TIME("%T", "07:30:00");
 
 When using `PARSE_TIME`, keep the following in mind:
 
-+ **Unspecified fields.** Any unspecified field is initialized from
++ Unspecified fields. Any unspecified field is initialized from
   `00:00:00.0`. For instance, if `seconds` is unspecified then it
   defaults to `00`, and so on.
-+ **Whitespace.** One or more consecutive white spaces in the format string
++ Whitespace. One or more consecutive white spaces in the format string
   matches zero or more consecutive white spaces in the `TIME` string. In
   addition, leading and trailing white spaces in the `TIME` string are always
   allowed, even if they are not in the format string.
-+ **Format precedence.** When two (or more) format elements have overlapping
++ Format precedence. When two (or more) format elements have overlapping
   information, the last one generally overrides any earlier ones.
-+ **Format divergence.** `%p` can be used with `am`, `AM`, `pm`, and `PM`.
++ Format divergence. `%p` can be used with `am`, `AM`, `pm`, and `PM`.
 
 **Return Data Type**
 
@@ -42881,20 +45387,22 @@ SELECT
 ### `TIME_TRUNC`
 
 ```sql
-TIME_TRUNC(time_expression, granularity)
+TIME_TRUNC(time_value, time_granularity)
 ```
 
 **Description**
 
-Truncates a `TIME` value at a particular time granularity. The `TIME` value
-is always rounded to the beginning of `granularity`.
+Truncates a `TIME` value at a particular granularity.
 
 **Definitions**
 
-+ `time_expression`: The `TIME` value to truncate.
-+ `granularity`: The time part that represents the granularity. If
-  you passed in a `TIME` value for the first argument, `granularity` can
-  be:
++ `time_value`: The `TIME` value to truncate.
++ `time_granularity`: The truncation granularity for a `TIME` value.
+  [Time granularities][time-trunc-granularity-time] can be used.
+
+<a id="time_trunc_granularity_time"></a>
+
+**Time granularity definitions**
 
   + `NANOSECOND`: If used, nothing is truncated from the value.
 
@@ -42907,6 +45415,10 @@ is always rounded to the beginning of `granularity`.
   + `MINUTE`: The nearest lesser than or equal minute.
 
   + `HOUR`: The nearest lesser than or equal hour.
+
+**Details**
+
+The resulting value is always rounded to the beginning of `granularity`.
 
 **Return Data Type**
 
@@ -42925,6 +45437,8 @@ SELECT
  | 15:30:00                   | 15:00:00               |
  *----------------------------+------------------------*/
 ```
+
+[time-trunc-granularity-time]: #time_trunc_granularity_time
 
 [time-to-string]: #cast
 
@@ -42945,7 +45459,6 @@ ZetaSQL supports the following time series functions.
 
 <tr>
   <td><a href="#date_bucket"><code>DATE_BUCKET</code></a>
-
 </td>
   <td>
     Gets the lower bound of the date bucket that contains a date.
@@ -42954,7 +45467,6 @@ ZetaSQL supports the following time series functions.
 
 <tr>
   <td><a href="#datetime_bucket"><code>DATETIME_BUCKET</code></a>
-
 </td>
   <td>
     Gets the lower bound of the datetime bucket that contains a datetime.
@@ -42963,7 +45475,6 @@ ZetaSQL supports the following time series functions.
 
 <tr>
   <td><a href="#timestamp_bucket"><code>TIMESTAMP_BUCKET</code></a>
-
 </td>
   <td>
     Gets the lower bound of the timestamp bucket that contains a timestamp.
@@ -43026,9 +45537,9 @@ FROM some_dates;
  | 1949-12-28         |
  | 1949-12-30         |
  | 1949-12-30         |
- | 1950-12-01         |
- | 1950-12-01         |
- | 1950-12-03         |
+ | 1950-01-01         |
+ | 1950-01-01         |
+ | 1950-01-03         |
  +--------------------*/
 
 -- Some date buckets that originate from 1950-01-01:
@@ -43235,8 +45746,9 @@ Gets the lower bound of the timestamp bucket that contains a timestamp.
 
 In the following example, the origin is omitted and the default origin,
 `1950-01-01 00:00:00` is used. All buckets expand in both directions from the
-origin, and the size of each bucket is 12 hours. The lower bound of the bucket
-in which `my_timestamp` belongs is returned:
+origin, and the size of each bucket is 12 hours. The default time zone,
+which is implementation defined, is included in the results. The lower bound of the
+bucket in which `my_timestamp` belongs is returned:
 
 ```sql
 WITH some_timestamps AS (
@@ -43255,12 +45767,12 @@ FROM some_timestamps;
 /*---------------------------------------------+
  | bucket_lower_bound                          |
  +---------------------------------------------+
- | 2000-12-30 12:00:00.000 America/Los_Angeles |
- | 2000-12-31 00:00:00.000 America/Los_Angeles |
- | 2000-12-31 12:00:00.000 America/Los_Angeles |
- | 2000-01-01 00:00:00.000 America/Los_Angeles |
- | 2000-01-01 12:00:00.000 America/Los_Angeles |
- | 2000-01-01 00:00:00.000 America/Los_Angeles |
+ | 1949-12-30 12:00:00.000 America/Los_Angeles |
+ | 1949-12-31 00:00:00.000 America/Los_Angeles |
+ | 1949-12-31 12:00:00.000 America/Los_Angeles |
+ | 1950-01-01 00:00:00.000 America/Los_Angeles |
+ | 1950-01-01 12:00:00.000 America/Los_Angeles |
+ | 1950-01-02 00:00:00.000 America/Los_Angeles |
  +---------------------------------------------*/
 
 -- Some timestamp buckets that originate from 1950-01-01 00:00:00:
@@ -43275,7 +45787,8 @@ FROM some_timestamps;
 
 In the following example, the origin has been changed to `2000-12-24 12:00:00`,
 and all buckets expand in both directions from this point. The size of each
-bucket is seven days. The lower bound of the bucket in which `my_timestamp`
+bucket is seven days. The default time zone, which is implementation defined, is included
+in the results. The lower bound of the bucket in which `my_timestamp`
 belongs is returned:
 
 ```sql
@@ -43347,7 +45860,6 @@ and [`TIMESTAMP` range][data-types-link-to-timestamp_type].
 
 <tr>
   <td><a href="#current_timestamp"><code>CURRENT_TIMESTAMP</code></a>
-
 </td>
   <td>
     Returns the current date and time as a <code>TIMESTAMP</code> object.
@@ -43356,7 +45868,6 @@ and [`TIMESTAMP` range][data-types-link-to-timestamp_type].
 
 <tr>
   <td><a href="#extract"><code>EXTRACT</code></a>
-
 </td>
   <td>
     Extracts part of a <code>TIMESTAMP</code> value.
@@ -43365,7 +45876,6 @@ and [`TIMESTAMP` range][data-types-link-to-timestamp_type].
 
 <tr>
   <td><a href="#format_timestamp"><code>FORMAT_TIMESTAMP</code></a>
-
 </td>
   <td>
     Formats a <code>TIMESTAMP</code> value according to the specified
@@ -43374,26 +45884,35 @@ and [`TIMESTAMP` range][data-types-link-to-timestamp_type].
 </tr>
 
 <tr>
-  <td><a href="#parse_timestamp"><code>PARSE_TIMESTAMP</code></a>
-
+  <td><a href="#generate_timestamp_array"><code>GENERATE_TIMESTAMP_ARRAY</code></a>
 </td>
   <td>
-    Converts a <code>STRING</code> value to a <code>TIMESTAMP</code> value.
+    Generates an array of timestamps in a range.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/array_functions.md">Array functions</a>.
+
   </td>
 </tr>
 
 <tr>
-  <td><a href="#string"><code>STRING</code></a>
+  <td><a href="#parse_timestamp"><code>PARSE_TIMESTAMP</code></a>
+</td>
+  <td>
+    Converts a <code>STRING</code> value to a <code>TIMESTAMP</code> value.
+    
+  </td>
+</tr>
 
+<tr>
+  <td><a href="#string"><code>STRING</code> (Timestamp)</a>
 </td>
   <td>
     Converts a <code>TIMESTAMP</code> value to a <code>STRING</code> value.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#timestamp"><code>TIMESTAMP</code></a>
-
 </td>
   <td>
     Constructs a <code>TIMESTAMP</code> value.
@@ -43402,7 +45921,6 @@ and [`TIMESTAMP` range][data-types-link-to-timestamp_type].
 
 <tr>
   <td><a href="#timestamp_add"><code>TIMESTAMP_ADD</code></a>
-
 </td>
   <td>
     Adds a specified time interval to a <code>TIMESTAMP</code> value.
@@ -43411,7 +45929,6 @@ and [`TIMESTAMP` range][data-types-link-to-timestamp_type].
 
 <tr>
   <td><a href="#timestamp_diff"><code>TIMESTAMP_DIFF</code></a>
-
 </td>
   <td>
     Gets the number of unit boundaries between two <code>TIMESTAMP</code> values
@@ -43421,7 +45938,6 @@ and [`TIMESTAMP` range][data-types-link-to-timestamp_type].
 
 <tr>
   <td><a href="#timestamp_from_unix_micros"><code>TIMESTAMP_FROM_UNIX_MICROS</code></a>
-
 </td>
   <td>
     Similar to <code>TIMESTAMP_MICROS</code>, except that additionally, a
@@ -43431,7 +45947,6 @@ and [`TIMESTAMP` range][data-types-link-to-timestamp_type].
 
 <tr>
   <td><a href="#timestamp_from_unix_millis"><code>TIMESTAMP_FROM_UNIX_MILLIS</code></a>
-
 </td>
   <td>
     Similar to <code>TIMESTAMP_MILLIS</code>, except that additionally, a
@@ -43441,7 +45956,6 @@ and [`TIMESTAMP` range][data-types-link-to-timestamp_type].
 
 <tr>
   <td><a href="#timestamp_from_unix_seconds"><code>TIMESTAMP_FROM_UNIX_SECONDS</code></a>
-
 </td>
   <td>
     Similar to <code>TIMESTAMP_SECONDS</code>, except that additionally, a
@@ -43451,37 +45965,36 @@ and [`TIMESTAMP` range][data-types-link-to-timestamp_type].
 
 <tr>
   <td><a href="#timestamp_micros"><code>TIMESTAMP_MICROS</code></a>
-
 </td>
   <td>
     Converts the number of microseconds since
-    1970-01-01 00:00:00 UTC to a <code>TIMESTAMP</value>.
+    1970-01-01 00:00:00 UTC to a <code>TIMESTAMP</code>.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#timestamp_millis"><code>TIMESTAMP_MILLIS</code></a>
-
 </td>
   <td>
     Converts the number of milliseconds since
-    1970-01-01 00:00:00 UTC to a <code>TIMESTAMP</value>.
+    1970-01-01 00:00:00 UTC to a <code>TIMESTAMP</code>.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#timestamp_seconds"><code>TIMESTAMP_SECONDS</code></a>
-
 </td>
   <td>
     Converts the number of seconds since
-    1970-01-01 00:00:00 UTC to a <code>TIMESTAMP</value>.
+    1970-01-01 00:00:00 UTC to a <code>TIMESTAMP</code>.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#timestamp_sub"><code>TIMESTAMP_SUB</code></a>
-
 </td>
   <td>
     Subtracts a specified time interval from a <code>TIMESTAMP</code> value.
@@ -43490,40 +46003,43 @@ and [`TIMESTAMP` range][data-types-link-to-timestamp_type].
 
 <tr>
   <td><a href="#timestamp_trunc"><code>TIMESTAMP_TRUNC</code></a>
-
 </td>
   <td>
-    Truncates a <code>TIMESTAMP</code> value.
+    
+    Truncates a <code>TIMESTAMP</code> or
+    <code>DATETIME</code> value at a particular
+    granularity.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#unix_micros"><code>UNIX_MICROS</code></a>
-
 </td>
   <td>
     Converts a <code>TIMESTAMP</code> value to the number of microseconds since
     1970-01-01 00:00:00 UTC.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#unix_millis"><code>UNIX_MILLIS</code></a>
-
 </td>
   <td>
     Converts a <code>TIMESTAMP</code> value to the number of milliseconds
     since 1970-01-01 00:00:00 UTC.
+    
   </td>
 </tr>
 
 <tr>
   <td><a href="#unix_seconds"><code>UNIX_SECONDS</code></a>
-
 </td>
   <td>
     Converts a <code>TIMESTAMP</code> value to the number of seconds since
     1970-01-01 00:00:00 UTC.
+    
   </td>
 </tr>
 
@@ -43785,21 +46301,28 @@ SELECT
 ### `FORMAT_TIMESTAMP`
 
 ```sql
-FORMAT_TIMESTAMP(format_string, timestamp[, time_zone])
+FORMAT_TIMESTAMP(format_string, timestamp_expr[, time_zone])
 ```
 
 **Description**
 
-Formats a timestamp according to the specified `format_string`.
+Formats a `TIMESTAMP` value according to the specified format string.
 
-See [Format elements for date and time parts][timestamp-format-elements]
-for a list of format elements that this function supports.
+**Definitions**
+
++   `format_string`: A `STRING` value that contains the
+    [format elements][timestamp-format-elements] to use with
+    `timestamp_expr`.
++   `timestamp_expr`: A `TIMESTAMP` value that represents the timestamp to format.
++   `time_zone`: A `STRING` value that represents a time zone. For more
+    information about how to use a time zone with a timestamp, see
+    [Time zone definitions][timestamp-link-to-timezone-definitions].
 
 **Return Data Type**
 
 `STRING`
 
-**Example**
+**Examples**
 
 ```sql
 SELECT FORMAT_TIMESTAMP("%c", TIMESTAMP "2050-12-25 15:30:55+00", "UTC")
@@ -43847,6 +46370,8 @@ SELECT FORMAT_TIMESTAMP("%Y-%m-%dT%H:%M:%SZ", TIMESTAMP "2050-12-25 15:30:55", "
 
 [timestamp-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
 
+[timestamp-link-to-timezone-definitions]: #timezone_definitions
+
 ### `PARSE_TIMESTAMP`
 
 ```sql
@@ -43855,14 +46380,22 @@ PARSE_TIMESTAMP(format_string, timestamp_string[, time_zone])
 
 **Description**
 
-Converts a [string representation of a timestamp][timestamp-format] to a
-`TIMESTAMP` object.
+Converts a `STRING` value to a `TIMESTAMP` value.
 
-`format_string` contains the [format elements][timestamp-format-elements]
-that define how `timestamp_string` is formatted. Each element in
-`timestamp_string` must have a corresponding element in `format_string`. The
-location of each element in `format_string` must match the location of
-each element in `timestamp_string`.
+**Definitions**
+
++   `format_string`: A `STRING` value that contains the
+    [format elements][timestamp-format-elements] to use with `timestamp_string`.
++   `timestamp_string`: A `STRING` value that represents the timestamp to parse.
++   `time_zone`: A `STRING` value that represents a time zone. For more
+    information about how to use a time zone with a timestamp, see
+    [Time zone definitions][timestamp-link-to-timezone-definitions].
+
+**Details**
+
+Each element in `timestamp_string` must have a corresponding element in
+`format_string`. The location of each element in `format_string` must match the
+location of each element in `timestamp_string`.
 
 ```sql
 -- This works because elements on both sides match.
@@ -43880,22 +46413,22 @@ SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008");
 
 When using `PARSE_TIMESTAMP`, keep the following in mind:
 
-+ **Unspecified fields.** Any unspecified field is initialized from `1970-01-01
++ Unspecified fields. Any unspecified field is initialized from `1970-01-01
   00:00:00.0`. This initialization value uses the time zone specified by the
   function's time zone argument, if present. If not, the initialization value
   uses the default time zone, which is implementation defined.  For instance, if the year
   is unspecified then it defaults to `1970`, and so on.
-+ **Case insensitivity.** Names, such as `Monday`, `February`, and so on, are
++ Case insensitivity. Names, such as `Monday`, `February`, and so on, are
   case insensitive.
-+ **Whitespace.** One or more consecutive white spaces in the format string
++ Whitespace. One or more consecutive white spaces in the format string
   matches zero or more consecutive white spaces in the timestamp string. In
   addition, leading and trailing white spaces in the timestamp string are always
   allowed, even if they are not in the format string.
-+ **Format precedence.** When two (or more) format elements have overlapping
++ Format precedence. When two (or more) format elements have overlapping
   information (for example both `%F` and `%Y` affect the year), the last one
   generally overrides any earlier ones, with some exceptions (see the
   descriptions of `%s`, `%C`, and `%y`).
-+ **Format divergence.** `%p` can be used with `am`, `AM`, `pm`, and `PM`.
++ Format divergence. `%p` can be used with `am`, `AM`, `pm`, and `PM`.
 
 **Return Data Type**
 
@@ -43917,6 +46450,8 @@ SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008") AS parsed;
 [timestamp-format]: #format_timestamp
 
 [timestamp-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
+
+[timestamp-link-to-timezone-definitions]: #timezone_definitions
 
 ### `STRING`
 
@@ -44395,20 +46930,87 @@ SELECT
 ### `TIMESTAMP_TRUNC`
 
 ```sql
-TIMESTAMP_TRUNC(timestamp_expression, granularity[, time_zone])
+TIMESTAMP_TRUNC(timestamp_value, timestamp_granularity[, time_zone])
+```
+
+```sql
+TIMESTAMP_TRUNC(datetime_value, datetime_granularity)
 ```
 
 **Description**
 
-Truncates a `TIMESTAMP` value at a particular time granularity. The `TIMESTAMP`
-value is always rounded to the beginning of `granularity`.
+Truncates a `TIMESTAMP` or `DATETIME` value at a particular granularity.
 
 **Definitions**
 
-+ `timestamp_expression`: The `TIMESTAMP` value to truncate.
-+ `granularity`: The datetime part that represents the granularity. If
-  you passed in a `TIMESTAMP` value for the first argument, `granularity` can
-  be:
++ `timestamp_value`: A `TIMESTAMP` value to truncate.
++ `timestamp_granularity`: The truncation granularity for a `TIMESTAMP` value.
+  [Date granularities][timestamp-trunc-granularity-date] and
+  [time granularities][timestamp-trunc-granularity-time] can be used.
++ `time_zone`: A time zone to use with the `TIMESTAMP` value.
+  [Time zone parts][timestamp-time-zone-parts] can be used.
+  Use this argument if you want to use a time zone other than
+  the default time zone, which is implementation defined, as part of the
+  truncate operation.
+
+      Note: When truncating a timestamp to `MINUTE`
+    or `HOUR` parts, this function determines the civil time of the
+    timestamp in the specified (or default) time zone
+    and subtracts the minutes and seconds (when truncating to `HOUR`) or the
+    seconds (when truncating to `MINUTE`) from that timestamp.
+    While this provides intuitive results in most cases, the result is
+    non-intuitive near daylight savings transitions that are not hour-aligned.
++ `datetime_value`: A `DATETIME` value to truncate.
++ `datetime_granularity`: The truncation granularity for a `DATETIME` value.
+  [Date granularities][timestamp-trunc-granularity-date] and
+  [time granularities][timestamp-trunc-granularity-time] can be used.
+
+<a id="timestamp_trunc_granularity_date"></a>
+
+**Date granularity definitions**
+
+  + `DAY`: The day in the Gregorian calendar year that contains the
+    value to truncate.
+
+  + `WEEK`: The first day in the week that contains the
+    value to truncate. Weeks begin on Sundays. `WEEK` is equivalent to
+    `WEEK(SUNDAY)`.
+
+  + `WEEK(WEEKDAY)`: The first day in the week that contains the
+    value to truncate. Weeks begin on `WEEKDAY`. `WEEKDAY` must be one of the
+     following: `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`, `FRIDAY`,
+     or `SATURDAY`.
+
+  + `ISOWEEK`: The first day in the [ISO 8601 week][ISO-8601-week] that contains
+    the value to truncate. The ISO week begins on
+    Monday. The first ISO week of each ISO year contains the first Thursday of the
+    corresponding Gregorian calendar year.
+
+  + `MONTH`: The first day in the month that contains the
+    value to truncate.
+
+  + `QUARTER`: The first day in the quarter that contains the
+    value to truncate.
+
+  + `YEAR`: The first day in the year that contains the
+    value to truncate.
+
+  + `ISOYEAR`: The first day in the [ISO 8601][ISO-8601] week-numbering year
+    that contains the value to truncate. The ISO year is the
+    Monday of the first week where Thursday belongs to the corresponding
+    Gregorian calendar year.
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
+
+[ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
+
+<!-- mdlint on -->
+
+<a id="timestamp_trunc_granularity_time"></a>
+
+**Time granularity definitions**
 
   + `NANOSECOND`: If used, nothing is truncated from the value.
 
@@ -44422,71 +47024,28 @@ value is always rounded to the beginning of `granularity`.
 
   + `HOUR`: The nearest lesser than or equal hour.
 
-  + `DAY`: The day in the Gregorian calendar year that contains the
-    `TIMESTAMP` value.
+<a id="timestamp_time_zone_parts"></a>
 
-  + `WEEK`: The first day in the week that contains the
-    `TIMESTAMP` value. Weeks begin on Sundays. `WEEK` is equivalent to
-    `WEEK(SUNDAY)`.
+**Time zone part definitions**
 
-  + `WEEK(WEEKDAY)`: The first day in the week that contains the
-    `TIMESTAMP` value. Weeks begin on `WEEKDAY`. `WEEKDAY` must be one of the
-     following: `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`, `FRIDAY`,
-     or `SATURDAY`.
++ `MINUTE`
++ `HOUR`
++ `DAY`
++ `WEEK`
++ `WEEK(<WEEKDAY>)`
++ `ISOWEEK`
++ `MONTH`
++ `QUARTER`
++ `YEAR`
++ `ISOYEAR`
 
-  + `ISOWEEK`: The first day in the [ISO 8601 week][ISO-8601-week] that contains
-    the `TIMESTAMP` value. The ISO week begins on
-    Monday. The first ISO week of each ISO year contains the first Thursday of the
-    corresponding Gregorian calendar year.
+**Details**
 
-  + `MONTH`: The first day in the month that contains the
-    `TIMESTAMP` value.
-
-  + `QUARTER`: The first day in the quarter that contains the
-    `TIMESTAMP` value.
-
-  + `YEAR`: The first day in the year that contains the
-    `TIMESTAMP` value.
-
-  + `ISOYEAR`: The first day in the [ISO 8601][ISO-8601] week-numbering year
-    that contains the `TIMESTAMP` value. The ISO year is the
-    Monday of the first week where Thursday belongs to the corresponding
-    Gregorian calendar year.
-
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
-
-[ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
-
-<!-- mdlint on -->
-
-+ `time_zone`: Use this parameter if you want to use a time zone other than
-  the default time zone, which is implementation defined, as part of the
-  truncate operation. This can be:
-
-    + `MINUTE`
-    + `HOUR`
-    + `DAY`
-    + `WEEK`
-    + `WEEK(<WEEKDAY>)`
-    + `ISOWEEK`
-    + `MONTH`
-    + `QUARTER`
-    + `YEAR`
-    + `ISOYEAR`
-
-When truncating a timestamp to `MINUTE`
-or`HOUR` parts, `TIMESTAMP_TRUNC` determines the civil time of the
-timestamp in the specified (or default) time zone
-and subtracts the minutes and seconds (when truncating to `HOUR`) or the seconds
-(when truncating to `MINUTE`) from that timestamp.
-While this provides intuitive results in most cases, the result is
-non-intuitive near daylight savings transitions that are not hour-aligned.
+The resulting value is always rounded to the beginning of `granularity`.
 
 **Return Data Type**
 
-`TIMESTAMP`
+The same data type as the first argument passed into this function.
 
 **Examples**
 
@@ -44550,6 +47109,12 @@ SELECT
 ```
 
 [timestamp-link-to-timezone-definitions]: #timezone_definitions
+
+[timestamp-trunc-granularity-date]: #timestamp_trunc_granularity_date
+
+[timestamp-trunc-granularity-time]: #timestamp_trunc_granularity_time
+
+[timestamp-time-zone-parts]: #timestamp_time_zone_parts
 
 ### `UNIX_MICROS`
 
@@ -44663,6 +47228,8 @@ SELECT UNIX_SECONDS(TIMESTAMP "1970-01-01 00:00:01.8+00") AS seconds;
  *------------*/
 ```
 
+### Supplemental materials
+
 ### How time zones work with timestamp functions 
 <a id="timezone_definitions"></a>
 
@@ -44693,7 +47260,7 @@ or time zone offset from UTC (for example, -08).
 To learn more about how time zones work with the `TIMESTAMP` type, see
 [Time zones][data-types-timezones].
 
-[timezone-by-name]: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+[data-types-timezones]: https://github.com/google/zetasql/blob/master/docs/data-types.md#time_zones
 
 [data-types-timezones]: https://github.com/google/zetasql/blob/master/docs/data-types.md#time_zones
 
@@ -44702,6 +47269,170 @@ To learn more about how time zones work with the `TIMESTAMP` type, see
 [data-types-link-to-date_type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#date_type
 
 [data-types-link-to-timestamp_type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#timestamp_type
+
+## Window functions
+
+ZetaSQL supports the following
+[window functions][window-function-calls].
+
+### Function list
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+
+<tr>
+  <td><a href="#cume_dist"><code>CUME_DIST</code></a>
+</td>
+  <td>
+    Gets the cumulative distribution (relative position (0,1]) of each row
+    within a window.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/numbering_functions.md">Numbering functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#dense_rank"><code>DENSE_RANK</code></a>
+</td>
+  <td>
+    Gets the dense rank (1-based, no gaps) of each row within a window.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/numbering_functions.md">Numbering functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#first_value"><code>FIRST_VALUE</code></a>
+</td>
+  <td>
+    Gets a value for the first row in the current window frame.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/navigation_functions.md">Navigation functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#lag"><code>LAG</code></a>
+</td>
+  <td>
+    Gets a value for a preceding row.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/navigation_functions.md">Navigation functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#last_value"><code>LAST_VALUE</code></a>
+</td>
+  <td>
+    Gets a value for the last row in the current window frame.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/navigation_functions.md">Navigation functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#lead"><code>LEAD</code></a>
+</td>
+  <td>
+    Gets a value for a subsequent row.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/navigation_functions.md">Navigation functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#nth_value"><code>NTH_VALUE</code></a>
+</td>
+  <td>
+    Gets a value for the Nth row of the current window frame.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/navigation_functions.md">Navigation functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#ntile"><code>NTILE</code></a>
+</td>
+  <td>
+    Gets the quantile bucket number (1-based) of each row within a window.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/numbering_functions.md">Numbering functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#percent_rank"><code>PERCENT_RANK</code></a>
+</td>
+  <td>
+    Gets the percentile rank (from 0 to 1) of each row within a window.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/numbering_functions.md">Numbering functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#percentile_cont"><code>PERCENTILE_CONT</code></a>
+</td>
+  <td>
+    Computes the specified percentile for a value, using
+    linear interpolation.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/navigation_functions.md">Navigation functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#percentile_disc"><code>PERCENTILE_DISC</code></a>
+</td>
+  <td>
+    Computes the specified percentile for a discrete value.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/navigation_functions.md">Navigation functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#rank"><code>RANK</code></a>
+</td>
+  <td>
+    Gets the rank (1-based) of each row within a window.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/numbering_functions.md">Numbering functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#row_number"><code>ROW_NUMBER</code></a>
+</td>
+  <td>
+    Gets the sequential row number (1-based) of each row within a window.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/numbering_functions.md">Numbering functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_clusterdbscan"><code>ST_CLUSTERDBSCAN</code></a>
+</td>
+  <td>
+    Performs DBSCAN clustering on a group of <code>GEOGRAPHY</code> values and
+    produces a 0-based cluster number for this row.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md">Geography functions</a>.
+
+  </td>
+</tr>
+
+  </tbody>
+</table>
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 

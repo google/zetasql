@@ -18,6 +18,7 @@
 
 load("@google_bazel_common//tools/jarjar:jarjar.bzl", "jarjar_library")
 load("@google_bazel_common//tools/javadoc:javadoc.bzl", "javadoc_library")
+load("@rules_java//java:defs.bzl", "java_library")
 load("//tools:maven.bzl", "pom_file")
 
 package(
@@ -30,12 +31,15 @@ TYPES_SRCS = [
     "CivilTimeEncoder.java",
     "EnumType.java",
     "FileDescriptorSetsBuilder.java",
+    "GraphElementType.java",
+    "GraphPathType.java",
     "DescriptorPool.java",
     "ImmutableDescriptorPool.java",
     "ZetaSQLDescriptorPool.java",
     "ZetaSQLStrings.java",
     "IntervalValue.java",
     "MapType.java",
+    "MeasureType.java",
     "ProtoType.java",
     "RangeType.java",
     "SimpleType.java",
@@ -293,6 +297,27 @@ javadoc_library(
     deps = [":jni_channel"],
 )
 
+PROPERTY_GRAPH_SRCS = [
+    "PropertyGraph.java",
+    "GraphElementTable.java",
+    "GraphNodeTable.java",
+    "GraphEdgeTable.java",
+    "GraphElementLabel.java",
+    "GraphNodeTableReference.java",
+    "GraphPropertyDeclaration.java",
+    "GraphPropertyDefinition.java",
+]
+
+java_library(
+    name = "property_graph",
+    srcs = PROPERTY_GRAPH_SRCS,
+    deps = [
+        ":catalog",
+        ":types",
+        "@maven//:com_google_guava_guava",
+    ],
+)
+
 COMMON_SRCS = [
     "LanguageOptions.java",
     "Client.java",
@@ -352,6 +377,14 @@ SIMPLE_CATALOG_SRCS = [
     "SimpleModel.java",
     "SimpleSequence.java",
     "SimpleTable.java",
+    "SimplePropertyGraph.java",
+    "SimpleGraphElementTable.java",
+    "SimpleGraphNodeTable.java",
+    "SimpleGraphEdgeTable.java",
+    "SimpleGraphPropertyDefinition.java",
+    "SimpleGraphPropertyDeclaration.java",
+    "SimpleGraphNodeTableReference.java",
+    "SimpleGraphElementLabel.java",
 ]
 
 java_library(
@@ -359,11 +392,14 @@ java_library(
     srcs = COMMON_SRCS + SIMPLE_CATALOG_SRCS + CATALOG_SRCS,
     deps = BUILTIN_PROTO_DEPS + [
         ":channel_provider",
+        ":property_graph",
         ":types",
+        "//java/com/google/zetasql/resolvedast:resolvedast_no_simple_catalog",
         "//zetasql/local_service:local_service_java_grpc",
         "//zetasql/local_service:local_service_java_proto",
         "//zetasql/proto:options_java_proto",
         "//zetasql/proto:simple_catalog_java_proto",
+        "//zetasql/proto:simple_property_graph_java_proto",
         "//zetasql/public:builtin_function_java_proto",
         "//zetasql/public:deprecation_warning_java_proto",
         "//zetasql/public:error_location_java_proto",
@@ -375,6 +411,7 @@ java_library(
         "//zetasql/public:simple_constant_java_proto",
         "//zetasql/public:simple_model_java_proto",
         "//zetasql/public:simple_table_java_proto",
+        "//zetasql/resolved_ast:resolved_ast_java_proto",  # unuseddeps: keep # buildcleaner: keep
         "//zetasql/resolved_ast:resolved_node_kind_java_proto",  # buildcleaner: keep
         "//zetasql/resolved_ast:serialization_java_proto",
         "@com_google_auto_value",
@@ -428,18 +465,23 @@ java_library(
         ":catalog",
         ":channel_provider",
         ":common",
+        ":property_graph",
         ":types",
+        "//java/com/google/zetasql/resolvedast:resolvedast_no_simple_catalog",  # unuseddeps: keep # buildcleaner: keep
         "//zetasql/local_service:local_service_java_grpc",
         "//zetasql/local_service:local_service_java_proto",
         "//zetasql/proto:function_java_proto",
         "//zetasql/proto:options_java_proto",
         "//zetasql/proto:simple_catalog_java_proto",
+        "//zetasql/proto:simple_property_graph_java_proto",
         "//zetasql/public:options_java_proto",
         "//zetasql/public:simple_connection_java_proto",
         "//zetasql/public:simple_constant_java_proto",
         "//zetasql/public:simple_model_java_proto",
         "//zetasql/public:simple_table_java_proto",
         "//zetasql/public:type_proto_java_proto",
+        "//zetasql/resolved_ast:resolved_ast_java_proto",  # unuseddeps: keep # buildcleaner: keep
+        "//zetasql/resolved_ast:serialization_java_proto",  # unuseddeps: keep # buildcleaner: keep
         "@com_google_auto_value",
         "@maven//:com_google_code_findbugs_jsr305",
         "@maven//:com_google_errorprone_error_prone_annotations",

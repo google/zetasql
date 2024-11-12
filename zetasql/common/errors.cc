@@ -16,6 +16,8 @@
 
 #include "zetasql/common/errors.h"
 
+#include <ctype.h>
+
 #include <optional>
 #include <string>
 #include <string_view>
@@ -34,6 +36,7 @@
 #include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/ascii.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
@@ -50,7 +53,7 @@ std::string AbslUnparseFlag(ErrorMessageStability value) {  // NOLINT
     ABSL_LOG(ERROR) << "Expended to find descriptor for strongly typed enum value";
     return absl::StrCat(value);  // Best effort
   }
-  return value_d->name();
+  return std::string(value_d->name());
 }
 
 bool AbslParseFlag(absl::string_view text,  // NOLINT
@@ -198,6 +201,13 @@ ErrorMessageStability GetDefaultErrorMessageStability() {
     return ErrorMessageStability::ERROR_MESSAGE_STABILITY_TEST_REDACTED;
   }
   return ErrorMessageStability::ERROR_MESSAGE_STABILITY_PRODUCTION;
+}
+
+std::string FirstCharLower(absl::string_view str) {
+  if (str.empty() || (str.size() >= 2 && isupper(str[1]))) {
+    return std::string(str);
+  }
+  return absl::StrCat(absl::AsciiStrToLower(str.substr(0, 1)), str.substr(1));
 }
 
 }  // namespace zetasql

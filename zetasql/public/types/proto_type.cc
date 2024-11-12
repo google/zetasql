@@ -335,11 +335,17 @@ absl::Status ProtoType::GetTypeKindFromFieldDescriptor(
         case FieldFormat::BIGNUMERIC:
           *kind = TYPE_BIGNUMERIC;
           break;
+        case FieldFormat::TIMESTAMP_PICOS:
+          *kind = TYPE_TIMESTAMP_PICOS;
+          break;
         case FieldFormat::INTERVAL:
           *kind = TYPE_INTERVAL;
           break;
         case FieldFormat::TOKENLIST:
           *kind = TYPE_TOKENLIST;
+          break;
+        case FieldFormat::UUID:
+          *kind = TYPE_UUID;
           break;
         case FieldFormat::RANGE_DATES_ENCODED:
         case FieldFormat::RANGE_DATETIMES_ENCODED:
@@ -428,7 +434,7 @@ absl::Status ProtoType::FieldDescriptorToTypeKind(
 }
 
 const google::protobuf::FieldDescriptor* ProtoType::FindFieldByNameIgnoreCase(
-    const google::protobuf::Descriptor* descriptor, const std::string& name) {
+    const google::protobuf::Descriptor* descriptor, absl::string_view name) {
   // Try the fast way first.
   const google::protobuf::FieldDescriptor* found = descriptor->FindFieldByName(name);
   if (found != nullptr) return found;
@@ -565,7 +571,7 @@ namespace {
 //  HAS_FIELD if the field exists;
 //  HAS_NO_FIELD if neither exists.
 Type::HasFieldResult HasProtoFieldOrNamedExtension(
-    const google::protobuf::Descriptor* descriptor, const std::string& name,
+    const google::protobuf::Descriptor* descriptor, absl::string_view name,
     int* field_id) {
   const google::protobuf::FieldDescriptor* field =
       ProtoType::FindFieldByNameIgnoreCase(descriptor, name);

@@ -15,7 +15,7 @@ between geographical features, and construct or manipulate
 All ZetaSQL geography functions return `NULL` if any input argument
 is `NULL`.
 
-### Categories
+## Categories
 
 The geography functions are grouped into the following categories based on their
 behavior:
@@ -197,7 +197,7 @@ behavior:
   </tbody>
 </table>
 
-### Function list
+## Function list
 
 <table>
   <thead>
@@ -209,8 +209,7 @@ behavior:
   <tbody>
 
 <tr>
-  <td><a href="#s2_cellidfrompoint"><code>S2_CELLIDFROMPOINT</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#s2_cellidfrompoint"><code>S2_CELLIDFROMPOINT</code></a>
 </td>
   <td>
     Gets the S2 cell ID covering a point <code>GEOGRAPHY</code> value.
@@ -218,8 +217,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#s2_coveringcellids"><code>S2_COVERINGCELLIDS</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#s2_coveringcellids"><code>S2_COVERINGCELLIDS</code></a>
 </td>
   <td>
     Gets an array of S2 cell IDs that cover a <code>GEOGRAPHY</code> value.
@@ -227,8 +225,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_accum"><code>ST_ACCUM</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_accum"><code>ST_ACCUM</code></a>
 </td>
   <td>
     Aggregates <code>GEOGRAPHY</code> values into an array of
@@ -237,8 +234,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_angle"><code>ST_ANGLE</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_angle"><code>ST_ANGLE</code></a>
 </td>
   <td>
     Takes three point <code>GEOGRAPHY</code> values, which represent two
@@ -247,8 +243,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_area"><code>ST_AREA</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_area"><code>ST_AREA</code></a>
 </td>
   <td>
     Gets the area covered by the polygons in a <code>GEOGRAPHY</code> value.
@@ -256,8 +251,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_asbinary"><code>ST_ASBINARY</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_asbinary"><code>ST_ASBINARY</code></a>
 </td>
   <td>
     Converts a <code>GEOGRAPHY</code> value to a
@@ -266,8 +260,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_asgeojson"><code>ST_ASGEOJSON</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_asgeojson"><code>ST_ASGEOJSON</code></a>
 </td>
   <td>
     Converts a <code>GEOGRAPHY</code> value to a <code>STRING</code>
@@ -276,8 +269,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_askml"><code>ST_ASKML</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_askml"><code>ST_ASKML</code></a>
 </td>
   <td>
     Converts a <code>GEOGRAPHY</code> value to a <code>STRING</code>
@@ -286,8 +278,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_astext"><code>ST_ASTEXT</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_astext"><code>ST_ASTEXT</code></a>
 </td>
   <td>
     Converts a <code>GEOGRAPHY</code> value to a
@@ -296,8 +287,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_azimuth"><code>ST_AZIMUTH</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_azimuth"><code>ST_AZIMUTH</code></a>
 </td>
   <td>
     Gets the azimuth of a line segment formed by two
@@ -306,8 +296,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_boundary"><code>ST_BOUNDARY</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_boundary"><code>ST_BOUNDARY</code></a>
 </td>
   <td>
     Gets the union of component boundaries in a
@@ -316,8 +305,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_boundingbox"><code>ST_BOUNDINGBOX</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_boundingbox"><code>ST_BOUNDINGBOX</code></a>
 </td>
   <td>
     Gets the bounding box for a <code>GEOGRAPHY</code> value.
@@ -325,8 +313,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_buffer"><code>ST_BUFFER</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_buffer"><code>ST_BUFFER</code></a>
 </td>
   <td>
     Gets the buffer around a <code>GEOGRAPHY</code> value, using a specific
@@ -335,8 +322,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_bufferwithtolerance"><code>ST_BUFFERWITHTOLERANCE</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_bufferwithtolerance"><code>ST_BUFFERWITHTOLERANCE</code></a>
 </td>
   <td>
     Gets the buffer around a <code>GEOGRAPHY</code> value, using tolerance.
@@ -344,8 +330,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_centroid"><code>ST_CENTROID</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_centroid"><code>ST_CENTROID</code></a>
 </td>
   <td>
     Gets the centroid of a <code>GEOGRAPHY</code> value.
@@ -353,8 +338,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_closestpoint"><code>ST_CLOSESTPOINT</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_closestpoint"><code>ST_CLOSESTPOINT</code></a>
 </td>
   <td>
     Gets the point on a <code>GEOGRAPHY</code> value which is closest to any
@@ -363,18 +347,17 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_clusterdbscan"><code>ST_CLUSTERDBSCAN</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_clusterdbscan"><code>ST_CLUSTERDBSCAN</code></a>
 </td>
   <td>
     Performs DBSCAN clustering on a group of <code>GEOGRAPHY</code> values and
     produces a 0-based cluster number for this row.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#st_contains"><code>ST_CONTAINS</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_contains"><code>ST_CONTAINS</code></a>
 </td>
   <td>
     Checks if one <code>GEOGRAPHY</code> value contains another
@@ -383,8 +366,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_convexhull"><code>ST_CONVEXHULL</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_convexhull"><code>ST_CONVEXHULL</code></a>
 </td>
   <td>
     Returns the convex hull for a <code>GEOGRAPHY</code> value.
@@ -392,8 +374,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_coveredby"><code>ST_COVEREDBY</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_coveredby"><code>ST_COVEREDBY</code></a>
 </td>
   <td>
     Checks if all points of a <code>GEOGRAPHY</code> value are on the boundary
@@ -402,8 +383,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_covers"><code>ST_COVERS</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_covers"><code>ST_COVERS</code></a>
 </td>
   <td>
     Checks if all points of a <code>GEOGRAPHY</code> value are on the boundary
@@ -412,8 +392,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_difference"><code>ST_DIFFERENCE</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_difference"><code>ST_DIFFERENCE</code></a>
 </td>
   <td>
     Gets the point set difference between two <code>GEOGRAPHY</code> values.
@@ -421,8 +400,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_dimension"><code>ST_DIMENSION</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_dimension"><code>ST_DIMENSION</code></a>
 </td>
   <td>
     Gets the dimension of the highest-dimensional element in a
@@ -431,8 +409,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_disjoint"><code>ST_DISJOINT</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_disjoint"><code>ST_DISJOINT</code></a>
 </td>
   <td>
     Checks if two <code>GEOGRAPHY</code> values are disjoint (do not intersect).
@@ -440,8 +417,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_distance"><code>ST_DISTANCE</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_distance"><code>ST_DISTANCE</code></a>
 </td>
   <td>
     Gets the shortest distance in meters between two <code>GEOGRAPHY</code>
@@ -450,8 +426,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_dump"><code>ST_DUMP</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_dump"><code>ST_DUMP</code></a>
 </td>
   <td>
     Returns an array of simple <code>GEOGRAPHY</code> components in a
@@ -460,8 +435,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_dumppoints"><code>ST_DUMPPOINTS</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_dumppoints"><code>ST_DUMPPOINTS</code></a>
 </td>
   <td>
     Produces an array of <code>GEOGRAPHY</code> points with all points, line
@@ -470,8 +444,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_dwithin"><code>ST_DWITHIN</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_dwithin"><code>ST_DWITHIN</code></a>
 </td>
   <td>
     Checks if any points in two <code>GEOGRAPHY</code> values are within a given
@@ -480,8 +453,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_endpoint"><code>ST_ENDPOINT</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_endpoint"><code>ST_ENDPOINT</code></a>
 </td>
   <td>
     Gets the last point of a linestring <code>GEOGRAPHY</code> value.
@@ -489,8 +461,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_equals"><code>ST_EQUALS</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_equals"><code>ST_EQUALS</code></a>
 </td>
   <td>
     Checks if two <code>GEOGRAPHY</code> values represent the same
@@ -499,17 +470,16 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_extent"><code>ST_EXTENT</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_extent"><code>ST_EXTENT</code></a>
 </td>
   <td>
     Gets the bounding box for a group of <code>GEOGRAPHY</code> values.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#st_exteriorring"><code>ST_EXTERIORRING</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_exteriorring"><code>ST_EXTERIORRING</code></a>
 </td>
   <td>
     Returns a linestring <code>GEOGRAPHY</code> value that corresponds to the
@@ -518,8 +488,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_geogfrom"><code>ST_GEOGFROM</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_geogfrom"><code>ST_GEOGFROM</code></a>
 </td>
   <td>
     Converts a <code>STRING</code> or <code>BYTES</code> value
@@ -528,8 +497,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_geogfromgeojson"><code>ST_GEOGFROMGEOJSON</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_geogfromgeojson"><code>ST_GEOGFROMGEOJSON</code></a>
 </td>
   <td>
     Converts a <code>STRING</code> GeoJSON geometry value into a
@@ -538,8 +506,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_geogfromkml"><code>ST_GEOGFROMKML</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_geogfromkml"><code>ST_GEOGFROMKML</code></a>
 </td>
   <td>
     Converts a <code>STRING</code> KML geometry value into a
@@ -548,8 +515,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_geogfromtext"><code>ST_GEOGFROMTEXT</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_geogfromtext"><code>ST_GEOGFROMTEXT</code></a>
 </td>
   <td>
     Converts a <code>STRING</code> WKT geometry value into a
@@ -558,8 +524,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_geogfromwkb"><code>ST_GEOGFROMWKB</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_geogfromwkb"><code>ST_GEOGFROMWKB</code></a>
 </td>
   <td>
     Converts a <code>BYTES</code> or hexadecimal-text <code>STRING</code> WKT
@@ -568,8 +533,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_geogpoint"><code>ST_GEOGPOINT</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_geogpoint"><code>ST_GEOGPOINT</code></a>
 </td>
   <td>
     Creates a point <code>GEOGRAPHY</code> value for a given longitude and
@@ -578,8 +542,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_geogpointfromgeohash"><code>ST_GEOGPOINTFROMGEOHASH</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_geogpointfromgeohash"><code>ST_GEOGPOINTFROMGEOHASH</code></a>
 </td>
   <td>
     Gets a point <code>GEOGRAPHY</code> value that is in the middle of a
@@ -588,8 +551,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_geohash"><code>ST_GEOHASH</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_geohash"><code>ST_GEOHASH</code></a>
 </td>
   <td>
     Converts a point <code>GEOGRAPHY</code> value to a <code>STRING</code>
@@ -598,8 +560,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_geometrytype"><code>ST_GEOMETRYTYPE</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_geometrytype"><code>ST_GEOMETRYTYPE</code></a>
 </td>
   <td>
     Gets the Open Geospatial Consortium (OGC) geometry type for a
@@ -608,15 +569,13 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_hausdorffdistance"><code>ST_HAUSDORFFDISTANCE</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_hausdorffdistance"><code>ST_HAUSDORFFDISTANCE</code></a>
 </td>
   <td>Gets the discrete Hausdorff distance between two geometries.</td>
 </tr>
 
 <tr>
-  <td><a href="#st_interiorrings"><code>ST_INTERIORRINGS</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_interiorrings"><code>ST_INTERIORRINGS</code></a>
 </td>
   <td>
     Gets the interior rings of a polygon <code>GEOGRAPHY</code> value.
@@ -624,8 +583,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_intersection"><code>ST_INTERSECTION</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_intersection"><code>ST_INTERSECTION</code></a>
 </td>
   <td>
     Gets the point set intersection of two <code>GEOGRAPHY</code> values.
@@ -633,8 +591,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_intersects"><code>ST_INTERSECTS</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_intersects"><code>ST_INTERSECTS</code></a>
 </td>
   <td>
     Checks if at least one point appears in two <code>GEOGRAPHY</code>
@@ -643,8 +600,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_intersectsbox"><code>ST_INTERSECTSBOX</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_intersectsbox"><code>ST_INTERSECTSBOX</code></a>
 </td>
   <td>
     Checks if a <code>GEOGRAPHY</code> value intersects a rectangle.
@@ -652,8 +608,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_isclosed"><code>ST_ISCLOSED</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_isclosed"><code>ST_ISCLOSED</code></a>
 </td>
   <td>
     Checks if all components in a <code>GEOGRAPHY</code> value are closed.
@@ -661,8 +616,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_iscollection"><code>ST_ISCOLLECTION</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_iscollection"><code>ST_ISCOLLECTION</code></a>
 </td>
   <td>
     Checks if the total number of points, linestrings, and polygons is
@@ -671,8 +625,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_isempty"><code>ST_ISEMPTY</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_isempty"><code>ST_ISEMPTY</code></a>
 </td>
   <td>
     Checks if a <code>GEOGRAPHY</code> value is empty.
@@ -680,8 +633,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_isring"><code>ST_ISRING</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_isring"><code>ST_ISRING</code></a>
 </td>
   <td>
     Checks if a <code>GEOGRAPHY</code> value is a closed, simple
@@ -690,8 +642,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_length"><code>ST_LENGTH</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_length"><code>ST_LENGTH</code></a>
 </td>
   <td>
     Gets the total length of lines in a <code>GEOGRAPHY</code> value.
@@ -699,8 +650,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_lineinterpolatepoint"><code>ST_LINEINTERPOLATEPOINT</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_lineinterpolatepoint"><code>ST_LINEINTERPOLATEPOINT</code></a>
 </td>
   <td>
     Gets a point at a specific fraction in a linestring <code>GEOGRAPHY</code>
@@ -709,8 +659,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_linelocatepoint"><code>ST_LINELOCATEPOINT</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_linelocatepoint"><code>ST_LINELOCATEPOINT</code></a>
 </td>
   <td>
     Gets a section of a linestring <code>GEOGRAPHY</code> value between the
@@ -719,8 +668,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_linesubstring"><code>ST_LINESUBSTRING</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_linesubstring"><code>ST_LINESUBSTRING</code></a>
 </td>
   <td>
     Gets a segment of a single linestring at a specific starting and
@@ -729,8 +677,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_makeline"><code>ST_MAKELINE</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_makeline"><code>ST_MAKELINE</code></a>
 </td>
   <td>
     Creates a linestring <code>GEOGRAPHY</code> value by concatenating the point
@@ -739,8 +686,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_makepolygon"><code>ST_MAKEPOLYGON</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_makepolygon"><code>ST_MAKEPOLYGON</code></a>
 </td>
   <td>
     Constructs a polygon <code>GEOGRAPHY</code> value by combining
@@ -749,8 +695,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_makepolygonoriented"><code>ST_MAKEPOLYGONORIENTED</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_makepolygonoriented"><code>ST_MAKEPOLYGONORIENTED</code></a>
 </td>
   <td>
     Constructs a polygon <code>GEOGRAPHY</code> value, using an array of
@@ -760,8 +705,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_maxdistance"><code>ST_MAXDISTANCE</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_maxdistance"><code>ST_MAXDISTANCE</code></a>
 </td>
   <td>
     Gets the longest distance between two non-empty
@@ -770,8 +714,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_npoints"><code>ST_NPOINTS</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_npoints"><code>ST_NPOINTS</code></a>
 </td>
   <td>
     An alias of <code>ST_NUMPOINTS</code>.
@@ -779,8 +722,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_numgeometries"><code>ST_NUMGEOMETRIES</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_numgeometries"><code>ST_NUMGEOMETRIES</code></a>
 </td>
   <td>
     Gets the number of geometries in a <code>GEOGRAPHY</code> value.
@@ -788,8 +730,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_numpoints"><code>ST_NUMPOINTS</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_numpoints"><code>ST_NUMPOINTS</code></a>
 </td>
   <td>
     Gets the number of vertices in the a <code>GEOGRAPHY</code> value.
@@ -797,8 +738,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_perimeter"><code>ST_PERIMETER</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_perimeter"><code>ST_PERIMETER</code></a>
 </td>
   <td>
     Gets the length of the boundary of the polygons in a
@@ -807,8 +747,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_pointn"><code>ST_POINTN</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_pointn"><code>ST_POINTN</code></a>
 </td>
   <td>
     Gets the point at a specific index of a linestring <code>GEOGRAPHY</code>
@@ -817,8 +756,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_simplify"><code>ST_SIMPLIFY</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_simplify"><code>ST_SIMPLIFY</code></a>
 </td>
   <td>
     Converts a <code>GEOGRAPHY</code> value into a simplified
@@ -827,8 +765,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_snaptogrid"><code>ST_SNAPTOGRID</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_snaptogrid"><code>ST_SNAPTOGRID</code></a>
 </td>
   <td>
     Produces a <code>GEOGRAPHY</code> value, where each vertex has
@@ -837,8 +774,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_startpoint"><code>ST_STARTPOINT</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_startpoint"><code>ST_STARTPOINT</code></a>
 </td>
   <td>
     Gets the first point of a linestring <code>GEOGRAPHY</code> value.
@@ -846,8 +782,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_touches"><code>ST_TOUCHES</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_touches"><code>ST_TOUCHES</code></a>
 </td>
   <td>
     Checks if two <code>GEOGRAPHY</code> values intersect and their interiors
@@ -856,8 +791,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_union"><code>ST_UNION</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_union"><code>ST_UNION</code></a>
 </td>
   <td>
     Gets the point set union of multiple <code>GEOGRAPHY</code> values.
@@ -865,18 +799,17 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_union_agg"><code>ST_UNION_AGG</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_union_agg"><code>ST_UNION_AGG</code></a>
 </td>
   <td>
     Aggregates over <code>GEOGRAPHY</code> values and gets their
     point set union.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#st_within"><code>ST_WITHIN</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_within"><code>ST_WITHIN</code></a>
 </td>
   <td>
     Checks if one <code>GEOGRAPHY</code> value contains another
@@ -885,8 +818,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_x"><code>ST_X</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_x"><code>ST_X</code></a>
 </td>
   <td>
     Gets the longitude from a point <code>GEOGRAPHY</code> value.
@@ -894,8 +826,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#st_y"><code>ST_Y</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_y"><code>ST_Y</code></a>
 </td>
   <td>
     Gets the latitude from a point <code>GEOGRAPHY</code> value.
@@ -905,7 +836,7 @@ behavior:
   </tbody>
 </table>
 
-### `S2_CELLIDFROMPOINT`
+## `S2_CELLIDFROMPOINT`
 
 ```sql
 S2_CELLIDFROMPOINT(point_geography[, level => cell_level])
@@ -969,7 +900,7 @@ FROM data;
 
 [s2-coveringcellids]: #s2_coveringcellids
 
-### `S2_COVERINGCELLIDS`
+## `S2_COVERINGCELLIDS`
 
 ```sql
 S2_COVERINGCELLIDS(
@@ -1034,7 +965,7 @@ FROM data;
 
 [s2-root-link]: https://s2geometry.io/
 
-### `ST_ACCUM`
+## `ST_ACCUM`
 
 ```sql
 ST_ACCUM(geography)
@@ -1053,7 +984,7 @@ but only applies to `GEOGRAPHY` objects.
 
 [geography-link-array-agg]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#array_agg
 
-### `ST_ANGLE`
+## `ST_ANGLE`
 
 ```sql
 ST_ANGLE(point_geography_1, point_geography_2, point_geography_3)
@@ -1108,7 +1039,7 @@ SELECT ST_ANGLE(geo1,geo2,geo3) AS angle FROM geos ORDER BY id;
  *---------------------*/
 ```
 
-### `ST_AREA`
+## `ST_AREA`
 
 ```sql
 ST_AREA(geography_expression[, use_spheroid])
@@ -1136,7 +1067,7 @@ the value `FALSE`. The default value of `use_spheroid` is `FALSE`.
 
 [wgs84-link]: https://en.wikipedia.org/wiki/World_Geodetic_System
 
-### `ST_ASBINARY`
+## `ST_ASBINARY`
 
 ```sql
 ST_ASBINARY(geography_expression)
@@ -1158,7 +1089,7 @@ See [`ST_GEOGFROMWKB`][st-geogfromwkb] to construct a
 
 [st-geogfromwkb]: #st_geogfromwkb
 
-### `ST_ASGEOJSON`
+## `ST_ASGEOJSON`
 
 ```sql
 ST_ASGEOJSON(geography_expression)
@@ -1188,7 +1119,7 @@ See [`ST_GEOGFROMGEOJSON`][st-geogfromgeojson] to construct a
 
 [st-geogfromgeojson]: #st_geogfromgeojson
 
-### `ST_ASKML`
+## `ST_ASKML`
 
 ```sql
 ST_ASKML(geography)
@@ -1206,7 +1137,7 @@ of precision.
 
 [kml-geometry-link]: https://developers.google.com/kml/documentation/kmlreference#geometry
 
-### `ST_ASTEXT`
+## `ST_ASTEXT`
 
 ```sql
 ST_ASTEXT(geography_expression)
@@ -1228,7 +1159,7 @@ See [`ST_GEOGFROMTEXT`][st-geogfromtext] to construct a
 
 [st-geogfromtext]: #st_geogfromtext
 
-### `ST_AZIMUTH`
+## `ST_AZIMUTH`
 
 ```sql
 ST_AZIMUTH(point_geography_1, point_geography_2)
@@ -1289,7 +1220,7 @@ SELECT ST_AZIMUTH(geo1, geo2) AS azimuth FROM geos ORDER BY id;
  *--------------------*/
 ```
 
-### `ST_BOUNDARY`
+## `ST_BOUNDARY`
 
 ```sql
 ST_BOUNDARY(geography_expression)
@@ -1313,7 +1244,7 @@ defined as follows:
 
 `GEOGRAPHY`
 
-### `ST_BOUNDINGBOX`
+## `ST_BOUNDINGBOX`
 
 ```sql
 ST_BOUNDINGBOX(geography_expression)
@@ -1373,7 +1304,7 @@ See [`ST_EXTENT`][st-extent] for the aggregate version of `ST_BOUNDINGBOX`.
 
 [st-extent]: #st_extent
 
-### `ST_BUFFER`
+## `ST_BUFFER`
 
 ```sql
 ST_BUFFER(
@@ -1447,7 +1378,7 @@ SELECT
 
 [st-numpoints]: #st_numpoints
 
-### `ST_BUFFERWITHTOLERANCE`
+## `ST_BUFFERWITHTOLERANCE`
 
 ```sql
 ST_BUFFERWITHTOLERANCE(
@@ -1517,7 +1448,7 @@ SELECT
 
 [st-buffer]: #st_buffer
 
-### `ST_CENTROID`
+## `ST_CENTROID`
 
 ```sql
 ST_CENTROID(geography_expression)
@@ -1550,7 +1481,7 @@ and the likelihood of this happening is vanishingly small.
 
 Point `GEOGRAPHY`
 
-### `ST_CLOSESTPOINT`
+## `ST_CLOSESTPOINT`
 
 ```sql
 ST_CLOSESTPOINT(geography_1, geography_2[, use_spheroid])
@@ -1579,7 +1510,7 @@ Point `GEOGRAPHY`
 
 [wgs84-link]: https://en.wikipedia.org/wiki/World_Geodetic_System
 
-### `ST_CLUSTERDBSCAN`
+## `ST_CLUSTERDBSCAN`
 
 ```sql
 ST_CLUSTERDBSCAN(geography_column, epsilon, minimum_geographies)
@@ -1680,7 +1611,7 @@ Geos ORDER BY row_id
 
 [dbscan-link]: https://en.wikipedia.org/wiki/DBSCAN
 
-### `ST_CONTAINS`
+## `ST_CONTAINS`
 
 ```sql
 ST_CONTAINS(geography_1, geography_2)
@@ -1722,7 +1653,7 @@ FROM UNNEST([0, 1, 10]) AS i;
 
 [st_covers]: #st_covers
 
-### `ST_CONVEXHULL`
+## `ST_CONVEXHULL`
 
 ```sql
 ST_CONVEXHULL(geography_expression)
@@ -1775,7 +1706,7 @@ FROM Geographies;
  *-----------------------------------------+--------------------------------------------------------*/
 ```
 
-### `ST_COVEREDBY`
+## `ST_COVEREDBY`
 
 ```sql
 ST_COVEREDBY(geography_1, geography_2)
@@ -1796,7 +1727,7 @@ Given two `GEOGRAPHY`s `a` and `b`,
 
 [st-covers]: #st_covers
 
-### `ST_COVERS`
+## `ST_COVERS`
 
 ```sql
 ST_COVERS(geography_1, geography_2)
@@ -1834,7 +1765,7 @@ FROM UNNEST([0, 1, 10]) AS i;
  *--------------+--------*/
 ```
 
-### `ST_DIFFERENCE`
+## `ST_DIFFERENCE`
 
 ```sql
 ST_DIFFERENCE(geography_1, geography_2)
@@ -1865,7 +1796,7 @@ be in the difference.
 **Example**
 
 The following query illustrates the difference between `geog1`, a larger polygon
-`POLYGON((0 0, 10 0, 10 10, 0 0))` and `geog1`, a smaller polygon
+`POLYGON((0 0, 10 0, 10 10, 0 0))` and `geog2`, a smaller polygon
 `POLYGON((4 2, 6 2, 8 6, 4 2))` that intersects with `geog1`. The result is
 `geog1` with a hole where `geog2` intersects with it.
 
@@ -1883,7 +1814,7 @@ SELECT
  *--------------------------------------------------------*/
 ```
 
-### `ST_DIMENSION`
+## `ST_DIMENSION`
 
 ```sql
 ST_DIMENSION(geography_expression)
@@ -1907,7 +1838,7 @@ returns `-1`.
 
 `INT64`
 
-### `ST_DISJOINT`
+## `ST_DISJOINT`
 
 ```sql
 ST_DISJOINT(geography_1, geography_2)
@@ -1926,7 +1857,7 @@ that is, no point in `geography_1` also appears in `geography_2`.
 
 [st-intersects]: #st_intersects
 
-### `ST_DISTANCE`
+## `ST_DISTANCE`
 
 ```
 ST_DISTANCE(geography_1, geography_2[, use_spheroid])
@@ -1952,7 +1883,7 @@ of `use_spheroid` is `FALSE`.
 
 [wgs84-link]: https://en.wikipedia.org/wiki/World_Geodetic_System
 
-### `ST_DUMP`
+## `ST_DUMP`
 
 ```sql
 ST_DUMP(geography[, dimension])
@@ -2024,7 +1955,7 @@ FROM example
  *-------------------------------------+------------------------------*/
 ```
 
-### `ST_DUMPPOINTS`
+## `ST_DUMPPOINTS`
 
 ```sql
 ST_DUMPPOINTS(geography)
@@ -2063,7 +1994,7 @@ FROM example
  *-------------------------------------+------------------------------------*/
 ```
 
-### `ST_DWITHIN`
+## `ST_DWITHIN`
 
 ```sql
 ST_DWITHIN(geography_1, geography_2, distance[, use_spheroid])
@@ -2090,7 +2021,7 @@ the value `FALSE`. The default value of `use_spheroid` is `FALSE`.
 
 [wgs84-link]: https://en.wikipedia.org/wiki/World_Geodetic_System
 
-### `ST_ENDPOINT`
+## `ST_ENDPOINT`
 
 ```sql
 ST_ENDPOINT(linestring_geography)
@@ -2118,7 +2049,7 @@ SELECT ST_ENDPOINT(ST_GEOGFROMTEXT('LINESTRING(1 1, 2 1, 3 2, 3 3)')) last
  *--------------*/
 ```
 
-### `ST_EQUALS`
+## `ST_EQUALS`
 
 ```sql
 ST_EQUALS(geography_1, geography_2)
@@ -2126,19 +2057,24 @@ ST_EQUALS(geography_1, geography_2)
 
 **Description**
 
-Returns `TRUE` if `geography_1` and `geography_2` represent the same
+Checks if two `GEOGRAPHY` values represent the same `GEOGRAPHY` value. Returns
+`TRUE` if the values are the same, otherwise returns `FALSE`.
 
-`GEOGRAPHY` value. More precisely, this means that
-one of the following conditions holds:
-+   `ST_COVERS(geography_1, geography_2) = TRUE` and `ST_COVERS(geography_2,
-    geography_1) = TRUE`
+**Definitions**
+
++ `geography_1`: The first `GEOGRAPHY` value to compare.
++ `geography_2`: The second `GEOGRAPHY` value to compare.
+
+**Details**
+
+As long as they still represent the same geometric structure, two
+`GEOGRAPHY` values can be equal even if the ordering of points or vertices
+differ. This means that one of the following conditions must be true for this
+function to return `TRUE`:
+
++   Both `ST_COVERS(geography_1, geography_2)` and
+    `ST_COVERS(geography_2, geography_1)` are `TRUE`.
 +   Both `geography_1` and `geography_2` are empty.
-
-Therefore, two `GEOGRAPHY`s may be equal even if the
-ordering of points or vertices differ, as long as they still represent the same
-geometric structure.
-
-**Constraints**
 
 `ST_EQUALS` is not guaranteed to be a transitive function.
 
@@ -2146,7 +2082,7 @@ geometric structure.
 
 `BOOL`
 
-### `ST_EXTENT`
+## `ST_EXTENT`
 
 ```sql
 ST_EXTENT(geography_expression)
@@ -2205,7 +2141,7 @@ FROM data
 
 [st-boundingbox]: #st_boundingbox
 
-### `ST_EXTERIORRING`
+## `ST_EXTERIORRING`
 
 ```sql
 ST_EXTERIORRING(polygon_geography)
@@ -2245,7 +2181,7 @@ SELECT ST_EXTERIORRING(g) AS ring FROM geo;
  *---------------------------------------*/
 ```
 
-### `ST_GEOGFROM`
+## `ST_GEOGFROM`
 
 ```sql
 ST_GEOGFROM(expression)
@@ -2335,7 +2271,7 @@ SELECT ST_GEOGFROM(
 
 [st-geogfromgeojson]: #st_geogfromgeojson
 
-### `ST_GEOGFROMGEOJSON`
+## `ST_GEOGFROMGEOJSON`
 
 ```sql
 ST_GEOGFROMGEOJSON(
@@ -2392,7 +2328,7 @@ The JSON input is subject to the following constraints:
 
 [st-asgeojson]: #st_asgeojson
 
-### `ST_GEOGFROMKML`
+## `ST_GEOGFROMKML`
 
 ```sql
 ST_GEOGFROMKML(kml_geometry)
@@ -2408,7 +2344,7 @@ Takes a `STRING` [KML geometry][kml-geometry-link] and returns a
 
 [kml-geometry-link]: https://developers.google.com/kml/documentation/kmlreference#geometry
 
-### `ST_GEOGFROMTEXT`
+## `ST_GEOGFROMTEXT`
 
 <a id="st_geogfromtext_signature1"></a><a id="st_geogfromtext_signature2"></a>
 
@@ -2510,7 +2446,7 @@ FROM data
 
 [st-geogfromgeojson]: #st_geogfromgeojson
 
-### `ST_GEOGFROMWKB`
+## `ST_GEOGFROMWKB`
 
 ```sql
 ST_GEOGFROMWKB(
@@ -2604,7 +2540,7 @@ FROM wkb_data
 
 [st-geogfromgeojson]: #st_geogfromgeojson
 
-### `ST_GEOGPOINT`
+## `ST_GEOGPOINT`
 
 ```sql
 ST_GEOGPOINT(longitude, latitude)
@@ -2631,7 +2567,7 @@ NOTE: Some systems present latitude first; take care with argument order.
 
 Point `GEOGRAPHY`
 
-### `ST_GEOGPOINTFROMGEOHASH`
+## `ST_GEOGPOINTFROMGEOHASH`
 
 ```sql
 ST_GEOGPOINTFROMGEOHASH(geohash)
@@ -2648,7 +2584,7 @@ Point `GEOGRAPHY`
 
 [geohash-link]: https://en.wikipedia.org/wiki/Geohash
 
-### `ST_GEOHASH`
+## `ST_GEOHASH`
 
 ```sql
 ST_GEOHASH(geography_expression[, maxchars])
@@ -2689,7 +2625,7 @@ SELECT ST_GEOHASH(ST_GEOGPOINT(-122.35, 47.62), 10) geohash
 
 [geohash-link]: https://en.wikipedia.org/wiki/Geohash
 
-### `ST_GEOMETRYTYPE`
+## `ST_GEOMETRYTYPE`
 
 ```sql
 ST_GEOMETRYTYPE(geography_expression)
@@ -2757,7 +2693,7 @@ FROM example;
 
 [st-asgeojson]: #st_asgeojson
 
-### `ST_HAUSDORFFDISTANCE`
+## `ST_HAUSDORFFDISTANCE`
 
 ```sql
 ST_HAUSDORFFDISTANCE(
@@ -2868,7 +2804,7 @@ FROM data;
 
 [h-distance]: http://en.wikipedia.org/wiki/Hausdorff_distance
 
-### `ST_INTERIORRINGS`
+## `ST_INTERIORRINGS`
 
 ```sql
 ST_INTERIORRINGS(polygon_geography)
@@ -2915,7 +2851,7 @@ SELECT ST_INTERIORRINGS(g) AS rings FROM geo;
  *----------------------------------------------------------------------------*/
 ```
 
-### `ST_INTERSECTION`
+## `ST_INTERSECTION`
 
 ```sql
 ST_INTERSECTION(geography_1, geography_2)
@@ -2942,7 +2878,7 @@ predicate functions.
 
 [st-disjoint]: #st_disjoint
 
-### `ST_INTERSECTS`
+## `ST_INTERSECTS`
 
 ```sql
 ST_INTERSECTS(geography_1, geography_2)
@@ -2963,7 +2899,7 @@ returns `FALSE`.
 
 [st-disjoint]: #st_disjoint
 
-### `ST_INTERSECTSBOX`
+## `ST_INTERSECTSBOX`
 
 ```sql
 ST_INTERSECTSBOX(geography, lng1, lat1, lng2, lat2)
@@ -3010,7 +2946,7 @@ FROM UNNEST([ST_GEOGPOINT(10, 10), ST_GEOGPOINT(170, 10),
  *----------------+--------------+--------------*/
 ```
 
-### `ST_ISCLOSED`
+## `ST_ISCLOSED`
 
 ```sql
 ST_ISCLOSED(geography_expression)
@@ -3066,7 +3002,7 @@ FROM example;
 
 [st-boundary]: #st_boundary
 
-### `ST_ISCOLLECTION`
+## `ST_ISCOLLECTION`
 
 ```sql
 ST_ISCOLLECTION(geography_expression)
@@ -3083,7 +3019,7 @@ An empty `GEOGRAPHY` is not a collection.
 
 `BOOL`
 
-### `ST_ISEMPTY`
+## `ST_ISEMPTY`
 
 ```sql
 ST_ISEMPTY(geography_expression)
@@ -3102,7 +3038,7 @@ For example, the results of expressions `ST_GEOGFROMTEXT('POINT EMPTY')` and
 
 `BOOL`
 
-### `ST_ISRING`
+## `ST_ISRING`
 
 ```sql
 ST_ISRING(geography_expression)
@@ -3124,7 +3060,7 @@ An empty `GEOGRAPHY` is not a ring.
 
 [st-isclosed]: #st_isclosed
 
-### `ST_LENGTH`
+## `ST_LENGTH`
 
 ```sql
 ST_LENGTH(geography_expression[, use_spheroid])
@@ -3152,7 +3088,7 @@ the value `FALSE`. The default value of `use_spheroid` is `FALSE`.
 
 [wgs84-link]: https://en.wikipedia.org/wiki/World_Geodetic_System
 
-### `ST_LINEINTERPOLATEPOINT`
+## `ST_LINEINTERPOLATEPOINT`
 
 ```sql
 ST_LINEINTERPOLATEPOINT(linestring_geography, fraction)
@@ -3212,7 +3148,7 @@ FROM fractions
  *-------------+-------------------------------------------*/
 ```
 
-### `ST_LINELOCATEPOINT`
+## `ST_LINELOCATEPOINT`
 
 ```sql
 ST_LINELOCATEPOINT(linestring_geography, point_geography)
@@ -3285,7 +3221,7 @@ FROM geos
 
 [st-closestpoint]: #st_closestpoint
 
-### `ST_LINESUBSTRING`
+## `ST_LINESUBSTRING`
 
 ```sql
 ST_LINESUBSTRING(linestring_geography, start_fraction, end_fraction);
@@ -3352,7 +3288,7 @@ FROM data;
  +------------------------------------------*/
 ```
 
-### `ST_MAKELINE`
+## `ST_MAKELINE`
 
 ```sql
 ST_MAKELINE(geography_1, geography_2)
@@ -3394,7 +3330,7 @@ the result will be a `GEOGRAPHY` with exactly one point.
 
 LineString `GEOGRAPHY`
 
-### `ST_MAKEPOLYGON`
+## `ST_MAKEPOLYGON`
 
 ```sql
 ST_MAKEPOLYGON(polygon_shell[, array_of_polygon_holes])
@@ -3460,7 +3396,7 @@ point.
 
 [st-makepolygonoriented]: #st_makepolygonoriented
 
-### `ST_MAKEPOLYGONORIENTED`
+## `ST_MAKEPOLYGONORIENTED`
 
 ```sql
 ST_MAKEPOLYGONORIENTED(array_of_geography)
@@ -3518,7 +3454,7 @@ polygon hole that is sufficiently small may disappear, or the resulting
 
 [st-makepolygon]: #st_makepolygon
 
-### `ST_MAXDISTANCE`
+## `ST_MAXDISTANCE`
 
 ```sql
 ST_MAXDISTANCE(geography_1, geography_2[, use_spheroid])
@@ -3549,7 +3485,7 @@ the value `FALSE`. The default value of `use_spheroid` is `FALSE`.
 
 [wgs84-link]: https://en.wikipedia.org/wiki/World_Geodetic_System
 
-### `ST_NPOINTS`
+## `ST_NPOINTS`
 
 ```sql
 ST_NPOINTS(geography_expression)
@@ -3561,7 +3497,7 @@ An alias of [ST_NUMPOINTS][st-numpoints].
 
 [st-numpoints]: #st_numpoints
 
-### `ST_NUMGEOMETRIES`
+## `ST_NUMGEOMETRIES`
 
 ```
 ST_NUMGEOMETRIES(geography_expression)
@@ -3608,7 +3544,7 @@ FROM example;
  *------------------------------------------------------+----------------*/
 ```
 
-### `ST_NUMPOINTS`
+## `ST_NUMPOINTS`
 
 ```sql
 ST_NUMPOINTS(geography_expression)
@@ -3627,7 +3563,7 @@ vertices.
 
 `INT64`
 
-### `ST_PERIMETER`
+## `ST_PERIMETER`
 
 ```sql
 ST_PERIMETER(geography_expression[, use_spheroid])
@@ -3655,7 +3591,7 @@ the value `FALSE`. The default value of `use_spheroid` is `FALSE`.
 
 [wgs84-link]: https://en.wikipedia.org/wiki/World_Geodetic_System
 
-### `ST_POINTN`
+## `ST_POINTN`
 
 ```sql
 ST_POINTN(linestring_geography, index)
@@ -3698,7 +3634,7 @@ FROM linestring;
 
 [st-endpoint]: #st_endpoint
 
-### `ST_SIMPLIFY`
+## `ST_SIMPLIFY`
 
 ```sql
 ST_SIMPLIFY(geography, tolerance_meters)
@@ -3777,7 +3713,7 @@ FROM example
  *-------------------------------------+------------------+-------------------------------------*/
 ```
 
-### `ST_SNAPTOGRID`
+## `ST_SNAPTOGRID`
 
 ```sql
 ST_SNAPTOGRID(geography_expression, grid_size)
@@ -3798,7 +3734,7 @@ that it is of the form `10^n`, where `-10 < n < 0`.
 
 `GEOGRAPHY`
 
-### `ST_STARTPOINT`
+## `ST_STARTPOINT`
 
 ```sql
 ST_STARTPOINT(linestring_geography)
@@ -3826,7 +3762,7 @@ SELECT ST_STARTPOINT(ST_GEOGFROMTEXT('LINESTRING(1 1, 2 1, 3 2, 3 3)')) first
  *--------------*/
 ```
 
-### `ST_TOUCHES`
+## `ST_TOUCHES`
 
 ```sql
 ST_TOUCHES(geography_1, geography_2)
@@ -3844,7 +3780,7 @@ Returns `TRUE` provided the following two conditions are satisfied:
 
 `BOOL`
 
-### `ST_UNION`
+## `ST_UNION`
 
 ```sql
 ST_UNION(geography_1, geography_2)
@@ -3893,7 +3829,7 @@ SELECT ST_UNION(
 
 [st-union-agg]: #st_union_agg
 
-### `ST_UNION_AGG`
+## `ST_UNION_AGG`
 
 ```sql
 ST_UNION_AGG(geography)
@@ -3930,7 +3866,7 @@ FROM UNNEST([
 
 [st-union]: #st_union
 
-### `ST_WITHIN`
+## `ST_WITHIN`
 
 ```sql
 ST_WITHIN(geography_1, geography_2)
@@ -3950,7 +3886,7 @@ as [`ST_CONTAINS`][st-contains]`(b, a)`. Note the opposite order of arguments.
 
 [st-contains]: #st_contains
 
-### `ST_X`
+## `ST_X`
 
 ```sql
 ST_X(point_geography_expression)
@@ -3992,7 +3928,7 @@ FROM points;
  *--------------+-----------+----------*/
 ```
 
-### `ST_Y`
+## `ST_Y`
 
 ```sql
 ST_Y(point_geography_expression)

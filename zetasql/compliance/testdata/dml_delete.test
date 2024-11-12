@@ -133,3 +133,23 @@ STRUCT<
   1,
   ARRAY<STRUCT<primary_key INT64, value INT64>>[{2, 20}]
 }
+==
+
+# Repro b/362158469: DML containing WITH scan on subquery does not have
+# algebrizer implementation.
+[required_features=V_1_1_WITH_ON_SUBQUERY]
+[name=delete_dml_exists_subquery_with_scan]
+[labels=Special:NoReference]
+DELETE Table1
+WHERE EXISTS(
+  WITH T AS (
+    SELECT 1 AS a
+  )
+  SELECT * FROM T
+  UNION ALL
+  SELECT * FROM T
+)
+--
+ERROR: generic::unimplemented: WITH clauses under subquery in DML statement is not supported yet.
+==
+

@@ -751,3 +751,30 @@ QueryStmt
       +-SingleRowScan
 [UNDECLARED_PARAMETERS]
 ENUM<UNSUPPORTED_FIELDS>
+==
+
+# Test SAFE_TO_JSON() function
+[language_features=JSON_TYPE]
+SELECT SAFE_TO_JSON(1);
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [JSON]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:safe_to_json(INT64) -> JSON)
+    |     +-Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# Test SAFE_TO_JSON() function
+[language_features=JSON_TYPE]
+SELECT SAFE_TO_JSON(1, unsupported_fields=>"IGNORE");
+--
+ERROR: Number of arguments does not match for function SAFE_TO_JSON. Supported signature: SAFE_TO_JSON(ANY) [at 1:8]
+SELECT SAFE_TO_JSON(1, unsupported_fields=>"IGNORE");
+       ^

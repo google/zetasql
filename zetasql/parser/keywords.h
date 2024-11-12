@@ -23,6 +23,8 @@
 #include <vector>
 
 #include "zetasql/base/logging.h"
+#include "zetasql/parser/tm_token.h"
+#include "zetasql/parser/token_codes.h"
 #include "zetasql/base/case.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/strings/string_view.h"
@@ -34,75 +36,66 @@ namespace parser {
 // Metadata for a keyword.
 class KeywordInfo {
  public:
-  KeywordInfo(absl::string_view keyword,
-              std::optional<int> reserved_bison_token,
-              std::optional<int> nonreserved_bison_token)
+  KeywordInfo(absl::string_view keyword, std::optional<Token> reserved_token,
+              std::optional<Token> nonreserved_token)
       : keyword_(absl::AsciiStrToUpper(keyword)),
-        reserved_bison_token_(reserved_bison_token),
-        nonreserved_bison_token_(nonreserved_bison_token) {
-    ABSL_DCHECK(reserved_bison_token.has_value() ||
-           nonreserved_bison_token.has_value())
-        << "Either reserved or nonreserved must have a Bison token";
+        reserved_token_(reserved_token),
+        nonreserved_token_(nonreserved_token) {
+    ABSL_DCHECK(reserved_token.has_value() || nonreserved_token.has_value())
+        << "Either reserved or nonreserved must have a token";
   }
 
   // The keyword, in upper case.
   const std::string& keyword() const { return keyword_; }
 
-  // The Bison parser token for this keyword, when it is reserved.
+  // The parser token for this keyword, when it is reserved.
   // Valid only when CanBeReserved() is true.
-  int reserved_bison_token() const { return reserved_bison_token_.value(); }
+  Token reserved_token() const { return reserved_token_.value(); }
 
-  // The Bison parser token for this keyword, when it is nonreserved.
+  // The parser token for this keyword, when it is nonreserved.
   // Valid only when IsAlwaysReserved() is false.
-  int nonreserved_bison_token() const {
-    return nonreserved_bison_token_.value();
-  }
+  Token nonreserved_token() const { return nonreserved_token_.value(); }
 
   // True if this keyword can be reserved under any LanguageOptions.
-  bool CanBeReserved() const { return reserved_bison_token_.has_value(); }
+  bool CanBeReserved() const { return reserved_token_.has_value(); }
 
   // True if this keyword is reserved under all LanguageOptions.
-  bool IsAlwaysReserved() const {
-    return !nonreserved_bison_token_.has_value();
-  }
+  bool IsAlwaysReserved() const { return !nonreserved_token_.has_value(); }
 
   // True if this keyword can be either reserved or nonreserved, depending on
   // the LanguageOptions.
   bool IsConditionallyReserved() const {
-    return reserved_bison_token_.has_value() &&
-           nonreserved_bison_token_.has_value();
+    return reserved_token_.has_value() && nonreserved_token_.has_value();
   }
 
  private:
   std::string keyword_;
 
-  // The Bison parser token code when this keyword is reserved, or
-  // absl::nullopt if this keyword is never reserved.
-  std::optional<int> reserved_bison_token_;
+  // The parser token code when this keyword is reserved, or std::nullopt if
+  // this keyword is never reserved.
+  std::optional<Token> reserved_token_;
 
-  // The Bison parser token code when this keyword is nonreserved, or
-  // absl::nullopt if this keyword is always reserved.
-  std::optional<int> nonreserved_bison_token_;
+  // The parser token code when this keyword is nonreserved, or std::nullopt
+  // if this keyword is always reserved.
+  std::optional<Token> nonreserved_token_;
 };
 
 // Returns the KeywordInfo for keyword 'keyword' (case insensitively), or
 // nullptr if 'keyword' is not a keyword.
 const KeywordInfo* GetKeywordInfo(absl::string_view keyword);
 
-// Returns the KeywordInfo for token 'bison_token', or nullptr if the
-// 'bison_token' is not a keyword token.
+// Returns the KeywordInfo for token `token`, or nullptr if the `token` is not a
+// keyword token.
 //
-// For conditionally reserved keywords, both the reserved and nonreserved Bison
-// tokens are accepted.
-const KeywordInfo* GetKeywordInfoForBisonToken(int bison_token);
+// For conditionally reserved keywords, both the reserved and nonreserved tokens
+// are accepted.
+const KeywordInfo* GetKeywordInfoForToken(Token token);
 
 // Returns a vector of all keywords with their metadata.
 const std::vector<KeywordInfo>& GetAllKeywords();
 
-// Returns true if 'identifier' should be treated as a keyword for
-// GetParseTokens(). This applies to words that are keywords in JavaCC but not
-// in Bison. We want to treat them as keywords in the tokenizer API even though
-// they are not keywords in the Bison parser.
+// Returns true if `identifier` should be treated as a keyword for
+// GetParseTokens().
 bool IsKeywordInTokenizer(absl::string_view identifier);
 
 // Returns true if 'identifier' is not a keyword but it still has a special
@@ -115,8 +108,8 @@ bool IsKeywordInTokenizer(absl::string_view identifier);
 bool NonReservedIdentifierMustBeBackquoted(absl::string_view identifier);
 
 // For special keywords like NOT_SPECIAL or EXPECT_IN_SET_OP, gets a map from
-// the bison parser's generated string (e.g. KW_NOT_SPECIAL) to the string we
-// want to show in error messages or suggest in the autocomplete parser.
+// the parser's generated string (e.g. KW_NOT_SPECIAL) to the string we want to
+// show in error messages or suggest in the autocomplete parser.
 const absl::flat_hash_map<absl::string_view, absl::string_view>&
 GetUserFacingImagesForSpecialKeywordsMap();
 

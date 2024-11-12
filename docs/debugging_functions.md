@@ -6,7 +6,7 @@
 
 ZetaSQL supports the following debugging functions.
 
-### Function list
+## Function list
 
 <table>
   <thead>
@@ -18,8 +18,7 @@ ZetaSQL supports the following debugging functions.
   <tbody>
 
 <tr>
-  <td><a href="#error"><code>ERROR</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/debugging_functions.md#error"><code>ERROR</code></a>
 </td>
   <td>
     Produces an error with a custom error message.
@@ -27,8 +26,7 @@ ZetaSQL supports the following debugging functions.
 </tr>
 
 <tr>
-  <td><a href="#iferror"><code>IFERROR</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/debugging_functions.md#iferror"><code>IFERROR</code></a>
 </td>
   <td>
     Evaluates a try expression, and if an evaluation error is produced, returns
@@ -37,8 +35,7 @@ ZetaSQL supports the following debugging functions.
 </tr>
 
 <tr>
-  <td><a href="#iserror"><code>ISERROR</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/debugging_functions.md#iserror"><code>ISERROR</code></a>
 </td>
   <td>
     Evaluates a try expression, and if an evaluation error is produced, returns
@@ -47,8 +44,7 @@ ZetaSQL supports the following debugging functions.
 </tr>
 
 <tr>
-  <td><a href="#nulliferror"><code>NULLIFERROR</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/debugging_functions.md#nulliferror"><code>NULLIFERROR</code></a>
 </td>
   <td>
     Evaluates a try expression, and if an evaluation error is produced, returns
@@ -59,7 +55,7 @@ ZetaSQL supports the following debugging functions.
   </tbody>
 </table>
 
-### `ERROR`
+## `ERROR`
 
 ```sql
 ERROR(error_message)
@@ -134,7 +130,7 @@ WHERE IF(x > 0, true, ERROR(FORMAT('Error: x must be positive but is %t', x)));
 -- Error: x must be positive but is -1
 ```
 
-### `IFERROR`
+## `IFERROR`
 
 ```sql
 IFERROR(try_expression, catch_expression)
@@ -278,7 +274,7 @@ SELECT IFERROR(ERROR('a'), ERROR('b')) AS result
 
 [supertype]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#supertypes
 
-### `ISERROR`
+## `ISERROR`
 
 ```sql
 ISERROR(try_expression)
@@ -383,7 +379,7 @@ SELECT ISERROR((SELECT e FROM UNNEST([1, 2]) AS e)) AS is_error
  *----------*/
 ```
 
-### `NULLIFERROR`
+## `NULLIFERROR`
 
 ```sql
 NULLIFERROR(try_expression)

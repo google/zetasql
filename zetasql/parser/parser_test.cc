@@ -83,6 +83,36 @@ MATCHER_P2(WarningHasSubstrAndByteOffset, substr, byte_offset, "") {
       arg, result_listener);
 }
 
+TEST(ParserTest, IssuesWarningOnUsageOfGraphTable) {
+  std::unique_ptr<ParserOutput> parser_output;
+  LanguageOptions options_with_graphs;
+  options_with_graphs.EnableLanguageFeature(FEATURE_V_1_4_SQL_GRAPH);
+
+  // Unambiguous places produce no warning. Same for quoted identifiers.
+  // Note: the tokenizer doesn't recognize keywords as keywords when prefixed.
+  //       It tags them as identifiers instead.
+  ZETASQL_ASSERT_OK(
+      ParseStatement("select * FROM t.GRAPH_TABLE() INNER JOIN `GRAPH_TABLE`",
+                     ParserOptions(options_with_graphs), &parser_output));
+
+  EXPECT_TRUE(parser_output->warnings().empty());
+
+  ZETASQL_ASSERT_OK(ParseStatement(
+      "select graph_table(1), graph_table AS gRaph_tAblE FROM GRAPH_TABLE()",
+      ParserOptions(options_with_graphs), &parser_output));
+
+  constexpr absl::string_view kGraphTableWarningText =
+      "GRAPH_TABLE is used as an identifier. GRAPH_TABLE may become a reserved "
+      "word in the future. To make this statement robust, add backticks around "
+      "GRAPH_TABLE to make the identifier unambiguous";
+  EXPECT_THAT(
+      parser_output->warnings(),
+      ElementsAre(WarningHasSubstrAndByteOffset(kGraphTableWarningText, 7),
+                  WarningHasSubstrAndByteOffset(kGraphTableWarningText, 23),
+                  WarningHasSubstrAndByteOffset(kGraphTableWarningText, 38),
+                  WarningHasSubstrAndByteOffset(kGraphTableWarningText, 55)));
+}
+
 TEST(ParserTest, IssuesWarningWhenQualifyIsUsedAsAnIdentifier) {
   std::unique_ptr<ParserOutput> parser_output;
   LanguageOptions options_with_qualify_feature;

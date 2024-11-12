@@ -16,16 +16,14 @@
 
 #include "zetasql/analyzer/rewriters/registration.h"
 
-#include <functional>
-#include <memory>
 #include <utility>
+#include <vector>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/public/options.pb.h"
 #include "absl/container/flat_hash_map.h"
 #include "zetasql/base/check.h"
 #include "absl/synchronization/mutex.h"
-#include "absl/types/span.h"
 
 namespace zetasql {
 
@@ -47,8 +45,8 @@ const Rewriter* RewriteRegistry::Get(ResolvedASTRewrite key) const {
   return it->second;
 }
 
-absl::Span<const ResolvedASTRewrite> RewriteRegistry::registration_order()
-    const {
+std::vector<ResolvedASTRewrite> RewriteRegistry::registration_order() const {
+  absl::MutexLock l(&mu_);
   return registration_order_;
 }
 

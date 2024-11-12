@@ -7,7 +7,7 @@
 ZetaSQL supports the following functions, which can retrieve and
 transform JSON data.
 
-### Categories
+## Categories
 
 The JSON functions are grouped into the following categories based on their
 behavior:
@@ -201,6 +201,9 @@ behavior:
         <a href="#to_json"><code>TO_JSON</code></a><br>
         
         
+        <a href="#safe_to_json"><code>SAFE_TO_JSON</code></a><br>
+        
+        
         <a href="#to_json_string"><code>TO_JSON_STRING</code></a><br>
         
       </td>
@@ -263,7 +266,7 @@ behavior:
   </tbody>
 </table>
 
-### Function list
+## Function list
 
 <table>
   <thead>
@@ -275,25 +278,28 @@ behavior:
   <tbody>
 
 <tr>
-  <td><a href="#bool_for_json"><code>BOOL</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#bool_for_json"><code>BOOL</code></a>
 </td>
   <td>
     Converts a JSON boolean to a SQL <code>BOOL</code> value.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#bool_array_for_json"><code>BOOL</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#bool_array_for_json"><code>BOOL_ARRAY</code></a>
 </td>
-  <td> Converts a JSON array of booleans to a SQL <code>ARRAY&lt;BOOL&gt;</code> value.</td>
+  <td>
+    Converts a JSON array of booleans to a
+    SQL <code>ARRAY&lt;BOOL&gt;</code> value.
+    
+  </td>
 </tr>
 
 <tr>
   <td>
   
-  <a href="#double_for_json"><code>DOUBLE</code></a>
+  <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#double_for_json"><code>DOUBLE</code></a>
 
   
   </td>
@@ -306,7 +312,7 @@ behavior:
 <tr>
   <td>
     
-      <a href="#double_array_for_json"><code>DOUBLE_ARRAY</code></a>
+      <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#double_array_for_json"><code>DOUBLE_ARRAY</code></a>
 
     
   </td>
@@ -316,7 +322,7 @@ behavior:
 <tr>
   <td>
     
-      <a href="#float_for_json"><code>FLOAT</code></a>
+      <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#float_for_json"><code>FLOAT</code></a>
 
     
   </td>
@@ -326,7 +332,7 @@ behavior:
 <tr>
   <td>
     
-      <a href="#float_array_for_json"><code>FLOAT_ARRAY</code></a>
+      <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#float_array_for_json"><code>FLOAT_ARRAY</code></a>
 
     
   </td>
@@ -334,61 +340,71 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#int32_for_json"><code>INT32</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#int32_for_json"><code>INT32</code></a>
 </td>
   <td>
     Converts a JSON number to a SQL <code>INT32</code> value.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#int32_array_for_json"><code>INT32_ARRAY</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#int32_array_for_json"><code>INT32_ARRAY</code></a>
 </td>
-  <td>Converts a JSON number to a SQL <code>ARRAY&lt;INT32&gt;</code> value.</td>
+  <td>
+    Converts a JSON number to a SQL <code>ARRAY&lt;INT32&gt;</code> value.
+    
+  </td>
 </tr>
 
 <tr>
-  <td><a href="#int64_for_json"><code>INT64</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#int64_for_json"><code>INT64</code></a>
 </td>
   <td>
     Converts a JSON number to a SQL <code>INT64</code> value.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#int64_array_for_json"><code>INT64_ARRAY</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#int64_array_for_json"><code>INT64_ARRAY</code></a>
 </td>
-  <td>Converts a JSON array of numbers to a SQL <code>ARRAY&lt;INT64&gt;</code> value.</td>
+  <td>
+    Converts a JSON array of numbers to a
+    SQL <code>ARRAY&lt;INT64&gt;</code> value.
+    
+  </td>
 </tr>
 
 <tr>
-  <td><a href="#json_array"><code>JSON_ARRAY</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#json_array"><code>JSON_ARRAY</code></a>
 </td>
-  <td>Creates a JSON array.</td>
+  <td>
+    Creates a JSON array.
+    
+  </td>
 </tr>
 
 <tr>
-  <td><a href="#json_array_append"><code>JSON_ARRAY_APPEND</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#json_array_append"><code>JSON_ARRAY_APPEND</code></a>
 </td>
-  <td>Appends JSON data to the end of a JSON array.</td>
+  <td>
+    Appends JSON data to the end of a JSON array.
+    
+  </td>
 </tr>
 
 <tr>
-  <td><a href="#json_array_insert"><code>JSON_ARRAY_INSERT</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#json_array_insert"><code>JSON_ARRAY_INSERT</code></a>
 </td>
-  <td>Inserts JSON data into a JSON array.</td>
+  <td>
+    Inserts JSON data into a JSON array.
+    
+  </td>
 </tr>
 
 <tr>
-  <td><a href="#json_extract"><code>JSON_EXTRACT</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#json_extract"><code>JSON_EXTRACT</code></a>
 </td>
   <td>
     (Deprecated)
@@ -402,8 +418,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#json_extract_array"><code>JSON_EXTRACT_ARRAY</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#json_extract_array"><code>JSON_EXTRACT_ARRAY</code></a>
 </td>
   <td>
     (Deprecated)
@@ -413,12 +428,12 @@ behavior:
     <code>ARRAY&lt;JSON&gt;</code>
     
     value.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#json_extract_scalar"><code>JSON_EXTRACT_SCALAR</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#json_extract_scalar"><code>JSON_EXTRACT_SCALAR</code></a>
 </td>
   <td>
     (Deprecated)
@@ -428,26 +443,24 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#json_extract_string_array"><code>JSON_EXTRACT_STRING_ARRAY</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#json_extract_string_array"><code>JSON_EXTRACT_STRING_ARRAY</code></a>
 </td>
   <td>
     (Deprecated)
     Extracts a JSON array of scalar values and converts it to a SQL
     <code>ARRAY&lt;STRING&gt;</code> value.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#json_object"><code>JSON_OBJECT</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#json_object"><code>JSON_OBJECT</code></a>
 </td>
   <td>Creates a JSON object.</td>
 </tr>
 
 <tr>
-  <td><a href="#json_query"><code>JSON_QUERY</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#json_query"><code>JSON_QUERY</code></a>
 </td>
   <td>
     Extracts a JSON value and converts it to a SQL
@@ -460,8 +473,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#json_query_array"><code>JSON_QUERY_ARRAY</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#json_query_array"><code>JSON_QUERY_ARRAY</code></a>
 </td>
   <td>
     Extracts a JSON array and converts it to
@@ -470,33 +482,30 @@ behavior:
     <code>ARRAY&lt;JSON&gt;</code>
     
     value.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#json_remove"><code>JSON_REMOVE</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#json_remove"><code>JSON_REMOVE</code></a>
 </td>
   <td>Produces JSON with the specified JSON data removed.</td>
 </tr>
 
 <tr>
-  <td><a href="#json_set"><code>JSON_SET</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#json_set"><code>JSON_SET</code></a>
 </td>
   <td>Inserts or replaces JSON data.</td>
 </tr>
 
 <tr>
-  <td><a href="#json_strip_nulls"><code>JSON_STRIP_NULLS</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#json_strip_nulls"><code>JSON_STRIP_NULLS</code></a>
 </td>
   <td>Removes JSON nulls from JSON objects and JSON arrays.</td>
 </tr>
 
 <tr>
-  <td><a href="#json_type"><code>JSON_TYPE</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#json_type"><code>JSON_TYPE</code></a>
 </td>
   <td>
     Gets the JSON type of the outermost JSON value and converts the name of
@@ -505,8 +514,7 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#json_value"><code>JSON_VALUE</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#json_value"><code>JSON_VALUE</code></a>
 </td>
   <td>
     Extracts a JSON scalar value and converts it to a SQL
@@ -515,238 +523,282 @@ behavior:
 </tr>
 
 <tr>
-  <td><a href="#json_value_array"><code>JSON_VALUE_ARRAY</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#json_value_array"><code>JSON_VALUE_ARRAY</code></a>
 </td>
   <td>
     Extracts a JSON array of scalar values and converts it to a SQL
     <code>ARRAY&lt;STRING&gt;</code> value.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#lax_bool"><code>LAX_BOOL</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#lax_bool"><code>LAX_BOOL</code></a>
 </td>
   <td>
     Attempts to convert a JSON value to a SQL <code>BOOL</code> value.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#lax_bool_array"><code>LAX_BOOL_ARRAY</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#lax_bool_array"><code>LAX_BOOL_ARRAY</code></a>
 </td>
-  <td>Attempts to convert a JSON value to a SQL <code>ARRAY&lt;BOOL&gt;</code> value.</td>
+  <td>
+    Attempts to convert a JSON value to a
+    SQL <code>ARRAY&lt;BOOL&gt;</code> value.
+    
+  </td>
 </tr>
 
 <tr>
   <td>
   
-  <a href="#lax_double"><code>LAX_DOUBLE</code></a>
+  <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#lax_double"><code>LAX_DOUBLE</code></a>
 
   
   </td>
   <td>
     Attempts to convert a JSON value to a
     SQL <code>DOUBLE</code> value.
+    
   </td>
 </tr>
 
 <tr>
   <td>
     
-      <a href="#lax_double_array"><code>LAX_DOUBLE_ARRAY</code></a>
+      <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#lax_double_array"><code>LAX_DOUBLE_ARRAY</code></a>
 
     
   </td>
-  <td>Attempts to convert a JSON value to a SQL <code>ARRAY&lt;DOUBLE&gt;</code> value.</td>
+  <td>
+    Attempts to convert a JSON value to a
+    SQL <code>ARRAY&lt;DOUBLE&gt;</code> value.
+    
+  </td>
 </tr>
 
 <tr>
   <td>
     
-      <a href="#lax_float"><code>LAX_FLOAT</code></a>
+      <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#lax_float"><code>LAX_FLOAT</code></a>
 
     
   </td>
-  <td>Attempts to convert a JSON value to a SQL <code>FLOAT</code> value.</td>
+  <td>
+    Attempts to convert a JSON value to a
+    SQL <code>FLOAT</code> value.
+    
+  </td>
 </tr>
 
 <tr>
   <td>
     
-      <a href="#lax_float_array"><code>LAX_FLOAT_ARRAY</code></a>
+      <a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#lax_float_array"><code>LAX_FLOAT_ARRAY</code></a>
 
     
   </td>
-  <td> Attempts to convert a JSON value to a SQL <code>ARRAY&gt;FLOAT&lt;</code> value.</td>
+  <td>
+    Attempts to convert a JSON value to a
+    SQL <code>ARRAY&gt;FLOAT&lt;</code> value.
+    
+  </td>
 </tr>
 
 <tr>
-  <td><a href="#lax_int32"><code>LAX_INT32</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#lax_int32"><code>LAX_INT32</code></a>
 </td>
   <td>
     Attempts to convert a JSON value to a SQL <code>INT32</code> value.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#lax_int32_array"><code>LAX_INT32_ARRAY</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#lax_int32_array"><code>LAX_INT32_ARRAY</code></a>
 </td>
-  <td>Attempts to convert a JSON value to a SQL <code>ARRAY&lt;INT32&gt;</code> value.</td>
+  <td>
+    Attempts to convert a JSON value to a
+    SQL <code>ARRAY&lt;INT32&gt;</code> value.
+    
+  </td>
 </tr>
 
 <tr>
-  <td><a href="#lax_int64"><code>LAX_INT64</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#lax_int64"><code>LAX_INT64</code></a>
 </td>
   <td>
     Attempts to convert a JSON value to a SQL <code>INT64</code> value.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#lax_int64_array"><code>LAX_INT64_ARRAY</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#lax_int64_array"><code>LAX_INT64_ARRAY</code></a>
 </td>
-  <td>Attempts to convert a JSON value to a SQL <code>ARRAY&lt;INT64&gt;</code> value.</td>
+  <td>
+    Attempts to convert a JSON value to a
+    SQL <code>ARRAY&lt;INT64&gt;</code> value.
+    
+  </td>
 </tr>
 
 <tr>
-  <td><a href="#lax_string"><code>LAX_STRING</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#lax_string"><code>LAX_STRING</code></a>
 </td>
   <td>
     Attempts to convert a JSON value to a SQL <code>STRING</code> value.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#lax_string_array"><code>LAX_STRING_ARRAY</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#lax_string_array"><code>LAX_STRING_ARRAY</code></a>
 </td>
-  <td>Attempts to convert a JSON value to a SQL <code>ARRAY&lt;STRING&gt;</code>value.</td>
+  <td>
+    Attempts to convert a JSON value to a
+    SQL <code>ARRAY&lt;STRING&gt;</code>value.
+    
+  </td>
 </tr>
 
 <tr>
-  <td><a href="#lax_uint32"><code>LAX_UINT32</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#lax_uint32"><code>LAX_UINT32</code></a>
 </td>
   <td>
     Attempts to convert a JSON value to a SQL <code>UINT32</code> value.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#lax_uint32_array"><code>LAX_UINT32_ARRAY</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#lax_uint32_array"><code>LAX_UINT32_ARRAY</code></a>
 </td>
-  <td>Attempts to convert a JSON value to a SQL <code>ARRAY&lt;UINT32&gt;</code> value.</td>
+  <td>
+    Attempts to convert a JSON value to a
+    SQL <code>ARRAY&lt;UINT32&gt;</code> value.
+    
+  </td>
 </tr>
 
 <tr>
-  <td><a href="#lax_uint64"><code>LAX_UINT64</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#lax_uint64"><code>LAX_UINT64</code></a>
 </td>
   <td>
     Attempts to convert a JSON value to a SQL <code>UINT64</code> value.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#lax_uint64_array"><code>LAX_UINT64_ARRAY</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#lax_uint64_array"><code>LAX_UINT64_ARRAY</code></a>
 </td>
-  <td>Attempts to convert a JSON value to a SQL <code>ARRAY&lt;UINT64&gt;</code> value.</td>
+  <td>
+    Attempts to convert a JSON value to a
+    SQL <code>ARRAY&lt;UINT64&gt;</code> value.
+    
+  </td>
 </tr>
 
 <tr>
-  <td><a href="#parse_json"><code>PARSE_JSON</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#parse_json"><code>PARSE_JSON</code></a>
 </td>
   <td>
     Converts a JSON-formatted <code>STRING</code> value to a
     <code>JSON</code> value.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#string_for_json"><code>STRING</code></a>
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#safe_to_json"><code>SAFE_TO_JSON</code></a>
+</td>
+  <td>
+    Similar to the `TO_JSON` function, but for each unsupported field in the
+    input argument, produces a JSON null instead of an error.
+  </td>
+</tr>
 
+<tr>
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#string_for_json"><code>STRING</code> (JSON)</a>
 </td>
   <td>
     Converts a JSON string to a SQL <code>STRING</code> value.
+    
   </td>
 </tr>
 
 <tr>
-  <td>
-    <a href="#string_array_for_json"><code>STRING_ARRAY</code></a>
-
-  </td>
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#string_array_for_json"><code>STRING_ARRAY</code></a>
+</td>
   <td>
     Converts a JSON array of strings to a SQL <code>ARRAY&lt;STRING&gt;</code>
     value.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#to_json"><code>TO_JSON</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#to_json"><code>TO_JSON</code></a>
 </td>
   <td>
     Converts a SQL value to a JSON value.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#to_json_string"><code>TO_JSON_STRING</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#to_json_string"><code>TO_JSON_STRING</code></a>
 </td>
   <td>
     Converts a SQL value to a JSON-formatted <code>STRING</code> value.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#uint32_for_json"><code>UINT32</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#uint32_for_json"><code>UINT32</code></a>
 </td>
   <td>
     Converts a JSON number to a SQL <code>UINT32</code> value.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#uint32_array_for_json"><code>UINT32_ARRAY</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#uint32_array_for_json"><code>UINT32_ARRAY</code></a>
 </td>
-  <td>Converts a JSON number to a SQL <code>ARRAY&lt;UINT32&gt;</code> value.</td>
+  <td>
+    Converts a JSON number to a
+    SQL <code>ARRAY&lt;UINT32&gt;</code> value.
+    
+  </td>
 </tr>
 
 <tr>
-  <td><a href="#uint64_for_json"><code>UINT64</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#uint64_for_json"><code>UINT64</code></a>
 </td>
   <td>
     Converts a JSON number to a SQL <code>UINT64</code> value.
+    
   </td>
 </tr>
 
 <tr>
-  <td><a href="#uint64_array_for_json"><code>UINT64_ARRAY</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#uint64_array_for_json"><code>UINT64_ARRAY</code></a>
 </td>
-  <td>Converts a JSON number to a SQL <code>ARRAY&lt;UINT64&gt;</code> value.</td>
+  <td>
+    Converts a JSON number to a SQL <code>ARRAY&lt;UINT64&gt;</code> value.
+    
+  </td>
 </tr>
 
   </tbody>
 </table>
 
-### `BOOL` 
+## `BOOL` 
 <a id="bool_for_json"></a>
 
 ```sql
@@ -803,7 +855,7 @@ SELECT BOOL(JSON 'null') AS result; -- Throws an error
 SELECT SAFE.BOOL(JSON '123') AS result; -- Returns a SQL NULL
 ```
 
-### `BOOL_ARRAY` 
+## `BOOL_ARRAY` 
 <a id="bool_array_for_json"></a>
 
 ```sql
@@ -850,7 +902,7 @@ SELECT BOOL_ARRAY(JSON '[null]') AS result; -- Throws an error
 SELECT BOOL_ARRAY(JSON 'null') AS result; -- Throws an error
 ```
 
-### `DOUBLE` 
+## `DOUBLE` 
 <a id="double_for_json"></a>
 
 ```sql
@@ -949,7 +1001,7 @@ SELECT DOUBLE(JSON '18446744073709551615', wide_number_mode=>'exact') as result;
 SELECT SAFE.DOUBLE(JSON '"strawberry"') AS result;
 ```
 
-### `DOUBLE_ARRAY` 
+## `DOUBLE_ARRAY` 
 <a id="double_array_for_json"></a>
 
 ```sql
@@ -1036,7 +1088,7 @@ SELECT DOUBLE_ARRAY(JSON '[123.4]', wide_number_mode=>'exac') as result;
 SELECT DOUBLE_ARRAY(JSON '[18446744073709551615]', wide_number_mode=>'exact') as result;
 ```
 
-### `FLOAT` 
+## `FLOAT` 
 <a id="float_for_json"></a>
 
 ```sql
@@ -1135,7 +1187,7 @@ SELECT FLOAT(JSON '16777217', wide_number_mode=>'exact') as result;
 SELECT SAFE.FLOAT(JSON '"strawberry"') AS result;
 ```
 
-### `FLOAT_ARRAY` 
+## `FLOAT_ARRAY` 
 <a id="float_array_for_json"></a>
 
 ```sql
@@ -1222,7 +1274,7 @@ SELECT FLOAT_ARRAY(JSON '[123.4]', wide_number_mode=>'exac') as result;
 SELECT FLOAT_ARRAY(JSON '[16777217]', wide_number_mode=>'exact') as result;
 ```
 
-### `INT32` 
+## `INT32` 
 <a id="int32_for_json"></a>
 
 ```sql
@@ -1291,7 +1343,7 @@ SELECT INT32(JSON 'null') AS result; -- Throws an error
 SELECT SAFE.INT32(JSON '"strawberry"') AS result;  -- Returns a SQL NULL
 ```
 
-### `INT32_ARRAY` 
+## `INT32_ARRAY` 
 <a id="int32_array_for_json"></a>
 
 ```sql
@@ -1350,7 +1402,7 @@ SELECT INT32_ARRAY(JSON '[null]') AS result; -- Throws an error
 SELECT INT32_ARRAY(JSON 'null') AS result; -- Throws an error
 ```
 
-### `INT64` 
+## `INT64` 
 <a id="int64_for_json"></a>
 
 ```sql
@@ -1419,7 +1471,7 @@ SELECT INT64(JSON 'null') AS result; -- Throws an error
 SELECT SAFE.INT64(JSON '"strawberry"') AS result;  -- Returns a SQL NULL
 ```
 
-### `INT64_ARRAY` 
+## `INT64_ARRAY` 
 <a id="int64_array_for_json"></a>
 
 ```sql
@@ -1478,7 +1530,7 @@ SELECT INT64_ARRAY(JSON '[null]') AS result; -- Throws an error
 SELECT INT64_ARRAY(JSON 'null') AS result; -- Throws an error
 ```
 
-### `JSON_ARRAY`
+## `JSON_ARRAY`
 
 ```sql
 JSON_ARRAY([value][, ...])
@@ -1575,7 +1627,7 @@ SELECT JSON_ARRAY() AS json_data
  *-----------*/
 ```
 
-### `JSON_ARRAY_APPEND`
+## `JSON_ARRAY_APPEND`
 
 ```sql
 JSON_ARRAY_APPEND(
@@ -1766,7 +1818,7 @@ SELECT JSON_ARRAY_APPEND(JSON '{"a": 1}', '$.b', 2) AS json_data
  *-----------*/
 ```
 
-### `JSON_ARRAY_INSERT`
+## `JSON_ARRAY_INSERT`
 
 ```sql
 JSON_ARRAY_INSERT(
@@ -1953,7 +2005,7 @@ SELECT JSON_ARRAY_INSERT(JSON '1', '$[0]', 'r1') AS json_data
  *-----------*/
 ```
 
-### `JSON_EXTRACT`
+## `JSON_EXTRACT`
 
 Note: This function is deprecated. Consider using [JSON_QUERY][json-query].
 
@@ -2199,7 +2251,7 @@ SELECT JSON_EXTRACT(JSON '{"a": null}', "$.b"); -- Returns a SQL NULL
 
 [differences-json-and-string]: #differences_json_and_string
 
-### `JSON_EXTRACT_ARRAY`
+## `JSON_EXTRACT_ARRAY`
 
 Note: This function is deprecated. Consider using
 [JSON_QUERY_ARRAY][json-query-array].
@@ -2403,7 +2455,7 @@ SELECT JSON_EXTRACT_ARRAY('{"a": "foo", "b": []}', '$.b') AS result;
 
 [differences-json-and-string]: #differences_json_and_string
 
-### `JSON_EXTRACT_SCALAR`
+## `JSON_EXTRACT_SCALAR`
 
 Note: This function is deprecated. Consider using [JSON_VALUE][json-value].
 
@@ -2513,7 +2565,7 @@ SELECT JSON_EXTRACT_SCALAR('{"a.b": {"c": "world"}}', "$['a.b'].c") AS hello;
 
 [differences-json-and-string]: #differences_json_and_string
 
-### `JSON_EXTRACT_STRING_ARRAY`
+## `JSON_EXTRACT_STRING_ARRAY`
 
 Note: This function is deprecated. Consider using
 [JSON_VALUE_ARRAY][json-value-array].
@@ -2744,7 +2796,7 @@ SELECT JSON_EXTRACT_STRING_ARRAY('["world", 1, null]') AS result;
 
 [differences-json-and-string]: #differences_json_and_string
 
-### `JSON_OBJECT`
+## `JSON_OBJECT`
 
 +   [Signature 1](#json_object_signature1):
     `JSON_OBJECT([json_key, json_value][, ...])`
@@ -3001,7 +3053,7 @@ SELECT JSON_OBJECT(['a', 'b'], CAST(NULL AS ARRAY<INT64>)) AS json_data
 
 [json-encodings]: #json_encodings
 
-### `JSON_QUERY`
+## `JSON_QUERY`
 
 ```sql
 JSON_QUERY(json_string_expr, json_path)
@@ -3253,7 +3305,7 @@ SELECT JSON_QUERY(JSON '{"a": null}', "$.b"); -- Returns a SQL NULL
 
 [JSONPath-mode]: #JSONPath_mode
 
-### `JSON_QUERY_ARRAY`
+## `JSON_QUERY_ARRAY`
 
 ```sql
 JSON_QUERY_ARRAY(json_string_expr[, json_path])
@@ -3449,7 +3501,7 @@ SELECT JSON_QUERY_ARRAY('{"a": "foo", "b": []}', '$.b') AS result;
 
 [differences-json-and-string]: #differences_json_and_string
 
-### `JSON_REMOVE`
+## `JSON_REMOVE`
 
 ```sql
 JSON_REMOVE(json_expr, json_path[, ...])
@@ -3614,7 +3666,7 @@ SELECT JSON_REMOVE(JSON 'null', '$.a.b') AS json_data
  *-----------*/
 ```
 
-### `JSON_SET`
+## `JSON_SET`
 
 ```sql
 JSON_SET(
@@ -3904,7 +3956,7 @@ SELECT JSON_SET(
  *---------------------------------------------------*/
 ```
 
-### `JSON_STRIP_NULLS`
+## `JSON_STRIP_NULLS`
 
 ```sql
 JSON_STRIP_NULLS(
@@ -4088,7 +4140,7 @@ SELECT JSON_STRIP_NULLS(JSON 'null') AS json_data
  *-----------*/
 ```
 
-### `JSON_TYPE` 
+## `JSON_TYPE` 
 <a id="json_type"></a>
 
 ```sql
@@ -4146,7 +4198,7 @@ FROM
  *----------------------------------+---------*/
 ```
 
-### `JSON_VALUE`
+## `JSON_VALUE`
 
 ```sql
 JSON_VALUE(json_string_expr[, json_path])
@@ -4252,7 +4304,7 @@ SELECT JSON_VALUE('{"a.b": {"c": "world"}}', '$."a.b".c') AS hello;
 
 [differences-json-and-string]: #differences_json_and_string
 
-### `JSON_VALUE_ARRAY`
+## `JSON_VALUE_ARRAY`
 
 ```sql
 JSON_VALUE_ARRAY(json_string_expr[, json_path])
@@ -4479,7 +4531,7 @@ SELECT JSON_VALUE_ARRAY('["world", null, 1]') AS result;
 
 [differences-json-and-string]: #differences_json_and_string
 
-### `LAX_BOOL` 
+## `LAX_BOOL` 
 <a id="lax_bool"></a>
 
 ```sql
@@ -4632,7 +4684,7 @@ SELECT LAX_BOOL(JSON '-1.1') AS result;
  *--------*/
 ```
 
-### `LAX_BOOL_ARRAY` 
+## `LAX_BOOL_ARRAY` 
 <a id="lax_bool_array"></a>
 
 ```sql
@@ -4771,7 +4823,7 @@ SELECT LAX_BOOL_ARRAY(JSON 'true') AS result;
  *--------*/
 ```
 
-### `LAX_DOUBLE` 
+## `LAX_DOUBLE` 
 <a id="lax_double"></a>
 
 ```sql
@@ -4994,7 +5046,7 @@ SELECT LAX_DOUBLE(JSON '"foo"') AS result;
  *--------*/
 ```
 
-### `LAX_DOUBLE_ARRAY` 
+## `LAX_DOUBLE_ARRAY` 
 <a id="lax_double_array"></a>
 
 ```sql
@@ -5176,7 +5228,7 @@ SELECT LAX_DOUBLE_ARRAY(JSON '9.8') AS result;
  *--------*/
 ```
 
-### `LAX_FLOAT` 
+## `LAX_FLOAT` 
 <a id="lax_float"></a>
 
 ```sql
@@ -5398,7 +5450,7 @@ SELECT LAX_FLOAT(JSON '"foo"') AS result;
  *--------*/
 ```
 
-### `LAX_FLOAT_ARRAY` 
+## `LAX_FLOAT_ARRAY` 
 <a id="lax_float_array"></a>
 
 ```sql
@@ -5589,7 +5641,7 @@ SELECT LAX_FLOAT_ARRAY(JSON '9.8') AS result;
  *--------*/
 ```
 
-### `LAX_INT32` 
+## `LAX_INT32` 
 <a id="lax_int32"></a>
 
 ```sql
@@ -5801,7 +5853,7 @@ SELECT LAX_INT32(JSON '"foo"') AS result;
  *--------*/
 ```
 
-### `LAX_INT32_ARRAY` 
+## `LAX_INT32_ARRAY` 
 <a id="lax_int32_array"></a>
 
 ```sql
@@ -5960,7 +6012,7 @@ SELECT LAX_INT32_ARRAY(JSON '9.8') AS result;
  *--------*/
 ```
 
-### `LAX_INT64` 
+## `LAX_INT64` 
 <a id="lax_int64"></a>
 
 ```sql
@@ -6172,7 +6224,7 @@ SELECT LAX_INT64(JSON '"foo"') AS result;
  *--------*/
 ```
 
-### `LAX_INT64_ARRAY` 
+## `LAX_INT64_ARRAY` 
 <a id="lax_int64_array"></a>
 
 ```sql
@@ -6331,7 +6383,7 @@ SELECT LAX_INT64_ARRAY(JSON '9.8') AS result;
  *--------*/
 ```
 
-### `LAX_STRING` 
+## `LAX_STRING` 
 <a id="lax_string"></a>
 
 ```sql
@@ -6469,7 +6521,7 @@ SELECT LAX_STRING(JSON '1e100') AS result;
  *--------*/
 ```
 
-### `LAX_STRING_ARRAY` 
+## `LAX_STRING_ARRAY` 
 <a id="lax_string_array"></a>
 
 ```sql
@@ -6598,7 +6650,7 @@ SELECT LAX_STRING_ARRAY(JSON '9.8') AS result;
  *--------*/
 ```
 
-### `LAX_UINT32` 
+## `LAX_UINT32` 
 <a id="lax_uint32"></a>
 
 ```sql
@@ -6820,7 +6872,7 @@ SELECT LAX_UINT32(JSON '"foo"') AS result;
  *--------*/
 ```
 
-### `LAX_UINT32_ARRAY` 
+## `LAX_UINT32_ARRAY` 
 <a id="lax_uint32_array"></a>
 
 ```sql
@@ -6981,7 +7033,7 @@ SELECT LAX_UINT32_ARRAY(JSON '9.8') AS result;
  *--------*/
 ```
 
-### `LAX_UINT64` 
+## `LAX_UINT64` 
 <a id="lax_uint64"></a>
 
 ```sql
@@ -7203,7 +7255,7 @@ SELECT LAX_UINT64(JSON '"foo"') AS result;
  *--------*/
 ```
 
-### `LAX_UINT64_ARRAY` 
+## `LAX_UINT64_ARRAY` 
 <a id="lax_uint64_array"></a>
 
 ```sql
@@ -7362,7 +7414,7 @@ SELECT LAX_UINT64_ARRAY(JSON '9.8') AS result;
  *--------*/
 ```
 
-### `PARSE_JSON`
+## `PARSE_JSON`
 
 ```sql
 PARSE_JSON(
@@ -7467,7 +7519,76 @@ SELECT PARSE_JSON('"red"') AS json_data;
  *------------------------------*/
 ```
 
-### `STRING` 
+## `SAFE_TO_JSON`
+
+```sql
+SAFE_TO_JSON(sql_value)
+```
+
+**Description**
+
+Similar to the `TO_JSON` function, but for each unsupported field in the
+input argument, produces a JSON null instead of an error.
+
+Arguments:
+
++   `sql_value`: The SQL value to convert to a JSON value. You can review the
+    ZetaSQL data types that this function supports and their
+    [JSON encodings][json-encodings].
+
+**Return type**
+
+`JSON`
+
+**Example**
+
+The following queries are functionally the same, except that `SAFE_TO_JSON`
+produces a JSON null instead of an error when a hypothetical unsupported
+data type is encountered:
+
+```sql
+-- Produces a JSON null.
+SELECT SAFE_TO_JSON(CAST(b'' AS UNSUPPORTED_TYPE)) as result;
+```
+
+```sql
+-- Produces an error.
+SELECT TO_JSON(CAST(b'' AS UNSUPPORTED_TYPE), stringify_wide_numbers=>TRUE) as result;
+```
+
+In the following query, the value for `ut` is ignored because the value is an
+unsupported type:
+
+```sql
+SELECT SAFE_TO_JSON(STRUCT(CAST(b'' AS UNSUPPORTED_TYPE) AS ut) AS result;
+
+/*--------------*
+ | result       |
+ +--------------+
+ | {"ut": null} |
+ *--------------*/
+```
+
+The following array produces a JSON null instead of an error because the data
+type for the array is not supported.
+
+```sql
+SELECT SAFE_TO_JSON([
+        CAST(b'' AS UNSUPPORTED_TYPE),
+        CAST(b'' AS UNSUPPORTED_TYPE),
+        CAST(b'' AS UNSUPPORTED_TYPE),
+    ]) AS result;
+
+/*------------*
+ | result     |
+ +------------+
+ | null       |
+ *------------*/
+```
+
+[json-encodings]: #json_encodings
+
+## `STRING` 
 <a id="string_for_json"></a>
 
 ```sql
@@ -7524,7 +7645,7 @@ SELECT STRING(JSON 'null') AS result; -- Throws an error
 SELECT SAFE.STRING(JSON '123') AS result; -- Returns a SQL NULL
 ```
 
-### `STRING_ARRAY` 
+## `STRING_ARRAY` 
 <a id="string_array_for_json"></a>
 
 ```sql
@@ -7571,7 +7692,7 @@ SELECT STRING_ARRAY(JSON '[null]') AS result; -- Throws an error
 SELECT STRING_ARRAY(JSON 'null') AS result; -- Throws an error
 ```
 
-### `TO_JSON`
+## `TO_JSON`
 
 ```sql
 TO_JSON(
@@ -7707,7 +7828,7 @@ FROM T1 AS t;
 
 [json-encodings]: #json_encodings
 
-### `TO_JSON_STRING`
+## `TO_JSON_STRING`
 
 ```sql
 TO_JSON_STRING(value[, pretty_print])
@@ -7763,7 +7884,7 @@ SELECT TO_JSON_STRING(STRUCT(1 AS id, [10,20] AS coordinates), true) AS json_dat
 
 [json-encodings]: #json_encodings
 
-### `UINT32` 
+## `UINT32` 
 <a id="uint32_for_json"></a>
 
 ```sql
@@ -7833,7 +7954,7 @@ SELECT UINT32(JSON 'null') AS result; -- Throws an error
 SELECT SAFE.UINT32(JSON '"strawberry"') AS result;  -- Returns a SQL NULL
 ```
 
-### `UINT32_ARRAY` 
+## `UINT32_ARRAY` 
 <a id="uint32_array_for_json"></a>
 
 ```sql
@@ -7893,7 +8014,7 @@ SELECT UINT32_ARRAY(JSON '[null]') AS result; -- Throws an error
 SELECT UINT32_ARRAY(JSON 'null') AS result; -- Throws an error
 ```
 
-### `UINT64` 
+## `UINT64` 
 <a id="uint64_for_json"></a>
 
 ```sql
@@ -7963,7 +8084,7 @@ SELECT UINT64(JSON 'null') AS result; -- Throws an error
 SELECT SAFE.UINT64(JSON '"strawberry"') AS result;  -- Returns a SQL NULL
 ```
 
-### `UINT64_ARRAY` 
+## `UINT64_ARRAY` 
 <a id="uint64_array_for_json"></a>
 
 ```sql
@@ -8022,6 +8143,106 @@ SELECT UINT64_ARRAY(JSON '["strawberry"]') AS result; -- Throws an error
 SELECT UINT64_ARRAY(JSON '[null]') AS result; -- Throws an error
 SELECT UINT64_ARRAY(JSON 'null') AS result; -- Throws an error
 ```
+
+## Supplemental materials
+
+### Differences between the JSON and JSON-formatted STRING types 
+<a id="differences_json_and_string"></a>
+
+Many JSON functions accept two input types:
+
++  [`JSON`][JSON-type] type
++  `STRING` type
+
+The `STRING` version of the extraction functions behaves differently than the
+`JSON` version, mainly because `JSON` type values are always validated whereas
+JSON-formatted `STRING` type values are not.
+
+#### Non-validation of `STRING` inputs
+
+The following `STRING` is invalid JSON because it is missing a trailing `}`:
+
+```
+{"hello": "world"
+```
+
+The JSON function reads the input from the beginning and stops as soon as the
+field to extract is found, without reading the remainder of the input. A parsing
+error is not produced.
+
+With the `JSON` type, however, `JSON '{"hello": "world"'` returns a parsing
+error.
+
+For example:
+
+```sql
+SELECT JSON_VALUE('{"hello": "world"', "$.hello") AS hello;
+
+/*-------*
+ | hello |
+ +-------+
+ | world |
+ *-------*/
+```
+
+```sql
+SELECT JSON_VALUE(JSON '{"hello": "world"', "$.hello") AS hello;
+-- An error is returned: Invalid JSON literal: syntax error while parsing
+-- object - unexpected end of input; expected '}'
+```
+
+#### No strict validation of extracted values
+
+In the following examples, duplicated keys are not removed when using a
+JSON-formatted string. Similarly, keys order is preserved. For the `JSON`
+type, `JSON '{"key": 1, "key": 2}'` will result in `JSON '{"key":1}'` during
+parsing.
+
+```sql
+SELECT JSON_QUERY('{"key": 1, "key": 2}', "$") AS string;
+
+/*-------------------*
+ | string            |
+ +-------------------+
+ | {"key":1,"key":2} |
+ *-------------------*/
+```
+
+```sql
+SELECT JSON_QUERY(JSON '{"key": 1, "key": 2}', "$") AS json;
+
+/*-----------*
+ | json      |
+ +-----------+
+ | {"key":1} |
+ *-----------*/
+```
+
+#### JSON `null`
+
+When using a JSON-formatted `STRING` type in a JSON function, a JSON `null`
+value is extracted as a SQL `NULL` value.
+
+When using a JSON type in a JSON function, a JSON `null` value returns a JSON
+`null` value.
+
+```sql
+WITH t AS (
+  SELECT '{"name": null}' AS json_string, JSON '{"name": null}' AS json)
+SELECT JSON_QUERY(json_string, "$.name") AS name_string,
+  JSON_QUERY(json_string, "$.name") IS NULL AS name_string_is_null,
+  JSON_QUERY(json, "$.name") AS name_json,
+  JSON_QUERY(json, "$.name") IS NULL AS name_json_is_null
+FROM t;
+
+/*-------------+---------------------+-----------+-------------------*
+ | name_string | name_string_is_null | name_json | name_json_is_null |
+ +-------------+---------------------+-----------+-------------------+
+ | NULL        | true                | null      | false             |
+ *-------------+---------------------+-----------+-------------------*/
+```
+
+[JSON-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#json_type
 
 ### JSON encodings 
 <a id="json_encodings"></a>
@@ -8156,6 +8377,26 @@ The following SQL to JSON encodings are supported:
         SQL input with stringify_wide_numbers=>TRUE:
         <code>9007199254740993</code><br />
         JSON output: <code>"9007199254740993"</code><br />
+      </td>
+    </tr>
+    
+    
+    
+    
+    <tr>
+      <td>INTERVAL</td>
+      <td>string<td>
+        SQL input: <code>INTERVAL '10:20:30.52' HOUR TO SECOND</code><br />
+        JSON output: <code>"PT10H20M30.52S"</code><br />
+        <hr />
+        SQL input: <code>INTERVAL 1 SECOND</code><br />
+        JSON output: <code>"PT1S"</code><br />
+        <hr />
+        <code>INTERVAL -25 MONTH</code><br />
+        JSON output: <code>"P-2Y-1M"</code><br />
+        <hr />
+        <code>INTERVAL '1 5:30' DAY TO MINUTE</code><br />
+        JSON output: <code>"P1DT5H30M"</code><br />
       </td>
     </tr>
     
@@ -8477,6 +8718,54 @@ The following SQL to JSON encodings are supported:
     
     
     <tr>
+      <td>GRAPH_ELEMENT</td>
+      <td>
+        <p>object</p>
+        <p>
+          The object can contain zero or more key-value pairs.
+          Each value is formatted according to its type.
+        </p>
+        <p>
+          For <code>TO_JSON</code>, graph
+          element (node or edge) objects are supported.
+        </p>
+        <ul>
+          <li>
+            The graph element identifier is only valid within the scope of the
+            same query response and cannot be used to correlate entities across
+            different queries.
+          </li>
+          <li>
+            Field names that aren't valid UTF-8 might result in unparseable
+            JSON.
+          </li>
+          <li>
+            The result may include internal key-value pairs that are not defined
+            by the users.
+          </li>
+          <li>
+            The conversion can fail if the object contains values of unsupported
+            types.
+          </li>
+        </ul>
+      </td>
+      <td>
+        SQL:
+        <br />
+<pre>GRAPH FinGraph
+MATCH (p:Person WHERE p.name = 'Dana')
+RETURN TO_JSON(p) AS dana_json;</pre>
+        <br />
+        JSON output (truncated):
+        <br />
+<pre>{"identifier":"ZGFuYQ==","kind":"node","labels":["Person"],"properties":{"id":2,"name":"Dana"}}</pre>
+      </td>
+    </tr>
+    
+    
+    
+    
+    <tr>
       <td>RANGE</td>
       <td>
         <p>range</p>
@@ -8617,106 +8906,4 @@ The JSONPath format supports these operators:
 
   </tbody>
 </table>
-
-### Differences between the JSON and JSON-formatted STRING types 
-<a id="differences_json_and_string"></a>
-
-Many JSON functions accept two input types:
-
-+  [`JSON`][JSON-type] type
-+  `STRING` type
-
-The `STRING` version of the extraction functions behaves differently than the
-`JSON` version, mainly because `JSON` type values are always validated whereas
-JSON-formatted `STRING` type values are not.
-
-#### Non-validation of `STRING` inputs
-
-The following `STRING` is invalid JSON because it is missing a trailing `}`:
-
-```
-{"hello": "world"
-```
-
-The JSON function reads the input from the beginning and stops as soon as the
-field to extract is found, without reading the remainder of the input. A parsing
-error is not produced.
-
-With the `JSON` type, however, `JSON '{"hello": "world"'` returns a parsing
-error.
-
-For example:
-
-```sql
-SELECT JSON_VALUE('{"hello": "world"', "$.hello") AS hello;
-
-/*-------*
- | hello |
- +-------+
- | world |
- *-------*/
-```
-
-```sql
-SELECT JSON_VALUE(JSON '{"hello": "world"', "$.hello") AS hello;
--- An error is returned: Invalid JSON literal: syntax error while parsing
--- object - unexpected end of input; expected '}'
-```
-
-#### No strict validation of extracted values
-
-In the following examples, duplicated keys are not removed when using a
-JSON-formatted string. Similarly, keys order is preserved. For the `JSON`
-type, `JSON '{"key": 1, "key": 2}'` will result in `JSON '{"key":1}'` during
-parsing.
-
-```sql
-SELECT JSON_QUERY('{"key": 1, "key": 2}', "$") AS string;
-
-/*-------------------*
- | string            |
- +-------------------+
- | {"key":1,"key":2} |
- *-------------------*/
-```
-
-```sql
-SELECT JSON_QUERY(JSON '{"key": 1, "key": 2}', "$") AS json;
-
-/*-----------*
- | json      |
- +-----------+
- | {"key":1} |
- *-----------*/
-```
-
-#### JSON `null`
-
-When using a JSON-formatted `STRING` type in a JSON function, a JSON `null`
-value is extracted as a SQL `NULL` value.
-
-When using a JSON type in a JSON function, a JSON `null` value returns a JSON
-`null` value.
-
-```sql
-WITH t AS (
-  SELECT '{"name": null}' AS json_string, JSON '{"name": null}' AS json)
-SELECT JSON_QUERY(json_string, "$.name") AS name_string,
-  JSON_QUERY(json_string, "$.name") IS NULL AS name_string_is_null,
-  JSON_QUERY(json, "$.name") AS name_json,
-  JSON_QUERY(json, "$.name") IS NULL AS name_json_is_null
-FROM t;
-
-/*-------------+---------------------+-----------+-------------------*
- | name_string | name_string_is_null | name_json | name_json_is_null |
- +-------------+---------------------+-----------+-------------------+
- | NULL        | true                | null      | false             |
- *-------------+---------------------+-----------+-------------------*/
-```
-
-[JSONPath-format]: #JSONPath_format
-
-[JSON-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#json_type
-
-[JSONPath-mode]: #JSONPath_mode
 

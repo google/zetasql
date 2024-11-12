@@ -22,5 +22,19 @@ option java_package = "com.google.zetasql";
 option java_outer_classname = "SimpleTokenListProtos";
 
 message SimpleTokenListProto {
-  repeated string token = 1;
+  repeated TextTokenProto text_token = 2;
+
+  // Obsolete `token` field.
+  reserved 1;
+}
+
+message TextTokenProto {
+  optional string text = 1;
+  optional uint64 attribute = 2;
+  repeated TokenProto index_token = 3;
+}
+
+message TokenProto {
+  optional string text = 1;
+  optional uint64 attribute = 2;
 }

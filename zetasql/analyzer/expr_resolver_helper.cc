@@ -206,6 +206,19 @@ absl::StatusOr<bool> IsConstantExpression(const ResolvedExpr* expr) {
       return true;
     }
 
+    case RESOLVED_GRAPH_IS_LABELED_PREDICATE:
+      // Only the operand needs to be evaluated for constness. The label-expr
+      // on the RHS is effectively constant since a given label-expr
+      // will have the same semantic meaning throughout the query and
+      // across different query statements.
+      return IsConstantExpression(
+          expr->GetAs<ResolvedGraphIsLabeledPredicate>()->expr());
+    case RESOLVED_GRAPH_GET_ELEMENT_PROPERTY:
+    case RESOLVED_GRAPH_MAKE_ELEMENT:
+    // See above reasoning for subquery + aggregation
+    case RESOLVED_ARRAY_AGGREGATE:
+      return false;
+
     default:
       // Update the static_assert above if adding or removing cases in
       // this switch.
@@ -270,8 +283,12 @@ ExprResolutionInfo::ExprResolutionInfo(
       use_post_grouping_columns(
           options.use_post_grouping_columns.value_or(false)),
       top_level_ast_expr(options.top_level_ast_expr),
-      column_alias(options.column_alias)
-{
+      column_alias(options.column_alias),
+      allows_horizontal_aggregation(
+          options.allows_horizontal_aggregation.value_or(false)),
+      horizontal_aggregation_info(options.horizontal_aggregation_info),
+      in_horizontal_aggregation(
+          options.in_horizontal_aggregation.value_or(false)) {
   ABSL_DCHECK(options.name_scope == nullptr)
       << "Pass name_scope in the required argument, not in options";
 }
@@ -279,13 +296,13 @@ ExprResolutionInfo::ExprResolutionInfo(
 ExprResolutionInfo::ExprResolutionInfo(
     QueryResolutionInfo* query_resolution_info, const NameScope* name_scope_in,
     const NameScope* aggregate_name_scope_in,
-    const NameScope* analyic_name_scope_in, ExprResolutionInfoOptions options)
+    const NameScope* analytic_name_scope_in, ExprResolutionInfoOptions options)
     : ExprResolutionInfo(query_resolution_info, name_scope_in, options) {
   // Hack because I can't use initializer syntax and a delegated constructor.
   const_cast<const NameScope*&>(this->aggregate_name_scope) =
       aggregate_name_scope_in;
   const_cast<const NameScope*&>(this->analytic_name_scope) =
-      analyic_name_scope_in;
+      analytic_name_scope_in;
 }
 
 ExprResolutionInfo::ExprResolutionInfo(const NameScope* name_scope_in,
@@ -316,9 +333,10 @@ ExprResolutionInfo::ExprResolutionInfo(ExprResolutionInfo* parent,
       ARG_UPDATE_OPT(use_post_grouping_columns),
       ARG_UPDATE(top_level_ast_expr),
       column_alias(!options.column_alias.empty() ? options.column_alias
-                                                 : parent->column_alias)
-      ,
-      enclosing_aggregate_function(parent->enclosing_aggregate_function) {
+                                                 : parent->column_alias),
+      ARG_UPDATE_OPT(allows_horizontal_aggregation),
+      ARG_UPDATE(horizontal_aggregation_info),
+      ARG_UPDATE_OPT(in_horizontal_aggregation) {
   // This constructor can only be used to switch the name scope to the parent's
   // aggregate or analytic scope, not to introduce a new scope,
   // unless allow_new_scopes is set.
@@ -328,6 +346,56 @@ ExprResolutionInfo::ExprResolutionInfo(ExprResolutionInfo* parent,
          name_scope == parent->name_scope)
       << "Setting new NameScape in child ExprResolutionInfo not allowed "
          "by default";
+}
+
+ExprResolutionInfo::ExprResolutionInfo(
+    ExprResolutionInfo* parent, QueryResolutionInfo* new_query_resolution_info,
+    ExprResolutionInfoOptions options)
+    : parent(parent),
+      ARG_UPDATE(name_scope),
+      aggregate_name_scope(options.aggregate_name_scope
+                               ? options.aggregate_name_scope
+                               : parent->aggregate_name_scope),
+      analytic_name_scope(options.analytic_name_scope
+                              ? options.analytic_name_scope
+                              : parent->analytic_name_scope),
+      ARG_UPDATE_OPT(allows_aggregation),
+      ARG_UPDATE_OPT(allows_analytic),
+      ARG_UPDATE(clause_name),
+      query_resolution_info(new_query_resolution_info),
+      ARG_UPDATE_OPT(use_post_grouping_columns),
+      ARG_UPDATE(top_level_ast_expr),
+      column_alias(!options.column_alias.empty() ? options.column_alias
+                                                 : parent->column_alias),
+      ARG_UPDATE_OPT(allows_horizontal_aggregation),
+      ARG_UPDATE(horizontal_aggregation_info),
+      ARG_UPDATE_OPT(in_horizontal_aggregation) {
+  // This constructor can only be used to switch the name scope to the parent's
+  // aggregate or analytic scope, not to introduce a new scope,
+  // unless allow_new_scopes is set.
+  ABSL_DCHECK(options.allow_new_scopes ||
+         name_scope == parent->aggregate_name_scope ||
+         name_scope == parent->analytic_name_scope ||
+         name_scope == parent->name_scope)
+      << "Setting new NameScape in child ExprResolutionInfo not allowed "
+         "by default";
+  ABSL_DCHECK(parent->query_resolution_info != nullptr);
+  ABSL_DCHECK(parent->query_resolution_info->scoped_aggregation_state() ==
+         query_resolution_info->scoped_aggregation_state());
+}
+
+std::unique_ptr<ExprResolutionInfo>
+ExprResolutionInfo::MakeChildForMultiLevelAggregation(
+    ExprResolutionInfo* parent, QueryResolutionInfo* new_query_resolution_info,
+    const NameScope* post_grouping_name_scope) {
+  return absl::WrapUnique(new ExprResolutionInfo(
+      parent, new_query_resolution_info,
+      ExprResolutionInfoOptions{.allow_new_scopes = true,
+                                .name_scope = post_grouping_name_scope,
+                                .allows_aggregation = true,
+                                .allows_analytic = false,
+                                .use_post_grouping_columns = false,
+                                .clause_name = "multi-level aggregate"}));
 }
 
 #undef ARG_UPDATE
@@ -346,9 +414,10 @@ ExprResolutionInfo::ExprResolutionInfo(ExprResolutionInfo* parent)
       query_resolution_info(parent->query_resolution_info),
       use_post_grouping_columns(parent->use_post_grouping_columns),
       top_level_ast_expr(parent->top_level_ast_expr),
-      column_alias(parent->column_alias)
-      ,
-      enclosing_aggregate_function(parent->enclosing_aggregate_function) {}
+      column_alias(parent->column_alias),
+      allows_horizontal_aggregation(parent->allows_horizontal_aggregation),
+      horizontal_aggregation_info(parent->horizontal_aggregation_info),
+      in_horizontal_aggregation(parent->in_horizontal_aggregation) {}
 
 ExprResolutionInfo::ExprResolutionInfo(
     const NameScope* name_scope_in, const NameScope* aggregate_name_scope_in,
@@ -415,6 +484,9 @@ ExprResolutionInfo::~ExprResolutionInfo() {
     if (has_volatile) {
       parent->has_volatile = true;
     }
+    if (allows_horizontal_aggregation) {
+      parent->horizontal_aggregation_info = horizontal_aggregation_info;
+    }
   }
 }
 
@@ -447,10 +519,17 @@ std::string ExprResolutionInfo::DebugString() const {
   absl::StrAppend(&debugstring, "\nclause_name: ", clause_name);
   absl::StrAppend(&debugstring,
                   "\nuse_post_grouping_columns: ", use_post_grouping_columns);
-  absl::StrAppend(&debugstring, "\enclosing_aggregate_function:\n",
-                  (enclosing_aggregate_function != nullptr
-                       ? enclosing_aggregate_function->DebugString()
-                       : "NULL"));
+  absl::StrAppend(&debugstring, "\nallows_horizontal_aggregation: ",
+                  allows_horizontal_aggregation);
+  absl::StrAppend(&debugstring,
+                  "\nin_horizontal_aggregation: ", in_horizontal_aggregation);
+  if (horizontal_aggregation_info.has_value()) {
+    absl::StrAppend(
+        &debugstring,
+        "\nhorizontal_aggregation_array_and_element_column: array: ",
+        horizontal_aggregation_info->array.DebugString(),
+        ", element: ", horizontal_aggregation_info->element.DebugString());
+  }
   absl::StrAppend(
       &debugstring, "\nQueryResolutionInfo:\n",
       (query_resolution_info != nullptr ? query_resolution_info->DebugString()

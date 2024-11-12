@@ -40,6 +40,7 @@
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/value.h"
+#include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "absl/base/const_init.h"
 #include "absl/base/macros.h"
 #include "absl/container/flat_hash_set.h"

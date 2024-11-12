@@ -93,6 +93,7 @@ class RewriteApplicabilityChecker : public ResolvedASTVisitor {
 
   absl::Status VisitResolvedFunctionCall(
       const ResolvedFunctionCall* node) override {
+
     // Identify functions that have rewriting configured in their function
     // signatures, add those rewriters to the relevant set.
     const FunctionSignature& signature = node->signature();
@@ -213,6 +214,12 @@ class RewriteApplicabilityChecker : public ResolvedASTVisitor {
   absl::Status VisitResolvedAssertScan(
       const ResolvedAssertScan* node) override {
     applicable_rewrites_->insert(REWRITE_PIPE_ASSERT);
+    return DefaultVisit(node);
+  }
+
+  absl::Status VisitResolvedPipeIfScan(
+      const ResolvedPipeIfScan* node) override {
+    applicable_rewrites_->insert(REWRITE_PIPE_IF);
     return DefaultVisit(node);
   }
 

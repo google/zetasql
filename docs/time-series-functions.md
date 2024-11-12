@@ -6,7 +6,7 @@
 
 ZetaSQL supports the following time series functions.
 
-### Function list
+## Function list
 
 <table>
   <thead>
@@ -18,8 +18,7 @@ ZetaSQL supports the following time series functions.
   <tbody>
 
 <tr>
-  <td><a href="#date_bucket"><code>DATE_BUCKET</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/time-series-functions.md#date_bucket"><code>DATE_BUCKET</code></a>
 </td>
   <td>
     Gets the lower bound of the date bucket that contains a date.
@@ -27,8 +26,7 @@ ZetaSQL supports the following time series functions.
 </tr>
 
 <tr>
-  <td><a href="#datetime_bucket"><code>DATETIME_BUCKET</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/time-series-functions.md#datetime_bucket"><code>DATETIME_BUCKET</code></a>
 </td>
   <td>
     Gets the lower bound of the datetime bucket that contains a datetime.
@@ -36,8 +34,7 @@ ZetaSQL supports the following time series functions.
 </tr>
 
 <tr>
-  <td><a href="#timestamp_bucket"><code>TIMESTAMP_BUCKET</code></a>
-
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/time-series-functions.md#timestamp_bucket"><code>TIMESTAMP_BUCKET</code></a>
 </td>
   <td>
     Gets the lower bound of the timestamp bucket that contains a timestamp.
@@ -47,7 +44,7 @@ ZetaSQL supports the following time series functions.
   </tbody>
 </table>
 
-### `DATE_BUCKET`
+## `DATE_BUCKET`
 
 ```sql
 DATE_BUCKET(date_in_bucket, bucket_width)
@@ -100,9 +97,9 @@ FROM some_dates;
  | 1949-12-28         |
  | 1949-12-30         |
  | 1949-12-30         |
- | 1950-12-01         |
- | 1950-12-01         |
- | 1950-12-03         |
+ | 1950-01-01         |
+ | 1950-01-01         |
+ | 1950-01-03         |
  +--------------------*/
 
 -- Some date buckets that originate from 1950-01-01:
@@ -162,7 +159,7 @@ FROM some_dates;
 
 [interval-parts]: https://github.com/google/zetasql/blob/master/docs/data-types.md#interval_datetime_parts
 
-### `DATETIME_BUCKET`
+## `DATETIME_BUCKET`
 
 ```sql
 DATETIME_BUCKET(datetime_in_bucket, bucket_width)
@@ -276,7 +273,7 @@ FROM some_datetimes;
 
 [interval-parts]: https://github.com/google/zetasql/blob/master/docs/data-types.md#interval_datetime_parts
 
-### `TIMESTAMP_BUCKET`
+## `TIMESTAMP_BUCKET`
 
 ```sql
 TIMESTAMP_BUCKET(timestamp_in_bucket, bucket_width)
@@ -309,8 +306,9 @@ Gets the lower bound of the timestamp bucket that contains a timestamp.
 
 In the following example, the origin is omitted and the default origin,
 `1950-01-01 00:00:00` is used. All buckets expand in both directions from the
-origin, and the size of each bucket is 12 hours. The lower bound of the bucket
-in which `my_timestamp` belongs is returned:
+origin, and the size of each bucket is 12 hours. The default time zone,
+which is implementation defined, is included in the results. The lower bound of the
+bucket in which `my_timestamp` belongs is returned:
 
 ```sql
 WITH some_timestamps AS (
@@ -329,12 +327,12 @@ FROM some_timestamps;
 /*---------------------------------------------+
  | bucket_lower_bound                          |
  +---------------------------------------------+
- | 2000-12-30 12:00:00.000 America/Los_Angeles |
- | 2000-12-31 00:00:00.000 America/Los_Angeles |
- | 2000-12-31 12:00:00.000 America/Los_Angeles |
- | 2000-01-01 00:00:00.000 America/Los_Angeles |
- | 2000-01-01 12:00:00.000 America/Los_Angeles |
- | 2000-01-01 00:00:00.000 America/Los_Angeles |
+ | 1949-12-30 12:00:00.000 America/Los_Angeles |
+ | 1949-12-31 00:00:00.000 America/Los_Angeles |
+ | 1949-12-31 12:00:00.000 America/Los_Angeles |
+ | 1950-01-01 00:00:00.000 America/Los_Angeles |
+ | 1950-01-01 12:00:00.000 America/Los_Angeles |
+ | 1950-01-02 00:00:00.000 America/Los_Angeles |
  +---------------------------------------------*/
 
 -- Some timestamp buckets that originate from 1950-01-01 00:00:00:
@@ -349,7 +347,8 @@ FROM some_timestamps;
 
 In the following example, the origin has been changed to `2000-12-24 12:00:00`,
 and all buckets expand in both directions from this point. The size of each
-bucket is seven days. The lower bound of the bucket in which `my_timestamp`
+bucket is seven days. The default time zone, which is implementation defined, is included
+in the results. The lower bound of the bucket in which `my_timestamp`
 belongs is returned:
 
 ```sql

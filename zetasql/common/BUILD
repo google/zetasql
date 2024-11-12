@@ -402,6 +402,7 @@ cc_library(
         "builtin_function_array.cc",
         "builtin_function_differential_privacy.cc",
         "builtin_function_distance.cc",
+        "builtin_function_graph.cc",
         "builtin_function_internal_1.cc",
         "builtin_function_internal_2.cc",
         "builtin_function_internal_3.cc",
@@ -546,10 +547,13 @@ cc_library(
     srcs = ["json_parser.cc"],
     hdrs = ["json_parser.h"],
     deps = [
+        ":thread_stack",
         "//zetasql/base",
+        "//zetasql/base:ret_check",
+        "//zetasql/base:status",
         "//zetasql/base:strings",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/strings:str_format",
         "@com_googlesource_code_re2//:re2",
         "@icu//:headers",
     ],
@@ -561,10 +565,13 @@ cc_test(
     deps = [
         ":json_parser",
         "//zetasql/base",
+        "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
-        "@com_google_absl//absl/flags:flag",
+        "//zetasql/compliance:depth_limit_detector_test_cases",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
+        "@com_google_absl//absl/time",
     ],
 )
 
@@ -663,6 +670,7 @@ cc_library(
     srcs = ["function_utils.cc"],
     hdrs = ["function_utils.h"],
     deps = [
+        "//zetasql/base:check",
         "//zetasql/public:function_headers",
         "@com_google_absl//absl/strings",
     ],
@@ -698,6 +706,24 @@ cc_test(
         ":function_utils",
         "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/public:function",
+    ],
+)
+
+cc_library(
+    name = "graph_element_utils",
+    srcs = ["graph_element_utils.cc"],
+    hdrs = ["graph_element_utils.h"],
+    deps = ["//zetasql/public/types"],
+)
+
+cc_test(
+    name = "graph_element_utils_test",
+    srcs = ["graph_element_utils_test.cc"],
+    deps = [
+        ":graph_element_utils",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/public/types",
     ],
 )
 

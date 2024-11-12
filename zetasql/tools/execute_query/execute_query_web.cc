@@ -22,6 +22,7 @@
 #include <string>
 #include <vector>
 
+#include "zetasql/tools/execute_query/execute_query_tool.h"
 #include "zetasql/tools/execute_query/execute_query_web_handler.h"
 #include "zetasql/tools/execute_query/execute_query_web_server.h"
 #include "zetasql/tools/execute_query/web/embedded_resources.h"
@@ -86,11 +87,21 @@ class RootHandler : public CivetHandler {
     std::string query;
     CivetServer::getParam(conn, "query", query);
 
+    std::string sql_mode;
+    CivetServer::getParam(conn, "sql_mode", sql_mode);
+
     std::string catalog;
     CivetServer::getParam(conn, "catalog", catalog);
 
-    return std::make_unique<ExecuteQueryWebRequest>(GetModesParams(conn), query,
-                                                    catalog);
+    std::string enabled_language_features;
+    CivetServer::getParam(conn, "language-features", enabled_language_features);
+
+    std::string enabled_ast_rewrites;
+    CivetServer::getParam(conn, "ast-rewrites", enabled_ast_rewrites);
+
+    return std::make_unique<ExecuteQueryWebRequest>(
+        GetModesParams(conn), ExecuteQueryConfig::parse_sql_mode(sql_mode),
+        query, catalog, enabled_language_features, enabled_ast_rewrites);
   }
 
   // Gets all the modes currently checked in the form.

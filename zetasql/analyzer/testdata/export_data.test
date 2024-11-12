@@ -120,6 +120,28 @@ select * from xxx
               ^
 ==
 
+# Duplicate and anonymous columns are allowed.
+export data
+as select 1 a, 2, 3 c, 4 c
+--
+ExportDataStmt
++-output_column_list=
+| +-$create_as.a#1 AS a [INT64]
+| +-$create_as.$col2#2 AS `$col2` [INT64]
+| +-$create_as.c#3 AS c [INT64]
+| +-$create_as.c#4 AS c [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=$create_as.[a#1, $col2#2, c#3, c#4]
+    +-expr_list=
+    | +-a#1 := Literal(type=INT64, value=1)
+    | +-$col2#2 := Literal(type=INT64, value=2)
+    | +-c#3 := Literal(type=INT64, value=3)
+    | +-c#4 := Literal(type=INT64, value=4)
+    +-input_scan=
+      +-SingleRowScan
+==
+
 # Create a value table with SELECT AS STRUCT.
 # Duplicate and anonymous fields are allowed inside the struct.
 export data

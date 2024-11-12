@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+load("@rules_java//java:defs.bzl", "java_library")
 load("//javatests/com/google/zetasql:junit_test_suites.bzl", "junit_test_suites")
 
 # Tests for ZetaSQL public Java API.
@@ -32,12 +33,14 @@ java_library(
         "@maven//:com_google_guava_guava_testlib",
         "//java/com/google/zetasql:analyzer",
         "//java/com/google/zetasql:client",
+        "//java/com/google/zetasql:property_graph",
         "//java/com/google/zetasql:types",
         "//java/com/google/zetasql/resolvedast",
         "//zetasql/local_service:local_service_java_proto",
         "//zetasql/proto:function_java_proto",
         "//zetasql/proto:options_java_proto",
         "//zetasql/proto:simple_catalog_java_proto",
+        "//zetasql/proto:simple_property_graph_java_proto",
         # "//zetasql/public/functions:datetime_java_proto",
         "//zetasql/public:annotation_java_proto",
         "//zetasql/public:builtin_function_java_proto",

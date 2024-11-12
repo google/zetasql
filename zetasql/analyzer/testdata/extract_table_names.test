@@ -868,3 +868,68 @@ DEFAULT;
 
 Extracted table names:
 KeyValue
+
+==
+
+# `FROM x` matches a table parameter with different case.
+[language_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION]
+CREATE TEMP TABLE FUNCTION Foo(NotATable TABLE<x INT64>)
+AS (
+  SELECT * FROM notatable
+);
+--
+
+Table resolution time:
+
+Extracted table names:
+==
+
+# `TABLE x` matches a table parameter with different case.
+[language_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION]
+CREATE TEMP TABLE FUNCTION Foo(NotATable TABLE<x INT64>)
+AS (
+  SELECT * FROM tvf_one_relation_arg_with_fixed_output(TABLE notatable)
+);
+--
+Table resolution time:
+
+Extracted table names:
+
+==
+
+# `FROM x` matches a catalog table and a table parameter with different case.
+[language_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION]
+CREATE TEMP TABLE FUNCTION Foo(KeyValue TABLE<x INT64>)
+AS (
+  SELECT * FROM keyvalue
+);
+--
+
+Table resolution time:
+
+Extracted table names:
+==
+
+# `TABLE x` matches a catalog table and a table parameter with different case.
+# TODO: b/176201271 - This extraction logic can't really be fixed as current
+# resolution logic depends on catalog contents. Once resolution order is changed
+# in b/372326459 and args are preferred, this will be fixed and
+# `no_test_extract_table_names` can be removed.
+[no_test_extract_table_names]
+[language_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION]
+CREATE TEMP TABLE FUNCTION Foo(KeyValue TABLE<x INT64>)
+AS (
+  SELECT * FROM tvf_one_relation_arg_with_fixed_output(TABLE keyvalue)
+);
+--
+Table resolution time:
+
+Extracted table names:
+
+
+
+DEPRECATION WARNING:
+TABLE syntax was resolved as reference to a catalog table, when a function argument of the same name exists. This will change in the future to resolve as a reference to the function argument. If you wish to preserve this as a reference to a catalog table, rename the function argument to avoid the name collision [at 3:56]
+  SELECT * FROM tvf_one_relation_arg_with_fixed_output(TABLE keyvalue)
+                                                       ^
+[zetasql.DeprecationWarning] { kind: TABLE_SYNTAX_ARGUMENT_RESOLUTION_ORDER }

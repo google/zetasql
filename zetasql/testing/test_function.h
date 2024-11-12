@@ -140,11 +140,19 @@ class QueryParamsWithResult {
 
   // Adds a required feature to this test in-place and returns a reference
   // to the object so that calls to this function can be chained. Required
-  // features are applied  to all existing results in the test. Tests that have
+  // features are applied to all existing results in the test. Tests that have
   // required features applied will not run when test drivers do not enable the
   // LanguageFeature.
   QueryParamsWithResult& AddRequiredFeature(LanguageFeature feature);
   QueryParamsWithResult& AddRequiredFeatures(const FeatureSet& feature);
+
+  // Removes a required feature to this test in-place and returns a reference
+  // to the object so that calls to this function can be chained. Required
+  // features are applied to all existing results in the test. Tests that have
+  // required features applied will not run when test drivers do not enable the
+  // LanguageFeature.
+  QueryParamsWithResult& RemoveRequiredFeature(LanguageFeature feature);
+  QueryParamsWithResult& RemoveRequiredFeatures(const FeatureSet& feature);
 
   // Adds a prohibited feature to this test in-place and returns a reference
   // to the object so that calls to this function can be chained. Prohibited
@@ -229,11 +237,11 @@ struct FunctionTestCall {
                    FloatMargin float_margin = kExactFloatMargin);
 
   FunctionTestCall(absl::string_view function_name,
-                   const std::vector<ValueConstructor>& arguments,
+                   absl::Span<const ValueConstructor> arguments,
                    const ValueConstructor& result, absl::StatusCode code);
 
   FunctionTestCall(absl::string_view function_name,
-                   const std::vector<ValueConstructor>& arguments,
+                   absl::Span<const ValueConstructor> arguments,
                    const ValueConstructor& result, absl::Status status);
 
   FunctionTestCall(absl::string_view function_name_in,

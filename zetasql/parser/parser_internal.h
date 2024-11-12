@@ -19,6 +19,7 @@
 
 #include <cctype>
 #include <optional>
+#include <queue>
 #include <string>
 #include <utility>
 #include <vector>
@@ -28,6 +29,7 @@
 #include "zetasql/parser/bison_parser.h"
 #include "zetasql/parser/bison_parser_mode.h"
 #include "zetasql/parser/parse_tree.h"
+#include "zetasql/parser/token_codes.h"
 #include "zetasql/public/parse_location.h"
 #include "zetasql/public/strings.h"
 #include "absl/base/optimization.h"
@@ -111,29 +113,19 @@
     }                                                           \
   } while (0)
 
-#ifdef TEXTMAPPER_ZETASQL_PARSER_H_
 #define PARSER_LA_IS_EMPTY() next_symbol_.symbol == noToken
-#else
-#define PARSER_LA_IS_EMPTY() yyla.empty()
-#endif
 
 // Signals the token disambiguation buffer that a new statement is starting.
 // The second argument indicates whether the parser lookahead buffer is
 // populated or not.
-#define OVERRIDE_NEXT_TOKEN_LOOKBACK(expected_token, lookback_token)   \
-  absl::Status s = OverrideNextTokenLookback(                          \
-      tokenizer, PARSER_LA_IS_EMPTY(),                                 \
-      zetasql_bison_parser::BisonParserImpl::token::expected_token,  \
-      zetasql_bison_parser::BisonParserImpl::token::lookback_token); \
-  ZETASQL_DCHECK_OK(s);
-
-// Like the previous, but for cases when the `expected_token` is identified by
-// a C char_t rather than by a named token code.
-#define OVERRIDE_NEXT_TOKEN_CHAR_LOOKBACK(expected_token, lookback_token) \
-  absl::Status s = OverrideNextTokenLookback(                             \
-      tokenizer, PARSER_LA_IS_EMPTY(), expected_token,                    \
-      zetasql_bison_parser::BisonParserImpl::token::lookback_token);    \
-  ZETASQL_DCHECK_OK(s);
+#define OVERRIDE_NEXT_TOKEN_LOOKBACK(expected_token, lookback_token)      \
+  do {                                                                    \
+    absl::Status s =                                                      \
+        OverrideNextTokenLookback(tokenizer, PARSER_LA_IS_EMPTY(),        \
+                                  zetasql::TokenKinds::expected_token,  \
+                                  zetasql::TokenKinds::lookback_token); \
+    ZETASQL_DCHECK_OK(s);                                                         \
+  } while (0)
 
 // Overrides the lookback token kind to be `new_token_kind` for the most
 // recently returned token by the lookahead transformer. `location` is the error
@@ -143,8 +135,7 @@
               "The parser lookahead buffer must be empty to override the " \
               "current token");                                            \
   absl::Status s = OverrideCurrentTokenLookback(                           \
-      tokenizer,                                                           \
-      zetasql_bison_parser::BisonParserImpl::token::new_token_kind);     \
+      tokenizer, zetasql::TokenKinds::new_token_kind);                   \
   ABORT_CHECK(location, s.ok(), s.ToString());
 
 namespace zetasql {
@@ -168,8 +159,9 @@ void PushBisonParserMode(LookaheadTransformer*, BisonParserMode);
 void PopBisonParserMode(LookaheadTransformer*);
 int GetNextToken(LookaheadTransformer*, absl::string_view*,
                  ParseLocationRange*);
-absl::Status OverrideNextTokenLookback(LookaheadTransformer*, bool, int, int);
-absl::Status OverrideCurrentTokenLookback(LookaheadTransformer*, int);
+absl::Status OverrideNextTokenLookback(LookaheadTransformer*, bool,
+                                       parser::Token, parser::Token);
+absl::Status OverrideCurrentTokenLookback(LookaheadTransformer*, parser::Token);
 
 enum class NotKeywordPresence { kPresent, kAbsent };
 
@@ -423,22 +415,149 @@ inline ASTTableExpression* MaybeApplyPivotOrUnpivot(
   return table_expr;
 }
 
+// `Location` is needed because when `left` or `right` is a parenthesized
+// expression, their location doesn't include those parens, so `(left.start,
+// right.end)` does not cover the full range.
 template <typename Location>
-inline zetasql::ASTRowPatternExpression* MakeOrCombineRowPatternOperation(
-    const zetasql::ASTRowPatternOperation::OperationType op,
-    zetasql::parser::BisonParser* parser, const Location& location,
-    zetasql::ASTRowPatternExpression* left,
-    zetasql::ASTRowPatternExpression* right) {
-  if (left->node_kind() == zetasql::AST_ROW_PATTERN_OPERATION &&
-      left->GetAsOrDie<zetasql::ASTRowPatternOperation>()->op_type() == op &&
+inline ASTRowPatternExpression* MakeOrCombineRowPatternOperation(
+    const ASTRowPatternOperation::OperationType op, parser::BisonParser* parser,
+    Location location, ASTRowPatternExpression* left,
+    ASTRowPatternExpression* right) {
+  if (left->node_kind() == AST_ROW_PATTERN_OPERATION &&
+      left->GetAsOrDie<ASTRowPatternOperation>()->op_type() == op &&
       !left->parenthesized()) {
-    // Embrace and extend left's ASTNode to flatten a series of `op`.
     return parser->WithEndLocation(WithExtraChildren(left, {right}), location);
   } else {
+    // if `left` is an unparenthesized empty pattern, its location will still
+    // be the end offset of the last token, outside of @$.
+    // Adjust its location to the start of the `|`.
+    if (left->node_kind() == AST_EMPTY_ROW_PATTERN && !left->parenthesized()) {
+      left->set_start_location(location.start());
+      left->set_end_location(location.start());
+    }
+
     auto* new_root = MAKE_NODE(ASTRowPatternOperation, location, {left, right});
     new_root->set_op_type(op);
     return new_root;
   }
+}
+
+inline void SetGqlSubqueryQueryFields(ASTQuery* query) {
+  // Graph subquery are braced {} not parenthesized (), so we unset for unparser
+  // to skip the parenthesize printing
+  query->set_is_nested(false);
+  query->set_parenthesized(false);
+}
+
+// Constructs a graph subquery based on operators and an optional graph
+// reference.
+template <typename Location>
+inline ASTQuery* MakeGraphSubquery(ASTGqlOperatorList* ops,
+                                   ASTPathExpression* graph,
+                                   zetasql::parser::BisonParser* parser,
+                                   const Location& loc) {
+  auto* graph_table = MAKE_NODE(ASTGraphTableQuery, loc, {graph, ops});
+  auto* graph_query = MAKE_NODE(ASTGqlQuery, loc, {graph_table});
+  auto* query = MAKE_NODE(ASTQuery, loc, {graph_query});
+  SetGqlSubqueryQueryFields(query);
+  return query;
+}
+
+// Constructs a GQL path pattern graph subquery based on a path pattern and
+// an optional graph reference.
+template <typename Location>
+inline ASTExpressionSubquery* MakeGqlExistsGraphPatternSubquery(
+    ASTGraphPattern* graph_pattern, ASTPathExpression* graph, ASTNode* hint,
+    zetasql::parser::BisonParser* parser, const Location& loc) {
+  auto* path_pattern_query =
+      MAKE_NODE(ASTGqlGraphPatternQuery, loc, {graph, graph_pattern});
+  auto* query = MAKE_NODE(ASTQuery, loc, {path_pattern_query});
+  SetGqlSubqueryQueryFields(query);
+  auto* subquery = MAKE_NODE(ASTExpressionSubquery, loc, {hint, query});
+  subquery->set_modifier(zetasql::ASTExpressionSubquery::EXISTS);
+  return subquery;
+}
+
+// Constructs a GQL linear ops graph subquery based on an op list and
+// an optional graph reference.
+template <typename Location>
+inline ASTExpressionSubquery* MakeGqlExistsLinearOpsSubquery(
+    ASTGqlOperatorList* op_list, ASTPathExpression* graph, ASTNode* hint,
+    zetasql::parser::BisonParser* parser, const Location& loc) {
+  auto* linear_ops_query =
+      MAKE_NODE(ASTGqlLinearOpsQuery, loc, {graph, op_list});
+  auto* query = MAKE_NODE(ASTQuery, loc, {linear_ops_query});
+  SetGqlSubqueryQueryFields(query);
+  auto* subquery = MAKE_NODE(ASTExpressionSubquery, loc, {hint, query});
+  subquery->set_modifier(zetasql::ASTExpressionSubquery::EXISTS);
+  return subquery;
+}
+
+template <typename Location>
+inline zetasql::ASTGraphLabelExpression* MakeOrCombineGraphLabelOperation(
+    const zetasql::ASTGraphLabelOperation::OperationType label_op,
+    zetasql::parser::BisonParser* parser, const Location& location,
+    zetasql::ASTGraphLabelExpression* left,
+    zetasql::ASTGraphLabelExpression* right) {
+  if (left->node_kind() == zetasql::AST_GRAPH_LABEL_OPERATION &&
+      left->GetAsOrDie<zetasql::ASTGraphLabelOperation>()->op_type() ==
+          label_op &&
+      !left->parenthesized()) {
+    // Embrace and extend left's ASTNode to flatten a series of `label_op`.
+    return parser->WithEndLocation(WithExtraChildren(left, {right}), location);
+  } else {
+    auto* new_root = MAKE_NODE(ASTGraphLabelOperation, location, {left, right});
+    new_root->set_op_type(label_op);
+    return new_root;
+  }
+}
+
+template <typename Location>
+inline zetasql::ASTGraphEdgePattern* MakeGraphEdgePattern(
+    zetasql::parser::BisonParser* parser,
+    zetasql::ASTGraphElementPatternFiller* filler,
+    zetasql::ASTGraphEdgePattern::EdgeOrientation orientation,
+    const Location& location) {
+  auto* edge_pattern = MAKE_NODE(ASTGraphEdgePattern, location, {filler});
+  edge_pattern->set_orientation(orientation);
+  return edge_pattern;
+}
+
+template <typename Location>
+inline zetasql::ASTGraphElementLabelAndPropertiesList*
+MakeGraphElementLabelAndPropertiesListImplicitDefaultLabel(
+    zetasql::parser::BisonParser* parser,
+    zetasql::ASTGraphProperties* properties, const Location& location) {
+  auto* label_properties = MAKE_NODE(ASTGraphElementLabelAndProperties,
+                                     location, {nullptr, properties});
+  auto* label_properties_list = MAKE_NODE(ASTGraphElementLabelAndPropertiesList,
+                                          location, {label_properties});
+  return label_properties_list;
+}
+
+// Returns true if any node in the query subtree has a LockMode node.
+inline bool HasLockMode(const zetasql::ASTNode* node) {
+  if (node != nullptr) {
+    // Use queue based BFS traversal to avoid stack overflow issues.
+    std::queue<const zetasql::ASTNode*> node_queue;
+    node_queue.push(node);
+
+    while (!node_queue.empty()) {
+      const zetasql::ASTNode* current_node = node_queue.front();
+      node_queue.pop();
+
+      if (current_node->node_kind() == zetasql::AST_LOCK_MODE) {
+        return true;
+      } else {
+        for (int i = 0; i < current_node->num_children(); ++i) {
+          if (current_node->child(i) != nullptr) {
+            node_queue.push(current_node->child(i));
+          }
+        }
+      }
+    }
+  }
+  return false;
 }
 
 using zetasql::ASTInsertStatement;

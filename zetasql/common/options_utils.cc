@@ -67,6 +67,11 @@ std::string UnparseEnumOptionsSet(
 // ResolvedASTRewrite
 //////////////////////////////////////////////////////////////////////////
 AnalyzerOptions::ASTRewriteSet GetAllRewrites() {
+  return GetRewrites(true, true);
+}
+
+AnalyzerOptions::ASTRewriteSet GetRewrites(bool include_in_development,
+                                           bool include_default_disabled) {
   AnalyzerOptions::ASTRewriteSet enabled_set;
   const google::protobuf::EnumDescriptor* descriptor =
       google::protobuf::GetEnumDescriptor<ResolvedASTRewrite>();
@@ -74,6 +79,18 @@ AnalyzerOptions::ASTRewriteSet GetAllRewrites() {
     const google::protobuf::EnumValueDescriptor* value_descriptor = descriptor->value(i);
     if (value_descriptor->number() == 0) {
       // This is the "INVALID" entry. Skip this case.
+      continue;
+    }
+    bool default_enabled = value_descriptor->options()
+                               .GetExtension(rewrite_options)
+                               .default_enabled();
+    bool in_development = value_descriptor->options()
+                              .GetExtension(rewrite_options)
+                              .in_development();
+    if (!default_enabled && !include_default_disabled) {
+      continue;
+    }
+    if (in_development && !include_in_development) {
       continue;
     }
     enabled_set.insert(
@@ -86,8 +103,14 @@ absl::StatusOr<EnumOptionsEntry<ResolvedASTRewrite>> ParseEnabledAstRewrites(
     absl::string_view options_str) {
   return internal::ParseEnumOptionsSet<ResolvedASTRewrite>(
       {{"NONE", {}},
-       {"ALL", GetAllRewrites()},
-       {"DEFAULTS", AnalyzerOptions::DefaultRewrites()}},
+       {"ALL", GetRewrites(/*include_in_development=*/true,
+                           /*include_default_disabled=*/true)},
+       {"ALL_MINUS_DEV", GetRewrites(/*include_in_development=*/false,
+                                     /*include_default_disabled=*/true)},
+       {"DEFAULTS", GetRewrites(/*include_in_development=*/true,
+                                /*include_default_disabled=*/false)},
+       {"DEFAULTS_MINUS_DEV", GetRewrites(/*include_in_development=*/false,
+                                          /*include_default_disabled=*/false)}},
       "REWRITE_", "Rewrite", options_str);
 }
 
@@ -106,8 +129,14 @@ bool AbslParseFlag(absl::string_view text, EnabledAstRewrites* p,
 std::string AbslUnparseFlag(EnabledAstRewrites p) {
   return UnparseEnumOptionsSet<ResolvedASTRewrite>(
       {{"NONE", {}},
-       {"ALL", GetAllRewrites()},
-       {"DEFAULTS", AnalyzerOptions::DefaultRewrites()}},
+       {"ALL", GetRewrites(/*include_in_development=*/true,
+                           /*include_default_disabled=*/true)},
+       {"ALL_MINUS_DEV", GetRewrites(/*include_in_development=*/false,
+                                     /*include_default_disabled=*/true)},
+       {"DEFAULTS", GetRewrites(/*include_in_development=*/true,
+                                /*include_default_disabled=*/false)},
+       {"DEFAULTS_MINUS_DEV", GetRewrites(/*include_in_development=*/false,
+                                          /*include_default_disabled=*/false)}},
       "REWRITE_", p.enabled_ast_rewrites);
 }
 

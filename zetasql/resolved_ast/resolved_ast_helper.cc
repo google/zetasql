@@ -71,6 +71,18 @@ absl::Status ColumnRefVisitor::VisitResolvedWithExpr(
   return ResolvedASTVisitor::VisitResolvedWithExpr(node);
 }
 
+absl::Status ColumnRefVisitor::VisitResolvedArrayAggregate(
+    const ResolvedArrayAggregate* node) {
+  // Exclude the element column because it is internal.
+  local_columns_.insert(node->element_column());
+  // And exclude the computed columns.
+  for (const std::unique_ptr<const ResolvedComputedColumn>& computed_column :
+       node->pre_aggregate_computed_column_list()) {
+    local_columns_.insert(computed_column->column());
+  }
+  return ResolvedASTVisitor::VisitResolvedArrayAggregate(node);
+}
+
 class ColumnRefCollectorUnowned : public ColumnRefVisitor {
  public:
   explicit ColumnRefCollectorUnowned(

@@ -23,6 +23,7 @@
 
 #include "zetasql/compliance/test_driver.pb.h"
 #include "zetasql/public/annotation.pb.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
@@ -89,6 +90,11 @@ absl::Status SerializeTestDatabase(const TestDatabase& database,
     }
   }
 
+  for (const auto& [name, create_stmt] : database.property_graph_defs) {
+    TestPropertyGraphProto* graph = proto->add_property_graphs();
+    graph->set_name(name);
+    graph->set_create_stmt(create_stmt);
+  }
   return absl::OkStatus();
 }
 
@@ -156,6 +162,16 @@ absl::StatusOr<TestDatabase> DeserializeTestDatabase(
       annotation_maps.push_back(std::move(annotation_map));
     }
     table.options.set_column_annotations(std::move(column_annotations));
+  }
+
+  for (const TestPropertyGraphProto& graph : proto.property_graphs()) {
+    const std::string& name = graph.name();
+    auto [_, is_new] =
+        db.property_graph_defs.emplace(name, graph.create_stmt());
+    if (!is_new) {
+      return zetasql_base::InvalidArgumentErrorBuilder()
+             << "Duplicate property graph name: " << name;
+    }
   }
 
   return db;

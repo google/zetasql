@@ -19,6 +19,7 @@
 
 #include <atomic>
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <set>
 #include <string>
@@ -33,6 +34,8 @@
 #include "zetasql/public/types/array_type.h"
 #include "zetasql/public/types/enum_type.h"
 #include "zetasql/public/types/extended_type.h"
+#include "zetasql/public/types/graph_element_type.h"
+#include "zetasql/public/types/graph_path_type.h"
 #include "zetasql/public/types/proto_type.h"
 #include "zetasql/public/types/range_type.h"
 #include "zetasql/public/types/simple_type.h"
@@ -46,6 +49,7 @@
 #include "absl/container/inlined_vector.h"
 #include "absl/container/node_hash_map.h"
 #include "absl/flags/declare.h"
+#include "absl/flags/flag.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/synchronization/mutex.h"
@@ -76,6 +80,14 @@ struct TypeFactoryOptions {
   // stays alive during the whole lifetime of Value objects belonging to these
   // types.
   bool keep_alive_while_referenced_from_value = true;
+
+  // Maximum nesting depth for types supported by this TypeFactory. Any attempt
+  // to create a type with a nesting_depth() greater than this will return an
+  // error. If a limit is not set, the ZetaSQL analyzer may create types that
+  // it cannot destruct. Use kint32max for no limit (the default).
+  // The limit value must be >= 0.
+  int nesting_depth_limit =
+      absl::GetFlag(FLAGS_zetasql_type_factory_nesting_depth_limit);
 
   // Disables keep_alive_while_referenced_from_value.
   TypeFactoryOptions& IgnoreValueLifeCycle() {
@@ -207,6 +219,7 @@ class TypeFactory {
   const Type* get_double();
   const Type* get_date();
   const Type* get_timestamp();
+  const Type* get_timestamp_picos();
   const Type* get_time();
   const Type* get_datetime();
   const Type* get_interval();
@@ -284,6 +297,41 @@ class TypeFactory {
   absl::StatusOr<const Type*> MakeMapType(
       const Type* key_type, const Type* value_type,
       const LanguageOptions& language_options);
+
+  // Make a graph element type.
+  // <graph_reference> is path to the graph to which this type belongs,
+  //  can be used for looking up the property graph in the catalog;
+  // <element_kind> must be node or edge;
+  // <property_types>:
+  //  property type name is case-insensitive;
+  //  property types with the same name must have same value type;
+  //  duplicate property types are removed:
+  //    e.g. {{"a", string}, {"a", string}} <property_types> produces the
+  //    same
+  //         type as {{"a", string}}.
+  // If value_types of <property_types> are not created by this TypeFactory,
+  // the TypeFactory that created the value_types must outlive this
+  // TypeFactory.
+  absl::Status MakeGraphElementType(
+      absl::Span<const std::string> graph_reference,
+      GraphElementType::ElementKind element_kind,
+      absl::Span<const GraphElementType::PropertyType> property_types,
+      const GraphElementType** result);
+  absl::Status MakeGraphElementTypeFromVector(
+      absl::Span<const std::string> graph_reference,
+      GraphElementType::ElementKind element_kind,
+      std::vector<GraphElementType::PropertyType> property_types,
+      const GraphElementType** result);
+
+  // Make a graph path type. <node_type> is the supertype of all nodes in the
+  // path; <edge_type> is the supertype of all edges in the path.
+  absl::Status MakeGraphPathType(const GraphElementType* node_type,
+                                 const GraphElementType* edge_type,
+                                 const GraphPathType** result);
+
+  // Make a Measure type. `result_type` is the type produced when the Measure is
+  // aggregated.
+  absl::StatusOr<const Type*> MakeMeasureType(const Type* result_type);
 
   // Stores the unique copy of an ExtendedType in the TypeFactory. If such
   // extended type already exists in the cache, frees `extended_type` and
@@ -442,9 +490,8 @@ class TypeFactory {
   // error. If a limit is not set, the ZetaSQL analyzer may create types that
   // it cannot destruct. Use kint32max for no limit (the default).
   // The limit value must be >= 0. The default value of this field can be
-  // overidden with FLAGS_zetasql_type_factory_nesting_depth_limit.
-  int nesting_depth_limit() const ABSL_LOCKS_EXCLUDED(store_->mutex_);
-  void set_nesting_depth_limit(int value) ABSL_LOCKS_EXCLUDED(store_->mutex_);
+  // overridden with FLAGS_zetasql_type_factory_nesting_depth_limit.
+  int nesting_depth_limit() const;
 
   // Estimate memory size allocated to store TypeFactory's data in bytes
   int64_t GetEstimatedOwnedMemoryBytesSize() const;
@@ -574,7 +621,8 @@ class TypeFactory {
 
   internal::TypeStore* store_;  // Stores created types.
 
-  int nesting_depth_limit_ ABSL_GUARDED_BY(store_->mutex_);
+  // Set in constructor and never changed.
+  const int nesting_depth_limit_;
 
   // Stores estimation of how much memory was allocated by instances
   // of types owned by this TypeFactory (in bytes)
@@ -595,6 +643,7 @@ const Type* StringType();
 const Type* BytesType();
 const Type* DateType();
 const Type* TimestampType();
+const Type* TimestampPicosType();
 const Type* TimeType();
 const Type* DatetimeType();
 const Type* IntervalType();
@@ -617,6 +666,7 @@ const ArrayType* DoubleArrayType();
 const ArrayType* StringArrayType();
 const ArrayType* BytesArrayType();
 const ArrayType* TimestampArrayType();
+const ArrayType* TimestampPicosArrayType();
 const ArrayType* DateArrayType();
 const ArrayType* DatetimeArrayType();
 const ArrayType* TimeArrayType();
@@ -672,11 +722,19 @@ const EnumType* DifferentialPrivacyReportFormatEnumType();
 // This is an opaque enum type.
 const EnumType* DifferentialPrivacyGroupSelectionStrategyEnumType();
 
-// Accessor for the enum type (functions::ArrayZipEnums::ArrayZipMode)
-// that represents the array zip mode to be used as an optional argument of the
-// function ARRAY_ZIP and UNNEST. It decides the row generation behavior of
-// ARRAY_ZIP and UNNEST when there are multiple arrays of different lengths.
+// Accessor for the enum type
+// (functions::DifferentialPrivacyEnums::CountDistinctContributionBoundingStrategy)
+// that represents different contribution bounding strategies for differentially
+// private count distinct.
 // This is an opaque enum type.
+absl::StatusOr<const EnumType*>
+DifferentialPrivacyCountDistinctContributionBoundingStrategyEnumType();
+
+// Accessor for the enum type (functions::ArrayZipEnums::ArrayZipMode)
+// that represents the array zip mode to be used as an optional argument of
+// the function ARRAY_ZIP and UNNEST. It decides the row generation behavior
+// of ARRAY_ZIP and UNNEST when there are multiple arrays of different
+// lengths. This is an opaque enum type.
 const EnumType* ArrayZipModeEnumType();
 
 // Accessor for the enum type

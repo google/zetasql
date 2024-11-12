@@ -85,6 +85,24 @@ struct ErrorMessageOptions {
   bool attach_error_location_payload = false;
   ErrorMessageStability stability = ERROR_MESSAGE_STABILITY_UNSPECIFIED;
 
+  // If true, enables an enhanced form of error redaction which preserves some
+  // information about the error in a stable way. This is intended as a
+  // middle-ground for golden files in engine tests, keeping enough information
+  // in the expected error message for a human to be able to confirm that
+  // the error is as expected, but without exposing too much, in a way that
+  // would impede ZetaSQL's ability to change its error messages.
+  //
+  // To allow additional error redaction cases to be implemented in the future
+  // without breaking tests, setting this true will cause a crash in debug
+  // builds should an error message be obtained that the code does not know
+  // how to redact. If false, the redacted message is always "SQL ERROR", with
+  // no restrictions are what messages are/are not supported.
+  //
+  // This field is ignored unless `stability` actually triggers redaction (
+  //  e.g. ERROR_MESSAGE_STABILITY_TEST_REDACTED or
+  //       ERROR_MESSAGE_STABILITY_TEST_REDACTED_WITH_PAYLOADS).
+  bool enhanced_error_redaction = false;
+
   // The original line & column of the input text.
   // Used when the input is from a larger, unavailable source.
   // Note that these are the actual 1-based line and column, *NOT* offsets.

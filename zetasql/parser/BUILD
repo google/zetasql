@@ -177,6 +177,102 @@ java_proto_library(
     deps = [":parse_tree_proto"],
 )
 
+tm_syntax(
+    name = "generate_tm_parser",
+    src = "zetasql.tm",
+    outs = [
+        "tm_lexer.cc",
+        "tm_lexer.h",
+        "tm_parser.cc",
+        "tm_parser.h",
+        "tm_token.h",
+    ],
+)
+
+cc_library(
+    name = "tm_lexer",
+    srcs = [
+        "tm_lexer.cc",
+    ],
+    hdrs = [
+        "tm_lexer.h",
+        "tm_token.h",
+    ],
+    deps = [
+        ":bison_parser_mode",
+        "//zetasql/common:errors",
+        "//zetasql/public:parse_location",
+        "@com_google_absl//absl/log",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_library(
+    name = "tm_parser",
+    srcs = [
+        "textmapper_lexer_adapter.cc",
+        "tm_parser.cc",
+    ],
+    hdrs = [
+        "bison_parser.h",
+        "join_processor.h",
+        "parse_tree.h",
+        "parse_tree_decls.h",
+        "parse_tree_generated.h",
+        "parser_internal.h",
+        "parser_runtime_info.h",
+        "statement_properties.h",
+        "textmapper_lexer_adapter.h",
+        "tm_parser.cc",
+        "tm_parser.h",
+    ],
+    copts = [
+        "-fno-sanitize=object-size",  # can timeout: TODO
+        "-g0",  # can timeout: TODO
+    ],
+    deps = [
+        ":ast_enums_cc_proto",
+        ":bison_parser_generated_lib",
+        ":bison_parser_mode",
+        ":keywords",
+        ":lookahead_transformer",
+        ":parse_tree",
+        ":token",
+        ":token_codes",
+        "//bazel:flex",
+        "//zetasql/base",
+        "//zetasql/base:arena",
+        "//zetasql/base:arena_allocator",
+        "//zetasql/base:check",
+        "//zetasql/base:ret_check",
+        "//zetasql/base:status",
+        "//zetasql/base:strings",
+        "//zetasql/common:errors",
+        "//zetasql/common:timer_util",
+        "//zetasql/parser/macros:macro_catalog",
+        "//zetasql/parser/macros:macro_expander",
+        "//zetasql/public:id_string",
+        "//zetasql/public:language_options",
+        "//zetasql/public:options_cc_proto",
+        "//zetasql/public:parse_location",
+        "//zetasql/public:strings",
+        "//zetasql/public:type_cc_proto",
+        "//zetasql/public/proto:logging_cc_proto",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/container:inlined_vector",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/functional:function_ref",
+        "@com_google_absl//absl/log",
+        "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
+        "@com_google_absl//absl/time",
+        "@com_google_absl//absl/types:span",
+    ],
+)
+
 py_proto_library(
     name = "ast_enums_py_pb2",
     srcs = ["ast_enums.proto"],
@@ -214,6 +310,9 @@ cc_library(
         ":keywords",
         ":lookahead_transformer",
         ":parse_tree",
+        ":tm_parser",
+        ":token",
+        ":token_codes",
         "//bazel:flex",
         "//zetasql/base",
         "//zetasql/base:arena",
@@ -266,6 +365,17 @@ cc_library(
 )
 
 cc_library(
+    name = "token_with_location",
+    srcs = ["token_with_location.cc"],
+    hdrs = ["token_with_location.h"],
+    deps = [
+        ":token_codes",
+        "//zetasql/public:parse_location",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_library(
     name = "flex_tokenizer",
     srcs = [
         "flex_tokenizer.cc",
@@ -281,14 +391,16 @@ cc_library(
         "-Wno-implicit-fallthrough",
     ],
     deps = [
-        ":bison_token_codes",
         ":flex_istream",
+        ":tm_lexer",
+        ":token_codes",
         "//bazel:flex",
         "//zetasql/base:check",
+        "//zetasql/base:ret_check",
         "//zetasql/base:status",
         "//zetasql/common:errors",
-        "//zetasql/public:language_options",
         "//zetasql/public:parse_location",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
@@ -303,7 +415,9 @@ cc_library(
     hdrs = ["lookahead_transformer.h"],
     deps = [
         ":bison_parser_mode",
-        ":bison_token_codes",
+        ":token",
+        ":token_codes",
+        ":token_with_location",
         "//zetasql/base:arena",
         "//zetasql/base:check",
         "//zetasql/base:ret_check",
@@ -312,8 +426,6 @@ cc_library(
         "//zetasql/parser/macros:flex_token_provider",
         "//zetasql/parser/macros:macro_catalog",
         "//zetasql/parser/macros:macro_expander",
-        "//zetasql/parser/macros:token_with_location",
-        "//zetasql/public:error_helpers",
         "//zetasql/public:language_options",
         "//zetasql/public:parse_location",
         "@com_google_absl//absl/base:core_headers",
@@ -333,17 +445,18 @@ cc_test(
     ],
     deps = [
         ":bison_parser_mode",
-        ":bison_token_codes",
         ":lookahead_transformer",
+        ":parser",
+        ":token",
+        ":token_codes",
+        ":token_with_location",
         "//zetasql/base:arena",
         "//zetasql/base:check",
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
-        "//zetasql/parser",
         "//zetasql/parser/macros:macro_catalog",
-        "//zetasql/parser/macros:token_with_location",
         "//zetasql/public:language_options",
         "//zetasql/public:parse_location",
         "//zetasql/public:parse_resume_location",
@@ -374,11 +487,9 @@ cc_test(
 cc_library(
     name = "bison_parser_generated_lib",
     srcs = [
-        "bison_parser.bison.cc",
         "join_processor.cc",
     ],
     hdrs = [
-        "bison_parser.bison.h",
         "bison_parser.h",
         "join_processor.h",
         "parser_internal.h",
@@ -397,9 +508,10 @@ cc_library(
     tags = ["nofixdeps"],  # generated and real files are interdependent
     deps = [
         ":bison_parser_mode",
-        ":bison_token_codes",
         ":keywords",
         ":parse_tree",
+        ":token_codes",
+        ":token_with_location",
         "//bazel:flex",
         "//zetasql/base",
         "//zetasql/base:arena",
@@ -411,7 +523,6 @@ cc_library(
         "//zetasql/common:errors",
         "//zetasql/common:timer_util",
         "//zetasql/parser/macros:macro_catalog",
-        "//zetasql/parser/macros:token_with_location",
         "//zetasql/public:id_string",
         "//zetasql/public:language_options",
         "//zetasql/public:options_cc_proto",
@@ -636,13 +747,13 @@ cc_library(
         "keywords.h",
     ],
     deps = [
-        ":bison_token_codes",
+        ":token",
+        ":token_codes",
         "//zetasql/base",
         "//zetasql/base:case",
         "//zetasql/base:map_util",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:flat_hash_map",
-        "@com_google_absl//absl/memory",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:optional",
         "@com_google_absl//absl/types:variant",
@@ -650,31 +761,30 @@ cc_library(
 )
 
 cc_library(
-    name = "bison_token_codes",
-    hdrs = ["bison_token_codes.h"],
-    deps = [":bison_token_codes_inc"],
+    name = "token",
+    hdrs = [
+        "tm_token.h",
+    ],
+    deps = [
+        "@com_google_absl//absl/strings:string_view",
+    ],
 )
 
-# Used only to create a textual header with the generated code. Use the final .h from the other
-# visible library.
 cc_library(
-    name = "bison_token_codes_inc",
-    textual_hdrs = ["bison_token_codes.inc"],
-)
-
-genrule(
-    name = "generate_bison_token_codes",
-    srcs = ["bison_parser.bison.h"],
-    outs = ["bison_token_codes.inc"],
-    cmd = "awk '/      enum yytokentype/ {f = 1} {if (f && $$0 ~ /=/) print;}; /      };/ { f= 0 }' $(location bison_parser.bison.h) > $@",
+    name = "token_codes",
+    hdrs = ["token_codes.h"],
+    deps = [
+        ":token",
+        "@com_google_absl//absl/base:core_headers",
+    ],
 )
 
 cc_test(
     name = "keywords_test",
     srcs = ["keywords_test.cc"],
     data = [
-        "bison_parser.y",
         "flex_tokenizer.l",
+        "zetasql.tm",
     ],
     deps = [
         ":keywords",
@@ -730,16 +840,8 @@ genlex(
     src = "flex_tokenizer.l",
     out = "flex_tokenizer.flex.cc",
     includes = [
-        "bison_parser.bison.h",
+        "tm_token.h",
     ],
-)
-
-# Bison parser
-genyacc(
-    name = "bison_parser_generated",
-    src = "bison_parser.y",
-    header_out = "bison_parser.bison.h",
-    source_out = "bison_parser.bison.cc",
 )
 
 [gen_parser_test(
@@ -758,3 +860,17 @@ exports_files([
     "keywords.h",
     "unparser.h",
 ])
+
+cc_test(
+    name = "textmapper_lexer_adapter_test",
+    srcs = ["textmapper_lexer_adapter_test.cc"],
+    deps = [
+        ":bison_parser_mode",
+        ":parser",  # buildcleaner: keep
+        ":tm_parser",
+        ":token",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/public:language_options",
+        "@com_google_absl//absl/strings:string_view",
+    ],
+)

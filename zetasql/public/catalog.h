@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "zetasql/public/evaluator_table_iterator.h"
+#include "zetasql/public/property_graph.h"
 #include "zetasql/public/type.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/statusor.h"
@@ -66,6 +67,7 @@ class TableValuedFunction;
 //   - named constants
 //   - connections (external data source connections)
 //   - sequences
+//   - property graphs
 //
 // A Catalog includes a separate namespace for each of these object types.
 // Objects of different types with the same name are allowed.
@@ -317,12 +319,24 @@ class Catalog {
       absl::Span<const std::string> path, int* num_names_consumed,
       const Constant** constant, const FindOptions& options = FindOptions());
 
+  absl::Status FindPropertyGraph(absl::Span<const std::string> path,
+                                 const PropertyGraph*& property_graph) {
+    return FindPropertyGraph(path, property_graph, FindOptions());
+  }
+
+  virtual absl::Status FindPropertyGraph(absl::Span<const std::string> path,
+                                         const PropertyGraph*& property_graph,
+                                         const FindOptions& options);
+
   // Overloaded helper functions that forward the call to the appropriate
   // Find*() function based on the <object> argument type.
   absl::Status FindObject(absl::Span<const std::string> path,
                           const Table** object, const FindOptions& options);
   absl::Status FindObject(absl::Span<const std::string> path,
                           const Type** object, const FindOptions& options);
+  absl::Status FindObject(absl::Span<const std::string> path,
+                          const PropertyGraph** object,
+                          const FindOptions& options);
 
   // FindConversion looks up a Conversion between from_type and to_type with the
   // given options.
@@ -401,6 +415,8 @@ class Catalog {
       const absl::Span<const std::string>& mistyped_path);
   virtual std::string SuggestEnumValue(const EnumType* type,
                                        absl::string_view mistyped_value);
+  virtual std::string SuggestPropertyGraph(
+      absl::Span<const std::string> mistyped_path);
   virtual std::string SuggestSequence(
       const absl::Span<const std::string>& mistyped_path);
 
@@ -474,6 +490,14 @@ class Catalog {
   virtual absl::Status GetConstant(const std::string& name,
                                    const Constant** constant,
                                    const FindOptions& options = FindOptions());
+  absl::Status GetPropertyGraph(absl::string_view name,
+                                const PropertyGraph*& property_graph) {
+    return GetPropertyGraph(name, property_graph, FindOptions());
+  }
+
+  virtual absl::Status GetPropertyGraph(absl::string_view name,
+                                        const PropertyGraph*& property_graph,
+                                        const FindOptions& options);
 
   // Helper functions for getting canonical versions of NOT_FOUND error
   // messages.
@@ -495,6 +519,8 @@ class Catalog {
   absl::Status ConversionNotFoundError(
       const Type* from, const Type* to,
       const FindConversionOptions& options) const;
+  absl::Status PropertyGraphNotFoundError(
+      absl::Span<const std::string> path) const;
 
   // Templatized version of the previous functions.
   template <class ObjectType>
@@ -508,9 +534,11 @@ class Catalog {
             std::is_same<ObjectType, Sequence>::value ||
             std::is_same<ObjectType, Type>::value ||
             std::is_same<ObjectType, Procedure>::value ||
-            std::is_same<ObjectType, Constant>::value,
+            std::is_same<ObjectType, Constant>::value ||
+            std::is_same<ObjectType, PropertyGraph>::value,
         "ObjectNotFoundError only supports Function, TableValuedFunction, "
-        "Table, Model, Connection, Sequence, Type, Procedure and Constant");
+        "Table, Model, Connection, Sequence, Type, Procedure, Constant, "
+        "and Property Graph");
     if (std::is_same<ObjectType, Function>::value) {
       return FunctionNotFoundError(path);
     } else if (std::is_same<ObjectType, TableValuedFunction>::value) {
@@ -529,6 +557,8 @@ class Catalog {
       return ProcedureNotFoundError(path);
     } else if (std::is_same<ObjectType, Constant>::value) {
       return ConstantNotFoundError(path);
+    } else if (std::is_same<ObjectType, PropertyGraph>::value) {
+      return PropertyGraphNotFoundError(path);
     }
   }
 
@@ -549,10 +579,12 @@ class Catalog {
             std::is_same<ObjectType, Connection>::value ||
             std::is_same<ObjectType, Sequence>::value ||
             std::is_same<ObjectType, Type>::value ||
-            std::is_same<ObjectType, Procedure>::value,
+            std::is_same<ObjectType, Procedure>::value ||
+            std::is_same<ObjectType, PropertyGraph>::value,
         "EmptyNamePathInternalError only supports Constant, Function, "
         "TableValuedFunction, Table, Model, Connection, Sequence, "
-        "Type and Procedure");
+        "Type, and Procedure, "
+        "and PropertyGraph");
     if (std::is_same<ObjectType, Constant>::value) {
       return EmptyNamePathInternalError("Constant");
     } else if (std::is_same<ObjectType, Function>::value) {
@@ -571,6 +603,8 @@ class Catalog {
       return EmptyNamePathInternalError("Type");
     } else if (std::is_same<ObjectType, Procedure>::value) {
       return EmptyNamePathInternalError("Procedure");
+    } else if (std::is_same<ObjectType, PropertyGraph>::value) {
+      return EmptyNamePathInternalError("PropertyGraph");
     }
   }
 
@@ -638,6 +672,11 @@ class EnumerableCatalog : public Catalog {
     return absl::NotFoundError(
         "Models are not supported in this EnumerableCatalog");
   }
+  virtual absl::Status GetPropertyGraphs(
+      absl::flat_hash_set<const zetasql::PropertyGraph*>* output) const {
+    return absl::NotFoundError(
+        "PropertyGraphs are not supported in this EnumerableCatalog");
+  }
 };
 
 
@@ -692,32 +731,46 @@ class AnonymizationUserIdInfo {
   const std::vector<std::string> column_name_path_;
 };
 
-// Contains anonymization properties related to a Table.  Currently, includes
-// a column reference identifying the owning entity ('user') for each row of a
-// Table.  This class is only relevant for engines and tables that support
-// queries with differential privacy.  For further details, see:
+// Contains anonymization properties related to a Table.
+// Optionally, tables can specify default privacy parameters to apply to
+// queries reading this table. We support a column reference identifying the
+// owning entity (`user`) for each row of a Table and a default threshold value
+// for the Table. A `default_threshold` only applies to `SELECT WITH
+// AGGREGATION_THRESHOLD` queries.
+
+// For further details, please see:
 //
-// (broken link).
-//
-// TODO: Include support for other anonymization options here, such
-// as epsilon, delta, and k-threshold.
+// * (broken link)
+// * (broken link)
 class AnonymizationInfo {
  public:
-  // Creates an AnonymizationInfo for the specified <table> and
-  // <userid_column_name_path>.  Returns an error if the
-  // <userid_column_name_path> does not exist in <table> or is ambiguous.
+  // Creates an AnonymizationInfo for the specified `table` and
+  // `userid_column_name_path`.  Returns an error if the
+  // `userid_column_name_path` does not exist in `table` or is ambiguous.
   static absl::StatusOr<std::unique_ptr<AnonymizationInfo>> Create(
       const Table* table,
       absl::Span<const std::string> userid_column_name_path);
 
-  // Creates an AnonymizationInfo for the specified <userid_column_name_path>.
+  // Creates an AnonymizationInfo for the specified `table` and
+  // `userid_column_name_path`.  Returns an error if the
+  // `userid_column_name_path` does not exist in `table` or is ambiguous.
+  // A `default_threshold_value` for this table can be set. A
+  // default value that is set to 0 is essentially a no-op.
+  static absl::StatusOr<std::unique_ptr<AnonymizationInfo>> Create(
+      const Table* table, absl::Span<const std::string> userid_column_name_path,
+      int default_threshold);
+
+  // Creates an `AnonymizationInfo` for the specified `userid_column_name_path`.
   static absl::StatusOr<std::unique_ptr<AnonymizationInfo>> Create(
       absl::Span<const std::string> userid_column_name_path);
 
-  // Returns AnonymizationUserIdInfo related to the Table.
+  // Returns `AnonymizationUserIdInfo` related to the Table.
   const AnonymizationUserIdInfo& GetUserIdInfo() const {
     return userid_info_;
   }
+
+  // Returns the `default_threshold` for the Table.
+  int GetDefaultThreshold() const { return default_threshold_; }
 
   // Helper for extracting the userid column name path from the related
   // AnonymizationUserIdInfo.
@@ -727,7 +780,15 @@ class AnonymizationInfo {
   explicit AnonymizationInfo(AnonymizationUserIdInfo userid_info)
       : userid_info_(std::move(userid_info)) {}
 
+  // Sets the `default_threshold` for the Table.
+  void SetDefaultThreshold(int default_threshold) {
+    default_threshold_ = default_threshold;
+  }
+
   AnonymizationUserIdInfo userid_info_;
+
+  // The default threshold value for this table. Must be >= 0.
+  int default_threshold_ = 0;
 };
 
 // A table or table-like object visible in a ZetaSQL query.
@@ -753,10 +814,22 @@ class Table {
   // value is optional, and a Table instance can leave it unset (empty
   // std::optional).
   //
-  // Cannot be set to a empty vector as a primary key should contain at least
-  // one element.
+  // Cannot be set to a empty vector. Callers can assume the key, if set,
+  // contains at least one element.
   virtual std::optional<std::vector<int>> PrimaryKey() const {
-    return std::optional<std::vector<int>>();
+    return std::nullopt;
+  }
+
+  // Return ordinal indexes of row identity columns.
+  //
+  // The default implementation returns the same value as PrimaryKey(). However,
+  // this method may return a different set of columns, e.g. storage native row
+  // identity pseudo-columns.
+  //
+  // For ease of use, cannot be set to a empty vector (single row tables which
+  // could have an empty row identity are not supported).
+  virtual std::optional<std::vector<int>> RowIdentityColumns() const {
+    return PrimaryKey();
   }
 
   // This function returns nullptr for anonymous or duplicate column names.
@@ -934,6 +1007,7 @@ class Column {
     enum class ExpressionKind {
       DEFAULT,
       GENERATED,
+      MEASURE_EXPRESSION,
     };
     ExpressionAttributes(const ExpressionKind expression_kind,
                          const std::string& expression_string,
@@ -978,6 +1052,14 @@ class Column {
     if (!expression.has_value()) return false;
     return expression->GetExpressionKind() ==
            ExpressionAttributes::ExpressionKind::GENERATED;
+  }
+
+  // Returns true if the column has a measure expression, false otherwise.
+  bool HasMeasureExpression() const {
+    const auto& expression = GetExpression();
+    if (!expression.has_value()) return false;
+    return expression->GetExpressionKind() ==
+           ExpressionAttributes::ExpressionKind::MEASURE_EXPRESSION;
   }
 
   // Returns whether or not this Column is a specific column interface or
