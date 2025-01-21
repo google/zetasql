@@ -50,21 +50,29 @@ def textmapper_dependencies():
         name = "dev_lsp_go_jsonrpc2",
         importpath = "go.lsp.dev/jsonrpc2",
         commit = "8c68d4fd37cd4bd06b62b3243f0d2292c681d164",
+        remote = "https://github.com/go-language-server/jsonrpc2",
+        vcs = "git",
     )
     go_repository(
         name = "dev_lsp_go_protocol",
         importpath = "go.lsp.dev/protocol",
         commit = "da30f9ae0326cc45b76adc5cd8920ac1ffa14a15",
+        remote = "https://github.com/go-language-server/protocol",
+        vcs = "git",
     )
     go_repository(
         name = "dev_lsp_go_uri",
         importpath = "go.lsp.dev/uri",
         commit = "63eaac75cc850f596be19073ff6d4ec198603779",
+        remote = "https://github.com/go-language-server/uri",
+        vcs = "git",
     )
     go_repository(
         name = "dev_lsp_go_pkg",
         importpath = "go.lsp.dev/pkg",
         commit = "384b27a52fb2b5d74d78cfe89c7738e9a3e216a5",
+        remote = "https://github.com/go-language-server/pkg",
+        vcs = "git",
     )
     go_repository(
         name = "org_uber_go_zap",
