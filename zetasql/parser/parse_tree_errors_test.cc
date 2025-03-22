@@ -30,6 +30,7 @@
 #include "gtest/gtest.h"
 #include "absl/status/status.h"
 #include "zetasql/base/source_location.h"
+#include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
 
 using ::zetasql::testing::EqualsProto;
@@ -63,6 +64,19 @@ TEST(GetErrorLocationPoint, Basic) {
 
   EXPECT_THAT(
       GetErrorLocationPoint(&ast_location, false).ToInternalErrorLocation(),
+      EqualsProto(expected.ToInternalErrorLocation()));
+}
+
+TEST(GetErrorLocationPoint, AtEnd) {
+  FakeASTNode ast_location;
+  ZETASQL_ASSERT_OK(ast_location.InitFields());
+  ParseLocationPoint expected =
+      ParseLocationPoint::FromByteOffset("fake_filename", 10);
+
+  EXPECT_THAT(
+      GetErrorLocationPoint(&ast_location, /*include_leftmost_child=*/false,
+                            /*use_end_location=*/true)
+          .ToInternalErrorLocation(),
       EqualsProto(expected.ToInternalErrorLocation()));
 }
 

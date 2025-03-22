@@ -57,7 +57,7 @@ ZetaSQL supports the following debugging functions.
 
 ## `ERROR`
 
-```sql
+```zetasql
 ERROR(error_message)
 ```
 
@@ -84,15 +84,15 @@ ZetaSQL infers the return type in context.
 
 In the following example, the query produces an error message:
 
-```sql
+```zetasql
 -- ERROR: Show this error message (while evaluating error("Show this error message"))
 SELECT ERROR('Show this error message')
 ```
 
 In the following example, the query returns an error message if the value of the
-row does not match one of two defined values.
+row doesn't match one of two defined values.
 
-```sql
+```zetasql
 SELECT
   CASE
     WHEN value = 'foo' THEN 'Value is foo.'
@@ -112,7 +112,7 @@ before or after the <nobr>`x > 0`</nobr> condition, because ZetaSQL
 generally provides no ordering guarantees between `WHERE` clause conditions and
 there are no special guarantees for the `ERROR` function.
 
-```sql
+```zetasql
 SELECT *
 FROM (SELECT -1 AS x)
 WHERE x > 0 AND ERROR('Example error');
@@ -122,7 +122,7 @@ In the next example, the `WHERE` clause evaluates an `IF` condition, which
 ensures that ZetaSQL only evaluates the `ERROR` function if the
 condition fails.
 
-```sql
+```zetasql
 SELECT *
 FROM (SELECT -1 AS x)
 WHERE IF(x > 0, true, ERROR(FORMAT('Error: x must be positive but is %t', x)));
@@ -132,7 +132,7 @@ WHERE IF(x > 0, true, ERROR(FORMAT('Error: x must be positive but is %t', x)));
 
 ## `IFERROR`
 
-```sql
+```zetasql
 IFERROR(try_expression, catch_expression)
 ```
 
@@ -142,7 +142,7 @@ Evaluates `try_expression`.
 
 When `try_expression` is evaluated:
 
-+ If the evaluation of `try_expression` does not produce an error, then
++ If the evaluation of `try_expression` doesn't produce an error, then
   `IFERROR` returns the result of `try_expression` without evaluating
   `catch_expression`.
 + If the evaluation of `try_expression` produces a system error, then `IFERROR`
@@ -152,7 +152,7 @@ When `try_expression` is evaluated:
 
 If `catch_expression` is evaluated:
 
-+ If the evaluation of `catch_expression` does not produce an error, then
++ If the evaluation of `catch_expression` doesn't produce an error, then
   `IFERROR` returns the result of `catch_expression`.
 + If the evaluation of `catch_expression` produces any error, then `IFERROR`
   produces that error.
@@ -174,7 +174,7 @@ The [supertype][supertype] for `try_expression` and
 
 In the following example, the query successfully evaluates `try_expression`.
 
-```sql
+```zetasql
 SELECT IFERROR('a', 'b') AS result
 
 /*--------*
@@ -187,7 +187,7 @@ SELECT IFERROR('a', 'b') AS result
 In the following example, the query successfully evaluates the
 `try_expression` subquery.
 
-```sql
+```zetasql
 SELECT IFERROR((SELECT [1,2,3][OFFSET(0)]), -1) AS result
 
 /*--------*
@@ -200,7 +200,7 @@ SELECT IFERROR((SELECT [1,2,3][OFFSET(0)]), -1) AS result
 In the following example, `IFERROR` catches an evaluation error in the
 `try_expression` and successfully evaluates `catch_expression`.
 
-```sql
+```zetasql
 SELECT IFERROR(ERROR('a'), 'b') AS result
 
 /*--------*
@@ -213,7 +213,7 @@ SELECT IFERROR(ERROR('a'), 'b') AS result
 In the following example, `IFERROR` catches an evaluation error in the
 `try_expression` subquery and successfully evaluates `catch_expression`.
 
-```sql
+```zetasql
 SELECT IFERROR((SELECT [1,2,3][OFFSET(9)]), -1) AS result
 
 /*--------*
@@ -226,7 +226,7 @@ SELECT IFERROR((SELECT [1,2,3][OFFSET(9)]), -1) AS result
 In the following query, the error is handled by the innermost `IFERROR`
 operation, `IFERROR(ERROR('a'), 'b')`.
 
-```sql
+```zetasql
 SELECT IFERROR(IFERROR(ERROR('a'), 'b'), 'c') AS result
 
 /*--------*
@@ -239,7 +239,7 @@ SELECT IFERROR(IFERROR(ERROR('a'), 'b'), 'c') AS result
 In the following query, the error is handled by the outermost `IFERROR`
 operation, `IFERROR(..., 'c')`.
 
-```sql
+```zetasql
 SELECT IFERROR(IFERROR(ERROR('a'), ERROR('b')), 'c') AS result
 
 /*--------*
@@ -252,7 +252,7 @@ SELECT IFERROR(IFERROR(ERROR('a'), ERROR('b')), 'c') AS result
 In the following example, an evaluation error is produced because the subquery
 passed in as the `try_expression` evaluates to a table, not a scalar value.
 
-```sql
+```zetasql
 SELECT IFERROR((SELECT e FROM UNNEST([1, 2]) AS e), 3) AS result
 
 /*--------*
@@ -266,7 +266,7 @@ In the following example, `IFERROR` catches an evaluation error in `ERROR('a')`
 and then evaluates `ERROR('b')`. Because there is also an evaluation error in
 `ERROR('b')`, `IFERROR` produces an evaluation error for `ERROR('b')`.
 
-```sql
+```zetasql
 SELECT IFERROR(ERROR('a'), ERROR('b')) AS result
 
 --ERROR: OUT_OF_RANGE 'b'
@@ -276,7 +276,7 @@ SELECT IFERROR(ERROR('a'), ERROR('b')) AS result
 
 ## `ISERROR`
 
-```sql
+```zetasql
 ISERROR(try_expression)
 ```
 
@@ -284,7 +284,7 @@ ISERROR(try_expression)
 
 Evaluates `try_expression`.
 
-+ If the evaluation of `try_expression` does not produce an error, then
++ If the evaluation of `try_expression` doesn't produce an error, then
   `ISERROR` returns `FALSE`.
 + If the evaluation of `try_expression` produces a system error, then `ISERROR`
   produces that system error.
@@ -303,7 +303,7 @@ Evaluates `try_expression`.
 
 In the following examples, `ISERROR` successfully evaluates `try_expression`.
 
-```sql
+```zetasql
 SELECT ISERROR('a') AS is_error
 
 /*----------*
@@ -313,7 +313,7 @@ SELECT ISERROR('a') AS is_error
  *----------*/
 ```
 
-```sql
+```zetasql
 SELECT ISERROR(2/1) AS is_error
 
 /*----------*
@@ -323,7 +323,7 @@ SELECT ISERROR(2/1) AS is_error
  *----------*/
 ```
 
-```sql
+```zetasql
 SELECT ISERROR((SELECT [1,2,3][OFFSET(0)])) AS is_error
 
 /*----------*
@@ -336,7 +336,7 @@ SELECT ISERROR((SELECT [1,2,3][OFFSET(0)])) AS is_error
 In the following examples, `ISERROR` catches an evaluation error in
 `try_expression`.
 
-```sql
+```zetasql
 SELECT ISERROR(ERROR('a')) AS is_error
 
 /*----------*
@@ -346,7 +346,7 @@ SELECT ISERROR(ERROR('a')) AS is_error
  *----------*/
 ```
 
-```sql
+```zetasql
 SELECT ISERROR(2/0) AS is_error
 
 /*----------*
@@ -356,7 +356,7 @@ SELECT ISERROR(2/0) AS is_error
  *----------*/
 ```
 
-```sql
+```zetasql
 SELECT ISERROR((SELECT [1,2,3][OFFSET(9)])) AS is_error
 
 /*----------*
@@ -369,7 +369,7 @@ SELECT ISERROR((SELECT [1,2,3][OFFSET(9)])) AS is_error
 In the following example, an evaluation error is produced because the subquery
 passed in as `try_expression` evaluates to a table, not a scalar value.
 
-```sql
+```zetasql
 SELECT ISERROR((SELECT e FROM UNNEST([1, 2]) AS e)) AS is_error
 
 /*----------*
@@ -381,7 +381,7 @@ SELECT ISERROR((SELECT e FROM UNNEST([1, 2]) AS e)) AS is_error
 
 ## `NULLIFERROR`
 
-```sql
+```zetasql
 NULLIFERROR(try_expression)
 ```
 
@@ -389,7 +389,7 @@ NULLIFERROR(try_expression)
 
 Evaluates `try_expression`.
 
-+ If the evaluation of `try_expression` does not produce an error, then
++ If the evaluation of `try_expression` doesn't produce an error, then
   `NULLIFERROR` returns the result of `try_expression`.
 + If the evaluation of `try_expression` produces a system error, then
  `NULLIFERROR` produces that system error.
@@ -410,7 +410,7 @@ The data type for `try_expression` or `NULL`
 In the following example, `NULLIFERROR` successfully evaluates
 `try_expression`.
 
-```sql
+```zetasql
 SELECT NULLIFERROR('a') AS result
 
 /*--------*
@@ -423,7 +423,7 @@ SELECT NULLIFERROR('a') AS result
 In the following example, `NULLIFERROR` successfully evaluates
 the `try_expression` subquery.
 
-```sql
+```zetasql
 SELECT NULLIFERROR((SELECT [1,2,3][OFFSET(0)])) AS result
 
 /*--------*
@@ -436,7 +436,7 @@ SELECT NULLIFERROR((SELECT [1,2,3][OFFSET(0)])) AS result
 In the following example, `NULLIFERROR` catches an evaluation error in
 `try_expression`.
 
-```sql
+```zetasql
 SELECT NULLIFERROR(ERROR('a')) AS result
 
 /*--------*
@@ -449,7 +449,7 @@ SELECT NULLIFERROR(ERROR('a')) AS result
 In the following example, `NULLIFERROR` catches an evaluation error in
 the `try_expression` subquery.
 
-```sql
+```zetasql
 SELECT NULLIFERROR((SELECT [1,2,3][OFFSET(9)])) AS result
 
 /*--------*
@@ -462,7 +462,7 @@ SELECT NULLIFERROR((SELECT [1,2,3][OFFSET(9)])) AS result
 In the following example, an evaluation error is produced because the subquery
 passed in as `try_expression` evaluates to a table, not a scalar value.
 
-```sql
+```zetasql
 SELECT NULLIFERROR((SELECT e FROM UNNEST([1, 2]) AS e)) AS result
 
 /*--------*

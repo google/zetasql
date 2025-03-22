@@ -23,6 +23,7 @@
 
 #include "zetasql/base/path.h"
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/resolved_ast/sql_builder.h"
 #include "zetasql/tools/execute_query/execute_query_tool.h"
 #include "zetasql/tools/execute_query/web/embedded_resources.h"
 #include "gmock/gmock.h"
@@ -76,7 +77,8 @@ bool HandleRequest(const ExecuteQueryWebRequest& request,
 TEST(ExecuteQueryWebHandlerTest, TestCSS) {
   std::string result;
   EXPECT_TRUE(HandleRequest(
-      ExecuteQueryWebRequest({""}, ExecuteQueryConfig::SqlMode::kQuery, "",
+      ExecuteQueryWebRequest({""}, ExecuteQueryConfig::SqlMode::kQuery,
+                             SQLBuilder::TargetSyntaxMode::kStandard, "",
                              "none", "MAXIMUM", "ALL_MINUS_DEV"),
       FakeQueryWebTemplates("CSS: {{css}}", "some_css", ""), result));
   EXPECT_THAT(result, Eq("CSS: some_css"));
@@ -86,7 +88,8 @@ TEST(ExecuteQueryWebHandlerTest, TestQueryPreserved) {
   std::string result;
   EXPECT_TRUE(HandleRequest(
       ExecuteQueryWebRequest({""}, ExecuteQueryConfig::SqlMode::kQuery,
-                             "foo bar", "none", "MAXIMUM", "ALL_MINUS_DEV"),
+                             SQLBuilder::TargetSyntaxMode::kStandard, "foo bar",
+                             "none", "MAXIMUM", "ALL_MINUS_DEV"),
       FakeQueryWebTemplates("{{> body}}", "", "Query: {{query}}"), result));
   EXPECT_THAT(result, Eq("Query: foo bar"));
 }
@@ -95,7 +98,8 @@ TEST(ExecuteQueryWebHandlerTest, TestQueryPreservedForScriptMode) {
   std::string result;
   EXPECT_TRUE(HandleRequest(
       ExecuteQueryWebRequest({""}, ExecuteQueryConfig::SqlMode::kScript,
-                             "foo bar", "none", "MAXIMUM", "ALL_MINUS_DEV"),
+                             SQLBuilder::TargetSyntaxMode::kStandard, "foo bar",
+                             "none", "MAXIMUM", "ALL_MINUS_DEV"),
       FakeQueryWebTemplates("{{> body}}", "", "Query: {{query}}"), result));
   EXPECT_THAT(result, Eq("Query: foo bar"));
 }
@@ -120,6 +124,7 @@ TEST(ExecuteQueryWebHandlerTest, TestModesPreserved) {
 
       EXPECT_TRUE(HandleRequest(
           ExecuteQueryWebRequest(subset, ExecuteQueryConfig::SqlMode::kQuery,
+                                 SQLBuilder::TargetSyntaxMode::kStandard,
                                  "foo bar", "none", "MAXIMUM", "ALL_MINUS_DEV"),
           FakeQueryWebTemplates("{{> body}}", "", mode_template), result));
       EXPECT_THAT(result, Eq(expected))
@@ -140,9 +145,31 @@ TEST(ExecuteQueryWebHandlerTest, TestSqlModesPreserved) {
   for (int index = 0; index < sql_modes.size(); ++index) {
     EXPECT_TRUE(HandleRequest(
         ExecuteQueryWebRequest(/*ToolMode is tested separately*/ {"execute"},
-                               sql_modes[index], "foo bar", "none", "MAXIMUM",
-                               "ALL_MINUS_DEV"),
+                               sql_modes[index],
+                               SQLBuilder::TargetSyntaxMode::kStandard,
+                               "foo bar", "none", "MAXIMUM", "ALL_MINUS_DEV"),
         FakeQueryWebTemplates("{{> body}}", "", sql_mode_template), result));
+    EXPECT_THAT(result, Eq(expected_results[index]))
+        << "Failed for subset [" << expected_results[index] << "]";
+  }
+}
+
+TEST(ExecuteQueryWebHandlerTest, TestTargetSyntaxModesPreserved) {
+  std::vector<SQLBuilder::TargetSyntaxMode> target_syntax_modes = {
+      SQLBuilder::TargetSyntaxMode::kStandard,
+      SQLBuilder::TargetSyntaxMode::kPipe};
+  std::string target_syntax_mode_template =
+      "{{target_syntax_mode_standard}}-{{target_syntax_mode_pipe}}";
+  std::vector<std::string> expected_results = {"true-", "-true"};
+  std::string result;
+  for (int index = 0; index < target_syntax_modes.size(); ++index) {
+    EXPECT_TRUE(HandleRequest(
+        ExecuteQueryWebRequest(/*ToolMode is tested separately*/ {"execute"},
+                               ExecuteQueryConfig::SqlMode::kQuery,
+                               target_syntax_modes[index], "foo bar", "none",
+                               "MAXIMUM", "ALL_MINUS_DEV"),
+        FakeQueryWebTemplates("{{> body}}", "", target_syntax_mode_template),
+        result));
     EXPECT_THAT(result, Eq(expected_results[index]))
         << "Failed for subset [" << expected_results[index] << "]";
   }
@@ -152,6 +179,7 @@ TEST(ExecuteQueryWebHandlerTest, TestQueryEscaped) {
   std::string result;
   EXPECT_TRUE(HandleRequest(
       ExecuteQueryWebRequest({""}, ExecuteQueryConfig::SqlMode::kQuery,
+                             SQLBuilder::TargetSyntaxMode::kStandard,
                              "</select> Exploit!", "none", "MAXIMUM",
                              "ALL_MINUS_DEV"),
       FakeQueryWebTemplates("{{> body}}", "", "Query: {{query}}"), result));
@@ -162,6 +190,7 @@ TEST(ExecuteQueryWebHandlerTest, TestQueryResultPresent) {
   std::string result;
   EXPECT_TRUE(HandleRequest(
       ExecuteQueryWebRequest({"execute"}, ExecuteQueryConfig::SqlMode::kQuery,
+                             SQLBuilder::TargetSyntaxMode::kStandard,
                              "SELECT 1", "none", "MAXIMUM", "ALL_MINUS_DEV"),
       FakeQueryWebTemplates("{{> body}}", "",
                             "{{#statements}}"
@@ -175,6 +204,7 @@ TEST(ExecuteQueryWebHandlerTest, TestQueryExecutedSimpleResult) {
   std::string result;
   EXPECT_TRUE(HandleRequest(
       ExecuteQueryWebRequest({"execute"}, ExecuteQueryConfig::SqlMode::kQuery,
+                             SQLBuilder::TargetSyntaxMode::kStandard,
                              "DESCRIBE RAND", "none", "MAXIMUM",
                              "ALL_MINUS_DEV"),
       FakeQueryWebTemplates("{{> body}}", "",
@@ -189,6 +219,7 @@ TEST(ExecuteQueryWebHandlerTest, TestQueryErrorPresent) {
   std::string result;
   EXPECT_TRUE(HandleRequest(
       ExecuteQueryWebRequest({"execute"}, ExecuteQueryConfig::SqlMode::kQuery,
+                             SQLBuilder::TargetSyntaxMode::kStandard,
                              "bad request", "none", "MAXIMUM", "ALL_MINUS_DEV"),
       FakeQueryWebTemplates("{{> body}}", "",
                             "{{#statements}}"
@@ -203,6 +234,7 @@ TEST(ExecuteQueryWebHandlerTest, TestCatalogUsed) {
   std::string result;
   EXPECT_TRUE(HandleRequest(
       ExecuteQueryWebRequest({"execute"}, ExecuteQueryConfig::SqlMode::kQuery,
+                             SQLBuilder::TargetSyntaxMode::kStandard,
                              "DESCRIBE Value", "none", "MAXIMUM",
                              "ALL_MINUS_DEV"),
       FakeQueryWebTemplates("{{> body}}", "",
@@ -214,6 +246,7 @@ TEST(ExecuteQueryWebHandlerTest, TestCatalogUsed) {
 
   EXPECT_TRUE(HandleRequest(
       ExecuteQueryWebRequest({"execute"}, ExecuteQueryConfig::SqlMode::kQuery,
+                             SQLBuilder::TargetSyntaxMode::kStandard,
                              "DESCRIBE Value", "sample", "MAXIMUM",
                              "ALL_MINUS_DEV"),
       FakeQueryWebTemplates("{{> body}}", "",
@@ -229,6 +262,7 @@ TEST(ExecuteQueryWebHandlerTest, TestShowStatement) {
   std::string result;
   EXPECT_TRUE(HandleRequest(
       ExecuteQueryWebRequest({"execute"}, ExecuteQueryConfig::SqlMode::kQuery,
+                             SQLBuilder::TargetSyntaxMode::kStandard,
                              "SHOW TABLES like 'Value'", "none", "MAXIMUM",
                              "ALL_MINUS_DEV"),
       FakeQueryWebTemplates("{{> body}}", "",
@@ -240,6 +274,7 @@ TEST(ExecuteQueryWebHandlerTest, TestShowStatement) {
 
   EXPECT_TRUE(HandleRequest(
       ExecuteQueryWebRequest({"execute"}, ExecuteQueryConfig::SqlMode::kQuery,
+                             SQLBuilder::TargetSyntaxMode::kStandard,
                              "SHOW TABLES LIKE '%Part%'", "tpch", "MAXIMUM",
                              "ALL_MINUS_DEV"),
       FakeQueryWebTemplates("{{> body}}", "",
@@ -251,6 +286,7 @@ TEST(ExecuteQueryWebHandlerTest, TestShowStatement) {
 
   EXPECT_TRUE(HandleRequest(
       ExecuteQueryWebRequest({"execute"}, ExecuteQueryConfig::SqlMode::kQuery,
+                             SQLBuilder::TargetSyntaxMode::kStandard,
                              "SHOW functions LIKE '%aTaN%'", "sample",
                              "MAXIMUM", "ALL_MINUS_DEV"),
       FakeQueryWebTemplates("{{> body}}", "",
@@ -262,6 +298,7 @@ TEST(ExecuteQueryWebHandlerTest, TestShowStatement) {
 
   EXPECT_TRUE(HandleRequest(
       ExecuteQueryWebRequest({"execute"}, ExecuteQueryConfig::SqlMode::kQuery,
+                             SQLBuilder::TargetSyntaxMode::kStandard,
                              "show tvfs like 'Binary%'", "sample", "MAXIMUM",
                              "ALL_MINUS_DEV"),
       FakeQueryWebTemplates("{{> body}}", "",
@@ -285,6 +322,7 @@ TEST(ExecuteQueryWebHandlerTest, TestEchoStatement) {
   // With one input statement, show_statement_text isn't set.
   EXPECT_TRUE(HandleRequest(
       ExecuteQueryWebRequest({"execute"}, ExecuteQueryConfig::SqlMode::kQuery,
+                             SQLBuilder::TargetSyntaxMode::kStandard,
                              "SELECT 1;", "none", "MAXIMUM", "ALL_MINUS_DEV"),
       web_template, result));
   EXPECT_THAT(result, Eq("\n---\n"));
@@ -293,6 +331,7 @@ TEST(ExecuteQueryWebHandlerTest, TestEchoStatement) {
   // Newlines are stripped off the beginning and end of statement_text.
   EXPECT_TRUE(HandleRequest(
       ExecuteQueryWebRequest({"execute"}, ExecuteQueryConfig::SqlMode::kQuery,
+                             SQLBuilder::TargetSyntaxMode::kStandard,
                              "\n\n\r\nSELECT 1;\n\r\nSELECT\n  2;\n\r\n",
                              "none", "MAXIMUM", "ALL_MINUS_DEV"),
       web_template, result));
@@ -305,8 +344,10 @@ static void RunFileBasedTest(
   file_based_test_driver::TestCaseOptions test_case_options;
   test_case_options.RegisterString("mode", "execute");
   test_case_options.RegisterString("sql_mode", "query");
+  test_case_options.RegisterString("target_syntax_mode", "standard");
   test_case_options.RegisterString("catalog", "sample");
   test_case_options.RegisterString("enabled_language_features", "MAXIMUM");
+  test_case_options.RegisterString("enabled_ast_rewrites", "ALL_MINUS_DEV");
   std::string input_sql = std::string(test_case_input);
   ZETASQL_ASSERT_OK(test_case_options.ParseTestCaseOptions(&input_sql));
   ExecuteQueryConfig config;
@@ -325,6 +366,10 @@ static void RunFileBasedTest(
       "{{#sql_mode_query}}sql_mode_query\n{{/sql_mode_query}}"
       "{{#sql_mode_expression}}sql_mode_expression\n{{/sql_mode_expression}}"
       "{{#sql_mode_script}}sql_mode_script\n{{/sql_mode_script}}"
+      "{{#target_syntax_mode_standard}}target_syntax_mode_standard\n"
+      "{{/target_syntax_mode_standard}}"
+      "{{#target_syntax_mode_pipe}}target_syntax_mode_pipe\n"
+      "{{/target_syntax_mode_pipe}}"
       "{{#statements}}\n"
       "{{#show_statement_text}}\n"
       "{{#statement_text}}\n"
@@ -369,9 +414,11 @@ static void RunFileBasedTest(
           modes,
           ExecuteQueryConfig::parse_sql_mode(
               test_case_options.GetString("sql_mode")),
+          ExecuteQueryConfig::parse_target_syntax_mode(
+              test_case_options.GetString("target_syntax_mode")),
           input_sql, test_case_options.GetString("catalog"),
           test_case_options.GetString("enabled_language_features"),
-          "ALL_MINUS_DEV"),
+          test_case_options.GetString("enabled_ast_rewrites")),
       web_template, result));
 
   test_result->AddTestOutput(result);

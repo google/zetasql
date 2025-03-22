@@ -37,7 +37,6 @@
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "absl/status/statusor.h"
-#include "absl/types/optional.h"
 #include "zetasql/base/no_destructor.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_builder.h"

@@ -186,9 +186,6 @@ QueryStmt
               +-SingleRowScan
 ==
 
-# TODO: Figure out how refer columns out of an anonymous struct,
-# introduce dotstar operation in SQLBuilder.
-[no_run_unparser]
 select *,
        '---',
        t.c1, t.c1.*,
@@ -291,7 +288,6 @@ QueryStmt
 ==
 
 # Shows how alias names are mantained at the top of select list.
-[no_run_unparser]
 select (select AS STRUCT 1 a, 2 b, 3 c).*, (select AS STRUCT 1, 2, 3).*
 --
 QueryStmt
@@ -583,7 +579,6 @@ QueryStmt
           +-TableScan(column_list=[ComplexTypes.TestProto#6], table=ComplexTypes, column_index_list=[5])
 ==
 
-[no_run_unparser]
 select a from (select (select AS STRUCT 1, 2 a).*)
 --
 QueryStmt

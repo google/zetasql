@@ -109,11 +109,11 @@ TypeDeserializer::DeserializeGraphElementType(
     property_types.emplace_back(property_type_proto.name(), value_type);
   }
   const GraphElementType* graph_element_type;
-  ZETASQL_RETURN_IF_ERROR(type_factory_->MakeGraphElementTypeFromVector(
-      std::vector<std::string>{
-          graph_element_type_proto.graph_reference().begin(),
-          graph_element_type_proto.graph_reference().end()},
-      element_kind, std::move(property_types), &graph_element_type));
+    ZETASQL_RETURN_IF_ERROR(type_factory_->MakeGraphElementType(
+        std::vector<std::string>{
+            graph_element_type_proto.graph_reference().begin(),
+            graph_element_type_proto.graph_reference().end()},
+        element_kind, std::move(property_types), &graph_element_type));
   return graph_element_type;
 }
 

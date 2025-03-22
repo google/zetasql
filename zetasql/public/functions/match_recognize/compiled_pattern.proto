@@ -49,6 +49,10 @@ message StateMachineProto {
 
     // State representing the end of a match.
     optional int32 final_state = 3;
+
+    // Number of pattern variables the engine is expected to provide during
+    // matching.
+    optional int32 num_pattern_variables = 4;
   }
   optional CompiledNFAProto nfa = 1;
   optional ResolvedMatchRecognizeScanEnums.AfterMatchSkipMode

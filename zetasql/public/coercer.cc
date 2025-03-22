@@ -768,10 +768,10 @@ absl::StatusOr<const GraphElementType*> Coercer::GetCommonGraphElementSuperType(
   // inconsistent property types (property type with same name but different
   // value type).
   const GraphElementType* supertype;
-  ZETASQL_RETURN_IF_ERROR(type_factory_->MakeGraphElementTypeFromVector(
-      dominant_graph_element_type->graph_reference(),
-      dominant_graph_element_type->element_kind(),
-      std::move(property_type_collection), &supertype));
+    ZETASQL_RETURN_IF_ERROR(type_factory_->MakeGraphElementType(
+        dominant_graph_element_type->graph_reference(),
+        dominant_graph_element_type->element_kind(),
+        std::move(property_type_collection), &supertype));
   return supertype;
 }
 
@@ -1674,8 +1674,8 @@ absl::StatusOr<bool> Coercer::Context::LiteralCoercesTo(
     // seems like it should logically be considered as an exact match.  Same
     // for narrowing a DOUBLE to FLOAT, and INT64 to other INT types.
     result->incr_literals_coerced();
-    result->incr_literals_distance(GetLiteralCoercionCost(literal_value,
-                                                          to_type));
+    result->incr_literals_distance(
+        GetLiteralCoercionCost(literal_value, to_type));
     return true;
   }
   result->incr_non_matched_arguments();

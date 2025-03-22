@@ -16,14 +16,17 @@
 
 #include "zetasql/public/cast.h"
 
+#include <limits>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "zetasql/base/logging.h"
+#include "zetasql/common/graph_element_utils.h"
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/compliance/functions_testlib.h"
 #include "zetasql/public/function.h"
+#include "zetasql/public/json_value.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.h"
@@ -36,12 +39,14 @@
 #include "zetasql/testing/using_test_value.cc"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/base/casts.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "absl/time/time.h"
-#include "zetasql/base/status.h"
+#include "absl/types/span.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
@@ -49,10 +54,12 @@ MATCHER_P(StringValueMatches, matcher, "") {
   return ExplainMatchResult(matcher, arg.string_value(), result_listener);
 }
 
-using testing::HasSubstr;
-using testing::StrCaseEq;
-using zetasql_base::testing::IsOkAndHolds;
-using zetasql_base::testing::StatusIs;
+using ::testing::HasSubstr;
+using ::testing::StrCaseEq;
+using ::testing::TestWithParam;
+using ::testing::ValuesIn;
+using ::zetasql_base::testing::IsOkAndHolds;
+using ::zetasql_base::testing::StatusIs;
 
 static TypeFactory* type_factory = new TypeFactory();
 
@@ -81,12 +88,9 @@ TEST(CastValueWithTimezoneArgumentTests, TimestampCastTest) {
   const Value string_without_timezone = String("1970-01-01 01:01:06");
   const Value string_with_timezone =
       String("1970-01-01 01:01:06 America/Los_Angeles");
-  const Value canonical_seconds_string =
-      String("1970-01-01 01:01:06-08");
-  const Value canonical_millis_string =
-      String("1970-01-01 01:01:06.000-08");
-  const Value canonical_micros_string =
-      String("1970-01-01 01:01:06.000000-08");
+  const Value canonical_seconds_string = String("1970-01-01 01:01:06-08");
+  const Value canonical_millis_string = String("1970-01-01 01:01:06.000-08");
+  const Value canonical_micros_string = String("1970-01-01 01:01:06.000000-08");
   const Value timestamp = TimestampFromUnixMicros(32466000000);
 
   // TIMESTAMP to string, with zero truncation.
@@ -307,6 +311,10 @@ TEST(GraphCastTests, GraphElementTypeTest) {
       GraphNode({"graph_name"}, "id1",
                 {{"a", Value::NullString()}, {"b", Value::NullInt32()}},
                 {"label1"}, "ElementTable", type_factory);
+  const Value graph_node_a_null_b_null_id2 =
+      GraphNode({"graph_name"}, "id2",
+                {{"a", Value::NullString()}, {"b", Value::NullInt32()}},
+                {"label1"}, "ElementTable", type_factory);
 
   const Value graph_node_a_int_b = GraphNode(
       {"graph_name"}, "id1", {{"a", Value::Int32(10)}, {"b", Value::Int32(1)}},
@@ -326,27 +334,21 @@ TEST(GraphCastTests, GraphElementTypeTest) {
                 {{"a", Value::String("v0")}, {"b", Value::Int32(1)}},
                 {"label3"}, "ElementTable", type_factory);
 
-  EXPECT_THAT(CastValue(graph_node_b_c, absl::UTCTimeZone(), LanguageOptions(),
-                        graph_node_a_b.type()),
-              IsOkAndHolds(graph_node_a_null_b));
-
   EXPECT_THAT(CastValue(graph_node_no_properties, absl::UTCTimeZone(),
                         LanguageOptions(), graph_node_a_b.type()),
               IsOkAndHolds(graph_node_a_null_b_null));
 
-  EXPECT_THAT(CastValue(graph_node_a_b, absl::UTCTimeZone(), LanguageOptions(),
-                        graph_node_no_properties.type()),
-              IsOkAndHolds(graph_node_no_properties));
-
   // CastValue has no effect on labels.
-  EXPECT_THAT(CastValue(graph_node_a_b, absl::UTCTimeZone(), LanguageOptions(),
-                        graph_node_no_properties_different_label.type()),
-              IsOkAndHolds(graph_node_no_properties));
+  EXPECT_THAT(
+      CastValue(graph_node_no_properties_different_label, absl::UTCTimeZone(),
+                LanguageOptions(), graph_node_a_b.type()),
+      IsOkAndHolds(graph_node_a_null_b_null_id2));
 
   // CastValue has no effect on definition name.
-  EXPECT_THAT(CastValue(graph_node_a_b, absl::UTCTimeZone(), LanguageOptions(),
-                        graph_node_no_properties_different_name.type()),
-              IsOkAndHolds(graph_node_no_properties));
+  EXPECT_THAT(
+      CastValue(graph_node_no_properties_different_name, absl::UTCTimeZone(),
+                LanguageOptions(), graph_node_a_b.type()),
+      IsOkAndHolds(graph_node_a_null_b_null));
 
   EXPECT_THAT(CastValue(graph_node_a_b, absl::UTCTimeZone(), LanguageOptions(),
                         graph_node_a_int_b.type()),
@@ -413,22 +415,6 @@ TEST(GraphCastTests, GraphPathTypeTest) {
                 "id1", "id2", type_factory);
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(
-      Value path_node_b_c_edge_empty,
-      Value::MakeGraphPath(
-          MakeGraphPathType(graph_node_b_c.type()->AsGraphElement(),
-                            graph_edge_no_properties.type()->AsGraphElement()),
-          {graph_node_b_c}));
-  const GraphPathType* path_type_node_a_b_edge_empty =
-      MakeGraphPathType(graph_node_a_b.type()->AsGraphElement(),
-                        graph_edge_no_properties.type()->AsGraphElement());
-  ZETASQL_ASSERT_OK_AND_ASSIGN(Value path_node_a_b_edge_empty,
-                       Value::MakeGraphPath(path_type_node_a_b_edge_empty,
-                                            {graph_node_a_null_b}));
-  EXPECT_THAT(CastValue(path_node_b_c_edge_empty, absl::UTCTimeZone(),
-                        LanguageOptions(), path_type_node_a_b_edge_empty),
-              IsOkAndHolds(path_node_a_b_edge_empty));
-
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
       Value path_node_empty_edge_a_b,
       Value::MakeGraphPath(
           MakeGraphPathType(graph_node_no_properties.type()->AsGraphElement(),
@@ -443,9 +429,9 @@ TEST(GraphCastTests, GraphPathTypeTest) {
       Value::MakeGraphPath(path_type_node_empty_edge_empty,
                            {graph_node_no_properties, graph_edge_no_properties,
                             graph_node_no_properties_different_label}));
-  EXPECT_THAT(CastValue(path_node_empty_edge_a_b, absl::UTCTimeZone(),
-                        LanguageOptions(), path_type_node_empty_edge_empty),
-              IsOkAndHolds(path_node_empty_edge_empty));
+  EXPECT_THAT(CastValue(path_node_empty_edge_empty, absl::UTCTimeZone(),
+                        LanguageOptions(), path_node_empty_edge_a_b.type()),
+              IsOkAndHolds(path_node_empty_edge_a_b));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       Value path_node_empty_edge_a_null_b_null,
@@ -456,6 +442,12 @@ TEST(GraphCastTests, GraphPathTypeTest) {
                         LanguageOptions(), path_node_empty_edge_a_b.type()),
               IsOkAndHolds(path_node_empty_edge_a_null_b_null));
 
+  const GraphPathType* path_type_node_a_b_edge_empty =
+      MakeGraphPathType(graph_node_a_b.type()->AsGraphElement(),
+                        graph_edge_no_properties.type()->AsGraphElement());
+  ZETASQL_ASSERT_OK_AND_ASSIGN(Value path_node_a_b_edge_empty,
+                       Value::MakeGraphPath(path_type_node_a_b_edge_empty,
+                                            {graph_node_a_null_b}));
   const GraphPathType* path_type_node_a_int_b_edge_empty =
       MakeGraphPathType(graph_node_a_int_b.type()->AsGraphElement(),
                         graph_edge_no_properties.type()->AsGraphElement());

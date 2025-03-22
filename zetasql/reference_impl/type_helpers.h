@@ -18,6 +18,7 @@
 // implementations.
 #include <vector>
 
+#include "zetasql/public/catalog.h"
 #include "zetasql/public/type.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "absl/status/statusor.h"
@@ -43,6 +44,9 @@ absl::StatusOr<const ArrayType*> CreateTableArrayType(
 extern const char* kDMLOutputNumRowsModifiedColumnName;
 extern const char* kDMLOutputAllRowsColumnName;
 extern const char* kDMLOutputReturningColumnName;
+
+extern const char kCreatedObjectType[];
+extern const char kCreatedObjectName[];
 
 // Creates a Struct type representing the primary key of a table.
 //

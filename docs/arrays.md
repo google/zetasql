@@ -6,10 +6,9 @@
 <a id="working_with_arrays"></a>
 
 In ZetaSQL, an array is an ordered list consisting of zero or more
-values of the same data type. You can construct arrays of simple data types,
-such as `INT64`, and complex data types, such as `STRUCT`s. The current
-exception to this is the `ARRAY` data type because arrays of arrays
-are not supported. To learn more about the `ARRAY`
+values of the same data type. You can construct arrays of a simple data type,
+such as `INT64`, or a complex data type, such as `STRUCT`. However,
+arrays of arrays aren't supported. To learn more about the `ARRAY`
 data type, including
 `NULL` handling, see [Array type][array-data-type].
 
@@ -26,10 +25,10 @@ You can combine arrays using functions like
 ## Accessing array elements 
 <a id="accessing_array_elements"></a>
 
-Consider the following emulated table called `Sequences`. This table contains
+Consider the following table called `Sequences`. This table contains
 the column `some_numbers` of the `ARRAY` data type.
 
-```sql
+```zetasql
 WITH
   Sequences AS (
     SELECT [0, 1, 1, 2, 3, 5] AS some_numbers UNION ALL
@@ -56,7 +55,7 @@ one-based indexes.
 
 For example:
 
-```sql
+```zetasql
 SELECT
   some_numbers,
   some_numbers[0] AS index_0,
@@ -81,7 +80,7 @@ range. To avoid this, you can use `SAFE_OFFSET` or `SAFE_ORDINAL` to return
 
 The `ARRAY_LENGTH` function returns the length of an array.
 
-```sql
+```zetasql
 WITH Sequences AS
   (SELECT [0, 1, 1, 2, 3, 5] AS some_numbers
    UNION ALL SELECT [2, 4, 8, 16, 32] AS some_numbers
@@ -112,7 +111,7 @@ array and the [array element field access operator][array-el-field-operator].
 The examples in this section references nested data in an array called
 `items` in a table called `ItemsTable`:
 
-```sql
+```zetasql
 WITH ItemsTable AS (SELECT [
   STRUCT('red' AS color,
          2 AS inventory,
@@ -132,7 +131,7 @@ SELECT * FROM ItemsTable
 You can flatten nested data in an array called `items` with the
 `FLATTEN` operator. Here are some examples:
 
-```sql
+```zetasql
 SELECT FLATTEN(items.color) AS colors
 FROM ItemsTable
 
@@ -143,7 +142,7 @@ FROM ItemsTable
  *----------------------*/
 ```
 
-```sql
+```zetasql
 SELECT FLATTEN(items.inventory) AS inventory
 FROM ItemsTable
 
@@ -154,7 +153,7 @@ FROM ItemsTable
  *---------------*/
 ```
 
-```sql
+```zetasql
 SELECT FLATTEN(items.sales.prices) AS all_prices
 FROM ItemsTable
 
@@ -165,7 +164,7 @@ FROM ItemsTable
  *------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT FLATTEN(items.sales.prices[SAFE_OFFSET(1)]) AS second_prices
 FROM ItemsTable
 
@@ -190,7 +189,7 @@ element field access operator][array-el-field-operator].
 The examples in this section references nested data in an array called `items`
 in a table called `ItemsTable`:
 
-```sql
+```zetasql
 WITH ItemsTable AS (SELECT [
   STRUCT('red' AS color,
          2 AS inventory,
@@ -210,18 +209,21 @@ SELECT * FROM ItemsTable
 You can flatten nested data in an array called `items` with the
 `UNNEST` operator or directly in the `FROM` clause. Here are some examples:
 
-```sql
+```zetasql
 -- In UNNEST (FLATTEN used explicitly):
 SELECT colors
-FROM ItemsTable CROSS JOIN UNNEST(FLATTEN(items.color)) AS colors;
+FROM ItemsTable
+INNER JOIN UNNEST(FLATTEN(items.color)) AS colors;
 
 -- In UNNEST (FLATTEN used implicitly):
 SELECT colors
-FROM ItemsTable CROSS JOIN UNNEST(items.color) AS colors;
+FROM ItemsTable
+INNER JOIN UNNEST(items.color) AS colors;
 
 -- In the FROM clause (UNNEST used implicitly):
 SELECT colors
-FROM ItemsTable CROSS JOIN ItemsTable.items.color AS colors;
+FROM ItemsTable
+INNER JOIN ItemsTable.items.color AS colors;
 
 /*--------*
  | colors |
@@ -232,18 +234,21 @@ FROM ItemsTable CROSS JOIN ItemsTable.items.color AS colors;
  *--------*/
 ```
 
-```sql
+```zetasql
 -- In UNNEST (FLATTEN used explicitly):
 SELECT inventory
-FROM ItemsTable CROSS JOIN UNNEST(FLATTEN(items.inventory)) AS inventory;
+FROM ItemsTable
+INNER JOIN UNNEST(FLATTEN(items.inventory)) AS inventory;
 
 -- In UNNEST (FLATTEN used implicitly):
 SELECT inventory
-FROM ItemsTable CROSS JOIN UNNEST(items.inventory) AS inventory;
+FROM ItemsTable
+INNER JOIN UNNEST(items.inventory) AS inventory;
 
 -- In the FROM clause (UNNEST used implicitly):
 SELECT inventory
-FROM ItemsTable CROSS JOIN ItemsTable.items.inventory AS inventory;
+FROM ItemsTable
+INNER JOIN ItemsTable.items.inventory AS inventory;
 
 /*-----------*
  | inventory |
@@ -254,18 +259,21 @@ FROM ItemsTable CROSS JOIN ItemsTable.items.inventory AS inventory;
  *-----------*/
 ```
 
-```sql
+```zetasql
 -- In UNNEST (FLATTEN used explicitly):
 SELECT all_prices
-FROM ItemsTable CROSS JOIN UNNEST(FLATTEN(items.sales.prices)) AS all_prices;
+FROM ItemsTable
+INNER JOIN UNNEST(FLATTEN(items.sales.prices)) AS all_prices;
 
 -- In UNNEST (FLATTEN used implicitly):
 SELECT all_prices
-FROM ItemsTable CROSS JOIN UNNEST(items.sales.prices) AS all_prices;
+FROM ItemsTable
+INNER JOIN UNNEST(items.sales.prices) AS all_prices;
 
 -- In the FROM clause (UNNEST used implicitly):
 SELECT all_prices
-FROM ItemsTable CROSS JOIN ItemsTable.items.sales.prices AS all_prices;
+FROM ItemsTable
+INNER JOIN ItemsTable.items.sales.prices AS all_prices;
 
 /*------------*
  | all_prices |
@@ -278,18 +286,21 @@ FROM ItemsTable CROSS JOIN ItemsTable.items.sales.prices AS all_prices;
  *------------*/
 ```
 
-```sql
+```zetasql
 -- In UNNEST (FLATTEN used explicitly):
 SELECT second_prices
-FROM ItemsTable CROSS JOIN UNNEST(FLATTEN(items.sales.prices[SAFE_OFFSET(1)])) AS second_prices;
+FROM ItemsTable
+INNER JOIN UNNEST(FLATTEN(items.sales.prices[SAFE_OFFSET(1)])) AS second_prices;
 
 -- In UNNEST (FLATTEN used implicitly):
 SELECT second_prices
-FROM ItemsTable CROSS JOIN UNNEST(items.sales.prices[SAFE_OFFSET(1)]) AS second_prices;
+FROM ItemsTable
+INNER JOIN UNNEST(items.sales.prices[SAFE_OFFSET(1)]) AS second_prices;
 
 -- In the FROM clause (UNNEST used implicitly):
 SELECT second_prices
-FROM ItemsTable CROSS JOIN ItemsTable.items.sales.prices[SAFE_OFFSET(1)] AS second_prices;
+FROM ItemsTable
+INNER JOIN ItemsTable.items.sales.prices[SAFE_OFFSET(1)] AS second_prices;
 
 /*---------------*
  | second_prices |
@@ -316,7 +327,7 @@ then use the `ORDER BY` clause to order the rows by their offset.
 
 **Example**
 
-```sql
+```zetasql
 SELECT *
 FROM UNNEST(['foo', 'bar', 'baz', 'qux', 'corge', 'garply', 'waldo', 'fred'])
   AS element
@@ -337,33 +348,34 @@ ORDER BY offset;
  *----------+--------*/
 ```
 
-To flatten an entire column of `ARRAY`s while preserving the values
-of the other columns in each row, use a correlated
-[cross join][cross-join-query] to join the table containing the
-`ARRAY` column to the `UNNEST` output of that `ARRAY` column.
+To flatten an entire column of type `ARRAY` while preserving the values of the other
+columns in each row, use a correlated [`INNER JOIN`][inner-join-query] to join
+the table containing the `ARRAY` column to the `UNNEST` output of that `ARRAY`
+column.
 
 With a [correlated][correlated-join-query] join, the `UNNEST` operator
 references the `ARRAY` typed column from each row in the source table, which
 appears previously in the `FROM` clause. For each row `N` in the source table,
 `UNNEST` flattens the `ARRAY` from row `N` into a set of rows containing the
-`ARRAY` elements, and then the cross join joins this new set of rows with the
-single row `N` from the source table.
+`ARRAY` elements, and then a correlated `INNER JOIN` or `CROSS JOIN` combines
+this new set of rows with the single row `N` from the source table.
 
 **Examples**
 
-The following example uses [`UNNEST`][unnest-query]
-to return a row for each element in the array column. Because of the
-`CROSS JOIN`, the `id` column contains the `id` values for the row in
-`Sequences` that contains each number.
+The following example uses [`UNNEST`][unnest-query] to return a row for each
+element in the array column. Because of the `INNER JOIN`, the `id` column
+contains the `id` values for the row in `Sequences` that contains each number.
 
-```sql
-WITH Sequences AS
-  (SELECT 1 AS id, [0, 1, 1, 2, 3, 5] AS some_numbers
-   UNION ALL SELECT 2 AS id, [2, 4, 8, 16, 32] AS some_numbers
-   UNION ALL SELECT 3 AS id, [5, 10] AS some_numbers)
+```zetasql
+WITH
+  Sequences AS (
+    SELECT 1 AS id, [0, 1, 1, 2, 3, 5] AS some_numbers
+    UNION ALL SELECT 2 AS id, [2, 4, 8, 16, 32] AS some_numbers
+    UNION ALL SELECT 3 AS id, [5, 10] AS some_numbers
+  )
 SELECT id, flattened_numbers
 FROM Sequences
-CROSS JOIN UNNEST(Sequences.some_numbers) AS flattened_numbers;
+INNER JOIN UNNEST(Sequences.some_numbers) AS flattened_numbers;
 
 /*------+-------------------*
  | id   | flattened_numbers |
@@ -384,15 +396,18 @@ CROSS JOIN UNNEST(Sequences.some_numbers) AS flattened_numbers;
  *------+-------------------*/
 ```
 
-Note that for correlated cross joins the `UNNEST` operator is optional and the
-`CROSS JOIN` can be expressed as a comma cross join. Using this shorthand
-notation, the previous example is consolidated as follows:
+Note that for correlated joins the `UNNEST` operator is optional and the
+`INNER JOIN` can be expressed as a `CROSS JOIN` or a comma cross join. Using the
+comma cross join shorthand notation, the previous example is consolidated as
+follows:
 
-```sql
-WITH Sequences AS
-  (SELECT 1 AS id, [0, 1, 1, 2, 3, 5] AS some_numbers
-   UNION ALL SELECT 2 AS id, [2, 4, 8, 16, 32] AS some_numbers
-   UNION ALL SELECT 3 AS id, [5, 10] AS some_numbers)
+```zetasql
+WITH
+  Sequences AS (
+    SELECT 1 AS id, [0, 1, 1, 2, 3, 5] AS some_numbers
+    UNION ALL SELECT 2 AS id, [2, 4, 8, 16, 32] AS some_numbers
+    UNION ALL SELECT 3 AS id, [5, 10] AS some_numbers
+  )
 SELECT id, flattened_numbers
 FROM Sequences, Sequences.some_numbers AS flattened_numbers;
 
@@ -417,7 +432,7 @@ FROM Sequences, Sequences.some_numbers AS flattened_numbers;
 
 ## Querying nested and repeated fields
 
-If a table contains an `ARRAY` of `STRUCT`s or `PROTO`s, you can
+If a table contains an `ARRAY` of `STRUCT` or `PROTO` values, you can
 [flatten the `ARRAY`][flattening-arrays] to query the fields of the `STRUCT` or
 `PROTO`.
 You can also flatten `ARRAY` type fields of `STRUCT` values and repeated fields
@@ -427,26 +442,30 @@ of `PROTO` values. ZetaSQL treats repeated `PROTO` fields as
 ### Querying `STRUCT` elements in an array 
 <a id="query_structs_in_an_array"></a>
 
-The following example uses `UNNEST` with `CROSS JOIN` to flatten an `ARRAY` of
+The following example uses `UNNEST` with `INNER JOIN` to flatten an `ARRAY` of
 `STRUCT`s.
 
-```sql
-WITH Races AS (
-  SELECT "800M" AS race,
-    [STRUCT("Rudisha" AS name, [23.4, 26.3, 26.4, 26.1] AS laps),
-     STRUCT("Makhloufi" AS name, [24.5, 25.4, 26.6, 26.1] AS laps),
-     STRUCT("Murphy" AS name, [23.9, 26.0, 27.0, 26.0] AS laps),
-     STRUCT("Bosse" AS name, [23.6, 26.2, 26.5, 27.1] AS laps),
-     STRUCT("Rotich" AS name, [24.7, 25.6, 26.9, 26.4] AS laps),
-     STRUCT("Lewandowski" AS name, [25.0, 25.7, 26.3, 27.2] AS laps),
-     STRUCT("Kipketer" AS name, [23.2, 26.1, 27.3, 29.4] AS laps),
-     STRUCT("Berian" AS name, [23.7, 26.1, 27.0, 29.3] AS laps)]
-       AS participants)
+```zetasql
+WITH
+  Races AS (
+    SELECT
+      "800M" AS race,
+      [
+        STRUCT("Rudisha" AS name, [23.4, 26.3, 26.4, 26.1] AS laps),
+        STRUCT("Makhloufi" AS name, [24.5, 25.4, 26.6, 26.1] AS laps),
+        STRUCT("Murphy" AS name, [23.9, 26.0, 27.0, 26.0] AS laps),
+        STRUCT("Bosse" AS name, [23.6, 26.2, 26.5, 27.1] AS laps),
+        STRUCT("Rotich" AS name, [24.7, 25.6, 26.9, 26.4] AS laps),
+        STRUCT("Lewandowski" AS name, [25.0, 25.7, 26.3, 27.2] AS laps),
+        STRUCT("Kipketer" AS name, [23.2, 26.1, 27.3, 29.4] AS laps),
+        STRUCT("Berian" AS name, [23.7, 26.1, 27.0, 29.3] AS laps)
+      ] AS participants
+    )
 SELECT
   race,
   participant
 FROM Races AS r
-CROSS JOIN UNNEST(r.participants) AS participant;
+INNER JOIN UNNEST(r.participants) AS participant;
 
 /*------+---------------------------------------*
  | race | participant                           |
@@ -465,31 +484,35 @@ CROSS JOIN UNNEST(r.participants) AS participant;
 You can find specific information from repeated fields. For example, the
 following query returns the fastest racer in an 800M race.
 
-Note: This example does not involve flattening an array, but does
+Note: This example doesn't involve flattening an array, but does
 represent a common way to get information from a repeated field.
 
 **Example**
 
-```sql
-WITH Races AS (
-  SELECT "800M" AS race,
-    [STRUCT("Rudisha" AS name, [23.4, 26.3, 26.4, 26.1] AS laps),
-     STRUCT("Makhloufi" AS name, [24.5, 25.4, 26.6, 26.1] AS laps),
-     STRUCT("Murphy" AS name, [23.9, 26.0, 27.0, 26.0] AS laps),
-     STRUCT("Bosse" AS name, [23.6, 26.2, 26.5, 27.1] AS laps),
-     STRUCT("Rotich" AS name, [24.7, 25.6, 26.9, 26.4] AS laps),
-     STRUCT("Lewandowski" AS name, [25.0, 25.7, 26.3, 27.2] AS laps),
-     STRUCT("Kipketer" AS name, [23.2, 26.1, 27.3, 29.4] AS laps),
-     STRUCT("Berian" AS name, [23.7, 26.1, 27.0, 29.3] AS laps)]
-       AS participants)
+```zetasql
+WITH
+  Races AS (
+    SELECT
+      "800M" AS race,
+      [
+        STRUCT("Rudisha" AS name, [23.4, 26.3, 26.4, 26.1] AS laps),
+        STRUCT("Makhloufi" AS name, [24.5, 25.4, 26.6, 26.1] AS laps),
+        STRUCT("Murphy" AS name, [23.9, 26.0, 27.0, 26.0] AS laps),
+        STRUCT("Bosse" AS name, [23.6, 26.2, 26.5, 27.1] AS laps),
+        STRUCT("Rotich" AS name, [24.7, 25.6, 26.9, 26.4] AS laps),
+        STRUCT("Lewandowski" AS name, [25.0, 25.7, 26.3, 27.2] AS laps),
+        STRUCT("Kipketer" AS name, [23.2, 26.1, 27.3, 29.4] AS laps),
+        STRUCT("Berian" AS name, [23.7, 26.1, 27.0, 29.3] AS laps)
+      ] AS participants
+  )
 SELECT
   race,
-  (SELECT name
-   FROM UNNEST(participants)
-   ORDER BY (
-     SELECT SUM(duration)
-     FROM UNNEST(laps) AS duration) ASC
-   LIMIT 1) AS fastest_racer
+  (
+    SELECT name
+    FROM UNNEST(participants)
+    ORDER BY (SELECT SUM(duration) FROM UNNEST(laps) AS duration) ASC
+    LIMIT 1
+  ) AS fastest_racer
 FROM Races;
 
 /*------+---------------*
@@ -502,7 +525,7 @@ FROM Races;
 ### Querying `PROTO` elements in an array
 
 To query the fields of `PROTO` elements in an `ARRAY`, use `UNNEST` and
-`CROSS JOIN`.
+`INNER JOIN`.
 
 **Example**
 
@@ -510,24 +533,25 @@ The following query shows the contents of a table where one row contains an
 `ARRAY` of `PROTO`s. All of the `PROTO` field values in the `ARRAY` appear in a
 single row.
 
-```sql
-WITH Albums AS (
+```zetasql
+WITH
+  Albums AS (
   SELECT
     'Let It Be' AS album_name,
-    ARRAY[
-         NEW zetasql.examples.music.Chart(1 AS rank, 'US 100' AS chart_name),
-         NEW zetasql.examples.music.Chart(1 AS rank, 'UK 40' AS chart_name),
-         NEW zetasql.examples.music.Chart(2 AS rank, 'Oricon' AS chart_name)]
-     AS charts
+    [
+      NEW zetasql.examples.music.Chart(1 AS rank, 'US 100' AS chart_name),
+      NEW zetasql.examples.music.Chart(1 AS rank, 'UK 40' AS chart_name),
+      NEW zetasql.examples.music.Chart(2 AS rank, 'Oricon' AS chart_name)
+    ] AS charts
   UNION ALL
   SELECT
     'Rubber Soul' AS album_name,
-    ARRAY[
-         NEW zetasql.examples.music.Chart(1 AS rank, 'US 100' AS chart_name),
-         NEW zetasql.examples.music.Chart(1 AS rank, 'UK 40' AS chart_name),
-         NEW zetasql.examples.music.Chart(24 AS rank, 'Oricon' AS chart_name)]
-     AS charts
-)
+    [
+      NEW zetasql.examples.music.Chart(1 AS rank, 'US 100' AS chart_name),
+      NEW zetasql.examples.music.Chart(1 AS rank, 'UK 40' AS chart_name),
+      NEW zetasql.examples.music.Chart(24 AS rank, 'Oricon' AS chart_name)
+    ] AS charts
+  )
 SELECT *
 FROM Albums;
 
@@ -544,41 +568,43 @@ FROM Albums;
  *-------------+---------------------------------*/
 ```
 
-To return the value of the individual fields of the `PROTO`s inside an `ARRAY`,
-use `UNNEST` to flatten the `ARRAY`, then use a `CROSS JOIN` to apply the
-`UNNEST` operator to each row of the `ARRAY` column. The `CROSS JOIN` also
+To return the value of the individual fields of the `PROTO` values inside of an
+`ARRAY`, use `UNNEST` to flatten the `ARRAY`, then use an `INNER JOIN` to apply
+the `UNNEST` operator to each row of the `ARRAY` column. The `INNER JOIN` also
 joins the duplicated values of other columns to the result of `UNNEST`, so you
-can query these columns together with the fields of the `PROTO`s in the `ARRAY`.
+can query these columns together with the fields of the `PROTO` values in the
+`ARRAY`.
 
 **Example**
 
-The following example uses `UNNEST` to flatten the `ARRAY` `charts`. The `CROSS
+The following example uses `UNNEST` to flatten the `ARRAY` `charts`. The `INNER
 JOIN` applies the `UNNEST` operator to every row in the `charts` column and
 joins the duplicated value of `table.album_name` to the `chart` table. This
 allows the query to include the `table.album_name` column in the `SELECT` list
 together with the `PROTO` fields `chart.chart_name` and `chart.rank`.
 
-```sql
-WITH Albums AS (
-  SELECT
-    'Let It Be' AS album_name,
-    ARRAY[
-         NEW zetasql.examples.music.Chart(1 AS rank, 'US 100' AS chart_name),
-         NEW zetasql.examples.music.Chart(1 AS rank, 'UK 40' AS chart_name),
-         NEW zetasql.examples.music.Chart(2 AS rank, 'Oricon' AS chart_name)]
-     AS charts
-  UNION ALL
-  SELECT
-    'Rubber Soul' AS album_name,
-    ARRAY[
-         NEW zetasql.examples.music.Chart(1 AS rank, 'US 100' AS chart_name),
-         NEW zetasql.examples.music.Chart(1 AS rank, 'UK 40' AS chart_name),
-         NEW zetasql.examples.music.Chart(24 AS rank, 'Oricon' AS chart_name)]
-     AS charts
-)
+```zetasql
+WITH
+  Albums AS (
+    SELECT
+      'Let It Be' AS album_name,
+      [
+        NEW zetasql.examples.music.Chart(1 AS rank, 'US 100' AS chart_name),
+        NEW zetasql.examples.music.Chart(1 AS rank, 'UK 40' AS chart_name),
+        NEW zetasql.examples.music.Chart(2 AS rank, 'Oricon' AS chart_name)
+      ] AS charts
+    UNION ALL
+    SELECT
+      'Rubber Soul' AS album_name,
+      [
+        NEW zetasql.examples.music.Chart(1 AS rank, 'US 100' AS chart_name),
+        NEW zetasql.examples.music.Chart(1 AS rank, 'UK 40' AS chart_name),
+        NEW zetasql.examples.music.Chart(24 AS rank, 'Oricon' AS chart_name)
+      ] AS charts
+  )
 SELECT Albums.album_name, chart.chart_name, chart.rank
 FROM Albums
-CROSS JOIN UNNEST(charts) AS chart;
+INNER JOIN UNNEST(charts) AS chart;
 
 /*-------------+------------+------*
  | album_name  | chart_name | rank |
@@ -597,24 +623,30 @@ CROSS JOIN UNNEST(charts) AS chart;
 You can also get information from nested repeated fields. For example, the
 following statement returns the runner who had the fastest lap in an 800M race.
 
-```sql
-WITH Races AS (
- SELECT "800M" AS race,
-   [STRUCT("Rudisha" AS name, [23.4, 26.3, 26.4, 26.1] AS laps),
-    STRUCT("Makhloufi" AS name, [24.5, 25.4, 26.6, 26.1] AS laps),
-    STRUCT("Murphy" AS name, [23.9, 26.0, 27.0, 26.0] AS laps),
-    STRUCT("Bosse" AS name, [23.6, 26.2, 26.5, 27.1] AS laps),
-    STRUCT("Rotich" AS name, [24.7, 25.6, 26.9, 26.4] AS laps),
-    STRUCT("Lewandowski" AS name, [25.0, 25.7, 26.3, 27.2] AS laps),
-    STRUCT("Kipketer" AS name, [23.2, 26.1, 27.3, 29.4] AS laps),
-    STRUCT("Berian" AS name, [23.7, 26.1, 27.0, 29.3] AS laps)]
-    AS participants)
+```zetasql
+WITH
+  Races AS (
+    SELECT
+      "800M" AS race,
+      [
+        STRUCT("Rudisha" AS name, [23.4, 26.3, 26.4, 26.1] AS laps),
+        STRUCT("Makhloufi" AS name, [24.5, 25.4, 26.6, 26.1] AS laps),
+        STRUCT("Murphy" AS name, [23.9, 26.0, 27.0, 26.0] AS laps),
+        STRUCT("Bosse" AS name, [23.6, 26.2, 26.5, 27.1] AS laps),
+        STRUCT("Rotich" AS name, [24.7, 25.6, 26.9, 26.4] AS laps),
+        STRUCT("Lewandowski" AS name, [25.0, 25.7, 26.3, 27.2] AS laps),
+        STRUCT("Kipketer" AS name, [23.2, 26.1, 27.3, 29.4] AS laps),
+        STRUCT("Berian" AS name, [23.7, 26.1, 27.0, 29.3] AS laps)
+      ]AS participants
+  )
 SELECT
-race,
-(SELECT name
- FROM UNNEST(participants),
-   UNNEST(laps) AS duration
- ORDER BY duration ASC LIMIT 1) AS runner_with_fastest_lap
+  race,
+  (
+    SELECT name
+    FROM UNNEST(participants), UNNEST(laps) AS duration
+    ORDER BY duration ASC
+    LIMIT 1
+  ) AS runner_with_fastest_lap
 FROM Races;
 
 /*------+-------------------------*
@@ -624,28 +656,33 @@ FROM Races;
  *------+-------------------------*/
 ```
 
-Notice that the preceding query uses the comma operator (`,`) to perform an
-implicit `CROSS JOIN`. It is equivalent to the following example, which uses
-an explicit `CROSS JOIN`.
+Notice that the preceding query uses the comma operator (`,`) to perform a cross
+join and flatten the array. This is equivalent to using an explicit
+`CROSS JOIN`, or the following example which uses an explicit `INNER JOIN`:
 
-```sql
-WITH Races AS (
- SELECT "800M" AS race,
-   [STRUCT("Rudisha" AS name, [23.4, 26.3, 26.4, 26.1] AS laps),
-    STRUCT("Makhloufi" AS name, [24.5, 25.4, 26.6, 26.1] AS laps),
-    STRUCT("Murphy" AS name, [23.9, 26.0, 27.0, 26.0] AS laps),
-    STRUCT("Bosse" AS name, [23.6, 26.2, 26.5, 27.1] AS laps),
-    STRUCT("Rotich" AS name, [24.7, 25.6, 26.9, 26.4] AS laps),
-    STRUCT("Lewandowski" AS name, [25.0, 25.7, 26.3, 27.2] AS laps),
-    STRUCT("Kipketer" AS name, [23.2, 26.1, 27.3, 29.4] AS laps),
-    STRUCT("Berian" AS name, [23.7, 26.1, 27.0, 29.3] AS laps)]
-    AS participants)
+```zetasql
+WITH
+  Races AS (
+    SELECT "800M" AS race,
+      [
+        STRUCT("Rudisha" AS name, [23.4, 26.3, 26.4, 26.1] AS laps),
+        STRUCT("Makhloufi" AS name, [24.5, 25.4, 26.6, 26.1] AS laps),
+        STRUCT("Murphy" AS name, [23.9, 26.0, 27.0, 26.0] AS laps),
+        STRUCT("Bosse" AS name, [23.6, 26.2, 26.5, 27.1] AS laps),
+        STRUCT("Rotich" AS name, [24.7, 25.6, 26.9, 26.4] AS laps),
+        STRUCT("Lewandowski" AS name, [25.0, 25.7, 26.3, 27.2] AS laps),
+        STRUCT("Kipketer" AS name, [23.2, 26.1, 27.3, 29.4] AS laps),
+        STRUCT("Berian" AS name, [23.7, 26.1, 27.0, 29.3] AS laps)
+      ] AS participants
+  )
 SELECT
-race,
-(SELECT name
- FROM UNNEST(participants)
- CROSS JOIN UNNEST(laps) AS duration
- ORDER BY duration ASC LIMIT 1) AS runner_with_fastest_lap
+  race,
+  (
+    SELECT name
+    FROM UNNEST(participants)
+    INNER JOIN UNNEST(laps) AS duration
+    ORDER BY duration ASC LIMIT 1
+  ) AS runner_with_fastest_lap
 FROM Races;
 
 /*------+-------------------------*
@@ -655,26 +692,33 @@ FROM Races;
  *------+-------------------------*/
 ```
 
-Flattening arrays with a `CROSS JOIN` excludes rows that have empty
-or NULL arrays. If you want to include these rows, use a `LEFT JOIN`.
+Flattening arrays with `INNER JOIN` excludes rows that have empty or `NULL`
+arrays. If you want to include these rows, use `LEFT JOIN`.
 
-```sql
-WITH Races AS (
- SELECT "800M" AS race,
-   [STRUCT("Rudisha" AS name, [23.4, 26.3, 26.4, 26.1] AS laps),
-    STRUCT("Makhloufi" AS name, [24.5, 25.4, 26.6, 26.1] AS laps),
-    STRUCT("Murphy" AS name, [23.9, 26.0, 27.0, 26.0] AS laps),
-    STRUCT("Bosse" AS name, [23.6, 26.2, 26.5, 27.1] AS laps),
-    STRUCT("Rotich" AS name, [24.7, 25.6, 26.9, 26.4] AS laps),
-    STRUCT("Lewandowski" AS name, [25.0, 25.7, 26.3, 27.2] AS laps),
-    STRUCT("Kipketer" AS name, [23.2, 26.1, 27.3, 29.4] AS laps),
-    STRUCT("Berian" AS name, [23.7, 26.1, 27.0, 29.3] AS laps),
-    STRUCT("Nathan" AS name, ARRAY<DOUBLE>[] AS laps),
-    STRUCT("David" AS name, NULL AS laps)]
-    AS participants)
+```zetasql
+WITH
+  Races AS (
+    SELECT
+      "800M" AS race,
+      [
+        STRUCT("Rudisha" AS name, [23.4, 26.3, 26.4, 26.1] AS laps),
+        STRUCT("Makhloufi" AS name, [24.5, 25.4, 26.6, 26.1] AS laps),
+        STRUCT("Murphy" AS name, [23.9, 26.0, 27.0, 26.0] AS laps),
+        STRUCT("Bosse" AS name, [23.6, 26.2, 26.5, 27.1] AS laps),
+        STRUCT("Rotich" AS name, [24.7, 25.6, 26.9, 26.4] AS laps),
+        STRUCT("Lewandowski" AS name, [25.0, 25.7, 26.3, 27.2] AS laps),
+        STRUCT("Kipketer" AS name, [23.2, 26.1, 27.3, 29.4] AS laps),
+        STRUCT("Berian" AS name, [23.7, 26.1, 27.0, 29.3] AS laps),
+        STRUCT("Nathan" AS name, ARRAY<DOUBLE>[] AS laps),
+        STRUCT("David" AS name, NULL AS laps)
+      ] AS participants
+  )
 SELECT
-  name, sum(duration) AS finish_time
-FROM Races CROSS JOIN Races.participants LEFT JOIN participants.laps AS duration
+  Participant.name,
+  SUM(duration) AS finish_time
+FROM Races
+INNER JOIN Races.participants AS Participant
+LEFT JOIN Participant.laps AS duration
 GROUP BY name;
 
 /*-------------+--------------------*
@@ -695,16 +739,16 @@ GROUP BY name;
 
 ### Querying repeated fields
 
-ZetaSQL represents repeated fields of `PROTO`s as `ARRAY`s. You
-can query these `ARRAY`s using `UNNEST` and `CROSS JOIN`.
+ZetaSQL represents a repeated field of a `PROTO` as an `ARRAY`. You
+can query this `ARRAY` using `UNNEST` and `INNER JOIN`.
 
-The following example queries a table containing a column of `PROTO`s with the
-alias `album` and the repeated field `song`. All values of `song` for each
+The following example queries a table containing a column of type `PROTO` with
+the alias `album` and the repeated field `song`. All values of `song` for each
 `album` appear on the same row.
 
 **Example**
 
-```sql
+```zetasql
 WITH
   Bands AS (
     SELECT
@@ -732,7 +776,7 @@ FROM Bands;
 
 To query the individual values of a repeated field, reference the field name
 using dot notation to return an `ARRAY`, and
-[flatten the `ARRAY` using `UNNEST`][flattening-arrays]. Use `CROSS JOIN` to
+[flatten the `ARRAY` using `UNNEST`][flattening-arrays]. Use `INNER JOIN` to
 apply the `UNNEST` operator to each row and join the flattened `ARRAY` to the
 duplicated value of any non-repeated fields or columns in that row.
 
@@ -740,12 +784,12 @@ duplicated value of any non-repeated fields or columns in that row.
 
 The following example queries the table from the previous example and returns
 the values of the repeated field as an `ARRAY`. The `UNNEST` operator flattens
-the `ARRAY` that represents the repeated field `song`. `CROSS JOIN` applies the
+the `ARRAY` that represents the repeated field `song`. `INNER JOIN` applies the
 `UNNEST` operator to each row and joins the output of `UNNEST` to the duplicated
 value of the column `band_name` and the non-repeated field `album_name` within
 that row.
 
-```sql
+```zetasql
 WITH Bands AS (
   SELECT
     'The Beatles' AS band_name,
@@ -763,7 +807,7 @@ WITH Bands AS (
 )
 SELECT band_name, album.album_name, song_name
 FROM Bands
-CROSS JOIN UNNEST(album.song) AS song_name;
+INNER JOIN UNNEST(album.song) AS song_name;
 
 /*-------------+-------------+---------------------*
  | band_name   | album_name  | song_name           |
@@ -783,11 +827,11 @@ You can use the [`CAST AS ARRAY`][cast-as-array] function
 to cast arrays from one element type to another. The element types of the input
 `ARRAY` must be castable to the element types of the target `ARRAY`. For
 example, casting from type `ARRAY<INT32>` to `ARRAY<INT64>` or `ARRAY<STRING>`
-is valid; casting from type `ARRAY<INT32>` to `ARRAY<BYTES>` is not valid.
+is valid; casting from type `ARRAY<INT32>` to `ARRAY<BYTES>` isn't valid.
 
 **Example**
 
-```sql
+```zetasql
 SELECT CAST(int_array AS ARRAY<DOUBLE>) AS double_array
 FROM (SELECT ARRAY<INT32>[1, 2, 3] AS int_array);
 
@@ -811,7 +855,7 @@ array. In ZetaSQL, you can accomplish this using the
 
 For example, consider the following operation on the `Sequences` table:
 
-```sql
+```zetasql
 WITH Sequences AS
   (SELECT [0, 1, 1, 2, 3, 5] AS some_numbers
   UNION ALL SELECT [2, 4, 8, 16, 32] AS some_numbers
@@ -846,7 +890,7 @@ to filter the returned rows.
 Note: In the following examples, the resulting rows are
 not ordered.
 
-```sql
+```zetasql
 WITH Sequences AS
   (SELECT [0, 1, 1, 2, 3, 5] AS some_numbers
    UNION ALL SELECT [2, 4, 8, 16, 32] AS some_numbers
@@ -867,13 +911,13 @@ FROM Sequences;
 ```
 
 Notice that the third row contains an empty array, because the elements in the
-corresponding original row (`[5, 10]`) did not meet the filter requirement of
+corresponding original row (`[5, 10]`) didn't meet the filter requirement of
 `x < 5`.
 
 You can also filter arrays by using `SELECT DISTINCT` to return only
 unique elements within an array.
 
-```sql
+```zetasql
 WITH Sequences AS
   (SELECT [0, 1, 1, 2, 3, 5] AS some_numbers)
 SELECT ARRAY(SELECT DISTINCT x
@@ -892,7 +936,7 @@ You can also filter rows of arrays by using the
 keyword filters rows containing arrays by determining if a specific
 value matches an element in the array.
 
-```sql
+```zetasql
 WITH Sequences AS
   (SELECT [0, 1, 1, 2, 3, 5] AS some_numbers
    UNION ALL SELECT [2, 4, 8, 16, 32] AS some_numbers
@@ -913,7 +957,7 @@ FROM Sequences;
 ```
 
 Notice again that the third row contains an empty array, because the array in
-the corresponding original row (`[5, 10]`) did not contain `2`.
+the corresponding original row (`[5, 10]`) didn't contain `2`.
 
 ## Scanning arrays
 
@@ -930,7 +974,7 @@ To scan an array for a specific value, use the `IN` operator with `UNNEST`.
 
 The following example returns `true` if the array contains the number 2.
 
-```sql
+```zetasql
 SELECT 2 IN UNNEST([0, 1, 1, 2, 3, 5]) AS contains_value;
 
 /*----------------*
@@ -948,7 +992,7 @@ filter the results of `IN UNNEST` using the `WHERE` clause.
 The following example returns the `id` value for the rows where the array
 column contains the value 2.
 
-```sql
+```zetasql
 WITH Sequences AS
   (SELECT 1 AS id, [0, 1, 1, 2, 3, 5] AS some_numbers
    UNION ALL SELECT 2 AS id, [2, 4, 8, 16, 32] AS some_numbers
@@ -977,7 +1021,7 @@ a subquery, and use `EXISTS` to check if the filtered table contains any rows.
 The following example returns the `id` value for the rows where the array
 column contains values greater than 5.
 
-```sql
+```zetasql
 WITH
   Sequences AS (
     SELECT 1 AS id, [0, 1, 1, 2, 3, 5] AS some_numbers
@@ -1000,7 +1044,7 @@ WHERE EXISTS(SELECT * FROM UNNEST(some_numbers) AS x WHERE x > 5);
 
 #### Scanning for `STRUCT` field values that satisfy a condition
 
-To search an array of `STRUCT`s for a field whose value matches a condition, use
+To search an array of `STRUCT` values for a field whose value matches a condition, use
 `UNNEST` to return a table with a column for each `STRUCT` field, then filter
 non-matching rows from the table using `WHERE EXISTS`.
 
@@ -1009,7 +1053,7 @@ non-matching rows from the table using `WHERE EXISTS`.
 The following example returns the rows where the array column contains a
 `STRUCT` whose field `b` has a value greater than 3.
 
-```sql
+```zetasql
 WITH
   Sequences AS (
     SELECT 1 AS id, [STRUCT(0 AS a, 1 AS b)] AS some_numbers
@@ -1035,7 +1079,7 @@ WHERE EXISTS(SELECT 1 FROM UNNEST(some_numbers) WHERE b > 3);
 With ZetaSQL, you can aggregate values into an array using
 `ARRAY_AGG()`.
 
-```sql
+```zetasql
 WITH Fruits AS
   (SELECT "apple" AS fruit
    UNION ALL SELECT "pear" AS fruit
@@ -1051,10 +1095,10 @@ FROM Fruits;
 ```
 
 The array returned by `ARRAY_AGG()` is in an arbitrary order, since the order in
-which the function concatenates values is not guaranteed. To order the array
+which the function concatenates values isn't guaranteed. To order the array
 elements, use `ORDER BY`. For example:
 
-```sql
+```zetasql
 WITH Fruits AS
   (SELECT "apple" AS fruit
    UNION ALL SELECT "pear" AS fruit
@@ -1073,7 +1117,7 @@ You can also apply aggregate functions such as `SUM()` to the elements in an
 array. For example, the following query returns the sum of array elements for
 each row of the `Sequences` table.
 
-```sql
+```zetasql
 WITH Sequences AS
   (SELECT [0, 1, 1, 2, 3, 5] AS some_numbers
    UNION ALL SELECT [2, 4, 8, 16, 32] AS some_numbers
@@ -1095,7 +1139,7 @@ FROM Sequences AS s;
 ZetaSQL also supports an aggregate function, `ARRAY_CONCAT_AGG()`,
 which concatenates the elements of an array column across rows.
 
-```sql
+```zetasql
 WITH Aggregates AS
   (SELECT [1,2] AS numbers
    UNION ALL SELECT [3,4] AS numbers
@@ -1126,7 +1170,7 @@ type as the elements of the first argument.
 
 Example:
 
-```sql
+```zetasql
 WITH Words AS
   (SELECT ["Hello", "World"] AS greeting)
 SELECT ARRAY_TO_STRING(greeting, " ") AS greetings
@@ -1150,7 +1194,7 @@ separator for `NULL` array elements.
 
 Example:
 
-```sql
+```zetasql
 SELECT
   ARRAY_TO_STRING(arr, ".", "N") AS non_empty_string,
   ARRAY_TO_STRING(arr, ".", "") AS empty_string,
@@ -1169,7 +1213,7 @@ FROM (SELECT ["a", NULL, "b", NULL, "c", NULL] AS arr);
 In some cases, you might want to combine multiple arrays into a single array.
 You can accomplish this using the `ARRAY_CONCAT()` function.
 
-```sql
+```zetasql
 SELECT ARRAY_CONCAT([1, 2], [3, 4], [5, 6]) AS count_to_six;
 
 /*--------------------------------------------------*
@@ -1185,7 +1229,7 @@ Consider the following table called `arrays_table`. The first column in the
 table is an array of integers and the second column contains two nested arrays
 of integers.
 
-```sql
+```zetasql
 WITH arrays_table AS (
   SELECT
     [1, 2] AS regular_array,
@@ -1209,7 +1253,7 @@ example inserts the number 5 into the `regular_array` column,
 and inserts the elements from the `first_array` field of the `nested_arrays`
 column into the `second_array` field:
 
-```sql
+```zetasql
 UPDATE
   arrays_table
 SET
@@ -1238,13 +1282,13 @@ You can zip arrays with the function [`ARRAY_ZIP`][array-zip].
 
 ## Building arrays of arrays
 
-ZetaSQL does not support building
+ZetaSQL doesn't support building
 [arrays of arrays][array-data-type]
 directly. Instead, you must create an array of structs, with each struct
 containing a field of type `ARRAY`. To illustrate this, consider the following
 `Points` table:
 
-```sql
+```zetasql
 /*----------*
  | point    |
  +----------+
@@ -1260,7 +1304,7 @@ Now, let's say you wanted to create an array consisting of each `point` in the
 `Points` table. To accomplish this, wrap the array returned from each row in a
 `STRUCT`, as shown below.
 
-```sql
+```zetasql
 WITH Points AS
   (SELECT [1, 5] AS point
    UNION ALL SELECT [2, 8] AS point
@@ -1285,7 +1329,7 @@ SELECT ARRAY(
 
 You can use this DML statement to insert the example data:
 
-```sql
+```zetasql
 INSERT Points
   (point, id)
 VALUES
@@ -1296,7 +1340,7 @@ VALUES
   ([5, 7], 5);
 ```
 
-```sql
+```zetasql
 SELECT ARRAY(
   SELECT STRUCT(point)
   FROM Points)
@@ -1327,7 +1371,7 @@ SELECT ARRAY(
 
 [unnest-query]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#unnest_operator
 
-[cross-join-query]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#cross_join
+[inner-join-query]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#inner_join
 
 [comma-cross-join-query]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#comma_cross_join
 

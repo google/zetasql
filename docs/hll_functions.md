@@ -16,10 +16,10 @@ This makes HLL++ functions appropriate for large data streams for
 which linear memory usage is impractical, as well as for data that is
 already approximate.
 
-If you do not need materialized sketches, you can alternatively use an
+If you don't need materialized sketches, you can alternatively use an
 [approximate aggregate function with system-defined precision][approx-functions-reference],
 such as [`APPROX_COUNT_DISTINCT`][approx-count-distinct]. However,
-`APPROX_COUNT_DISTINCT` does not allow partial aggregations, re-aggregations,
+`APPROX_COUNT_DISTINCT` doesn't allow partial aggregations, re-aggregations,
 and custom precision.
 
 ZetaSQL supports the following HLL++ functions:
@@ -97,7 +97,7 @@ If `sketch` is `NULL`, this function returns a cardinality estimate of `0`.
 The following query returns the number of distinct users for each country who
 have at least one invoice.
 
-```sql
+```zetasql
 SELECT
   country,
   HLL_COUNT.EXTRACT(HLL_sketch) AS distinct_customers_with_open_invoice
@@ -127,7 +127,7 @@ FROM
  *---------+--------------------------------------*/
 ```
 
-[hll-link-to-research-whitepaper]: https://research.google.com/pubs/pub40671.html
+[hll-link-to-research-whitepaper]: https://static.googleusercontent.com/media/research.google.com/en//pubs/archive/40671.pdf
 
 ## `HLL_COUNT.INIT`
 
@@ -173,7 +173,7 @@ a State of The Art Cardinality Estimation Algorithm][hll-link-to-research-whitep
 The following query creates HLL++ sketches that count the number of distinct
 users with at least one invoice per country.
 
-```sql
+```zetasql
 SELECT
   country,
   HLL_COUNT.INIT(customer_id, 10)
@@ -197,7 +197,7 @@ GROUP BY country;
  *---------+------------------------------------------------------------------------------------*/
 ```
 
-[hll-link-to-research-whitepaper]: https://research.google.com/pubs/pub40671.html
+[hll-link-to-research-whitepaper]: https://static.googleusercontent.com/media/research.google.com/en//pubs/archive/40671.pdf
 
 [precision_hll]: https://github.com/google/zetasql/blob/master/docs/sketches.md#precision_hll
 
@@ -213,7 +213,7 @@ An aggregate function that returns the cardinality of several
 [HLL++][hll-link-to-research-whitepaper] sketches by computing their union.
 
 Each `sketch` must be initialized on the same type. Attempts to merge sketches
-for different types results in an error. For example, you cannot merge a sketch
+for different types results in an error. For example, you can't merge a sketch
 initialized from `INT64` data with one initialized from `STRING` data.
 
 If the merged sketches were initialized with different precisions, the precision
@@ -235,7 +235,7 @@ over zero rows or only over `NULL` values, the function returns `0`.
  The following query counts the number of distinct users across all countries
  who have at least one invoice.
 
-```sql
+```zetasql
 SELECT HLL_COUNT.MERGE(hll_sketch) AS distinct_customers_with_open_invoice
 FROM
   (
@@ -261,7 +261,7 @@ FROM
  *--------------------------------------*/
 ```
 
-[hll-link-to-research-whitepaper]: https://research.google.com/pubs/pub40671.html
+[hll-link-to-research-whitepaper]: https://static.googleusercontent.com/media/research.google.com/en//pubs/archive/40671.pdf
 
 ## `HLL_COUNT.MERGE_PARTIAL`
 
@@ -276,7 +276,7 @@ An aggregate function that takes one or more
 inputs and merges them into a new sketch.
 
 Each `sketch` must be initialized on the same type. Attempts to merge sketches
-for different types results in an error. For example, you cannot merge a sketch
+for different types results in an error. For example, you can't merge a sketch
 initialized from `INT64` data with one initialized from `STRING` data.
 
 If the merged sketches were initialized with different precisions, the precision
@@ -299,7 +299,7 @@ This function returns `NULL` if there is no input or all inputs are `NULL`.
 The following query returns an HLL++ sketch that counts the number of distinct
 users who have at least one invoice across all countries.
 
-```sql
+```zetasql
 SELECT HLL_COUNT.MERGE_PARTIAL(HLL_sketch) AS distinct_customers_with_open_invoice
 FROM
   (
@@ -325,7 +325,7 @@ FROM
  *----------------------------------------------------------------------------------------------*/
 ```
 
-[hll-link-to-research-whitepaper]: https://research.google.com/pubs/pub40671.html
+[hll-link-to-research-whitepaper]: https://static.googleusercontent.com/media/research.google.com/en//pubs/archive/40671.pdf
 
 [hll-sketches]: https://github.com/google/zetasql/blob/master/docs/sketches.md#sketches_hll
 
@@ -333,7 +333,7 @@ FROM
 
 [count-distinct]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#count
 
-[approx-count-distinct]: https://github.com/google/zetasql/blob/master/docs/approximate_aggregate_functions.md#approx-count-distinct
+[approx-count-distinct]: https://github.com/google/zetasql/blob/master/docs/approximate_aggregate_functions.md#approx_count_distinct
 
 [approx-functions-reference]: https://github.com/google/zetasql/blob/master/docs/approximate_aggregate_functions.md
 

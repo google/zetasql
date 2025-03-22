@@ -1,3 +1,5 @@
+[default sql_builder_target_syntax_mode=both]
+
 select 0,1,1.5,'abc',"def",null,trUE,FALse;
 --
 QueryStmt
@@ -2079,7 +2081,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[show_unparsed]
+[show_sqlbuilder_output]
 [language_features={{|V_1_4_LITERAL_CONCATENATION}}]
 select 'x' "y"
 --
@@ -2103,12 +2105,18 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  "xy" AS a_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 SELECT
   "xy" AS a_1;
 ==
 
-[show_unparsed]
+[show_sqlbuilder_output]
 [language_features={{|V_1_4_LITERAL_CONCATENATION}}]
 select b'x' b"y"
 --
@@ -2131,6 +2139,12 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  b"xy" AS a_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 SELECT
   b"xy" AS a_1;

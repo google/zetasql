@@ -15,24 +15,24 @@ explicitly indicated otherwise in the function description:
 
 + If an operand is `NULL`, the function result is `NULL`.
 + For functions that are time zone sensitive, the default time zone,
-  which is implementation defined, is used when a time zone is not specified.
+  which is implementation defined, is used when a time zone isn't specified.
 
 ## Named arguments
 
-```sql
+```zetasql
 named_argument => value
 ```
 
 You can provide parameter arguments by name when calling some functions and
-procedures. These arguments are called _named arguments_. An argument that is
-not named is called a _positional argument_.
+procedures. These arguments are called _named arguments_. An argument that isn't
+named is called a _positional argument_.
 
 +  Named arguments are optional, unless specified as required in the
    function signature.
 +  Named arguments don't need to be in order.
 +  You can specify positional arguments before named arguments.
-+  You cannot specify positional arguments after named arguments.
-+  An optional positional argument that is not used doesn't need to be added
++  You can't specify positional arguments after named arguments.
++  An optional positional argument that isn't used doesn't need to be added
    before a named argument.
 
 **Examples**
@@ -40,7 +40,7 @@ not named is called a _positional argument_.
 These examples reference a function called `CountTokensInText`, which counts
 the number of tokens in a paragraph. The function signature looks like this:
 
-```sql
+```zetasql
 CountTokensInText(paragraph STRING, tokens ARRAY<STRING>, delimiters STRING)
 ```
 
@@ -53,7 +53,7 @@ between tokens in the paragraph.
 This is a query that includes `CountTokensInText`
 without named arguments:
 
-```sql
+```zetasql
 SELECT token, count
 FROM CountTokensInText(
   'Would you prefer softball, baseball, or tennis? There is also swimming.',
@@ -63,7 +63,7 @@ FROM CountTokensInText(
 
 This is the query with named arguments:
 
-```sql
+```zetasql
 SELECT token, count
 FROM CountTokensInText(
   paragraph => 'Would you prefer softball, baseball, or tennis? There is also swimming.',
@@ -74,7 +74,7 @@ FROM CountTokensInText(
 If named arguments are used, the order of the arguments doesn't matter. This
 works:
 
-```sql
+```zetasql
 SELECT token, count
 FROM CountTokensInText(
   tokens => ['baseball', 'football', 'tennis'],
@@ -85,7 +85,7 @@ FROM CountTokensInText(
 You can mix positional arguments and named arguments, as long as the positional
 arguments in the function signature come first:
 
-```sql
+```zetasql
 SELECT token, count
 FROM CountTokensInText(
   'Would you prefer softball, baseball, or tennis? There is also swimming.',
@@ -95,7 +95,7 @@ FROM CountTokensInText(
 
 This doesn't work because a positional argument appears after a named argument:
 
-```sql
+```zetasql
 SELECT token, count
 FROM CountTokensInText(
   paragraph => 'Would you prefer softball, baseball, or tennis? There is also swimming.',
@@ -108,7 +108,7 @@ before it in the function signature must also be positional arguments.
 If you try to use a named argument for `paragraph` and a positional
 argument for `tokens`, this will not work.
 
-```sql
+```zetasql
 -- This doesn't work.
 SELECT token, count
 FROM CountTokensInText(
@@ -129,11 +129,11 @@ FROM CountTokensInText(
 
 **Syntax:**
 
-```sql
+```zetasql
 (arg[, ...]) -> body_expression
 ```
 
-```sql
+```zetasql
 arg -> body_expression
 ```
 
@@ -188,7 +188,7 @@ negative values. However, the `SAFE.` prefix causes the function to return
 `NULL` instead. The second use of the `SUBSTR` function provides the expected
 output: the `SAFE.` prefix has no effect.
 
-```sql
+```zetasql
 SELECT SAFE.SUBSTR('foo', 0, -2) AS safe_output UNION ALL
 SELECT SAFE.SUBSTR('bar', 0, 2) AS safe_output;
 

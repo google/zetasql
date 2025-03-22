@@ -17,6 +17,7 @@
 #include "zetasql/reference_impl/operator.h"
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -24,11 +25,18 @@
 #include "zetasql/base/logging.h"
 #include "zetasql/common/thread_stack.h"
 #include "zetasql/public/type.h"
+#include "zetasql/reference_impl/tuple.h"
+#include "zetasql/reference_impl/variable_id.h"
 #include "absl/base/attributes.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
+#include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 #include "zetasql/base/stl_util.h"
+#include "zetasql/base/ret_check.h"
 
 namespace zetasql {
 
@@ -320,11 +328,41 @@ std::string KeyArg::DebugInternal(const std::string& indent,
   }
 
   if (collation() != nullptr) {
-    absl::StrAppend(
-        &sort, " collation=", collation()->DebugInternal(indent, verbose));
+    absl::StrAppend(&sort,
+                    " collation=", collation()->DebugInternal(indent, verbose));
   }
 
   return absl::StrCat(ExprArg::DebugInternal(indent, verbose), sort);
+}
+
+// -------------------------------------------------------
+// Misc helpers
+// -------------------------------------------------------
+absl::Status GetSlotsForKeysAndValues(const TupleSchema& schema,
+                                      absl::Span<const KeyArg* const> keys,
+                                      std::vector<int>* slots_for_keys,
+                                      std::vector<int>* slots_for_values) {
+  slots_for_keys->reserve(keys.size());
+  for (const KeyArg* key : keys) {
+    std::optional<int> slot = schema.FindIndexForVariable(key->variable());
+    ZETASQL_RET_CHECK(slot.has_value()) << "Cannot find variable " << key->variable()
+                                << " in TupleSchema " << schema.DebugString();
+    slots_for_keys->push_back(slot.value());
+  }
+
+  if (slots_for_values != nullptr) {
+    const absl::flat_hash_set<int> slots_for_keys_set(slots_for_keys->begin(),
+                                                      slots_for_keys->end());
+    slots_for_values->reserve(schema.num_variables() -
+                              slots_for_keys_set.size());
+    for (int i = 0; i < schema.num_variables(); ++i) {
+      if (!slots_for_keys_set.contains(i)) {
+        slots_for_values->push_back(i);
+      }
+    }
+  }
+
+  return absl::OkStatus();
 }
 
 }  // namespace zetasql

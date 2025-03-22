@@ -207,7 +207,7 @@ CreateViewStatement [0-70] [create view...* from tt]
     WithClause [18-53] [with tt as...KeyValue)]
       AliasedQuery [23-53] [tt as (select * from KeyValue)]
         Identifier(tt) [23-25] [tt]
-        Query [30-52] [select * from KeyValue]
+        Query [29-53] [(select * from KeyValue)]
           Select [30-52] [select * from KeyValue]
             SelectList [37-38] [*]
               SelectColumn [37-38] [*]
@@ -255,14 +255,14 @@ CreateViewStatement [0-79] [create view...) select 3]
     WithClause [31-70] [with t1 as...(select 2)]
       AliasedQuery [36-52] [t1 as (select 1)]
         Identifier(t1) [36-38] [t1]
-        Query [43-51] [select 1]
+        Query [42-52] [(select 1)]
           Select [43-51] [select 1]
             SelectList [50-51] [1]
               SelectColumn [50-51] [1]
                 IntLiteral(1) [50-51] [1]
       AliasedQuery [54-70] [t2 as (select 2)]
         Identifier(t2) [54-56] [t2]
-        Query [61-69] [select 2]
+        Query [60-70] [(select 2)]
           Select [61-69] [select 2]
             SelectList [68-69] [2]
               SelectColumn [68-69] [2]
@@ -669,14 +669,14 @@ CreateViewStatement [0-79] [create view...* from q2]
     WithClause [17-62] [with q as...* from q)]
       AliasedQuery [22-37] [q as (select 1)]
         Identifier(q) [22-23] [q]
-        Query [28-36] [select 1]
+        Query [27-37] [(select 1)]
           Select [28-36] [select 1]
             SelectList [35-36] [1]
               SelectColumn [35-36] [1]
                 IntLiteral(1) [35-36] [1]
       AliasedQuery [39-62] [q2 as (select * from q)]
         Identifier(q2) [39-41] [q2]
-        Query [46-61] [select * from q]
+        Query [45-62] [(select * from q)]
           Select [46-61] [select * from q]
             SelectList [53-54] [*]
               SelectColumn [53-54] [*]
@@ -1239,7 +1239,7 @@ create view p-g-123.d456.v1 as select * from t2;
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `p-g-123.d456.v1` [at 1:13]
+ERROR: Syntax error: Table name contains '-' character. The dashed identifier part of the table name needs to be quoted: `p-g-123` [at 1:13]
 create view p-g-123.d456.v1 as select * from t2;
             ^
 --
@@ -1272,7 +1272,7 @@ create materialized view p-b-c.d_123.mv1 as select sum(m1) from t2 group by d1, 
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `p-b-c.d_123.mv1` [at 1:26]
+ERROR: Syntax error: Table name contains '-' character. The dashed identifier part of the table name needs to be quoted: `p-b-c` [at 1:26]
 create materialized view p-b-c.d_123.mv1 as select sum(m1) from t2 group by d...
                          ^
 --

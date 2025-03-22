@@ -335,6 +335,100 @@ public class ZetaSQLDescriptorPoolTest {
   }
 
   @Test
+  public void testCompleteFileDescriptorSetOverwrites() {
+    pool.importFileDescriptorSet(
+        fileDescriptorSetFromTextProto(
+            "file {"
+                + "  name: 'test/file.proto'"
+                + "  package: 'test'"
+                + "  dependency: 'test/file2.proto'"
+                + "  message_type {"
+                + "    name: 'msg'"
+                + "    field {"
+                + "      name: 'simple'"
+                + "      number: 1"
+                + "      label: LABEL_OPTIONAL"
+                + "      type: TYPE_INT32"
+                + "    }"
+                + "  }"
+                + "}"
+                + "file {"
+                + "  name: 'test/file2.proto'"
+                + "  package: 'test'"
+                + "  message_type {"
+                + "    name: 'msg2'"
+                + "    field {"
+                + "      name: 'simple'"
+                + "      number: 1"
+                + "      label: LABEL_OPTIONAL"
+                + "      type: TYPE_INT32"
+                + "    }"
+                + "  }"
+                + "}"));
+    assertThat(pool.findFileByName("test/file.proto")).isNotNull();
+    assertThat(pool.findFileByName("test/file2.proto")).isNotNull();
+    assertThat(pool.findMessageTypeByName("test.msg")).isNotNull();
+    assertThat(pool.findMessageTypeByName("test.msg.t")).isNull();
+    assertThat(pool.findMessageTypeByName("test.msg2")).isNotNull();
+    assertThat(pool.findEnumTypeByName("test.msg2.e")).isNull();
+    assertFileDescriptorsAreDependencyOrdered(pool);
+
+    pool.importFileDescriptorSetWithOverwrite(
+        fileDescriptorSetFromTextProto(
+            "file {"
+                + "  name: 'test/file.proto'"
+                + "  package: 'test'"
+                + "  dependency: 'test/file2.proto'"
+                + "  message_type {"
+                + "    name: 'msg'"
+                + "    field {"
+                + "      name: 'simple'"
+                + "      number: 1"
+                + "      label: LABEL_OPTIONAL"
+                + "      type: TYPE_INT32"
+                + "    }"
+                + "    nested_type {"
+                + "     name: 't'"
+                + "      field {"
+                + "        name: 'bar'"
+                + "        number: 1"
+                + "        label: LABEL_OPTIONAL"
+                + "        type: TYPE_MESSAGE"
+                + "        type_name: '.test.msg2'"
+                + "      }"
+                + "    }"
+                + "  }"
+                + "}"
+                + "file {"
+                + "  name: 'test/file2.proto'"
+                + "  package: 'test'"
+                + "  message_type {"
+                + "    name: 'msg2'"
+                + "    field {"
+                + "      name: 'simple'"
+                + "      number: 1"
+                + "      label: LABEL_OPTIONAL"
+                + "      type: TYPE_INT32"
+                + "    }"
+                + "    enum_type {"
+                + "     name: 'e'"
+                + "     value {"
+                + "       name: 'foo'"
+                + "       number: 1"
+                + "     }"
+                + "    }"
+                + "  }"
+                + "}"));
+    assertThat(pool.findFileByName("test/file.proto")).isNotNull();
+    assertThat(pool.findFileByName("test/file2.proto")).isNotNull();
+    assertThat(pool.findMessageTypeByName("test.msg")).isNotNull();
+    assertThat(pool.findMessageTypeByName("test.msg.t")).isNotNull();
+    assertThat(pool.findMessageTypeByName("test.msg2")).isNotNull();
+    assertThat(pool.findEnumTypeByName("test.msg2.e")).isNotNull();
+    assertFileDescriptorsAreDependencyOrdered(pool);
+  }
+
+  @Test
   public void testCompleteFileDescriptorWithMessageExtension() throws Exception {
     pool.importFileDescriptorSet(
         fileDescriptorSetFromTextProto(

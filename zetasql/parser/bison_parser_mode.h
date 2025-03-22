@@ -63,6 +63,13 @@ enum class BisonParserMode {
   kMacroBody,
 };
 
+// Controls whether and how macros are expanded during parsing.
+enum class MacroExpansionMode {
+  kNone = 0,
+  kLenient = 1,
+  kStrict = 2,
+};
+
 }  // namespace parser
 }  // namespace zetasql
 

@@ -245,11 +245,78 @@ std::vector<FunctionTestCall> GetFunctionTestsSubstr(
   return results;
 }
 
-std::vector<FunctionTestCall> GetFunctionTestsSubstring() {
-  return GetFunctionTestsSubstr("substring");
+std::vector<FunctionTestCall> GetFunctionTestsLower(
+    absl::string_view function_name) {
+  absl::string_view all_bytes_str(
+      "\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12"
+      "\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !\" #$ %"
+      "&\'()*+,-./"
+      "0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`"
+      "abcdefghijklmnopqrstuvwxyz{|}~"
+      "\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90"
+      "\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2"
+      "\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4"
+      "\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6"
+      "\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8"
+      "\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea"
+      "\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc"
+      "\xfd\xfe\xff",
+      256);
+  absl::string_view all_bytes_lowercase(
+      "\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12"
+      "\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !\" #$ %"
+      "&\'()*+,-./"
+      "0123456789:;<=>?@abcdefghijklmnopqrstuvwxyz[\\]^_`"
+      "abcdefghijklmnopqrstuvwxyz{|}~"
+      "\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90"
+      "\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2"
+      "\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4"
+      "\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6"
+      "\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8"
+      "\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea"
+      "\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc"
+      "\xfd\xfe\xff",
+      256);
+  return {
+      // lower(string) -> string
+      {function_name, {NullString()}, NullString()},
+      {function_name, {""}, ""},
+      // Ⱥ -> ⱥ (from 2 bytes to 3 bytes)
+      {function_name, {"Ⱥ"}, "ⱥ"},  // Returns a longer string.
+
+      {function_name, {"abcABCжщфЖЩФ"}, "abcabcжщфжщф"},
+      // LOWER() on STRING works on both composed and decomposed forms,
+      // i.e. lower("réSumÉ") == "résumé".
+      {function_name, {"re\xCC\x81SumE\xCC\x81"}, "re\xCC\x81sume\xCC\x81"},
+      {function_name, {"r\xc3\xa9SuM\xC3\x89"}, "r\xc3\xa9sum\xc3\xa9"},
+      {function_name,
+       {all_bytes_str.substr(0, 128)},
+       all_bytes_lowercase.substr(0, 128)},
+
+      // Σ has two lower-case forms: σ and ς. ς is used when it is at the end
+      // of a word.
+      {function_name, {"aBcΣ"}, "abcς"},
+      {function_name, {"ΣaBc"}, "σabc"},
+      {function_name, {"aΣBc"}, "aσbc"},
+      {function_name, {"Σ"}, "σ"},
+      // lower(bytes) -> bytes
+      {function_name, {NullBytes()}, NullBytes()},
+      {function_name, {Bytes("")}, Bytes("")},
+      {function_name, {Bytes("abcABCжщфЖЩФ")}, Bytes("abcabcжщфЖЩФ")},
+      {function_name, {Bytes(all_bytes_str)}, Bytes(all_bytes_lowercase)},
+      // The composed forms for 'é' and 'É' stay unchanged if passed into
+      // LOWER() on BYTES. The decomposed forms become upper case.
+      {function_name,
+       {Bytes("re\xCC\x81SumE\xCC\x81")},
+       Bytes("re\xCC\x81sume\xCC\x81")},
+      {function_name,
+       {Bytes("r\xc3\xa9SuM\xC3\x89")},
+       Bytes("r\xc3\xa9sum\xc3\x89")},
+  };
 }
 
-std::vector<FunctionTestCall> GetFunctionTestsString() {
+std::vector<FunctionTestCall> GetFunctionTestsUpper(
+    absl::string_view function_name) {
   absl::string_view all_bytes_str(
       "\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12"
       "\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !\" #$ %"
@@ -280,22 +347,47 @@ std::vector<FunctionTestCall> GetFunctionTestsString() {
       "\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc"
       "\xfd\xfe\xff",
       256);
-  absl::string_view all_bytes_lowercase(
-      "\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12"
-      "\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !\" #$ %"
-      "&\'()*+,-./"
-      "0123456789:;<=>?@abcdefghijklmnopqrstuvwxyz[\\]^_`"
-      "abcdefghijklmnopqrstuvwxyz{|}~"
-      "\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90"
-      "\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2"
-      "\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4"
-      "\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6"
-      "\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8"
-      "\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea"
-      "\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc"
-      "\xfd\xfe\xff",
-      256);
+  return {
+      // upper(string) -> string
+      {function_name, {NullString()}, NullString()},
+      {function_name, {""}, ""},
+      {function_name, {"ß"}, "SS"},  // Returns a longer string.
+      // ⱥ -> Ⱥ (from 3 bytes to 2 bytes)
+      {function_name, {"ⱥ"}, "Ⱥ"},  // Returns a shorter string.
+      {function_name, {"abcABCжщфЖЩФ"}, "ABCABCЖЩФЖЩФ"},
+      // 'é' has two Unicode representations: composed and decomposed. The
+      // encodings for these representations are 'C3 A9' and '65 CC 81',
+      // respectively. Similarly, the encodings for 'É' are 'C3 89' and
+      // '45 CC 81', respectively.
+      // UPPER() on STRING works on both composed and decomposed forms,
+      // i.e. upper("réSumÉ") == "RÉSUMÉ".
+      {function_name, {"re\xCC\x81SumE\xCC\x81"}, "RE\xCC\x81SUME\xCC\x81"},
+      {function_name, {"r\xc3\xa9Sum\xC3\x89"}, "R\xc3\x89SUM\xc3\x89"},
+      {function_name,
+       {all_bytes_str.substr(0, 128)},
+       all_bytes_uppercase.substr(0, 128)},
 
+      // upper(bytes) -> bytes
+      {function_name, {NullBytes()}, NullBytes()},
+      {function_name, {Bytes("")}, Bytes("")},
+      {function_name, {Bytes("abcABCжщфЖЩФ")}, Bytes("ABCABCжщфЖЩФ")},
+      {function_name, {Bytes(all_bytes_str)}, Bytes(all_bytes_uppercase)},
+      // The composed forms for 'é' and 'É' stay unchanged if passed into
+      // UPPER() on BYTES. The decomposed forms become upper case.
+      {function_name,
+       {Bytes("re\xCC\x81SumE\xCC\x81")},
+       Bytes("RE\xCC\x81SUME\xCC\x81")},
+      {function_name,
+       {Bytes("r\xc3\xa9Sum\xC3\x89")},
+       Bytes("R\xc3\xa9SUM\xc3\x89")},
+  };
+}
+
+std::vector<FunctionTestCall> GetFunctionTestsSubstring() {
+  return GetFunctionTestsSubstr("substring");
+}
+
+std::vector<FunctionTestCall> GetFunctionTestsString() {
   std::vector<FunctionTestCall> results = {
       // strpos(string, string) -> int64_t
       {"strpos", {NullString(), ""}, NullInt64()},
@@ -486,6 +578,7 @@ std::vector<FunctionTestCall> GetFunctionTestsString() {
       {"trim", {"   abc   "}, "abc"},
       {"trim", {"   a b c   "}, "a b c"},
       {"trim", {"   ыфщ   "}, "ыфщ"},
+      {"trim", {"\t\r\n abc\t\n\r "}, "abc"},
       // The following string encodes all 25 space characters defined by
       // Unicode.
       {"trim",
@@ -503,6 +596,7 @@ std::vector<FunctionTestCall> GetFunctionTestsString() {
       {"ltrim", {"   abc   "}, "abc   "},
       {"ltrim", {"   a b c   "}, "a b c   "},
       {"ltrim", {"   ыфщ   "}, "ыфщ   "},
+      {"ltrim", {"\t\r\n abc\t\n\r "}, "abc\t\n\r "},
       {"ltrim",
        {"\u0009\u000A\u000B\u000C\u000D\u0020\u0085\u00A0\u1680\u2000"
         "\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A"
@@ -516,6 +610,7 @@ std::vector<FunctionTestCall> GetFunctionTestsString() {
       {"rtrim", {"   abc   "}, "   abc"},
       {"rtrim", {"   a b c   "}, "   a b c"},
       {"rtrim", {"   ыфщ   "}, "   ыфщ"},
+      {"rtrim", {"\t\r\n abc\t\n\r "}, "\t\r\n abc"},
       {"rtrim",
        {"abc\u0009\u000A\u000B\u000C\u000D\u0020\u0085\u00A0\u1680\u2000"
         "\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A"
@@ -535,6 +630,10 @@ std::vector<FunctionTestCall> GetFunctionTestsString() {
       {"trim", {"   ", " "}, ""},
       {"trim", {"\0   \0", "\0"}, "   "},
       {"trim", {"   abc   ", " "}, "abc"},
+      {"trim", {"\nabc\n", " "}, "\nabc\n"},
+      {"trim", {"\nabc\n", "\n"}, "abc"},
+      {"trim", {"\tabc\t", " "}, "\tabc\t"},
+      {"trim", {"\tabc\t", "\t"}, "abc"},
       {"trim", {"   abc   ", " cba"}, ""},
       {"trim", {"   a b c   ", " cba"}, ""},
       {"trim", {"   ыфщ   ", " "}, "ыфщ"},
@@ -551,6 +650,10 @@ std::vector<FunctionTestCall> GetFunctionTestsString() {
       {"ltrim", {"\0   \0", "\0"}, "   \0"},
       {"ltrim", {"   ", " "}, ""},
       {"ltrim", {"   abc   ", " "}, "abc   "},
+      {"ltrim", {"\nabc\n", " "}, "\nabc\n"},
+      {"ltrim", {"\nabc\n", "\n"}, "abc\n"},
+      {"ltrim", {"\tabc\t", " "}, "\tabc\t"},
+      {"ltrim", {"\tabc\t", "\t"}, "abc\t"},
       {"ltrim", {"   abc   ", " cba"}, ""},
       {"ltrim", {"   a b c   ", " cba"}, ""},
       {"ltrim", {"   ыфщ   ", " "}, "ыфщ   "},
@@ -574,6 +677,10 @@ std::vector<FunctionTestCall> GetFunctionTestsString() {
       {"rtrim", {"\0   \0", "\0"}, "\0   "},
       {"rtrim", {"   ", " "}, ""},
       {"rtrim", {"   abc   ", " "}, "   abc"},
+      {"rtrim", {"\nabc\n", " "}, "\nabc\n"},
+      {"rtrim", {"\nabc\n", "\n"}, "\nabc"},
+      {"rtrim", {"\tabc\t", " "}, "\tabc\t"},
+      {"rtrim", {"\tabc\t", "\t"}, "\tabc"},
       {"rtrim", {"   abc   ", " cba"}, ""},
       {"rtrim", {"   a b c   ", " cba"}, ""},
       {"rtrim", {"   ыфщ   ", " "}, "   ыфщ"},
@@ -672,71 +779,6 @@ std::vector<FunctionTestCall> GetFunctionTestsString() {
       {"right", {Bytes("abc"), -5ll}, NullBytes(), OUT_OF_RANGE},
       {"right", {Bytes("abc"), int64min}, NullBytes(), OUT_OF_RANGE},
       {"right", {Bytes("\xff\x80\xa0"), 2ll}, Bytes("\x80\xa0")},
-
-      // upper(string) -> string
-      {"upper", {NullString()}, NullString()},
-      {"upper", {""}, ""},
-      {"upper", {"ß"}, "SS"},  // Returns a longer string.
-      // ⱥ -> Ⱥ (from 3 bytes to 2 bytes)
-      {"upper", {"ⱥ"}, "Ⱥ"},  // Returns a shorter string.
-      {"upper", {"abcABCжщфЖЩФ"}, "ABCABCЖЩФЖЩФ"},
-      // 'é' has two Unicode representations: composed and decomposed. The
-      // encodings for these representations are 'C3 A9' and '65 CC 81',
-      // respectively. Similarly, the encodings for 'É' are 'C3 89' and
-      // '45 CC 81', respectively.
-      // UPPER() on STRING works on both composed and decomposed forms,
-      // i.e. upper("réSumÉ") == "RÉSUMÉ".
-      {"upper", {"re\xCC\x81SumE\xCC\x81"}, "RE\xCC\x81SUME\xCC\x81"},
-      {"upper", {"r\xc3\xa9Sum\xC3\x89"}, "R\xc3\x89SUM\xc3\x89"},
-      {"upper",
-       {all_bytes_str.substr(0, 128)},
-       all_bytes_uppercase.substr(0, 128)},
-
-      // lower(string) -> string
-      {"lower", {NullString()}, NullString()},
-      {"lower", {""}, ""},
-      // Ⱥ -> ⱥ (from 2 bytes to 3 bytes)
-      {"lower", {"Ⱥ"}, "ⱥ"},  // Returns a longer string.
-
-      {"lower", {"abcABCжщфЖЩФ"}, "abcabcжщфжщф"},
-      // LOWER() on STRING works on both composed and decomposed forms,
-      // i.e. lower("réSumÉ") == "résumé".
-      {"lower", {"re\xCC\x81SumE\xCC\x81"}, "re\xCC\x81sume\xCC\x81"},
-      {"lower", {"r\xc3\xa9SuM\xC3\x89"}, "r\xc3\xa9sum\xc3\xa9"},
-      {"lower",
-       {all_bytes_str.substr(0, 128)},
-       all_bytes_lowercase.substr(0, 128)},
-
-      // Σ has two lower-case forms: σ and ς. ς is used when it is at the end
-      // of a word.
-      {"lower", {"aBcΣ"}, "abcς"},
-      {"lower", {"ΣaBc"}, "σabc"},
-      {"lower", {"aΣBc"}, "aσbc"},
-      {"lower", {"Σ"}, "σ"},
-
-      // upper(bytes) -> bytes
-      {"upper", {NullBytes()}, NullBytes()},
-      {"upper", {Bytes("")}, Bytes("")},
-      {"upper", {Bytes("abcABCжщфЖЩФ")}, Bytes("ABCABCжщфЖЩФ")},
-      {"upper", {Bytes(all_bytes_str)}, Bytes(all_bytes_uppercase)},
-      // The composed forms for 'é' and 'É' stay unchanged if passed into
-      // UPPER() on BYTES. The decomposed forms become upper case.
-      {"upper",
-       {Bytes("re\xCC\x81SumE\xCC\x81")},
-       Bytes("RE\xCC\x81SUME\xCC\x81")},
-      {"upper", {Bytes("r\xc3\xa9Sum\xC3\x89")}, Bytes("R\xc3\xa9SUM\xc3\x89")},
-
-      // lower(bytes) -> bytes
-      {"lower", {NullBytes()}, NullBytes()},
-      {"lower", {Bytes("")}, Bytes("")},
-      {"lower", {Bytes("abcABCжщфЖЩФ")}, Bytes("abcabcжщфЖЩФ")},
-      {"lower", {Bytes(all_bytes_str)}, Bytes(all_bytes_lowercase)},
-      // The composed forms for 'é' and 'É' stay unchanged if passed into
-      // LOWER() on BYTES. The decomposed forms become upper case.
-      {"lower",
-       {Bytes("re\xCC\x81SumE\xCC\x81")},
-       Bytes("re\xCC\x81sume\xCC\x81")},
-      {"lower", {Bytes("r\xc3\xa9SuM\xC3\x89")}, Bytes("r\xc3\xa9sum\xc3\x89")},
 
       // replace(string, string, string) -> string
       {"replace", {NullString(), "", ""}, NullString()},
@@ -848,6 +890,12 @@ std::vector<FunctionTestCall> GetFunctionTestsString() {
   std::vector<FunctionTestCall> tests_concat = GetStringConcatTests();
   results.insert(results.end(), std::make_move_iterator(tests_concat.begin()),
                  std::make_move_iterator(tests_concat.end()));
+  std::vector<FunctionTestCall> tests_lcase = GetFunctionTestsLower("lower");
+  results.insert(results.end(), std::make_move_iterator(tests_lcase.begin()),
+                 std::make_move_iterator(tests_lcase.end()));
+  std::vector<FunctionTestCall> tests_ucase = GetFunctionTestsUpper("upper");
+  results.insert(results.end(), std::make_move_iterator(tests_ucase.begin()),
+                 std::make_move_iterator(tests_ucase.end()));
   return results;
 }
 
@@ -864,5 +912,11 @@ std::vector<QueryParamsWithResult> GetFunctionTestsStringConcatOperator() {
   return results;
 }
 
+std::vector<FunctionTestCall> GetFunctionTestsLcase() {
+  return GetFunctionTestsLower("lcase");
+}
+std::vector<FunctionTestCall> GetFunctionTestsUcase() {
+  return GetFunctionTestsUpper("ucase");
+}
 
 }  // namespace zetasql

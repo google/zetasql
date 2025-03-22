@@ -1,0 +1,153 @@
+# This tests some interesting query structures and patterns that occur more
+# frequently or only in pipe syntax.
+#
+# The operators themselves are tested in pipe_operators.test or
+# operator-specific files.
+
+[prepare_database]
+CREATE TABLE KeyValue
+AS
+SELECT 1 AS key, "value1" AS value
+UNION ALL
+SELECT 2, "value2"
+UNION ALL
+SELECT 3, "value1"
+--
+ARRAY<STRUCT<key INT64, value STRING>>[
+  {1, "value1"},
+  {2, "value2"},
+  {3, "value1"}
+]
+==
+
+[default required_features=PIPES]
+[name=from_only]
+FROM KeyValue
+--
+ARRAY<STRUCT<key INT64, value STRING>>[unknown order:
+  {1, "value1"},
+  {2, "value2"},
+  {3, "value1"}
+]
+==
+
+[name=from_in_parens]
+(((FROM KeyValue)))
+--
+ARRAY<STRUCT<key INT64, value STRING>>[unknown order:
+  {1, "value1"},
+  {2, "value2"},
+  {3, "value1"}
+]
+==
+
+[name=from_comma_join]
+FROM KeyValue kv1, KeyValue kv2
+--
+ARRAY<STRUCT<key INT64, value STRING, key INT64, value STRING>>[unknown order:
+  {2, "value2", 2, "value2"},
+  {2, "value2", 1, "value1"},
+  {2, "value2", 3, "value1"},
+  {1, "value1", 2, "value2"},
+  {1, "value1", 1, "value1"},
+  {1, "value1", 3, "value1"},
+  {3, "value1", 2, "value2"},
+  {3, "value1", 1, "value1"},
+  {3, "value1", 3, "value1"}
+]
+==
+
+[name=from_join]
+FROM KeyValue kv1 JOIN KeyValue kv2 USING (key)
+--
+ARRAY<STRUCT<key INT64, value STRING, value STRING>>[unknown order:
+  {2, "value2", "value2"},
+  {1, "value1", "value1"},
+  {3, "value1", "value1"}
+]
+==
+
+[name=from_unnest]
+FROM UNNEST([1,2,3])
+--
+ARRAY<INT64>[unknown order:1, 2, 3]
+==
+
+[name=from_unnest_with_offset]
+FROM UNNEST([1,2,3]) WITH OFFSET
+--
+ARRAY<STRUCT<INT64, offset INT64>>[unknown order:{1, 0}, {2, 1}, {3, 2}]
+==
+
+[name=from_subquery_value_table]
+FROM (SELECT AS STRUCT 1 x, 2 y)
+--
+ARRAY<STRUCT<x INT64, y INT64>>[{1, 2}]
+==
+
+[name=from_subquery_value_table_scalar]
+FROM (SELECT AS value 1 x)
+--
+ARRAY<INT64>[1]
+==
+
+[name=pipe_after_select]
+SELECT * FROM KeyValue
+|> WHERE key=1
+--
+ARRAY<STRUCT<key INT64, value STRING>>[{1, "value1"}]
+==
+
+[name=pipe_after_select_constant]
+SELECT 1234 AS value
+|> EXTEND value*2
+--
+ARRAY<STRUCT<value INT64, INT64>>[{1234, 2468}]
+==
+
+[name=pipe_in_subquery]
+SELECT *
+FROM KeyValue
+JOIN (
+  FROM KeyValue
+  |> SELECT key+1 AS key, 'new' column
+) USING (key)
+--
+ARRAY<STRUCT<key INT64, value STRING, column STRING>>[unknown order:
+  {2, "value2", "new"},
+  {3, "value1", "new"}
+]
+==
+
+[name=pipe_in_with]
+WITH t AS (
+  FROM KeyValue
+  |> WHERE key=1
+)
+FROM t
+--
+ARRAY<STRUCT<key INT64, value STRING>>[{1, "value1"}]
+==
+
+[name=pipe_after_with]
+WITH t AS (SELECT * from KeyValue where key=1)
+FROM t
+|> SELECT key+1
+--
+ARRAY<STRUCT<INT64>>[{2}]
+==
+
+# This can cause confusion because of how the ProjectScans look.
+[name=drop_in_union]
+(SELECT value FROM KeyValue)
+UNION ALL
+(FROM KeyValue |> DROP key)
+--
+ARRAY<STRUCT<value STRING>>[unknown order:
+  {"value2"},
+  {"value1"},
+  {"value1"},
+  {"value2"},
+  {"value1"},
+  {"value1"}
+]

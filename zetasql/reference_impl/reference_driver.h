@@ -33,7 +33,6 @@
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/simple_catalog.h"
-#include "zetasql/public/sql_function.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
 #include "zetasql/reference_impl/rewrite_flags.h"
@@ -47,7 +46,6 @@
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
 #include "absl/types/span.h"
-#include "zetasql/base/status_builder.h"
 
 namespace zetasql {
 
@@ -74,8 +72,8 @@ class ReferenceDriver : public TestDriver {
   ReferenceDriver& operator=(const ReferenceDriver&) = delete;
   ~ReferenceDriver() override;
 
-  // Creates a ReferenceDriver from a TestDriver, matching its options and
-  // enabled rewrites.
+  // Creates a ReferenceDriver from a TestDriver. The ReferenceDriver will match
+  // the TestDriver's language options with default (minimal) rewrites.
   static std::unique_ptr<ReferenceDriver> CreateFromTestDriver(
       TestDriver* test_driver);
 

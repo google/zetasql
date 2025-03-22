@@ -28,18 +28,20 @@
 
 #include "zetasql/public/civil_time.h"
 #include "zetasql/public/language_options.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/value.h"
 #include "zetasql/reference_impl/tuple.h"
+#include "zetasql/reference_impl/variable_id.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/base/case.h"
+#include "absl/base/attributes.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/flags/declare.h"
 #include "absl/random/random.h"
+#include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
-#include "absl/types/optional.h"
 #include "zetasql/base/map_util.h"
-#include "zetasql/base/status.h"
 #include "zetasql/base/clock.h"
 
 // See description in the cc file.
@@ -379,10 +381,6 @@ class EvaluationContext {
         zetasql::FEATURE_TIMESTAMP_NANOS);
   }
 
-  // UDF argument references
-  std::map<std::string, Value, zetasql_base::CaseLess>
-      udf_argument_references_;
-
  private:
   EvaluationContext(const EvaluationOptions& options,
                     std::shared_ptr<MemoryAccountant> memory_accountant,
@@ -457,6 +455,10 @@ class EvaluationContext {
   // A reference to the EvaluationContext that created this context by
   // calling `MakeChildContext`. Always nullptr if not created this way.
   EvaluationContext* parent_context_ = nullptr;
+
+  // UDF argument references
+  std::map<std::string, Value, zetasql_base::CaseLess>
+      udf_argument_references_;
 };
 
 // Returns true if we should suppress 'error' (which must not be OK) in

@@ -21,7 +21,6 @@
 
 #include "zetasql/base/logging.h"
 #include "google/protobuf/descriptor.pb.h"
-#include "google/protobuf/descriptor.h"
 #include "zetasql/parser/keywords.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
@@ -91,6 +90,14 @@ LanguageOptions::GetLanguageFeaturesForVersion(LanguageVersion version) {
       features.insert(FEATURE_V_1_4_GROUP_BY_GRAPH_PATH);
       features.insert(FEATURE_V_1_4_FOR_UPDATE);
       features.insert(FEATURE_V_1_4_LIMIT_OFFSET_EXPRESSIONS);
+      features.insert(FEATURE_V_1_4_MATCH_RECOGNIZE);
+      features.insert(FEATURE_V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES);
+      features.insert(FEATURE_V_1_4_FROM_PROTO_DURATION);
+      features.insert(FEATURE_V_1_4_SIMPLIFY_PIVOT_REWRITE);
+      features.insert(FEATURE_V_1_4_MULTILEVEL_AGGREGATION);
+      features.insert(FEATURE_V_1_4_PIPE_NAMED_WINDOWS);
+      features.insert(FEATURE_V_1_4_PIPE_RECURSIVE_UNION);
+      features.insert(FEATURE_V_1_4_MULTILEVEL_AGGREGATION_IN_UDAS);
       ABSL_FALLTHROUGH_INTENDED;
     case VERSION_1_3:
       // NO CHANGES SHOULD HAPPEN INSIDE THE VERSIONS BELOW, which are

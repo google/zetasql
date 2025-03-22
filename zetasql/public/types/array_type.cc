@@ -36,7 +36,6 @@
 #include "zetasql/public/types/collation.h"
 #include "zetasql/public/types/container_type.h"
 #include "zetasql/public/types/list_backed_type.h"
-#include "zetasql/public/types/proto_type.h"
 #include "zetasql/public/types/struct_type.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_modifiers.h"
@@ -45,7 +44,6 @@
 #include "zetasql/public/value.pb.h"
 #include "zetasql/public/value_content.h"
 #include "absl/base/attributes.h"
-#include "absl/container/flat_hash_set.h"
 #include "absl/hash/hash.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -73,25 +71,20 @@ struct HashableValueContentContainerElementIgnoringFloat {
   template <typename H>
   friend H AbslHashValue(
       H h, const HashableValueContentContainerElementIgnoringFloat& v) {
-    static constexpr uint64_t kFloatApproximateHashCode = 0x1192AA60660CCFABull;
-    static constexpr uint64_t kDoubleApproximateHashCode =
-        0x520C31647E82D8E6ull;
-    static constexpr uint64_t
-        kMessageWithFloatingPointFieldApproximateHashCode =
-            0x1F6432686AAF52A4ull;
-    if (v.element.is_null()) {
-      return H::combine(std::move(h), kNullHashCode);
+    const bool is_null = v.element.is_null();
+    if (is_null) {
+      return H::combine(std::move(h), is_null);
     }
     switch (v.type->kind()) {
       case TYPE_FLOAT:
-        return H::combine(std::move(h), kFloatApproximateHashCode);
+        h = H::combine(std::move(h), TYPE_FLOAT);
+        break;
       case TYPE_DOUBLE:
-        return H::combine(std::move(h), kDoubleApproximateHashCode);
+        h = H::combine(std::move(h), TYPE_DOUBLE);
+        break;
       case TYPE_ARRAY: {
-        // We must hash arrays as if unordered to support hash_map and hash_set
-        // of values containing arrays with order_kind()=kIgnoresOrder.
-        // absl::Hash lacks support for unordered containers, so we create a
-        // cheapo solution of just adding the hashcodes.
+        // TODO: we should use H::combine_unordered instead of summing the
+        // hashes of elements.
         absl::Hash<HashableValueContentContainerElementIgnoringFloat>
             element_hasher;
         size_t combined_hash = 1;
@@ -105,7 +98,9 @@ struct HashableValueContentContainerElementIgnoringFloat {
               element_hasher(HashableValueContentContainerElementIgnoringFloat(
                   container->element(i), element_type));
         }
-        return H::combine(std::move(h), TYPE_ARRAY, combined_hash);
+        h = H::combine(std::move(h), combined_hash, container->num_elements(),
+                       TYPE_ARRAY);
+        break;
       }
       case TYPE_STRUCT: {
         const internal::ValueContentOrderedList* container =
@@ -114,7 +109,6 @@ struct HashableValueContentContainerElementIgnoringFloat {
                 ->value();
         absl::Hash<HashableValueContentContainerElementIgnoringFloat>
             field_hasher;
-        h = H::combine(std::move(h), TYPE_STRUCT);
         for (int i = 0; i < container->num_elements(); i++) {
           const StructType* struct_type = v.type->AsStruct();
           const Type* field_type = struct_type->field(i).type;
@@ -123,38 +117,23 @@ struct HashableValueContentContainerElementIgnoringFloat {
               field_hasher(HashableValueContentContainerElementIgnoringFloat(
                   container->element(i), field_type)));
         }
-        return h;
+        h = H::combine(std::move(h), container->num_elements(), TYPE_STRUCT);
+        break;
       }
       case TYPE_PROTO: {
-        absl::flat_hash_set<const google::protobuf::Descriptor*> visited;
-        const ProtoType* p = v.type->AsProto();
-        if (HasFloatingPointFields(p->descriptor(), visited)) {
-          return H::combine(std::move(h),
-                            kMessageWithFloatingPointFieldApproximateHashCode);
+        bool has_floating_point_fields = v.type->HasFloatingPointFields();
+        if (has_floating_point_fields) {
+          h = H::combine(std::move(h), TYPE_PROTO, has_floating_point_fields);
+          break;
         }
+        h = H::combine(std::move(h), has_floating_point_fields);
         ABSL_FALLTHROUGH_INTENDED;
       }
       default:
-        return v.Hash(std::move(h));
+        h = v.Hash(std::move(h));
+        break;
     }
-  }
-
- private:
-  static bool HasFloatingPointFields(
-      const google::protobuf::Descriptor* d,
-      absl::flat_hash_set<const google::protobuf::Descriptor*>& visited) {
-    for (int i = 0; i < d->field_count(); ++i) {
-      const google::protobuf::FieldDescriptor* f = d->field(i);
-      if (f->type() == google::protobuf::FieldDescriptor::TYPE_FLOAT ||
-          f->type() == google::protobuf::FieldDescriptor::TYPE_DOUBLE) {
-        return true;
-      } else if (f->type() == google::protobuf::FieldDescriptor::TYPE_MESSAGE &&
-                 visited.insert(f->message_type()).second &&
-                 HasFloatingPointFields(f->message_type(), visited)) {
-        return true;
-      }
-    }
-    return false;
+    return H::combine(std::move(h), is_null);
   }
 };
 
@@ -178,7 +157,7 @@ struct MultisetValueContentContainerElementHasher {
   const Type* type;
 };
 
-ArrayType::ArrayType(const TypeFactory* factory, const Type* element_type)
+ArrayType::ArrayType(const TypeFactoryBase* factory, const Type* element_type)
     : ListBackedType(factory, TYPE_ARRAY), element_type_(element_type) {
   ABSL_CHECK(!element_type->IsArray());  // Blocked in MakeArrayType.
 }
@@ -318,6 +297,13 @@ absl::StatusOr<std::string> ArrayType::TypeNameWithModifiers(
   return absl::StrCat("ARRAY<", element_type_name, ">");
 }
 
+std::string ArrayType::CapitalizedName() const {
+  ABSL_CHECK_EQ(kind(), TYPE_ARRAY);  // Crash OK
+  // TODO: Audit use of DebugString. Should this use CapitalizedName?
+  return absl::StrCat("Array<", this->AsArray()->element_type()->DebugString(),
+                      ">");
+}
+
 absl::StatusOr<TypeParameters> ArrayType::ValidateAndResolveTypeParameters(
     const std::vector<TypeParameterValue>& type_parameter_values,
     ProductMode mode) const {
@@ -371,7 +357,8 @@ absl::HashState ArrayType::HashValueContent(const ValueContent& value,
     NullableValueContentHasher hasher(element_type());
     combined_hash += hasher(container->element(i));
   }
-  return absl::HashState::combine(std::move(state), combined_hash);
+  return absl::HashState::combine(std::move(state), combined_hash,
+                                  container->num_elements());
 }
 
 // Compares arrays as multisets. Used in tests only. The current algorithm,

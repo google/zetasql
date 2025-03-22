@@ -17,7 +17,6 @@
 #include "zetasql/public/functions/net.h"
 
 #include <cstdint>
-#include <memory>
 #include <string>
 #include <vector>
 
@@ -28,6 +27,8 @@
 #include "zetasql/testing/test_function.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/status/status.h"
+#include "absl/strings/string_view.h"
 #include "re2/re2.h"
 #include "zetasql/base/status.h"
 

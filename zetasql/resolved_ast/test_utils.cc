@@ -16,6 +16,7 @@
 
 #include "zetasql/resolved_ast/test_utils.h"
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <utility>
@@ -25,10 +26,23 @@
 #include "zetasql/public/annotation/collation.h"
 #include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/catalog.h"
+#include "zetasql/public/function_signature.h"
+#include "zetasql/public/id_string.h"
+#include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/simple_type.h"
+#include "zetasql/public/types/simple_value.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/make_node_vector.h"
+#include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_column.h"
+#include "zetasql/base/check.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
+#include "zetasql/base/ret_check.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 namespace testing {

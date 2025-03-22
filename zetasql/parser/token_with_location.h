@@ -17,12 +17,72 @@
 #ifndef ZETASQL_PARSER_TOKEN_WITH_LOCATION_H_
 #define ZETASQL_PARSER_TOKEN_WITH_LOCATION_H_
 
+#include <string>
+
 #include "zetasql/parser/token_codes.h"
+#include "zetasql/public/error_location.pb.h"
 #include "zetasql/public/parse_location.h"
+#include "absl/base/nullability.h"
 #include "absl/strings/string_view.h"
 
 namespace zetasql {
 namespace parser {
+
+// Represents a stack trace for the macro expansions.
+// The stack is used to provide more context for errors.
+// `name` is the name of the invocation. It can be a macro/argument invocation
+// or a argumenet expansion. `location` is the location of the macro invocation.
+//
+// Keep this cheap to copy.
+struct StackFrame {
+  enum class FrameType {
+    kMacroInvocation,  // The macro invocation. For example, "$m" in $m(abc).
+    kMacroArg,         // The macro argument. For example, "abc" in $m("abc").
+    kArgRef,  // The reference of the macro argument. For example, $1 in
+              // DEFINE MACRO m $1, pqr;
+  };
+  absl::string_view name;
+  FrameType frame_type;
+  ParseLocationRange location;
+  ErrorSource error_source;
+  absl::Nullable<StackFrame*> parent;
+
+  // The invocation frame where this frame is produced from.
+  // This is only set for kMacroArg. For example, $m(abc) arg:$1 is kMacroArg,
+  // and $m is the invocation frame. Parent frame can be different from the
+  // invocation frame.
+  // For example,
+  //
+  // DEFINE MACRO m1 $1,
+  // DEFINE MACRO m2 $m1($1);
+  // $m2(abc)
+  //
+  // For above example, expansion for ABC will look like this:
+  // ABC         :   Representing token definition
+  // |
+  // |
+  // Arg:$1(m2)  :   Argument is created for first time in m2.
+  // |
+  // |
+  // $1(ArgRef)  :   Above chain is getting used in DEFINE MACRO m2 $m1($1)
+  // |
+  // |
+  // Arg:$1(m2)  :   Argument is created for time in m1.
+  // |
+  // |
+  // $1(ArgRef)  :   Above chain is getting used in DEFINE MACRO m1 $1
+  // |
+  // |
+  // $m1()
+  // |
+  // |
+  // $m2()
+  //
+  // Here, In above example, For Arg:$1(m2), its parent will be $1(ArgRef)
+  // and invocation frame will be $m2().
+
+  absl::Nullable<StackFrame*> invocation_frame;
+};
 
 // Represents one token in the unexpanded input stream. 'Kind' is the lexical
 // token kind, e.g. STRING_LITERAL, IDENTIFIER, KW_SELECT.
@@ -58,6 +118,13 @@ struct TokenWithLocation {
   // If the location of either token is invalid, i.e. with one end smaller than
   // 0, the function call returns false.
   bool AdjacentlyPrecedes(const TokenWithLocation& other) const;
+
+  // The stack frame from which this token was expanded.
+  // This field will be null for tokens that were not expanded from a macro or
+  // macro args.
+  // StackFrame has its own `location`, which is the location of the macro
+  // invocation. which is different from the `location` of the token.
+  StackFrame* stack_frame = nullptr;
 };
 
 }  // namespace parser

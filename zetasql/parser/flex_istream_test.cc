@@ -16,6 +16,7 @@
 
 #include "zetasql/parser/flex_istream.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <ios>
 #include <string>
@@ -27,6 +28,7 @@
 #include "zetasql/public/parse_tokens.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/log/log.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 

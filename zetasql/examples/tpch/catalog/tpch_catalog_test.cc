@@ -18,6 +18,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <vector>
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/catalog.h"
@@ -74,9 +75,12 @@ TEST(TpchCatalog, Make) {
 
     // Check the first row of Orders, where we can check the value of one column
     // of each supported type.
-    ZETASQL_ASSERT_OK_AND_ASSIGN(
-        std::unique_ptr<EvaluatorTableIterator> iterator,
-        table->CreateEvaluatorTableIterator(/*column_idxs=*/{}));
+    std::vector<int> column_idxs;
+    for (int i = 0; i < table->NumColumns(); ++i) {
+      column_idxs.push_back(i);
+    }
+    ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iterator,
+                         table->CreateEvaluatorTableIterator(column_idxs));
     ASSERT_TRUE(iterator->NextRow());
 
     EXPECT_EQ(iterator->GetColumnName(1), "O_CUSTKEY");

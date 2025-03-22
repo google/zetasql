@@ -609,9 +609,7 @@ order by key, sum(key)
 ==
 
 # Direct table input to PIVOT disallowed in strict mode
-# TODO: Enable the unparser when SQLBuilder support is implemented
 [language_features=V_1_3_PIVOT]
-[no_run_unparser]
 SELECT 1 FROM KeyValue PIVOT(COUNT(Value) FOR Key IN (0 AS zero, 1 AS one));
 --
 STRICT MODE ERROR: Input to PIVOT must be a subquery in strict name resolution mode [at 1:24]
@@ -620,9 +618,7 @@ SELECT 1 FROM KeyValue PIVOT(COUNT(Value) FOR Key IN (0 AS zero, 1 AS one));
 ==
 
 # TVF input to PIVOT disallowed in strict mode
-# TODO: Enable the unparser when SQLBuilder support is implemented
 [language_features=V_1_3_PIVOT,TABLE_VALUED_FUNCTIONS]
-[no_run_unparser]
 SELECT 1 FROM tvf_no_args() PIVOT(COUNT(1) FOR 1 IN (0 AS zero, 1 AS one));
 --
 STRICT MODE ERROR: Input to PIVOT must be a subquery in strict name resolution mode [at 1:29]
@@ -632,7 +628,6 @@ SELECT 1 FROM tvf_no_args() PIVOT(COUNT(1) FOR 1 IN (0 AS zero, 1 AS one));
 
 # Subquery input to PIVOT allowed in strict mode
 [language_features=V_1_3_PIVOT]
-[no_run_unparser]
 SELECT 1 FROM (SELECT KeyValue.Key, KeyValue.Value FROM KeyValue) kv
 PIVOT(COUNT(kv.Value) FOR kv.Key IN (0 AS zero, 1 AS one));
 --
@@ -642,7 +637,177 @@ PIVOT(COUNT(kv.Value) FOR kv.Key IN (0 AS zero, 1 AS one));
 # to unqualified column names from the input table. This is also ok, since the
 # input table is a subquery.
 [language_features=V_1_3_PIVOT]
-[no_run_unparser]
 SELECT 1 FROM (SELECT KeyValue.Key, KeyValue.Value FROM KeyValue) kv
 PIVOT(COUNT(Value) FOR Key IN (0 AS zero, 1 AS one));
 --
+==
+
+[language_features=PIPES]
+from KeyValue AS kv;
+--
+STRICT MODE ERROR: A FROM query implicitly selects all columns, which is not allowed in strict mode without a subsequent operator to select columns explicitly, such as pipe SELECT or pipe AGGREGATE [at 1:1]
+from KeyValue AS kv;
+^
+==
+
+# SELECT clause makes the output columns entirely defined by the query.
+[language_features=PIPES]
+from KeyValue AS kv
+  |> select kv.key;
+--
+==
+
+# A subsequent pipe WHERE clause does not affect this either way.
+[language_features=PIPES]
+from KeyValue AS kv
+  |> select kv.key
+  |> where key != 1;
+--
+==
+
+# WHERE clause alone is not enough.
+[language_features=PIPES]
+from KeyValue AS kv
+  |> where kv.key != 1;
+--
+STRICT MODE ERROR: A FROM query implicitly selects all columns, which is not allowed in strict mode without a subsequent operator to select columns explicitly, such as pipe SELECT or pipe AGGREGATE [at 1:1]
+from KeyValue AS kv
+^
+==
+
+# Subsequent JOIN clause is not allowed.
+[language_features=PIPES]
+from KeyValue AS kv
+    |> select kv.key AS orig_key
+    |> join KeyValue AS kv2 on orig_key = kv2.key;
+--
+STRICT MODE ERROR: A pipe JOIN implicitly selects all columns, which is not allowed in strict mode without a subsequent operator to select columns explicitly, such as pipe SELECT or pipe AGGREGATE [at 3:5]
+    |> join KeyValue AS kv2 on orig_key = kv2.key;
+    ^
+==
+
+# Subsequent JOIN clause made safe by another SELECT clause.
+[language_features=PIPES]
+from KeyValue AS kv
+    |> select kv.key AS orig_key
+    |> join KeyValue AS kv2 on orig_key = kv2.key
+    |> select kv2.key;
+--
+==
+
+# AGGREGATE also works like SELECT.
+[language_features=PIPES]
+from KeyValue AS kv
+    |> AGGREGATE MAX(kv.key) AS max_key;
+--
+==
+
+# Pipe EXTEND cannot operate on an implicit list of columns.
+[language_features=PIPES]
+from KeyValue AS kv
+    |> EXTEND kv.key + 1 AS key_plus_one, kv.key + 2 AS key_plus_two
+    |> SELECT key_plus_two;
+--
+STRICT MODE ERROR: In strict mode, a pipe EXTEND requires that the input columns are explicitly listed in the query; however a preceding FROM query implicitly selects all columns; consider adding a pipe SELECT between them to resolve this [at 2:5]
+    |> EXTEND kv.key + 1 AS key_plus_one, kv.key + 2 AS key_plus_two
+    ^
+==
+
+# Pipe AS cannot operate on an implicit list of columns.
+[language_features=PIPES]
+from KeyValue AS kv1
+    |> JOIN MultipleColumns AS m ON kv1.key = m.int_a
+    |> AS my_alias
+    |> SELECT my_alias.value, my_alias.int_b;
+--
+STRICT MODE ERROR: In strict mode, a pipe AS requires that the input columns are explicitly listed in the query; however a preceding pipe JOIN implicitly selects all columns; consider adding a pipe SELECT between them to resolve this [at 3:5]
+    |> AS my_alias
+    ^
+==
+
+# Pipe DISTINCT cannot operate on an implicit list of columns.
+[language_features=PIPES]
+from KeyValue AS kv
+    |> DISTINCT
+    |> SELECT kv.key, kv.value;
+--
+STRICT MODE ERROR: In strict mode, a pipe DISTINCT requires that the input columns are explicitly listed in the query; however a preceding FROM query implicitly selects all columns; consider adding a pipe SELECT between them to resolve this [at 2:5]
+    |> DISTINCT
+    ^
+==
+
+# Pipe RENAME cannot operate on an implicit list of columns.
+[language_features=PIPES]
+from KeyValue AS kv
+    |> RENAME key AS new_key
+    |> SELECT kv.value;
+--
+STRICT MODE ERROR: In strict mode, a pipe RENAME requires that the input columns are explicitly listed in the query; however a preceding FROM query implicitly selects all columns; consider adding a pipe SELECT between them to resolve this [at 2:5]
+    |> RENAME key AS new_key
+    ^
+==
+
+# Pipe set operations cannot operate on an implicit list of columns.
+[language_features=PIPES]
+from KeyValue AS kv
+    |> UNION ALL (SELECT 1 AS key, "v" AS value);
+--
+STRICT MODE ERROR: In strict mode, a pipe set operation (such as UNION) requires that the input columns are explicitly listed in the query; however a preceding FROM query implicitly selects all columns; consider adding a pipe SELECT between them to resolve this [at 2:5]
+    |> UNION ALL (SELECT 1 AS key, "v" AS value);
+    ^
+==
+
+# Relative operations on the list of columns are okay if they are acting on
+# a well-defined list.
+[language_features=PIPES]
+from KeyValue AS kv
+    |> SELECT kv.key
+    |> EXTEND key + 1 AS key_plus_one, key + 2 AS key_plus_two
+    |> RENAME key_plus_one AS incremented_key
+    |> SET key_plus_two = 12345
+    |> DROP key
+    |> AS my_alias;
+--
+==
+
+# A pipe join implicitly selects all columns from the second scan, which
+# is not allowed in strict mode without a subsequent limitation.
+[language_features=PIPES]
+SELECT t1.key AS key1 FROM KeyValue AS t1
+|> JOIN KeyValue AS t2 ON key1 = t2.key;
+--
+STRICT MODE ERROR: A pipe JOIN implicitly selects all columns, which is not allowed in strict mode without a subsequent operator to select columns explicitly, such as pipe SELECT or pipe AGGREGATE [at 2:1]
+|> JOIN KeyValue AS t2 ON key1 = t2.key;
+^
+==
+
+# Pipe join can be remedied by a subsequent pipe select.
+[language_features=PIPES]
+SELECT t1.key AS key1 FROM KeyValue AS t1
+|> JOIN KeyValue AS t2 ON key1 = t2.key
+|> SELECT key1, t2.key AS key2;
+--
+==
+
+[language_features=PIPES,TABLE_VALUED_FUNCTIONS]
+SELECT 1
+|> CALL tvf_one_relation_arg_with_fixed_output();
+--
+STRICT MODE ERROR: A pipe CALL implicitly selects all columns, which is not allowed in strict mode without a subsequent operator to select columns explicitly, such as pipe SELECT or pipe AGGREGATE [at 2:1]
+|> CALL tvf_one_relation_arg_with_fixed_output();
+^
+==
+
+# The error for an operator that isn't handled in the strict mode check.
+#
+# Note: The chosen operator is arbitrary - if it ever gets implemented in strict
+# mode, we should just pick another one that isn't implemented yet.
+[language_features=PIPES,PIPE_LOG]
+from KeyValue AS kv
+    |> LOG (|> WHERE MOD(kv.key, 100) = 0)
+    |> SELECT kv.key, kv.value;
+--
+STRICT MODE ERROR: Pipe operator not handled in strict mode: PipeLog [at 2:5]
+    |> LOG (|> WHERE MOD(kv.key, 100) = 0)
+    ^
+==

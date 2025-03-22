@@ -296,7 +296,7 @@ QueryStmt
                                       +-WithRefScan(column_list=$inlined_UnaryAbTableArgWithScalarArgsTempl.[x#12, y#13], with_query_name="$inlined_UnaryAbTableArgWithScalarArgsTempl_scalar_args")
 ==
 
-[no_run_unparser]
+[no_run_sqlbuilder]
 SELECT * FROM definer_rights_templated_tvf((SELECT 1 AS a))
 --
 QueryStmt
@@ -402,3 +402,40 @@ QueryStmt
             |                   +-WithRefScan(column_list=[$inlined_definer_rights_templated_tvf.x#7], with_query_name="$inlined_definer_rights_templated_tvf_scalar_args")
             +-original_inlined_view=<null>
             +-original_inlined_tvf=definer_rights_templated_tvf((ANY TYPE) -> ANY TABLE)
+==
+
+# TODO: b/404355265 - Turn on the rewrite once the bug is fixed.
+[enabled_ast_rewrites=ALL,-INLINE_SQL_TVFS]
+SELECT * FROM tvf_templated_select_relation_arg_columns_unused(TABLE TwoIntegers);
+--
+QueryStmt
++-output_column_list=
+| +-tvf_templated_select_relation_arg_columns_unused.result#3 AS result [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[tvf_templated_select_relation_arg_columns_unused.result#3]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=[tvf_templated_select_relation_arg_columns_unused.result#3]
+        +-tvf=tvf_templated_select_relation_arg_columns_unused((ANY TABLE) -> ANY TABLE)
+        +-signature=(TABLE<key INT64, value INT64>) -> TABLE<result INT64>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-TableScan(column_list=TwoIntegers.[key#1, value#2], table=TwoIntegers, column_index_list=[0, 1])
+        |   +-argument_column_list=TwoIntegers.[key#1, value#2]
+        +-column_index_list=[0]
+
+With Templated SQL TVF signature:
+  tvf_templated_select_relation_arg_columns_unused(TABLE<key INT64, value INT64>) -> TABLE<result INT64>
+containing resolved templated query:
+QueryStmt
++-output_column_list=
+| +-$query.result#3 AS result [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.result#3]
+    +-expr_list=
+    | +-result#3 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-RelationArgumentScan(name="t")

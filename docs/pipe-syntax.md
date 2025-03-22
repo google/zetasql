@@ -4,13 +4,13 @@
 
 # Pipe query syntax
 
-ZetaSQL supports pipe query syntax, which is a simpler and more
-concise alternative to [standard query syntax][query-syntax]. Pipe syntax
-supports many of the same operators as standard syntax, and improves some areas
-of SQL query functionality.
+Pipe query syntax is an extension to ZetaSQL that's simpler and more
+concise than [standard query syntax][query-syntax]. Pipe syntax supports the
+same operations as standard syntax, and improves some areas of SQL query
+functionality and usability.
 
-For more background and details on the language design, see the research paper
-[SQL Has Problems. We Can Fix Them: Pipe Syntax In SQL](https://research.google/pubs/sql-has-problems-we-can-fix-them-pipe-syntax-in-sql/).
+For more background and details on pipe syntax design, see the research paper
+[SQL Has Problems. We Can Fix Them: Pipe Syntax In SQL][pipe-syntax-paper]{: .external}.
 
 ## Pipe syntax 
 <a id="pipe_syntax"></a>
@@ -26,6 +26,8 @@ Pipe syntax has the following key characteristics:
     table-valued functions (TVFs), and other contexts.
 +   Pipe syntax can be mixed with standard syntax in the same query. For
     example, subqueries can use different syntax from the parent query.
++   A pipe operator can see every alias that exists in the table
+    preceding the pipe.
 +   A query can [start with a `FROM` clause][from-queries], and pipe
     operators can optionally be added after the `FROM` clause.
 
@@ -33,7 +35,7 @@ Pipe syntax has the following key characteristics:
 
 Consider the following table called `Produce`:
 
-```sql
+```zetasql
 CREATE OR REPLACE TABLE Produce AS (
   SELECT 'apples' AS item, 2 AS sales, 'fruit' AS category
   UNION ALL
@@ -61,7 +63,7 @@ amount of sales for each item in the `Produce` table:
 
 **Standard syntax**
 
-```sql
+```zetasql
 SELECT item, COUNT(*) AS num_items, SUM(sales) AS total_sales
 FROM Produce
 WHERE
@@ -79,7 +81,7 @@ ORDER BY item DESC;
 
 **Pipe syntax**
 
-```sql
+```zetasql
 FROM Produce
 |> WHERE
     item != 'bananas'
@@ -129,7 +131,7 @@ syntax.
 
 The following queries use the [`Produce` table][query-comparison]:
 
-```sql
+```zetasql
 FROM Produce;
 
 /*---------+-------+-----------+
@@ -142,13 +144,13 @@ FROM Produce;
  +---------+-------+-----------*/
 ```
 
-```sql
+```zetasql
 -- Join tables in the FROM clause and then apply pipe operators.
 FROM
   Produce AS p1
   JOIN Produce AS p2
     USING (item)
-|> WHERE item = "bananas"
+|> WHERE item = 'bananas'
 |> SELECT p1.item, p2.sales;
 
 /*---------+-------+
@@ -254,7 +256,7 @@ documentation on the corresponding syntax.
   <td><a href="#union_pipe_operator"><code>UNION</code></a>
 </td>
   <td>
-    Combines the results of the input queries to the left and right of the pipe operator by pairing columns from the results of each query and vertically concatenating them.
+    Returns the combined results of the input queries to the left and right of the pipe operator.
   </td>
 </tr>
 
@@ -295,12 +297,14 @@ documentation on the corresponding syntax.
   </td>
 </tr>
 
+<!-- disableFinding(LINK_ID) -->
+
 <tr>
   <td><a href="#window_pipe_operator"><code>WINDOW</code></a>
 </td>
   <td>
-    Adds columns with the result of computing the function over some window
-    of existing rows
+    Deprecated. Adds columns with the result of computing the function
+    over some window of existing rows.
   </td>
 </tr>
 
@@ -372,7 +376,7 @@ pipe syntax supports other operators:
 
 **Example**
 
-```sql
+```zetasql
 FROM (SELECT 'apples' AS item, 2 AS sales)
 |> SELECT item AS fruit_name;
 
@@ -410,13 +414,13 @@ FROM (SELECT 'apples' AS item, 2 AS sales)
 
 **Description**
 
-Propagates the existing table and adds a computed column, similar to
+Propagates the existing table and adds computed columns, similar to
 [`SELECT *, new_column`][select-star] in standard syntax. Supports
 [window functions][window-functions].
 
 **Examples**
 
-```sql
+```zetasql
 (
   SELECT 'apples' AS item, 2 AS sales
   UNION ALL
@@ -432,7 +436,7 @@ Propagates the existing table and adds a computed column, similar to
  +---------+-------+------------*/
 ```
 
-```sql
+```zetasql
 -- Window function, with `OVER`
 (
   SELECT 'apples' AS item, 2 AS sales
@@ -475,7 +479,7 @@ Therefore, `t.x` will still refer to the original value.
 
 **Example**
 
-```sql
+```zetasql
 (
   SELECT 1 AS x, 11 AS y
   UNION ALL
@@ -491,7 +495,7 @@ Therefore, `t.x` will still refer to the original value.
  +---+---*/
 ```
 
-```sql
+```zetasql
 FROM (SELECT 2 AS x, 3 AS y) AS t
 |> SET x = x * x, y = 8
 |> SELECT t.x AS original_x, x, y;
@@ -528,7 +532,7 @@ deletes persistent schema objects.
 
 **Example**
 
-```sql
+```zetasql
 SELECT 'apples' AS item, 2 AS sales, 'fruit' AS category
 |> DROP sales, category;
 
@@ -539,7 +543,7 @@ SELECT 'apples' AS item, 2 AS sales, 'fruit' AS category
  +--------*/
 ```
 
-```sql
+```zetasql
 FROM (SELECT 1 AS x, 2 AS y) AS t
 |> DROP x
 |> SELECT t.x AS original_x, y;
@@ -575,7 +579,7 @@ values. Therefore, `t.x` will still refer to the original value.
 
 **Example**
 
-```sql
+```zetasql
 SELECT 1 AS x, 2 AS y, 3 AS z
 |> AS t
 |> RENAME y AS renamed_y
@@ -610,7 +614,7 @@ aliases to them. You can use the table alias to disambiguate columns after the
 
 **Example**
 
-```sql
+```zetasql
 (
   SELECT "000123" AS id, "apples" AS item, 2 AS sales
   UNION ALL
@@ -659,7 +663,7 @@ a `QUALIFY` clause, use window functions inside a `WHERE` clause instead.
 
 **Example**
 
-```sql
+```zetasql
 (
   SELECT 'apples' AS item, 2 AS sales
   UNION ALL
@@ -702,7 +706,7 @@ to skip over rows. The `LIMIT` operator behaves the same as the
 
 **Examples**
 
-```sql
+```zetasql
 (
   SELECT 'apples' AS item, 2 AS sales
   UNION ALL
@@ -720,7 +724,7 @@ to skip over rows. The `LIMIT` operator behaves the same as the
  +---------+-------*/
 ```
 
-```sql
+```zetasql
 (
   SELECT 'apples' AS item, 2 AS sales
   UNION ALL
@@ -822,7 +826,7 @@ FROM table1
 
 **Examples**
 
-```sql
+```zetasql
 -- Full-table aggregation
 (
   SELECT 'apples' AS item, 2 AS sales
@@ -840,7 +844,7 @@ FROM table1
  +-----------+-------------*/
 ```
 
-```sql
+```zetasql
 -- Aggregation with grouping
 (
   SELECT 'apples' AS item, 2 AS sales
@@ -893,7 +897,7 @@ the left-to-right output column order.
 
 Consider the following table called `Produce`:
 
-```sql
+```zetasql
 /*---------+-------+-----------+
  | item    | sales | category  |
  +---------+-------+-----------+
@@ -907,7 +911,7 @@ Consider the following table called `Produce`:
 The following two equivalent examples show you how to order by all grouping
 columns using the `GROUP AND ORDER BY` clause or a separate `ORDER BY` clause:
 
-```sql
+```zetasql
 -- Order by all grouping columns using GROUP AND ORDER BY.
 FROM Produce
 |> AGGREGATE SUM(sales) AS total_sales
@@ -922,7 +926,7 @@ FROM Produce
  +-----------+---------+-------------*/
 ```
 
-```sql
+```zetasql
 --Order by columns using ORDER BY after performing aggregation.
 FROM Produce
 |> AGGREGATE SUM(sales) AS total_sales
@@ -934,7 +938,7 @@ You can add an ordering suffix to a column in the `AGGREGATE` list. Although the
 `AGGREGATE` list appears before the `GROUP BY` list in the query, ordering
 suffixes on columns in the `GROUP BY` list are applied first.
 
-```sql
+```zetasql
 FROM Produce
 |> AGGREGATE SUM(sales) AS total_sales ASC
    GROUP BY item, category DESC;
@@ -950,7 +954,7 @@ FROM Produce
 
 The previous query is equivalent to the following:
 
-```sql
+```zetasql
 -- Order by specified grouping and aggregate columns.
 FROM Produce
 |> AGGREGATE SUM(sales) AS total_sales
@@ -991,7 +995,7 @@ doesn't expand value table fields, and preserves table aliases from the input.
 
 **Examples**
 
-```sql
+```zetasql
 (
   SELECT 'apples' AS item, 2 AS sales
   UNION ALL
@@ -1015,7 +1019,7 @@ doesn't expand value table fields, and preserves table aliases from the input.
 In the following example, the table alias `Produce` can be used in
 expressions after the `DISTINCT` pipe operator.
 
-```sql
+```zetasql
 (
   SELECT 'apples' AS item, 2 AS sales
   UNION ALL
@@ -1041,7 +1045,7 @@ expressions after the `DISTINCT` pipe operator.
 By contrast, the table alias isn't visible after a `|> SELECT DISTINCT *`
 clause.
 
-```sql {.bad}
+```zetasql {.bad}
 -- Error, unrecognnized name: Produce
 (
   SELECT 'apples' AS item, 2 AS sales
@@ -1061,7 +1065,7 @@ In the following examples, the `DISTINCT` operator doesn't expand value table
 fields and retains the `STRUCT` type in the result. By contrast, the
 `|> SELECT DISTINCT *` clause expands the `STRUCT` type into two columns.
 
-```sql
+```zetasql
 SELECT AS STRUCT 1 x, 2 y
 |> DISTINCT;
 
@@ -1075,7 +1079,7 @@ SELECT AS STRUCT 1 x, 2 y
  +----------*/
 ```
 
-```sql
+```zetasql
 SELECT AS STRUCT 1 x, 2 y
 |> SELECT DISTINCT *;
 
@@ -1089,7 +1093,7 @@ SELECT AS STRUCT 1 x, 2 y
 The following examples show equivalent ways to generate the same results with
 distinct values from columns `a`, `b`, and `c`.
 
-```sql
+```zetasql
 FROM table
 |> SELECT DISTINCT a, b, c;
 
@@ -1134,7 +1138,7 @@ apply `ORDER BY` behavior more concisely as part of aggregation.
 
 **Example**
 
-```sql
+```zetasql
 (
   SELECT 1 AS x
   UNION ALL
@@ -1163,30 +1167,45 @@ apply `ORDER BY` behavior more concisely as part of aggregation.
 <a id="union_pipe_operator"></a>
 
 <pre class="lang-sql prettyprint no-copy">
-query_expression
-|> <span class="kwd">UNION</span> {ALL | DISTINCT} (query_expression) [, (query_expression), ...]
+query
+|> <span class="kwd">UNION</span> {ALL | DISTINCT} (query) [, (query), ...]
 </pre>
 
 **Description**
 
-Combines the results of the input queries to the left and right of the pipe
-operator by pairing columns from the results of each query and vertically
-concatenating them.
+Returns the combined results of the input queries to the left and right of the
+pipe operator. Columns are matched and rows are concatenated vertically.
 
 The `UNION` pipe operator behaves the same as the
 [`UNION` set operator][union-operator] in standard syntax. However, in pipe
-syntax, the query expressions after the `UNION` pipe operator are enclosed in
-parentheses and separated by commas instead of by the repeated operator name.
-For example, `UNION ALL SELECT 1 UNION ALL SELECT 2` in standard syntax becomes
-`UNION ALL (SELECT 1), (SELECT 2)` in pipe syntax.
+syntax, the `UNION` pipe operator can include multiple comma-separated queries
+without repeating the `UNION` syntax. Queries following the operator
+are enclosed in parentheses.
+
+For example, compare the following equivalent queries:
+
+```zetasql
+-- Standard syntax
+SELECT * FROM ...
+UNION ALL
+SELECT 1
+UNION ALL
+SELECT 2;
+
+-- Pipe syntax
+SELECT * FROM ...
+|> UNION ALL
+    (SELECT 1),
+    (SELECT 2);
+```
 
 The `UNION` pipe operator supports the same modifiers as the
 `UNION` set operator in standard syntax, such as the
-[`CORRESPONDING` modifier][corresponding-modifier].
+`BY NAME` modifier (or `CORRESPONDING`) and `LEFT | FULL [OUTER]` mode prefixes.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT * FROM UNNEST(ARRAY<INT64>[1, 2, 3]) AS number
 |> UNION ALL (SELECT 1);
 
@@ -1200,7 +1219,7 @@ SELECT * FROM UNNEST(ARRAY<INT64>[1, 2, 3]) AS number
  +--------*/
 ```
 
-```sql
+```zetasql
 SELECT * FROM UNNEST(ARRAY<INT64>[1, 2, 3]) AS number
 |> UNION DISTINCT (SELECT 1);
 
@@ -1216,9 +1235,11 @@ SELECT * FROM UNNEST(ARRAY<INT64>[1, 2, 3]) AS number
 The following example shows multiple input queries to the right of the pipe
 operator:
 
-```sql
+```zetasql
 SELECT * FROM UNNEST(ARRAY<INT64>[1, 2, 3]) AS number
-|> UNION DISTINCT (SELECT 1), (SELECT 2);
+|> UNION DISTINCT
+    (SELECT 1),
+    (SELECT 2);
 
 /*--------+
  | number |
@@ -1229,35 +1250,14 @@ SELECT * FROM UNNEST(ARRAY<INT64>[1, 2, 3]) AS number
  +--------*/
 ```
 
-#### `CORRESPONDING` modifier 
-<a id="corresponding_modifier"></a>
+The following example uses the `BY NAME`
+modifier to match results by column name instead of in the
+order that the columns are given in the input queries.
 
-The [`UNION`][union-pipe-operator], [`INTERSECT`][intersect-pipe-operator], and
-[`EXCEPT`][except-pipe-operator] pipe operators support the `CORRESPONDING`
-modifier, which matches columns by name instead of by position in query results:
-
-<pre class="lang-sql prettyprint no-copy">
-query_expression
-|> [{FULL | LEFT}] [OUTER] {UNION | INTERSECT | EXCEPT} {ALL | DISTINCT}
-[STRICT] <span class="kwd">CORRESPONDING</span> [BY (column_list)] (query_expression) [, (query_expression), ...]
-</pre>
-
-The `CORRESPONDING` modifier behaves the same as the
-[`CORRESPONDING` set operation][corresponding-operation] in standard syntax.
-However, in pipe syntax, the query expressions after the `CORRESPONDING`
-modifier are enclosed in parentheses. For example, `CORRESPONDING SELECT
-...` in standard syntax becomes `CORRESPONDING (SELECT ...)` in pipe syntax.
-
-**Examples**
-
-In the following example, the input queries to the left and right of the pipe
-operator specify the same column names in different orders. With the
-`CORRESPONDING` modifier, the results are matched by column name instead of in
-the order the columns were specified in the query.
-
-```sql
+```zetasql
 SELECT 1 AS one_digit, 10 AS two_digit
-|> UNION ALL CORRESPONDING (SELECT 20 AS two_digit, 2 AS one_digit);
+|> UNION ALL BY NAME
+    (SELECT 20 AS two_digit, 2 AS one_digit);
 
 /*-----------+-----------+
  | one_digit | two_digit |
@@ -1267,14 +1267,16 @@ SELECT 1 AS one_digit, 10 AS two_digit
  +-----------+-----------*/
 ```
 
-By contrast, the following example without the `CORRESPONDING` modifier shows
-results in the order the columns were listed in the input queries instead of by
-column name.
+Without the `BY NAME` modifier,
+the results are matched by column position in the input query and the column
+names are ignored.
 
-```sql
+```zetasql
 SELECT 1 AS one_digit, 10 AS two_digit
-|> UNION ALL (SELECT 20 AS two_digit, 2 AS one_digit);
+|> UNION ALL
+    (SELECT 20 AS two_digit, 2 AS one_digit);
 
+-- Results follow column order from queries and ignore column names.
 /*-----------+-----------+
  | one_digit | two_digit |
  +-----------+-----------+
@@ -1283,134 +1285,14 @@ SELECT 1 AS one_digit, 10 AS two_digit
  +-----------+-----------*/
 ```
 
-The following example adds a `three_digit` column to the input query on the left
-of the pipe operator and a `four_digit` column to the input query on the right
-of the pipe operator. Because these columns aren't present in both queries, the
-new columns are excluded from the results.
-
-```sql
-SELECT 1 AS one_digit, 10 AS two_digit, 100 AS three_digit
-|> UNION ALL CORRESPONDING (SELECT 20 AS two_digit, 2 AS one_digit, 1000 AS four_digit);
-
-/*-----------+-----------+
- | one_digit | two_digit |
- +-----------+-----------+
- | 1         | 10        |
- | 2         | 20        |
- +-----------+-----------*/
-```
-
-To include these differing columns, the following example uses `FULL OUTER` mode
-to populate `NULL` values for the missing column in each query.
-
-```sql
-SELECT 1 AS one_digit, 10 AS two_digit, 100 AS three_digit
-|> FULL OUTER UNION ALL CORRESPONDING
-   (SELECT 20 AS two_digit, 2 AS one_digit, 1000 AS four_digit);
-
-/*-----------+-----------+-------------+------------+
- | one_digit | two_digit | three_digit | four_digit |
- +-----------+-----------+-------------+------------+
- | 1         | 10        | 100         | NULL       |
- | 2         | 20        | NULL        | 1000       |
- +-----------+-----------+-------------+------------*/
-```
-
-Similarly, the following example uses `LEFT OUTER` mode to include the new
-column from only the input query on the left of the pipe operator and populate a
-`NULL` value for the missing column in the input query on the right of the pipe
-operator.
-
-```sql
-SELECT 1 AS one_digit, 10 AS two_digit, 100 AS three_digit
-|> LEFT OUTER UNION ALL CORRESPONDING
-   (SELECT 20 AS two_digit, 2 AS one_digit, 1000 AS four_digit);
-
-/*-----------+-----------+-------------+
- | one_digit | two_digit | three_digit |
- +-----------+-----------+-------------+
- | 1         | 10        | 100         |
- | 2         | 20        | NULL        |
- +-----------+-----------+-------------*/
-```
-
-The following example uses the modifier `BY (column_list)` to return only the
-specified columns in the specified order.
-
-```sql
-SELECT 1 AS one_digit, 10 AS two_digit, 100 AS three_digit
-|> FULL OUTER UNION ALL CORRESPONDING BY (three_digit, two_digit)
-   (SELECT 20 AS two_digit, 2 AS one_digit, 1000 AS four_digit);
-
-/*-------------+-----------+
- | three_digit | two_digit |
- +-------------+-----------+
- | 100         | 10        |
- | NULL        | 20        |
- +-----------+-------------*/
-```
-
-The following examples use the `CORRESPONDING` modifier with the `INTERSECT` and
-`EXCEPT` pipe operators to likewise match the results by column name. The
-`INTERSECT` pipe operator returns common rows between the input queries, and the
-`EXCEPT` pipe operator returns rows that are present only in the input query to
-the left of the pipe operator.
-
-```sql
-WITH
-  NumbersTable AS (
-    SELECT 1 AS one_digit, 10 AS two_digit
-    UNION ALL
-    SELECT 2, 20
-    UNION ALL
-    SELECT 3, 30
-  )
-SELECT one_digit, two_digit FROM NumbersTable
-|> INTERSECT ALL CORRESPONDING (SELECT 10 AS two_digit, 1 AS one_digit);
-
-/*-----------+-----------+
- | one_digit | two_digit |
- +-----------+-----------+
- | 1         | 10        |
- +-----------+-----------*/
-```
-
-```sql
-WITH
-  NumbersTable AS (
-    SELECT 1 AS one_digit, 10 AS two_digit
-    UNION ALL
-    SELECT 2, 20
-    UNION ALL
-    SELECT 3, 30
-  )
-SELECT one_digit, two_digit FROM NumbersTable
-|> EXCEPT ALL CORRESPONDING (SELECT 10 AS two_digit, 1 AS one_digit);
-
-/*-----------+-----------+
- | one_digit | two_digit |
- +-----------+-----------+
- | 2         | 20        |
- | 3         | 30        |
- +-----------+-----------*/
-```
-
 [union-operator]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#union
-
-[union-pipe-operator]: #union_pipe_operator
-
-[intersect-pipe-operator]: #intersect_pipe_operator
-
-[except-pipe-operator]: #except_pipe_operator
-
-[corresponding-operation]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#corresponding
 
 ### `INTERSECT` pipe operator 
 <a id="intersect_pipe_operator"></a>
 
 <pre class="lang-sql prettyprint no-copy">
-query_expression
-|> <span class="kwd">INTERSECT</span> {ALL | DISTINCT} (query_expression) [, (query_expression), ...]
+query
+|> <span class="kwd">INTERSECT</span> {ALL | DISTINCT} (query) [, (query), ...]
 </pre>
 
 **Description**
@@ -1421,20 +1303,38 @@ operator.
 
 The `INTERSECT` pipe operator behaves the same as the
 [`INTERSECT` set operator][intersect-operator] in standard syntax. However, in
-pipe syntax, the query expressions after the `INTERSECT` pipe operator are
-enclosed in parentheses and separated by commas instead of by the repeated
-operator name. For example, `INTERSECT ALL SELECT 1 INTERSECT ALL SELECT 2` in
-standard syntax becomes `INTERSECT ALL (SELECT 1), (SELECT 2)` in pipe syntax.
+pipe syntax, the `INTERSECT` pipe operator can include multiple
+comma-separated queries without repeating the `INTERSECT` syntax. Queries
+following the operator are enclosed in parentheses.
+
+For example, compare the following equivalent queries:
+
+```zetasql
+-- Standard syntax
+SELECT * FROM ...
+INTERSECT ALL
+SELECT 1
+INTERSECT ALL
+SELECT 2;
+
+-- Pipe syntax
+SELECT * FROM ...
+|> INTERSECT ALL
+    (SELECT 1),
+    (SELECT 2);
+```
 
 The `INTERSECT` pipe operator supports the same modifiers as the
 `INTERSECT` set operator in standard syntax, such as the
-[`CORRESPONDING` modifier][corresponding-modifier].
+`BY NAME` modifier (or `CORRESPONDING`)
+ and `LEFT | FULL [OUTER]` mode prefixes.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT * FROM UNNEST(ARRAY<INT64>[1, 2, 3, 3, 4]) AS number
-|> INTERSECT ALL (SELECT * FROM UNNEST(ARRAY<INT64>[2, 3, 3, 5]) AS number);
+|> INTERSECT ALL
+    (SELECT * FROM UNNEST(ARRAY<INT64>[2, 3, 3, 5]) AS number);
 
 /*--------+
  | number |
@@ -1445,9 +1345,10 @@ SELECT * FROM UNNEST(ARRAY<INT64>[1, 2, 3, 3, 4]) AS number
  +--------*/
 ```
 
-```sql
+```zetasql
 SELECT * FROM UNNEST(ARRAY<INT64>[1, 2, 3, 3, 4]) AS number
-|> INTERSECT DISTINCT (SELECT * FROM UNNEST(ARRAY<INT64>[2, 3, 3, 5]) AS number);
+|> INTERSECT DISTINCT
+    (SELECT * FROM UNNEST(ARRAY<INT64>[2, 3, 3, 5]) AS number);
 
 /*--------+
  | number |
@@ -1460,11 +1361,11 @@ SELECT * FROM UNNEST(ARRAY<INT64>[1, 2, 3, 3, 4]) AS number
 The following example shows multiple input queries to the right of the pipe
 operator:
 
-```sql
+```zetasql
 SELECT * FROM UNNEST(ARRAY<INT64>[1, 2, 3, 3, 4]) AS number
 |> INTERSECT DISTINCT
-   (SELECT * FROM UNNEST(ARRAY<INT64>[2, 3, 3, 5]) AS number),
-   (SELECT * FROM UNNEST(ARRAY<INT64>[3, 3, 4, 5]) AS number);
+    (SELECT * FROM UNNEST(ARRAY<INT64>[2, 3, 3, 5]) AS number),
+    (SELECT * FROM UNNEST(ARRAY<INT64>[3, 3, 4, 5]) AS number);
 
 /*--------+
  | number |
@@ -1473,16 +1374,61 @@ SELECT * FROM UNNEST(ARRAY<INT64>[1, 2, 3, 3, 4]) AS number
  +--------*/
 ```
 
-[intersect-operator]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#intersect
+The following example uses the `BY NAME`
+modifier to return the intersecting row from the columns despite the differing
+column order in the input queries.
 
-[corresponding-modifier]: #corresponding_modifier
+```zetasql
+WITH
+  NumbersTable AS (
+    SELECT 1 AS one_digit, 10 AS two_digit
+    UNION ALL
+    SELECT 2, 20
+    UNION ALL
+    SELECT 3, 30
+  )
+SELECT one_digit, two_digit FROM NumbersTable
+|> INTERSECT ALL BY NAME
+    (SELECT 10 AS two_digit, 1 AS one_digit);
+
+/*-----------+-----------+
+ | one_digit | two_digit |
+ +-----------+-----------+
+ | 1         | 10        |
+ +-----------+-----------*/
+```
+
+Without the `BY NAME` modifier, the same
+columns in differing order are considered different columns, so the query
+doesn't detect any intersecting row values.
+
+```zetasql
+WITH
+  NumbersTable AS (
+    SELECT 1 AS one_digit, 10 AS two_digit
+    UNION ALL
+    SELECT 2, 20
+    UNION ALL
+    SELECT 3, 30
+  )
+SELECT one_digit, two_digit FROM NumbersTable
+|> INTERSECT ALL
+    (SELECT 10 AS two_digit, 1 AS one_digit);
+
+-- No intersecting values detected because columns aren't recognized as the same.
+/*-----------+-----------+
+
+ +-----------+-----------*/
+```
+
+[intersect-operator]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#intersect
 
 ### `EXCEPT` pipe operator 
 <a id="except_pipe_operator"></a>
 
 <pre class="lang-sql prettyprint no-copy">
-query_expression
-|> <span class="kwd">EXCEPT</span> {ALL | DISTINCT} (query_expression) [, (query_expression), ...]
+query
+|> <span class="kwd">EXCEPT</span> {ALL | DISTINCT} (query) [, (query), ...]
 </pre>
 
 **Description**
@@ -1492,20 +1438,69 @@ present in any input queries to the right of the pipe operator.
 
 The `EXCEPT` pipe operator behaves the same as the
 [`EXCEPT` set operator][except-operator] in standard syntax. However, in pipe
-syntax, the query expressions after the `EXCEPT` pipe operator are enclosed in
-parentheses and separated by commas instead of by the repeated operator name.
-For example, `EXCEPT ALL SELECT 1 EXCEPT ALL SELECT 2` in standard syntax
-becomes `EXCEPT ALL (SELECT 1), (SELECT 2)` in pipe syntax.
+syntax, the `EXCEPT` pipe operator can include multiple comma-separated
+queries without repeating the `EXCEPT` syntax. Queries following the
+operator are enclosed in parentheses.
+
+For example, compare the following equivalent queries:
+
+```zetasql
+-- Standard syntax
+SELECT * FROM ...
+EXCEPT ALL
+SELECT 1
+EXCEPT ALL
+SELECT 2;
+
+-- Pipe syntax
+SELECT * FROM ...
+|> EXCEPT ALL
+    (SELECT 1),
+    (SELECT 2);
+```
+
+Parentheses can be used to group set operations and control order of operations.
+In `EXCEPT` set operations, query results can vary depending on the operation
+grouping.
+
+```zetasql
+-- Default operation grouping
+(
+  SELECT * FROM ...
+  EXCEPT ALL
+  SELECT 1
+)
+EXCEPT ALL
+SELECT 2;
+
+-- Modified operation grouping
+SELECT * FROM ...
+EXCEPT ALL
+(
+  SELECT 1
+  EXCEPT ALL
+  SELECT 2
+);
+
+-- Same modified operation grouping in pipe syntax
+SELECT * FROM ...
+|> EXCEPT ALL
+(
+  SELECT 1
+  |> EXCEPT ALL (SELECT 2)
+);
+```
 
 The `EXCEPT` pipe operator supports the same modifiers as the
 `EXCEPT` set operator in standard syntax, such as the
-[`CORRESPONDING` modifier][corresponding-modifier].
+`BY NAME` modifier (or `CORRESPONDING`) and `LEFT | FULL [OUTER]` mode prefixes.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT * FROM UNNEST(ARRAY<INT64>[1, 2, 3, 3, 4]) AS number
-|> EXCEPT ALL (SELECT * FROM UNNEST(ARRAY<INT64>[1, 2]) AS number);
+|> EXCEPT ALL
+    (SELECT * FROM UNNEST(ARRAY<INT64>[1, 2]) AS number);
 
 /*--------+
  | number |
@@ -1516,9 +1511,10 @@ SELECT * FROM UNNEST(ARRAY<INT64>[1, 2, 3, 3, 4]) AS number
  +--------*/
 ```
 
-```sql
+```zetasql
 SELECT * FROM UNNEST(ARRAY<INT64>[1, 2, 3, 3, 4]) AS number
-|> EXCEPT DISTINCT (SELECT * FROM UNNEST(ARRAY<INT64>[1, 2]) AS number);
+|> EXCEPT DISTINCT
+    (SELECT * FROM UNNEST(ARRAY<INT64>[1, 2]) AS number);
 
 /*--------+
  | number |
@@ -1531,11 +1527,11 @@ SELECT * FROM UNNEST(ARRAY<INT64>[1, 2, 3, 3, 4]) AS number
 The following example shows multiple input queries to the right of the pipe
 operator:
 
-```sql
+```zetasql
 SELECT * FROM UNNEST(ARRAY<INT64>[1, 2, 3, 3, 4]) AS number
 |> EXCEPT DISTINCT
-   (SELECT * FROM UNNEST(ARRAY<INT64>[1, 2]) AS number),
-   (SELECT * FROM UNNEST(ARRAY<INT64>[1, 4]) AS number);
+    (SELECT * FROM UNNEST(ARRAY<INT64>[1, 2]) AS number),
+    (SELECT * FROM UNNEST(ARRAY<INT64>[1, 4]) AS number);
 
 /*--------+
  | number |
@@ -1544,9 +1540,81 @@ SELECT * FROM UNNEST(ARRAY<INT64>[1, 2, 3, 3, 4]) AS number
  +--------*/
 ```
 
-[except-operator]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#except
+The following example groups the set operations to modify the order of
+operations. The first input query is used against the result of the last two
+queries instead of the values of the last two queries individually.
 
-[corresponding-modifier]: #corresponding_modifier
+```zetasql
+SELECT * FROM UNNEST(ARRAY<INT64>[1, 2, 3, 3, 4]) AS number
+|> EXCEPT DISTINCT
+(
+  SELECT * FROM UNNEST(ARRAY<INT64>[1, 2]) AS number
+  |> EXCEPT DISTINCT
+      (SELECT * FROM UNNEST(ARRAY<INT64>[1, 4]) AS number)
+);
+
+/*--------+
+ | number |
+ +--------+
+ | 1      |
+ | 3      |
+ | 4      |
+ +--------*/
+```
+
+The following example uses the `BY NAME`
+modifier to return unique rows from the input query to the left of the pipe
+operator despite the differing column order in the input queries.
+
+```zetasql
+WITH
+  NumbersTable AS (
+    SELECT 1 AS one_digit, 10 AS two_digit
+    UNION ALL
+    SELECT 2, 20
+    UNION ALL
+    SELECT 3, 30
+  )
+SELECT one_digit, two_digit FROM NumbersTable
+|> EXCEPT ALL BY NAME
+    (SELECT 10 AS two_digit, 1 AS one_digit);
+
+/*-----------+-----------+
+ | one_digit | two_digit |
+ +-----------+-----------+
+ | 2         | 20        |
+ | 3         | 30        |
+ +-----------+-----------*/
+```
+
+Without the `BY NAME` modifier, the same columns in
+differing order are considered different columns, so the query doesn't detect
+any common rows that should be excluded.
+
+```zetasql
+WITH
+  NumbersTable AS (
+    SELECT 1 AS one_digit, 10 AS two_digit
+    UNION ALL
+    SELECT 2, 20
+    UNION ALL
+    SELECT 3, 30
+  )
+SELECT one_digit, two_digit FROM NumbersTable
+|> EXCEPT ALL
+    (SELECT 10 AS two_digit, 1 AS one_digit);
+
+-- No values excluded because columns aren't recognized as the same.
+/*-----------+-----------+
+ | one_digit | two_digit |
+ +-----------+-----------+
+ | 1         | 10        |
+ | 2         | 20        |
+ | 3         | 30        |
+ +-----------+-----------*/
+```
+
+[except-operator]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#except
 
 ### `JOIN` pipe operator 
 <a id="join_pipe_operator"></a>
@@ -1573,7 +1641,7 @@ input table is needed, perhaps to disambiguate columns in an
 
 **Example**
 
-```sql
+```zetasql
 (
   SELECT 'apples' AS item, 2 AS sales
   UNION ALL
@@ -1633,14 +1701,14 @@ Suppose you have TVFs with the following parameters:
 The following examples compare calling both TVFs on an input table
 by using standard syntax and by using the `CALL` pipe operator:
 
-```sql
+```zetasql
 -- Call the TVFs without using the CALL operator.
 SELECT *
 FROM
   tvf2(arg2, arg3, TABLE tvf1(TABLE input_table, arg1));
 ```
 
-```sql
+```zetasql
 -- Call the same TVFs with the CALL operator.
 FROM input_table
 |> CALL tvf1(arg1)
@@ -1651,8 +1719,13 @@ FROM input_table
 
 [table-function-calls]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#table_function_calls
 
-### `WINDOW` pipe operator 
+<!-- disableFinding(LINK_ID) -->
+
+### `WINDOW` pipe operator (DEPRECATED) 
 <a id="window_pipe_operator"></a>
+
+Warning: `WINDOW` pipe operator has been deprecated. Use
+`EXTEND` pipe operator instead.
 
 <pre class="lang-sql prettyprint no-copy">
 |> <span class="kwd">WINDOW</span> window_expression [[AS] alias] [, ...]
@@ -1671,7 +1744,7 @@ window functions.
 
 **Example**
 
-```sql
+```zetasql
 (
   SELECT 'apples' AS item, 2 AS sales
   UNION ALL
@@ -1714,7 +1787,7 @@ standard syntax.
 The following example samples approximately 1% of data from a table called
 `LargeTable`:
 
-```sql
+```zetasql
 FROM LargeTable
 |> TABLESAMPLE SYSTEM (1 PERCENT);
 ```
@@ -1735,7 +1808,7 @@ Rotates rows into columns. The `PIVOT` pipe operator behaves the same as the
 
 **Example**
 
-```sql
+```zetasql
 (
   SELECT "kale" AS product, 51 AS sales, "Q1" AS quarter
   UNION ALL
@@ -1773,7 +1846,7 @@ Rotates columns into rows. The `UNPIVOT` pipe operator behaves the same as the
 
 **Example**
 
-```sql
+```zetasql
 (
   SELECT 'kale' as product, 55 AS Q1, 45 AS Q2
   UNION ALL
@@ -1823,7 +1896,7 @@ a related feature that verifies that a single expression is true.
 
 **Example**
 
-```sql
+```zetasql
 FROM table
 |> ASSERT count != 0, "Count is zero for user", userId
 |> SELECT total / count AS average
@@ -1832,6 +1905,8 @@ FROM table
 [assert-statement]: https://github.com/google/zetasql/blob/master/docs/debugging-statements.md#assert
 
 [query-syntax]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md
+
+[pipe-syntax-paper]: https://research.google/pubs/sql-has-problems-we-can-fix-them-pipe-syntax-in-sql/
 
 [from-queries]: #from_queries
 

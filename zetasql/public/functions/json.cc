@@ -1492,6 +1492,67 @@ absl::StatusOr<JSONValue> JsonQueryLax(JSONValueConstRef input,
   return walker.ConsumeResult();
 }
 
+bool JsonContainsImpl(JSONValueConstRef input, JSONValueConstRef target,
+                      bool is_top_level) {
+  if (target.IsObject()) {
+    if (!input.IsObject()) {
+      return false;
+    }
+    for (const auto& [key, value] : target.GetMembers()) {
+      if (!input.HasMember(key) ||
+          !JsonContainsImpl(input.GetMember(key), value,
+                            /*is_top_level=*/false)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  if (target.IsArray()) {
+    if (!input.IsArray()) {
+      return false;
+    }
+    for (const auto& element : target.GetArrayElements()) {
+      // Find element from input JSON array.
+      bool exists = false;
+      for (const auto& source : input.GetArrayElements()) {
+        if (JsonContainsImpl(source, element, /*is_top_level=*/false)) {
+          exists = true;
+          break;
+        }
+      }
+      if (!exists) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  // The `target` is a scalar value.
+  if (input.IsObject()) {
+    return false;
+  }
+  if (input.IsArray()) {
+    if (!is_top_level) {
+      // Only top-level array `input` will be checked with scalar `target`.
+      return false;
+    }
+    for (const auto& source : input.GetArrayElements()) {
+      if (JsonContainsImpl(source, target, /*is_top_level=*/false)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // The `input` and `target` are both a scalar value.
+  return input.NormalizedEquals(target);
+}
+
+bool JsonContains(JSONValueConstRef input, JSONValueConstRef target) {
+  return JsonContainsImpl(input, target, /*is_top_level=*/true);
+}
+
 namespace {
 
 class JsonKeysTreeWalker {

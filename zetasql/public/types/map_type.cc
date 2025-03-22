@@ -23,7 +23,6 @@
 #include <utility>
 #include <vector>
 
-
 #include "zetasql/base/logging.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/common/thread_stack.h"
@@ -32,7 +31,6 @@
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/collation.h"
 #include "zetasql/public/types/type.h"
-#include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/types/type_modifiers.h"
 #include "zetasql/public/types/value_equality_check_options.h"
 #include "zetasql/public/types/value_representations.h"
@@ -105,6 +103,12 @@ absl::StatusOr<std::string> MapType::TypeNameWithModifiers(
   return absl::StrCat("MAP<", key_type_name, ", ", value_type_name, ">");
 }
 
+std::string MapType::CapitalizedName() const {
+  ABSL_CHECK_EQ(kind(), TYPE_MAP);  // Crash OK
+  return absl::StrCat("Map<", GetMapKeyType(this)->CapitalizedName(), ", ",
+                      GetMapValueType(this)->CapitalizedName(), ">");
+}
+
 bool MapType::SupportsOrdering(const LanguageOptions& language_options,
                                std::string* type_description) const {
   if (type_description != nullptr) {
@@ -126,7 +130,7 @@ int MapType::nesting_depth() const {
   return std::max(key_type_->nesting_depth(), value_type_->nesting_depth()) + 1;
 }
 
-MapType::MapType(const TypeFactory* factory, const Type* key_type,
+MapType::MapType(const TypeFactoryBase* factory, const Type* key_type,
                  const Type* value_type)
     : ContainerType(factory, TYPE_MAP),
       key_type_(key_type),
@@ -471,9 +475,23 @@ void MapType::FormatValueContentDebugModeImpl(
 void MapType::FormatValueContentSqlModeImpl(
     const internal::ValueContentMap* value_content_map,
     const FormatValueContentOptions& options, std::string* result) const {
-  absl::StrAppend(result, "MAP_FROM_ARRAY([");
+  absl::StrAppend(result, "MAP_FROM_ARRAY(");
+
+  // Include explicit type for the ARRAY<STRUCT<K, V>> argument to
+  // MAP_FROM_ARRAY if either of the following is true:
+  // 1. We are generating a SQL expression, which means we should include
+  //    explicit type information.
+  // 2. We are generating SQL for an empty MAP. Explicit type is always required
+  //    here, because there are no array entries to infer the type from.
+  if (options.mode == Type::FormatValueContentOptions::Mode::kSQLExpression ||
+      value_content_map->num_elements() == 0) {
+    absl::StrAppend(result, "ARRAY<STRUCT<",
+                    key_type_->TypeName(options.product_mode), ", ",
+                    value_type_->TypeName(options.product_mode), ">>");
+  }
+
   absl::StrAppend(
-      result,
+      result, "[",
       absl::StrJoin(*value_content_map, ", ",
                     [options, this](std::string* out, const auto& map_entry) {
                       auto& [key, value] = map_entry;
@@ -482,8 +500,8 @@ void MapType::FormatValueContentSqlModeImpl(
                       std::string value_str = FormatNullableValueContent(
                           value, this->value_type_, options);
                       absl::StrAppend(out, "(", key_str, ", ", value_str, ")");
-                    }));
-  absl::StrAppend(result, "])");
+                    }),
+      "])");
 }
 
 const Type* GetMapKeyType(const Type* map_type) {

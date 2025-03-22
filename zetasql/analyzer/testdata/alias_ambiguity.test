@@ -2,6 +2,7 @@
 # in the ORDER BY, GROUP BY, and HAVING clauses.  There are similar
 # tests cases for these in strict_mode.test.
 
+
 # ORDER BY alias tests
 
 select {{key | keyvalue.key | key as key | keyvalue.key as key}}

@@ -21,7 +21,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=$graph_table.[y#9, z#10]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
           +-GraphLinearScan
             +-column_list=$graph_table.[y#9, z#10]
@@ -114,7 +114,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=[$graph_table.z#4]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
           +-GraphLinearScan
             +-column_list=[$graph_table.z#4]
@@ -172,7 +172,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=[$graph_table.z#4]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
           +-GraphLinearScan
             +-column_list=[$graph_table.z#4]
@@ -215,7 +215,6 @@ QueryStmt
 
 ==
 
-[no_run_unparser]
 
 # Complex order by
 SELECT * from graph_table(aml
@@ -235,7 +234,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=[$graph_table.z#6]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
           +-GraphLinearScan
             +-column_list=[$graph_table.z#6]
@@ -323,7 +322,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=[$graph_table.z#4]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
           +-GraphLinearScan
             +-column_list=[$graph_table.z#4]
@@ -380,7 +379,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=[$graph_table.z#7]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
           +-GraphLinearScan
             +-column_list=[$graph_table.z#7]
@@ -463,7 +462,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=[$graph_table.z#4]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
           +-GraphLinearScan
             +-column_list=[$graph_table.z#4]
@@ -520,7 +519,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=[$graph_table.z#4]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
           +-GraphLinearScan
             +-column_list=[$graph_table.z#4]
@@ -576,7 +575,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=[$graph_table.z#4]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
           +-GraphLinearScan
             +-column_list=[$graph_table.z#4]
@@ -693,7 +692,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=[$graph_table.z#4]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
           +-GraphLinearScan
             +-column_list=[$graph_table.z#4]
@@ -746,7 +745,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=[$graph_table.z#4]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
           +-GraphLinearScan
             +-column_list=[$graph_table.z#4]
@@ -786,7 +785,6 @@ QueryStmt
 
 ==
 
-[no_run_unparser]
 
 # Unused horizontal aggregation doesn't RET_CHECK
 with arr as (select [1,2,3] as x)
@@ -833,7 +831,7 @@ QueryStmt
                     +-input_scan=
                       +-GraphTableScan
                         +-column_list=[$graph_table.r#4]
-                        +-property_graph=sample_catalog.aml
+                        +-property_graph=aml
                         +-input_scan=
                         | +-GraphScan
                         |   +-column_list=[$element_table.a#3]
@@ -852,7 +850,7 @@ QueryStmt
                         |       |   |       +-op=NOT
                         |       |   |       +-operand_list=
                         |       |   |         +-GraphWildCardLabel
-                        |       |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                        |       |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                         |       +-head=$element_table.a#3
                         |       +-tail=$element_table.a#3
                         +-shape_expr_list=
@@ -922,10 +920,6 @@ ERROR: Column 'a' is introduced by WITH. Columns introduced by WITH cannot be us
 # and the WITH outside of the horizontal aggregate.
 
 [language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_1_ORDER_BY_IN_AGGREGATE,V_1_4_WITH_EXPRESSION]
-[no_run_unparser]
-# No unparser because the unparser for WITH expressions create a normal sql
-# subquery which can't have a horizontal aggregation
-
 SELECT * from graph_table(aml
   let x = [1,2,3]
   let z = WITH(a as 123, ARRAY_CONCAT(ARRAY_AGG(x ORDER BY 2 * x), [a]))
@@ -942,7 +936,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=[$graph_table.z#6]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
           +-GraphLinearScan
             +-column_list=[$graph_table.z#6]
@@ -999,10 +993,6 @@ QueryStmt
 # No WITH inside horizontal aggregations
 
 [language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_WITH_EXPRESSION]
-[no_run_unparser]
-# No unparser because the unparser for WITH expressions create a normal sql
-# subquery which can't have a horizontal aggregation
-
 SELECT * from graph_table(aml
   let x = [1,2,3]
   let z = SUM(WITH(a as [123], a))
@@ -1010,7 +1000,7 @@ SELECT * from graph_table(aml
 )
 
 --
-ERROR: WITH expressions are not supported in horizontal aggregation. [at 6:15]
+ERROR: WITH expressions are not supported in horizontal aggregation. [at 3:15]
   let z = SUM(WITH(a as [123], a))
               ^
 
@@ -1019,10 +1009,6 @@ ERROR: WITH expressions are not supported in horizontal aggregation. [at 6:15]
 # WITH expression inside horizontal aggregation.
 
 [language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_WITH_EXPRESSION]
-[no_run_unparser]
-# No unparser because the unparser for WITH expressions create a normal sql
-# subquery which can't have a horizontal aggregation
-
 SELECT * from graph_table(aml
   let x = [1,2,3]
   let z = SUM(WITH(a as 4, x + a))
@@ -1030,7 +1016,7 @@ SELECT * from graph_table(aml
 )
 
 --
-ERROR: WITH expressions are not supported in horizontal aggregation. [at 6:15]
+ERROR: WITH expressions are not supported in horizontal aggregation. [at 3:15]
   let z = SUM(WITH(a as 4, x + a))
               ^
 
@@ -1089,7 +1075,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=[$graph_table.z#4]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
           +-GraphLinearScan
             +-column_list=[$graph_table.z#4]
@@ -1129,7 +1115,6 @@ QueryStmt
 
 # Horizontal aggregations allowed these syntactic positions (columns clause
 # checked above)
-[no_run_unparser]
 SELECT * from graph_table(aml
   let x = [1,2,3]
   FILTER SUM(x) = 6
@@ -1149,7 +1134,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=[$graph_table.z#7]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
           +-GraphLinearScan
             +-column_list=[$graph_table.z#7]
@@ -1195,7 +1180,7 @@ QueryStmt
                   | |   |   |       +-op=NOT
                   | |   |   |       +-operand_list=
                   | |   |   |         +-GraphWildCardLabel
-                  | |   |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   +-head=$element_table.a#3
                   | |   +-tail=$element_table.a#3
                   | +-filter_expr=
@@ -1266,7 +1251,7 @@ ERROR: No matching signature for aggregate function STRING_AGG for argument type
 
 [parameter_mode=positional]
 [allow_undeclared_parameters]
-[unparser_positional_parameter_mode=named]
+[sqlbuilder_positional_parameter_mode=named]
 
 # TODO: Same as previous test
 select * from graph_table(aml
@@ -1376,7 +1361,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=[$graph_table.z#4]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
           +-GraphLinearScan
             +-column_list=[$graph_table.z#4]
@@ -1438,7 +1423,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=[$graph_table.y#6]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
           +-GraphLinearScan
             +-column_list=[$graph_table.y#6]
@@ -1521,7 +1506,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=[$graph_table.y#5]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
           +-GraphLinearScan
             +-column_list=[$graph_table.y#5]
@@ -1612,7 +1597,7 @@ QueryStmt
         |         +-input_scan=
         |           +-GraphTableScan
         |             +-column_list=[$graph_table.x#7]
-        |             +-property_graph=sample_catalog.aml
+        |             +-property_graph=aml
         |             +-input_scan=
         |               +-GraphLinearScan
         |                 +-column_list=[$graph_table.x#7]
@@ -1646,7 +1631,7 @@ QueryStmt
 ==
 
 [language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_1_ORDER_BY_IN_AGGREGATE]
-[no_run_unparser] # ProjectScans that just project values don't unparse correctly
+[no_run_sqlbuilder] # ProjectScans that just project values don't unparse correctly
 
 # Even more complicated ORDER BY in ARRAY_AGG
 select * from graph_table(aml
@@ -1670,7 +1655,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=$graph_table.[r1#10, r2#11, r3#12]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
           +-GraphLinearScan
             +-column_list=$graph_table.[r1#10, r2#11, r3#12]
@@ -1778,7 +1763,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=$graph_table.[r1#12, r2#13, r3#14]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
           +-GraphLinearScan
             +-column_list=$graph_table.[r1#12, r2#13, r3#14]
@@ -1930,7 +1915,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=$graph_table.[r1#6, r2#7]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
           +-GraphLinearScan
             +-column_list=$graph_table.[r1#6, r2#7]
@@ -2000,7 +1985,7 @@ QueryStmt
                       +-GraphRefScan(column_list=$graph_table.[arr#1, r1#3, r2#5])
 ==
 
-[default no_run_unparser]
+[default no_run_sqlbuilder]
 [language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
 select * from graph_table(aml
   match (n:Syndicate)-[e]->
@@ -2043,7 +2028,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=[$graph_table.r1#11]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
           +-GraphLinearScan
             +-column_list=[$graph_table.r1#11]
@@ -2060,8 +2045,8 @@ QueryStmt
                   | |   | +-GraphNodeScan
                   | |   | | +-column_list=[$element_table.n#1]
                   | |   | | +-label_expr=
-                  | |   | | | +-GraphLabel(label=sample_catalog.aml.Syndicate)
-                  | |   | | +-target_element_table_list=[sample_catalog.aml.Syndicate]
+                  | |   | | | +-GraphLabel(label=aml.Syndicate)
+                  | |   | | +-target_element_table_list=[aml.Syndicate]
                   | |   | +-GraphEdgeScan
                   | |   | | +-column_list=[$element_table.e#2]
                   | |   | | +-label_expr=
@@ -2073,7 +2058,7 @@ QueryStmt
                   | |   | | |       +-op=NOT
                   | |   | | |       +-operand_list=
                   | |   | | |         +-GraphWildCardLabel
-                  | |   | | +-target_element_table_list=[sample_catalog.aml.PersonOwnAccount,sample_catalog.aml.Transfer]
+                  | |   | | +-target_element_table_list=[aml.PersonOwnAccount,aml.Transfer]
                   | |   | | +-orientation=RIGHT
                   | |   | +-GraphNodeScan
                   | |   |   +-column_list=[$element_table.$element1#3]
@@ -2086,7 +2071,7 @@ QueryStmt
                   | |   |   |       +-op=NOT
                   | |   |   |       +-operand_list=
                   | |   |   |         +-GraphWildCardLabel
-                  | |   |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   +-head=$path_scan.$head#7
                   | |   +-tail=$path_scan.$tail#8
                   | |   +-quantifier=
@@ -2187,4 +2172,236 @@ return r
 ERROR: Horizontal aggregates are implicitly ordered by the underlying array order unless an explicit ORDER BY is specified. An aggregate function that has both DISTINCT and ORDER BY arguments can only ORDER BY expressions that are arguments to the function [at 3:9]
 let r = array_agg(distinct arr)
         ^
+==
+
+[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+
+graph aml
+MATCH (p:Person WHERE MIN(p.name) = 'John')
+return 1 as r
+--
+ERROR: Aggregate function MIN not allowed in WHERE clause [at 2:23]
+MATCH (p:Person WHERE MIN(p.name) = 'John')
+                      ^
+
+==
+
+[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+
+graph aml
+MATCH (p:Person) WHERE MIN(p.name) = 'John'
+return 1 as r
+--
+ERROR: Horizontal aggregation without an array-typed variable is not allowed. Normal vertical aggregation is not allowed in this syntactic context [at 2:24]
+MATCH (p:Person) WHERE MIN(p.name) = 'John'
+                       ^
+
+==
+
+[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+
+graph aml
+MATCH ((p:Person)-[e]->(p2:Person) WHERE MIN(p.name) = 'John')
+return 1 as r
+--
+ERROR: Horizontal aggregation without an array-typed variable is not allowed. Normal vertical aggregation is not allowed in this syntactic context [at 2:42]
+MATCH ((p:Person)-[e]->(p2:Person) WHERE MIN(p.name) = 'John')
+                                         ^
+
+==
+
+[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+
+graph aml
+let arr = [1,2,3]
+MATCH (p:Person WHERE MIN(arr) = 1)
+return 1 as r
+--
+ERROR: Name 'arr', defined in the previous statement, can only be referenced in the outermost WHERE clause of MATCH [at 3:27]
+MATCH (p:Person WHERE MIN(arr) = 1)
+                          ^
+
+==
+
+[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+
+graph aml
+let arr = [1,2,3]
+MATCH (p:Person) WHERE MIN(arr) = 1
+return 1 as r
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.r#4 AS r [INT64]
++-query=
+  +-GraphTableScan
+    +-column_list=[$graph_table.r#4]
+    +-property_graph=aml
+    +-input_scan=
+      +-GraphLinearScan
+        +-column_list=[$graph_table.r#4]
+        +-scan_list=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.r#4]
+            +-scan_list=
+              +-ProjectScan
+              | +-column_list=[$graph_table.arr#1]
+              | +-expr_list=
+              | | +-arr#1 := Literal(type=ARRAY<INT64>, value=[1, 2, 3])
+              | +-input_scan=
+              |   +-SingleRowScan
+              +-GraphScan
+              | +-column_list=[$graph_table.arr#1, $element_table.p#2]
+              | +-input_scan_list=
+              | | +-GraphPathScan
+              | |   +-column_list=[$element_table.p#2]
+              | |   +-input_scan_list=
+              | |   | +-GraphNodeScan
+              | |   |   +-column_list=[$element_table.p#2]
+              | |   |   +-label_expr=
+              | |   |   | +-GraphLabel(label=aml.Person)
+              | |   |   +-target_element_table_list=[aml.Person]
+              | |   +-head=$element_table.p#2
+              | |   +-tail=$element_table.p#2
+              | +-filter_expr=
+              | | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+              | |   +-ArrayAggregate
+              | |   | +-type=INT64
+              | |   | +-array=
+              | |   | | +-ColumnRef(type=ARRAY<INT64>, column=$graph_table.arr#1)
+              | |   | +-element_column=$horizontal_aggregate.arr#3
+              | |   | +-aggregate=
+              | |   |   +-AggregateFunctionCall(ZetaSQL:min(INT64) -> INT64)
+              | |   |     +-ColumnRef(type=INT64, column=$horizontal_aggregate.arr#3)
+              | |   +-Literal(type=INT64, value=1)
+              | +-input_scan=
+              |   +-GraphRefScan(column_list=[$graph_table.arr#1])
+              +-ProjectScan
+                +-column_list=[$graph_table.r#4]
+                +-expr_list=
+                | +-r#4 := Literal(type=INT64, value=1)
+                +-input_scan=
+                  +-GraphRefScan(column_list=[$graph_table.arr#1, $element_table.p#2])
+
+==
+
+[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+
+graph aml
+let arr = [1,2,3]
+MATCH ((p:Person)-[e]->(p2:Person) WHERE MIN(arr) = 1)
+return 1 as r
+--
+ERROR: Name 'arr', defined in the previous statement, can only be referenced in the outermost WHERE clause of MATCH [at 3:46]
+MATCH ((p:Person)-[e]->(p2:Person) WHERE MIN(arr) = 1)
+                                             ^
+
+==
+
+[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+
+graph aml
+MATCH ((a:Account)-[t:Transfer]->{1}(a2:Account) WHERE MIN(t.amount) = 1)
+return 1 as r
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.r#12 AS r [INT64]
++-query=
+  +-GraphTableScan
+    +-column_list=[$graph_table.r#12]
+    +-property_graph=aml
+    +-input_scan=
+      +-GraphLinearScan
+        +-column_list=[$graph_table.r#12]
+        +-scan_list=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.r#12]
+            +-scan_list=
+              +-GraphScan
+              | +-column_list=[$element_table.a#1, $path_scan.$head#8, $element_table.t#6, $path_scan.$tail#9, $element_table.a2#10]
+              | +-input_scan_list=
+              | | +-GraphPathScan
+              | |   +-column_list=[$element_table.a#1, $path_scan.$head#8, $element_table.t#6, $path_scan.$tail#9, $element_table.a2#10]
+              | |   +-input_scan_list=
+              | |   | +-GraphNodeScan
+              | |   | | +-column_list=[$element_table.a#1]
+              | |   | | +-label_expr=
+              | |   | | | +-GraphLabel(label=aml.Account)
+              | |   | | +-target_element_table_list=[aml.Account]
+              | |   | +-GraphPathScan
+              | |   | | +-column_list=[$path_scan.$head#8, $element_table.t#6, $path_scan.$tail#9]
+              | |   | | +-input_scan_list=
+              | |   | | | +-GraphNodeScan
+              | |   | | | | +-column_list=[$element_table.$element1#2]
+              | |   | | | | +-label_expr=
+              | |   | | | | | +-GraphLabelNaryExpr
+              | |   | | | | |   +-op=OR
+              | |   | | | | |   +-operand_list=
+              | |   | | | | |     +-GraphWildCardLabel
+              | |   | | | | |     +-GraphLabelNaryExpr
+              | |   | | | | |       +-op=NOT
+              | |   | | | | |       +-operand_list=
+              | |   | | | | |         +-GraphWildCardLabel
+              | |   | | | | +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
+              | |   | | | +-GraphEdgeScan
+              | |   | | | | +-column_list=[$element_table.t#3]
+              | |   | | | | +-label_expr=
+              | |   | | | | | +-GraphLabel(label=aml.Transfer)
+              | |   | | | | +-target_element_table_list=[aml.Transfer]
+              | |   | | | | +-orientation=RIGHT
+              | |   | | | +-GraphNodeScan
+              | |   | | |   +-column_list=[$element_table.$element2#4]
+              | |   | | |   +-label_expr=
+              | |   | | |   | +-GraphLabelNaryExpr
+              | |   | | |   |   +-op=OR
+              | |   | | |   |   +-operand_list=
+              | |   | | |   |     +-GraphWildCardLabel
+              | |   | | |   |     +-GraphLabelNaryExpr
+              | |   | | |   |       +-op=NOT
+              | |   | | |   |       +-operand_list=
+              | |   | | |   |         +-GraphWildCardLabel
+              | |   | | |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
+              | |   | | +-head=$path_scan.$head#8
+              | |   | | +-tail=$path_scan.$tail#9
+              | |   | | +-quantifier=
+              | |   | | | +-GraphPathPatternQuantifier
+              | |   | | |   +-lower_bound=
+              | |   | | |   | +-Literal(type=INT64, value=1)
+              | |   | | |   +-upper_bound=
+              | |   | | |     +-Literal(type=INT64, value=1)
+              | |   | | +-group_variable_list=
+              | |   | |   +-GraphMakeArrayVariable(element=$element_table.$element1#2, array=$element_table.$element1#5)
+              | |   | |   +-GraphMakeArrayVariable(element=$element_table.t#3, array=$element_table.t#6)
+              | |   | |   +-GraphMakeArrayVariable(element=$element_table.$element2#4, array=$element_table.$element2#7)
+              | |   | +-GraphNodeScan
+              | |   |   +-column_list=[$element_table.a2#10]
+              | |   |   +-label_expr=
+              | |   |   | +-GraphLabel(label=aml.Account)
+              | |   |   +-target_element_table_list=[aml.Account]
+              | |   +-filter_expr=
+              | |   | +-FunctionCall(ZetaSQL:$equal(UINT64, INT64) -> BOOL)
+              | |   |   +-ArrayAggregate
+              | |   |   | +-type=UINT64
+              | |   |   | +-array=
+              | |   |   | | +-ColumnRef(type=ARRAY<GRAPH_EDGE(aml)<accountId INT64, amount UINT64, targetAccountId INT64>>, column=$element_table.t#6)
+              | |   |   | +-element_column=$horizontal_aggregate.t#11
+              | |   |   | +-aggregate=
+              | |   |   |   +-AggregateFunctionCall(ZetaSQL:min(UINT64) -> UINT64)
+              | |   |   |     +-GraphGetElementProperty
+              | |   |   |       +-type=UINT64
+              | |   |   |       +-expr=
+              | |   |   |       | +-ColumnRef(type=GRAPH_EDGE(aml)<accountId INT64, amount UINT64, targetAccountId INT64>, column=$horizontal_aggregate.t#11)
+              | |   |   |       +-property=amount(UINT64)
+              | |   |   +-Literal(type=INT64, value=1)
+              | |   +-head=$element_table.a#1
+              | |   +-tail=$element_table.a2#10
+              | +-input_scan=
+              |   +-SingleRowScan
+              +-ProjectScan
+                +-column_list=[$graph_table.r#12]
+                +-expr_list=
+                | +-r#12 := Literal(type=INT64, value=1)
+                +-input_scan=
+                  +-GraphRefScan(column_list=$element_table.[a#1, t#6, a2#10])
 

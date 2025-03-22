@@ -20,18 +20,19 @@
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/catalog.h"
+#include "zetasql/public/language_options.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/strings/string_view.h"
 
 namespace zetasql {
 
-TEST(SelectableCatalog, GetSelectableCatalogs) {
-  auto selectable_catalogs = GetSelectableCatalogs();
+TEST(SelectableCatalog, GetSelectableCatalogsInfo) {
+  const auto& selectable_catalogs = GetSelectableCatalogsInfo();
   EXPECT_GE(selectable_catalogs.size(), 2);
 
-  EXPECT_EQ(selectable_catalogs[0]->name(), "none");
-  EXPECT_EQ(selectable_catalogs[1]->name(), "sample");
+  EXPECT_EQ(selectable_catalogs[0].name, "none");
+  EXPECT_EQ(selectable_catalogs[1].name, "sample");
 }
 
 TEST(SelectableCatalog, FindSelectableCatalog) {
@@ -44,7 +45,7 @@ TEST(SelectableCatalog, FindSelectableCatalog_none) {
   SelectableCatalog* selectable = found.value();
 
   EXPECT_EQ(selectable->name(), "none");
-  auto get_catalog_result = selectable->GetCatalog();
+  auto get_catalog_result = selectable->GetCatalog(LanguageOptions());
   ZETASQL_ASSERT_OK(get_catalog_result);
   // There are no tables in this catalog to look up.
 }
@@ -58,7 +59,7 @@ static void TestCatalog(absl::string_view catalog_name,
   SelectableCatalog* selectable = found.value();
 
   EXPECT_EQ(selectable->name(), catalog_name);
-  auto get_catalog_result = selectable->GetCatalog();
+  auto get_catalog_result = selectable->GetCatalog(LanguageOptions());
   ZETASQL_ASSERT_OK(get_catalog_result);
   Catalog* catalog = get_catalog_result.value();
 

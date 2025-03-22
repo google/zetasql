@@ -38,11 +38,14 @@
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/property_graph.h"
+#include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/type.h"
+#include "zetasql/reference_impl/evaluation.h"
 #include "zetasql/reference_impl/function.h"
 #include "zetasql/reference_impl/operator.h"
 #include "zetasql/reference_impl/parameters.h"
 #include "zetasql/reference_impl/tuple.h"
+#include "zetasql/reference_impl/tvf_evaluation.h"
 #include "zetasql/reference_impl/uda_evaluation.h"
 #include "zetasql/reference_impl/variable_generator.h"
 #include "zetasql/reference_impl/variable_id.h"
@@ -57,9 +60,7 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
-#include "absl/types/optional.h"
 #include "absl/types/span.h"
-#include "absl/types/variant.h"
 
 namespace zetasql {
 
@@ -204,6 +205,12 @@ class Algebrizer {
   FRIEND_TEST(AlgebrizerTestGroupingAggregation, GroupBySum);
   FRIEND_TEST(StatementAlgebrizerTest, TVF);
 
+  struct MatchRecognizeQueryParams {
+    std::variant<std::vector<std::string>, std::vector<int>>
+        query_parameter_keys;
+    std::vector<std::unique_ptr<ValueExpr>> query_parameter_values;
+  };
+
   Algebrizer(const LanguageOptions& options,
              const AlgebrizerOptions& algebrizer_options,
              TypeFactory* type_factory, Parameters* parameters,
@@ -298,7 +305,7 @@ class Algebrizer {
   absl::StatusOr<VariableId> AddUdaArgumentVariable(
       absl::string_view argument_name);
 
-  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeUdaCall(
+  static absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeUdaCall(
       const AnonymizationOptions* anonymization_options,
       const ResolvedExpr& function_expr,
       const std::vector<const ResolvedExpr*>& aggregate_exprs,
@@ -306,6 +313,24 @@ class Algebrizer {
       absl::Span<const UdaArgumentInfo> argument_infos,
       const LanguageOptions& language_options,
       const AlgebrizerOptions& algebrizer_options, TypeFactory* type_factory);
+
+  static absl::Status AlgebrizeTvfCall(
+      const ResolvedScan& resolved_body, bool is_value_table,
+      const LanguageOptions& language_options,
+      const AlgebrizerOptions& algebrizer_options, TypeFactory* type_factory,
+      std::vector<TvfArgumentInfo> arg_infos,
+      std::vector<TableValuedFunction::TvfEvaluatorArg> arg_evaluators,
+      EvaluationContext* context,
+      std::unique_ptr<RelationalOp>& out_algebrized_body,
+      std::vector<int>& out_column_indices);
+
+  // We hit this only when algebrizing the body of a TVF during a call.
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeRelationArgumentScan(
+      const ResolvedRelationArgumentScan* arg_scan);
+
+  // Adds a TVF argument for this child algebrizer.
+  absl::Status AddTvfArgument(TableValuedFunction::TvfEvaluatorArg arg,
+                              EvaluationContext* context);
 
   absl::StatusOr<std::unique_ptr<AggregateFunctionBody>>
   CreateCallbackUserDefinedAggregateFn(
@@ -478,6 +503,8 @@ class Algebrizer {
       std::unique_ptr<RelationalOp> input);
   absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeMatchRecognizeScan(
       const ResolvedMatchRecognizeScan* match_recognize_scan);
+  absl::StatusOr<MatchRecognizeQueryParams> GetMatchRecongizeQueryParams(
+      const ResolvedMatchRecognizeScan& scan);
   absl::StatusOr<std::unique_ptr<AggregateArg>> AlgebrizeGroupingCall(
       const ResolvedGroupingCall* grouping_call,
       std::optional<AnonymizationOptions> anonymization_options,
@@ -1195,6 +1222,8 @@ class Algebrizer {
   ParameterMap* column_map_;  // Maps columns to variables. Not owned.
 
   // Maps aggregate arguments by names to the variables.
+  // Active only when algebrizing a UDA's body during a call. Usually this would
+  // be a child/single-use algebrizer.
   absl::flat_hash_map<std::string, VariableId> aggregate_args_map_;
 
   // Maps system variables to variable ids.  Not owned.

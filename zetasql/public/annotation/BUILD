@@ -32,7 +32,9 @@ cc_library(
         "//zetasql/public:type",
         "//zetasql/public/types",
         "//zetasql/resolved_ast",
+        "//zetasql/resolved_ast:resolved_node_kind_cc_proto",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
     ],
 )
@@ -42,8 +44,12 @@ cc_library(
     srcs = ["default_annotation_spec.cc"],
     hdrs = ["default_annotation_spec.h"],
     deps = [
+        "//zetasql/base:ret_check",
+        "//zetasql/base:status",
+        "//zetasql/common:errors",
         "//zetasql/public/types",
         "//zetasql/resolved_ast",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
     ],
 )

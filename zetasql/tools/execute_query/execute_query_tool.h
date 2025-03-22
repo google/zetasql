@@ -28,9 +28,10 @@
 #include <utility>
 #include <vector>
 
-#include "google/protobuf/descriptor_database.h"
 #include "zetasql/common/options_utils.h"
-#include "zetasql/parser/macros/macro_expander.h"
+#include "zetasql/parser/bison_parser_mode.h"
+#include "zetasql/parser/macros/macro_catalog.h"
+#include "zetasql/parser/parser.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/evaluator.h"
@@ -39,15 +40,16 @@
 #include "zetasql/public/types/proto_type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/resolved_node.h"
+#include "zetasql/resolved_ast/sql_builder.h"
 #include "zetasql/tools/execute_query/execute_query_writer.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/flags/declare.h"
-#include "absl/flags/flag.h"
 #include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
-#include "absl/strings/ascii.h"
 #include "absl/strings/string_view.h"
+#include "google/protobuf/descriptor.h"
+#include "google/protobuf/descriptor_database.h"
 
 namespace zetasql {
 
@@ -118,7 +120,21 @@ class ExecuteQueryConfig {
   static absl::string_view sql_mode_name(SqlMode sql_mode);
 
   void set_sql_mode(SqlMode sql_mode) { sql_mode_ = sql_mode; }
+
   SqlMode sql_mode() const { return sql_mode_; }
+
+  static std::optional<SQLBuilder::TargetSyntaxMode> parse_target_syntax_mode(
+      absl::string_view mode);
+
+  static absl::string_view target_syntax_mode_name(
+      SQLBuilder::TargetSyntaxMode target_syntax_mode);
+
+  void set_target_syntax_mode(SQLBuilder::TargetSyntaxMode target_syntax_mode) {
+    target_syntax_mode_ = target_syntax_mode;
+  }
+  SQLBuilder::TargetSyntaxMode target_syntax_mode() const {
+    return target_syntax_mode_;
+  }
 
   // Defaults matches AnalyzerOptions default.
   const AnalyzerOptions& analyzer_options() const { return analyzer_options_; }
@@ -146,8 +162,12 @@ class ExecuteQueryConfig {
   // nullptr is allowed if there is no base catalog.
   void SetBaseCatalog(Catalog* catalog);
 
-  Catalog* base_catalog() { return base_catalog_; }
-  SimpleCatalog* builtins_catalog() { return &builtins_catalog_; }
+  // The set of builtis functions and types is determined by the LanguageOptions
+  // passed in.
+  void SetBuiltinsCatalogFromLanguageOptions(
+      const LanguageOptions& language_options);
+
+  SimpleCatalog* builtins_catalog() { return builtins_catalog_.get(); }
   SimpleCatalog* wrapper_catalog() { return &wrapper_catalog_; }
 
   // A TypeFactory that can be used for creating tables for this request.
@@ -168,6 +188,9 @@ class ExecuteQueryConfig {
   }
 
   absl::Status SetCatalogFromString(absl::string_view value);
+
+  absl::Status SetTargetSyntaxModeFromString(
+      absl::string_view target_syntax_mode);
 
   // Set the google::protobuf::DescriptorPool to use when resolving types.
   // The DescriptorPool can only be set once and cannot be changed.
@@ -197,10 +220,20 @@ class ExecuteQueryConfig {
   }
 
  private:
+  // Rebuild the multi-catalog from the builtin, wrapper and base catalogs.
+  void RebuildMultiCatalog();
+
   ExamineResolvedASTCallback examine_resolved_ast_callback_ = nullptr;
   // if no tool modes are added then Execute is the default mode.
   absl::flat_hash_set<ToolMode> tool_modes_ = {ToolMode::kExecute};
+
   SqlMode sql_mode_ = SqlMode::kQuery;
+
+  // The syntax to use when generating SQL from the resolved AST in
+  // UnAnalyze tool mode.
+  SQLBuilder::TargetSyntaxMode target_syntax_mode_ =
+      SQLBuilder::TargetSyntaxMode::kStandard;
+
   AnalyzerOptions analyzer_options_;
 
   // The effective Catalog is a MultiCatalog with
@@ -208,7 +241,7 @@ class ExecuteQueryConfig {
   //   base_catalog     - the Catalog of tables, etc from SelectableCatalogs.
   //   builtins_catalog - the Catalog providing built-in functions, set up
   //                      based on LanguageOptions inferred from config.
-  SimpleCatalog builtins_catalog_;
+  std::unique_ptr<SimpleCatalog> builtins_catalog_;
   Catalog* base_catalog_ = nullptr;  // Not owned, may be nullptr.
   SimpleCatalog wrapper_catalog_;
   std::unique_ptr<MultiCatalog> catalog_;
@@ -232,6 +265,8 @@ class ExecuteQueryConfig {
 absl::Status SetToolModeFromFlags(ExecuteQueryConfig& config);
 
 absl::Status SetSqlModeFromFlags(ExecuteQueryConfig& config);
+
+absl::Status SetTargetSyntaxModeFromFlags(ExecuteQueryConfig& config);
 
 absl::Status SetDescriptorPoolFromFlags(ExecuteQueryConfig& config);
 
@@ -283,6 +318,7 @@ ABSL_DECLARE_FLAG(std::string, catalog);
 ABSL_DECLARE_FLAG(bool, strict_name_resolution_mode);
 ABSL_DECLARE_FLAG(bool, fold_literal_cast);
 ABSL_DECLARE_FLAG(std::string, sql_mode);
+ABSL_DECLARE_FLAG(std::string, target_syntax);
 ABSL_DECLARE_FLAG(std::string, table_spec);
 ABSL_DECLARE_FLAG(std::string, descriptor_pool);
 ABSL_DECLARE_FLAG(std::string, output_mode);

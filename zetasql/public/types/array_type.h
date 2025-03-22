@@ -84,6 +84,8 @@ class ArrayType : public ListBackedType {
                                  /*use_external_float32=*/false);
   }
 
+  std::string CapitalizedName() const override;
+
   bool UsingFeatureV12CivilTimeType() const override {
     return element_type_->UsingFeatureV12CivilTimeType();
   }
@@ -121,7 +123,7 @@ class ArrayType : public ListBackedType {
       const FormatValueContentOptions& options) const override;
 
  private:
-  ArrayType(const TypeFactory* factory, const Type* element_type);
+  ArrayType(const TypeFactoryBase* factory, const Type* element_type);
   ~ArrayType() override;
 
   bool SupportsGroupingImpl(const LanguageOptions& language_options,

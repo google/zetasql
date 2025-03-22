@@ -15,10 +15,12 @@
 //
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include "zetasql/analyzer/builtin_only_catalog.h"
 #include "zetasql/analyzer/substitute.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output_properties.h"
@@ -45,11 +47,18 @@ namespace zetasql {
 
 class MapFunctionVisitor : public ResolvedASTDeepCopyVisitor {
  public:
-  MapFunctionVisitor(Catalog& catalog, TypeFactory& type_factory,
+  MapFunctionVisitor(Catalog& unfiltered_catalog, TypeFactory& type_factory,
                      const AnalyzerOptions& analyzer_options)
-      : catalog_(catalog),
+      : catalog_(unfiltered_catalog),
         type_factory_(type_factory),
-        analyzer_options_(analyzer_options) {}
+        analyzer_options_(analyzer_options) {
+    if (!analyzer_options.language().LanguageFeatureEnabled(
+            FEATURE_DISABLE_VALIDATE_REWRITERS_REFER_TO_BUILTINS)) {
+      builtin_catalog_.emplace("builtin_catalog", unfiltered_catalog);
+      builtin_catalog_->set_allow_types(true);
+      catalog_ = *builtin_catalog_;
+    }
+  }
 
   absl::Status VisitResolvedFunctionCall(
       const ResolvedFunctionCall* node) override {
@@ -245,6 +254,10 @@ class MapFunctionVisitor : public ResolvedASTDeepCopyVisitor {
   }
 
   Catalog& catalog_;
+  // Unless disabled with language options, the catalog provided by the caller
+  // is wrapped in a BuiltinOnlyCatalog to prevent the rewriter from
+  // accidentally resolving non-builtin Catalog objects.
+  std::optional<BuiltinOnlyCatalog> builtin_catalog_;
   TypeFactory& type_factory_;
   const AnalyzerOptions& analyzer_options_;
 };
@@ -261,6 +274,18 @@ class MapFunctionRewriter : public Rewriter {
   }
 
   std::string Name() const override { return "MapFunctionRewriter"; }
+
+  // This rewriter is provided an unfiltered Catalog by the ZetaSQL analyzer,
+  // and so filtering must be done by the rewriter itself to ensure that
+  // non-builtin Catalog objects are not referenced. It is necessary to disable
+  // the default filtering and because the template defined by
+  // `GenerateModifyMapSql` depends on user-provided types.
+  // TODO: Instead of depending on user-provided types in the catalog (which
+  // could be different from the type present in the AST for various reasons),
+  // we should instead directly use the type present in the AST.
+  bool ProvideUnfilteredCatalogToBuiltinRewriter() const override {
+    return true;
+  }
 };
 
 const Rewriter* GetMapFunctionRewriter() {

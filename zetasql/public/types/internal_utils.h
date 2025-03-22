@@ -19,20 +19,17 @@
 
 #include <stddef.h>
 
-#include <cstdint>
 #include <string>
+
 #include <vector>
 
-#include "zetasql/base/logging.h"
-#include "google/protobuf/descriptor.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/types/type.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/container/node_hash_map.h"
-#include "absl/status/status.h"
+#include "absl/container/node_hash_set.h"
 #include "absl/strings/str_cat.h"
-#include "absl/types/optional.h"
 
 namespace zetasql {
 namespace internal {  //   For internal use only
@@ -154,16 +151,6 @@ int64_t GetExternallyAllocatedMemoryEstimate(
   return GetRawHashSetExternallyAllocatedMemoryEstimate<
       absl::node_hash_map<Types...>>(map, count_of_expected_items_to_add);
 }
-
-// Adds the file descriptor and all of its dependencies to the given map of file
-// descriptor sets, indexed by the file descriptor's pool. Returns the 0-based
-// <file_descriptor_set_index> corresponding to file descriptor set to which
-// the dependencies were added.  Returns an error on out-of-memory.
-absl::Status PopulateDistinctFileDescriptorSets(
-    const BuildFileDescriptorMapOptions& options,
-    const google::protobuf::FileDescriptor* file_descr,
-    FileDescriptorSetMap* file_descriptor_set_map,
-    int* file_descriptor_set_index);
 
 // Generates a SQL cast expression that casts the literal represented by given
 // value (which can have any type V supported by absl::StrCat) to the given

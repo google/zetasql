@@ -31,12 +31,14 @@ namespace {
 TEST(ZetaSqlTextmapperLexerTest, TestInstantiate) {
   Lexer lexer = Lexer(BisonParserMode::kTokenizer, "filename", "SELECT 1",
                       /*start_offset=*/0, LanguageOptions(),
+                      /*macro_expansion_mode*/ MacroExpansionMode::kNone,
                       /*macro_catalog=*/nullptr, /*arena=*/nullptr);
 }
 
 TEST(ZetaSqlTextmapperLexerTest, TestCopy) {
   Lexer lexer = Lexer(BisonParserMode::kNextStatement, "filename", "SELECT 1",
                       /*start_offset=*/0, LanguageOptions(),
+                      /*macro_expansion_mode*/ MacroExpansionMode::kNone,
                       /*macro_catalog=*/nullptr, /*arena=*/nullptr);
   // skip first token setting mode
   (void)lexer.Next();
@@ -56,7 +58,9 @@ TEST(ZetaSqlTextmapperLexerTest, TestCopy) {
 TEST(ZetaSqlTextmapperLexerTest, TestDotIdentifier) {
   TextMapperLexerAdapter lexer = TextMapperLexerAdapter(
       BisonParserMode::kTokenizer, "filename", "SELECT a.1b",
-      /*start_offset=*/0, LanguageOptions(), /*macro_catalog=*/nullptr,
+      /*start_offset=*/0, LanguageOptions(),
+      /*macro_expansion_mode*/ MacroExpansionMode::kNone,
+      /*macro_catalog=*/nullptr,
       /*arena=*/nullptr);
   std::vector<Token> tokens;
   Token next_token;

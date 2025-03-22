@@ -84,12 +84,9 @@ class ScriptExecutorImpl : public ScriptExecutor {
       absl::string_view script, const ASTScript* ast_script,
       const ScriptExecutorOptions& options, StatementEvaluator* evaluator);
 
-  absl::Status DestroyVariables(
-      const std::set<std::string>& variables);
-  absl::StatusOr<const ASTStatement*> ExitProcedure(
-      bool normal_return);
-  absl::StatusOr<ScriptException> SetupNewException(
-      const absl::Status& status);
+  absl::Status DestroyVariables(const std::set<std::string>& variables);
+  absl::StatusOr<const ASTStatement*> ExitProcedure(bool normal_return);
+  absl::StatusOr<ScriptException> SetupNewException(const absl::Status& status);
   absl::Status EnterExceptionHandler(const ScriptException& exception);
   absl::Status ExitExceptionHandler();
   absl::Status ExitForLoop();
@@ -115,7 +112,8 @@ class ScriptExecutorImpl : public ScriptExecutor {
   const VariableMap& GetCurrentVariables() const override {
     return callstack_.back().variables();
   }
-  const VariableTypeParametersMap& GetCurrentVariableTypeParameters() const {
+  const VariableTypeParametersMap& GetCurrentVariableTypeParameters()
+      const override {
     return callstack_.back().variable_type_params();
   }
   const ParsedScript::StringSet GetCurrentNamedParameters() const {
@@ -192,8 +190,8 @@ class ScriptExecutorImpl : public ScriptExecutor {
     parameters() const {
       return parameters_;
     }
-    const std::vector<std::unique_ptr<EvaluatorTableIterator>>&
-    for_loop_stack() const {
+    const std::vector<std::unique_ptr<EvaluatorTableIterator>>& for_loop_stack()
+        const {
       return for_loop_stack_;
     }
 
@@ -291,8 +289,7 @@ class ScriptExecutorImpl : public ScriptExecutor {
   // Generate a struct instance of struct_type from iterator's current row.
   // Deduce struct_type from row values if struct_type == nullptr.
   absl::StatusOr<Value> GenerateStructValueFromRow(
-      TypeFactory* type_factory,
-      const EvaluatorTableIterator& iterator,
+      TypeFactory* type_factory, const EvaluatorTableIterator& iterator,
       const StructType* struct_type) const;
 
   // Assumes that <current_statement_> is an ASTForInStatement and either
@@ -411,8 +408,7 @@ class ScriptExecutorImpl : public ScriptExecutor {
                                  bool normal_return);
 
   absl::Status ValidateVariablesOnSetState(
-      const ControlFlowNode * next_cfg_node,
-      const VariableMap& new_variables,
+      const ControlFlowNode* next_cfg_node, const VariableMap& new_variables,
       const ParsedScript& parsed_script) const;
 
   const ParsedScript* CurrentScript() const {
@@ -619,6 +615,9 @@ class ScriptExecutorImpl : public ScriptExecutor {
   VariableSet GetPredefinedVariableNames() const override {
     return predefined_variable_names_;
   }
+
+  // Returns the options used to create the script executor.
+  const ScriptExecutorOptions& GetOptions() const override { return options_; }
 
   const ScriptExecutorOptions options_;
 

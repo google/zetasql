@@ -1,6 +1,5 @@
 [default language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
 [default no_test_extract_table_names]
-[default no_run_unparser]
 # No unparser due to SQLBuilder visitor not implemented for GraphMakeElement
 
 # Simple quantified pattern
@@ -19,7 +18,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=[$graph_table.One#9]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
           +-GraphLinearScan
             +-column_list=[$graph_table.One#9]
@@ -44,7 +43,7 @@ QueryStmt
                   | |   | | |       +-op=NOT
                   | |   | | |       +-operand_list=
                   | |   | | |         +-GraphWildCardLabel
-                  | |   | | +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   | | +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   | +-GraphEdgeScan
                   | |   | | +-column_list=[$element_table.b#2]
                   | |   | | +-label_expr=
@@ -56,7 +55,7 @@ QueryStmt
                   | |   | | |       +-op=NOT
                   | |   | | |       +-operand_list=
                   | |   | | |         +-GraphWildCardLabel
-                  | |   | | +-target_element_table_list=[sample_catalog.aml.PersonOwnAccount,sample_catalog.aml.Transfer]
+                  | |   | | +-target_element_table_list=[aml.PersonOwnAccount,aml.Transfer]
                   | |   | | +-orientation=RIGHT
                   | |   | +-GraphNodeScan
                   | |   |   +-column_list=[$element_table.c#3]
@@ -69,7 +68,7 @@ QueryStmt
                   | |   |   |       +-op=NOT
                   | |   |   |       +-operand_list=
                   | |   |   |         +-GraphWildCardLabel
-                  | |   |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   +-head=$path_scan.$head#7
                   | |   +-tail=$path_scan.$tail#8
                   | |   +-quantifier=
@@ -110,7 +109,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=$graph_table.[n_id#12, m_id#13]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
           +-GraphLinearScan
             +-column_list=$graph_table.[n_id#12, m_id#13]
@@ -135,7 +134,7 @@ QueryStmt
                   | |   | | |       +-op=NOT
                   | |   | | |       +-operand_list=
                   | |   | | |         +-GraphWildCardLabel
-                  | |   | | +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   | | +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   | +-GraphPathScan
                   | |   | | +-column_list=$path_scan.[$head#8, $tail#9]
                   | |   | | +-input_scan_list=
@@ -150,12 +149,12 @@ QueryStmt
                   | |   | | | | |       +-op=NOT
                   | |   | | | | |       +-operand_list=
                   | |   | | | | |         +-GraphWildCardLabel
-                  | |   | | | | +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   | | | | +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   | | | +-GraphEdgeScan
                   | |   | | | | +-column_list=[$element_table.e#3]
                   | |   | | | | +-label_expr=
-                  | |   | | | | | +-GraphLabel(label=sample_catalog.aml.Transfer)
-                  | |   | | | | +-target_element_table_list=[sample_catalog.aml.Transfer]
+                  | |   | | | | | +-GraphLabel(label=aml.Transfer)
+                  | |   | | | | +-target_element_table_list=[aml.Transfer]
                   | |   | | | | +-orientation=RIGHT
                   | |   | | | +-GraphNodeScan
                   | |   | | |   +-column_list=[$element_table.$element2#4]
@@ -168,7 +167,7 @@ QueryStmt
                   | |   | | |   |       +-op=NOT
                   | |   | | |   |       +-operand_list=
                   | |   | | |   |         +-GraphWildCardLabel
-                  | |   | | |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   | | |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   | | +-head=$path_scan.$head#8
                   | |   | | +-tail=$path_scan.$tail#9
                   | |   | | +-quantifier=
@@ -192,7 +191,7 @@ QueryStmt
                   | |   |   |       +-op=NOT
                   | |   |   |       +-operand_list=
                   | |   |   |         +-GraphWildCardLabel
-                  | |   |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   +-head=$element_table.n#1
                   | |   +-tail=$element_table.m#10
                   | +-input_scan=
@@ -214,7 +213,7 @@ QueryStmt
                   | |   |   |       +-op=NOT
                   | |   |   |       +-operand_list=
                   | |   |   |         +-GraphWildCardLabel
-                  | |   |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   +-head=$element_table.m#11
                   | |   +-tail=$element_table.m#11
                   | +-filter_expr=
@@ -279,7 +278,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=$graph_table.[name#11, age#12]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
           +-GraphLinearScan
             +-column_list=$graph_table.[name#11, age#12]
@@ -304,7 +303,7 @@ QueryStmt
                   | |   | | |       +-op=NOT
                   | |   | | |       +-operand_list=
                   | |   | | |         +-GraphWildCardLabel
-                  | |   | | +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   | | +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   | +-GraphPathScan
                   | |   |   +-column_list=$path_scan.[$head#8, $tail#9]
                   | |   |   +-input_scan_list=
@@ -319,7 +318,7 @@ QueryStmt
                   | |   |   | | |       +-op=NOT
                   | |   |   | | |       +-operand_list=
                   | |   |   | | |         +-GraphWildCardLabel
-                  | |   |   | | +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   |   | | +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   |   | +-GraphEdgeScan
                   | |   |   | | +-column_list=[$element_table.e#3]
                   | |   |   | | +-label_expr=
@@ -331,7 +330,7 @@ QueryStmt
                   | |   |   | | |       +-op=NOT
                   | |   |   | | |       +-operand_list=
                   | |   |   | | |         +-GraphWildCardLabel
-                  | |   |   | | +-target_element_table_list=[sample_catalog.aml.PersonOwnAccount,sample_catalog.aml.Transfer]
+                  | |   |   | | +-target_element_table_list=[aml.PersonOwnAccount,aml.Transfer]
                   | |   |   | | +-orientation=RIGHT
                   | |   |   | +-GraphNodeScan
                   | |   |   |   +-column_list=[$element_table.$element2#4]
@@ -344,7 +343,7 @@ QueryStmt
                   | |   |   |   |       +-op=NOT
                   | |   |   |   |       +-operand_list=
                   | |   |   |   |         +-GraphWildCardLabel
-                  | |   |   |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   |   |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   |   +-head=$path_scan.$head#8
                   | |   |   +-tail=$path_scan.$tail#9
                   | |   |   +-quantifier=
@@ -410,7 +409,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=$graph_table.[src_mono_id#13, dest_mono_id#14]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
           +-GraphLinearScan
             +-column_list=$graph_table.[src_mono_id#13, dest_mono_id#14]
@@ -427,8 +426,8 @@ QueryStmt
                   | |   | +-GraphNodeScan
                   | |   | | +-column_list=[$element_table.src#1]
                   | |   | | +-label_expr=
-                  | |   | | | +-GraphLabel(label=sample_catalog.aml.Account)
-                  | |   | | +-target_element_table_list=[sample_catalog.aml.Account]
+                  | |   | | | +-GraphLabel(label=aml.Account)
+                  | |   | | +-target_element_table_list=[aml.Account]
                   | |   | +-GraphPathScan
                   | |   | | +-column_list=$path_scan.[$head#8, $tail#9]
                   | |   | | +-input_scan_list=
@@ -443,12 +442,12 @@ QueryStmt
                   | |   | | | | |       +-op=NOT
                   | |   | | | | |       +-operand_list=
                   | |   | | | | |         +-GraphWildCardLabel
-                  | |   | | | | +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   | | | | +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   | | | +-GraphEdgeScan
                   | |   | | | | +-column_list=[$element_table.e#3]
                   | |   | | | | +-label_expr=
-                  | |   | | | | | +-GraphLabel(label=sample_catalog.aml.Transfer)
-                  | |   | | | | +-target_element_table_list=[sample_catalog.aml.Transfer]
+                  | |   | | | | | +-GraphLabel(label=aml.Transfer)
+                  | |   | | | | +-target_element_table_list=[aml.Transfer]
                   | |   | | | | +-orientation=RIGHT
                   | |   | | | +-GraphNodeScan
                   | |   | | |   +-column_list=[$element_table.$element2#4]
@@ -461,7 +460,7 @@ QueryStmt
                   | |   | | |   |       +-op=NOT
                   | |   | | |   |       +-operand_list=
                   | |   | | |   |         +-GraphWildCardLabel
-                  | |   | | |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   | | |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   | | +-head=$path_scan.$head#8
                   | |   | | +-tail=$path_scan.$tail#9
                   | |   | | +-quantifier=
@@ -477,8 +476,8 @@ QueryStmt
                   | |   | +-GraphNodeScan
                   | |   |   +-column_list=[$element_table.dest#10]
                   | |   |   +-label_expr=
-                  | |   |   | +-GraphLabel(label=sample_catalog.aml.Account)
-                  | |   |   +-target_element_table_list=[sample_catalog.aml.Account]
+                  | |   |   | +-GraphLabel(label=aml.Account)
+                  | |   |   +-target_element_table_list=[aml.Account]
                   | |   +-head=$element_table.src#1
                   | |   +-tail=$element_table.dest#10
                   | +-input_scan=
@@ -540,7 +539,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=$graph_table.[person_name#13, end_account#14]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
           +-GraphLinearScan
             +-column_list=$graph_table.[person_name#13, end_account#14]
@@ -557,19 +556,19 @@ QueryStmt
                   | |   | +-GraphNodeScan
                   | |   | | +-column_list=[$element_table.p#1]
                   | |   | | +-label_expr=
-                  | |   | | | +-GraphLabel(label=sample_catalog.aml.Person)
-                  | |   | | +-target_element_table_list=[sample_catalog.aml.Person]
+                  | |   | | | +-GraphLabel(label=aml.Person)
+                  | |   | | +-target_element_table_list=[aml.Person]
                   | |   | +-GraphEdgeScan
                   | |   | | +-column_list=[$element_table.o#2]
                   | |   | | +-label_expr=
-                  | |   | | | +-GraphLabel(label=sample_catalog.aml.PersonOwnAccount)
-                  | |   | | +-target_element_table_list=[sample_catalog.aml.PersonOwnAccount]
+                  | |   | | | +-GraphLabel(label=aml.PersonOwnAccount)
+                  | |   | | +-target_element_table_list=[aml.PersonOwnAccount]
                   | |   | | +-orientation=RIGHT
                   | |   | +-GraphNodeScan
                   | |   | | +-column_list=[$element_table.a#3]
                   | |   | | +-label_expr=
-                  | |   | | | +-GraphLabel(label=sample_catalog.aml.Account)
-                  | |   | | +-target_element_table_list=[sample_catalog.aml.Account]
+                  | |   | | | +-GraphLabel(label=aml.Account)
+                  | |   | | +-target_element_table_list=[aml.Account]
                   | |   | +-GraphPathScan
                   | |   | | +-column_list=$path_scan.[$head#10, $tail#11]
                   | |   | | +-input_scan_list=
@@ -584,12 +583,12 @@ QueryStmt
                   | |   | | | | |       +-op=NOT
                   | |   | | | | |       +-operand_list=
                   | |   | | | | |         +-GraphWildCardLabel
-                  | |   | | | | +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   | | | | +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   | | | +-GraphEdgeScan
                   | |   | | | | +-column_list=[$element_table.e#5]
                   | |   | | | | +-label_expr=
-                  | |   | | | | | +-GraphLabel(label=sample_catalog.aml.Transfer)
-                  | |   | | | | +-target_element_table_list=[sample_catalog.aml.Transfer]
+                  | |   | | | | | +-GraphLabel(label=aml.Transfer)
+                  | |   | | | | +-target_element_table_list=[aml.Transfer]
                   | |   | | | | +-orientation=RIGHT
                   | |   | | | +-GraphNodeScan
                   | |   | | |   +-column_list=[$element_table.$element2#6]
@@ -602,7 +601,7 @@ QueryStmt
                   | |   | | |   |       +-op=NOT
                   | |   | | |   |       +-operand_list=
                   | |   | | |   |         +-GraphWildCardLabel
-                  | |   | | |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   | | |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   | | +-head=$path_scan.$head#10
                   | |   | | +-tail=$path_scan.$tail#11
                   | |   | | +-quantifier=
@@ -618,8 +617,8 @@ QueryStmt
                   | |   | +-GraphNodeScan
                   | |   |   +-column_list=[$element_table.b#12]
                   | |   |   +-label_expr=
-                  | |   |   | +-GraphLabel(label=sample_catalog.aml.Account)
-                  | |   |   +-target_element_table_list=[sample_catalog.aml.Account]
+                  | |   |   | +-GraphLabel(label=aml.Account)
+                  | |   |   +-target_element_table_list=[aml.Account]
                   | |   +-head=$element_table.p#1
                   | |   +-tail=$element_table.b#12
                   | +-input_scan=
@@ -660,7 +659,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=[$graph_table.name#13]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
           +-GraphLinearScan
             +-column_list=[$graph_table.name#13]
@@ -677,19 +676,19 @@ QueryStmt
                   | |   | +-GraphNodeScan
                   | |   | | +-column_list=[$element_table.p#1]
                   | |   | | +-label_expr=
-                  | |   | | | +-GraphLabel(label=sample_catalog.aml.Person)
-                  | |   | | +-target_element_table_list=[sample_catalog.aml.Person]
+                  | |   | | | +-GraphLabel(label=aml.Person)
+                  | |   | | +-target_element_table_list=[aml.Person]
                   | |   | +-GraphEdgeScan
                   | |   | | +-column_list=[$element_table.o#2]
                   | |   | | +-label_expr=
-                  | |   | | | +-GraphLabel(label=sample_catalog.aml.PersonOwnAccount)
-                  | |   | | +-target_element_table_list=[sample_catalog.aml.PersonOwnAccount]
+                  | |   | | | +-GraphLabel(label=aml.PersonOwnAccount)
+                  | |   | | +-target_element_table_list=[aml.PersonOwnAccount]
                   | |   | | +-orientation=RIGHT
                   | |   | +-GraphNodeScan
                   | |   | | +-column_list=[$element_table.a#3]
                   | |   | | +-label_expr=
-                  | |   | | | +-GraphLabel(label=sample_catalog.aml.Account)
-                  | |   | | +-target_element_table_list=[sample_catalog.aml.Account]
+                  | |   | | | +-GraphLabel(label=aml.Account)
+                  | |   | | +-target_element_table_list=[aml.Account]
                   | |   | +-GraphPathScan
                   | |   | | +-column_list=$path_scan.[$head#10, $tail#11]
                   | |   | | +-input_scan_list=
@@ -704,7 +703,7 @@ QueryStmt
                   | |   | | | | |       +-op=NOT
                   | |   | | | | |       +-operand_list=
                   | |   | | | | |         +-GraphWildCardLabel
-                  | |   | | | | +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   | | | | +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   | | | +-GraphEdgeScan
                   | |   | | | | +-column_list=[$element_table.e#5]
                   | |   | | | | +-label_expr=
@@ -716,7 +715,7 @@ QueryStmt
                   | |   | | | | |       +-op=NOT
                   | |   | | | | |       +-operand_list=
                   | |   | | | | |         +-GraphWildCardLabel
-                  | |   | | | | +-target_element_table_list=[sample_catalog.aml.PersonOwnAccount,sample_catalog.aml.Transfer]
+                  | |   | | | | +-target_element_table_list=[aml.PersonOwnAccount,aml.Transfer]
                   | |   | | | | +-orientation=RIGHT
                   | |   | | | +-GraphNodeScan
                   | |   | | |   +-column_list=[$element_table.$element2#6]
@@ -729,7 +728,7 @@ QueryStmt
                   | |   | | |   |       +-op=NOT
                   | |   | | |   |       +-operand_list=
                   | |   | | |   |         +-GraphWildCardLabel
-                  | |   | | |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   | | |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   | | +-head=$path_scan.$head#10
                   | |   | | +-tail=$path_scan.$tail#11
                   | |   | | +-quantifier=
@@ -753,7 +752,7 @@ QueryStmt
                   | |   |   |       +-op=NOT
                   | |   |   |       +-operand_list=
                   | |   |   |         +-GraphWildCardLabel
-                  | |   |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   +-head=$element_table.p#1
                   | |   +-tail=$element_table.b#12
                   | +-input_scan=
@@ -788,7 +787,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=[$graph_table.end_account#13]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
           +-GraphLinearScan
             +-column_list=[$graph_table.end_account#13]
@@ -813,7 +812,7 @@ QueryStmt
                   | |   | | |       +-op=NOT
                   | |   | | |       +-operand_list=
                   | |   | | |         +-GraphWildCardLabel
-                  | |   | | +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   | | +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   | +-GraphPathScan
                   | |   | | +-column_list=$path_scan.[$head#8, $tail#9]
                   | |   | | +-input_scan_list=
@@ -828,7 +827,7 @@ QueryStmt
                   | |   | | | | |       +-op=NOT
                   | |   | | | | |       +-operand_list=
                   | |   | | | | |         +-GraphWildCardLabel
-                  | |   | | | | +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   | | | | +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   | | | +-GraphEdgeScan
                   | |   | | | | +-column_list=[$element_table.e#3]
                   | |   | | | | +-label_expr=
@@ -840,7 +839,7 @@ QueryStmt
                   | |   | | | | |       +-op=NOT
                   | |   | | | | |       +-operand_list=
                   | |   | | | | |         +-GraphWildCardLabel
-                  | |   | | | | +-target_element_table_list=[sample_catalog.aml.PersonOwnAccount,sample_catalog.aml.Transfer]
+                  | |   | | | | +-target_element_table_list=[aml.PersonOwnAccount,aml.Transfer]
                   | |   | | | | +-orientation=RIGHT
                   | |   | | | +-GraphNodeScan
                   | |   | | |   +-column_list=[$element_table.$element2#4]
@@ -853,7 +852,7 @@ QueryStmt
                   | |   | | |   |       +-op=NOT
                   | |   | | |   |       +-operand_list=
                   | |   | | |   |         +-GraphWildCardLabel
-                  | |   | | |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   | | |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   | | +-head=$path_scan.$head#8
                   | |   | | +-tail=$path_scan.$tail#9
                   | |   | | +-quantifier=
@@ -872,19 +871,19 @@ QueryStmt
                   | |   |   | +-GraphNodeScan
                   | |   |   | | +-column_list=[$element_table.b#10]
                   | |   |   | | +-label_expr=
-                  | |   |   | | | +-GraphLabel(label=sample_catalog.aml.Account)
-                  | |   |   | | +-target_element_table_list=[sample_catalog.aml.Account]
+                  | |   |   | | | +-GraphLabel(label=aml.Account)
+                  | |   |   | | +-target_element_table_list=[aml.Account]
                   | |   |   | +-GraphEdgeScan
                   | |   |   | | +-column_list=[$element_table.$element3#11]
                   | |   |   | | +-label_expr=
-                  | |   |   | | | +-GraphLabel(label=sample_catalog.aml.Transfer)
-                  | |   |   | | +-target_element_table_list=[sample_catalog.aml.Transfer]
+                  | |   |   | | | +-GraphLabel(label=aml.Transfer)
+                  | |   |   | | +-target_element_table_list=[aml.Transfer]
                   | |   |   | | +-orientation=RIGHT
                   | |   |   | +-GraphNodeScan
                   | |   |   |   +-column_list=[$element_table.c#12]
                   | |   |   |   +-label_expr=
-                  | |   |   |   | +-GraphLabel(label=sample_catalog.aml.Account)
-                  | |   |   |   +-target_element_table_list=[sample_catalog.aml.Account]
+                  | |   |   |   | +-GraphLabel(label=aml.Account)
+                  | |   |   |   +-target_element_table_list=[aml.Account]
                   | |   |   +-head=$element_table.b#10
                   | |   |   +-tail=$element_table.c#12
                   | |   +-head=$element_table.a#1
@@ -922,7 +921,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=[$graph_table.start_id#12]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
           +-GraphLinearScan
             +-column_list=[$graph_table.start_id#12]
@@ -950,7 +949,7 @@ QueryStmt
                   | |   | | | | |       +-op=NOT
                   | |   | | | | |       +-operand_list=
                   | |   | | | | |         +-GraphWildCardLabel
-                  | |   | | | | +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   | | | | +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   | | | +-GraphEdgeScan
                   | |   | | | | +-column_list=[$element_table.y#2]
                   | |   | | | | +-label_expr=
@@ -962,7 +961,7 @@ QueryStmt
                   | |   | | | | |       +-op=NOT
                   | |   | | | | |       +-operand_list=
                   | |   | | | | |         +-GraphWildCardLabel
-                  | |   | | | | +-target_element_table_list=[sample_catalog.aml.PersonOwnAccount,sample_catalog.aml.Transfer]
+                  | |   | | | | +-target_element_table_list=[aml.PersonOwnAccount,aml.Transfer]
                   | |   | | | | +-orientation=RIGHT
                   | |   | | | +-GraphNodeScan
                   | |   | | |   +-column_list=[$element_table.z#3]
@@ -975,7 +974,7 @@ QueryStmt
                   | |   | | |   |       +-op=NOT
                   | |   | | |   |       +-operand_list=
                   | |   | | |   |         +-GraphWildCardLabel
-                  | |   | | |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   | | |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   | | +-head=$element_table.x#1
                   | |   | | +-tail=$element_table.z#3
                   | |   | +-GraphPathScan
@@ -984,8 +983,8 @@ QueryStmt
                   | |   |   | +-GraphNodeScan
                   | |   |   | | +-column_list=[$element_table.a#4]
                   | |   |   | | +-label_expr=
-                  | |   |   | | | +-GraphLabel(label=sample_catalog.aml.Account)
-                  | |   |   | | +-target_element_table_list=[sample_catalog.aml.Account]
+                  | |   |   | | | +-GraphLabel(label=aml.Account)
+                  | |   |   | | +-target_element_table_list=[aml.Account]
                   | |   |   | +-GraphEdgeScan
                   | |   |   | | +-column_list=[$element_table.e#5]
                   | |   |   | | +-label_expr=
@@ -997,7 +996,7 @@ QueryStmt
                   | |   |   | | |       +-op=NOT
                   | |   |   | | |       +-operand_list=
                   | |   |   | | |         +-GraphWildCardLabel
-                  | |   |   | | +-target_element_table_list=[sample_catalog.aml.PersonOwnAccount,sample_catalog.aml.Transfer]
+                  | |   |   | | +-target_element_table_list=[aml.PersonOwnAccount,aml.Transfer]
                   | |   |   | | +-orientation=RIGHT
                   | |   |   | +-GraphNodeScan
                   | |   |   |   +-column_list=[$element_table.b#6]
@@ -1010,7 +1009,7 @@ QueryStmt
                   | |   |   |   |       +-op=NOT
                   | |   |   |   |       +-operand_list=
                   | |   |   |   |         +-GraphWildCardLabel
-                  | |   |   |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   |   |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   |   +-head=$path_scan.$head#10
                   | |   |   +-tail=$path_scan.$tail#11
                   | |   |   +-quantifier=
@@ -1056,7 +1055,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=[$graph_table.end_account#10]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
           +-GraphLinearScan
             +-column_list=[$graph_table.end_account#10]
@@ -1084,7 +1083,7 @@ QueryStmt
                   | |   | | | | |       +-op=NOT
                   | |   | | | | |       +-operand_list=
                   | |   | | | | |         +-GraphWildCardLabel
-                  | |   | | | | +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   | | | | +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   | | | +-GraphEdgeScan
                   | |   | | | | +-column_list=[$element_table.e#2]
                   | |   | | | | +-label_expr=
@@ -1096,13 +1095,13 @@ QueryStmt
                   | |   | | | | |       +-op=NOT
                   | |   | | | | |       +-operand_list=
                   | |   | | | | |         +-GraphWildCardLabel
-                  | |   | | | | +-target_element_table_list=[sample_catalog.aml.PersonOwnAccount,sample_catalog.aml.Transfer]
+                  | |   | | | | +-target_element_table_list=[aml.PersonOwnAccount,aml.Transfer]
                   | |   | | | | +-orientation=RIGHT
                   | |   | | | +-GraphNodeScan
                   | |   | | |   +-column_list=[$element_table.b#3]
                   | |   | | |   +-label_expr=
-                  | |   | | |   | +-GraphLabel(label=sample_catalog.aml.Account)
-                  | |   | | |   +-target_element_table_list=[sample_catalog.aml.Account]
+                  | |   | | |   | +-GraphLabel(label=aml.Account)
+                  | |   | | |   +-target_element_table_list=[aml.Account]
                   | |   | | +-head=$path_scan.$head#7
                   | |   | | +-tail=$path_scan.$tail#8
                   | |   | | +-quantifier=
@@ -1126,7 +1125,7 @@ QueryStmt
                   | |   |   |       +-op=NOT
                   | |   |   |       +-operand_list=
                   | |   |   |         +-GraphWildCardLabel
-                  | |   |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   +-head=$path_scan.$head#7
                   | |   +-tail=$element_table.y#9
                   | +-input_scan=
@@ -1164,7 +1163,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=[$graph_table.One_one#13]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
           +-GraphLinearScan
             +-column_list=[$graph_table.One_one#13]
@@ -1189,7 +1188,7 @@ QueryStmt
                   | |   | | |       +-op=NOT
                   | |   | | |       +-operand_list=
                   | |   | | |         +-GraphWildCardLabel
-                  | |   | | +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   | | +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   | +-GraphEdgeScan
                   | |   | | +-column_list=[$element_table.a#2]
                   | |   | | +-label_expr=
@@ -1201,7 +1200,7 @@ QueryStmt
                   | |   | | |       +-op=NOT
                   | |   | | |       +-operand_list=
                   | |   | | |         +-GraphWildCardLabel
-                  | |   | | +-target_element_table_list=[sample_catalog.aml.PersonOwnAccount,sample_catalog.aml.Transfer]
+                  | |   | | +-target_element_table_list=[aml.PersonOwnAccount,aml.Transfer]
                   | |   | | +-orientation=RIGHT
                   | |   | +-GraphNodeScan
                   | |   |   +-column_list=[$element_table.$element2#3]
@@ -1214,7 +1213,7 @@ QueryStmt
                   | |   |   |       +-op=NOT
                   | |   |   |       +-operand_list=
                   | |   |   |         +-GraphWildCardLabel
-                  | |   |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   +-head=$element_table.$element1#1
                   | |   +-tail=$element_table.$element2#3
                   | +-filter_expr=
@@ -1229,7 +1228,7 @@ QueryStmt
                   | |       +-input_scan=
                   | |         +-GraphTableScan
                   | |           +-column_list=[$graph_table.One#12]
-                  | |           +-property_graph=sample_catalog.aml
+                  | |           +-property_graph=aml
                   | |           +-input_scan=
                   | |             +-GraphLinearScan
                   | |               +-column_list=[$graph_table.One#12]
@@ -1254,7 +1253,7 @@ QueryStmt
                   | |                     | |   | | |       +-op=NOT
                   | |                     | |   | | |       +-operand_list=
                   | |                     | |   | | |         +-GraphWildCardLabel
-                  | |                     | |   | | +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |                     | |   | | +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |                     | |   | +-GraphEdgeScan
                   | |                     | |   | | +-column_list=[$element_table.b#5]
                   | |                     | |   | | +-filter_expr=
@@ -1270,7 +1269,7 @@ QueryStmt
                   | |                     | |   | | |       +-op=NOT
                   | |                     | |   | | |       +-operand_list=
                   | |                     | |   | | |         +-GraphWildCardLabel
-                  | |                     | |   | | +-target_element_table_list=[sample_catalog.aml.PersonOwnAccount,sample_catalog.aml.Transfer]
+                  | |                     | |   | | +-target_element_table_list=[aml.PersonOwnAccount,aml.Transfer]
                   | |                     | |   | | +-orientation=RIGHT
                   | |                     | |   | +-GraphNodeScan
                   | |                     | |   |   +-column_list=[$element_table.$element2#6]
@@ -1283,7 +1282,7 @@ QueryStmt
                   | |                     | |   |   |       +-op=NOT
                   | |                     | |   |   |       +-operand_list=
                   | |                     | |   |   |         +-GraphWildCardLabel
-                  | |                     | |   |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |                     | |   |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |                     | |   +-head=$path_scan.$head#10
                   | |                     | |   +-tail=$path_scan.$tail#11
                   | |                     | |   +-quantifier=
@@ -1336,7 +1335,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=$graph_table.[a#9, e#10, b#11]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
           +-GraphLinearScan
             +-column_list=$graph_table.[a#9, e#10, b#11]
@@ -1353,19 +1352,19 @@ QueryStmt
                   | |   | +-GraphNodeScan
                   | |   | | +-column_list=[$element_table.a#1]
                   | |   | | +-label_expr=
-                  | |   | | | +-GraphLabel(label=sample_catalog.aml.Account)
-                  | |   | | +-target_element_table_list=[sample_catalog.aml.Account]
+                  | |   | | | +-GraphLabel(label=aml.Account)
+                  | |   | | +-target_element_table_list=[aml.Account]
                   | |   | +-GraphEdgeScan
                   | |   | | +-column_list=[$element_table.e#2]
                   | |   | | +-label_expr=
-                  | |   | | | +-GraphLabel(label=sample_catalog.aml.Transfer)
-                  | |   | | +-target_element_table_list=[sample_catalog.aml.Transfer]
+                  | |   | | | +-GraphLabel(label=aml.Transfer)
+                  | |   | | +-target_element_table_list=[aml.Transfer]
                   | |   | | +-orientation=RIGHT
                   | |   | +-GraphNodeScan
                   | |   |   +-column_list=[$element_table.b#3]
                   | |   |   +-label_expr=
-                  | |   |   | +-GraphLabel(label=sample_catalog.aml.Account)
-                  | |   |   +-target_element_table_list=[sample_catalog.aml.Account]
+                  | |   |   | +-GraphLabel(label=aml.Account)
+                  | |   |   +-target_element_table_list=[aml.Account]
                   | |   +-head=$path_scan.$head#7
                   | |   +-tail=$path_scan.$tail#8
                   | |   +-quantifier=

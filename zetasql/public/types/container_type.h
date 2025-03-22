@@ -32,8 +32,6 @@
 
 namespace zetasql {
 
-static constexpr uint64_t kNullHashCode = 0xCBFD5377B126E80Dull;
-
 // Represents a type which composites other types.
 class ContainerType : public Type {
  public:
@@ -43,7 +41,7 @@ class ContainerType : public Type {
 #endif  // SWIG
 
  protected:
-  ContainerType(const TypeFactory* factory, TypeKind kind)
+  ContainerType(const TypeFactoryBase* factory, TypeKind kind)
       : Type(factory, kind) {}
 
   struct NullableValueContentEq {
@@ -74,10 +72,8 @@ class ContainerType : public Type {
 
     template <typename H>
     friend H AbslHashValue(H h, const HashableNullableValueContent& v) {
-      if (v.element.is_null()) {
-        return H::combine(std::move(h), kNullHashCode);
-      }
-      return v.Hash(std::move(h));
+      if (!v.element.is_null()) h = v.Hash(std::move(h));
+      return H::combine(std::move(h), v.element.is_null());
     }
   };
 

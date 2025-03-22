@@ -14,7 +14,6 @@
 // limitations under the License.
 //
 
-#include <algorithm>
 #include <cstddef>
 #include <functional>
 #include <iterator>
@@ -26,6 +25,7 @@
 #include <vector>
 
 #include "zetasql/public/catalog.h"
+#include "zetasql/public/json_value.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/property_graph.h"
 #include "zetasql/public/types/array_type.h"
@@ -50,7 +50,6 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
-#include "absl/types/optional.h"
 #include "absl/types/span.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
@@ -707,16 +706,24 @@ Algebrizer::AlgebrizeGraphPathScan(
                                        graph_path_scan, std::move(returning_op),
                                        active_conjuncts));
   }
+  std::unique_ptr<ValueExpr> path_count = nullptr;
   if (graph_path_scan->search_prefix() != nullptr) {
+    if (graph_path_scan->search_prefix()->path_count() != nullptr) {
+      ZETASQL_ASSIGN_OR_RETURN(
+          path_count,
+          AlgebrizeExpression(graph_path_scan->search_prefix()->path_count()));
+    }
     switch (graph_path_scan->search_prefix()->type()) {
       case ResolvedGraphPathSearchPrefix::SHORTEST: {
-        ZETASQL_ASSIGN_OR_RETURN(returning_op, GraphShortestPathSearchOp::Create(
-                                           std::move(returning_op)));
+        ZETASQL_ASSIGN_OR_RETURN(returning_op,
+                         GraphShortestPathSearchOp::Create(
+                             std::move(returning_op), std::move(path_count)));
         break;
       }
       case ResolvedGraphPathSearchPrefix::ANY: {
         ZETASQL_ASSIGN_OR_RETURN(returning_op,
-                         GraphAnyPathSearchOp::Create(std::move(returning_op)));
+                         GraphAnyPathSearchOp::Create(std::move(returning_op),
+                                                      std::move(path_count)));
         break;
       }
       default: {
@@ -913,21 +920,23 @@ Algebrizer::AlgebrizeGraphMakeElement(
   ZETASQL_RETURN_IF_ERROR(AlgebrizeExpressionList(
       make_graph_element->identifier()->key_list(), key));
 
-  std::optional<std::vector<std::unique_ptr<ValueExpr>>> src_node_key;
-  std::optional<std::vector<std::unique_ptr<ValueExpr>>> dest_node_key;
+  std::vector<std::unique_ptr<ValueExpr>> src_node_key;
+  std::vector<std::unique_ptr<ValueExpr>> dest_node_key;
   if (element_table->Is<GraphEdgeTable>()) {
     ZETASQL_RETURN_IF_ERROR(AlgebrizeExpressionList(
         make_graph_element->identifier()->source_node_identifier()->key_list(),
-        src_node_key.emplace()));
+        src_node_key));
     ZETASQL_RETURN_IF_ERROR(AlgebrizeExpressionList(
         make_graph_element->identifier()->dest_node_identifier()->key_list(),
-        dest_node_key.emplace()));
+        dest_node_key));
   }
 
+  const GraphElementType* element_type =
+      make_graph_element->type()->AsGraphElement();
   return NewGraphElementExpr::Create(
-      make_graph_element->type()->AsGraphElement(),
-      make_graph_element->identifier()->element_table(), std::move(key),
-      std::move(properties), std::move(src_node_key), std::move(dest_node_key));
+      element_type, make_graph_element->identifier()->element_table(),
+      std::move(key), std::move(properties),
+      std::move(src_node_key), std::move(dest_node_key));
 }
 
 absl::StatusOr<std::unique_ptr<GraphGetElementPropertyExpr>>
@@ -935,8 +944,10 @@ Algebrizer::AlgebrizeGraphGetElementProperty(
     const ResolvedGraphGetElementProperty* get_graph_element_property) {
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> value,
                    AlgebrizeExpression(get_graph_element_property->expr()));
-  return GraphGetElementPropertyExpr::Create(
-      get_graph_element_property->property()->Name(), std::move(value));
+  std::string property_name;
+    property_name = get_graph_element_property->property()->Name();
+  return GraphGetElementPropertyExpr::Create(get_graph_element_property->type(),
+                                             property_name, std::move(value));
 }
 
 absl::StatusOr<std::unique_ptr<RelationalOp>>
@@ -1001,7 +1012,7 @@ absl::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::ComputeGraphElements(
     const GraphElementType* element_type,
     const absl::flat_hash_map<const Column*, VariableId>* source_node_vars,
     const absl::flat_hash_map<const Column*, VariableId>* dest_node_vars) {
-  // Algebrize property definitions
+  // Algebrize static property definitions
   std::vector<NewGraphElementExpr::Property> properties;
   properties.reserve(element_type->property_types().size());
 
@@ -1032,8 +1043,8 @@ absl::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::ComputeGraphElements(
                                        element_table->GetKeyColumns(),
                                        *catalog_column_ref_variables_));
 
-  std::optional<std::vector<std::unique_ptr<ValueExpr>>> src_node_key;
-  std::optional<std::vector<std::unique_ptr<ValueExpr>>> dest_node_key;
+  std::vector<std::unique_ptr<ValueExpr>> src_node_key;
+  std::vector<std::unique_ptr<ValueExpr>> dest_node_key;
   if (element_table->Is<GraphEdgeTable>()) {
     ZETASQL_RET_CHECK(source_node_vars != nullptr);
     ZETASQL_RET_CHECK(dest_node_vars != nullptr);

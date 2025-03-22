@@ -19,7 +19,6 @@
 #include <iosfwd>
 #include <iterator>
 #include <ostream>
-#include <set>
 #include <string>
 #include <utility>
 #include <vector>

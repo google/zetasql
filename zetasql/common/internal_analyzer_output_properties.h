@@ -43,7 +43,7 @@ class InternalAnalyzerOutputProperties {
   }
 
   // Returns the target syntax map of `options`.
-  static const TargetSyntaxMap& GetTargetSyntax(
+  static const TargetSyntaxMap& GetTargetSyntaxMap(
       const AnalyzerOutputProperties& options) {
     return options.target_syntax_;
   }

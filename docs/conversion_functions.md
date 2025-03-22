@@ -717,7 +717,7 @@ learn more about implicit and explicit conversion [here][conversion-rules].
 ## `CAST` 
 <a id="cast"></a>
 
-```sql
+```zetasql
 CAST(expression AS typename [format_clause])
 ```
 
@@ -730,9 +730,9 @@ When using `CAST`, a query can fail if ZetaSQL is unable to perform
 the cast. If you want to protect your queries from these types of errors, you
 can use [SAFE_CAST][con-func-safecast].
 
-Casts between supported types that do not successfully map from the original
+Casts between supported types that don't successfully map from the original
 value to the target domain produce runtime errors. For example, casting
-`BYTES` to `STRING` where the byte sequence is not valid UTF-8 results in a
+`BYTES` to `STRING` where the byte sequence isn't valid UTF-8 results in a
 runtime error.
 
 Other examples include:
@@ -754,13 +754,13 @@ information is available in the section for that cast.
 The following query results in `"true"` if `x` is `1`, `"false"` for any other
 non-`NULL` value, and `NULL` if `x` is `NULL`.
 
-```sql
+```zetasql
 CAST(x=1 AS STRING)
 ```
 
 ### CAST AS ARRAY
 
-```sql
+```zetasql
 CAST(expression AS ARRAY<element_type>)
 ```
 
@@ -792,7 +792,7 @@ ZetaSQL supports [casting][con-func-cast] to `ARRAY`. The
       <code>ARRAY&lt;DOUBLE&gt;</code> or
       <code>ARRAY&lt;STRING&gt;</code> is valid;
       casting from type <code>ARRAY&lt;INT64&gt;</code>
-      to <code>ARRAY&lt;BYTES&gt;</code> is not valid.
+      to <code>ARRAY&lt;BYTES&gt;</code> isn't valid.
       
     </td>
   </tr>
@@ -801,7 +801,7 @@ ZetaSQL supports [casting][con-func-cast] to `ARRAY`. The
 ### CAST AS BIGNUMERIC 
 <a id="cast_bignumeric"></a>
 
-```sql
+```zetasql
 CAST(expression AS BIGNUMERIC)
 ```
 
@@ -858,7 +858,7 @@ ZetaSQL supports [casting][con-func-cast] to `BIGNUMERIC`. The
 
 ### CAST AS BOOL
 
-```sql
+```zetasql
 CAST(expression AS BOOL)
 ```
 
@@ -906,7 +906,7 @@ ZetaSQL supports [casting][con-func-cast] to `BOOL`. The
 
 ### CAST AS BYTES
 
-```sql
+```zetasql
 CAST(expression AS BYTES [format_clause])
 ```
 
@@ -960,7 +960,7 @@ the cast. You can use the format clause in this section if `expression` is a
 
 ### CAST AS DATE
 
-```sql
+```zetasql
 CAST(expression AS DATE [format_clause])
 ```
 
@@ -996,7 +996,7 @@ the cast. You can use the format clause in this section if `expression` is a
     <td>
       When casting from string to date, the string must conform to
       the supported date literal format, and is independent of time zone. If the
-      string expression is invalid or represents a date that is outside of the
+      string expression is invalid or represents a date that's outside of the
       supported min/max range, then an error is produced.
     </td>
   </tr>
@@ -1014,7 +1014,7 @@ the cast. You can use the format clause in this section if `expression` is a
 
 ### CAST AS DATETIME
 
-```sql
+```zetasql
 CAST(expression AS DATETIME [format_clause])
 ```
 
@@ -1050,7 +1050,7 @@ the cast. You can use the format clause in this section if `expression` is a
     <td>
       When casting from string to datetime, the string must conform to the
       supported datetime literal format, and is independent of time zone. If
-      the string expression is invalid or represents a datetime that is outside
+      the string expression is invalid or represents a datetime that's outside
       of the supported min/max range, then an error is produced.
     </td>
   </tr>
@@ -1068,7 +1068,7 @@ the cast. You can use the format clause in this section if `expression` is a
 
 ### CAST AS ENUM
 
-```sql
+```zetasql
 CAST(expression AS ENUM)
 ```
 
@@ -1102,11 +1102,11 @@ parameter can represent an expression for these data types:
 ### CAST AS Floating Point 
 <a id="cast_as_floating_point"></a>
 
-```sql
+```zetasql
 CAST(expression AS DOUBLE)
 ```
 
-```sql
+```zetasql
 CAST(expression AS FLOAT)
 ```
 
@@ -1178,19 +1178,19 @@ The `expression` parameter can represent an expression for these data types:
 ### CAST AS Integer 
 <a id="cast_as_integer"></a>
 
-```sql
+```zetasql
 CAST(expression AS INT32)
 ```
 
-```sql
+```zetasql
 CAST(expression AS UINT32)
 ```
 
-```sql
+```zetasql
 CAST(expression AS INT64)
 ```
 
-```sql
+```zetasql
 CAST(expression AS UINT64)
 ```
 
@@ -1258,7 +1258,7 @@ The `expression` parameter can represent an expression for these data types:
 If you are working with hex strings (`0x123`), you can cast those strings as
 integers:
 
-```sql
+```zetasql
 SELECT '0x123' as hex_value, CAST('0x123' as INT64) as hex_to_int;
 
 /*-----------+------------*
@@ -1268,7 +1268,7 @@ SELECT '0x123' as hex_value, CAST('0x123' as INT64) as hex_to_int;
  *-----------+------------*/
 ```
 
-```sql
+```zetasql
 SELECT '-0x123' as hex_value, CAST('-0x123' as INT64) as hex_to_int;
 
 /*-----------+------------*
@@ -1280,7 +1280,7 @@ SELECT '-0x123' as hex_value, CAST('-0x123' as INT64) as hex_to_int;
 
 ### CAST AS INTERVAL
 
-```sql
+```zetasql
 CAST(expression AS INTERVAL)
 ```
 
@@ -1308,7 +1308,7 @@ ZetaSQL supports [casting][con-func-cast] to `INTERVAL`. The
 
       standard or to interval literal
       format 'Y-M D H:M:S.F'. Partial interval literal formats are also accepted
-      when they are not ambiguous, for example 'H:M:S'.
+      when they aren't ambiguous, for example 'H:M:S'.
       If the string expression is invalid or represents an interval that is
       outside of the supported min/max range, then an error is produced.
     </td>
@@ -1317,7 +1317,7 @@ ZetaSQL supports [casting][con-func-cast] to `INTERVAL`. The
 
 **Examples**
 
-```sql
+```zetasql
 SELECT input, CAST(input AS INTERVAL) AS output
 FROM UNNEST([
   '1-2 3 10:20:30.456',
@@ -1341,7 +1341,7 @@ FROM UNNEST([
 ### CAST AS NUMERIC 
 <a id="cast_numeric"></a>
 
-```sql
+```zetasql
 CAST(expression AS NUMERIC)
 ```
 
@@ -1398,7 +1398,7 @@ ZetaSQL supports [casting][con-func-cast] to `NUMERIC`. The
 
 ### CAST AS PROTO
 
-```sql
+```zetasql
 CAST(expression AS PROTO)
 ```
 
@@ -1463,7 +1463,7 @@ message Award {
 }
 ```
 
-```sql
+```zetasql
 SELECT
   CAST(
     '''
@@ -1489,7 +1489,7 @@ SELECT
 
 ### CAST AS RANGE
 
-```sql
+```zetasql
 CAST(expression AS RANGE)
 ```
 
@@ -1514,7 +1514,7 @@ ZetaSQL supports [casting][con-func-cast] to `RANGE`. The
     <td>
       When casting from string to range, the string must conform to the
       supported range literal format. If the string expression is invalid or
-      represents a range that is outside of the supported subtype min/max range,
+      represents a range that's outside of the supported subtype min/max range,
       then an error is produced.
     </td>
   </tr>
@@ -1522,7 +1522,7 @@ ZetaSQL supports [casting][con-func-cast] to `RANGE`. The
 
 **Examples**
 
-```sql
+```zetasql
 SELECT CAST(
   '[2020-01-01, 2020-01-02)'
   AS RANGE<DATE>) AS string_to_range
@@ -1534,7 +1534,7 @@ SELECT CAST(
  *----------------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT CAST(
   '[2014-09-27 12:30:00.45, 2016-10-17 11:15:00.33)'
   AS RANGE<DATETIME>) AS string_to_range
@@ -1546,7 +1546,7 @@ SELECT CAST(
  *------------------------------------------------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT CAST(
   '[2014-09-27 12:30:00+08, 2016-10-17 11:15:00+08)'
   AS RANGE<TIMESTAMP>) AS string_to_range
@@ -1559,7 +1559,7 @@ SELECT CAST(
  *--------------------------------------------------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT CAST(
   '[UNBOUNDED, 2020-01-02)'
   AS RANGE<DATE>) AS string_to_range
@@ -1571,7 +1571,7 @@ SELECT CAST(
  *--------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT CAST(
   '[2020-01-01, NULL)'
   AS RANGE<DATE>) AS string_to_range
@@ -1586,7 +1586,7 @@ SELECT CAST(
 ### CAST AS STRING 
 <a id="cast_as_string"></a>
 
-```sql
+```zetasql
 CAST(expression AS STRING [format_clause [AT TIME ZONE timezone_expr]])
 ```
 
@@ -1638,7 +1638,7 @@ of these data types:
 
 The format clause for `STRING` has an additional optional clause called
 `AT TIME ZONE timezone_expr`, which you can use to specify a specific time zone
-to use during formatting of a `TIMESTAMP`. If this optional clause is not
+to use during formatting of a `TIMESTAMP`. If this optional clause isn't
 included when formatting a `TIMESTAMP`, your current time zone is used.
 
 For more information, see the following topics:
@@ -1677,7 +1677,7 @@ For more information, see the following topics:
       For example, the bytes literal
       <code>b'\xc2\xa9'</code>, when cast to a string,
       is interpreted as UTF-8 and becomes the unicode character "&copy;".<br />
-      An error occurs if <code>x</code> is not valid UTF-8.</td>
+      An error occurs if <code>x</code> isn't valid UTF-8.</td>
   </tr>
   
   <tr>
@@ -1753,7 +1753,7 @@ For more information, see the following topics:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT CAST(CURRENT_DATE() AS STRING) AS current_date
 
 /*---------------*
@@ -1763,7 +1763,7 @@ SELECT CAST(CURRENT_DATE() AS STRING) AS current_date
  *---------------*/
 ```
 
-```sql
+```zetasql
 SELECT CAST(CURRENT_DATE() AS STRING FORMAT 'DAY') AS current_day
 
 /*-------------*
@@ -1773,7 +1773,7 @@ SELECT CAST(CURRENT_DATE() AS STRING FORMAT 'DAY') AS current_day
  *-------------*/
 ```
 
-```sql
+```zetasql
 SELECT CAST(
   TIMESTAMP '2008-12-25 00:00:00+00:00'
   AS STRING FORMAT 'YYYY-MM-DD HH24:MI:SS TZH:TZM') AS date_time_to_string
@@ -1786,7 +1786,7 @@ SELECT CAST(
  *------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT CAST(
   TIMESTAMP '2008-12-25 00:00:00+00:00'
   AS STRING FORMAT 'YYYY-MM-DD HH24:MI:SS TZH:TZM'
@@ -1800,7 +1800,7 @@ SELECT CAST(
  *------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT CAST(INTERVAL 3 DAY AS STRING) AS interval_to_string
 
 /*--------------------*
@@ -1810,7 +1810,7 @@ SELECT CAST(INTERVAL 3 DAY AS STRING) AS interval_to_string
  *--------------------*/
 ```
 
-```sql
+```zetasql
 SELECT CAST(
   INTERVAL "1-2 3 4:5:6.789" YEAR TO SECOND
   AS STRING) AS interval_to_string
@@ -1824,7 +1824,7 @@ SELECT CAST(
 
 ### CAST AS STRUCT
 
-```sql
+```zetasql
 CAST(expression AS STRUCT)
 ```
 
@@ -1866,7 +1866,7 @@ ZetaSQL supports [casting][con-func-cast] to `STRUCT`. The
 
 ### CAST AS TIME
 
-```sql
+```zetasql
 CAST(expression AS TIME [format_clause])
 ```
 
@@ -1903,7 +1903,7 @@ the cast. You can use the format clause in this section if `expression` is a
     <td>
       When casting from string to time, the string must conform to
       the supported time literal format, and is independent of time zone. If the
-      string expression is invalid or represents a time that is outside of the
+      string expression is invalid or represents a time that's outside of the
       supported min/max range, then an error is produced.
     </td>
   </tr>
@@ -1911,7 +1911,7 @@ the cast. You can use the format clause in this section if `expression` is a
 
 ### CAST AS TIMESTAMP
 
-```sql
+```zetasql
 CAST(expression AS TIMESTAMP [format_clause [AT TIME ZONE timezone_expr]])
 ```
 
@@ -1935,7 +1935,7 @@ the cast. You can use the format clause in this section if `expression` is a
 
 The format clause for `TIMESTAMP` has an additional optional clause called
 `AT TIME ZONE timezone_expr`, which you can use to specify a specific time zone
-to use during formatting. If this optional clause is not included, your
+to use during formatting. If this optional clause isn't included, your
 current time zone is used.
 
 **Conversion rules**
@@ -1958,7 +1958,7 @@ current time zone is used.
       If there is a time zone in the <code>string_expression</code>, that
       time zone is used for conversion, otherwise the default time zone,
       which is implementation defined, is used. If the string has fewer than six digits,
-      then it is implicitly widened.
+      then it's implicitly widened.
       <br /><br />
       An error is produced if the <code>string_expression</code> is invalid,
       has more than six subsecond digits (i.e., precision greater than
@@ -2003,7 +2003,7 @@ current time zone is used.
 
 The following example casts a string-formatted timestamp as a timestamp:
 
-```sql
+```zetasql
 SELECT CAST("2020-06-02 17:00:53.110+00:00" AS TIMESTAMP) AS as_timestamp
 
 -- Results depend upon where this query was executed.
@@ -2017,15 +2017,15 @@ SELECT CAST("2020-06-02 17:00:53.110+00:00" AS TIMESTAMP) AS as_timestamp
 The following examples cast a string-formatted date and time as a timestamp.
 These examples return the same output as the previous example.
 
-```sql
+```zetasql
 SELECT CAST('06/02/2020 17:00:53.110' AS TIMESTAMP FORMAT 'MM/DD/YYYY HH24:MI:SS.FF3' AT TIME ZONE 'UTC') AS as_timestamp
 ```
 
-```sql
+```zetasql
 SELECT CAST('06/02/2020 17:00:53.110' AS TIMESTAMP FORMAT 'MM/DD/YYYY HH24:MI:SS.FF3' AT TIME ZONE '+00') AS as_timestamp
 ```
 
-```sql
+```zetasql
 SELECT CAST('06/02/2020 17:00:53.110 +00' AS TIMESTAMP FORMAT 'MM/DD/YYYY HH24:MI:SS.FF3 TZH') AS as_timestamp
 ```
 
@@ -2048,7 +2048,7 @@ SELECT CAST('06/02/2020 17:00:53.110 +00' AS TIMESTAMP FORMAT 'MM/DD/YYYY HH24:M
 ## `PARSE_BIGNUMERIC` 
 <a id="parse_bignumeric"></a>
 
-```sql
+```zetasql
 PARSE_BIGNUMERIC(string_expression)
 ```
 
@@ -2063,7 +2063,7 @@ the resulting `BIGNUMERIC` value rounds
 [half away from zero][half-from-zero-wikipedia] to have 38 digits after the
 decimal point.
 
-```sql
+```zetasql
 
 -- This example shows how a string with a decimal point is parsed.
 SELECT PARSE_BIGNUMERIC("123.45") AS parsed;
@@ -2151,7 +2151,7 @@ Rules for valid input strings:
     </tr>
     <tr>
       <td>
-        If the integer part is not empty, then it must contain at least one
+        If the integer part isn't empty, then it must contain at least one
         digit.
       </td>
       <td>" 0,.12 -"</td>
@@ -2167,7 +2167,7 @@ Rules for valid input strings:
     </tr>
     <tr>
       <td>
-        The string cannot contain more than one sign.
+        The string can't contain more than one sign.
       </td>
       <td>" 0.5 +"</td>
       <td>0.5</td>
@@ -2184,7 +2184,7 @@ Rules for valid input strings:
 This example shows an input with spaces before, after, and between the
 sign and the number:
 
-```sql
+```zetasql
 SELECT PARSE_BIGNUMERIC("  -  12.34 ") as parsed;
 
 /*--------*
@@ -2197,7 +2197,7 @@ SELECT PARSE_BIGNUMERIC("  -  12.34 ") as parsed;
 This example shows an input with an exponent as well as the sign after the
 number:
 
-```sql
+```zetasql
 SELECT PARSE_BIGNUMERIC("12.34e-1-") as parsed;
 
 /*--------*
@@ -2210,7 +2210,7 @@ SELECT PARSE_BIGNUMERIC("12.34e-1-") as parsed;
 This example shows an input with multiple commas in the integer part of the
 number:
 
-```sql
+```zetasql
 SELECT PARSE_BIGNUMERIC("  1,2,,3,.45 + ") as parsed;
 
 /*--------*
@@ -2223,7 +2223,7 @@ SELECT PARSE_BIGNUMERIC("  1,2,,3,.45 + ") as parsed;
 This example shows an input with a decimal point and no digits in the whole
 number part:
 
-```sql
+```zetasql
 SELECT PARSE_BIGNUMERIC(".1234  ") as parsed;
 
 /*--------*
@@ -2237,38 +2237,38 @@ SELECT PARSE_BIGNUMERIC(".1234  ") as parsed;
 
 This example is invalid because the whole number part contains no digits:
 
-```sql
+```zetasql
 SELECT PARSE_BIGNUMERIC(",,,.1234  ") as parsed;
 ```
 
 This example is invalid because there are whitespaces between digits:
 
-```sql
+```zetasql
 SELECT PARSE_BIGNUMERIC("1  23.4 5  ") as parsed;
 ```
 
 This example is invalid because the number is empty except for an exponent:
 
-```sql
+```zetasql
 SELECT PARSE_BIGNUMERIC("  e1 ") as parsed;
 ```
 
 This example is invalid because the string contains multiple signs:
 
-```sql
+```zetasql
 SELECT PARSE_BIGNUMERIC("  - 12.3 - ") as parsed;
 ```
 
 This example is invalid because the value of the number falls outside the range
 of `BIGNUMERIC`:
 
-```sql
+```zetasql
 SELECT PARSE_BIGNUMERIC("12.34E100 ") as parsed;
 ```
 
 This example is invalid because the string contains invalid characters:
 
-```sql
+```zetasql
 SELECT PARSE_BIGNUMERIC("$12.34") as parsed;
 ```
 
@@ -2280,7 +2280,7 @@ SELECT PARSE_BIGNUMERIC("$12.34") as parsed;
 
 ## `PARSE_NUMERIC`
 
-```sql
+```zetasql
 PARSE_NUMERIC(string_expression)
 ```
 
@@ -2295,7 +2295,7 @@ resulting `NUMERIC` value rounds
 [half away from zero][half-from-zero-wikipedia] to have nine digits after the
 decimal point.
 
-```sql
+```zetasql
 
 -- This example shows how a string with a decimal point is parsed.
 SELECT PARSE_NUMERIC("123.45") AS parsed;
@@ -2384,7 +2384,7 @@ Rules for valid input strings:
     </tr>
     <tr>
       <td>
-        If the integer part is not empty, then it must contain at least one
+        If the integer part isn't empty, then it must contain at least one
         digit.
       </td>
       <td>" 0,.12 -"</td>
@@ -2400,7 +2400,7 @@ Rules for valid input strings:
     </tr>
     <tr>
       <td>
-        The string cannot contain more than one sign.
+        The string can't contain more than one sign.
       </td>
       <td>" 0.5 +"</td>
       <td>0.5</td>
@@ -2417,7 +2417,7 @@ Rules for valid input strings:
 This example shows an input with spaces before, after, and between the
 sign and the number:
 
-```sql
+```zetasql
 SELECT PARSE_NUMERIC("  -  12.34 ") as parsed;
 
 /*--------*
@@ -2430,7 +2430,7 @@ SELECT PARSE_NUMERIC("  -  12.34 ") as parsed;
 This example shows an input with an exponent as well as the sign after the
 number:
 
-```sql
+```zetasql
 SELECT PARSE_NUMERIC("12.34e-1-") as parsed;
 
 /*--------*
@@ -2443,7 +2443,7 @@ SELECT PARSE_NUMERIC("12.34e-1-") as parsed;
 This example shows an input with multiple commas in the integer part of the
 number:
 
-```sql
+```zetasql
 SELECT PARSE_NUMERIC("  1,2,,3,.45 + ") as parsed;
 
 /*--------*
@@ -2456,7 +2456,7 @@ SELECT PARSE_NUMERIC("  1,2,,3,.45 + ") as parsed;
 This example shows an input with a decimal point and no digits in the whole
 number part:
 
-```sql
+```zetasql
 SELECT PARSE_NUMERIC(".1234  ") as parsed;
 
 /*--------*
@@ -2470,38 +2470,38 @@ SELECT PARSE_NUMERIC(".1234  ") as parsed;
 
 This example is invalid because the whole number part contains no digits:
 
-```sql
+```zetasql
 SELECT PARSE_NUMERIC(",,,.1234  ") as parsed;
 ```
 
 This example is invalid because there are whitespaces between digits:
 
-```sql
+```zetasql
 SELECT PARSE_NUMERIC("1  23.4 5  ") as parsed;
 ```
 
 This example is invalid because the number is empty except for an exponent:
 
-```sql
+```zetasql
 SELECT PARSE_NUMERIC("  e1 ") as parsed;
 ```
 
 This example is invalid because the string contains multiple signs:
 
-```sql
+```zetasql
 SELECT PARSE_NUMERIC("  - 12.3 - ") as parsed;
 ```
 
 This example is invalid because the value of the number falls outside the range
 of `BIGNUMERIC`:
 
-```sql
+```zetasql
 SELECT PARSE_NUMERIC("12.34E100 ") as parsed;
 ```
 
 This example is invalid because the string contains invalid characters:
 
-```sql
+```zetasql
 SELECT PARSE_NUMERIC("$12.34") as parsed;
 ```
 
@@ -2523,7 +2523,7 @@ SELECT PARSE_NUMERIC("$12.34") as parsed;
 When using `CAST`, a query can fail if ZetaSQL is unable to perform
 the cast. For example, the following query generates an error:
 
-```sql
+```zetasql
 SELECT CAST("apple" AS INT64) AS not_a_number;
 ```
 
@@ -2532,7 +2532,7 @@ If you want to protect your queries from these types of errors, you can use
 static analysis, impossible casts between two non-castable types still produce
 an error because the query is invalid.
 
-```sql
+```zetasql
 SELECT SAFE_CAST("apple" AS INT64) AS not_a_number;
 
 /*--------------*

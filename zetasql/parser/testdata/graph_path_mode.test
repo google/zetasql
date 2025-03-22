@@ -1,0 +1,925 @@
+###
+### Path Mode handling.
+###
+
+[default reserve_graph_table]
+[default language_features=V_1_4_SQL_GRAPH]
+[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+
+# TRAIL path mode on top-level path.
+select gt.* from
+graph_table(aml
+  MATCH TRAIL (a)-(b)-(c)
+  RETURN *
+) gt
+--
+QueryStatement [37-111] [select gt....RETURN * ) gt]
+  Query [37-111] [select gt....RETURN * ) gt]
+    Select [37-111] [select gt....RETURN * ) gt]
+      SelectList [44-48] [gt.*]
+        SelectColumn [44-48] [gt.*]
+          DotStar [44-48] [gt.*]
+            PathExpression [44-46] [gt]
+              Identifier(gt) [44-46] [gt]
+      FromClause [49-111] [from graph_table...TURN * ) gt]
+        GraphTableQuery [54-111] [graph_table...RETURN * ) gt]
+          PathExpression [66-69] [aml]
+            Identifier(aml) [66-69] [aml]
+          GqlOperatorList [72-106] [MATCH TRAIL...RETURN *]
+            GqlOperatorList [72-106] [MATCH TRAIL...RETURN *]
+              GqlMatch [72-95] [MATCH TRAIL (a)-(b)-(c)]
+                GraphPattern [78-95] [TRAIL (a)-(b)-(c)]
+                  GraphPathPattern [78-95] [TRAIL (a)-(b)-(c)]
+                    GraphPathMode [78-83] [TRAIL]
+                    GraphNodePattern [84-87] [(a)]
+                      GraphElementPatternFiller [85-86] [a]
+                        Identifier(a) [85-86] [a]
+                    GraphEdgePattern [87-88] [-]
+                    GraphNodePattern [88-91] [(b)]
+                      GraphElementPatternFiller [89-90] [b]
+                        Identifier(b) [89-90] [b]
+                    GraphEdgePattern [91-92] [-]
+                    GraphNodePattern [92-95] [(c)]
+                      GraphElementPatternFiller [93-94] [c]
+                        Identifier(c) [93-94] [c]
+              GqlReturn [98-106] [RETURN *]
+                Select [104-106] [*]
+                  SelectList [105-106] [*]
+                    SelectColumn [105-106] [*]
+                      Star(*) [105-106] [*]
+          Alias [109-111] [gt]
+            Identifier(gt) [109-111] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      TRAIL
+      (a)
+      -
+      (b)
+      -
+      (c)
+    RETURN
+      *
+  ) AS gt
+==
+
+# WALK path mode on top-level path.
+select gt.* from
+graph_table(aml
+  MATCH WALK (a)-(b)-(c)
+  RETURN *
+) gt
+--
+QueryStatement [0-73] [select gt....RETURN * ) gt]
+  Query [0-73] [select gt....RETURN * ) gt]
+    Select [0-73] [select gt....RETURN * ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-73] [from graph_table...TURN * ) gt]
+        GraphTableQuery [17-73] [graph_table...RETURN * ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-68] [MATCH WALK...RETURN *]
+            GqlOperatorList [35-68] [MATCH WALK...RETURN *]
+              GqlMatch [35-57] [MATCH WALK (a)-(b)-(c)]
+                GraphPattern [41-57] [WALK (a)-(b)-(c)]
+                  GraphPathPattern [41-57] [WALK (a)-(b)-(c)]
+                    GraphPathMode [41-45] [WALK]
+                    GraphNodePattern [46-49] [(a)]
+                      GraphElementPatternFiller [47-48] [a]
+                        Identifier(a) [47-48] [a]
+                    GraphEdgePattern [49-50] [-]
+                    GraphNodePattern [50-53] [(b)]
+                      GraphElementPatternFiller [51-52] [b]
+                        Identifier(b) [51-52] [b]
+                    GraphEdgePattern [53-54] [-]
+                    GraphNodePattern [54-57] [(c)]
+                      GraphElementPatternFiller [55-56] [c]
+                        Identifier(c) [55-56] [c]
+              GqlReturn [60-68] [RETURN *]
+                Select [66-68] [*]
+                  SelectList [67-68] [*]
+                    SelectColumn [67-68] [*]
+                      Star(*) [67-68] [*]
+          Alias [71-73] [gt]
+            Identifier(gt) [71-73] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      WALK
+      (a)
+      -
+      (b)
+      -
+      (c)
+    RETURN
+      *
+  ) AS gt
+==
+
+# SIMPLE path mode on top-level path.
+select gt.* from
+graph_table(aml
+  MATCH SIMPLE (a)-(b)-(c)
+  RETURN *
+) gt
+--
+QueryStatement [0-75] [select gt....RETURN * ) gt]
+  Query [0-75] [select gt....RETURN * ) gt]
+    Select [0-75] [select gt....RETURN * ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-75] [from graph_table...TURN * ) gt]
+        GraphTableQuery [17-75] [graph_table...RETURN * ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-70] [MATCH SIMPLE...RETURN *]
+            GqlOperatorList [35-70] [MATCH SIMPLE...RETURN *]
+              GqlMatch [35-59] [MATCH SIMPLE (a)-(b)-(c)]
+                GraphPattern [41-59] [SIMPLE (a)-(b)-(c)]
+                  GraphPathPattern [41-59] [SIMPLE (a)-(b)-(c)]
+                    GraphPathMode [41-47] [SIMPLE]
+                    GraphNodePattern [48-51] [(a)]
+                      GraphElementPatternFiller [49-50] [a]
+                        Identifier(a) [49-50] [a]
+                    GraphEdgePattern [51-52] [-]
+                    GraphNodePattern [52-55] [(b)]
+                      GraphElementPatternFiller [53-54] [b]
+                        Identifier(b) [53-54] [b]
+                    GraphEdgePattern [55-56] [-]
+                    GraphNodePattern [56-59] [(c)]
+                      GraphElementPatternFiller [57-58] [c]
+                        Identifier(c) [57-58] [c]
+              GqlReturn [62-70] [RETURN *]
+                Select [68-70] [*]
+                  SelectList [69-70] [*]
+                    SelectColumn [69-70] [*]
+                      Star(*) [69-70] [*]
+          Alias [73-75] [gt]
+            Identifier(gt) [73-75] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      SIMPLE
+      (a)
+      -
+      (b)
+      -
+      (c)
+    RETURN
+      *
+  ) AS gt
+==
+
+# ACYCLIC path mode on top-level path.
+select gt.* from
+graph_table(aml
+  MATCH ACYCLIC (a)-(b)-(c)
+  RETURN *
+) gt
+--
+QueryStatement [0-76] [select gt....RETURN * ) gt]
+  Query [0-76] [select gt....RETURN * ) gt]
+    Select [0-76] [select gt....RETURN * ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-76] [from graph_table...TURN * ) gt]
+        GraphTableQuery [17-76] [graph_table...RETURN * ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-71] [MATCH ACYCLIC...RETURN *]
+            GqlOperatorList [35-71] [MATCH ACYCLIC...RETURN *]
+              GqlMatch [35-60] [MATCH ACYCLIC (a)-(b)-(c)]
+                GraphPattern [41-60] [ACYCLIC (a)-(b)-(c)]
+                  GraphPathPattern [41-60] [ACYCLIC (a)-(b)-(c)]
+                    GraphPathMode [41-48] [ACYCLIC]
+                    GraphNodePattern [49-52] [(a)]
+                      GraphElementPatternFiller [50-51] [a]
+                        Identifier(a) [50-51] [a]
+                    GraphEdgePattern [52-53] [-]
+                    GraphNodePattern [53-56] [(b)]
+                      GraphElementPatternFiller [54-55] [b]
+                        Identifier(b) [54-55] [b]
+                    GraphEdgePattern [56-57] [-]
+                    GraphNodePattern [57-60] [(c)]
+                      GraphElementPatternFiller [58-59] [c]
+                        Identifier(c) [58-59] [c]
+              GqlReturn [63-71] [RETURN *]
+                Select [69-71] [*]
+                  SelectList [70-71] [*]
+                    SelectColumn [70-71] [*]
+                      Star(*) [70-71] [*]
+          Alias [74-76] [gt]
+            Identifier(gt) [74-76] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      ACYCLIC
+      (a)
+      -
+      (b)
+      -
+      (c)
+    RETURN
+      *
+  ) AS gt
+==
+
+# TRAIL path mode does not apply to whole graph pattern.
+select gt.* from
+graph_table(aml
+  MATCH TRAIL (a)-(b)-(c), (b)-(c)-(d)
+  RETURN *
+) gt
+--
+QueryStatement [0-87] [select gt....RETURN * ) gt]
+  Query [0-87] [select gt....RETURN * ) gt]
+    Select [0-87] [select gt....RETURN * ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-87] [from graph_table...TURN * ) gt]
+        GraphTableQuery [17-87] [graph_table...RETURN * ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-82] [MATCH TRAIL...RETURN *]
+            GqlOperatorList [35-82] [MATCH TRAIL...RETURN *]
+              GqlMatch [35-71] [MATCH TRAIL...b)-(c)-(d)]
+                GraphPattern [41-71] [TRAIL (a)-(b)-(c), (b)-(c)-(d)]
+                  GraphPathPattern [41-58] [TRAIL (a)-(b)-(c)]
+                    GraphPathMode [41-46] [TRAIL]
+                    GraphNodePattern [47-50] [(a)]
+                      GraphElementPatternFiller [48-49] [a]
+                        Identifier(a) [48-49] [a]
+                    GraphEdgePattern [50-51] [-]
+                    GraphNodePattern [51-54] [(b)]
+                      GraphElementPatternFiller [52-53] [b]
+                        Identifier(b) [52-53] [b]
+                    GraphEdgePattern [54-55] [-]
+                    GraphNodePattern [55-58] [(c)]
+                      GraphElementPatternFiller [56-57] [c]
+                        Identifier(c) [56-57] [c]
+                  GraphPathPattern [60-71] [(b)-(c)-(d)]
+                    GraphNodePattern [60-63] [(b)]
+                      GraphElementPatternFiller [61-62] [b]
+                        Identifier(b) [61-62] [b]
+                    GraphEdgePattern [63-64] [-]
+                    GraphNodePattern [64-67] [(c)]
+                      GraphElementPatternFiller [65-66] [c]
+                        Identifier(c) [65-66] [c]
+                    GraphEdgePattern [67-68] [-]
+                    GraphNodePattern [68-71] [(d)]
+                      GraphElementPatternFiller [69-70] [d]
+                        Identifier(d) [69-70] [d]
+              GqlReturn [74-82] [RETURN *]
+                Select [80-82] [*]
+                  SelectList [81-82] [*]
+                    SelectColumn [81-82] [*]
+                      Star(*) [81-82] [*]
+          Alias [85-87] [gt]
+            Identifier(gt) [85-87] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      TRAIL
+      (a)
+      -
+      (b)
+      -
+      (c),
+      (b)
+      -
+      (c)
+      -
+      (d)
+    RETURN
+      *
+  ) AS gt
+==
+
+# TRAIL path mode works with quantified paths.
+select gt.* from
+graph_table(aml
+  MATCH TRAIL (a)-[e]-{1,3}(c)
+  RETURN *
+) gt
+--
+QueryStatement [0-79] [select gt....RETURN * ) gt]
+  Query [0-79] [select gt....RETURN * ) gt]
+    Select [0-79] [select gt....RETURN * ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-79] [from graph_table...TURN * ) gt]
+        GraphTableQuery [17-79] [graph_table...RETURN * ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-74] [MATCH TRAIL...RETURN *]
+            GqlOperatorList [35-74] [MATCH TRAIL...RETURN *]
+              GqlMatch [35-63] [MATCH TRAIL (a)-[e]-{1,3}(c)]
+                GraphPattern [41-63] [TRAIL (a)-[e]-{1,3}(c)]
+                  GraphPathPattern [41-63] [TRAIL (a)-[e]-{1,3}(c)]
+                    GraphPathMode [41-46] [TRAIL]
+                    GraphNodePattern [47-50] [(a)]
+                      GraphElementPatternFiller [48-49] [a]
+                        Identifier(a) [48-49] [a]
+                    ParenthesizedGraphPathPattern [50-60] [-[e]-{1,3}]
+                      BoundedQuantifier [55-60] [{1,3}]
+                        QuantifierBound [56-57] [1]
+                          IntLiteral(1) [56-57] [1]
+                        QuantifierBound [58-59] [3]
+                          IntLiteral(3) [58-59] [3]
+                      GraphEdgePattern [50-55] [-[e]-]
+                        GraphElementPatternFiller [52-53] [e]
+                          Identifier(e) [52-53] [e]
+                    GraphNodePattern [60-63] [(c)]
+                      GraphElementPatternFiller [61-62] [c]
+                        Identifier(c) [61-62] [c]
+              GqlReturn [66-74] [RETURN *]
+                Select [72-74] [*]
+                  SelectList [73-74] [*]
+                    SelectColumn [73-74] [*]
+                      Star(*) [73-74] [*]
+          Alias [77-79] [gt]
+            Identifier(gt) [77-79] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      TRAIL
+      (a)
+      (
+        -[e]-
+      ) { 1, 3 }
+      (c)
+    RETURN
+      *
+  ) AS gt
+==
+
+# Nested path modes work.
+select gt.* from
+graph_table(aml
+  MATCH TRAIL (a)(SIMPLE -[e]-)(c)
+  RETURN *
+) gt
+--
+QueryStatement [0-83] [select gt....RETURN * ) gt]
+  Query [0-83] [select gt....RETURN * ) gt]
+    Select [0-83] [select gt....RETURN * ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-83] [from graph_table...TURN * ) gt]
+        GraphTableQuery [17-83] [graph_table...RETURN * ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-78] [MATCH TRAIL...RETURN *]
+            GqlOperatorList [35-78] [MATCH TRAIL...RETURN *]
+              GqlMatch [35-67] [MATCH TRAIL...-[e]-)(c)]
+                GraphPattern [41-67] [TRAIL (a)(SIMPLE -[e]-)(c)]
+                  GraphPathPattern [41-67] [TRAIL (a)(SIMPLE -[e]-)(c)]
+                    GraphPathMode [41-46] [TRAIL]
+                    GraphNodePattern [47-50] [(a)]
+                      GraphElementPatternFiller [48-49] [a]
+                        Identifier(a) [48-49] [a]
+                    ParenthesizedGraphPathPattern [50-64] [(SIMPLE -[e]-)]
+                      GraphPathMode [51-57] [SIMPLE]
+                      GraphEdgePattern [58-63] [-[e]-]
+                        GraphElementPatternFiller [60-61] [e]
+                          Identifier(e) [60-61] [e]
+                    GraphNodePattern [64-67] [(c)]
+                      GraphElementPatternFiller [65-66] [c]
+                        Identifier(c) [65-66] [c]
+              GqlReturn [70-78] [RETURN *]
+                Select [76-78] [*]
+                  SelectList [77-78] [*]
+                    SelectColumn [77-78] [*]
+                      Star(*) [77-78] [*]
+          Alias [81-83] [gt]
+            Identifier(gt) [81-83] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      TRAIL
+      (a)
+      (
+        SIMPLE
+        -[e]-
+      )
+      (c)
+    RETURN
+      *
+  ) AS gt
+==
+
+# Path mode keywords cannot be used as element identifiers.
+select gt.* from
+graph_table(aml
+  MATCH (SIMPLE)
+  RETURN *
+) gt
+--
+ERROR: Syntax error: Expected "(" or "-" or "<" or -> but got ")" [at 3:16]
+  MATCH (SIMPLE)
+               ^
+==
+
+# Nested path modes with quantified paths work.
+select gt.* from
+graph_table(aml
+  MATCH TRAIL (a)(SIMPLE -[e1]-(b)-[e2]-){1,3}(c)
+  RETURN *
+) gt
+--
+QueryStatement [0-98] [select gt....RETURN * ) gt]
+  Query [0-98] [select gt....RETURN * ) gt]
+    Select [0-98] [select gt....RETURN * ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-98] [from graph_table...TURN * ) gt]
+        GraphTableQuery [17-98] [graph_table...RETURN * ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-93] [MATCH TRAIL...RETURN *]
+            GqlOperatorList [35-93] [MATCH TRAIL...RETURN *]
+              GqlMatch [35-82] [MATCH TRAIL...-){1,3}(c)]
+                GraphPattern [41-82] [TRAIL (a)(...-){1,3}(c)]
+                  GraphPathPattern [41-82] [TRAIL (a)(...-){1,3}(c)]
+                    GraphPathMode [41-46] [TRAIL]
+                    GraphNodePattern [47-50] [(a)]
+                      GraphElementPatternFiller [48-49] [a]
+                        Identifier(a) [48-49] [a]
+                    ParenthesizedGraphPathPattern [50-79] [(SIMPLE -[e1]-(b)-[e2]-){1,3}]
+                      BoundedQuantifier [74-79] [{1,3}]
+                        QuantifierBound [75-76] [1]
+                          IntLiteral(1) [75-76] [1]
+                        QuantifierBound [77-78] [3]
+                          IntLiteral(3) [77-78] [3]
+                      GraphPathMode [51-57] [SIMPLE]
+                      GraphEdgePattern [58-64] [-[e1]-]
+                        GraphElementPatternFiller [60-62] [e1]
+                          Identifier(e1) [60-62] [e1]
+                      GraphNodePattern [64-67] [(b)]
+                        GraphElementPatternFiller [65-66] [b]
+                          Identifier(b) [65-66] [b]
+                      GraphEdgePattern [67-73] [-[e2]-]
+                        GraphElementPatternFiller [69-71] [e2]
+                          Identifier(e2) [69-71] [e2]
+                    GraphNodePattern [79-82] [(c)]
+                      GraphElementPatternFiller [80-81] [c]
+                        Identifier(c) [80-81] [c]
+              GqlReturn [85-93] [RETURN *]
+                Select [91-93] [*]
+                  SelectList [92-93] [*]
+                    SelectColumn [92-93] [*]
+                      Star(*) [92-93] [*]
+          Alias [96-98] [gt]
+            Identifier(gt) [96-98] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      TRAIL
+      (a)
+      (
+        SIMPLE
+        -[e1]-
+        (b)
+        -[e2]-
+      ) { 1, 3 }
+      (c)
+    RETURN
+      *
+  ) AS gt
+==
+
+# Nested path modes with quantified edges on a path work.
+select gt.* from
+graph_table(aml
+  MATCH (a)(ACYCLIC -[e1]-(n1)-[e2]-(n2)-[e3]-{1,3})(c)
+  RETURN *
+) gt
+--
+QueryStatement [0-104] [select gt....RETURN * ) gt]
+  Query [0-104] [select gt....RETURN * ) gt]
+    Select [0-104] [select gt....RETURN * ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-104] [from graph_table...TURN * ) gt]
+        GraphTableQuery [17-104] [graph_table...RETURN * ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-99] [MATCH (a)(...RETURN *]
+            GqlOperatorList [35-99] [MATCH (a)(...RETURN *]
+              GqlMatch [35-88] [MATCH (a)(...-{1,3})(c)]
+                GraphPattern [41-88] [(a)(ACYCLIC...-{1,3})(c)]
+                  GraphPathPattern [41-88] [(a)(ACYCLIC...-{1,3})(c)]
+                    GraphNodePattern [41-44] [(a)]
+                      GraphElementPatternFiller [42-43] [a]
+                        Identifier(a) [42-43] [a]
+                    ParenthesizedGraphPathPattern [44-85] [(ACYCLIC -...e3]-{1,3})]
+                      GraphPathMode [45-52] [ACYCLIC]
+                      GraphEdgePattern [53-59] [-[e1]-]
+                        GraphElementPatternFiller [55-57] [e1]
+                          Identifier(e1) [55-57] [e1]
+                      GraphNodePattern [59-63] [(n1)]
+                        GraphElementPatternFiller [60-62] [n1]
+                          Identifier(n1) [60-62] [n1]
+                      GraphEdgePattern [63-69] [-[e2]-]
+                        GraphElementPatternFiller [65-67] [e2]
+                          Identifier(e2) [65-67] [e2]
+                      GraphNodePattern [69-73] [(n2)]
+                        GraphElementPatternFiller [70-72] [n2]
+                          Identifier(n2) [70-72] [n2]
+                      ParenthesizedGraphPathPattern [73-84] [-[e3]-{1,3}]
+                        BoundedQuantifier [79-84] [{1,3}]
+                          QuantifierBound [80-81] [1]
+                            IntLiteral(1) [80-81] [1]
+                          QuantifierBound [82-83] [3]
+                            IntLiteral(3) [82-83] [3]
+                        GraphEdgePattern [73-79] [-[e3]-]
+                          GraphElementPatternFiller [75-77] [e3]
+                            Identifier(e3) [75-77] [e3]
+                    GraphNodePattern [85-88] [(c)]
+                      GraphElementPatternFiller [86-87] [c]
+                        Identifier(c) [86-87] [c]
+              GqlReturn [91-99] [RETURN *]
+                Select [97-99] [*]
+                  SelectList [98-99] [*]
+                    SelectColumn [98-99] [*]
+                      Star(*) [98-99] [*]
+          Alias [102-104] [gt]
+            Identifier(gt) [102-104] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+      (
+        ACYCLIC
+        -[e1]-
+        (n1)
+        -[e2]-
+        (n2)
+        (
+          -[e3]-
+        ) { 1, 3 }
+      )
+      (c)
+    RETURN
+      *
+  ) AS gt
+==
+
+# Path mode works with paths created from quantified edges.
+select gt.* from
+graph_table(aml
+  MATCH TRAIL (-[e]-{1,3} WHERE 20>10)
+  RETURN *
+) gt
+--
+QueryStatement [0-87] [select gt....RETURN * ) gt]
+  Query [0-87] [select gt....RETURN * ) gt]
+    Select [0-87] [select gt....RETURN * ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-87] [from graph_table...TURN * ) gt]
+        GraphTableQuery [17-87] [graph_table...RETURN * ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-82] [MATCH TRAIL...RETURN *]
+            GqlOperatorList [35-82] [MATCH TRAIL...RETURN *]
+              GqlMatch [35-71] [MATCH TRAIL...WHERE 20>10)]
+                GraphPattern [41-71] [TRAIL (-[e]-{1,3} WHERE 20>10)]
+                  GraphPathPattern [41-71] [TRAIL (-[e]-{1,3} WHERE 20>10)]
+                    GraphPathMode [41-46] [TRAIL]
+                    ParenthesizedGraphPathPattern [47-71] [(-[e]-{1,3} WHERE 20>10)]
+                      WhereClause [59-70] [WHERE 20>10]
+                        BinaryExpression(>) [65-70] [20>10]
+                          IntLiteral(20) [65-67] [20]
+                          IntLiteral(10) [68-70] [10]
+                      ParenthesizedGraphPathPattern [48-58] [-[e]-{1,3}]
+                        BoundedQuantifier [53-58] [{1,3}]
+                          QuantifierBound [54-55] [1]
+                            IntLiteral(1) [54-55] [1]
+                          QuantifierBound [56-57] [3]
+                            IntLiteral(3) [56-57] [3]
+                        GraphEdgePattern [48-53] [-[e]-]
+                          GraphElementPatternFiller [50-51] [e]
+                            Identifier(e) [50-51] [e]
+              GqlReturn [74-82] [RETURN *]
+                Select [80-82] [*]
+                  SelectList [81-82] [*]
+                    SelectColumn [81-82] [*]
+                      Star(*) [81-82] [*]
+          Alias [85-87] [gt]
+            Identifier(gt) [85-87] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      TRAIL
+      (
+        (
+          -[e]-
+        ) { 1, 3 }
+        WHERE
+          20 > 10
+      )
+    RETURN
+      *
+  ) AS gt
+==
+
+# Nested path modes with WHERE clauses work.
+select gt.* from
+graph_table(aml
+  MATCH TRAIL (SIMPLE -[e]- WHERE 1>0)(c) WHERE 4>3
+  RETURN *
+) gt
+--
+QueryStatement [0-100] [select gt....RETURN * ) gt]
+  Query [0-100] [select gt....RETURN * ) gt]
+    Select [0-100] [select gt....RETURN * ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-100] [from graph_table...TURN * ) gt]
+        GraphTableQuery [17-100] [graph_table...RETURN * ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-95] [MATCH TRAIL...RETURN *]
+            GqlOperatorList [35-95] [MATCH TRAIL...RETURN *]
+              GqlMatch [35-84] [MATCH TRAIL...WHERE 4>3]
+                GraphPattern [41-84] [TRAIL (SIMPLE...WHERE 4>3]
+                  GraphPathPattern [41-74] [TRAIL (SIMPLE...WHERE 1>0)(c)]
+                    GraphPathMode [41-46] [TRAIL]
+                    ParenthesizedGraphPathPattern [47-71] [(SIMPLE -[e]- WHERE 1>0)]
+                      WhereClause [61-70] [WHERE 1>0]
+                        BinaryExpression(>) [67-70] [1>0]
+                          IntLiteral(1) [67-68] [1]
+                          IntLiteral(0) [69-70] [0]
+                      GraphPathMode [48-54] [SIMPLE]
+                      GraphEdgePattern [55-60] [-[e]-]
+                        GraphElementPatternFiller [57-58] [e]
+                          Identifier(e) [57-58] [e]
+                    GraphNodePattern [71-74] [(c)]
+                      GraphElementPatternFiller [72-73] [c]
+                        Identifier(c) [72-73] [c]
+                  WhereClause [75-84] [WHERE 4>3]
+                    BinaryExpression(>) [81-84] [4>3]
+                      IntLiteral(4) [81-82] [4]
+                      IntLiteral(3) [83-84] [3]
+              GqlReturn [87-95] [RETURN *]
+                Select [93-95] [*]
+                  SelectList [94-95] [*]
+                    SelectColumn [94-95] [*]
+                      Star(*) [94-95] [*]
+          Alias [98-100] [gt]
+            Identifier(gt) [98-100] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      TRAIL
+      (
+        SIMPLE
+        -[e]-
+        WHERE
+          1 > 0
+      )
+      (c)
+      WHERE
+        4 > 3
+    RETURN
+      *
+  ) AS gt
+==
+
+# Path modes work with paths that have ASTGraphPathPattern nodes stripped.
+select gt.* from
+graph_table(aml
+  MATCH TRAIL (ACYCLIC -)
+  RETURN *
+) gt
+--
+QueryStatement [0-74] [select gt....RETURN * ) gt]
+  Query [0-74] [select gt....RETURN * ) gt]
+    Select [0-74] [select gt....RETURN * ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-74] [from graph_table...TURN * ) gt]
+        GraphTableQuery [17-74] [graph_table...RETURN * ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-69] [MATCH TRAIL...RETURN *]
+            GqlOperatorList [35-69] [MATCH TRAIL...RETURN *]
+              GqlMatch [35-58] [MATCH TRAIL (ACYCLIC -)]
+                GraphPattern [41-58] [TRAIL (ACYCLIC -)]
+                  GraphPathPattern [41-58] [TRAIL (ACYCLIC -)]
+                    GraphPathMode [41-46] [TRAIL]
+                    ParenthesizedGraphPathPattern [47-58] [(ACYCLIC -)]
+                      GraphPathMode [48-55] [ACYCLIC]
+                      GraphEdgePattern [56-57] [-]
+              GqlReturn [61-69] [RETURN *]
+                Select [67-69] [*]
+                  SelectList [68-69] [*]
+                    SelectColumn [68-69] [*]
+                      Star(*) [68-69] [*]
+          Alias [72-74] [gt]
+            Identifier(gt) [72-74] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      TRAIL
+      (
+        ACYCLIC
+        -
+      )
+    RETURN
+      *
+  ) AS gt
+==
+
+# Path modes work with quantified paths that have been converted from quantified
+# edge patterns.
+select gt.* from
+graph_table(aml
+  MATCH TRAIL -{5}
+  RETURN *
+) gt
+--
+QueryStatement [0-67] [select gt....RETURN * ) gt]
+  Query [0-67] [select gt....RETURN * ) gt]
+    Select [0-67] [select gt....RETURN * ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-67] [from graph_table...TURN * ) gt]
+        GraphTableQuery [17-67] [graph_table...RETURN * ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-62] [MATCH TRAIL -{5}   RETURN *]
+            GqlOperatorList [35-62] [MATCH TRAIL -{5}   RETURN *]
+              GqlMatch [35-51] [MATCH TRAIL -{5}]
+                GraphPattern [41-51] [TRAIL -{5}]
+                  GraphPathPattern [41-51] [TRAIL -{5}]
+                    GraphPathMode [41-46] [TRAIL]
+                    ParenthesizedGraphPathPattern [47-51] [-{5}]
+                      FixedQuantifier [49-50] [5]
+                        IntLiteral(5) [49-50] [5]
+                      GraphEdgePattern [47-48] [-]
+              GqlReturn [54-62] [RETURN *]
+                Select [60-62] [*]
+                  SelectList [61-62] [*]
+                    SelectColumn [61-62] [*]
+                      Star(*) [61-62] [*]
+          Alias [65-67] [gt]
+            Identifier(gt) [65-67] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      TRAIL
+      (
+        -
+      ) { 5 }
+    RETURN
+      *
+  ) AS gt
+==
+
+# Nested path modes work with quantified paths that have been converted from
+# quantified edge patterns.
+select gt.* from
+graph_table(aml
+  MATCH TRAIL (SIMPLE -{5})
+  RETURN *
+) gt
+--
+QueryStatement [0-76] [select gt....RETURN * ) gt]
+  Query [0-76] [select gt....RETURN * ) gt]
+    Select [0-76] [select gt....RETURN * ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-76] [from graph_table...TURN * ) gt]
+        GraphTableQuery [17-76] [graph_table...RETURN * ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-71] [MATCH TRAIL...RETURN *]
+            GqlOperatorList [35-71] [MATCH TRAIL...RETURN *]
+              GqlMatch [35-60] [MATCH TRAIL (SIMPLE -{5})]
+                GraphPattern [41-60] [TRAIL (SIMPLE -{5})]
+                  GraphPathPattern [41-60] [TRAIL (SIMPLE -{5})]
+                    GraphPathMode [41-46] [TRAIL]
+                    ParenthesizedGraphPathPattern [47-60] [(SIMPLE -{5})]
+                      GraphPathMode [48-54] [SIMPLE]
+                      ParenthesizedGraphPathPattern [55-59] [-{5}]
+                        FixedQuantifier [57-58] [5]
+                          IntLiteral(5) [57-58] [5]
+                        GraphEdgePattern [55-56] [-]
+              GqlReturn [63-71] [RETURN *]
+                Select [69-71] [*]
+                  SelectList [70-71] [*]
+                    SelectColumn [70-71] [*]
+                      Star(*) [70-71] [*]
+          Alias [74-76] [gt]
+            Identifier(gt) [74-76] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      TRAIL
+      (
+        SIMPLE
+        (
+          -
+        ) { 5 }
+      )
+    RETURN
+      *
+  ) AS gt

@@ -99,7 +99,7 @@ ZetaSQL supports the following protocol buffer functions.
 
 ## `ENUM_VALUE_DESCRIPTOR_PROTO`
 
-```sql
+```zetasql
 ENUM_VALUE_DESCRIPTOR_PROTO(proto_enum)
 ```
 
@@ -122,7 +122,7 @@ The following query gets the `ideally_enabled` and `in_development` options from
 the value descriptors in the `LanguageFeature` enum, and then produces query
 results that are based on these value descriptors.
 
-```sql
+```zetasql
 WITH
   EnabledFeatures AS (
     SELECT CAST(999991 AS zetasql.LanguageFeature) AS feature UNION ALL
@@ -151,7 +151,7 @@ FROM
 ## `EXTRACT` 
 <a id="proto_extract"></a>
 
-```sql
+```zetasql
 EXTRACT( extraction_type (proto_field) FROM proto_expression )
 
 extraction_type:
@@ -161,10 +161,14 @@ extraction_type:
 **Description**
 
 Extracts a value from a protocol buffer. `proto_expression` represents the
-expression that returns a protocol buffer, `proto_field` represents the field
-of the protocol buffer to extract from, and `extraction_type` determines the
-type of data to return. `EXTRACT` can be used to get values of ambiguous fields.
-An alternative to `EXTRACT` is the [dot operator][querying-protocol-buffers].
+expression that returns a protocol buffer, `proto_field` represents the field of
+the protocol buffer to extract from, and `extraction_type` determines the type
+of data to return.
+
+You can access most simple proto message fields idiomatically using the
+[dot operator][dot-operator]. `EXTRACT` is a more general way to access fields
+that can handle most cases. For instance, `EXTRACT` can access the values of
+fields made ambiguous by tag reuse.
 
 **Extraction Types**
 
@@ -175,8 +179,8 @@ You can choose the type of information to get with `EXTRACT`. Your choices are:
     protocol buffer field. Raw values
     ignore any ZetaSQL type annotations.
 +  `HAS`: Returns `TRUE` if a protocol buffer field is set in a proto message;
-   otherwise, `FALSE`. Returns an error if this is used with a scalar proto3
-   field. Alternatively, use [`has_x`][has-value], to perform this task.
+   otherwise, `FALSE`. Alternatively, use [`has_x`][has-value] to perform this
+   task.
 +  `ONEOF_CASE`: Returns the name of the set protocol buffer field in a Oneof.
    If no field is set, returns an empty string.
 
@@ -216,7 +220,7 @@ message Chart {
 }
 ```
 
-```sql
+```zetasql
 WITH AlbumList AS (
   SELECT
     NEW Album(
@@ -243,7 +247,7 @@ SELECT * FROM AlbumList
 The following example extracts the album names from a table called `AlbumList`
 that contains a proto-typed column called `Album`.
 
-```sql
+```zetasql
 SELECT EXTRACT(FIELD(album_name) FROM album_col) AS name_of_album
 FROM AlbumList
 
@@ -255,8 +259,8 @@ FROM AlbumList
  *------------------*/
 ```
 
-A table called `AlbumList` contains a proto-typed column called `Album`.
-`Album` contains a field called `date`, which can store an integer. The
+A table called `AlbumList` contains a proto-typed column called `Chart`.
+`Chart` contains a field called `date`, which can store an integer. The
 `date` field has an annotated format called `DATE` assigned to it, which means
 that when you extract the value in this field, it returns a `DATE`, not an
 `INT64`.
@@ -264,7 +268,7 @@ that when you extract the value in this field, it returns a `DATE`, not an
 If you would like to return the value for `date` as an `INT64`, not
 as a `DATE`, use the `RAW` extraction type in your query. For example:
 
-```sql
+```zetasql
 SELECT
   EXTRACT(RAW(date) FROM chart_col) AS raw_date,
   EXTRACT(FIELD(date) FROM chart_col) AS formatted_date
@@ -281,7 +285,7 @@ FROM AlbumList
 The following example checks to see if release dates exist in a table called
 `AlbumList` that contains a protocol buffer called `Chart`.
 
-```sql
+```zetasql
 SELECT EXTRACT(HAS(date) FROM chart_col) AS has_release_date
 FROM AlbumList
 
@@ -293,12 +297,12 @@ FROM AlbumList
  *------------------*/
 ```
 
-The following example extracts the group name that is assigned to an artist in
+The following example extracts the group name that's assigned to an artist in
 a table called `AlbumList`. The group name is set for exactly one
 protocol buffer field inside of the `group_name` Oneof. The `group_name` Oneof
-exists inside the `Chart` protocol buffer.
+exists inside the `Album` protocol buffer.
 
-```sql
+```zetasql
 SELECT EXTRACT(ONEOF_CASE(group_name) FROM album_col) AS artist_type
 FROM AlbumList;
 
@@ -310,13 +314,13 @@ FROM AlbumList;
  *-------------*/
 ```
 
-[querying-protocol-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#querying_protocol_buffers
+[dot-operator]: https://github.com/google/zetasql/blob/master/docs/operators.md#field_access_operator
 
 [has-value]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#checking_if_a_field_has_a_value
 
 ## `FILTER_FIELDS`
 
-```sql
+```zetasql
 FILTER_FIELDS(
   proto_expression,
   proto_field_list
@@ -346,7 +350,7 @@ Input values:
 + `reset_cleared_required_fields`: Named argument with a `BOOL` value.
   If not explicitly set, `FALSE` is used implicitly.
   If `FALSE`, you must include all protocol buffer `required` fields in the
-  `FILTER_FIELDS` function. If `TRUE`, you do not need to include all required
+  `FILTER_FIELDS` function. If `TRUE`, you don't need to include all required
   protocol buffer fields and the value of required fields
   defaults to these values:
 
@@ -364,7 +368,7 @@ Protocol buffer field expression behavior:
   inclusion/exclusion. By default, when you include the first field, all other
   fields are excluded. Or by default, when you exclude the first field, all
   other fields are included.
-+ A required field in the protocol buffer cannot be excluded explicitly or
++ A required field in the protocol buffer can't be excluded explicitly or
   implicitly, unless you have the
   `RESET_CLEARED_REQUIRED_FIELDS` named argument set as `TRUE`.
 + If a field is included, its child fields and descendants are implicitly
@@ -372,7 +376,7 @@ Protocol buffer field expression behavior:
 + If a field is excluded, its child fields and descendants are
   implicitly excluded in the results.
 + A child field must be listed after its parent field in the argument list,
-  but does not need to come right after the parent field.
+  but doesn't need to come right after the parent field.
 
 Caveats:
 
@@ -403,7 +407,7 @@ message Award {
 }
 ```
 
-```sql
+```zetasql
 WITH
   MusicAwards AS (
     SELECT
@@ -448,7 +452,7 @@ FROM MusicAwards
 The following example returns protocol buffers that only include the `year`
 field.
 
-```sql
+```zetasql
 SELECT FILTER_FIELDS(award_col, +year) AS filtered_fields
 FROM MusicAwards
 
@@ -463,7 +467,7 @@ FROM MusicAwards
 The following example returns protocol buffers that include all but the `type`
 field.
 
-```sql
+```zetasql
 SELECT FILTER_FIELDS(award_col, -type) AS filtered_fields
 FROM MusicAwards
 
@@ -478,7 +482,7 @@ FROM MusicAwards
 The following example returns protocol buffers that only include the `year` and
 `type.award_name` fields.
 
-```sql
+```zetasql
 SELECT FILTER_FIELDS(award_col, +year, +type.award_name) AS filtered_fields
 FROM MusicAwards
 
@@ -500,7 +504,7 @@ FROM MusicAwards
 The following example returns the `year` and `type` fields, but excludes the
 `award_name` field in the `type` field.
 
-```sql
+```zetasql
 SELECT FILTER_FIELDS(award_col, +year, +type, -type.award_name) AS filtered_fields
 FROM MusicAwards
 
@@ -520,9 +524,9 @@ FROM MusicAwards
 ```
 
 The following example produces an error because `year` is a required field
-and cannot be excluded explicitly or implicitly from the results.
+and can't be excluded explicitly or implicitly from the results.
 
-```sql
+```zetasql
 SELECT FILTER_FIELDS(award_col, -year) AS filtered_fields
 FROM MusicAwards
 
@@ -530,10 +534,10 @@ FROM MusicAwards
 ```
 
 The following example produces an error because when `year` was included,
-`month` was implicitly excluded. You cannot explicitly exclude a field that
+`month` was implicitly excluded. You can't explicitly exclude a field that
 has already been implicitly excluded.
 
-```sql
+```zetasql
 SELECT FILTER_FIELDS(award_col, +year, -month) AS filtered_fields
 FROM MusicAwards
 
@@ -542,10 +546,10 @@ FROM MusicAwards
 
 When `RESET_CLEARED_REQUIRED_FIELDS` is set as `TRUE`, `FILTER_FIELDS` doesn't
 need to include required fields. In the example below, `MusicAwards` has a
-required field called `year`, but this is not added as an argument for
+required field called `year`, but this isn't added as an argument for
 `FILTER_FIELDS`. `year` is added to the results with its default value, `0`.
 
-```sql
+```zetasql
 SELECT FILTER_FIELDS(
   award_col,
   +month,
@@ -570,7 +574,7 @@ FROM MusicAwards;
 
 ## `FROM_PROTO`
 
-```sql
+```zetasql
 FROM_PROTO(expression)
 ```
 
@@ -578,7 +582,7 @@ FROM_PROTO(expression)
 
 Returns a ZetaSQL value. The valid `expression` types are defined
 in the table below, along with the return types that they produce.
-Other input `expression` types are invalid. If `expression` cannot be converted
+Other input `expression` types are invalid. If `expression` can't be converted
 to a valid value, an error is returned.
 
 <table width="100%">
@@ -730,7 +734,7 @@ in the table above.
 
 Convert a `google.type.Date` type into a `DATE` type.
 
-```sql
+```zetasql
 SELECT FROM_PROTO(
   new google.type.Date(
     2019 as year,
@@ -748,7 +752,7 @@ SELECT FROM_PROTO(
 
 Pass in and return a `DATE` type.
 
-```sql
+```zetasql
 SELECT FROM_PROTO(DATE '2019-10-30')
 
 /*------------*
@@ -760,7 +764,7 @@ SELECT FROM_PROTO(DATE '2019-10-30')
 
 ## `PROTO_DEFAULT_IF_NULL`
 
-```sql
+```zetasql
 PROTO_DEFAULT_IF_NULL(proto_field_expression)
 ```
 
@@ -772,11 +776,11 @@ value for the field. Otherwise, returns the field value.
 
 Stipulations:
 
-+ The expression cannot resolve to a required field.
-+ The expression cannot resolve to a message field.
++ The expression can't resolve to a required field.
++ The expression can't resolve to a message field.
 + The expression must resolve to a regular proto field access, not
   a virtual field.
-+ The expression cannot access a field with
++ The expression can't access a field with
   `zetasql.use_defaults=false`.
 
 **Return Type**
@@ -786,12 +790,12 @@ Type of `proto_field_expression`.
 **Example**
 
 In the following example, each book in a library has a country of origin. If
-the country is not set, the country defaults to unknown.
+the country isn't set, the country defaults to unknown.
 
 In this statement, table `library_books` contains a column named `book`,
 whose type is `Book`.
 
-```sql
+```zetasql
 SELECT PROTO_DEFAULT_IF_NULL(book.country) AS origin FROM library_books;
 ```
 
@@ -805,7 +809,7 @@ message Book {
 
 This is the result if `book.country` evaluates to `Canada`.
 
-```sql
+```zetasql
 /*-----------------*
  | origin          |
  +-----------------+
@@ -817,7 +821,7 @@ This is the result if `book` is `NULL`. Since `book` is `NULL`,
 `book.country` evaluates to `NULL` and therefore the function result is the
 default value for `country`.
 
-```sql
+```zetasql
 /*-----------------*
  | origin          |
  +-----------------+
@@ -827,7 +831,7 @@ default value for `country`.
 
 ## `PROTO_MAP_CONTAINS_KEY`
 
-```sql
+```zetasql
 PROTO_MAP_CONTAINS_KEY(proto_map_field_expression, key)
 ```
 
@@ -863,7 +867,7 @@ message Item {
 In the following example, the function returns `TRUE` when the key is
 present, `FALSE` otherwise.
 
-```sql
+```zetasql
 SELECT
   PROTO_MAP_CONTAINS_KEY(m.purchased, 'A') AS contains_a,
   PROTO_MAP_CONTAINS_KEY(m.purchased, 'B') AS contains_b
@@ -881,7 +885,7 @@ FROM
 
 ## `PROTO_MODIFY_MAP`
 
-```sql
+```zetasql
 PROTO_MODIFY_MAP(proto_map_field_expression, key_value_pair[, ...])
 
 key_value_pair:
@@ -900,7 +904,7 @@ Input values:
 
 Modification behavior:
 
-+ If the key is not already in the map field, adds the key and its value to the
++ If the key isn't already in the map field, adds the key and its value to the
   map field.
 + If the key is already in the map field, replaces its value.
 + If the key is in the map field and the value is `NULL`, removes the key and
@@ -930,7 +934,7 @@ message Item {
 In the following example, the query deletes key `A`, replaces `B`, and adds
 `C` in a map field called `purchased`.
 
-```sql
+```zetasql
 SELECT
   PROTO_MODIFY_MAP(m.purchased, 'A', NULL, 'B', 4, 'C', 6) AS result_map
 FROM
@@ -947,14 +951,14 @@ FROM
 
 ## `REPLACE_FIELDS`
 
-```sql
+```zetasql
 REPLACE_FIELDS(proto_expression, value AS field_path [, ... ])
 ```
 
 **Description**
 
 Returns a copy of a protocol buffer, replacing the values in one or more fields.
-`field_path` is a delimited path to the protocol buffer field that is replaced.
+`field_path` is a delimited path to the protocol buffer field that's replaced.
 When using `replace_fields`, the following limitations apply:
 
 +   If `value` is `NULL`, it un-sets `field_path` or returns an error if the
@@ -989,7 +993,7 @@ This statement replaces the values of the field `title` and subfield `chapters`
 of proto type `Book`. Note that field `details` must be set for the statement
 to succeed.
 
-```sql
+```zetasql
 SELECT REPLACE_FIELDS(
   NEW Book(
     "The Hummingbird" AS title,
@@ -1007,7 +1011,7 @@ AS proto;
 
 The function can replace value of repeated fields.
 
-```sql
+```zetasql
 SELECT REPLACE_FIELDS(
   NEW Book("The Hummingbird" AS title,
     NEW BookDetails(10 AS chapters) AS details),
@@ -1024,7 +1028,7 @@ AS proto;
 
 The function can also set a field to `NULL`.
 
-```sql
+```zetasql
 SELECT REPLACE_FIELDS(
   NEW Book("The Hummingbird" AS title,
     NEW BookDetails(10 AS chapters) AS details),
@@ -1178,7 +1182,7 @@ in the table above.
 
 Convert a `DATE` type into a `google.type.Date` type.
 
-```sql
+```zetasql
 SELECT TO_PROTO(DATE '2019-10-30')
 
 /*--------------------------------*
@@ -1190,7 +1194,7 @@ SELECT TO_PROTO(DATE '2019-10-30')
 
 Pass in and return a `google.type.Date` type.
 
-```sql
+```zetasql
 SELECT TO_PROTO(
   new google.type.Date(
     2019 as year,

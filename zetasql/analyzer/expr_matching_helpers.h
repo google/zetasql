@@ -96,6 +96,18 @@ bool GetSourceColumnAndNamePath(const ResolvedExpr* resolved_expr,
                                 bool* is_correlated, ValidNamePath* name_path,
                                 IdStringPool* id_string_pool);
 
+// Analyzes an expression, and if it is logically a path expression (of
+// one or more names) starting from an argument reference then:
+//
+// - Return a pointer to the argument reference and
+// - Populates `name_path` with the path name list and the `target_column` that
+//   the entire path expression resolves to.
+//
+// Otherwise, return a nullptr.
+const ResolvedArgumentRef* GetSourceArgumentRefAndNamePath(
+    const ResolvedExpr* resolved_expr, ResolvedColumn target_column,
+    ValidNamePath* name_path, IdStringPool* id_string_pool);
+
 // Detect if the node contains an array path that works with the singleton table
 // array path implicit UNNEST feature.
 // Returns true when the ColumnRef is found and set the `column_id` to the found

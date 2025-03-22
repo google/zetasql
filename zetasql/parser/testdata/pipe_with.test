@@ -1,0 +1,628 @@
+[default language_features=PIPES]
+
+from t1
+|> with t2 AS (select * from t3),
+        t3 AS (from t4 |> where true)
+|> select abc
+--
+QueryStatement [0-93] [from t1 |>...select abc]
+  Query [0-93] [from t1 |>...select abc]
+    FromQuery [0-7] [from t1]
+      FromClause [0-7] [from t1]
+        TablePathExpression [5-7] [t1]
+          PathExpression [5-7] [t1]
+            Identifier(t1) [5-7] [t1]
+    PipeWith [8-79] [|> with t2...where true)]
+      WithClause [11-79] [with t2 AS...where true)]
+        AliasedQuery [16-40] [t2 AS (select * from t3)]
+          Identifier(t2) [16-18] [t2]
+          Query [22-40] [(select * from t3)]
+            Select [23-39] [select * from t3]
+              SelectList [30-31] [*]
+                SelectColumn [30-31] [*]
+                  Star(*) [30-31] [*]
+              FromClause [32-39] [from t3]
+                TablePathExpression [37-39] [t3]
+                  PathExpression [37-39] [t3]
+                    Identifier(t3) [37-39] [t3]
+        AliasedQuery [50-79] [t3 AS (from t4 |> where true)]
+          Identifier(t3) [50-52] [t3]
+          Query [56-79] [(from t4 |> where true)]
+            FromQuery [57-64] [from t4]
+              FromClause [57-64] [from t4]
+                TablePathExpression [62-64] [t4]
+                  PathExpression [62-64] [t4]
+                    Identifier(t4) [62-64] [t4]
+            PipeWhere [65-78] [|> where true]
+              WhereClause [68-78] [where true]
+                BooleanLiteral(true) [74-78] [true]
+    PipeSelect [80-93] [|> select abc]
+      Select [83-93] [select abc]
+        SelectList [90-93] [abc]
+          SelectColumn [90-93] [abc]
+            PathExpression [90-93] [abc]
+              Identifier(abc) [90-93] [abc]
+--
+FROM
+  t1
+|> WITH
+     t2 AS (
+       SELECT
+         *
+       FROM
+         t3
+     ),
+     t3 AS (
+       FROM
+         t4
+       |> WHERE
+            true
+     )
+|> SELECT
+     abc
+==
+
+# Trailing commas
+from t1
+|> WITH t2 AS (select * from t3),
+|> WITH t4 AS (from t3),
+        t5 AS (from t6),
+|> where true
+--
+QueryStatement [0-105] [from t1 |>...where true]
+  Query [0-105] [from t1 |>...where true]
+    FromQuery [0-7] [from t1]
+      FromClause [0-7] [from t1]
+        TablePathExpression [5-7] [t1]
+          PathExpression [5-7] [t1]
+            Identifier(t1) [5-7] [t1]
+    PipeWith [8-41] [|> WITH t2...from t3),]
+      WithClause [11-40] [WITH t2 AS (select * from t3)]
+        AliasedQuery [16-40] [t2 AS (select * from t3)]
+          Identifier(t2) [16-18] [t2]
+          Query [22-40] [(select * from t3)]
+            Select [23-39] [select * from t3]
+              SelectList [30-31] [*]
+                SelectColumn [30-31] [*]
+                  Star(*) [30-31] [*]
+              FromClause [32-39] [from t3]
+                TablePathExpression [37-39] [t3]
+                  PathExpression [37-39] [t3]
+                    Identifier(t3) [37-39] [t3]
+    PipeWith [42-91] [|> WITH t4...(from t6),]
+      WithClause [45-90] [WITH t4 AS...(from t6)]
+        AliasedQuery [50-65] [t4 AS (from t3)]
+          Identifier(t4) [50-52] [t4]
+          Query [56-65] [(from t3)]
+            FromQuery [57-64] [from t3]
+              FromClause [57-64] [from t3]
+                TablePathExpression [62-64] [t3]
+                  PathExpression [62-64] [t3]
+                    Identifier(t3) [62-64] [t3]
+        AliasedQuery [75-90] [t5 AS (from t6)]
+          Identifier(t5) [75-77] [t5]
+          Query [81-90] [(from t6)]
+            FromQuery [82-89] [from t6]
+              FromClause [82-89] [from t6]
+                TablePathExpression [87-89] [t6]
+                  PathExpression [87-89] [t6]
+                    Identifier(t6) [87-89] [t6]
+    PipeWhere [92-105] [|> where true]
+      WhereClause [95-105] [where true]
+        BooleanLiteral(true) [101-105] [true]
+--
+FROM
+  t1
+|> WITH
+     t2 AS (
+       SELECT
+         *
+       FROM
+         t3
+     )
+|> WITH
+     t4 AS (
+       FROM
+         t3
+     ),
+     t5 AS (
+       FROM
+         t6
+     )
+|> WHERE
+     true
+==
+
+# WITH RECURSIVE
+FROM t1
+|> WITH RECURSIVE t2 AS (from t2),
+                  t3 AS (from t3),
+--
+QueryStatement [0-77] [FROM t1 |>...(from t3),]
+  Query [0-77] [FROM t1 |>...(from t3),]
+    FromQuery [0-7] [FROM t1]
+      FromClause [0-7] [FROM t1]
+        TablePathExpression [5-7] [t1]
+          PathExpression [5-7] [t1]
+            Identifier(t1) [5-7] [t1]
+    PipeWith [8-77] [|> WITH RECURSIVE...(from t3),]
+      WithClause (recursive) [11-76] [WITH RECURSIVE...(from t3)]
+        AliasedQuery [26-41] [t2 AS (from t2)]
+          Identifier(t2) [26-28] [t2]
+          Query [32-41] [(from t2)]
+            FromQuery [33-40] [from t2]
+              FromClause [33-40] [from t2]
+                TablePathExpression [38-40] [t2]
+                  PathExpression [38-40] [t2]
+                    Identifier(t2) [38-40] [t2]
+        AliasedQuery [61-76] [t3 AS (from t3)]
+          Identifier(t3) [61-63] [t3]
+          Query [67-76] [(from t3)]
+            FromQuery [68-75] [from t3]
+              FromClause [68-75] [from t3]
+                TablePathExpression [73-75] [t3]
+                  PathExpression [73-75] [t3]
+                    Identifier(t3) [73-75] [t3]
+--
+FROM
+  t1
+|> WITH RECURSIVE
+     t2 AS (
+       FROM
+         t2
+     ),
+     t3 AS (
+       FROM
+         t3
+     )
+==
+
+# WITH RECURSIVE with modifiers.
+FROM t1
+|> WITH RECURSIVE t2 AS (
+     FROM t2) WITH DEPTH {{|AS depth}}{{| max 10| between 5 AND 8}}
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStatement [0-58] [FROM t1 |>...WITH DEPTH]
+  Query [0-58] [FROM t1 |>...WITH DEPTH]
+    FromQuery [0-7] [FROM t1]
+      FromClause [0-7] [FROM t1]
+        TablePathExpression [5-7] [t1]
+          PathExpression [5-7] [t1]
+            Identifier(t1) [5-7] [t1]
+    PipeWith [8-58] [|> WITH RECURSIVE...WITH DEPTH]
+      WithClause (recursive) [11-58] [WITH RECURSIVE...WITH DEPTH]
+        AliasedQuery [26-58] [t2 AS (...WITH DEPTH]
+          Identifier(t2) [26-28] [t2]
+          Query [32-47] [(      FROM t2)]
+            FromQuery [39-46] [FROM t2]
+              FromClause [39-46] [FROM t2]
+                TablePathExpression [44-46] [t2]
+                  PathExpression [44-46] [t2]
+                    Identifier(t2) [44-46] [t2]
+          AliasedQueryModifiers [48-58] [WITH DEPTH]
+            RecursionDepthModifier [48-58] [WITH DEPTH]
+              IntOrUnbounded [58-58] []
+              IntOrUnbounded [58-58] []
+--
+FROM
+  t1
+|> WITH RECURSIVE
+     t2 AS (
+       FROM
+         t2
+     ) WITH DEPTH BETWEEN UNBOUNDED AND UNBOUNDED
+--
+ALTERNATION GROUP:  max 10
+--
+QueryStatement [0-66] [FROM t1 |>...DEPTH  max 10]
+  Query [0-66] [FROM t1 |>...DEPTH  max 10]
+    FromQuery [0-7] [FROM t1]
+      FromClause [0-7] [FROM t1]
+        TablePathExpression [5-7] [t1]
+          PathExpression [5-7] [t1]
+            Identifier(t1) [5-7] [t1]
+    PipeWith [8-66] [|> WITH RECURSIVE...TH  max 10]
+      WithClause (recursive) [11-66] [WITH RECURSIVE...DEPTH  max 10]
+        AliasedQuery [26-66] [t2 AS (...DEPTH  max 10]
+          Identifier(t2) [26-28] [t2]
+          Query [32-47] [(      FROM t2)]
+            FromQuery [39-46] [FROM t2]
+              FromClause [39-46] [FROM t2]
+                TablePathExpression [44-46] [t2]
+                  PathExpression [44-46] [t2]
+                    Identifier(t2) [44-46] [t2]
+          AliasedQueryModifiers [48-66] [WITH DEPTH  max 10]
+            RecursionDepthModifier [48-66] [WITH DEPTH  max 10]
+              IntOrUnbounded [58-58] []
+              IntOrUnbounded [64-66] [10]
+                IntLiteral(10) [64-66] [10]
+--
+FROM
+  t1
+|> WITH RECURSIVE
+     t2 AS (
+       FROM
+         t2
+     ) WITH DEPTH BETWEEN UNBOUNDED AND 10
+--
+ALTERNATION GROUP:  between 5 AND 8
+--
+QueryStatement [0-75] [FROM t1 |>...between 5 AND 8]
+  Query [0-75] [FROM t1 |>...between 5 AND 8]
+    FromQuery [0-7] [FROM t1]
+      FromClause [0-7] [FROM t1]
+        TablePathExpression [5-7] [t1]
+          PathExpression [5-7] [t1]
+            Identifier(t1) [5-7] [t1]
+    PipeWith [8-75] [|> WITH RECURSIVE...en 5 AND 8]
+      WithClause (recursive) [11-75] [WITH RECURSIVE...tween 5 AND 8]
+        AliasedQuery [26-75] [t2 AS (...between 5 AND 8]
+          Identifier(t2) [26-28] [t2]
+          Query [32-47] [(      FROM t2)]
+            FromQuery [39-46] [FROM t2]
+              FromClause [39-46] [FROM t2]
+                TablePathExpression [44-46] [t2]
+                  PathExpression [44-46] [t2]
+                    Identifier(t2) [44-46] [t2]
+          AliasedQueryModifiers [48-75] [WITH DEPTH  between 5 AND 8]
+            RecursionDepthModifier [48-75] [WITH DEPTH  between 5 AND 8]
+              IntOrUnbounded [68-69] [5]
+                IntLiteral(5) [68-69] [5]
+              IntOrUnbounded [74-75] [8]
+                IntLiteral(8) [74-75] [8]
+--
+FROM
+  t1
+|> WITH RECURSIVE
+     t2 AS (
+       FROM
+         t2
+     ) WITH DEPTH BETWEEN 5 AND 8
+--
+ALTERNATION GROUP: AS depth,
+--
+QueryStatement [0-67] [FROM t1 |>...DEPTH AS depth]
+  Query [0-67] [FROM t1 |>...DEPTH AS depth]
+    FromQuery [0-7] [FROM t1]
+      FromClause [0-7] [FROM t1]
+        TablePathExpression [5-7] [t1]
+          PathExpression [5-7] [t1]
+            Identifier(t1) [5-7] [t1]
+    PipeWith [8-67] [|> WITH RECURSIVE...H AS depth]
+      WithClause (recursive) [11-67] [WITH RECURSIVE...EPTH AS depth]
+        AliasedQuery [26-67] [t2 AS (...DEPTH AS depth]
+          Identifier(t2) [26-28] [t2]
+          Query [32-47] [(      FROM t2)]
+            FromQuery [39-46] [FROM t2]
+              FromClause [39-46] [FROM t2]
+                TablePathExpression [44-46] [t2]
+                  PathExpression [44-46] [t2]
+                    Identifier(t2) [44-46] [t2]
+          AliasedQueryModifiers [48-67] [WITH DEPTH AS depth]
+            RecursionDepthModifier [48-67] [WITH DEPTH AS depth]
+              Alias [59-67] [AS depth]
+                Identifier(depth) [62-67] [depth]
+              IntOrUnbounded [67-67] []
+              IntOrUnbounded [67-67] []
+--
+FROM
+  t1
+|> WITH RECURSIVE
+     t2 AS (
+       FROM
+         t2
+     ) WITH DEPTH AS depth BETWEEN UNBOUNDED AND UNBOUNDED
+--
+ALTERNATION GROUP: AS depth, max 10
+--
+QueryStatement [0-74] [FROM t1 |>...depth max 10]
+  Query [0-74] [FROM t1 |>...depth max 10]
+    FromQuery [0-7] [FROM t1]
+      FromClause [0-7] [FROM t1]
+        TablePathExpression [5-7] [t1]
+          PathExpression [5-7] [t1]
+            Identifier(t1) [5-7] [t1]
+    PipeWith [8-74] [|> WITH RECURSIVE...pth max 10]
+      WithClause (recursive) [11-74] [WITH RECURSIVE...depth max 10]
+        AliasedQuery [26-74] [t2 AS (...depth max 10]
+          Identifier(t2) [26-28] [t2]
+          Query [32-47] [(      FROM t2)]
+            FromQuery [39-46] [FROM t2]
+              FromClause [39-46] [FROM t2]
+                TablePathExpression [44-46] [t2]
+                  PathExpression [44-46] [t2]
+                    Identifier(t2) [44-46] [t2]
+          AliasedQueryModifiers [48-74] [WITH DEPTH AS depth max 10]
+            RecursionDepthModifier [48-74] [WITH DEPTH AS depth max 10]
+              Alias [59-67] [AS depth]
+                Identifier(depth) [62-67] [depth]
+              IntOrUnbounded [67-67] []
+              IntOrUnbounded [72-74] [10]
+                IntLiteral(10) [72-74] [10]
+--
+FROM
+  t1
+|> WITH RECURSIVE
+     t2 AS (
+       FROM
+         t2
+     ) WITH DEPTH AS depth BETWEEN UNBOUNDED AND 10
+--
+ALTERNATION GROUP: AS depth, between 5 AND 8
+--
+QueryStatement [0-83] [FROM t1 |>...between 5 AND 8]
+  Query [0-83] [FROM t1 |>...between 5 AND 8]
+    FromQuery [0-7] [FROM t1]
+      FromClause [0-7] [FROM t1]
+        TablePathExpression [5-7] [t1]
+          PathExpression [5-7] [t1]
+            Identifier(t1) [5-7] [t1]
+    PipeWith [8-83] [|> WITH RECURSIVE...en 5 AND 8]
+      WithClause (recursive) [11-83] [WITH RECURSIVE...tween 5 AND 8]
+        AliasedQuery [26-83] [t2 AS (...between 5 AND 8]
+          Identifier(t2) [26-28] [t2]
+          Query [32-47] [(      FROM t2)]
+            FromQuery [39-46] [FROM t2]
+              FromClause [39-46] [FROM t2]
+                TablePathExpression [44-46] [t2]
+                  PathExpression [44-46] [t2]
+                    Identifier(t2) [44-46] [t2]
+          AliasedQueryModifiers [48-83] [WITH DEPTH...between 5 AND 8]
+            RecursionDepthModifier [48-83] [WITH DEPTH...between 5 AND 8]
+              Alias [59-67] [AS depth]
+                Identifier(depth) [62-67] [depth]
+              IntOrUnbounded [76-77] [5]
+                IntLiteral(5) [76-77] [5]
+              IntOrUnbounded [82-83] [8]
+                IntLiteral(8) [82-83] [8]
+--
+FROM
+  t1
+|> WITH RECURSIVE
+     t2 AS (
+       FROM
+         t2
+     ) WITH DEPTH AS depth BETWEEN 5 AND 8
+==
+
+from t1
+|> WITH
+--
+ERROR: Syntax error: Unexpected end of statement [at 2:8]
+|> WITH
+       ^
+==
+
+from t1
+|> WITH ,
+--
+ERROR: Syntax error: Unexpected "," [at 2:9]
+|> WITH ,
+        ^
+==
+
+from t1
+|> WITH t2 AS (from t3),,
+--
+ERROR: Syntax error: Expected end of input but got "," [at 2:25]
+|> WITH t2 AS (from t3),,
+                        ^
+==
+
+# Missing a comma
+FROM t1
+|> WITH t2 AS (from t3)
+        t4 AS (from t5)
+--
+ERROR: Syntax error: Expected end of input but got identifier "t4" [at 3:9]
+        t4 AS (from t5)
+        ^
+==
+
+# Try putting a query after pipe WITH.
+FROM t1
+|> WITH t2 AS (from t3)
+   {{SELECT * FROM t4|FROM t5|(SELECT * FROM t6)}}
+--
+ALTERNATION GROUP: SELECT * FROM t4
+--
+ERROR: Syntax error: Expected end of input but got keyword SELECT [at 3:4]
+   SELECT * FROM t4
+   ^
+--
+ALTERNATION GROUP: FROM t5
+--
+ERROR: Syntax error: Expected end of input but got keyword FROM [at 3:4]
+   FROM t5
+   ^
+--
+ALTERNATION GROUP: (SELECT * FROM t6)
+--
+ERROR: Syntax error: Expected end of input but got "(" [at 3:4]
+   (SELECT * FROM t6)
+   ^
+==
+
+# Trailing comma and then a query.
+FROM t1
+|> WITH t2 AS (from t3),
+   {{SELECT * FROM t4|FROM t5|(SELECT * FROM t6)}}
+--
+ALTERNATION GROUP: SELECT * FROM t4
+--
+ERROR: Syntax error: Expected end of input but got keyword SELECT [at 3:4]
+   SELECT * FROM t4
+   ^
+--
+ALTERNATION GROUP: FROM t5
+--
+ERROR: Syntax error: Expected end of input but got keyword FROM [at 3:4]
+   FROM t5
+   ^
+--
+ALTERNATION GROUP: (SELECT * FROM t6)
+--
+ERROR: Syntax error: Expected end of input but got "(" [at 3:4]
+   (SELECT * FROM t6)
+   ^
+==
+
+# WITH in subpipelines.
+FROM t1
+|> IF cond THEN (
+    |> WITH t2 AS (select x)
+    |> WHERE true
+   ) ELSE (
+    |> WHERE x
+    |> WITH y AS (from t4)
+    |> SELECT z
+   )
+--
+QueryStatement [0-147] [FROM t1 |>...SELECT z    )]
+  Query [0-147] [FROM t1 |>...SELECT z    )]
+    FromQuery [0-7] [FROM t1]
+      FromClause [0-7] [FROM t1]
+        TablePathExpression [5-7] [t1]
+          PathExpression [5-7] [t1]
+            Identifier(t1) [5-7] [t1]
+    PipeIf [8-147] [|> IF cond...SELECT z    )]
+      PipeIfCase [11-77] [IF cond THEN...true    )]
+        PathExpression [14-18] [cond]
+          Identifier(cond) [14-18] [cond]
+        Subpipeline [24-77] [(     |> WITH...true    )]
+          PipeWith [30-54] [|> WITH t2 AS (select x)]
+            WithClause [33-54] [WITH t2 AS (select x)]
+              AliasedQuery [38-54] [t2 AS (select x)]
+                Identifier(t2) [38-40] [t2]
+                Query [44-54] [(select x)]
+                  Select [45-53] [select x]
+                    SelectList [52-53] [x]
+                      SelectColumn [52-53] [x]
+                        PathExpression [52-53] [x]
+                          Identifier(x) [52-53] [x]
+          PipeWhere [59-72] [|> WHERE true]
+            WhereClause [62-72] [WHERE true]
+              BooleanLiteral(true) [68-72] [true]
+      Subpipeline [83-147] [(     |> WHERE...SELECT z    )]
+        PipeWhere [89-99] [|> WHERE x]
+          WhereClause [92-99] [WHERE x]
+            PathExpression [98-99] [x]
+              Identifier(x) [98-99] [x]
+        PipeWith [104-126] [|> WITH y AS (from t4)]
+          WithClause [107-126] [WITH y AS (from t4)]
+            AliasedQuery [112-126] [y AS (from t4)]
+              Identifier(y) [112-113] [y]
+              Query [117-126] [(from t4)]
+                FromQuery [118-125] [from t4]
+                  FromClause [118-125] [from t4]
+                    TablePathExpression [123-125] [t4]
+                      PathExpression [123-125] [t4]
+                        Identifier(t4) [123-125] [t4]
+        PipeSelect [131-142] [|> SELECT z]
+          Select [134-142] [SELECT z]
+            SelectList [141-142] [z]
+              SelectColumn [141-142] [z]
+                PathExpression [141-142] [z]
+                  Identifier(z) [141-142] [z]
+--
+FROM
+  t1
+|> IF cond THEN (
+     |> WITH
+          t2 AS (
+            SELECT
+              x
+          )
+     |> WHERE
+          true
+   )
+   ELSE(
+     |> WHERE
+          x
+     |> WITH
+          y AS (
+            FROM
+              t4
+          )
+     |> SELECT
+          z
+   )
+==
+
+# Pipe WITH inside and after a regular WITH clause.
+WITH t1 AS (
+   select 1
+   |> WITH t2 AS (select 2)
+   |> WHERE true
+  )
+FROM t2
+|> WITH t3 AS (from t5)
+|> SELECT x
+--
+QueryStatement [0-117] [WITH t1 AS...> SELECT x]
+  Query [0-117] [WITH t1 AS...> SELECT x]
+    WithClause [0-73] [WITH t1 AS...WHERE true   )]
+      AliasedQuery [5-73] [t1 AS (...WHERE true   )]
+        Identifier(t1) [5-7] [t1]
+        Query [11-73] [(    select...WHERE true   )]
+          Select [16-24] [select 1]
+            SelectList [23-24] [1]
+              SelectColumn [23-24] [1]
+                IntLiteral(1) [23-24] [1]
+          PipeWith [28-52] [|> WITH t2 AS (select 2)]
+            WithClause [31-52] [WITH t2 AS (select 2)]
+              AliasedQuery [36-52] [t2 AS (select 2)]
+                Identifier(t2) [36-38] [t2]
+                Query [42-52] [(select 2)]
+                  Select [43-51] [select 2]
+                    SelectList [50-51] [2]
+                      SelectColumn [50-51] [2]
+                        IntLiteral(2) [50-51] [2]
+          PipeWhere [56-69] [|> WHERE true]
+            WhereClause [59-69] [WHERE true]
+              BooleanLiteral(true) [65-69] [true]
+    FromQuery [74-81] [FROM t2]
+      FromClause [74-81] [FROM t2]
+        TablePathExpression [79-81] [t2]
+          PathExpression [79-81] [t2]
+            Identifier(t2) [79-81] [t2]
+    PipeWith [82-105] [|> WITH t3 AS (from t5)]
+      WithClause [85-105] [WITH t3 AS (from t5)]
+        AliasedQuery [90-105] [t3 AS (from t5)]
+          Identifier(t3) [90-92] [t3]
+          Query [96-105] [(from t5)]
+            FromQuery [97-104] [from t5]
+              FromClause [97-104] [from t5]
+                TablePathExpression [102-104] [t5]
+                  PathExpression [102-104] [t5]
+                    Identifier(t5) [102-104] [t5]
+    PipeSelect [106-117] [|> SELECT x]
+      Select [109-117] [SELECT x]
+        SelectList [116-117] [x]
+          SelectColumn [116-117] [x]
+            PathExpression [116-117] [x]
+              Identifier(x) [116-117] [x]
+--
+WITH
+  t1 AS (
+    SELECT
+      1
+    |> WITH
+         t2 AS (
+           SELECT
+             2
+         )
+    |> WHERE
+         true
+  )
+FROM
+  t2
+|> WITH
+     t3 AS (
+       FROM
+         t5
+     )
+|> SELECT
+     x

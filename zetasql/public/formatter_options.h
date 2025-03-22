@@ -17,6 +17,8 @@
 #ifndef ZETASQL_PUBLIC_FORMATTER_OPTIONS_H_
 #define ZETASQL_PUBLIC_FORMATTER_OPTIONS_H_
 
+#include <stdbool.h>
+
 #include <string>
 
 #include "zetasql/public/formatter_options.pb.h"
@@ -30,6 +32,8 @@ class FormatterOptions {
   // Tells formatter to detect new line separator from the input sql.
   // If the input is a single line, default new line separator is "\n".
   static constexpr char kDetectNewLineType[] = "";
+  // New line separator used in unix-like systems.
+  static constexpr char kUnixNewLineType[] = "\n";
 
   // Creates default options for the formatter.
   FormatterOptions()
@@ -42,7 +46,8 @@ class FormatterOptions {
         preserve_line_breaks_(false),
         expand_format_ranges_(false),
         enforce_single_quotes_(false),
-        format_structured_strings_(true) {}
+        format_structured_strings_(true),
+        format_comments_(true) {}
 
   // Creates options overwriting defaults using the given proto. Not set fields
   // in the proto are ignored.
@@ -112,13 +117,22 @@ class FormatterOptions {
   bool IsEnforcingSingleQuotes() const { return enforce_single_quotes_; }
 
   // If true, formatter attempts to format the contents of annotated string
-  // literals with structured content. Supported annotations: /*sql*/.
+  // literals with structured content. Supported annotations:
+  // /*sql*/ - for embedded SQL strings,
+  // /*proto*/, /*txtpb*/ - for embedded textproto.
   void FormatStructuredStrings(bool format_structured_strings) {
     format_structured_strings_ = format_structured_strings;
   }
   bool IsFormattingStructuredStrings() const {
     return format_structured_strings_;
   }
+
+  // If true, formatter fixes comments: adds space after comment symbol and
+  // trims trailing whitespaces.
+  void FormatComments(bool format_comments) {
+    format_comments_ = format_comments;
+  }
+  bool IsFormattingComments() const { return format_comments_; }
 
  private:
   std::string new_line_type_;
@@ -131,6 +145,7 @@ class FormatterOptions {
   bool expand_format_ranges_;
   bool enforce_single_quotes_;
   bool format_structured_strings_;
+  bool format_comments_;
 };
 
 // Represents a range in the input to be formatted. The range may be in byte

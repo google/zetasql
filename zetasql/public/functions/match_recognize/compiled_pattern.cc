@@ -134,7 +134,8 @@ class StateMachineDeferredCompile : public CompiledPattern {
   }
 
   std::string DebugString() const override {
-    return absl::StrCat("StateMachineDeferredCompile:\n", scan_->DebugString());
+    return absl::StrCat("StateMachineDeferredCompile:\n",
+                        match_options_.DebugString());
   }
 
  private:
@@ -231,7 +232,8 @@ class StateMachineCompiledPattern : public CompiledPattern {
   }
 
   std::string DebugString() const override {
-    return absl::StrCat("StateMachineCompiledPattern:\n", nfa_->DebugString());
+    return absl::StrCat("StateMachineCompiledPattern:\n", nfa_->DebugString(),
+                        match_options_.DebugString());
   }
 
  private:

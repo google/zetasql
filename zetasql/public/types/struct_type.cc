@@ -60,7 +60,7 @@
 
 namespace zetasql {
 
-StructType::StructType(const TypeFactory* factory,
+StructType::StructType(const TypeFactoryBase* factory,
                        std::vector<StructField> fields, int nesting_depth)
     : ListBackedType(factory, TYPE_STRUCT),
       fields_(std::move(fields)),
@@ -250,6 +250,11 @@ absl::StatusOr<std::string> StructType::TypeNameWithModifiers(
         mode, use_external_float32);
   };
   return TypeNameImpl(std::numeric_limits<int>::max(), field_debug_fn);
+}
+
+std::string StructType::CapitalizedName() const {
+  ABSL_CHECK_EQ(kind(), TYPE_STRUCT);  // Crash OK
+  return "Struct";
 }
 
 absl::StatusOr<TypeParameters> StructType::ValidateAndResolveTypeParameters(

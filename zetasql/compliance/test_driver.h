@@ -222,13 +222,14 @@ struct TestDatabase {
     proto_names.clear();
     enum_names.clear();
     tables.clear();
+    tvfs.clear();
     property_graph_defs.clear();
   }
 
   // Returns true if empty.
   bool empty() const {
     return proto_files.empty() && proto_names.empty() && enum_names.empty() &&
-           tables.empty() && property_graph_defs.empty();
+           tables.empty() && tvfs.empty() && property_graph_defs.empty();
   }
   // LINT.IfChange
   // File paths (*.proto) relative to the build workspace
@@ -237,6 +238,7 @@ struct TestDatabase {
   std::set<std::string> proto_names;        // Set of proto type names.
   std::set<std::string> enum_names;         // Set of enum type names.
   std::map<std::string, TestTable> tables;  // Keyed on table name.
+  std::map<std::string, std::string> tvfs;  // Keyed on TVF name.
   std::map<std::string, std::string>
       property_graph_defs;  // Keyed on graph name.
 };
@@ -302,7 +304,7 @@ static const char default_default_time_zone[] = "America/Los_Angeles";
 
 class TestDriver {
  public:
-  virtual ~TestDriver() {}
+  virtual ~TestDriver() = default;
 
   // Returns the set of LanguageOptions supported by this engine.
   // LanguageOptions change the expected output of some queries.

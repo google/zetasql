@@ -25,6 +25,7 @@
 #include <limits>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -40,7 +41,7 @@
 #include "zetasql/compliance/functions_testlib_common.h"
 #include "zetasql/public/builtin_function_options.h"
 #include "zetasql/public/civil_time.h"
-#include "zetasql/public/timestamp_pico_value.h"
+#include "zetasql/public/timestamp_picos_value.h"
 #include "zetasql/public/types/value_equality_check_options.h"
 #include "zetasql/public/uuid_value.h"
 #include "zetasql/testdata/test_proto3.pb.h"
@@ -61,6 +62,7 @@
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/pico_time.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/token_list_util.h"
 #include "zetasql/public/type.h"
@@ -757,18 +759,34 @@ TEST_F(ValueTest, TimestampFormatting) {
 TEST_F(ValueTest, TimestampPicos) {
   absl::TimeZone pst;
   ASSERT_TRUE(absl::LoadTimeZone("America/Los_Angeles", &pst));
-  const Value ts = Value::TimestampPicos(TimestampPicoValue(
-      absl::FromCivil(absl::CivilSecond(2022, 9, 16, 12, 43, 00), pst)));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto pico_time,
+      PicoTime::Create(
+          absl::FromCivil(absl::CivilSecond(2022, 9, 16, 12, 43, 0), pst),
+          999999999999));
+  const Value ts =
+      Value::TimestampPicos(zetasql::TimestampPicosValue(pico_time));
   EXPECT_EQ(ts.DebugString(/*verbose=*/true),
-            "Timestamp_picos(2022-09-16 19:43:00+00)");
-  EXPECT_EQ(ts.DebugString(), "2022-09-16 19:43:00+00");
-  EXPECT_EQ(ts.Format(), "Timestamp_picos(2022-09-16 19:43:00+00)");
+            "Timestamp_picos(2022-09-16 19:43:00.999999999999+00)");
+  EXPECT_EQ(ts.DebugString(), "2022-09-16 19:43:00.999999999999+00");
+  EXPECT_EQ(ts.Format(),
+            "Timestamp_picos(2022-09-16 19:43:00.999999999999+00)");
   EXPECT_EQ(ts.Format(/*print_top_level_type=*/false),
-            "2022-09-16 19:43:00+00");
+            "2022-09-16 19:43:00.999999999999+00");
+  // TODO: Update the SQL literal to use TIMESTAMP once type
+  // annotation is added.
   EXPECT_EQ(ts.GetSQLLiteral(),
-            R"sql(CAST("2022-09-16 19:43:00+00" AS TIMESTAMP_PICOS))sql");
+            R"sql(TIMESTAMP_PICOS "2022-09-16 19:43:00.999999999999+00")sql");
   EXPECT_EQ(ts.GetSQL(),
-            R"sql(CAST("2022-09-16 19:43:00+00" AS TIMESTAMP_PICOS))sql");
+            R"sql(TIMESTAMP_PICOS "2022-09-16 19:43:00.999999999999+00")sql");
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto pico_time2,
+      PicoTime::Create(
+          absl::FromCivil(absl::CivilSecond(2022, 9, 16, 12, 43, 0), pst),
+          999999999999));
+  const Value ts2 =
+      Value::TimestampPicos(zetasql::TimestampPicosValue(pico_time2));
+  EXPECT_EQ(ts, ts2);
 }
 
 TEST_F(ValueTest, Interval) {
@@ -1312,10 +1330,10 @@ TEST_F(ValueTest, HashCode) {
       Value::Timestamp(
           absl::FromCivil(absl::CivilSecond(2018, 2, 14, 16, 36, 11), utc) +
           absl::Nanoseconds(2)),
-      Value::TimestampPicos(TimestampPicoValue(
+      Value::TimestampPicos(*TimestampPicosValue::Create(
           absl::FromCivil(absl::CivilSecond(2018, 2, 14, 16, 36, 11), utc) +
           absl::Nanoseconds(1))),
-      Value::TimestampPicos(TimestampPicoValue(
+      Value::TimestampPicos(*TimestampPicosValue::Create(
           absl::FromCivil(absl::CivilSecond(2018, 2, 14, 16, 36, 11), utc) +
           absl::Nanoseconds(2))),
       Value::Time(TimeValue::FromHMSAndNanos(16, 36, 11, 1)),
@@ -2199,15 +2217,18 @@ TEST_F(ValueTest, TimestampArray) {
 }
 
 TEST_F(ValueTest, TimestampPicosArray) {
-  Value v1 =
-      values::TimestampPicosArray({TimestampPicoValue(ParseTimeHm("12:00")),
-                                   TimestampPicoValue(ParseTimeHm("13:00"))});
+  Value v1 = values::TimestampPicosArray(
+      {*TimestampPicosValue::Create(ParseTimeHm("12:00")),
+       *TimestampPicosValue::Create(ParseTimeHm("13:00"))});
   EXPECT_EQ(v1.DebugString(),
             "[1970-01-01 12:00:00+00, 1970-01-01 13:00:00+00]");
   EXPECT_EQ(v1.FullDebugString(),
             "Array[Timestamp_picos(1970-01-01 12:00:00+00), "
             "Timestamp_picos(1970-01-01 13:00:00+00)]");
-  TimestampPicoValue t1(ParseTimeHm("12:00")), t2(ParseTimeHm("13:00"));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(TimestampPicosValue t1,
+                       TimestampPicosValue::Create(ParseTimeHm("12:00")));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(TimestampPicosValue t2,
+                       TimestampPicosValue::Create(ParseTimeHm("13:00")));
   Value v2 = values::TimestampPicosArray({t1, t2});
   EXPECT_EQ(v1, v2);
 }
@@ -2517,7 +2538,7 @@ TEST_F(ValueTest, NestedStructContainerStringFormatting) {
       R"sql([(STRUCT(1), MAP_FROM_ARRAY([(STRUCT(1), [STRUCT(RANGE<DATE> "[1970-01-02, 1970-01-03)")])]))])sql");
   EXPECT_EQ(
       v.GetSQL(PRODUCT_EXTERNAL),
-      R"sql(ARRAY<STRUCT<a STRUCT<q INT64>, b MAP<STRUCT<a INT64>, ARRAY<STRUCT<r RANGE<DATE>>>>>>[STRUCT<a STRUCT<q INT64>, b MAP<STRUCT<a INT64>, ARRAY<STRUCT<r RANGE<DATE>>>>>(STRUCT<q INT64>(1), MAP_FROM_ARRAY([(STRUCT<a INT64>(1), ARRAY<STRUCT<r RANGE<DATE>>>[STRUCT<r RANGE<DATE>>(RANGE<DATE> "[1970-01-02, 1970-01-03)")])]))])sql");
+      R"sql(ARRAY<STRUCT<a STRUCT<q INT64>, b MAP<STRUCT<a INT64>, ARRAY<STRUCT<r RANGE<DATE>>>>>>[STRUCT<a STRUCT<q INT64>, b MAP<STRUCT<a INT64>, ARRAY<STRUCT<r RANGE<DATE>>>>>(STRUCT<q INT64>(1), MAP_FROM_ARRAY(ARRAY<STRUCT<STRUCT<a INT64>, ARRAY<STRUCT<r RANGE<DATE>>>>>[(STRUCT<a INT64>(1), ARRAY<STRUCT<r RANGE<DATE>>>[STRUCT<r RANGE<DATE>>(RANGE<DATE> "[1970-01-02, 1970-01-03)")])]))])sql");
 }
 
 TEST_F(ValueTest, NestedRangeContainerStringFormatting) {
@@ -3300,7 +3321,7 @@ INSTANTIATE_TEST_SUITE_P(
                                                       Value::Int64(2))}),
             .debug_string = "{1: 2}",
             .verbose_debug_string = "Map{Int64(1): Int64(2)}",
-            .sql_string = "MAP_FROM_ARRAY([(1, 2)])",
+            .sql_string = "MAP_FROM_ARRAY(ARRAY<STRUCT<INT64, INT64>>[(1, 2)])",
             .sql_literal_string = "MAP_FROM_ARRAY([(1, 2)])",
         },
         {
@@ -3312,7 +3333,7 @@ INSTANTIATE_TEST_SUITE_P(
             .verbose_debug_string =
                 "Map{Float(NULL): Int64(2), Float(nan): Int64(NULL)}",
             .sql_string =
-                R"(MAP_FROM_ARRAY([(CAST(NULL AS FLOAT), 2), (CAST("nan" AS FLOAT), CAST(NULL AS INT64))]))",
+                R"(MAP_FROM_ARRAY(ARRAY<STRUCT<FLOAT, INT64>>[(CAST(NULL AS FLOAT), 2), (CAST("nan" AS FLOAT), CAST(NULL AS INT64))]))",
             .sql_literal_string =
                 R"(MAP_FROM_ARRAY([(NULL, 2), (CAST("nan" AS FLOAT), NULL)]))",
         },
@@ -3328,7 +3349,7 @@ INSTANTIATE_TEST_SUITE_P(
             .verbose_debug_string =
                 R"(Map{String("foo"): Array[Range[Date(1970-01-02), Date(1970-01-04)), Range[Date(NULL), Date(1970-01-04))]})",
             .sql_string =
-                R"sql(MAP_FROM_ARRAY([("foo", ARRAY<RANGE<DATE>>[RANGE<DATE> "[1970-01-02, 1970-01-04)", RANGE<DATE> "[UNBOUNDED, 1970-01-04)"])]))sql",
+                R"sql(MAP_FROM_ARRAY(ARRAY<STRUCT<STRING, ARRAY<RANGE<DATE>>>>[("foo", ARRAY<RANGE<DATE>>[RANGE<DATE> "[1970-01-02, 1970-01-04)", RANGE<DATE> "[UNBOUNDED, 1970-01-04)"])]))sql",
             .sql_literal_string =
                 R"sql(MAP_FROM_ARRAY([("foo", [RANGE<DATE> "[1970-01-02, 1970-01-04)", RANGE<DATE> "[UNBOUNDED, 1970-01-04)"])]))sql",
         },
@@ -3361,10 +3382,14 @@ TEST(MapPrintingTest, NullAndEmptyMaps) {
   EXPECT_EQ(empty_map.DebugString(/*verbose=*/true), "Map{}");
   EXPECT_EQ(empty_map.Format(/*print_top_level_type=*/false), "{}");
   EXPECT_EQ(empty_map.Format(/*print_top_level_type=*/true), "Map{}");
-  EXPECT_EQ(empty_map.GetSQL(PRODUCT_INTERNAL), "MAP_FROM_ARRAY([])");
-  EXPECT_EQ(empty_map.GetSQL(PRODUCT_EXTERNAL), "MAP_FROM_ARRAY([])");
-  EXPECT_EQ(empty_map.GetSQLLiteral(PRODUCT_INTERNAL), "MAP_FROM_ARRAY([])");
-  EXPECT_EQ(empty_map.GetSQLLiteral(PRODUCT_EXTERNAL), "MAP_FROM_ARRAY([])");
+  EXPECT_EQ(empty_map.GetSQL(PRODUCT_INTERNAL),
+            "MAP_FROM_ARRAY(ARRAY<STRUCT<STRING, INT64>>[])");
+  EXPECT_EQ(empty_map.GetSQL(PRODUCT_EXTERNAL),
+            "MAP_FROM_ARRAY(ARRAY<STRUCT<STRING, INT64>>[])");
+  EXPECT_EQ(empty_map.GetSQLLiteral(PRODUCT_INTERNAL),
+            "MAP_FROM_ARRAY(ARRAY<STRUCT<STRING, INT64>>[])");
+  EXPECT_EQ(empty_map.GetSQLLiteral(PRODUCT_EXTERNAL),
+            "MAP_FROM_ARRAY(ARRAY<STRUCT<STRING, INT64>>[])");
 }
 
 TEST(MapPrintingTest, InternalExternalProductModeDiffers) {
@@ -3374,10 +3399,10 @@ TEST(MapPrintingTest, InternalExternalProductModeDiffers) {
   });
   EXPECT_EQ(
       map.GetSQL(PRODUCT_INTERNAL),
-      R"(MAP_FROM_ARRAY([(1, CAST(NULL AS DOUBLE)), (2, CAST("inf" AS DOUBLE))]))");
+      R"(MAP_FROM_ARRAY(ARRAY<STRUCT<INT64, DOUBLE>>[(1, CAST(NULL AS DOUBLE)), (2, CAST("inf" AS DOUBLE))]))");
   EXPECT_EQ(
       map.GetSQL(PRODUCT_EXTERNAL),
-      R"(MAP_FROM_ARRAY([(1, CAST(NULL AS FLOAT64)), (2, CAST("inf" AS FLOAT64))]))");
+      R"(MAP_FROM_ARRAY(ARRAY<STRUCT<INT64, FLOAT64>>[(1, CAST(NULL AS FLOAT64)), (2, CAST("inf" AS FLOAT64))]))");
   EXPECT_EQ(map.GetSQLLiteral(PRODUCT_INTERNAL),
             R"(MAP_FROM_ARRAY([(1, NULL), (2, CAST("inf" AS DOUBLE))]))");
   EXPECT_EQ(map.GetSQLLiteral(PRODUCT_EXTERNAL),
@@ -5606,12 +5631,13 @@ TEST_F(ValueTest, Serialize) {
 
   SerializeDeserialize(Value::NullTimestampPicos());
   SerializeDeserialize(Value::TimestampPicos(
-      TimestampPicoValue(absl::FromUnixMicros(-5364662400000000))));
+      *TimestampPicosValue::Create(absl::FromUnixMicros(-5364662400000000))));
   SerializeDeserialize(Null(types::TimestampPicosArrayType()));
   SerializeDeserialize(EmptyArray(types::TimestampPicosArrayType()));
-  SerializeDeserialize(Array({Value::NullTimestampPicos(),
-                              Value::TimestampPicos(TimestampPicoValue(
-                                  absl::FromUnixMicros(-5364662400000000)))}));
+  SerializeDeserialize(
+      Array({Value::NullTimestampPicos(),
+             Value::TimestampPicos(*TimestampPicosValue::Create(
+                 absl::FromUnixMicros(-5364662400000000)))}));
 
   SerializeDeserialize(NullDatetime());
   SerializeDeserialize(Datetime(
@@ -6553,7 +6579,7 @@ bool IsNaN<UuidValue>(const Value& value) {
 }
 
 template <>
-bool IsNaN<TimestampPicoValue>(const Value& value) {
+bool IsNaN<TimestampPicosValue>(const Value& value) {
   return false;
 }
 
@@ -6676,16 +6702,16 @@ void MakeSortedVector<UuidValue>(std::vector<zetasql::Value>* values) {
 }
 
 template <>
-void MakeSortedVector<TimestampPicoValue>(
+void MakeSortedVector<TimestampPicosValue>(
     std::vector<zetasql::Value>* values) {
   // NULL
   values->push_back(Value::NullTimestampPicos());
   // Lowest value
-  values->push_back(Value::TimestampPicos(TimestampPicoValue::MinValue()));
+  values->push_back(Value::TimestampPicos(TimestampPicosValue::MinValue()));
   // Unix epoch
-  values->push_back(Value::TimestampPicos(TimestampPicoValue()));
+  values->push_back(Value::TimestampPicos(TimestampPicosValue()));
   // Highest value
-  values->push_back(Value::TimestampPicos(TimestampPicoValue::MaxValue()));
+  values->push_back(Value::TimestampPicos(TimestampPicosValue::MaxValue()));
 }
 
 // Date ranges.
@@ -6869,7 +6895,7 @@ TEST_F(ValueCompareTest, SortOrder) {
   TestSortOrder<double>();
   TestSortOrder<NumericValue>();
   TestSortOrder<BigNumericValue>();
-  TestSortOrder<TimestampPicoValue>();
+  TestSortOrder<TimestampPicosValue>();
   TestSortOrder<UuidValue>();
   // Date ranges.
   TestSortOrder<std::pair<int32_t, int32_t>>();

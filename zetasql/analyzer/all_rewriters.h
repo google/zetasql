@@ -17,9 +17,7 @@
 #ifndef ZETASQL_ANALYZER_ALL_REWRITERS_H_
 #define ZETASQL_ANALYZER_ALL_REWRITERS_H_
 
-#include <vector>
 
-#include "zetasql/public/rewriter_interface.h"
 
 namespace zetasql {
 

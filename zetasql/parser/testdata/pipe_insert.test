@@ -1,0 +1,649 @@
+[default language_features=PIPES]
+
+# The parser doens't know INSERT is terminal and can't be
+# followed by more operators.
+from t1
+|> insert t2
+|> insert into t3.t4 (c1, c2)
+|> where true
+--
+QueryStatement [88-152] [from t1 |>...where true]
+  Query [88-152] [from t1 |>...where true]
+    FromQuery [88-95] [from t1]
+      FromClause [88-95] [from t1]
+        TablePathExpression [93-95] [t1]
+          PathExpression [93-95] [t1]
+            Identifier(t1) [93-95] [t1]
+    PipeInsert [96-108] [|> insert t2]
+      InsertStatement [99-108] [insert t2]
+        PathExpression [106-108] [t2]
+          Identifier(t2) [106-108] [t2]
+    PipeInsert [109-138] [|> insert into t3.t4 (c1, c2)]
+      InsertStatement [112-138] [insert into t3.t4 (c1, c2)]
+        PathExpression [124-129] [t3.t4]
+          Identifier(t3) [124-126] [t3]
+          Identifier(t4) [127-129] [t4]
+        ColumnList [130-138] [(c1, c2)]
+          Identifier(c1) [131-133] [c1]
+          Identifier(c2) [135-137] [c2]
+    PipeWhere [139-152] [|> where true]
+      WhereClause [142-152] [where true]
+        BooleanLiteral(true) [148-152] [true]
+--
+FROM
+  t1
+|> INSERT INTO t2
+|> INSERT INTO t3.t4(c1, c2)
+|> WHERE
+     true
+==
+
+# Pipe INSERT can't take VALUES.
+from t1
+|> insert into t2 VALUES (1, 2)
+--
+ERROR: Syntax error: Expected end of input but got keyword VALUES [at 2:19]
+|> insert into t2 VALUES (1, 2)
+                  ^
+==
+
+from t1
+|> insert into t2 (c1, c2) VALUES (1, 2)
+--
+ERROR: Syntax error: Expected end of input but got keyword VALUES [at 2:28]
+|> insert into t2 (c1, c2) VALUES (1, 2)
+                           ^
+==
+
+# Pipe INSERT can't take a query.
+from t1
+|> insert into t2 {{|(c1, c2)}}
+   {{SELECT 5|SELECT * FROM t3|FROM t3|(SELECT * FROM t3)|TABLE t5}}
+--
+ALTERNATION GROUPS:
+    SELECT 5
+    (c1, c2),SELECT 5
+--
+ERROR: Syntax error: Expected end of input but got keyword SELECT [at 3:4]
+   SELECT 5
+   ^
+--
+ALTERNATION GROUPS:
+    SELECT * FROM t3
+    (c1, c2),SELECT * FROM t3
+--
+ERROR: Syntax error: Expected end of input but got keyword SELECT [at 3:4]
+   SELECT * FROM t3
+   ^
+--
+ALTERNATION GROUPS:
+    FROM t3
+    (c1, c2),FROM t3
+--
+ERROR: Syntax error: Expected end of input but got keyword FROM [at 3:4]
+   FROM t3
+   ^
+--
+ALTERNATION GROUP: (SELECT * FROM t3)
+--
+ERROR: Syntax error: Unexpected keyword SELECT [at 3:5]
+   (SELECT * FROM t3)
+    ^
+--
+ALTERNATION GROUPS:
+    TABLE t5
+    (c1, c2),TABLE t5
+--
+ERROR: Syntax error: Expected end of input but got keyword TABLE [at 3:4]
+   TABLE t5
+   ^
+--
+ALTERNATION GROUP: (c1, c2),(SELECT * FROM t3)
+--
+ERROR: Syntax error: Expected end of input but got "(" [at 3:4]
+   (SELECT * FROM t3)
+   ^
+==
+
+from t1
+|> INSERT {{IGNORE|OR IGNORE|OR REPLACE|OR UPDATE}} t3
+--
+ALTERNATION GROUP: IGNORE
+--
+QueryStatement [0-27] [from t1 |> INSERT IGNORE t3]
+  Query [0-27] [from t1 |> INSERT IGNORE t3]
+    FromQuery [0-7] [from t1]
+      FromClause [0-7] [from t1]
+        TablePathExpression [5-7] [t1]
+          PathExpression [5-7] [t1]
+            Identifier(t1) [5-7] [t1]
+    PipeInsert [8-27] [|> INSERT IGNORE t3]
+      InsertStatement(insert_mode=IGNORE) [11-27] [INSERT IGNORE t3]
+        PathExpression [25-27] [t3]
+          Identifier(t3) [25-27] [t3]
+--
+FROM
+  t1
+|> INSERT OR IGNORE INTO t3
+--
+ALTERNATION GROUP: OR IGNORE
+--
+QueryStatement [0-30] [from t1 |> INSERT OR IGNORE t3]
+  Query [0-30] [from t1 |> INSERT OR IGNORE t3]
+    FromQuery [0-7] [from t1]
+      FromClause [0-7] [from t1]
+        TablePathExpression [5-7] [t1]
+          PathExpression [5-7] [t1]
+            Identifier(t1) [5-7] [t1]
+    PipeInsert [8-30] [|> INSERT OR IGNORE t3]
+      InsertStatement(insert_mode=IGNORE) [11-30] [INSERT OR IGNORE t3]
+        PathExpression [28-30] [t3]
+          Identifier(t3) [28-30] [t3]
+--
+FROM
+  t1
+|> INSERT OR IGNORE INTO t3
+--
+ALTERNATION GROUP: OR REPLACE
+--
+QueryStatement [0-31] [from t1 |>...REPLACE t3]
+  Query [0-31] [from t1 |>...REPLACE t3]
+    FromQuery [0-7] [from t1]
+      FromClause [0-7] [from t1]
+        TablePathExpression [5-7] [t1]
+          PathExpression [5-7] [t1]
+            Identifier(t1) [5-7] [t1]
+    PipeInsert [8-31] [|> INSERT OR REPLACE t3]
+      InsertStatement(insert_mode=REPLACE) [11-31] [INSERT OR REPLACE t3]
+        PathExpression [29-31] [t3]
+          Identifier(t3) [29-31] [t3]
+--
+FROM
+  t1
+|> INSERT OR REPLACE INTO t3
+--
+ALTERNATION GROUP: OR UPDATE
+--
+QueryStatement [0-30] [from t1 |> INSERT OR UPDATE t3]
+  Query [0-30] [from t1 |> INSERT OR UPDATE t3]
+    FromQuery [0-7] [from t1]
+      FromClause [0-7] [from t1]
+        TablePathExpression [5-7] [t1]
+          PathExpression [5-7] [t1]
+            Identifier(t1) [5-7] [t1]
+    PipeInsert [8-30] [|> INSERT OR UPDATE t3]
+      InsertStatement(insert_mode=UPDATE) [11-30] [INSERT OR UPDATE t3]
+        PathExpression [28-30] [t3]
+          Identifier(t3) [28-30] [t3]
+--
+FROM
+  t1
+|> INSERT OR UPDATE INTO t3
+==
+
+from t1
+|> INSERT
+--
+ERROR: Syntax error: Unexpected end of statement [at 2:10]
+|> INSERT
+         ^
+==
+
+from t1
+|> INSERT INTO
+--
+ERROR: Syntax error: Unexpected end of statement [at 2:15]
+|> INSERT INTO
+              ^
+==
+
+from t1
+|> INSERT t3 @{hint=1}
+--
+QueryStatement [0-30] [from t1 |> INSERT t3 @{hint=1}]
+  Query [0-30] [from t1 |> INSERT t3 @{hint=1}]
+    FromQuery [0-7] [from t1]
+      FromClause [0-7] [from t1]
+        TablePathExpression [5-7] [t1]
+          PathExpression [5-7] [t1]
+            Identifier(t1) [5-7] [t1]
+    PipeInsert [8-30] [|> INSERT t3 @{hint=1}]
+      InsertStatement [11-30] [INSERT t3 @{hint=1}]
+        PathExpression [18-20] [t3]
+          Identifier(t3) [18-20] [t3]
+        Hint [21-30] [@{hint=1}]
+          HintEntry [23-29] [hint=1]
+            Identifier(hint) [23-27] [hint]
+            IntLiteral(1) [28-29] [1]
+--
+FROM
+  t1
+|> INSERT INTO t3 @{ hint = 1 }
+==
+
+from t1
+|> INSERT INTO t3
+   ASSERT_ROWS_MODIFIED 10
+--
+QueryStatement [0-52] [from t1 |>..._ROWS_MODIFIED 10]
+  Query [0-52] [from t1 |>..._ROWS_MODIFIED 10]
+    FromQuery [0-7] [from t1]
+      FromClause [0-7] [from t1]
+        TablePathExpression [5-7] [t1]
+          PathExpression [5-7] [t1]
+            Identifier(t1) [5-7] [t1]
+    PipeInsert [8-52] [|> INSERT...T_ROWS_MODIFIED 10]
+      InsertStatement [11-52] [INSERT INTO...ROWS_MODIFIED 10]
+        PathExpression [23-25] [t3]
+          Identifier(t3) [23-25] [t3]
+        AssertRowsModified [29-52] [ASSERT_ROWS_MODIFIED 10]
+          IntLiteral(10) [50-52] [10]
+--
+FROM
+  t1
+|> INSERT INTO t3
+   ASSERT_ROWS_MODIFIED 10
+==
+
+from t1
+|> INSERT INTO t3
+   ON CONFLICT DO NOTHING
+--
+QueryStatement [0-51] [from t1 |>...DO NOTHING]
+  Query [0-51] [from t1 |>...DO NOTHING]
+    FromQuery [0-7] [from t1]
+      FromClause [0-7] [from t1]
+        TablePathExpression [5-7] [t1]
+          PathExpression [5-7] [t1]
+            Identifier(t1) [5-7] [t1]
+    PipeInsert [8-51] [|> INSERT...DO NOTHING]
+      InsertStatement [11-51] [INSERT INTO...DO NOTHING]
+        PathExpression [23-25] [t3]
+          Identifier(t3) [23-25] [t3]
+        OnConflictClause(conflict_action=NOTHING) [29-51] [ON CONFLICT DO NOTHING]
+--
+FROM
+  t1
+|> INSERT INTO t3
+   ON CONFLICT DO NOTHING
+==
+
+from t1
+|> INSERT INTO t3
+   ON CONFLICT DO UPDATE SET b = 1
+--
+QueryStatement [0-60] [from t1 |>...SET b = 1]
+  Query [0-60] [from t1 |>...SET b = 1]
+    FromQuery [0-7] [from t1]
+      FromClause [0-7] [from t1]
+        TablePathExpression [5-7] [t1]
+          PathExpression [5-7] [t1]
+            Identifier(t1) [5-7] [t1]
+    PipeInsert [8-60] [|> INSERT...SET b = 1]
+      InsertStatement [11-60] [INSERT INTO...SET b = 1]
+        PathExpression [23-25] [t3]
+          Identifier(t3) [23-25] [t3]
+        OnConflictClause(conflict_action=UPDATE) [29-60] [ON CONFLICT...SET b = 1]
+          UpdateItemList [55-60] [b = 1]
+            UpdateItem [55-60] [b = 1]
+              UpdateSetValue [55-60] [b = 1]
+                PathExpression [55-56] [b]
+                  Identifier(b) [55-56] [b]
+                IntLiteral(1) [59-60] [1]
+--
+FROM
+  t1
+|> INSERT INTO t3
+   ON CONFLICT DO UPDATE
+   SET b = 1
+==
+
+from t1
+|> INSERT INTO t3
+   ON CONFLICT ON UNIQUE CONSTRAINT c1 DO NOTHING
+--
+QueryStatement [0-75] [from t1 |>...DO NOTHING]
+  Query [0-75] [from t1 |>...DO NOTHING]
+    FromQuery [0-7] [from t1]
+      FromClause [0-7] [from t1]
+        TablePathExpression [5-7] [t1]
+          PathExpression [5-7] [t1]
+            Identifier(t1) [5-7] [t1]
+    PipeInsert [8-75] [|> INSERT...DO NOTHING]
+      InsertStatement [11-75] [INSERT INTO...DO NOTHING]
+        PathExpression [23-25] [t3]
+          Identifier(t3) [23-25] [t3]
+        OnConflictClause(conflict_action=NOTHING) [29-75] [ON CONFLICT...DO NOTHING]
+          Identifier(c1) [62-64] [c1]
+--
+FROM
+  t1
+|> INSERT INTO t3
+   ON CONFLICT ON UNIQUE CONSTRAINT c1 DO NOTHING
+==
+
+from t1
+|> INSERT INTO t3
+   THEN RETURN a, t3.a
+--
+QueryStatement [0-48] [from t1 |>...RETURN a, t3.a]
+  Query [0-48] [from t1 |>...RETURN a, t3.a]
+    FromQuery [0-7] [from t1]
+      FromClause [0-7] [from t1]
+        TablePathExpression [5-7] [t1]
+          PathExpression [5-7] [t1]
+            Identifier(t1) [5-7] [t1]
+    PipeInsert [8-48] [|> INSERT...RETURN a, t3.a]
+      InsertStatement [11-48] [INSERT INTO...RETURN a, t3.a]
+        PathExpression [23-25] [t3]
+          Identifier(t3) [23-25] [t3]
+        ReturningClause [29-48] [THEN RETURN a, t3.a]
+          SelectList [41-48] [a, t3.a]
+            SelectColumn [41-42] [a]
+              PathExpression [41-42] [a]
+                Identifier(a) [41-42] [a]
+            SelectColumn [44-48] [t3.a]
+              PathExpression [44-48] [t3.a]
+                Identifier(t3) [44-46] [t3]
+                Identifier(a) [47-48] [a]
+--
+FROM
+  t1
+|> INSERT INTO t3
+   THEN RETURN
+     a,
+     t3.a
+==
+
+from t1
+|> INSERT INTO t3
+   THEN RETURN WITH ACTION AS action a,b
+--
+QueryStatement [0-66] [from t1 |>...action a,b]
+  Query [0-66] [from t1 |>...action a,b]
+    FromQuery [0-7] [from t1]
+      FromClause [0-7] [from t1]
+        TablePathExpression [5-7] [t1]
+          PathExpression [5-7] [t1]
+            Identifier(t1) [5-7] [t1]
+    PipeInsert [8-66] [|> INSERT...action a,b]
+      InsertStatement [11-66] [INSERT INTO...action a,b]
+        PathExpression [23-25] [t3]
+          Identifier(t3) [23-25] [t3]
+        ReturningClause [29-66] [THEN RETURN...action a,b]
+          SelectList [63-66] [a,b]
+            SelectColumn [63-64] [a]
+              PathExpression [63-64] [a]
+                Identifier(a) [63-64] [a]
+            SelectColumn [65-66] [b]
+              PathExpression [65-66] [b]
+                Identifier(b) [65-66] [b]
+          Alias [29-66] [THEN RETURN...action a,b]
+            Identifier(action) [56-62] [action]
+--
+FROM
+  t1
+|> INSERT INTO t3
+   THEN RETURN WITH ACTION AS action
+     a,
+     b
+==
+
+# An INSERT with all optional modifiers.
+SELECT 1
+|> INSERT OR REPLACE INTO a.b.c @{hint=1} (c1,c2)
+   ON CONFLICT DO NOTHING
+   ASSERT_ROWS_MODIFIED 100
+   THEN RETURN WITH ACTION x,y
+--
+QueryStatement [0-143] [SELECT 1 |...ACTION x,y]
+  Query [0-143] [SELECT 1 |...ACTION x,y]
+    Select [0-8] [SELECT 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    PipeInsert [9-143] [|> INSERT...ACTION x,y]
+      InsertStatement(insert_mode=REPLACE) [12-143] [INSERT OR...ACTION x,y]
+        PathExpression [35-40] [a.b.c]
+          Identifier(a) [35-36] [a]
+          Identifier(b) [37-38] [b]
+          Identifier(c) [39-40] [c]
+        Hint [41-50] [@{hint=1}]
+          HintEntry [43-49] [hint=1]
+            Identifier(hint) [43-47] [hint]
+            IntLiteral(1) [48-49] [1]
+        ColumnList [51-58] [(c1,c2)]
+          Identifier(c1) [52-54] [c1]
+          Identifier(c2) [55-57] [c2]
+        OnConflictClause(conflict_action=NOTHING) [62-84] [ON CONFLICT DO NOTHING]
+        AssertRowsModified [88-112] [ASSERT_ROWS_MODIFIED 100]
+          IntLiteral(100) [109-112] [100]
+        ReturningClause [116-143] [THEN RETURN WITH ACTION x,y]
+          SelectList [140-143] [x,y]
+            SelectColumn [140-141] [x]
+              PathExpression [140-141] [x]
+                Identifier(x) [140-141] [x]
+            SelectColumn [142-143] [y]
+              PathExpression [142-143] [y]
+                Identifier(y) [142-143] [y]
+          Alias [116-143] [THEN RETURN WITH ACTION x,y]
+            Identifier(ACTION) [133-139] [ACTION]
+--
+SELECT
+  1
+|> INSERT OR REPLACE INTO a.b.c @{ hint = 1 }(c1, c2)
+   ON CONFLICT DO NOTHING
+   ASSERT_ROWS_MODIFIED 100
+   THEN RETURN WITH ACTION AS ACTION
+     x,
+     y
+==
+
+# This is the first case causing shift/reduce conflicts.
+# The ASSERT_ROWS_MODIFIED could be ambiguous, and bind to the
+# inner or outer INSERT.  The ambiguity resolution will make it
+# bind to the inner INSERT.  This query will be invalid in the
+# resolver either way since pipe INSERT is only allowed as part of
+# the outermost query in a query statement.
+INSERT INTO t1
+FROM t2
+|> INSERT INTO t3
+   ASSERT_ROWS_MODIFIED 100
+--
+InsertStatement [0-68] [INSERT INTO...OWS_MODIFIED 100]
+  PathExpression [12-14] [t1]
+    Identifier(t1) [12-14] [t1]
+  Query [15-68] [FROM t2 |>...ROWS_MODIFIED 100]
+    FromQuery [15-22] [FROM t2]
+      FromClause [15-22] [FROM t2]
+        TablePathExpression [20-22] [t2]
+          PathExpression [20-22] [t2]
+            Identifier(t2) [20-22] [t2]
+    PipeInsert [23-68] [|> INSERT..._ROWS_MODIFIED 100]
+      InsertStatement [26-68] [INSERT INTO...OWS_MODIFIED 100]
+        PathExpression [38-40] [t3]
+          Identifier(t3) [38-40] [t3]
+        AssertRowsModified [44-68] [ASSERT_ROWS_MODIFIED 100]
+          IntLiteral(100) [65-68] [100]
+--
+INSERT INTO t1
+FROM
+  t2
+|> INSERT INTO t3
+   ASSERT_ROWS_MODIFIED 100
+==
+
+# The parser can attach both ASSERT_ROWS_MODIFIED clauses.
+INSERT INTO t1
+FROM t2
+|> INSERT INTO t3
+   ASSERT_ROWS_MODIFIED 100
+ASSERT_ROWS_MODIFIED 200
+--
+InsertStatement [0-93] [INSERT INTO...OWS_MODIFIED 200]
+  PathExpression [12-14] [t1]
+    Identifier(t1) [12-14] [t1]
+  Query [15-68] [FROM t2 |>...ROWS_MODIFIED 100]
+    FromQuery [15-22] [FROM t2]
+      FromClause [15-22] [FROM t2]
+        TablePathExpression [20-22] [t2]
+          PathExpression [20-22] [t2]
+            Identifier(t2) [20-22] [t2]
+    PipeInsert [23-68] [|> INSERT..._ROWS_MODIFIED 100]
+      InsertStatement [26-68] [INSERT INTO...OWS_MODIFIED 100]
+        PathExpression [38-40] [t3]
+          Identifier(t3) [38-40] [t3]
+        AssertRowsModified [44-68] [ASSERT_ROWS_MODIFIED 100]
+          IntLiteral(100) [65-68] [100]
+  AssertRowsModified [69-93] [ASSERT_ROWS_MODIFIED 200]
+    IntLiteral(200) [90-93] [200]
+--
+INSERT INTO t1
+FROM
+  t2
+|> INSERT INTO t3
+   ASSERT_ROWS_MODIFIED 100
+ASSERT_ROWS_MODIFIED 200
+==
+
+# This is the second case causing shift/reduce conflicts.
+# The explanation is the same as the case above.
+# Queries like this are all invalid during analysis.
+INSERT INTO t1
+FROM t2
+|> INSERT INTO t3
+   THEN RETURN *
+--
+InsertStatement [0-57] [INSERT INTO...THEN RETURN *]
+  PathExpression [12-14] [t1]
+    Identifier(t1) [12-14] [t1]
+  Query [15-57] [FROM t2 |>...THEN RETURN *]
+    FromQuery [15-22] [FROM t2]
+      FromClause [15-22] [FROM t2]
+        TablePathExpression [20-22] [t2]
+          PathExpression [20-22] [t2]
+            Identifier(t2) [20-22] [t2]
+    PipeInsert [23-57] [|> INSERT...THEN RETURN *]
+      InsertStatement [26-57] [INSERT INTO...THEN RETURN *]
+        PathExpression [38-40] [t3]
+          Identifier(t3) [38-40] [t3]
+        ReturningClause [44-57] [THEN RETURN *]
+          SelectList [56-57] [*]
+            SelectColumn [56-57] [*]
+              Star(*) [56-57] [*]
+--
+INSERT INTO t1
+FROM
+  t2
+|> INSERT INTO t3
+   THEN RETURN
+     *
+==
+
+INSERT INTO t1
+FROM t2
+|> INSERT INTO t3
+   THEN RETURN *
+THEN RETURN *
+--
+InsertStatement [0-71] [INSERT INTO...THEN RETURN *]
+  PathExpression [12-14] [t1]
+    Identifier(t1) [12-14] [t1]
+  Query [15-57] [FROM t2 |>...THEN RETURN *]
+    FromQuery [15-22] [FROM t2]
+      FromClause [15-22] [FROM t2]
+        TablePathExpression [20-22] [t2]
+          PathExpression [20-22] [t2]
+            Identifier(t2) [20-22] [t2]
+    PipeInsert [23-57] [|> INSERT...THEN RETURN *]
+      InsertStatement [26-57] [INSERT INTO...THEN RETURN *]
+        PathExpression [38-40] [t3]
+          Identifier(t3) [38-40] [t3]
+        ReturningClause [44-57] [THEN RETURN *]
+          SelectList [56-57] [*]
+            SelectColumn [56-57] [*]
+              Star(*) [56-57] [*]
+  ReturningClause [58-71] [THEN RETURN *]
+    SelectList [70-71] [*]
+      SelectColumn [70-71] [*]
+        Star(*) [70-71] [*]
+--
+INSERT INTO t1
+FROM
+  t2
+|> INSERT INTO t3
+   THEN RETURN
+     *
+THEN RETURN
+  *
+==
+
+# Mixing THEN RETURN and ASSERT_ROWS_MODIFEID in either order.
+INSERT INTO t1
+FROM t2
+|> INSERT INTO t3
+THEN RETURN *
+ASSERT_ROWS_MODIFIED 100
+--
+InsertStatement [0-79] [INSERT INTO...OWS_MODIFIED 100]
+  PathExpression [12-14] [t1]
+    Identifier(t1) [12-14] [t1]
+  Query [15-54] [FROM t2 |>...THEN RETURN *]
+    FromQuery [15-22] [FROM t2]
+      FromClause [15-22] [FROM t2]
+        TablePathExpression [20-22] [t2]
+          PathExpression [20-22] [t2]
+            Identifier(t2) [20-22] [t2]
+    PipeInsert [23-54] [|> INSERT...THEN RETURN *]
+      InsertStatement [26-54] [INSERT INTO t3 THEN RETURN *]
+        PathExpression [38-40] [t3]
+          Identifier(t3) [38-40] [t3]
+        ReturningClause [41-54] [THEN RETURN *]
+          SelectList [53-54] [*]
+            SelectColumn [53-54] [*]
+              Star(*) [53-54] [*]
+  AssertRowsModified [55-79] [ASSERT_ROWS_MODIFIED 100]
+    IntLiteral(100) [76-79] [100]
+--
+INSERT INTO t1
+FROM
+  t2
+|> INSERT INTO t3
+   THEN RETURN
+     *
+ASSERT_ROWS_MODIFIED 100
+==
+
+INSERT INTO t1
+FROM t2
+|> INSERT INTO t3
+ASSERT_ROWS_MODIFIED 100
+THEN RETURN *
+--
+InsertStatement [0-79] [INSERT INTO...THEN RETURN *]
+  PathExpression [12-14] [t1]
+    Identifier(t1) [12-14] [t1]
+  Query [15-79] [FROM t2 |>...THEN RETURN *]
+    FromQuery [15-22] [FROM t2]
+      FromClause [15-22] [FROM t2]
+        TablePathExpression [20-22] [t2]
+          PathExpression [20-22] [t2]
+            Identifier(t2) [20-22] [t2]
+    PipeInsert [23-79] [|> INSERT...THEN RETURN *]
+      InsertStatement [26-79] [INSERT INTO...THEN RETURN *]
+        PathExpression [38-40] [t3]
+          Identifier(t3) [38-40] [t3]
+        AssertRowsModified [41-65] [ASSERT_ROWS_MODIFIED 100]
+          IntLiteral(100) [62-65] [100]
+        ReturningClause [66-79] [THEN RETURN *]
+          SelectList [78-79] [*]
+            SelectColumn [78-79] [*]
+              Star(*) [78-79] [*]
+--
+INSERT INTO t1
+FROM
+  t2
+|> INSERT INTO t3
+   ASSERT_ROWS_MODIFIED 100
+   THEN RETURN
+     *

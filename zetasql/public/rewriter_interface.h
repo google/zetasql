@@ -23,6 +23,8 @@
 
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_deep_copy_visitor.h"
+#include "zetasql/resolved_ast/resolved_node.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 
 namespace zetasql {
@@ -83,6 +85,28 @@ class Rewriter {
   }
 
   virtual std::string Name() const = 0;
+
+  // Whether the ZetaSQL-builtin rewriter should be provided with an
+  // unfiltered Catalog, which allows lookup of non-ZetaSQL-builtin Catalog
+  // objects. The purpose of the filtered catalog (provided by default) is to
+  // prevent ZetaSQL-builtin rewriters from accidentally resolving non-builtin
+  // Catalog objects (such as UDFs), which would lead to wrong results.
+  //
+  // The filtered Catalog can be disabled by overriding this function to return
+  // `true`. Any rewriter which does so must document why this is required and
+  // must ensure that the rewriter does not produce wrong results due to
+  // shadowing of builtin Catalog objects.
+  //
+  // The provided filtered Catalog disallows lookup of non-ZetaSQL-builtin
+  // Catalog objects. If lookup of a non-ZetaSQL-builtin Catalog object is
+  // attempted, the filtered catalog may either produce an error or return
+  // kNotFound.
+  //
+  // If the rewriter is not a ZetaSQL-builtin rewriter, this function has no
+  // effect; the rewriter is always provided with an unfiltered Catalog.
+  virtual bool ProvideUnfilteredCatalogToBuiltinRewriter() const {
+    return false;
+  }
 
  protected:
   // DEPRECATED

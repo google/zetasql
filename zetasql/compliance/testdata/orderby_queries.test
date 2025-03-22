@@ -4385,7 +4385,7 @@ ARRAY<STRUCT<uint32_val UINT32, uint64_val UINT64, row_id INT64>>[known order:
 SELECT uint64_val, float_val, row_id FROM AllTypesTable t
 ORDER BY uint64_val ASC, float_val DESC, row_id ASC
 --
-ARRAY<STRUCT<uint64_val UINT64, float_val FLOAT, row_id INT64>>[known order:
+ARRAY<STRUCT<uint64_val UINT64, float_val FLOAT, row_id INT64>>[unknown order:
   {NULL, -0, 9},
   {NULL, 0, 17},
   {NULL, NULL, 8},
@@ -4409,7 +4409,7 @@ ARRAY<STRUCT<uint64_val UINT64, float_val FLOAT, row_id INT64>>[known order:
 SELECT float_val, double_val, row_id FROM AllTypesTable t
 ORDER BY float_val ASC, double_val ASC, row_id ASC
 --
-ARRAY<STRUCT<float_val FLOAT, double_val DOUBLE, row_id INT64>>[known order:
+ARRAY<STRUCT<float_val FLOAT, double_val DOUBLE, row_id INT64>>[unknown order:
   {NULL, NULL, 8},
   {NULL, -0, 16},
   {nan, inf, 2},
@@ -4433,7 +4433,7 @@ ARRAY<STRUCT<float_val FLOAT, double_val DOUBLE, row_id INT64>>[known order:
 SELECT double_val, str_val, row_id FROM AllTypesTable t
 ORDER BY double_val ASC, str_val DESC, row_id ASC
 --
-ARRAY<STRUCT<double_val DOUBLE, str_val STRING, row_id INT64>>[known order:
+ARRAY<STRUCT<double_val DOUBLE, str_val STRING, row_id INT64>>[unknown order:
   {NULL, "1", 17},
   {NULL, NULL, 8},
   {nan, NULL, 9},
@@ -5109,7 +5109,7 @@ ARRAY<STRUCT<uint32_val UINT32, uint64_val UINT64, row_id INT64>>[known order:
 SELECT uint64_val, float_val, row_id FROM AllTypesTable t
 ORDER BY uint64_val DESC, float_val DESC, row_id ASC
 --
-ARRAY<STRUCT<uint64_val UINT64, float_val FLOAT, row_id INT64>>[known order:
+ARRAY<STRUCT<uint64_val UINT64, float_val FLOAT, row_id INT64>>[unknown order:
   {54, -0.5, 15},
   {32, -0.375, 14},
   {11, 0.625, 10},
@@ -5133,7 +5133,7 @@ ARRAY<STRUCT<uint64_val UINT64, float_val FLOAT, row_id INT64>>[known order:
 SELECT float_val, double_val, row_id FROM AllTypesTable t
 ORDER BY float_val DESC, double_val ASC, row_id ASC
 --
-ARRAY<STRUCT<float_val FLOAT, double_val DOUBLE, row_id INT64>>[known order:
+ARRAY<STRUCT<float_val FLOAT, double_val DOUBLE, row_id INT64>>[unknown order:
   {inf, -inf, 3},
   {0.75, -0.25, 12},
   {0.625, 0.625, 10},
@@ -5157,7 +5157,7 @@ ARRAY<STRUCT<float_val FLOAT, double_val DOUBLE, row_id INT64>>[known order:
 SELECT double_val, str_val, row_id FROM AllTypesTable t
 ORDER BY double_val DESC, str_val DESC, row_id ASC
 --
-ARRAY<STRUCT<double_val DOUBLE, str_val STRING, row_id INT64>>[known order:
+ARRAY<STRUCT<double_val DOUBLE, str_val STRING, row_id INT64>>[unknown order:
   {inf, "1", 2},
   {0.625, "6", 10},
   {0.5, "4", 7},
@@ -5833,7 +5833,7 @@ ARRAY<STRUCT<uint32_val UINT32, uint64_val UINT64, row_id INT64>>[known order:
 SELECT uint64_val, float_val, row_id FROM AllTypesTable t
 ORDER BY uint64_val * 4 ASC, float_val DESC, row_id ASC
 --
-ARRAY<STRUCT<uint64_val UINT64, float_val FLOAT, row_id INT64>>[known order:
+ARRAY<STRUCT<uint64_val UINT64, float_val FLOAT, row_id INT64>>[unknown order:
   {NULL, -0, 9},
   {NULL, 0, 17},
   {NULL, NULL, 8},
@@ -5857,7 +5857,7 @@ ARRAY<STRUCT<uint64_val UINT64, float_val FLOAT, row_id INT64>>[known order:
 SELECT float_val, double_val, row_id FROM AllTypesTable t
 ORDER BY float_val + 0.5 ASC, double_val ASC, row_id ASC
 --
-ARRAY<STRUCT<float_val FLOAT, double_val DOUBLE, row_id INT64>>[known order:
+ARRAY<STRUCT<float_val FLOAT, double_val DOUBLE, row_id INT64>>[unknown order:
   {NULL, NULL, 8},
   {NULL, -0, 16},
   {nan, inf, 2},
@@ -5881,7 +5881,7 @@ ARRAY<STRUCT<float_val FLOAT, double_val DOUBLE, row_id INT64>>[known order:
 SELECT double_val, str_val, row_id FROM AllTypesTable t
 ORDER BY double_val - 0.75 ASC, str_val DESC, row_id ASC
 --
-ARRAY<STRUCT<double_val DOUBLE, str_val STRING, row_id INT64>>[known order:
+ARRAY<STRUCT<double_val DOUBLE, str_val STRING, row_id INT64>>[unknown order:
   {NULL, "1", 17},
   {NULL, NULL, 8},
   {nan, NULL, 9},
@@ -6052,7 +6052,7 @@ ARRAY<STRUCT<uint32_val UINT32, uint64_val UINT64, row_id INT64>>[known order:
 SELECT uint64_val, float_val, row_id FROM AllTypesTable t
 ORDER BY uint64_val + 123456789 DESC, float_val DESC, row_id ASC
 --
-ARRAY<STRUCT<uint64_val UINT64, float_val FLOAT, row_id INT64>>[known order:
+ARRAY<STRUCT<uint64_val UINT64, float_val FLOAT, row_id INT64>>[unknown order:
   {54, -0.5, 15},
   {32, -0.375, 14},
   {11, 0.625, 10},
@@ -6076,7 +6076,7 @@ ARRAY<STRUCT<uint64_val UINT64, float_val FLOAT, row_id INT64>>[known order:
 SELECT float_val, double_val, row_id FROM AllTypesTable t
 ORDER BY float_val * 0.125 DESC, double_val ASC, row_id ASC
 --
-ARRAY<STRUCT<float_val FLOAT, double_val DOUBLE, row_id INT64>>[known order:
+ARRAY<STRUCT<float_val FLOAT, double_val DOUBLE, row_id INT64>>[unknown order:
   {inf, -inf, 3},
   {0.75, -0.25, 12},
   {0.625, 0.625, 10},
@@ -6100,7 +6100,7 @@ ARRAY<STRUCT<float_val FLOAT, double_val DOUBLE, row_id INT64>>[known order:
 SELECT double_val, str_val, row_id FROM AllTypesTable t
 ORDER BY double_val / 0.125 DESC, str_val DESC, row_id ASC
 --
-ARRAY<STRUCT<double_val DOUBLE, str_val STRING, row_id INT64>>[known order:
+ARRAY<STRUCT<double_val DOUBLE, str_val STRING, row_id INT64>>[unknown order:
   {inf, "1", 2},
   {0.625, "6", 10},
   {0.5, "4", 7},
@@ -8208,52 +8208,52 @@ ARRAY<STRUCT<
         primary_double_sort_key DOUBLE,
         secondary_int_sort_key INT64
       >>
-[known order:{NULL, 82},
-             {NULL, 142},
-             {NULL, 242},
-             {NULL, 302},
-             {nan, 30},
-             {nan, 31},
-             {nan, 32},
-             {nan, 33},
-             {nan, 34},
-             {nan, 35},
-             {nan, 36},
-             {nan, 37},
-             {nan, 38},
-             {-inf, 26},
-             {-inf, 27},
-             {-inf, 28},
-             {-inf, 29},
-             {-1, 141},
-             {-1, 301},
-             {-0, 1},
-             {0, 2},
-             {0, 3},
-             {-0, 4},
-             {0, 5},
-             {-0, 6},
-             {-0, 7},
-             {0, 8},
-             {0, 9},
-             {-0, 10},
-             {0, 11},
-             {0, 12},
-             {-0, 13},
-             {0, 14},
-             {0, 15},
-             {0, 16},
-             {-0, 17},
-             {0, 18},
-             {1, 81},
-             {1, 241},
-             {inf, 19},
-             {inf, 20},
-             {inf, 21},
-             {inf, 22},
-             {inf, 23},
-             {inf, 24},
-             {inf, 25}]
+[unknown order:{NULL, 82},
+               {NULL, 142},
+               {NULL, 242},
+               {NULL, 302},
+               {nan, 30},
+               {nan, 31},
+               {nan, 32},
+               {nan, 33},
+               {nan, 34},
+               {nan, 35},
+               {nan, 36},
+               {nan, 37},
+               {nan, 38},
+               {-inf, 26},
+               {-inf, 27},
+               {-inf, 28},
+               {-inf, 29},
+               {-1, 141},
+               {-1, 301},
+               {-0, 1},
+               {0, 2},
+               {0, 3},
+               {-0, 4},
+               {0, 5},
+               {-0, 6},
+               {-0, 7},
+               {0, 8},
+               {0, 9},
+               {-0, 10},
+               {0, 11},
+               {0, 12},
+               {-0, 13},
+               {0, 14},
+               {0, 15},
+               {0, 16},
+               {-0, 17},
+               {0, 18},
+               {1, 81},
+               {1, 241},
+               {inf, 19},
+               {inf, 20},
+               {inf, 21},
+               {inf, 22},
+               {inf, 23},
+               {inf, 24},
+               {inf, 25}]
 ==
 
 # -------------------
@@ -8314,52 +8314,52 @@ ARRAY<STRUCT<
         primary_float_sort_key FLOAT,
         secondary_int_sort_key INT64
       >>
-[known order:{NULL, 52},
-             {NULL, 102},
-             {NULL, 202},
-             {NULL, 262},
-             {nan, 30},
-             {nan, 31},
-             {nan, 32},
-             {nan, 33},
-             {nan, 34},
-             {nan, 35},
-             {nan, 36},
-             {nan, 37},
-             {nan, 38},
-             {-inf, 26},
-             {-inf, 27},
-             {-inf, 28},
-             {-inf, 29},
-             {-1, 101},
-             {-1, 261},
-             {-0, 1},
-             {0, 2},
-             {0, 3},
-             {-0, 4},
-             {0, 5},
-             {-0, 6},
-             {-0, 7},
-             {0, 8},
-             {0, 9},
-             {-0, 10},
-             {0, 11},
-             {0, 12},
-             {-0, 13},
-             {0, 14},
-             {0, 15},
-             {0, 16},
-             {-0, 17},
-             {0, 18},
-             {1, 51},
-             {1, 201},
-             {inf, 19},
-             {inf, 20},
-             {inf, 21},
-             {inf, 22},
-             {inf, 23},
-             {inf, 24},
-             {inf, 25}]
+[unknown order:{NULL, 52},
+               {NULL, 102},
+               {NULL, 202},
+               {NULL, 262},
+               {nan, 30},
+               {nan, 31},
+               {nan, 32},
+               {nan, 33},
+               {nan, 34},
+               {nan, 35},
+               {nan, 36},
+               {nan, 37},
+               {nan, 38},
+               {-inf, 26},
+               {-inf, 27},
+               {-inf, 28},
+               {-inf, 29},
+               {-1, 101},
+               {-1, 261},
+               {-0, 1},
+               {0, 2},
+               {0, 3},
+               {-0, 4},
+               {0, 5},
+               {-0, 6},
+               {-0, 7},
+               {0, 8},
+               {0, 9},
+               {-0, 10},
+               {0, 11},
+               {0, 12},
+               {-0, 13},
+               {0, 14},
+               {0, 15},
+               {0, 16},
+               {-0, 17},
+               {0, 18},
+               {1, 51},
+               {1, 201},
+               {inf, 19},
+               {inf, 20},
+               {inf, 21},
+               {inf, 22},
+               {inf, 23},
+               {inf, 24},
+               {inf, 25}]
 ==
 
 [name=order_by_subquery_constant]

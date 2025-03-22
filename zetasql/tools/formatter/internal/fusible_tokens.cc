@@ -16,17 +16,18 @@
 
 #include "zetasql/tools/formatter/internal/fusible_tokens.h"
 
-#include <array>
 #include <ostream>
-#include <string>
 #include <type_traits>
 #include <vector>
 
 #include "zetasql/tools/formatter/internal/token.h"
 #include "absl/container/flat_hash_map.h"
+#include "zetasql/base/check.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
-#include "absl/strings/str_join.h"
+#include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
+#include "absl/strings/strip.h"
 #include "absl/types/span.h"
 
 namespace zetasql::formatter::internal {
@@ -182,252 +183,232 @@ void AnnotateMatchedTokensAsKeywords(const std::vector<Token*>& tokens,
   }
 }
 
+// Helper function for `ParseFusibleTokens` that recursively parses the fusible
+// pattern defined in `FusibleTokens::t`.
+// `pattern` - is the entire string coming from `FusibleTokens::t` (used for
+// error reporting only).
+// `pattern_part` - is the current part of the pattern to parse (can be a single
+// token or a one-of group).
+// `end` - is the end of the pattern parts.
+// `tokens` - is the current list of tokens that were parsed so far.
+// `result` - collects the list of all token sequences produced by the pattern.
+void ParseFusibleTokensRecursive(
+    absl::string_view pattern,
+    std::vector<absl::string_view>::const_iterator pattern_part,
+    std::vector<absl::string_view>::const_iterator end,
+    std::vector<absl::string_view>& tokens,
+    std::vector<std::vector<absl::string_view>>& result) {
+  if (pattern_part == end) {
+    result.push_back(tokens);
+    return;
+  }
+
+  absl::string_view token = *pattern_part;
+  if (absl::EndsWith(token, "?")) {
+    token = absl::StripSuffix(token, "?");
+    // This is an optional part: create a token sequence without it.
+    ParseFusibleTokensRecursive(pattern, (pattern_part + 1), end, tokens,
+                                result);
+  }
+  if (absl::StartsWith(token, "[") && token.size() > 1) {
+    ABSL_CHECK(absl::EndsWith(token, "]"))
+        << "Syntax error in fusible tokens \"" << pattern
+        << "\": missing closing square bracket (or a space inside [brakets]).\n"
+        << "Expected format: \"TOKEN OPTIONAL? [ONE|OF|THESE] "
+           "[OPTIONAL|ONE|OF]?\"";
+    std::vector<absl::string_view> one_of = absl::StrSplit(
+        absl::StripPrefix(absl::StripSuffix(token, "]"), "["), '|');
+    for (const auto& t : one_of) {
+      tokens.push_back(t);
+      ParseFusibleTokensRecursive(pattern, (pattern_part + 1), end, tokens,
+                                  result);
+      tokens.pop_back();
+    }
+  } else {
+    // Single token (no square brackets).
+    tokens.push_back(token);
+    ParseFusibleTokensRecursive(pattern, (pattern_part + 1), end, tokens,
+                                result);
+    tokens.pop_back();
+  }
+}
+
 }  // namespace
 
 const std::vector<FusibleTokens>* GetFusibleTokens() {
-  // Note that partial matches are OK; for instance "CROSS JOIN" is a fusible
-  // group of length 2, since it matches the first 2 tokens of {"CROSS", kAny,
-  // "JOIN"}. kAny matches any keyword, so "CROSS" plus any subsequent token
-  // will return a fusible group of length at least 2 (3 if the next token is
-  // JOIN).
-  const auto& kAny = FusibleTokens::kAnyWord;
-  const auto& kId = FusibleTokens::kIdentifier;
+  // Note that partial matches are allowed by default; for instance "CROSS JOIN"
+  // is a fusible group of length 2, since it matches the first 2 tokens of
+  // "CROSS <W> JOIN". "<W>" matches any keyword, so "CROSS" plus any subsequent
+  // token will return a fusible group of length at least 2.
+  // See documentation of FusibleTokens::t for syntax of token pattern.
   const auto kTopLevel = Token::Type::TOP_LEVEL_KEYWORD;
   const auto kDdlKeyword = Token::Type::DDL_KEYWORD;
   static const auto* fusible_tokens = new std::vector<FusibleTokens>({
-      // Note: cannot supports this open source due to initialization pattern.
       // (broken link) start
+      {.t = "ADD <W> IF EXISTS <W>", .mark_as = kTopLevel},
+      {.t = "ADD <W> KEY", .mark_as = kTopLevel},
       // ADD ABSL_CHECK would be normally followed by an identifier, but
       // it is enough to fuse a single token only and if it was a part of
       // multi-token identifier, IsPartOfSameChunk will handle it.
-      {.t{"ADD", "CHECK", kAny}, .mark_as = kTopLevel},
-      {.t{"ADD", "COLUMN", kAny}, .mark_as = kTopLevel},
-      {.t{"ADD", "CONSTRAINT", kAny}, .mark_as = kTopLevel},
-      {.t{"ADD", "FILTER"}, .mark_as = kTopLevel},
-      {.t{"ADD", "INDEX"}, .mark_as = kTopLevel},
-      {.t{"ADD", kAny, "IF", "EXISTS", kAny}, .mark_as = kTopLevel},
-      {.t{"ADD", kAny, "KEY"}, .mark_as = kTopLevel},
-      {.t{"AFTER", kId}, .start_with = kDdlKeyword},
-      {.t{"ALL", "PRIVILEGES"}},
-      {.t{"ALTER", "ALL", "ROW", "ACCESS", "POLICIES"}},
-      {.t{"ALTER", "ALL", "ROW", "POLICIES"}},
-      {.t{"ALTER", "COLUMN", kAny}, .mark_as = kTopLevel},
-      {.t{"ALTER", "CONSTRAINT", kAny}, .mark_as = kTopLevel},
-      {.t{"ALTER", "DATABASE", kAny}},
-      {.t{"ALTER", "FUNCTION", kAny}},
-      {.t{"ALTER", "INDEX", kAny}, .mark_as = kTopLevel},
-      {.t{"ALTER", "MATERIALIZED", "VIEW", "IF", "EXISTS", kAny}},
-      {.t{"ALTER", "MATERIALIZED", "VIEW", kAny}},
-      {.t{"ALTER", "MODEL", kAny}, .mark_as = kTopLevel},
-      {.t{"ALTER", "PROCEDURE", kAny}, .mark_as = kTopLevel},
-      {.t{"ALTER", "ROUTINE", kAny}, .mark_as = kTopLevel},
-      {.t{"ALTER", "ROW", "ACCESS", "POLICY", "IF", "EXISTS"}},
-      {.t{"ALTER", "ROW", "POLICY", "IF", "EXISTS"}},
-      {.t{"ALTER", "SCHEMA", kAny}},
-      {.t{"ALTER", "TABLE", kAny}},
-      {.t{"ALTER", "VIEW", kAny}},
-      {.t{"ALTER", kAny, "FUNCTION", "IF", "EXISTS", kAny}},
-      {.t{"ALTER", kAny, "FUNCTION", kAny}},
-      {.t{"ALTER", kAny, "IF", "EXISTS", kAny}, .mark_as = kTopLevel},
-      {.t{"ANY", "TABLE"}},
-      {.t{"ANY", "TYPE"}},
-      {.t{"CLONE", "DATA", "INTO", kAny}},
-      {.t{"CLUSTER", "BY"}},
-      {.t{"CONSTRAINT", kAny}, .start_with = kDdlKeyword},
-      {.t{"COUNT", "(", "*", ")"}},
-      {.t{"CREATE", "CONSTANT", "IF", "NOT", "EXISTS", kId, "="}},
-      {.t{"CREATE", "CONSTANT", kId, "="}},
-      {.t{"CREATE", "DATABASE", "IF", "NOT", "EXISTS", kAny}},
-      {.t{"CREATE", "DATABASE", kAny}},
-      {.t{"CREATE", "FUNCTION", kAny}},
-      {.t{"CREATE", "MODEL", "IF", "NOT", "EXISTS", kAny}},
-      {.t{"CREATE", "MODEL", kAny}},
-      {.t{"CREATE", "OR", "REPLACE", "CONSTANT", kId, "="}},
-      {.t{"CREATE", "OR", "REPLACE", "FUNCTION", kAny}},
-      {.t{"CREATE", "OR", "REPLACE", "MODEL", kAny}},
-      {.t{"CREATE", "OR", "REPLACE", "ROW", "ACCESS", "POLICY", "IF", "NOT",
-          "EXISTS"}},
-      {.t{"CREATE", "OR", "REPLACE", "ROW", "POLICY", "IF", "NOT", "EXISTS"}},
-      {.t{"CREATE", "OR", "REPLACE", "TABLE", kAny}},
-      {.t{"CREATE", "OR", "REPLACE", "TYPE", kAny}},
-      {.t{"CREATE", "OR", "REPLACE", "VIEW", kAny}},
-      {.t{"CREATE", "OR", "REPLACE", kAny, "AGGREGATE", "FUNCTION", kAny}},
-      {.t{"CREATE", "OR", "REPLACE", kAny, "CONSTANT", kId, "="}},
-      {.t{"CREATE", "OR", "REPLACE", kAny, "EXTERNAL", "TABLE", "IF", "NOT",
-          "EXISTS", kAny}},
-      {.t{"CREATE", "OR", "REPLACE", kAny, "EXTERNAL", "TABLE", kAny}},
-      {.t{"CREATE", "OR", "REPLACE", kAny, "FUNCTION", kAny}},
-      {.t{"CREATE", "OR", "REPLACE", kAny, "MODEL", kAny}},
-      {.t{"CREATE", "OR", "REPLACE", kAny, "TABLE", "FUNCTION", kAny}},
-      {.t{"CREATE", "OR", "REPLACE", kAny, "TABLE", "IF", "NOT", "EXISTS",
-          kAny}},
-      {.t{"CREATE", "OR", "REPLACE", kAny, "TABLE", kAny}},
-      {.t{"CREATE", "OR", "REPLACE", kAny, "VIEW", "IF", "NOT", "EXISTS",
-          kAny}},
-      {.t{"CREATE", "OR", "REPLACE", kAny, "VIEW", kAny}},
-      {.t{"CREATE", "ROLE"}},
-      {.t{"CREATE", "ROW", "ACCESS", "POLICY", "IF", "NOT", "EXISTS"}},
-      {.t{"CREATE", "ROW", "POLICY", "IF", "NOT", "EXISTS"}},
-      {.t{"CREATE", "TABLE", kAny}},
-      {.t{"CREATE", "TYPE", kAny}},
-      {.t{"CREATE", "VIEW", kAny}},
+      {.t = "ADD [ABSL_CHECK|COLUMN|CONSTRAINT] <W>", .mark_as = kTopLevel},
+      {.t = "ADD [FILTER|INDEX]", .mark_as = kTopLevel},
+      {.t = "AFTER <ID>", .start_with = kDdlKeyword},
+      {.t = "ALL PRIVILEGES"},
+      {.t = "ALTER <W> FUNCTION <W>"},
+      {.t = "ALTER <W> FUNCTION IF EXISTS <W>"},
+      {.t = "ALTER <W> IF EXISTS <W>", .mark_as = kTopLevel},
+      {.t = "ALTER ALL ROW ACCESS? POLICIES"},
+      {.t = "ALTER MATERIALIZED VIEW <W>"},
+      {.t = "ALTER MATERIALIZED VIEW IF EXISTS <W>"},
+      {.t = "ALTER ROW ACCESS? POLICY IF EXISTS"},
+      {.t = "ALTER [COLUMN|CONSTRAINT|MODEL|PROCEDURE|ROUTINE|INDEX] <W>",
+       .mark_as = kTopLevel},
+      {.t = "ALTER [DATABASE|FUNCTION|SCHEMA|TABLE|VIEW] <W>"},
+      {.t = "ANY [TABLE|TYPE]"},
+      {.t = "CLONE DATA INTO <W>"},
+      {.t = "CLUSTER BY"},
+      {.t = "CONSTRAINT <W>", .start_with = kDdlKeyword},
+      {.t = "COUNT ( * )"},
       // 2nd token can be TEMP, TEMPORARY, PRIVATE, PUBLIC.  Even if it is
       // misspelled (and not valid SQL), treat as a fused group for
       // simplicity.
-      {.t{"CREATE", kAny, "AGGREGATE", "FUNCTION", "IF", "NOT", "EXISTS",
-          kAny}},
-      {.t{"CREATE", kAny, "AGGREGATE", "FUNCTION", kAny}},
-      {.t{"CREATE", kAny, "CONSTANT", "IF", "NOT", "EXISTS", kId, "="}},
-      {.t{"CREATE", kAny, "CONSTANT", kId, "="}},
-      {.t{"CREATE", kAny, "EXTERNAL", "TABLE", "IF", "NOT", "EXISTS", kAny}},
-      {.t{"CREATE", kAny, "EXTERNAL", "TABLE", kAny}},
-      {.t{"CREATE", kAny, "FUNCTION", "IF", "NOT", "EXISTS", kAny}},
-      {.t{"CREATE", kAny, "FUNCTION", kAny}},
-      {.t{"CREATE", kAny, "IF", "NOT", "EXISTS", kAny}},
-      {.t{"CREATE", kAny, "MODEL", "IF", "NOT", "EXISTS", kAny}},
-      {.t{"CREATE", kAny, "MODEL", kAny}},
-      {.t{"CREATE", kAny, "TABLE", "FUNCTION", "IF", "NOT", "EXISTS", kAny}},
-      {.t{"CREATE", kAny, "TABLE", "FUNCTION", kAny}},
-      {.t{"CREATE", kAny, "TABLE", "IF", "NOT", "EXISTS", kAny}},
-      {.t{"CREATE", kAny, "TABLE", kAny}},
-      {.t{"CREATE", kAny, "VIEW", "IF", "NOT", "EXISTS", kAny}},
-      {.t{"CREATE", kAny, "VIEW", kAny}},
-      {.t{"CROSS", "JOIN"}, .mark_as = kTopLevel},
-      {.t{"CROSS", kAny, "JOIN"}, .mark_as = kTopLevel},
-      {.t{"CURRENT", "ROW"}},
-      {.t{"DEFAULT", "NULL"}, .start_with = kDdlKeyword},
-      {.t{"DEFAULT", kAny}, .start_with = kDdlKeyword},
-      {.t{"DEFINE", "MACRO", kAny}},
-      {.t{"DEFINE", "TABLE", kId}},
-      {.t{"DELETE", "FROM", kAny}},
-      {.t{"DESC", "TABLE", kId}},
-      {.t{"DESCRIBE", "TABLE", kId}},
-      {.t{"DROP", "ALL", "ROW", "ACCESS", "POLICIES"}},
-      {.t{"DROP", "ALL", "ROW", "POLICIES"}},
-      {.t{"DROP", "COLUMN", kAny}, .mark_as = kTopLevel},
-      {.t{"DROP", "CONSTRAINT", kAny}, .mark_as = kTopLevel},
-      {.t{"DROP", "INDEX"}, .mark_as = kTopLevel},
-      {.t{"DROP", "ROW", "ACCESS", "POLICY", "IF", "EXISTS"}},
-      {.t{"DROP", "ROW", "POLICY", "IF", "EXISTS"}},
-      {.t{"DROP", "TABLE", kAny}},
-      {.t{"DROP", "VIEW", kAny}},
-      {.t{"DROP", kAny, "IF", "EXISTS", kAny}, .mark_as = kTopLevel},
-      {.t{"DROP", kAny, "KEY", kAny}, .mark_as = kTopLevel},
-      {.t{"EXCEPT", "ALL"}},
-      {.t{"EXCEPT", "DISTINCT"}},
-      {.t{"EXPORT", "DATA"}},
-      {.t{"FILL", "USING", kAny}, .start_with = kDdlKeyword},
-      {.t{"FOLLOWING", kId}, .start_with = kDdlKeyword},
-      {.t{"FOREIGN", "KEY"}},
-      {.t{"FULL", "JOIN"}, .mark_as = kTopLevel},
-      {.t{"FULL", "OUTER", kAny, "JOIN"}, .mark_as = kTopLevel},
-      {.t{"FULL", kAny, "JOIN"}, .mark_as = kTopLevel},
-      {.t{"GENERATED", "AS"}, .start_with = kDdlKeyword},
-      {.t{"GRANT", "TO"}},
-      {.t{"GROUP", "AND", "ORDER", "BY"}, .full_match_only = true},
-      {.t{"GROUP", "BY"}},
-      {.t{"HASH", "JOIN"}, .mark_as = kTopLevel},
-      {.t{"HAVING", "MAX"}},
-      {.t{"HAVING", "MIN"}},
-      {.t{"IGNORE", "NULLS"}},
-      {.t{"IMPORT", "MODULE"}, .start_with = kTopLevel},
-      {.t{"IMPORT", "PROTO"}, .start_with = kTopLevel},
-      {.t{"IN", "UNNEST"}},
-      {.t{"INNER", "JOIN"}, .mark_as = kTopLevel},
-      {.t{"INNER", kAny, "JOIN"}, .mark_as = kTopLevel},
-      {.t{"INSERT", "IGNORE", "INTO", kId}},
-      {.t{"INSERT", "IGNORE", kId}},
-      {.t{"INSERT", "INTO", kId}},
-      {.t{"INSERT", "OR", "IGNORE", "INTO", kId}},
-      {.t{"INSERT", "OR", "IGNORE", kId}},
-      {.t{"INSERT", "OR", "REPLACE", "INTO", kId}},
-      {.t{"INSERT", "OR", "REPLACE", kId}},
-      {.t{"INSERT", "OR", "UPDATE", "INTO", kId}},
-      {.t{"INSERT", "OR", "UPDATE", kId}},
-      {.t{"INSERT", "REPLACE", "INTO", kId}},
-      {.t{"INSERT", "REPLACE", kId}},
-      {.t{"INSERT", "UPDATE", "INTO", kId}},
-      {.t{"INSERT", "UPDATE", kId}},
-      {.t{"INSERT", "VALUES"}},
-      {.t{"INTERSECT", "ALL"}},
-      {.t{"INTERSECT", "DISTINCT"}},
-      {.t{"IS", "DISTINCT", "FROM"}, .full_match_only = true},
-      {.t{"IS", "FALSE"}},
-      {.t{"IS", "NOT", "DISTINCT", "FROM"}, .full_match_only = true},
-      {.t{"IS", "NOT", "FALSE"}},
-      {.t{"IS", "NOT", "NULL"}},
-      {.t{"IS", "NOT", "TRUE"}},
-      {.t{"IS", "NULL"}},
-      {.t{"IS", "TRUE"}},
-      {.t{"LEFT", "JOIN"}, .mark_as = kTopLevel},
-      {.t{"LEFT", "OUTER", kAny, "JOIN"}, .mark_as = kTopLevel},
-      {.t{"LEFT", kAny, "JOIN"}, .mark_as = kTopLevel},
-      {.t{"LOOKUP", "JOIN"}, .mark_as = kTopLevel},
-      {.t{"NATURAL", "CROSS", "JOIN"}, .mark_as = kTopLevel},
-      {.t{"NATURAL", "CROSS", kAny, "JOIN"}, .mark_as = kTopLevel},
-      {.t{"NATURAL", "FULL", "JOIN"}, .mark_as = kTopLevel},
-      {.t{"NATURAL", "FULL", "OUTER", kAny, "JOIN"}, .mark_as = kTopLevel},
-      {.t{"NATURAL", "FULL", kAny, "JOIN"}, .mark_as = kTopLevel},
-      {.t{"NATURAL", "HASH", "JOIN"}, .mark_as = kTopLevel},
-      {.t{"NATURAL", "INNER", "JOIN"}, .mark_as = kTopLevel},
-      {.t{"NATURAL", "INNER", kAny, "JOIN"}, .mark_as = kTopLevel},
-      {.t{"NATURAL", "LEFT", "JOIN"}, .mark_as = kTopLevel},
-      {.t{"NATURAL", "LEFT", "OUTER", kAny, "JOIN"}, .mark_as = kTopLevel},
-      {.t{"NATURAL", "LEFT", kAny, "JOIN"}, .mark_as = kTopLevel},
-      {.t{"NATURAL", "LOOKUP", "JOIN"}, .mark_as = kTopLevel},
-      {.t{"NATURAL", "RIGHT", "JOIN"}, .mark_as = kTopLevel},
-      {.t{"NATURAL", "RIGHT", "OUTER", kAny, "JOIN"}, .mark_as = kTopLevel},
-      {.t{"NATURAL", "RIGHT", kAny, "JOIN"}, .mark_as = kTopLevel},
-      {.t{"NEW", kAny}},
-      {.t{"NOT", "BETWEEN"}},
-      {.t{"NOT", "DETERMINISTIC"}, .mark_as = kTopLevel},
-      {.t{"NOT", "ENFORCED"}, .mark_as = kDdlKeyword},
-      {.t{"NOT", "IN", "UNNEST"}},
-      {.t{"NOT", "LIKE"}},
-      {.t{"ON", "TABLE", kAny}},
-      {.t{"ON", "VIEW", kAny}},
-      {.t{"ORDER", "BY"}},
-      {.t{"PARTITION", "BY"}},
-      {.t{"PRECEDING", kId}, .start_with = kDdlKeyword},
-      {.t{"PRIMARY", "KEY"}},
-      {.t{"REFERENCES", kId}, .start_with = kDdlKeyword},
-      {.t{"RENAME", "TO", kAny}, .mark_as = kTopLevel},
-      {.t{"REPLACE", "FILTER"}, .mark_as = kTopLevel},
-      {.t{"RESPECT", "NULLS"}},
-      {.t{"REVOKE", "FROM"}, .mark_as = kTopLevel},
-      {.t{"RIGHT", "JOIN"}, .mark_as = kTopLevel},
-      {.t{"RIGHT", "OUTER", kAny, "JOIN"}, .mark_as = kTopLevel},
-      {.t{"RIGHT", kAny, "JOIN"}, .mark_as = kTopLevel},
-      {.t{"SELECT", "*", "FROM", "UNNEST", "("}, .full_match_only = true},
-      {.t{"SELECT", "ALL", "AS", "VALUE"}},
-      {.t{"SELECT", "ALL", "AS", kAny}},
-      {.t{"SELECT", "AS", "VALUE"}},
-      {.t{"SELECT", "AS", kAny}},
-      {.t{"SELECT", "DISTINCT", "AS", "VALUE"}},
-      {.t{"SELECT", "DISTINCT", "AS", kAny}},
-      {.t{"SET", "AS", kAny}},
-      {.t{"SET", "DATA", "TYPE", kAny}},
-      {.t{"SET", "OPTIONS"}},
-      {.t{"SET", kId, "="},
+      {.t = "CREATE <W> CONSTANT <ID> ="},
+      {.t = "CREATE <W> CONSTANT IF NOT EXISTS <ID> ="},
+      {.t = "CREATE <W> EXTERNAL TABLE <W>"},
+      {.t = "CREATE <W> EXTERNAL TABLE IF NOT EXISTS <W>"},
+      {.t = "CREATE <W> IF NOT EXISTS <W>"},
+      {.t = "CREATE <W> [AGGREGATE|TABLE] FUNCTION <W>"},
+      {.t = "CREATE <W> [AGGREGATE|TABLE] FUNCTION IF NOT EXISTS<W>"},
+      {.t = "CREATE <W> [FUNCTION|MODEL|TABLE|VIEW] <W>"},
+      {.t = "CREATE <W> [FUNCTION|MODEL|TABLE|VIEW] IF NOT EXISTS <W>"},
+      {.t = "CREATE CONSTANT <ID> ="},
+      {.t = "CREATE CONSTANT IF NOT EXISTS <ID> ="},
+      {.t = "CREATE OR REPLACE <W> CONSTANT <ID> ="},
+      {.t = "CREATE OR REPLACE <W> EXTERNAL TABLE <W>"},
+      {.t = "CREATE OR REPLACE <W> EXTERNAL TABLE IF NOT EXISTS <W>"},
+      {.t = "CREATE OR REPLACE <W> [AGGREGATE|TABLE] FUNCTION <W>"},
+      {.t = "CREATE OR REPLACE <W> [FUNCTION|MODEL|TABLE|VIEW] <W>"},
+      {.t = "CREATE OR REPLACE <W> [TABLE|VIEW] IF NOT EXISTS <W>"},
+      {.t = "CREATE OR REPLACE CONSTANT <ID> ="},
+      {.t = "CREATE OR REPLACE ROW ACCESS? POLICY IF NOT EXISTS"},
+      {.t = "CREATE OR REPLACE [FUNCTION|MODEL|TABLE|TYPE|VIEW] <W>"},
+      {.t = "CREATE ROLE"},
+      {.t = "CREATE ROW ACCESS? POLICY IF NOT EXISTS"},
+      {.t = "CREATE [DATABASE|FUNCTION|MODEL|TABLE|TYPE|VIEW] <W>"},
+      {.t = "CREATE [DATABASE|MODEL] IF NOT EXISTS <W>"},
+      {.t = "CROSS <W> JOIN", .mark_as = kTopLevel},
+      {.t = "CROSS JOIN", .mark_as = kTopLevel},
+      {.t = "CURRENT ROW"},
+      {.t = "DEFAULT <W>", .start_with = kDdlKeyword},
+      {.t = "DEFAULT NULL", .start_with = kDdlKeyword},
+      {.t = "DEFINE MACRO <W>"},
+      {.t = "DEFINE TABLE <ID>"},
+      {.t = "DELETE FROM <W>"},
+      {.t = "DESC TABLE <ID>"},
+      {.t = "DESCRIBE TABLE <ID>"},
+      {.t = "DROP <W> IF EXISTS <W>", .mark_as = kTopLevel},
+      {.t = "DROP <W> KEY <W>", .mark_as = kTopLevel},
+      {.t = "DROP ALL ROW ACCESS? POLICIES"},
+      {.t = "DROP INDEX", .mark_as = kTopLevel},
+      {.t = "DROP ROW ACCESS? POLICY IF EXISTS"},
+      {.t = "DROP [COLUMN|CONSTRAINT|TABLE|VIEW] <W>", .mark_as = kTopLevel},
+      {.t = "EXPORT DATA"},
+      {.t = "FILL USING <W>", .start_with = kDdlKeyword},
+      {.t = "FOLLOWING <ID>", .start_with = kDdlKeyword},
+      {.t = "FOREIGN KEY"},
+      {.t = "FULL <W> JOIN", .mark_as = kTopLevel},
+      {.t = "FULL JOIN", .mark_as = kTopLevel},
+      {.t = "FULL OUTER <W> JOIN", .mark_as = kTopLevel},
+      {.t = "GENERATED AS", .start_with = kDdlKeyword},
+      {.t = "GRANT TO"},
+      {.t = "GROUP AND ORDER BY", .full_match_only = true},
+      {.t = "GROUP BY"},
+      {.t = "HASH JOIN", .mark_as = kTopLevel},
+      {.t = "HAVING MAX"},
+      {.t = "HAVING MIN"},
+      {.t = "IGNORE NULLS"},
+      {.t = "IMPORT [MODULE|PROTO]", .start_with = kTopLevel},
+      {.t = "IN UNNEST"},
+      {.t = "INNER <W> JOIN", .mark_as = kTopLevel},
+      {.t = "INNER JOIN", .mark_as = kTopLevel},
+      {.t = "INSERT INTO <ID>"},
+      {.t = "INSERT OR? [IGNORE|REPLACE|UPDATE] INTO? <ID>"},
+      {.t = "INSERT VALUES"},
+      {.t = "IS DISTINCT FROM", .full_match_only = true},
+      {.t = "IS NOT DISTINCT FROM", .full_match_only = true},
+      {.t = "IS NOT? [FALSE|NULL|TRUE]"},
+      {.t = "LEFT <W> JOIN", .mark_as = kTopLevel},
+      {.t = "LEFT JOIN", .mark_as = kTopLevel},
+      {.t = "LEFT OUTER <W> JOIN", .mark_as = kTopLevel},
+      {.t = "LOOKUP JOIN", .mark_as = kTopLevel},
+      {.t = "NATURAL CROSS <W> JOIN", .mark_as = kTopLevel},
+      {.t = "NATURAL CROSS JOIN", .mark_as = kTopLevel},
+      {.t = "NATURAL FULL <W> JOIN", .mark_as = kTopLevel},
+      {.t = "NATURAL FULL JOIN", .mark_as = kTopLevel},
+      {.t = "NATURAL FULL OUTER <W> JOIN", .mark_as = kTopLevel},
+      {.t = "NATURAL HASH JOIN", .mark_as = kTopLevel},
+      {.t = "NATURAL INNER <W> JOIN", .mark_as = kTopLevel},
+      {.t = "NATURAL INNER JOIN", .mark_as = kTopLevel},
+      {.t = "NATURAL LEFT <W> JOIN", .mark_as = kTopLevel},
+      {.t = "NATURAL LEFT JOIN", .mark_as = kTopLevel},
+      {.t = "NATURAL LEFT OUTER <W> JOIN", .mark_as = kTopLevel},
+      {.t = "NATURAL LOOKUP JOIN", .mark_as = kTopLevel},
+      {.t = "NATURAL RIGHT <W> JOIN", .mark_as = kTopLevel},
+      {.t = "NATURAL RIGHT JOIN", .mark_as = kTopLevel},
+      {.t = "NATURAL RIGHT OUTER <W> JOIN", .mark_as = kTopLevel},
+      {.t = "NEW <W>"},
+      {.t = "NOT BETWEEN"},
+      {.t = "NOT DETERMINISTIC", .mark_as = kTopLevel},
+      {.t = "NOT ENFORCED", .mark_as = kDdlKeyword},
+      {.t = "NOT IN UNNEST"},
+      {.t = "NOT LIKE"},
+      {.t = "ON [TABLE|VIEW] <W>"},
+      {.t = "ORDER BY"},
+      {.t = "PARTITION BY"},
+      {.t = "PRECEDING <ID>", .start_with = kDdlKeyword},
+      {.t = "PRIMARY KEY"},
+      {.t = "REFERENCES <ID>", .start_with = kDdlKeyword},
+      {.t = "RENAME TO <W>", .mark_as = kTopLevel},
+      {.t = "REPLACE FILTER", .mark_as = kTopLevel},
+      {.t = "RESPECT NULLS"},
+      {.t = "REVOKE FROM", .mark_as = kTopLevel},
+      {.t = "RIGHT <W> JOIN", .mark_as = kTopLevel},
+      {.t = "RIGHT JOIN", .mark_as = kTopLevel},
+      {.t = "RIGHT OUTER <W> JOIN", .mark_as = kTopLevel},
+      {.t = "SELECT * FROM UNNEST (", .full_match_only = true},
+      {.t = "SELECT [ALL|DISTINCT]? AS <W>"},
+      {.t = "SELECT [ALL|DISTINCT]? AS VALUE"},
+      {.t = "SET <ID> =",
        .start_with = Token::Type::SET_STATEMENT_START,
        .full_match_only = true},
-      {.t{"SHOW", "MATERIALIZED", "VIEWS"}},
-      {.t{"SQL", "SECURITY", "DEFINER"}},
-      {.t{"SQL", "SECURITY", "INVOKER"}},
-      {.t{"TABLE", kId}},
-      {.t{"UNBOUNDED", "FOLLOWING"}},
-      {.t{"UNBOUNDED", "PRECEDING"}},
-      {.t{"UNION", "ALL"}},
-      {.t{"UNION", "DISTINCT"}},
-      {.t{"USE", "DATABASE", kAny}},
-      {.t{"WHEN", "MATCHED"}},
-      {.t{"WHEN", "NOT", "MATCHED", "BY", "SOURCE"}},
-      {.t{"WITH", "ANONYMIZATION", "OPTIONS", "("}, .full_match_only = true},
-      {.t{"WITH", "RECURSIVE"}},
-      {.t{"[", "DEFAULT", kId, "="},
-       .mark_as = kTopLevel,
-       .full_match_only = true},
-      {.t{"[", kId, "="}, .mark_as = kTopLevel, .full_match_only = true},
+      {.t = "SET AS <W>"},
+      {.t = "SET DATA TYPE <W>"},
+      {.t = "SET OPTIONS"},
+      {.t = "SHOW MATERIALIZED VIEWS"},
+      {.t = "SQL SECURITY DEFINER"},
+      {.t = "SQL SECURITY INVOKER"},
+      {.t = "TABLE <ID>"},
+      {.t = "UNBOUNDED [FOLLOWING|PRECEDING]"},
+      {.t = "USE DATABASE <W>"},
+      {.t = "WHEN MATCHED"},
+      {.t = "WHEN NOT MATCHED BY SOURCE"},
+      {.t = "WITH ANONYMIZATION OPTIONS (", .full_match_only = true},
+      {.t = "WITH RECURSIVE"},
+      {.t = "[ <ID> =", .mark_as = kTopLevel, .full_match_only = true},
+      {.t = "[ DEFAULT <ID> =", .mark_as = kTopLevel, .full_match_only = true},
+      // "INNER OUTER UNION ALL" is invalid SQL, but formatter allows it for
+      // simplicity of the pattern.
+      {.t = "[FULL|INNER|LEFT]? OUTER? [UNION|EXCEPT|INTERSECT] [ALL|DISTINCT] "
+            "STRICT? BY NAME ON?",
+       .mark_as = Token::Type::SET_OPERATOR_START},
+      {.t = "[FULL|INNER|LEFT]? OUTER? [UNION|EXCEPT|INTERSECT] [ALL|DISTINCT] "
+            "STRICT? CORRESPONDING BY?",
+       .mark_as = Token::Type::SET_OPERATOR_START},
+      // Normally, this sequence could be already covered by any of the previous
+      // patterns, but 'mark_as' feature kicks in only when there is a full
+      // match of all non-optional tokens in the pattern.
+      {.t = "[FULL|INNER|LEFT]? OUTER? [UNION|EXCEPT|INTERSECT] [ALL|DISTINCT]",
+       .mark_as = Token::Type::SET_OPERATOR_START},
       // (broken link) end
   });
   return fusible_tokens;
@@ -439,33 +420,46 @@ const FusibleGroup* GetFusibleGroups() {
   return fusible_groups;
 }
 
+std::vector<std::vector<absl::string_view>> ParseFusibleTokens(
+    absl::string_view pattern) {
+  std::vector<std::vector<absl::string_view>> result;
+  std::vector<absl::string_view> parts = absl::StrSplit(pattern, ' ');
+  std::vector<absl::string_view> tokens;
+  tokens.reserve(parts.size());
+  ParseFusibleTokensRecursive(pattern, parts.begin(), parts.end(), tokens,
+                              result);
+  return result;
+}
+
 const FusibleGroup* FusibleGroupsFromTokens(
     absl::Span<const FusibleTokens> fusible_tokens) {
   auto* root = new FusibleGroup();
   root->token = FusibleGroup::kRoot;
   for (const auto& tokens : fusible_tokens) {
-    auto* current_group = root;
-    for (const auto& token : tokens.t) {
-      std::vector<FusibleGroup>& fused_groups =
-          current_group->next_tokens[token];
-      FusibleGroup* fused_group = nullptr;
-      for (auto& g : fused_groups) {
-        if (g.type == tokens.start_with) {
-          fused_group = &g;
-          break;
+    for (const auto& one_sequence : ParseFusibleTokens(tokens.t)) {
+      auto* current_group = root;
+      for (const auto& token : one_sequence) {
+        std::vector<FusibleGroup>& fused_groups =
+            current_group->next_tokens[token];
+        FusibleGroup* fused_group = nullptr;
+        for (auto& g : fused_groups) {
+          if (g.type == tokens.start_with) {
+            fused_group = &g;
+            break;
+          }
         }
+        if (fused_group == nullptr) {
+          fused_groups.push_back(FusibleGroup{.token = token});
+          fused_group = &fused_groups.back();
+        }
+        fused_group->full_match_only = tokens.full_match_only;
+        if (current_group == root) {
+          fused_group->type = tokens.start_with;
+        }
+        current_group = fused_group;
       }
-      if (fused_group == nullptr) {
-        fused_groups.push_back(FusibleGroup{.token = token});
-        fused_group = &fused_groups.back();
-      }
-      fused_group->full_match_only = tokens.full_match_only;
-      if (current_group == root) {
-        fused_group->type = tokens.start_with;
-      }
-      current_group = fused_group;
+      current_group->mark_as = tokens.mark_as;
     }
-    current_group->mark_as = tokens.mark_as;
   }
 
   return root;
@@ -486,7 +480,7 @@ bool operator<(const FusibleTokens& a, const FusibleTokens& b) {
 }
 
 std::ostream& operator<<(std::ostream& os, const FusibleTokens& tokens) {
-  os << "{{" << absl::StrJoin(tokens.t, ", ") << "}";
+  os << "{\"" << tokens.t << "\"";
   if (tokens.mark_as != Token::Type::UNKNOWN) {
     os << absl::StrCat(" mark_as=", tokens.mark_as);
   }

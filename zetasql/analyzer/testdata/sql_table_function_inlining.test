@@ -1179,7 +1179,7 @@ Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are 
 ==
 
 # Skip unparser because of b/224585752
-[no_run_unparser]
+[no_run_sqlbuilder]
 SELECT {{*|a|b}}
 FROM UnaryAbTableArg{{|SelfJoin|ScannedInCTE}}(
     {{TABLE abTable|(SELECT 1 AS a, "two" AS b)}});
@@ -2132,7 +2132,7 @@ QueryStmt
 ==
 
 # Skip unparser because of b/224585752
-[no_run_unparser]
+[no_run_sqlbuilder]
 SELECT *
 FROM BinaryAbTableArg({{TABLE abTable|(SELECT 1 AS a, "two" AS b)}},
                       {{TABLE abTable|(SELECT 1 AS a, "two" AS b)}});
@@ -2616,8 +2616,6 @@ QueryStmt
                               +-WithRefScan(column_list=$inlined_UnaryAbTableArgWithScalarArgs.[x#9, y#10], with_query_name="$inlined_UnaryAbTableArgWithScalarArgs_scalar_args")
 ==
 
-# Skip unparser because of b/224585752
-[no_run_unparser]
 # Invoke a TVF with various argument including correlated columns invarious
 # configurations.
 SELECT (SELECT AS STRUCT *
@@ -2682,7 +2680,6 @@ QueryStmt
         |   | +-TableScan(column_list=abTable.[a#1, b#2], table=abTable, column_index_list=[0, 1])
         |   +-argument_column_list=abTable.[a#1, b#2]
         +-alias="t"
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -2830,7 +2827,6 @@ QueryStmt
         +-column_index_list=[1]
         +-alias="t"
 
-
 Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #3 ('y') references column 'b'.
 --
 ALTERNATION GROUP: 1,(SELECT 1 AS a, "two" AS b),"two"
@@ -2892,7 +2888,6 @@ QueryStmt
         |   | +-TableScan(column_list=abTable.[a#1, b#2], table=abTable, column_index_list=[0, 1])
         |   +-argument_column_list=abTable.[a#1, b#2]
         +-alias="t"
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -3052,7 +3047,6 @@ QueryStmt
         +-column_index_list=[1]
         +-alias="t"
 
-
 Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #3 ('y') references column 'b'.
 --
 ALTERNATION GROUP: 1,(SELECT t.a, "two" AS b),"two"
@@ -3119,7 +3113,6 @@ QueryStmt
         |   +-argument_column_list=abTable.[a#1, b#2]
         +-column_index_list=[0]
         +-alias="t"
-
 
 Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #2 ('arg0') references column 'a'.
 --
@@ -3189,7 +3182,6 @@ QueryStmt
         +-column_index_list=[0, 1]
         +-alias="t"
 
-
 Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #2 ('arg0') references column 'a'.
 --
 ALTERNATION GROUP: t.a,TABLE abTable,"two"
@@ -3250,7 +3242,6 @@ QueryStmt
         |   +-argument_column_list=abTable.[a#1, b#2]
         +-column_index_list=[0]
         +-alias="t"
-
 
 Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #1 ('x') references column 'a'.
 --
@@ -3313,7 +3304,6 @@ QueryStmt
         |   +-argument_column_list=abTable.[a#1, b#2]
         +-column_index_list=[0, 1]
         +-alias="t"
-
 
 Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #1 ('x') references column 'a'.
 --
@@ -3381,7 +3371,6 @@ QueryStmt
         |   +-argument_column_list=abTable.[a#1, b#2]
         +-column_index_list=[0]
         +-alias="t"
-
 
 Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #1 ('x') references column 'a'.
 --
@@ -3451,7 +3440,6 @@ QueryStmt
         +-column_index_list=[0, 1]
         +-alias="t"
 
-
 Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #1 ('x') references column 'a'.
 --
 ALTERNATION GROUP: t.a,(SELECT t.a, "two" AS b),"two"
@@ -3518,7 +3506,6 @@ QueryStmt
         |   +-argument_column_list=abTable.[a#1, b#2]
         +-column_index_list=[0]
         +-alias="t"
-
 
 Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #1 ('x') references column 'a'.
 --
@@ -3588,7 +3575,6 @@ QueryStmt
         +-column_index_list=[0, 1]
         +-alias="t"
 
-
 Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #1 ('x') references column 'a'.
 ==
 
@@ -3654,7 +3640,7 @@ QueryStmt
 Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #1 ('arg0') references column 'b'.
 ==
 
-[no_run_unparser]
+[no_run_sqlbuilder]
 SELECT * FROM DefinerRightsTvf((select count(*) from KeyValue))
 --
 QueryStmt
@@ -3839,8 +3825,6 @@ QueryStmt
 
 ==
 
-# Skip unparser because of b/224585752
-[no_run_unparser]
 # Make sure order by in aggregate is not mangled by ORDER_BY_AND_LIMIT_IN_AGGREGATE rewriter
 SELECT * FROM UnaryTableArgAggregatedWithOrderBy((SELECT a FROM abTable));
 --
@@ -3864,7 +3848,6 @@ QueryStmt
         |   |     +-TableScan(column_list=[abTable.a#1], table=abTable, column_index_list=[0])
         |   +-argument_column_list=[abTable.a#1]
         +-column_index_list=[0]
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -3968,3 +3951,773 @@ QueryStmt
                 +-column_list=[UnaryTableArgAggregatedWithOrderBy.arr#3]
                 +-input_scan=
                   +-WithRefScan(column_list=[UnaryTableArgAggregatedWithOrderBy.arr#3], with_query_name="t")
+==
+
+[language_features=V_1_4_MULTILEVEL_AGGREGATION,TABLE_VALUED_FUNCTIONS,V_1_4_WITH_EXPRESSION,V_1_1_ORDER_BY_IN_AGGREGATE]
+SELECT *
+FROM tvf_templated_multi_agg_valid_grouping_constants(1);
+--
+QueryStmt
++-output_column_list=
+| +-tvf_templated_multi_agg_valid_grouping_constants.result#1 AS result [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[tvf_templated_multi_agg_valid_grouping_constants.result#1]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=[tvf_templated_multi_agg_valid_grouping_constants.result#1]
+        +-tvf=tvf_templated_multi_agg_valid_grouping_constants((ANY TYPE) -> ANY TABLE)
+        +-signature=(literal INT64) -> TABLE<result INT64>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-expr=
+        |     +-Literal(type=INT64, value=1)
+        +-column_index_list=[0]
+
+With Templated SQL TVF signature:
+  tvf_templated_multi_agg_valid_grouping_constants(literal INT64) -> TABLE<result INT64>
+containing resolved templated query:
+QueryStmt
++-output_column_list=
+| +-$aggregate.result#4 AS result [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.result#4]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.result#4]
+        +-input_scan=
+        | +-TableScan(column_list=[TwoIntegers.key#1], table=TwoIntegers, column_index_list=[0])
+        +-aggregate_list=
+          +-result#4 :=
+            +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+              +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+                +-ColumnRef(type=INT64, column=$group_by_list.$groupbymod#3)
+                +-ArgumentRef(type=INT64, name="int64_arg")
+              +-group_by_list=
+                +-$groupbymod#3 := ColumnRef(type=INT64, column=TwoIntegers.key#1)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-tvf_templated_multi_agg_valid_grouping_constants.result#1 AS result [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[tvf_templated_multi_agg_valid_grouping_constants.result#1]
+    +-input_scan=
+      +-WithScan
+        +-column_list=[tvf_templated_multi_agg_valid_grouping_constants.result#1]
+        +-with_entry_list=
+        | +-WithEntry
+        |   +-with_query_name="$inlined_tvf_templated_multi_agg_valid_grouping_constants_scalar_args"
+        |   +-with_subquery=
+        |     +-ProjectScan
+        |       +-column_list=[$inlined_tvf_templated_multi_agg_valid_grouping_constants.int64_arg#4]
+        |       +-expr_list=
+        |       | +-int64_arg#4 := Literal(type=INT64, value=1)
+        |       +-input_scan=
+        |         +-SingleRowScan
+        +-query=
+          +-ProjectScan
+            +-column_list=[tvf_templated_multi_agg_valid_grouping_constants.result#1]
+            +-input_scan=
+              +-AggregateScan
+                +-column_list=[tvf_templated_multi_agg_valid_grouping_constants.result#1]
+                +-input_scan=
+                | +-TableScan(column_list=[TwoIntegers.key#2], table=TwoIntegers, column_index_list=[0])
+                +-aggregate_list=
+                  +-result#1 :=
+                    +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+                      +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+                        +-ColumnRef(type=INT64, column=$group_by_list.$groupbymod#3)
+                        +-SubqueryExpr
+                          +-type=INT64
+                          +-subquery_type=SCALAR
+                          +-subquery=
+                            +-ProjectScan
+                              +-column_list=[$inlined_tvf_templated_multi_agg_valid_grouping_constants.int64_arg#5]
+                              +-input_scan=
+                                +-WithRefScan(column_list=[$inlined_tvf_templated_multi_agg_valid_grouping_constants.int64_arg#5], with_query_name="$inlined_tvf_templated_multi_agg_valid_grouping_constants_scalar_args")
+                      +-group_by_list=
+                        +-$groupbymod#3 := ColumnRef(type=INT64, column=TwoIntegers.key#2)
+==
+
+[language_features=V_1_4_MULTILEVEL_AGGREGATION,TABLE_VALUED_FUNCTIONS,V_1_4_WITH_EXPRESSION,V_1_1_ORDER_BY_IN_AGGREGATE]
+SELECT *
+FROM tvf_templated_multi_agg_invalid_grouping_constants(1);
+--
+ERROR: Invalid table-valued function tvf_templated_multi_agg_invalid_grouping_constants [at 2:6]
+FROM tvf_templated_multi_agg_invalid_grouping_constants(1);
+     ^
+Analysis of table-valued function tvf_templated_multi_agg_invalid_grouping_constants failed [at 1:12]
+SELECT SUM(value + int64_arg GROUP BY key) AS result FROM TwoIntegers
+           ^
+multi-level aggregate expression references column value which is neither grouped nor aggregated [at 1:12]
+SELECT SUM(value + int64_arg GROUP BY key) AS result FROM TwoIntegers
+           ^
+==
+
+[language_features=TABLE_VALUED_FUNCTIONS]
+SELECT *
+FROM UnaryTableArgColumnsUnused(Table TwoIntegers)
+--
+QueryStmt
++-output_column_list=
+| +-UnaryTableArgColumnsUnused.result#3 AS result [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[UnaryTableArgColumnsUnused.result#3]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=[UnaryTableArgColumnsUnused.result#3]
+        +-tvf=UnaryTableArgColumnsUnused((TABLE<key INT64, value INT64> arg0) -> TABLE<result INT64>)
+        +-signature=(TABLE<key INT64, value INT64>) -> TABLE<result INT64>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-TableScan(column_list=TwoIntegers.[key#1, value#2], table=TwoIntegers, column_index_list=[0, 1])
+        |   +-argument_column_list=TwoIntegers.[key#1, value#2]
+        +-column_index_list=[0]
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-UnaryTableArgColumnsUnused.result#3 AS result [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[UnaryTableArgColumnsUnused.result#3]
+    +-input_scan=
+      +-WithScan
+        +-column_list=[UnaryTableArgColumnsUnused.result#3]
+        +-with_entry_list=
+        | +-WithEntry
+        |   +-with_query_name="arg0"
+        |   +-with_subquery=
+        |     +-TableScan(column_list=TwoIntegers.[key#1, value#2], table=TwoIntegers, column_index_list=[0, 1])
+        +-query=
+          +-ProjectScan
+            +-column_list=[UnaryTableArgColumnsUnused.result#3]
+            +-expr_list=
+            | +-result#3 := Literal(type=INT64, value=1)
+            +-input_scan=
+              +-WithRefScan(column_list=arg0.[key#4, value#5], with_query_name="arg0")
+==
+
+[language_features=V_1_4_MULTILEVEL_AGGREGATION,TABLE_VALUED_FUNCTIONS]
+SELECT *
+FROM TvfMultiAggNullary();
+--
+QueryStmt
++-output_column_list=
+| +-TvfMultiAggNullary.result#1 AS result [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[TvfMultiAggNullary.result#1]
+    +-input_scan=
+      +-TVFScan(column_list=[TvfMultiAggNullary.result#1], tvf=TvfMultiAggNullary(() -> TABLE<result INT64>), signature=() -> TABLE<result INT64>, column_index_list=[0])
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-TvfMultiAggNullary.result#1 AS result [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[TvfMultiAggNullary.result#1]
+    +-input_scan=
+      +-WithScan
+        +-column_list=[TvfMultiAggNullary.result#1]
+        +-with_entry_list=
+        | +-WithEntry
+        |   +-with_query_name="t"
+        |   +-with_subquery=
+        |     +-ProjectScan
+        |       +-column_list=t.[a#2, b#3]
+        |       +-expr_list=
+        |       | +-a#2 := Literal(type=INT64, value=1)
+        |       | +-b#3 := Literal(type=INT64, value=2)
+        |       +-input_scan=
+        |         +-SingleRowScan
+        +-query=
+          +-ProjectScan
+            +-column_list=[TvfMultiAggNullary.result#1]
+            +-input_scan=
+              +-AggregateScan
+                +-column_list=[TvfMultiAggNullary.result#1]
+                +-input_scan=
+                | +-WithRefScan(column_list=t.[a#4, b#5], with_query_name="t")
+                +-aggregate_list=
+                  +-result#1 :=
+                    +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+                      +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+                        +-ColumnRef(type=INT64, column=$aggregate.$agg1#8)
+                        +-ColumnRef(type=INT64, column=$aggregate.$agg2#11)
+                      +-group_by_list=
+                      | +-$groupbymod#6 := ColumnRef(type=INT64, column=t.a#4)
+                      | +-$groupbymod#7 := ColumnRef(type=INT64, column=t.b#5)
+                      +-group_by_aggregate_list=
+                        +-$agg1#8 :=
+                        | +-AggregateFunctionCall(ZetaSQL:count(INT64) -> INT64)
+                        |   +-ColumnRef(type=INT64, column=$group_by_list.$groupbymod#9)
+                        |   +-group_by_list=
+                        |     +-$groupbymod#9 := ColumnRef(type=INT64, column=t.a#4)
+                        |     +-$groupbymod#10 := ColumnRef(type=INT64, column=t.b#5)
+                        +-$agg2#11 :=
+                          +-AggregateFunctionCall(ZetaSQL:count(INT64) -> INT64)
+                            +-ColumnRef(type=INT64, column=$group_by_list.$groupbymod#13)
+                            +-group_by_list=
+                              +-$groupbymod#12 := ColumnRef(type=INT64, column=t.a#4)
+                              +-$groupbymod#13 := ColumnRef(type=INT64, column=t.b#5)
+==
+
+[language_features=V_1_4_MULTILEVEL_AGGREGATION,TABLE_VALUED_FUNCTIONS,V_1_2_GROUP_BY_STRUCT]
+SELECT *
+FROM TvfMultiAggGroupingConstantsWithStruct((SELECT STRUCT(STRUCT(1 as b) as a)), 1);
+--
+QueryStmt
++-output_column_list=
+| +-TvfMultiAggGroupingConstantsWithStruct.result#2 AS result [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[TvfMultiAggGroupingConstantsWithStruct.result#2]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=[TvfMultiAggGroupingConstantsWithStruct.result#2]
+        +-tvf=TvfMultiAggGroupingConstantsWithStruct((TABLE<STRUCT<a STRUCT<b INT64>>> arg_table, INT64 int64_arg) -> TABLE<result INT64>)
+        +-signature=(TABLE<$col1 STRUCT<a STRUCT<b INT64>>>, literal INT64) -> TABLE<result INT64>
+        +-argument_list=
+        | +-FunctionArgument
+        | | +-scan=
+        | | | +-ProjectScan
+        | | |   +-column_list=[$subquery1.$col1#1]
+        | | |   +-expr_list=
+        | | |   | +-$col1#1 := Literal(type=STRUCT<a STRUCT<b INT64>>, value={a:{b:1}})
+        | | |   +-input_scan=
+        | | |     +-SingleRowScan
+        | | +-argument_column_list=[$subquery1.$col1#1]
+        | +-FunctionArgument
+        |   +-expr=
+        |     +-Literal(type=INT64, value=1)
+        +-column_index_list=[0]
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-TvfMultiAggGroupingConstantsWithStruct.result#2 AS result [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[TvfMultiAggGroupingConstantsWithStruct.result#2]
+    +-input_scan=
+      +-WithScan
+        +-column_list=[TvfMultiAggGroupingConstantsWithStruct.result#2]
+        +-with_entry_list=
+        | +-WithEntry
+        | | +-with_query_name="arg_table"
+        | | +-with_subquery=
+        | |   +-ProjectScan
+        | |     +-column_list=[$subquery1.$col1#1]
+        | |     +-expr_list=
+        | |     | +-$col1#1 := Literal(type=STRUCT<a STRUCT<b INT64>>, value={a:{b:1}})
+        | |     +-input_scan=
+        | |       +-SingleRowScan
+        | +-WithEntry
+        |   +-with_query_name="$inlined_TvfMultiAggGroupingConstantsWithStruct_scalar_args"
+        |   +-with_subquery=
+        |     +-ProjectScan
+        |       +-column_list=[$inlined_TvfMultiAggGroupingConstantsWithStruct.int64_arg#5]
+        |       +-expr_list=
+        |       | +-int64_arg#5 := Literal(type=INT64, value=1)
+        |       +-input_scan=
+        |         +-SingleRowScan
+        +-query=
+          +-ProjectScan
+            +-column_list=[TvfMultiAggGroupingConstantsWithStruct.result#2]
+            +-input_scan=
+              +-AggregateScan
+                +-column_list=[TvfMultiAggGroupingConstantsWithStruct.result#2]
+                +-input_scan=
+                | +-WithRefScan(column_list=[arg_table.$value_column#3], with_query_name="arg_table")
+                +-aggregate_list=
+                  +-result#2 :=
+                    +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+                      +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+                        +-GetStructField
+                        | +-type=INT64
+                        | +-expr=
+                        | | +-ColumnRef(type=STRUCT<b INT64>, column=$group_by_list.$groupbymod#4)
+                        | +-field_idx=0
+                        +-SubqueryExpr
+                          +-type=INT64
+                          +-subquery_type=SCALAR
+                          +-subquery=
+                            +-ProjectScan
+                              +-column_list=[$inlined_TvfMultiAggGroupingConstantsWithStruct.int64_arg#6]
+                              +-input_scan=
+                                +-WithRefScan(column_list=[$inlined_TvfMultiAggGroupingConstantsWithStruct.int64_arg#6], with_query_name="$inlined_TvfMultiAggGroupingConstantsWithStruct_scalar_args")
+                      +-group_by_list=
+                        +-$groupbymod#4 :=
+                          +-GetStructField
+                            +-type=STRUCT<b INT64>
+                            +-expr=
+                            | +-ColumnRef(type=STRUCT<a STRUCT<b INT64>>, column=arg_table.$value_column#3)
+                            +-field_idx=0
+==
+
+[language_features=V_1_4_MULTILEVEL_AGGREGATION,TABLE_VALUED_FUNCTIONS,V_1_2_GROUP_BY_STRUCT]
+SELECT *
+FROM tvf_templated_multi_agg_valid_grouping_constants_with_struct((SELECT STRUCT(1 as b) as a));
+--
+QueryStmt
++-output_column_list=
+| +-tvf_templated_multi_agg_valid_grouping_constants_with_struct.result#2 AS result [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[tvf_templated_multi_agg_valid_grouping_constants_with_struct.result#2]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=[tvf_templated_multi_agg_valid_grouping_constants_with_struct.result#2]
+        +-tvf=tvf_templated_multi_agg_valid_grouping_constants_with_struct((ANY TABLE) -> ANY TABLE)
+        +-signature=(TABLE<a STRUCT<b INT64>>) -> TABLE<result INT64>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-ProjectScan
+        |   |   +-column_list=[$subquery1.a#1]
+        |   |   +-expr_list=
+        |   |   | +-a#1 := Literal(type=STRUCT<b INT64>, value={b:1})
+        |   |   +-input_scan=
+        |   |     +-SingleRowScan
+        |   +-argument_column_list=[$subquery1.a#1]
+        +-column_index_list=[0]
+
+With Templated SQL TVF signature:
+  tvf_templated_multi_agg_valid_grouping_constants_with_struct(TABLE<a STRUCT<b INT64>>) -> TABLE<result INT64>
+containing resolved templated query:
+QueryStmt
++-output_column_list=
+| +-$aggregate.result#3 AS result [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.result#3]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.result#3]
+        +-input_scan=
+        | +-RelationArgumentScan(column_list=[arg_table.a#1], name="arg_table")
+        +-aggregate_list=
+          +-result#3 :=
+            +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+              +-GetStructField
+                +-type=INT64
+                +-expr=
+                | +-ColumnRef(type=STRUCT<b INT64>, column=$group_by_list.$groupbymod#2)
+                +-field_idx=0
+              +-group_by_list=
+                +-$groupbymod#2 := ColumnRef(type=STRUCT<b INT64>, column=arg_table.a#1)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-tvf_templated_multi_agg_valid_grouping_constants_with_struct.result#2 AS result [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[tvf_templated_multi_agg_valid_grouping_constants_with_struct.result#2]
+    +-input_scan=
+      +-WithScan
+        +-column_list=[tvf_templated_multi_agg_valid_grouping_constants_with_struct.result#2]
+        +-with_entry_list=
+        | +-WithEntry
+        |   +-with_query_name="arg_table"
+        |   +-with_subquery=
+        |     +-ProjectScan
+        |       +-column_list=[$subquery1.a#1]
+        |       +-expr_list=
+        |       | +-a#1 := Literal(type=STRUCT<b INT64>, value={b:1})
+        |       +-input_scan=
+        |         +-SingleRowScan
+        +-query=
+          +-ProjectScan
+            +-column_list=[tvf_templated_multi_agg_valid_grouping_constants_with_struct.result#2]
+            +-input_scan=
+              +-AggregateScan
+                +-column_list=[tvf_templated_multi_agg_valid_grouping_constants_with_struct.result#2]
+                +-input_scan=
+                | +-WithRefScan(column_list=[arg_table.a#3], with_query_name="arg_table")
+                +-aggregate_list=
+                  +-result#2 :=
+                    +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+                      +-GetStructField
+                        +-type=INT64
+                        +-expr=
+                        | +-ColumnRef(type=STRUCT<b INT64>, column=$group_by_list.$groupbymod#4)
+                        +-field_idx=0
+                      +-group_by_list=
+                        +-$groupbymod#4 := ColumnRef(type=STRUCT<b INT64>, column=arg_table.a#3)
+==
+
+[language_features=V_1_4_MULTILEVEL_AGGREGATION,TABLE_VALUED_FUNCTIONS]
+SELECT *
+FROM tvf_templated_call_udf_with_multi_agg(TABLE TwoIntegers);
+--
+QueryStmt
++-output_column_list=
+| +-tvf_templated_call_udf_with_multi_agg.result#3 AS result [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[tvf_templated_call_udf_with_multi_agg.result#3]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=[tvf_templated_call_udf_with_multi_agg.result#3]
+        +-tvf=tvf_templated_call_udf_with_multi_agg((ANY TABLE) -> ANY TABLE)
+        +-signature=(TABLE<key INT64, value INT64>) -> TABLE<result INT64>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-TableScan(column_list=TwoIntegers.[key#1, value#2], table=TwoIntegers, column_index_list=[0, 1])
+        |   +-argument_column_list=TwoIntegers.[key#1, value#2]
+        +-column_index_list=[0]
+
+With Templated SQL TVF signature:
+  tvf_templated_call_udf_with_multi_agg(TABLE<key INT64, value INT64>) -> TABLE<result INT64>
+containing resolved templated query:
+QueryStmt
++-output_column_list=
+| +-$query.result#1 AS result [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.result#1]
+    +-expr_list=
+    | +-result#1 := FunctionCall(Lazy_resolution_function:NullaryWithMultilevelAgg() -> INT64)
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-tvf_templated_call_udf_with_multi_agg.result#3 AS result [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[tvf_templated_call_udf_with_multi_agg.result#3]
+    +-input_scan=
+      +-WithScan
+        +-column_list=[tvf_templated_call_udf_with_multi_agg.result#3]
+        +-with_entry_list=
+        | +-WithEntry
+        |   +-with_query_name="arg_table"
+        |   +-with_subquery=
+        |     +-TableScan(column_list=TwoIntegers.[key#1, value#2], table=TwoIntegers, column_index_list=[0, 1])
+        +-query=
+          +-ProjectScan
+            +-column_list=[tvf_templated_call_udf_with_multi_agg.result#3]
+            +-expr_list=
+            | +-result#3 :=
+            |   +-SubqueryExpr
+            |     +-type=INT64
+            |     +-subquery_type=SCALAR
+            |     +-subquery=
+            |       +-ProjectScan
+            |         +-column_list=[$aggregate.$agg1#4]
+            |         +-input_scan=
+            |           +-AggregateScan
+            |             +-column_list=[$aggregate.$agg1#4]
+            |             +-input_scan=
+            |             | +-ArrayScan
+            |             |   +-column_list=[$array.x#5]
+            |             |   +-array_expr_list=
+            |             |   | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3, 3])
+            |             |   +-element_column_list=[$array.x#5]
+            |             +-aggregate_list=
+            |               +-$agg1#4 :=
+            |                 +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+            |                   +-ColumnRef(type=INT64, column=$group_by_list.$groupbymod#6)
+            |                   +-group_by_list=
+            |                     +-$groupbymod#6 := ColumnRef(type=INT64, column=$array.x#5)
+            +-input_scan=
+              +-SingleRowScan
+==
+
+[language_features=V_1_4_MULTILEVEL_AGGREGATION,TABLE_VALUED_FUNCTIONS]
+SELECT *
+FROM tvf_templated_call_uda_with_multi_agg(TABLE TwoIntegers);
+--
+QueryStmt
++-output_column_list=
+| +-tvf_templated_call_uda_with_multi_agg.result#3 AS result [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[tvf_templated_call_uda_with_multi_agg.result#3]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=[tvf_templated_call_uda_with_multi_agg.result#3]
+        +-tvf=tvf_templated_call_uda_with_multi_agg((ANY TABLE) -> ANY TABLE)
+        +-signature=(TABLE<key INT64, value INT64>) -> TABLE<result INT64>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-TableScan(column_list=TwoIntegers.[key#1, value#2], table=TwoIntegers, column_index_list=[0, 1])
+        |   +-argument_column_list=TwoIntegers.[key#1, value#2]
+        +-column_index_list=[0]
+
+With Templated SQL TVF signature:
+  tvf_templated_call_uda_with_multi_agg(TABLE<key INT64, value INT64>) -> TABLE<result INT64>
+containing resolved templated query:
+QueryStmt
++-output_column_list=
+| +-$aggregate.result#3 AS result [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.result#3]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.result#3]
+        +-input_scan=
+        | +-RelationArgumentScan(column_list=arg_table.[key#1, value#2], name="arg_table")
+        +-aggregate_list=
+          +-result#3 :=
+            +-AggregateFunctionCall(Lazy_resolution_function:SumOfValuesForDistinctKey(INT64 value, INT64 key) -> INT64)
+              +-ColumnRef(type=INT64, column=arg_table.key#1)
+              +-ColumnRef(type=INT64, column=arg_table.value#2)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-tvf_templated_call_uda_with_multi_agg.result#3 AS result [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[tvf_templated_call_uda_with_multi_agg.result#3]
+    +-input_scan=
+      +-WithScan
+        +-column_list=[tvf_templated_call_uda_with_multi_agg.result#3]
+        +-with_entry_list=
+        | +-WithEntry
+        |   +-with_query_name="arg_table"
+        |   +-with_subquery=
+        |     +-TableScan(column_list=TwoIntegers.[key#1, value#2], table=TwoIntegers, column_index_list=[0, 1])
+        +-query=
+          +-ProjectScan
+            +-column_list=[tvf_templated_call_uda_with_multi_agg.result#3]
+            +-input_scan=
+              +-ProjectScan
+                +-column_list=[tvf_templated_call_uda_with_multi_agg.result#3]
+                +-expr_list=
+                | +-result#3 := ColumnRef(type=INT64, column=$aggregate.$agg1#8)
+                +-input_scan=
+                  +-AggregateScan
+                    +-column_list=[$aggregate.$agg1#8]
+                    +-input_scan=
+                    | +-ProjectScan
+                    |   +-column_list=[arg_table.key#4, arg_table.value#5, $inlined_SumOfValuesForDistinctKey.value#6, $inlined_SumOfValuesForDistinctKey.key#7]
+                    |   +-expr_list=
+                    |   | +-value#6 := ColumnRef(type=INT64, column=arg_table.key#4)
+                    |   | +-key#7 := ColumnRef(type=INT64, column=arg_table.value#5)
+                    |   +-input_scan=
+                    |     +-WithRefScan(column_list=arg_table.[key#4, value#5], with_query_name="arg_table")
+                    +-aggregate_list=
+                      +-$agg1#8 :=
+                        +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+                          +-ColumnRef(type=INT64, column=$aggregate.$agg1#10)
+                          +-group_by_list=
+                          | +-$groupbymod#9 := ColumnRef(type=INT64, column=$inlined_SumOfValuesForDistinctKey.key#7)
+                          +-group_by_aggregate_list=
+                            +-$agg1#10 :=
+                              +-AggregateFunctionCall(ZetaSQL:any_value(INT64) -> INT64)
+                                +-ColumnRef(type=INT64, column=$inlined_SumOfValuesForDistinctKey.value#6)
+==
+
+[language_features=V_1_4_MULTILEVEL_AGGREGATION,TABLE_VALUED_FUNCTIONS]
+SELECT * FROM TvfMultiAggReferencesScannedTable(TABLE TwoIntegers, ((SELECT value FROM TwoIntegers)));
+--
+QueryStmt
++-output_column_list=
+| +-TvfMultiAggReferencesScannedTable.result#5 AS result [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[TvfMultiAggReferencesScannedTable.result#5]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=[TvfMultiAggReferencesScannedTable.result#5]
+        +-tvf=TvfMultiAggReferencesScannedTable((TABLE<key INT64, value INT64> arg_table, INT64 arg_scalar) -> TABLE<result DOUBLE>)
+        +-signature=(TABLE<key INT64, value INT64>, INT64) -> TABLE<result DOUBLE>
+        +-argument_list=
+        | +-FunctionArgument
+        | | +-scan=
+        | | | +-TableScan(column_list=TwoIntegers.[key#1, value#2], table=TwoIntegers, column_index_list=[0, 1])
+        | | +-argument_column_list=TwoIntegers.[key#1, value#2]
+        | +-FunctionArgument
+        |   +-expr=
+        |     +-SubqueryExpr
+        |       +-type=INT64
+        |       +-subquery_type=SCALAR
+        |       +-subquery=
+        |         +-ProjectScan
+        |           +-column_list=[TwoIntegers.value#4]
+        |           +-input_scan=
+        |             +-TableScan(column_list=[TwoIntegers.value#4], table=TwoIntegers, column_index_list=[1])
+        +-column_index_list=[0]
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-TvfMultiAggReferencesScannedTable.result#5 AS result [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[TvfMultiAggReferencesScannedTable.result#5]
+    +-input_scan=
+      +-WithScan
+        +-column_list=[TvfMultiAggReferencesScannedTable.result#5]
+        +-with_entry_list=
+        | +-WithEntry
+        | | +-with_query_name="arg_table"
+        | | +-with_subquery=
+        | |   +-TableScan(column_list=TwoIntegers.[key#1, value#2], table=TwoIntegers, column_index_list=[0, 1])
+        | +-WithEntry
+        |   +-with_query_name="$inlined_TvfMultiAggReferencesScannedTable_scalar_args"
+        |   +-with_subquery=
+        |     +-ProjectScan
+        |       +-column_list=[$inlined_TvfMultiAggReferencesScannedTable.arg_scalar#16]
+        |       +-expr_list=
+        |       | +-arg_scalar#16 :=
+        |       |   +-SubqueryExpr
+        |       |     +-type=INT64
+        |       |     +-subquery_type=SCALAR
+        |       |     +-subquery=
+        |       |       +-ProjectScan
+        |       |         +-column_list=[TwoIntegers.value#4]
+        |       |         +-input_scan=
+        |       |           +-TableScan(column_list=[TwoIntegers.value#4], table=TwoIntegers, column_index_list=[1])
+        |       +-input_scan=
+        |         +-SingleRowScan
+        +-query=
+          +-ProjectScan
+            +-column_list=[TvfMultiAggReferencesScannedTable.result#5]
+            +-expr_list=
+            | +-result#5 :=
+            |   +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+            |     +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+            |     | +-Cast(INT64 -> DOUBLE)
+            |     | | +-ColumnRef(type=INT64, column=$aggregate.$agg1#6)
+            |     | +-Cast(INT64 -> DOUBLE)
+            |     |   +-ColumnRef(type=INT64, column=$aggregate.$agg2#7)
+            |     +-Cast(INT64 -> DOUBLE)
+            |       +-SubqueryExpr
+            |         +-type=INT64
+            |         +-subquery_type=SCALAR
+            |         +-subquery=
+            |           +-ProjectScan
+            |             +-column_list=[$inlined_TvfMultiAggReferencesScannedTable.arg_scalar#17]
+            |             +-input_scan=
+            |               +-WithRefScan(column_list=[$inlined_TvfMultiAggReferencesScannedTable.arg_scalar#17], with_query_name="$inlined_TvfMultiAggReferencesScannedTable_scalar_args")
+            +-input_scan=
+              +-AggregateScan
+                +-column_list=$aggregate.[$agg1#6, $agg2#7]
+                +-input_scan=
+                | +-JoinScan
+                |   +-column_list=[TwoIntegers.key#8, TwoIntegers.value#9, arg_table.key#10, arg_table.value#11]
+                |   +-left_scan=
+                |   | +-TableScan(column_list=TwoIntegers.[key#8, value#9], table=TwoIntegers, column_index_list=[0, 1])
+                |   +-right_scan=
+                |   | +-WithRefScan(column_list=arg_table.[key#10, value#11], with_query_name="arg_table")
+                |   +-join_expr=
+                |   | +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
+                |   |   +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+                |   |   | +-ColumnRef(type=INT64, column=TwoIntegers.key#8)
+                |   |   | +-ColumnRef(type=INT64, column=arg_table.key#10)
+                |   |   +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+                |   |     +-ColumnRef(type=INT64, column=TwoIntegers.value#9)
+                |   |     +-ColumnRef(type=INT64, column=arg_table.value#11)
+                |   +-has_using=TRUE
+                +-aggregate_list=
+                  +-$agg1#6 :=
+                  | +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+                  |   +-ColumnRef(type=INT64, column=$aggregate.$agg1#13)
+                  |   +-group_by_list=
+                  |   | +-$groupbymod#12 := ColumnRef(type=INT64, column=TwoIntegers.key#8)
+                  |   +-group_by_aggregate_list=
+                  |     +-$agg1#13 :=
+                  |       +-AggregateFunctionCall(ZetaSQL:max(INT64) -> INT64)
+                  |         +-ColumnRef(type=INT64, column=TwoIntegers.value#9)
+                  +-$agg2#7 :=
+                    +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+                      +-ColumnRef(type=INT64, column=$aggregate.$agg1#15)
+                      +-group_by_list=
+                      | +-$groupbymod#14 := ColumnRef(type=INT64, column=TwoIntegers.value#9)
+                      +-group_by_aggregate_list=
+                        +-$agg1#15 :=
+                          +-AggregateFunctionCall(ZetaSQL:min(INT64) -> INT64)
+                            +-ColumnRef(type=INT64, column=TwoIntegers.key#8)
+==
+
+[language_features=V_1_4_MULTILEVEL_AGGREGATION,TABLE_VALUED_FUNCTIONS]
+SELECT * FROM TvfMultiAggScalarArgGroupingConst(TABLE TwoIntegers, 100);
+--
+QueryStmt
++-output_column_list=
+| +-TvfMultiAggScalarArgGroupingConst.result#3 AS result [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[TvfMultiAggScalarArgGroupingConst.result#3]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=[TvfMultiAggScalarArgGroupingConst.result#3]
+        +-tvf=TvfMultiAggScalarArgGroupingConst((TABLE<key INT64, value INT64> arg_table, INT64 arg_scalar) -> TABLE<result INT64>)
+        +-signature=(TABLE<key INT64, value INT64>, literal INT64) -> TABLE<result INT64>
+        +-argument_list=
+        | +-FunctionArgument
+        | | +-scan=
+        | | | +-TableScan(column_list=TwoIntegers.[key#1, value#2], table=TwoIntegers, column_index_list=[0, 1])
+        | | +-argument_column_list=TwoIntegers.[key#1, value#2]
+        | +-FunctionArgument
+        |   +-expr=
+        |     +-Literal(type=INT64, value=100)
+        +-column_index_list=[0]
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-TvfMultiAggScalarArgGroupingConst.result#3 AS result [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[TvfMultiAggScalarArgGroupingConst.result#3]
+    +-input_scan=
+      +-WithScan
+        +-column_list=[TvfMultiAggScalarArgGroupingConst.result#3]
+        +-with_entry_list=
+        | +-WithEntry
+        | | +-with_query_name="arg_table"
+        | | +-with_subquery=
+        | |   +-TableScan(column_list=TwoIntegers.[key#1, value#2], table=TwoIntegers, column_index_list=[0, 1])
+        | +-WithEntry
+        |   +-with_query_name="$inlined_TvfMultiAggScalarArgGroupingConst_scalar_args"
+        |   +-with_subquery=
+        |     +-ProjectScan
+        |       +-column_list=[$inlined_TvfMultiAggScalarArgGroupingConst.arg_scalar#8]
+        |       +-expr_list=
+        |       | +-arg_scalar#8 := Literal(type=INT64, value=100)
+        |       +-input_scan=
+        |         +-SingleRowScan
+        +-query=
+          +-ProjectScan
+            +-column_list=[TvfMultiAggScalarArgGroupingConst.result#3]
+            +-input_scan=
+              +-AggregateScan
+                +-column_list=[TvfMultiAggScalarArgGroupingConst.result#3]
+                +-input_scan=
+                | +-WithRefScan(column_list=arg_table.[key#4, value#5], with_query_name="arg_table")
+                +-aggregate_list=
+                  +-result#3 :=
+                    +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+                      +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+                        +-ColumnRef(type=INT64, column=$aggregate.$agg1#7)
+                        +-SubqueryExpr
+                          +-type=INT64
+                          +-subquery_type=SCALAR
+                          +-subquery=
+                            +-ProjectScan
+                              +-column_list=[$inlined_TvfMultiAggScalarArgGroupingConst.arg_scalar#9]
+                              +-input_scan=
+                                +-WithRefScan(column_list=[$inlined_TvfMultiAggScalarArgGroupingConst.arg_scalar#9], with_query_name="$inlined_TvfMultiAggScalarArgGroupingConst_scalar_args")
+                      +-group_by_list=
+                      | +-$groupbymod#6 := ColumnRef(type=INT64, column=arg_table.value#5)
+                      +-group_by_aggregate_list=
+                        +-$agg1#7 :=
+                          +-AggregateFunctionCall(ZetaSQL:count(INT64) -> INT64)
+                            +-ColumnRef(type=INT64, column=arg_table.key#4)

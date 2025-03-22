@@ -19,8 +19,17 @@
 #include <vector>
 
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/public/numeric_value.h"
+#include "zetasql/public/options.pb.h"
+#include "zetasql/public/type_parameters.pb.h"
+#include "zetasql/public/types/type.h"
+#include "zetasql/public/types/type_factory.h"
+#include "zetasql/public/types/type_parameters.h"
+#include "zetasql/public/value.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/status/status.h"
+#include "absl/strings/string_view.h"
 
 using ::zetasql::BigNumericValue;
 using ::zetasql::NumericValue;

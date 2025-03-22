@@ -1,0 +1,173 @@
+[prepare_database]
+CREATE TABLE KeyValue
+AS
+SELECT 1 AS key, "value1" AS value
+UNION ALL
+SELECT 2, "value2"
+--
+ARRAY<STRUCT<key INT64, value STRING>>[{1, "value1"}, {2, "value2"}]
+==
+
+[default required_features=PIPES,PIPE_IF]
+[name=unselected_cases_dont_run]
+FROM KeyValue
+|> IF false THEN ( |> EXTEND ERROR("oops") )
+   ELSEIF false THEN ( |> EXTEND bad_column )
+--
+ARRAY<STRUCT<key INT64, value STRING>>[unknown order:
+  {1, "value1"},
+  {2, "value2"}
+]
+==
+
+[name=run_simple_if]
+FROM KeyValue
+|> IF true THEN ( |> SELECT key+10 )
+--
+ARRAY<STRUCT<INT64>>[unknown order:{12}, {11}]
+==
+
+[name=dont_run_simple_if]
+FROM KeyValue
+|> IF false THEN ( |> SELECT key+10 )
+--
+ARRAY<STRUCT<key INT64, value STRING>>[unknown order:
+  {1, "value1"},
+  {2, "value2"}
+]
+==
+
+[name=run_if_with_elses]
+FROM KeyValue
+|> IF true THEN ( |> SELECT key+10 )
+   ELSEIF false THEN ( |> SELECT key/0 )
+   ELSEIF false THEN ( |> SELECT bad )
+   ELSE ( |> SELECT error('abc') )
+--
+ARRAY<STRUCT<INT64>>[unknown order:{12}, {11}]
+==
+
+[name=run_elseif]
+FROM KeyValue
+|> IF false THEN ( |> SELECT error("1") )
+   ELSEIF false THEN ( |> SELECT error("2"), 'xxx' )
+   ELSEIF true THEN ( |> SELECT key, key, key )
+   ELSEIF false THEN ( |> SELECT error("4") )
+   ELSE ( |> SELECT error("5") )
+--
+ARRAY<STRUCT<key INT64, key INT64, key INT64>>[unknown order:
+  {1, 1, 1},
+  {2, 2, 2}
+]
+==
+
+[name=run_else]
+FROM KeyValue
+|> IF false THEN ( |> SELECT error("1") )
+   ELSEIF false THEN ( |> SELECT error("2"), 'xxx' )
+   ELSEIF false THEN ( |> SELECT key, key, key, error("3") )
+   ELSEIF false THEN ( |> SELECT error("4") )
+   ELSE ( |> SELECT key, "selected" )
+--
+ARRAY<STRUCT<key INT64, STRING>>[unknown order:
+  {2, "selected"},
+  {1, "selected"}
+]
+==
+
+[name=run_no_case]
+FROM KeyValue
+|> IF false THEN ( |> SELECT error("1") )
+   ELSEIF false THEN ( |> SELECT error("2"), 'xxx' )
+   ELSEIF false THEN ( |> SELECT key, key, key, error("3") )
+   ELSEIF false THEN ( |> SELECT error("4") )
+--
+ARRAY<STRUCT<key INT64, value STRING>>[unknown order:
+  {1, "value1"},
+  {2, "value2"}
+]
+==
+
+[name=run_case_with_error]
+FROM KeyValue
+|> IF false THEN ( |> SELECT error("1") )
+   ELSEIF false THEN ( |> SELECT error("2"), 'xxx' )
+   ELSEIF true THEN ( |> SELECT key, key, key, error("3") )
+   ELSEIF false THEN ( |> SELECT error("4") )
+--
+ERROR: generic::out_of_range: 3
+==
+
+[name=if_in_subquery]
+FROM KeyValue
+|> EXTEND
+     (SELECT key, value
+      |> WHERE key = 1
+      |> IF true THEN (
+          |> DROP key
+         )
+     ) AS extracted_value
+--
+ARRAY<STRUCT<
+        key INT64,
+        value STRING,
+        extracted_value STRING
+      >>
+[unknown order:
+  {2, "value2", NULL},
+  {1, "value1", "value1"}
+]
+==
+
+[name=if_in_union]
+FROM KeyValue
+|> IF false THEN ( |> SELECT 1.5 AS dval )
+|> IF true THEN ( |> EXTEND key*10 AS k10 )
+|> UNION ALL
+  (FROM KeyValue
+   |> IF false THEN ( |> SELECT bad )
+      ELSE ( |> EXTEND key*100 AS k100 ))
+|> WHERE k10 > 0
+--
+ARRAY<STRUCT<key INT64, value STRING, k10 INT64>>[unknown order:
+  {2, "value2", 20},
+  {2, "value2", 200},
+  {1, "value1", 10},
+  {1, "value1", 100}
+]
+==
+
+# Test a DROP case becuase it's one where there could be an extra column
+# in the column_list that DROP doesn't remove.
+[name=if_in_union_with_drop]
+FROM KeyValue
+|> EXTEND value AS v2, value AS v3
+|> IF true THEN ( |> DROP value )
+|> UNION ALL
+   ( FROM KeyValue
+     |> IF true THEN ( |> SELECT key, 'v1', 'v2' )
+   )
+--
+ARRAY<STRUCT<key INT64, v2 STRING, v3 STRING>>[unknown order:
+  {2, "value2", "value2"},
+  {1, "value1", "value1"},
+  {1, "v1", "v2"},
+  {2, "v1", "v2"}
+]
+==
+
+[name=nested_if]
+FROM KeyValue
+|> IF true THEN (
+     |> EXTEND key*10 AS k10
+     |> IF false THEN (
+          |> EXTEND key*100 AS k100
+        ) ELSE (
+          |> EXTEND key*1000 AS k1000
+        )
+     |> WHERE k1000 = 2000
+   )
+--
+ARRAY<STRUCT<key INT64, value STRING, k10 INT64, k1000 INT64>>[
+  {2, "value2", 20, 2000}
+]

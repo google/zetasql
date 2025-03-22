@@ -45,6 +45,7 @@
 #include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/ascii.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
@@ -169,6 +170,13 @@ class TableValuedFunction {
   std::string FullName() const {
     return absl::StrJoin(function_name_path(), ".");
   }
+  // Returns an external 'SQL' name for the function, for use in SQL strings,
+  // error messages and anywhere else appropriate.
+  std::string SQLName() const {
+    return this->tvf_options_.uses_upper_case_sql_name
+               ? absl::AsciiStrToUpper(FullName())
+               : FullName();
+  }
   const std::vector<std::string>& function_name_path() const {
     return function_name_path_;
   }
@@ -206,11 +214,6 @@ class TableValuedFunction {
       bool print_template_and_name_details) const;
 
   virtual std::string DebugString() const;
-
-  // Returns SQL to perform a function call with the given SQL arguments,
-  // using given FunctionSignature if provided.
-  std::string GetSQL(std::vector<std::string> inputs,
-                     const FunctionSignature* signature = nullptr) const;
 
   // Returns an error message for a table-valued function call named
   // 'tvf_name_string' with 'tvf_catalog_entry' that did not match the
@@ -389,6 +392,11 @@ class TableValuedFunction {
            << " does not support the API in evaluator.h";
   }
 
+  void set_statement_context(StatementContext context) {
+    statement_context_ = context;
+  }
+  StatementContext statement_context() const { return statement_context_; }
+
  protected:
   // Returns user facing text (to be used in error messages) for the
   // specified table function <signature>. For example:
@@ -417,6 +425,12 @@ class TableValuedFunction {
  private:
   ResolvedCreateStatementEnums::SqlSecurity sql_security_ =
       ResolvedCreateStatementEnums::SQL_SECURITY_UNSPECIFIED;
+
+  // The ZetaSQL statement context in which this object was defined,
+  // indicating the context in which it was analyzed or needs to be analyzed.
+  // Specifically, this indicates if the object came from a module, which may
+  // have some different resolution behavior.
+  StatementContext statement_context_ = CONTEXT_DEFAULT;
 };
 
 // Represents a column for some TVF input argument types (e.g. TVFRelation and

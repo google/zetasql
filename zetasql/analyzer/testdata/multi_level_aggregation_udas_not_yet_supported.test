@@ -1,43 +1,19 @@
 [default language_features=CREATE_AGGREGATE_FUNCTION,TEMPLATE_FUNCTIONS,V_1_4_MULTILEVEL_AGGREGATION]
-[default show_unparsed]
+[default show_sqlbuilder_output]
+
 SELECT
   SumOfAggregateArgs(MAX(int64) GROUP BY string)
 FROM SimpleTypes;
 --
-ERROR: GROUP BY modifiers can currently only be specified on ZetaSQL built-in functions. [at 2:3]
+ERROR: GROUP BY modifiers are not yet supported on user-defined functions. [at 2:3]
   SumOfAggregateArgs(MAX(int64) GROUP BY string)
   ^
 ==
 
-CREATE AGGREGATE FUNCTION WrappedMultiLevel(e {{INT64|ANY TYPE}}) AS (
-  SUM(e GROUP BY e)
-);
+SELECT
+  SumOfAggregateArgs(SumOfAggregateArgs(int64) GROUP BY string)
+FROM SimpleTypes;
 --
-ALTERNATION GROUP: INT64
---
-ERROR: Function body with aggregate functions with GROUP BY modifiers are not currently supported [at 2:3]
-  SUM(e GROUP BY e)
+ERROR: GROUP BY modifiers are not yet supported on user-defined functions. [at 2:3]
+  SumOfAggregateArgs(SumOfAggregateArgs(int64) GROUP BY string)
   ^
---
-ALTERNATION GROUP: ANY TYPE
---
-CreateFunctionStmt(name_path=WrappedMultiLevel, return_type=STRUCT<>, argument_name_list=[e], signature=(ANY TYPE e) -> ANY TYPE, is_aggregate=TRUE, language="SQL", code="SUM(e GROUP BY e)")
-
-[UNPARSED_SQL]
-CREATE AGGREGATE FUNCTION WrappedMultiLevel(e ANY TYPE)
-AS (
-  SUM(e
-    GROUP BY e)
-);
-==
-
-SELECT WrappedMultiLevelAgg(e) FROM UNNEST([1, 2, 3]) AS e
---
-ERROR: Invalid function WrappedMultiLevelAgg [at 1:8]
-SELECT WrappedMultiLevelAgg(e) FROM UNNEST([1, 2, 3]) AS e
-       ^
-Analysis of function Templated_SQL_Function:WrappedMultiLevelAgg failed [at 1:1]
-SUM(e GROUP BY e)
-^
-Analysis of function Templated_SQL_Function:WrappedMultiLevelAgg failed:
-Function body with aggregate functions with GROUP BY modifiers are not currently supported

@@ -49,21 +49,29 @@ def textmapper_dependencies():
     go_repository(
         name = "dev_lsp_go_jsonrpc2",
         importpath = "go.lsp.dev/jsonrpc2",
+        remote = "https://github.com/go-language-server/jsonrpc2",
+        vcs = "git",
         commit = "8c68d4fd37cd4bd06b62b3243f0d2292c681d164",
     )
     go_repository(
         name = "dev_lsp_go_protocol",
         importpath = "go.lsp.dev/protocol",
+        remote = "https://github.com/go-language-server/protocol",
+        vcs = "git",
         commit = "da30f9ae0326cc45b76adc5cd8920ac1ffa14a15",
     )
     go_repository(
         name = "dev_lsp_go_uri",
         importpath = "go.lsp.dev/uri",
+        remote = "https://github.com/go-language-server/uri",
+        vcs = "git",
         commit = "63eaac75cc850f596be19073ff6d4ec198603779",
     )
     go_repository(
         name = "dev_lsp_go_pkg",
         importpath = "go.lsp.dev/pkg",
+        remote = "https://github.com/go-language-server/pkg",
+        vcs = "git",
         commit = "384b27a52fb2b5d74d78cfe89c7738e9a3e216a5",
     )
     go_repository(
@@ -86,7 +94,7 @@ def textmapper_dependencies():
     )
     go_repository(
         name = "com_github_inspirer_textmapper",
-        commit = "8c81908b0030f754c42426cf6c5bb218086ce590",
+        commit = "4b57a97fce68b32cbb4a55ef2ee9da697c53e992",
         importpath = "github.com/inspirer/textmapper",
     )
 
@@ -302,9 +310,9 @@ py_library(
         if not native.existing_rule("com_google_protobuf"):
             http_archive(
                 name = "com_google_protobuf",
-                urls = ["https://github.com/protocolbuffers/protobuf/releases/download/v25.2/protobuf-25.2.tar.gz"],
-                sha256 = "8ff511a64fc46ee792d3fe49a5a1bcad6f7dc50dfbba5a28b0e5b979c17f9871",
-                strip_prefix = "protobuf-25.2",
+                sha256 = "023e2bb164b234af644c5049c6dac1d9c9f6dd2acb133b960d9009105b4226bd",
+                strip_prefix = "protobuf-27.4",
+                urls = ["https://github.com/protocolbuffers/protobuf/releases/download/v27.4/protobuf-27.4.tar.gz"],
             )
 
     if testing_deps:
@@ -477,7 +485,7 @@ alias(
         flex_register_toolchains(version = "2.6.4")
         bison_register_toolchains(version = "3.3.2")
         go_rules_dependencies()
-        go_register_toolchains(version = "1.21.6")
+        go_register_toolchains(version = "1.23.6")
         gazelle_dependencies()
         textmapper_dependencies()
 

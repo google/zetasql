@@ -1,4 +1,4 @@
-[default language_features=V_1_4_SQL_MACROS]
+[default macro_expansion_mode=lenient]
 DEFINE MACRO m1 FROM $group.tbl_$suffix a, r'b;"c'
 --
 DefineMacroStatement [0-50] [DEFINE MACRO...a, r'b;"c']
@@ -54,7 +54,7 @@ DEFINE MACRO m1 /* unfinished comment
 # "3m" does not error in macro definitions.
 # Do not test GetParseTokens() because it errors when identifiers follow
 # literals without spaces.
-[language_features=V_1_4_SQL_MACROS,V_1_4_ENFORCE_STRICT_MACROS]
+[macro_expansion_mode=strict]
 [no_test_get_parse_tokens]
 DEFINE MACRO m1 3m
 --
@@ -66,7 +66,7 @@ DEFINE MACRO m1 3m
 ==
 
 # "3.3m" is not an error in macro definitions.
-[language_features=V_1_4_SQL_MACROS,V_1_4_ENFORCE_STRICT_MACROS]
+[macro_expansion_mode=strict]
 [no_test_get_parse_tokens]
 DEFINE MACRO m1 3.3m
 --
@@ -77,7 +77,7 @@ DefineMacroStatement [0-20] [DEFINE MACRO m1 3.3m]
 DEFINE MACRO m1 3.3m
 ==
 
-[language_features=V_1_4_SQL_MACROS,V_1_4_ENFORCE_STRICT_MACROS]
+[macro_expansion_mode=strict]
 [no_test_get_parse_tokens]
 DEFINE MACRO m1 .3m
 --
@@ -88,7 +88,7 @@ DefineMacroStatement [0-19] [DEFINE MACRO m1 .3m]
 DEFINE MACRO m1.3m
 ==
 
-[language_features=V_1_4_SQL_MACROS,V_1_4_ENFORCE_STRICT_MACROS]
+[macro_expansion_mode=strict]
 [no_test_get_parse_tokens]
 DEFINE MACRO m1 FULL .3E10m
 --
@@ -99,7 +99,7 @@ DefineMacroStatement [0-27] [DEFINE MACRO m1 FULL .3E10m]
 DEFINE MACRO m1 FULL .3E10m
 ==
 
-[language_features=V_1_4_SQL_MACROS,V_1_4_ENFORCE_STRICT_MACROS]
+[macro_expansion_mode=strict]
 [no_test_get_parse_tokens]
 DEFINE MACRO m1 3E10m
 --
@@ -110,7 +110,6 @@ DefineMacroStatement [0-21] [DEFINE MACRO m1 3E10m]
 DEFINE MACRO m1 3E10m
 ==
 
-[language_features=V_1_4_SQL_MACROS]
 [no_test_get_parse_tokens]
 DEFINE MACRO m1 3m
 --
@@ -121,7 +120,6 @@ DefineMacroStatement [0-18] [DEFINE MACRO m1 3m]
 DEFINE MACRO m1 3m
 ==
 
-[language_features=V_1_4_SQL_MACROS]
 [no_test_get_parse_tokens]
 DEFINE MACRO m1 3.3m
 --
@@ -132,8 +130,6 @@ DefineMacroStatement [0-20] [DEFINE MACRO m1 3.3m]
 DEFINE MACRO m1 3.3m
 ==
 
-[language_features=V_1_4_SQL_MACROS]
-[no_test_get_parse_tokens]
 DEFINE MACRO m1 .3m
 --
 DefineMacroStatement [0-19] [DEFINE MACRO m1 .3m]
@@ -143,7 +139,6 @@ DefineMacroStatement [0-19] [DEFINE MACRO m1 .3m]
 DEFINE MACRO m1.3m
 ==
 
-[language_features=V_1_4_SQL_MACROS]
 [no_test_get_parse_tokens]
 DEFINE MACRO m1 3E10m
 --
@@ -163,15 +158,6 @@ DefineMacroStatement [0-18] [DEFINE MACRO m1 */]
   MacroBody(*/) [16-18] [*/]
 --
 DEFINE MACRO m1 */
-==
-
-# Disabling the flag disallows '$'
-[language_features=]
-DEFINE MACRO add $1 + $2
---
-ERROR: Macros are not supported [at 1:8]
-DEFINE MACRO add $1 + $2
-       ^
 ==
 
 # Disabling the flag disallows '$'
@@ -242,4 +228,13 @@ DEFINE MACRO
 --
 ERROR: Hints are not allowed on DEFINE MACRO statements. [at 1:1]
 @{key=1} DEFINE MACRO m 1;
+^
+==
+
+# DEFINE MACRO statements are not supported when expansions are disabled
+[macro_expansion_mode=none]
+DEFINE MACRO macro_name "macro definition"
+--
+ERROR: Syntax error: DEFINE MACRO statements are not supported because macro expansions are disabled [at 1:1]
+DEFINE MACRO macro_name "macro definition"
 ^

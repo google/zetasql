@@ -35,6 +35,7 @@
 #include "zetasql/public/function_signature.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/language_options.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/type_parameters.h"
 #include "zetasql/scripting/control_flow_graph.h"
@@ -295,6 +296,12 @@ class ScriptExecutor {
   // Calling this is not threadsafe if other threads are calling ExecuteNext().
   virtual const VariableMap& GetCurrentVariables() const = 0;
 
+  // Returns the map of variable names to their type parameters.
+  //
+  // Calling this is not threadsafe if other threads are calling ExecuteNext().
+  virtual const VariableTypeParametersMap& GetCurrentVariableTypeParameters()
+      const = 0;
+
   // Returns the list of system variables known to the script executor.
   // Currently, includes system variables related to exception handling.
   //
@@ -331,6 +338,9 @@ class ScriptExecutor {
   // Get the predefined variables that were created before script run and exist
   // outside of the script scope.
   virtual VariableSet GetPredefinedVariableNames() const = 0;
+
+  // Returns the options used to create the script executor.
+  virtual const ScriptExecutorOptions& GetOptions() const = 0;
 };
 
 // Interface implemented by the engine to evaluate individual statements or
@@ -505,6 +515,20 @@ class StatementEvaluator {
     // By default no additional work is needed.
     return absl::OkStatus();
   }
+
+  // Performs any engine-specific cleanup when the variable is destroyed.
+  // The input node is the current ast node for statement destroying the
+  // variables.
+  // destroyed_ids may contain variables that are not called with
+  // OnVariablesChanged. This may happen when a DECLARE  statement did not
+  // execute due to an exception
+  virtual absl::Status OnVariablesDestroyed(
+      const ScriptExecutor& executor, const zetasql::ASTNode* current_node,
+      const StackFrame& var_declaration_stack_frame,
+      const std::vector<IdString>& destroyed_ids) {
+    // By default no additional work is needed.
+    return absl::OkStatus();
+  }
 };
 
 class MemoryLimitOptions {
@@ -514,18 +538,15 @@ class MemoryLimitOptions {
   }
 
   MemoryLimitOptions(int64_t per_variable_size_limit,
-                           int64_t total_memory_limit)
+                     int64_t total_memory_limit)
       : per_variable_size_limit_(per_variable_size_limit),
         total_memory_limit_(total_memory_limit) {}
 
   MemoryLimitOptions(const MemoryLimitOptions&) = default;
-  MemoryLimitOptions& operator=(const MemoryLimitOptions&) =
-      default;
+  MemoryLimitOptions& operator=(const MemoryLimitOptions&) = default;
 
   int64_t per_variable_size_limit() const { return per_variable_size_limit_; }
-  int64_t total_memory_limit() const {
-    return total_memory_limit_;
-  }
+  int64_t total_memory_limit() const { return total_memory_limit_; }
 
  private:
   // Limit on per-variable sizes. Exceeding this limit will cause the
@@ -548,8 +569,7 @@ class ScriptExecutorOptions {
 
   void set_maximum_stack_height(int height) { maximum_stack_depth_ = height; }
 
-  void set_variable_size_limit_options(
-      const MemoryLimitOptions& options) {
+  void set_variable_size_limit_options(const MemoryLimitOptions& options) {
     variable_size_limit_options_ = options;
   }
 

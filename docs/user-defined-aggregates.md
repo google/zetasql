@@ -18,8 +18,11 @@ group has a value for that column.
 
 You can create a UDA using the following syntax:
 
-```sql
-CREATE [ { TEMPORARY | TEMP } ] AGGREGATE FUNCTION
+```zetasql
+CREATE
+  [ OR REPLACE ]
+  [ { TEMPORARY | TEMP } ] AGGREGATE FUNCTION
+  [ IF NOT EXISTS ]
   function_name ( [ function_parameter [, ...] ] )
   [ RETURNS data_type ]
   AS ( function_body )
@@ -36,11 +39,15 @@ This syntax consists of the following components:
 + `CREATE ... FUNCTION`: Creates a new function. A function
   can have zero or more function parameters.
 
-    + `TEMPORARY` or `TEMP`: Indicates that the function is temporary; that is,
-      it exists for the lifetime of the session. A temporary function can have
-      the same name as a built-in function. If this happens, the
+    + `TEMPORARY` or `TEMP`: Indicates that the function is temporary, meaning
+      that it exists for the lifetime of the session. A temporary function can
+      have the same name as a built-in function. If this happens, the
       temporary function hides the built-in function for the duration of the
       temporary function's lifetime.
++ `OR REPLACE`: Replaces any function with the same name if it exists.
+      Can't appear with `IF NOT EXISTS`.
++ `IF NOT EXISTS`: If any function exists with the same name, the `CREATE`
+      statement has no effect. Can't appear with `OR REPLACE`.
 + `function_name`: The name of the function.
 + `function_parameter`: A parameter for the function.
 
@@ -51,7 +58,7 @@ This syntax consists of the following components:
     
     + `ANY TYPE`: The function will accept an argument of any type for this
       function parameter. If more than one parameter includes `ANY TYPE`,
-      a relationship is not enforced between these parameters when the function
+      a relationship isn't enforced between these parameters when the function
       is defined. However, if the type of argument passed into the function at
       call time is incompatible with the function definition, this will
       result in an error.
@@ -60,14 +67,14 @@ This syntax consists of the following components:
     
 
     
-    + `DEFAULT default_value`: If an argument is not provided for a function
+    + `DEFAULT default_value`: If an argument isn't provided for a function
       parameter, `default_value` is used. `default_value` must be a literal
       or `NULL` value. All function parameters following this one
       must also have default values.
     
 
     
-    + `NOT AGGREGATE`: Specifies that a function parameter is not an
+    + `NOT AGGREGATE`: Specifies that a function parameter isn't an
       aggregate. A non-aggregate function parameter can appear anywhere in the
       function definition. You can learn more about UDAF parameters
       [here][aggregate-udf-parameters].
@@ -109,7 +116,7 @@ function parameter. Inside the function definition, the aggregate `SUM` method
 takes the aggregate function parameter `dividend`, while the non-aggregate
 division operator ( `/` ) takes the non-aggregate function parameter `divisor`.
 
-```sql
+```zetasql
 CREATE TEMP AGGREGATE FUNCTION ScaledSum(
   dividend DOUBLE,
   divisor DOUBLE NOT AGGREGATE)

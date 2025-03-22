@@ -3862,7 +3862,7 @@ SELECT float_val, double_val, count(*) as cnt FROM AllTypesTable t
 GROUP BY float_val, double_val
 ORDER BY float_val ASC, double_val ASC
 --
-ARRAY<STRUCT<float_val FLOAT, double_val DOUBLE, cnt INT64>>[known order:
+ARRAY<STRUCT<float_val FLOAT, double_val DOUBLE, cnt INT64>>[unknown order:
   {NULL, NULL, 2},
   {NULL, -0, 2},
   {nan, inf, 2},
@@ -3890,7 +3890,7 @@ SELECT double_val, str_val, count(*) as cnt FROM AllTypesTable t
 GROUP BY double_val, str_val
 ORDER BY double_val ASC, str_val DESC
 --
-ARRAY<STRUCT<double_val DOUBLE, str_val STRING, cnt INT64>>[known order:
+ARRAY<STRUCT<double_val DOUBLE, str_val STRING, cnt INT64>>[unknown order:
   {NULL, "1", 2},
   {NULL, NULL, 2},
   {nan, NULL, 2},

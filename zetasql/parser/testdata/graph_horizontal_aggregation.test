@@ -1,0 +1,161 @@
+[default reserve_graph_table]
+[default language_features=V_1_4_SQL_GRAPH]
+
+select * from graph_table(aml
+  MATCH (a) (-[e]->){1,3} (b)
+  LET cost = SUM(e.cost)
+  RETURN cost
+)
+--
+QueryStatement [0-100] [select * from...RETURN cost )]
+  Query [0-100] [select * from...RETURN cost )]
+    Select [0-100] [select * from...RETURN cost )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-100] [from graph_table...TURN cost )]
+        GraphTableQuery [14-100] [graph_table...RETURN cost )]
+          PathExpression [26-29] [aml]
+            Identifier(aml) [26-29] [aml]
+          GqlOperatorList [32-98] [MATCH (a)...RETURN cost]
+            GqlOperatorList [32-98] [MATCH (a)...RETURN cost]
+              GqlMatch [32-59] [MATCH (a) (-[e]->){1,3} (b)]
+                GraphPattern [38-59] [(a) (-[e]->){1,3} (b)]
+                  GraphPathPattern [38-59] [(a) (-[e]->){1,3} (b)]
+                    GraphNodePattern [38-41] [(a)]
+                      GraphElementPatternFiller [39-40] [a]
+                        Identifier(a) [39-40] [a]
+                    ParenthesizedGraphPathPattern [42-55] [(-[e]->){1,3}]
+                      BoundedQuantifier [50-55] [{1,3}]
+                        QuantifierBound [51-52] [1]
+                          IntLiteral(1) [51-52] [1]
+                        QuantifierBound [53-54] [3]
+                          IntLiteral(3) [53-54] [3]
+                      GraphEdgePattern [43-49] [-[e]->]
+                        GraphElementPatternFiller [45-46] [e]
+                          Identifier(e) [45-46] [e]
+                    GraphNodePattern [56-59] [(b)]
+                      GraphElementPatternFiller [57-58] [b]
+                        Identifier(b) [57-58] [b]
+              GqlLet [62-84] [LET cost = SUM(e.cost)]
+                GqlLetVariableDefinitionList [66-84] [cost = SUM(e.cost)]
+                  GqlLetVariableDefinition [66-84] [cost = SUM(e.cost)]
+                    Identifier(cost) [66-70] [cost]
+                    FunctionCall [73-84] [SUM(e.cost)]
+                      PathExpression [73-76] [SUM]
+                        Identifier(SUM) [73-76] [SUM]
+                      PathExpression [77-83] [e.cost]
+                        Identifier(e) [77-78] [e]
+                        Identifier(cost) [79-83] [cost]
+              GqlReturn [87-98] [RETURN cost]
+                Select [93-98] [cost]
+                  SelectList [94-98] [cost]
+                    SelectColumn [94-98] [cost]
+                      PathExpression [94-98] [cost]
+                        Identifier(cost) [94-98] [cost]
+
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+      (
+        -[e]->
+      ) { 1, 3 }
+      (b)
+    LET
+      cost = SUM(e.cost)
+    RETURN
+      cost
+  )
+
+==
+
+select * from graph_table(aml
+  MATCH ((a) (-[e]->){1,3} (b) where SUM(e.cost) < 10)
+  RETURN a.id
+)
+--
+QueryStatement [0-100] [select * from...RETURN a.id )]
+  Query [0-100] [select * from...RETURN a.id )]
+    Select [0-100] [select * from...RETURN a.id )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-100] [from graph_table...TURN a.id )]
+        GraphTableQuery [14-100] [graph_table...RETURN a.id )]
+          PathExpression [26-29] [aml]
+            Identifier(aml) [26-29] [aml]
+          GqlOperatorList [32-98] [MATCH ((a)...RETURN a.id]
+            GqlOperatorList [32-98] [MATCH ((a)...RETURN a.id]
+              GqlMatch [32-84] [MATCH ((a)...cost) < 10)]
+                GraphPattern [38-84] [((a) (-[e]...cost) < 10)]
+                  ParenthesizedGraphPathPattern [38-84] [((a) (-[e]...cost) < 10)]
+                    WhereClause [61-83] [where SUM(e.cost) < 10]
+                      BinaryExpression(<) [67-83] [SUM(e.cost) < 10]
+                        FunctionCall [67-78] [SUM(e.cost)]
+                          PathExpression [67-70] [SUM]
+                            Identifier(SUM) [67-70] [SUM]
+                          PathExpression [71-77] [e.cost]
+                            Identifier(e) [71-72] [e]
+                            Identifier(cost) [73-77] [cost]
+                        IntLiteral(10) [81-83] [10]
+                    GraphNodePattern [39-42] [(a)]
+                      GraphElementPatternFiller [40-41] [a]
+                        Identifier(a) [40-41] [a]
+                    ParenthesizedGraphPathPattern [43-56] [(-[e]->){1,3}]
+                      BoundedQuantifier [51-56] [{1,3}]
+                        QuantifierBound [52-53] [1]
+                          IntLiteral(1) [52-53] [1]
+                        QuantifierBound [54-55] [3]
+                          IntLiteral(3) [54-55] [3]
+                      GraphEdgePattern [44-50] [-[e]->]
+                        GraphElementPatternFiller [46-47] [e]
+                          Identifier(e) [46-47] [e]
+                    GraphNodePattern [57-60] [(b)]
+                      GraphElementPatternFiller [58-59] [b]
+                        Identifier(b) [58-59] [b]
+              GqlReturn [87-98] [RETURN a.id]
+                Select [93-98] [a.id]
+                  SelectList [94-98] [a.id]
+                    SelectColumn [94-98] [a.id]
+                      PathExpression [94-98] [a.id]
+                        Identifier(a) [94-95] [a]
+                        Identifier(id) [96-98] [id]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (
+        (a)
+        (
+          -[e]->
+        ) { 1, 3 }
+        (b)
+        WHERE
+          SUM(e.cost) < 10
+      )
+    RETURN
+      a.id
+  )
+
+==
+
+# Group by not allowed
+SELECT * from graph_table(aml
+  let x = [1,2,3]
+  let z = SUM(x) GROUP BY x
+  return z
+)
+
+--
+ERROR: Syntax error: Unexpected keyword GROUP [at 3:18]
+  let z = SUM(x) GROUP BY x
+                 ^
+

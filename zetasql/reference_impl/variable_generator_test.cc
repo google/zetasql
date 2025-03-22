@@ -21,12 +21,14 @@
 #include <utility>
 
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/public/id_string.h"
 #include "zetasql/public/type.h"
 #include "zetasql/reference_impl/parameters.h"
+#include "zetasql/reference_impl/variable_id.h"
 #include "zetasql/testing/using_test_value.cc"  // NOLINT
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "absl/memory/memory.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 
 using ::testing::ElementsAre;

@@ -18,7 +18,6 @@
 
 #include <optional>
 #include <string>
-#include <type_traits>
 #include <vector>
 
 #include "zetasql/base/logging.h"

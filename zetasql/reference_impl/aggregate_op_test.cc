@@ -45,10 +45,7 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_join.h"
-#include "absl/types/optional.h"
 #include "absl/types/span.h"
-#include "google/protobuf/wire_format_lite.h"
-#include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 
 using ::testing::_;

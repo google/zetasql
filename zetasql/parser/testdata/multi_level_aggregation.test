@@ -311,74 +311,146 @@ FROM
   T
 ==
 
-# group by cannot be used alongside having min/max.
-select sum(avg(value) having {{max|min}} group by key1) from T
+# The parser allows group by alongside having min/max but the resolver will not.
+select sum(avg(value) having {{max|min}} value2 group by key1) from T
 --
 ALTERNATION GROUP: max
 --
-ERROR: Syntax error: Unexpected keyword GROUP [at 1:34]
-select sum(avg(value) having max group by key1) from T
-                                 ^
+QueryStatement [0-61] [select sum...key1) from T]
+  Query [0-61] [select sum...key1) from T]
+    Select [0-61] [select sum...key1) from T]
+      SelectList [7-54] [sum(avg(value...group by key1)]
+        SelectColumn [7-54] [sum(avg(value...group by key1)]
+          FunctionCall [7-54] [sum(avg(value...group by key1)]
+            PathExpression [7-10] [sum]
+              Identifier(sum) [7-10] [sum]
+            FunctionCall [11-21] [avg(value)]
+              PathExpression [11-14] [avg]
+                Identifier(avg) [11-14] [avg]
+              PathExpression [15-20] [value]
+                Identifier(value) [15-20] [value]
+            HavingModifier [22-39] [having max value2]
+              PathExpression [33-39] [value2]
+                Identifier(value2) [33-39] [value2]
+            GroupBy [40-53] [group by key1]
+              GroupingItem [49-53] [key1]
+                PathExpression [49-53] [key1]
+                  Identifier(key1) [49-53] [key1]
+      FromClause [55-61] [from T]
+        TablePathExpression [60-61] [T]
+          PathExpression [60-61] [T]
+            Identifier(T) [60-61] [T]
+--
+SELECT
+  sum(avg(value)
+    HAVING MAX value2
+    GROUP BY key1)
+FROM
+  T
 --
 ALTERNATION GROUP: min
 --
-ERROR: Syntax error: Unexpected keyword GROUP [at 1:34]
-select sum(avg(value) having min group by key1) from T
-                                 ^
+QueryStatement [0-61] [select sum...key1) from T]
+  Query [0-61] [select sum...key1) from T]
+    Select [0-61] [select sum...key1) from T]
+      SelectList [7-54] [sum(avg(value...group by key1)]
+        SelectColumn [7-54] [sum(avg(value...group by key1)]
+          FunctionCall [7-54] [sum(avg(value...group by key1)]
+            PathExpression [7-10] [sum]
+              Identifier(sum) [7-10] [sum]
+            FunctionCall [11-21] [avg(value)]
+              PathExpression [11-14] [avg]
+                Identifier(avg) [11-14] [avg]
+              PathExpression [15-20] [value]
+                Identifier(value) [15-20] [value]
+            HavingModifier [22-39] [having min value2]
+              PathExpression [33-39] [value2]
+                Identifier(value2) [33-39] [value2]
+            GroupBy [40-53] [group by key1]
+              GroupingItem [49-53] [key1]
+                PathExpression [49-53] [key1]
+                  Identifier(key1) [49-53] [key1]
+      FromClause [55-61] [from T]
+        TablePathExpression [60-61] [T]
+          PathExpression [60-61] [T]
+            Identifier(T) [60-61] [T]
+--
+SELECT
+  sum(avg(value)
+    HAVING MIN value2
+    GROUP BY key1)
+FROM
+  T
 ==
 
 # Aggregate modifiers are allowed at any nesting of a multi-level aggregate
 # function call. The resolver permits these clauses, but disallows the group by
-# modifier to be used alongside the over clause.
+# modifier and having expressions to be used alongside the over clause.
 select
   sum(
     distinct
-      avg(distinct value respect nulls group by key2 order by key3) over ()
+      avg(distinct value respect nulls where value > 10
+      group by key2 having count(*) < 100 order by key3) over ()
     ignore nulls group by key1 order by key2
   ) over ()
 from T
 --
-QueryStatement [0-166] [select   sum...() from T]
-  Query [0-166] [select   sum...() from T]
-    Select [0-166] [select   sum...() from T]
-      SelectList [9-159] [sum(     distinct...) over ()]
-        SelectColumn [9-159] [sum(     distinct...) over ()]
-          AnalyticFunctionCall [9-159] [sum(     distinct...) over ()]
-            FunctionCall(distinct=true) [9-151] [sum(     distinct...y key2   )]
+QueryStatement [0-211] [select   sum...() from T]
+  Query [0-211] [select   sum...() from T]
+    Select [0-211] [select   sum...() from T]
+      SelectList [9-204] [sum(     distinct...) over ()]
+        SelectColumn [9-204] [sum(     distinct...) over ()]
+          AnalyticFunctionCall [9-204] [sum(     distinct...) over ()]
+            FunctionCall(distinct=true) [9-196] [sum(     distinct...y key2   )]
               PathExpression [9-12] [sum]
                 Identifier(sum) [9-12] [sum]
-              AnalyticFunctionCall [33-102] [avg(distinct...key3) over ()]
-                FunctionCall(distinct=true) [33-94] [avg(distinct...order by key3)]
+              AnalyticFunctionCall [33-147] [avg(distinct...key3) over ()]
+                FunctionCall(distinct=true) [33-139] [avg(distinct...order by key3)]
                   PathExpression [33-36] [avg]
                     Identifier(avg) [33-36] [avg]
                   PathExpression [46-51] [value]
                     Identifier(value) [46-51] [value]
-                  GroupBy [66-79] [group by key2]
-                    GroupingItem [75-79] [key2]
-                      PathExpression [75-79] [key2]
-                        Identifier(key2) [75-79] [key2]
-                  OrderBy [80-93] [order by key3]
-                    OrderingExpression(ASC) [89-93] [key3]
-                      PathExpression [89-93] [key3]
-                        Identifier(key3) [89-93] [key3]
-                WindowSpecification [100-102] [()]
-              GroupBy [120-133] [group by key1]
-                GroupingItem [129-133] [key1]
-                  PathExpression [129-133] [key1]
-                    Identifier(key1) [129-133] [key1]
-              OrderBy [134-147] [order by key2]
-                OrderingExpression(ASC) [143-147] [key2]
-                  PathExpression [143-147] [key2]
-                    Identifier(key2) [143-147] [key2]
-            WindowSpecification [157-159] [()]
-      FromClause [160-166] [from T]
-        TablePathExpression [165-166] [T]
-          PathExpression [165-166] [T]
-            Identifier(T) [165-166] [T]
+                  WhereClause [66-82] [where value > 10]
+                    BinaryExpression(>) [72-82] [value > 10]
+                      PathExpression [72-77] [value]
+                        Identifier(value) [72-77] [value]
+                      IntLiteral(10) [80-82] [10]
+                  GroupBy [89-102] [group by key2]
+                    GroupingItem [98-102] [key2]
+                      PathExpression [98-102] [key2]
+                        Identifier(key2) [98-102] [key2]
+                  Having [103-124] [having count(*) < 100]
+                    BinaryExpression(<) [110-124] [count(*) < 100]
+                      FunctionCall [110-118] [count(*)]
+                        PathExpression [110-115] [count]
+                          Identifier(count) [110-115] [count]
+                        Star(*) [116-117] [*]
+                      IntLiteral(100) [121-124] [100]
+                  OrderBy [125-138] [order by key3]
+                    OrderingExpression(ASC) [134-138] [key3]
+                      PathExpression [134-138] [key3]
+                        Identifier(key3) [134-138] [key3]
+                WindowSpecification [145-147] [()]
+              GroupBy [165-178] [group by key1]
+                GroupingItem [174-178] [key1]
+                  PathExpression [174-178] [key1]
+                    Identifier(key1) [174-178] [key1]
+              OrderBy [179-192] [order by key2]
+                OrderingExpression(ASC) [188-192] [key2]
+                  PathExpression [188-192] [key2]
+                    Identifier(key2) [188-192] [key2]
+            WindowSpecification [202-204] [()]
+      FromClause [205-211] [from T]
+        TablePathExpression [210-211] [T]
+          PathExpression [210-211] [T]
+            Identifier(T) [210-211] [T]
 --
 SELECT
   sum(DISTINCT avg(DISTINCT value RESPECT NULLS
+      WHERE
+        value > 10
       GROUP BY key2
+      HAVING count(*) < 100
       ORDER BY key3) OVER () IGNORE NULLS
     GROUP BY key1
     ORDER BY key2) OVER ()
@@ -444,6 +516,109 @@ SELECT
   sum(avg(max(value)
       GROUP BY key1)
     GROUP BY key2)
+FROM
+  T
+==
+
+# WHERE and HAVING expressions are allowed at any nesting of a multi-level
+# aggregate function call.
+select sum(
+  avg(
+    max(
+      value
+      where value > 1
+      group by key1
+      having count(*) > 1)
+    where value2 > 10
+    group by key2
+    having count(*) > 10)
+  where value3 > 100
+  group by key3
+  having count(*) > 100) from T
+--
+QueryStatement [0-243] [select sum...100) from T]
+  Query [0-243] [select sum...100) from T]
+    Select [0-243] [select sum...100) from T]
+      SelectList [7-236] [sum(   avg...(*) > 100)]
+        SelectColumn [7-236] [sum(   avg...(*) > 100)]
+          FunctionCall [7-236] [sum(   avg...(*) > 100)]
+            PathExpression [7-10] [sum]
+              Identifier(sum) [7-10] [sum]
+            FunctionCall [14-174] [avg(     max...count(*) > 10)]
+              PathExpression [14-17] [avg]
+                Identifier(avg) [14-17] [avg]
+              FunctionCall [23-108] [max(...count(*) > 1)]
+                PathExpression [23-26] [max]
+                  Identifier(max) [23-26] [max]
+                PathExpression [34-39] [value]
+                  Identifier(value) [34-39] [value]
+                WhereClause [46-61] [where value > 1]
+                  BinaryExpression(>) [52-61] [value > 1]
+                    PathExpression [52-57] [value]
+                      Identifier(value) [52-57] [value]
+                    IntLiteral(1) [60-61] [1]
+                GroupBy [68-81] [group by key1]
+                  GroupingItem [77-81] [key1]
+                    PathExpression [77-81] [key1]
+                      Identifier(key1) [77-81] [key1]
+                Having [88-107] [having count(*) > 1]
+                  BinaryExpression(>) [95-107] [count(*) > 1]
+                    FunctionCall [95-103] [count(*)]
+                      PathExpression [95-100] [count]
+                        Identifier(count) [95-100] [count]
+                      Star(*) [101-102] [*]
+                    IntLiteral(1) [106-107] [1]
+              WhereClause [113-130] [where value2 > 10]
+                BinaryExpression(>) [119-130] [value2 > 10]
+                  PathExpression [119-125] [value2]
+                    Identifier(value2) [119-125] [value2]
+                  IntLiteral(10) [128-130] [10]
+              GroupBy [135-148] [group by key2]
+                GroupingItem [144-148] [key2]
+                  PathExpression [144-148] [key2]
+                    Identifier(key2) [144-148] [key2]
+              Having [153-173] [having count(*) > 10]
+                BinaryExpression(>) [160-173] [count(*) > 10]
+                  FunctionCall [160-168] [count(*)]
+                    PathExpression [160-165] [count]
+                      Identifier(count) [160-165] [count]
+                    Star(*) [166-167] [*]
+                  IntLiteral(10) [171-173] [10]
+            WhereClause [177-195] [where value3 > 100]
+              BinaryExpression(>) [183-195] [value3 > 100]
+                PathExpression [183-189] [value3]
+                  Identifier(value3) [183-189] [value3]
+                IntLiteral(100) [192-195] [100]
+            GroupBy [198-211] [group by key3]
+              GroupingItem [207-211] [key3]
+                PathExpression [207-211] [key3]
+                  Identifier(key3) [207-211] [key3]
+            Having [214-235] [having count(*) > 100]
+              BinaryExpression(>) [221-235] [count(*) > 100]
+                FunctionCall [221-229] [count(*)]
+                  PathExpression [221-226] [count]
+                    Identifier(count) [221-226] [count]
+                  Star(*) [227-228] [*]
+                IntLiteral(100) [232-235] [100]
+      FromClause [237-243] [from T]
+        TablePathExpression [242-243] [T]
+          PathExpression [242-243] [T]
+            Identifier(T) [242-243] [T]
+--
+SELECT
+  sum(avg(max(value
+        WHERE
+          value > 1
+        GROUP BY key1
+        HAVING count(*) > 1)
+      WHERE
+        value2 > 10
+      GROUP BY key2
+      HAVING count(*) > 10)
+    WHERE
+      value3 > 100
+    GROUP BY key3
+    HAVING count(*) > 100)
 FROM
   T
 ==

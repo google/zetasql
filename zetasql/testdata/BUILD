@@ -13,6 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("@com_google_protobuf//bazel:java_proto_library.bzl", "java_proto_library")
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
+
 package(
     default_visibility = ["//zetasql/base:zetasql_implementation"],
 )
@@ -213,6 +216,7 @@ cc_library(
         "//zetasql/base:source_location",
         "//zetasql/base:status",
         "//zetasql/common:errors",
+        "//zetasql/common:internal_property_graph",
         "//zetasql/public:analyzer",
         "//zetasql/public:analyzer_output",
         "//zetasql/public:anon_function",
@@ -226,6 +230,7 @@ cc_library(
         "//zetasql/public:function",
         "//zetasql/public:function_cc_proto",
         "//zetasql/public:language_options",
+        "//zetasql/public:measure_expression",
         "//zetasql/public:options_cc_proto",
         "//zetasql/public:parse_resume_location",
         "//zetasql/public:simple_catalog",
@@ -254,7 +259,6 @@ cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/synchronization",
         "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:span",

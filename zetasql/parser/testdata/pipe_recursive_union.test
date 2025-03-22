@@ -1,0 +1,741 @@
+[default language_features=PIPES]
+# Input is a subquery.
+from t
+|> recursive union all (select 1)
+--
+QueryStatement [23-63] [from t |>...(select 1)]
+  Query [23-63] [from t |>...(select 1)]
+    FromQuery [23-29] [from t]
+      FromClause [23-29] [from t]
+        TablePathExpression [28-29] [t]
+          PathExpression [28-29] [t]
+            Identifier(t) [28-29] [t]
+    PipeRecursiveUnion [30-63] [|> recursive...(select 1)]
+      SetOperationMetadata [43-52] [union all]
+        SetOperationType [43-48] [union]
+        SetOperationAllOrDistinct [49-52] [all]
+      Query [53-63] [(select 1)]
+        Select [54-62] [select 1]
+          SelectList [61-62] [1]
+            SelectColumn [61-62] [1]
+              IntLiteral(1) [61-62] [1]
+--
+FROM
+  t
+|> RECURSIVE UNION ALL(
+   SELECT
+     1
+   )
+==
+
+# Input is a subpipeline.
+from t
+|> recursive union all (
+  |> extend 1
+)
+--
+QueryStatement [0-47] [from t |>...extend 1 )]
+  Query [0-47] [from t |>...extend 1 )]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeRecursiveUnion [7-47] [|> recursive...extend 1 )]
+      SetOperationMetadata [20-29] [union all]
+        SetOperationType [20-25] [union]
+        SetOperationAllOrDistinct [26-29] [all]
+      Subpipeline [30-47] [(   |> extend 1 )]
+        PipeExtend [34-45] [|> extend 1]
+          Select [37-45] [extend 1]
+            SelectList [44-45] [1]
+              SelectColumn [44-45] [1]
+                IntLiteral(1) [44-45] [1]
+--
+FROM
+  t
+|> RECURSIVE UNION ALL(
+     |> EXTEND
+          1
+   )
+==
+
+# Parser does not reject non union set operations; the check will happen in
+# the resolver.
+from t
+|> recursive {{union|intersect|except}} {{all|distinct}} (select 1)
+--
+ALTERNATION GROUP: union,all
+--
+QueryStatement [0-40] [from t |>...(select 1)]
+  Query [0-40] [from t |>...(select 1)]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeRecursiveUnion [7-40] [|> recursive...(select 1)]
+      SetOperationMetadata [20-29] [union all]
+        SetOperationType [20-25] [union]
+        SetOperationAllOrDistinct [26-29] [all]
+      Query [30-40] [(select 1)]
+        Select [31-39] [select 1]
+          SelectList [38-39] [1]
+            SelectColumn [38-39] [1]
+              IntLiteral(1) [38-39] [1]
+--
+FROM
+  t
+|> RECURSIVE UNION ALL(
+   SELECT
+     1
+   )
+--
+ALTERNATION GROUP: union,distinct
+--
+QueryStatement [0-45] [from t |>...(select 1)]
+  Query [0-45] [from t |>...(select 1)]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeRecursiveUnion [7-45] [|> recursive...(select 1)]
+      SetOperationMetadata [20-34] [union distinct]
+        SetOperationType [20-25] [union]
+        SetOperationAllOrDistinct [26-34] [distinct]
+      Query [35-45] [(select 1)]
+        Select [36-44] [select 1]
+          SelectList [43-44] [1]
+            SelectColumn [43-44] [1]
+              IntLiteral(1) [43-44] [1]
+--
+FROM
+  t
+|> RECURSIVE UNION DISTINCT(
+   SELECT
+     1
+   )
+--
+ALTERNATION GROUP: intersect,all
+--
+QueryStatement [0-44] [from t |>...(select 1)]
+  Query [0-44] [from t |>...(select 1)]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeRecursiveUnion [7-44] [|> recursive...(select 1)]
+      SetOperationMetadata [20-33] [intersect all]
+        SetOperationType [20-29] [intersect]
+        SetOperationAllOrDistinct [30-33] [all]
+      Query [34-44] [(select 1)]
+        Select [35-43] [select 1]
+          SelectList [42-43] [1]
+            SelectColumn [42-43] [1]
+              IntLiteral(1) [42-43] [1]
+--
+FROM
+  t
+|> RECURSIVE INTERSECT ALL(
+   SELECT
+     1
+   )
+--
+ALTERNATION GROUP: intersect,distinct
+--
+QueryStatement [0-49] [from t |>...(select 1)]
+  Query [0-49] [from t |>...(select 1)]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeRecursiveUnion [7-49] [|> recursive...(select 1)]
+      SetOperationMetadata [20-38] [intersect distinct]
+        SetOperationType [20-29] [intersect]
+        SetOperationAllOrDistinct [30-38] [distinct]
+      Query [39-49] [(select 1)]
+        Select [40-48] [select 1]
+          SelectList [47-48] [1]
+            SelectColumn [47-48] [1]
+              IntLiteral(1) [47-48] [1]
+--
+FROM
+  t
+|> RECURSIVE INTERSECT DISTINCT(
+   SELECT
+     1
+   )
+--
+ALTERNATION GROUP: except,all
+--
+QueryStatement [0-41] [from t |>...(select 1)]
+  Query [0-41] [from t |>...(select 1)]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeRecursiveUnion [7-41] [|> recursive...(select 1)]
+      SetOperationMetadata [20-30] [except all]
+        SetOperationType [20-26] [except]
+        SetOperationAllOrDistinct [27-30] [all]
+      Query [31-41] [(select 1)]
+        Select [32-40] [select 1]
+          SelectList [39-40] [1]
+            SelectColumn [39-40] [1]
+              IntLiteral(1) [39-40] [1]
+--
+FROM
+  t
+|> RECURSIVE EXCEPT ALL(
+   SELECT
+     1
+   )
+--
+ALTERNATION GROUP: except,distinct
+--
+QueryStatement [0-46] [from t |>...(select 1)]
+  Query [0-46] [from t |>...(select 1)]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeRecursiveUnion [7-46] [|> recursive...(select 1)]
+      SetOperationMetadata [20-35] [except distinct]
+        SetOperationType [20-26] [except]
+        SetOperationAllOrDistinct [27-35] [distinct]
+      Query [36-46] [(select 1)]
+        Select [37-45] [select 1]
+          SelectList [44-45] [1]
+            SelectColumn [44-45] [1]
+              IntLiteral(1) [44-45] [1]
+--
+FROM
+  t
+|> RECURSIVE EXCEPT DISTINCT(
+   SELECT
+     1
+   )
+==
+
+# Depth modifiers are allowed.
+from t
+|> recursive union all
+  with depth {{|as d|max 10|between 10 and 12|between 10 and unbounded}}
+  (select 1)
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStatement [0-56] [from t |>...(select 1)]
+  Query [0-56] [from t |>...(select 1)]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeRecursiveUnion [7-56] [|> recursive...(select 1)]
+      SetOperationMetadata [20-29] [union all]
+        SetOperationType [20-25] [union]
+        SetOperationAllOrDistinct [26-29] [all]
+      RecursionDepthModifier [32-42] [with depth]
+        IntOrUnbounded [42-42] []
+        IntOrUnbounded [42-42] []
+      Query [46-56] [(select 1)]
+        Select [47-55] [select 1]
+          SelectList [54-55] [1]
+            SelectColumn [54-55] [1]
+              IntLiteral(1) [54-55] [1]
+--
+FROM
+  t
+|> RECURSIVE UNION ALL WITH DEPTH BETWEEN UNBOUNDED AND UNBOUNDED(
+   SELECT
+     1
+   )
+--
+ALTERNATION GROUP: as d
+--
+QueryStatement [0-60] [from t |>...(select 1)]
+  Query [0-60] [from t |>...(select 1)]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeRecursiveUnion [7-60] [|> recursive...(select 1)]
+      SetOperationMetadata [20-29] [union all]
+        SetOperationType [20-25] [union]
+        SetOperationAllOrDistinct [26-29] [all]
+      RecursionDepthModifier [32-47] [with depth as d]
+        Alias [43-47] [as d]
+          Identifier(d) [46-47] [d]
+        IntOrUnbounded [47-47] []
+        IntOrUnbounded [47-47] []
+      Query [50-60] [(select 1)]
+        Select [51-59] [select 1]
+          SelectList [58-59] [1]
+            SelectColumn [58-59] [1]
+              IntLiteral(1) [58-59] [1]
+--
+FROM
+  t
+|> RECURSIVE UNION ALL WITH DEPTH AS d BETWEEN UNBOUNDED AND UNBOUNDED(
+   SELECT
+     1
+   )
+--
+ALTERNATION GROUP: max 10
+--
+QueryStatement [0-62] [from t |>...(select 1)]
+  Query [0-62] [from t |>...(select 1)]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeRecursiveUnion [7-62] [|> recursive...(select 1)]
+      SetOperationMetadata [20-29] [union all]
+        SetOperationType [20-25] [union]
+        SetOperationAllOrDistinct [26-29] [all]
+      RecursionDepthModifier [32-49] [with depth max 10]
+        IntOrUnbounded [42-42] []
+        IntOrUnbounded [47-49] [10]
+          IntLiteral(10) [47-49] [10]
+      Query [52-62] [(select 1)]
+        Select [53-61] [select 1]
+          SelectList [60-61] [1]
+            SelectColumn [60-61] [1]
+              IntLiteral(1) [60-61] [1]
+--
+FROM
+  t
+|> RECURSIVE UNION ALL WITH DEPTH BETWEEN UNBOUNDED AND 10(
+   SELECT
+     1
+   )
+--
+ALTERNATION GROUP: between 10 and 12
+--
+QueryStatement [0-73] [from t |>...(select 1)]
+  Query [0-73] [from t |>...(select 1)]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeRecursiveUnion [7-73] [|> recursive...(select 1)]
+      SetOperationMetadata [20-29] [union all]
+        SetOperationType [20-25] [union]
+        SetOperationAllOrDistinct [26-29] [all]
+      RecursionDepthModifier [32-60] [with depth between 10 and 12]
+        IntOrUnbounded [51-53] [10]
+          IntLiteral(10) [51-53] [10]
+        IntOrUnbounded [58-60] [12]
+          IntLiteral(12) [58-60] [12]
+      Query [63-73] [(select 1)]
+        Select [64-72] [select 1]
+          SelectList [71-72] [1]
+            SelectColumn [71-72] [1]
+              IntLiteral(1) [71-72] [1]
+--
+FROM
+  t
+|> RECURSIVE UNION ALL WITH DEPTH BETWEEN 10 AND 12(
+   SELECT
+     1
+   )
+--
+ALTERNATION GROUP: between 10 and unbounded
+--
+QueryStatement [0-80] [from t |>...(select 1)]
+  Query [0-80] [from t |>...(select 1)]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeRecursiveUnion [7-80] [|> recursive...(select 1)]
+      SetOperationMetadata [20-29] [union all]
+        SetOperationType [20-25] [union]
+        SetOperationAllOrDistinct [26-29] [all]
+      RecursionDepthModifier [32-67] [with depth...unbounded]
+        IntOrUnbounded [51-53] [10]
+          IntLiteral(10) [51-53] [10]
+        IntOrUnbounded [58-67] [unbounded]
+      Query [70-80] [(select 1)]
+        Select [71-79] [select 1]
+          SelectList [78-79] [1]
+            SelectColumn [78-79] [1]
+              IntLiteral(1) [78-79] [1]
+--
+FROM
+  t
+|> RECURSIVE UNION ALL WITH DEPTH BETWEEN 10 AND UNBOUNDED(
+   SELECT
+     1
+   )
+==
+
+# Set operation modifiers are allowed.
+from t
+|> recursive union all
+  {{|strict}} {{corresponding|corresponding by (a)}}
+  (|> extend 1)
+--
+ALTERNATION GROUP: corresponding
+--
+QueryStatement [0-62] [from t |>...extend 1)]
+  Query [0-62] [from t |>...extend 1)]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeRecursiveUnion [7-62] [|> recursive...extend 1)]
+      SetOperationMetadata [20-46] [union all    corresponding]
+        SetOperationType [20-25] [union]
+        SetOperationAllOrDistinct [26-29] [all]
+        SetOperationColumnMatchMode [33-46] [corresponding]
+      Subpipeline [49-62] [(|> extend 1)]
+        PipeExtend [50-61] [|> extend 1]
+          Select [53-61] [extend 1]
+            SelectList [60-61] [1]
+              SelectColumn [60-61] [1]
+                IntLiteral(1) [60-61] [1]
+--
+FROM
+  t
+|> RECURSIVE UNION ALL CORRESPONDING(
+     |> EXTEND
+          1
+   )
+--
+ALTERNATION GROUP: corresponding by (a)
+--
+QueryStatement [0-69] [from t |>...extend 1)]
+  Query [0-69] [from t |>...extend 1)]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeRecursiveUnion [7-69] [|> recursive...extend 1)]
+      SetOperationMetadata [20-53] [union all...rresponding by (a)]
+        SetOperationType [20-25] [union]
+        SetOperationAllOrDistinct [26-29] [all]
+        SetOperationColumnMatchMode [33-49] [corresponding by]
+        ColumnList [50-53] [(a)]
+          Identifier(a) [51-52] [a]
+      Subpipeline [56-69] [(|> extend 1)]
+        PipeExtend [57-68] [|> extend 1]
+          Select [60-68] [extend 1]
+            SelectList [67-68] [1]
+              SelectColumn [67-68] [1]
+                IntLiteral(1) [67-68] [1]
+--
+FROM
+  t
+|> RECURSIVE UNION ALL CORRESPONDING BY (a)(
+     |> EXTEND
+          1
+   )
+--
+ALTERNATION GROUP: strict,corresponding
+--
+QueryStatement [0-68] [from t |>...extend 1)]
+  Query [0-68] [from t |>...extend 1)]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeRecursiveUnion [7-68] [|> recursive...extend 1)]
+      SetOperationMetadata [20-52] [union all...corresponding]
+        SetOperationType [20-25] [union]
+        SetOperationAllOrDistinct [26-29] [all]
+        SetOperationColumnMatchMode [39-52] [corresponding]
+        SetOperationColumnPropagationMode [32-38] [strict]
+      Subpipeline [55-68] [(|> extend 1)]
+        PipeExtend [56-67] [|> extend 1]
+          Select [59-67] [extend 1]
+            SelectList [66-67] [1]
+              SelectColumn [66-67] [1]
+                IntLiteral(1) [66-67] [1]
+--
+FROM
+  t
+|> RECURSIVE UNION ALL STRICT CORRESPONDING(
+     |> EXTEND
+          1
+   )
+--
+ALTERNATION GROUP: strict,corresponding by (a)
+--
+QueryStatement [0-75] [from t |>...extend 1)]
+  Query [0-75] [from t |>...extend 1)]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeRecursiveUnion [7-75] [|> recursive...extend 1)]
+      SetOperationMetadata [20-59] [union all...rresponding by (a)]
+        SetOperationType [20-25] [union]
+        SetOperationAllOrDistinct [26-29] [all]
+        SetOperationColumnMatchMode [39-55] [corresponding by]
+        SetOperationColumnPropagationMode [32-38] [strict]
+        ColumnList [56-59] [(a)]
+          Identifier(a) [57-58] [a]
+      Subpipeline [62-75] [(|> extend 1)]
+        PipeExtend [63-74] [|> extend 1]
+          Select [66-74] [extend 1]
+            SelectList [73-74] [1]
+              SelectColumn [73-74] [1]
+                IntLiteral(1) [73-74] [1]
+--
+FROM
+  t
+|> RECURSIVE UNION ALL STRICT CORRESPONDING BY (a)(
+     |> EXTEND
+          1
+   )
+==
+
+# Set operation modifiers are allowed.
+from t
+|> {{full|left}} union distinct (select 1)
+--
+ALTERNATION GROUP: full
+--
+QueryStatement [0-40] [from t |>...(select 1)]
+  Query [0-40] [from t |>...(select 1)]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeSetOperation [7-40] [|> full union...(select 1)]
+      SetOperationMetadata [10-29] [full union distinct]
+        SetOperationType [15-20] [union]
+        SetOperationAllOrDistinct [21-29] [distinct]
+        SetOperationColumnPropagationMode [10-14] [full]
+      Query [31-39] [select 1]
+        Select [31-39] [select 1]
+          SelectList [38-39] [1]
+            SelectColumn [38-39] [1]
+              IntLiteral(1) [38-39] [1]
+--
+FROM
+  t
+|> FULL UNION DISTINCT
+   (
+   SELECT
+     1
+   )
+--
+ALTERNATION GROUP: left
+--
+QueryStatement [0-40] [from t |>...(select 1)]
+  Query [0-40] [from t |>...(select 1)]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeSetOperation [7-40] [|> left union...(select 1)]
+      SetOperationMetadata [10-29] [left union distinct]
+        SetOperationType [15-20] [union]
+        SetOperationAllOrDistinct [21-29] [distinct]
+        SetOperationColumnPropagationMode [10-14] [left]
+      Query [31-39] [select 1]
+        Select [31-39] [select 1]
+          SelectList [38-39] [1]
+            SelectColumn [38-39] [1]
+              IntLiteral(1) [38-39] [1]
+--
+FROM
+  t
+|> LEFT UNION DISTINCT
+   (
+   SELECT
+     1
+   )
+==
+
+# Set operation modifiers are allowed.
+from t
+|> recursive union distinct by name (from t)
+--
+QueryStatement [0-51] [from t |>...name (from t)]
+  Query [0-51] [from t |>...name (from t)]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeRecursiveUnion [7-51] [|> recursive...name (from t)]
+      SetOperationMetadata [20-42] [union distinct by name]
+        SetOperationType [20-25] [union]
+        SetOperationAllOrDistinct [26-34] [distinct]
+        SetOperationColumnMatchMode [35-42] [by name]
+      Query [43-51] [(from t)]
+        FromQuery [44-50] [from t]
+          FromClause [44-50] [from t]
+            TablePathExpression [49-50] [t]
+              PathExpression [49-50] [t]
+                Identifier(t) [49-50] [t]
+--
+FROM
+  t
+|> RECURSIVE UNION DISTINCT BY NAME(
+   FROM
+     t)
+==
+
+# Trailing alias is allowed.
+from t
+|> recursive union distinct (|> where false) as alias
+--
+QueryStatement [0-60] [from t |>...) as alias]
+  Query [0-60] [from t |>...) as alias]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeRecursiveUnion [7-60] [|> recursive...) as alias]
+      SetOperationMetadata [20-34] [union distinct]
+        SetOperationType [20-25] [union]
+        SetOperationAllOrDistinct [26-34] [distinct]
+      Subpipeline [35-51] [(|> where false)]
+        PipeWhere [36-50] [|> where false]
+          WhereClause [39-50] [where false]
+            BooleanLiteral(false) [45-50] [false]
+      Alias [52-60] [as alias]
+        Identifier(alias) [55-60] [alias]
+--
+FROM
+  t
+|> RECURSIVE UNION DISTINCT(
+     |> WHERE
+          false
+   ) AS alias
+==
+
+# Empty subpipeline is allowed by the parser, but will be rejected by the
+# resolver.
+from t
+|> recursive union distinct ()
+--
+QueryStatement [0-37] [from t |>...distinct ()]
+  Query [0-37] [from t |>...distinct ()]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeRecursiveUnion [7-37] [|> recursive union distinct ()]
+      SetOperationMetadata [20-34] [union distinct]
+        SetOperationType [20-25] [union]
+        SetOperationAllOrDistinct [26-34] [distinct]
+      Subpipeline [35-37] [()]
+--
+FROM
+  t
+|> RECURSIVE UNION DISTINCT()
+==
+
+# Trailing comma is not allowed.
+from t
+|> recursive union distinct (),
+--
+ERROR: Syntax error: Expected end of input but got "," [at 2:31]
+|> recursive union distinct (),
+                              ^
+==
+
+# Multiple inputs to recursive union are not allowed.
+from t
+|> recursive union distinct (select 1), (|> where false)
+--
+ERROR: Syntax error: Expected end of input but got "," [at 2:39]
+|> recursive union distinct (select 1), (|> where false)
+                                      ^
+==
+
+# Multiple inputs to recursive union are not allowed.
+from t
+|> recursive union distinct (|> where false), (select 2), (select 3)
+--
+ERROR: Syntax error: Expected end of input but got "," [at 2:45]
+|> recursive union distinct (|> where false), (select 2), (select 3)
+                                            ^
+==
+
+# ALL or DISTINCT is required.
+from t
+|> recursive union (select 1)
+--
+ERROR: Syntax error: Expected keyword ALL or keyword DISTINCT but got "(" [at 2:20]
+|> recursive union (select 1)
+                   ^
+==
+
+# The keyword "AS" in alias is required.
+from t
+|> recursive union distinct (|> where false) alias
+--
+ERROR: Syntax error: The keyword "AS" is required before the alias for pipe RECURSIVE UNION [at 2:46]
+|> recursive union distinct (|> where false) alias
+                                             ^
+==
+
+# "AS" is required before depth alias.
+from t
+|> recursive union distinct with depth depth_alias (|> select 1)
+--
+ERROR: Syntax error: Expected "(" but got identifier "depth_alias" [at 2:40]
+|> recursive union distinct with depth depth_alias (|> select 1)
+                                       ^
+==
+
+# Missing parentheses around the subquery.
+from t
+|> recursive union distinct from t
+--
+ERROR: Syntax error: Expected "(" but got keyword FROM [at 2:29]
+|> recursive union distinct from t
+                            ^
+==
+
+# FROM clause is interpreted as a subquery, not an invalid subpipeline.
+from t
+|> recursive union distinct (from t)
+--
+QueryStatement [0-43] [from t |>...distinct (from t)]
+  Query [0-43] [from t |>...distinct (from t)]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeRecursiveUnion [7-43] [|> recursive...stinct (from t)]
+      SetOperationMetadata [20-34] [union distinct]
+        SetOperationType [20-25] [union]
+        SetOperationAllOrDistinct [26-34] [distinct]
+      Query [35-43] [(from t)]
+        FromQuery [36-42] [from t]
+          FromClause [36-42] [from t]
+            TablePathExpression [41-42] [t]
+              PathExpression [41-42] [t]
+                Identifier(t) [41-42] [t]
+--
+FROM
+  t
+|> RECURSIVE UNION DISTINCT(
+   FROM
+     t)

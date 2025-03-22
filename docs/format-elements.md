@@ -199,8 +199,8 @@ Format strings generally support the following elements:
 </td>
       <td>
         The <a href="https://en.wikipedia.org/wiki/ISO_8601">ISO 8601</a>
-        1-based day of the year (001-364 or 001-371 days). If the ISO year is
-        not set, this format element is ignored.
+        1-based day of the year (001-364 or 001-371 days). If the ISO year isn't
+        set, this format element is ignored.
       </td>
       <td><code>364</code></td>
     </tr>
@@ -379,8 +379,8 @@ Format strings generally support the following elements:
         The <a href="https://en.wikipedia.org/wiki/ISO_week_date">ISO 8601</a>
         week number of the year (Monday as the first
         day of the week) as a decimal number (01-53).  If the week containing
-        January 1 has four or more days in the new year, then it is week 1;
-        otherwise it is week 53 of the previous year, and the next week is
+        January 1 has four or more days in the new year, then it's week 1;
+        otherwise it's week 53 of the previous year, and the next week is
         week 1.
       </td>
       <td><code>03</code></td>
@@ -444,7 +444,7 @@ Format strings generally support the following elements:
 </td>
       <td>
         The year without century as a decimal number (00-99), with an optional
-        leading zero. Can be mixed with %C. If %C is not specified, years 00-68 are
+        leading zero. Can be mixed with %C. If %C isn't specified, years 00-68 are
         2000s, while years 69-99 are 1900s.
       </td>
       <td><code>21</code></td>
@@ -521,7 +521,7 @@ Format strings generally support the following elements:
 
 Examples:
 
-```sql
+```zetasql
 SELECT FORMAT_DATE("%b-%d-%Y", DATE "2008-12-25") AS formatted;
 
 /*-------------*
@@ -531,7 +531,7 @@ SELECT FORMAT_DATE("%b-%d-%Y", DATE "2008-12-25") AS formatted;
  *-------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   FORMAT_DATETIME("%c", DATETIME "2008-12-25 15:30:00")
   AS formatted;
@@ -543,7 +543,7 @@ SELECT
  *--------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT FORMAT_TIME("%R", TIME "15:30:00") as formatted_time;
 
 /*----------------*
@@ -553,7 +553,7 @@ SELECT FORMAT_TIME("%R", TIME "15:30:00") as formatted_time;
  *----------------*/
 ```
 
-```sql
+```zetasql
 SELECT FORMAT_TIMESTAMP("%b %Y %Ez", TIMESTAMP "2008-12-25 15:30:00+00")
   AS formatted;
 
@@ -564,7 +564,7 @@ SELECT FORMAT_TIMESTAMP("%b %Y %Ez", TIMESTAMP "2008-12-25 15:30:00+00")
  *-----------------*/
 ```
 
-```sql
+```zetasql
 SELECT PARSE_DATE("%Y%m%d", "20081225") AS parsed;
 
 /*------------*
@@ -574,7 +574,7 @@ SELECT PARSE_DATE("%Y%m%d", "20081225") AS parsed;
  *------------*/
 ```
 
-```sql
+```zetasql
 SELECT PARSE_DATETIME('%Y-%m-%d %H:%M:%S', '1998-10-18 13:45:55') AS datetime;
 
 /*---------------------*
@@ -584,7 +584,7 @@ SELECT PARSE_DATETIME('%Y-%m-%d %H:%M:%S', '1998-10-18 13:45:55') AS datetime;
  *---------------------*/
 ```
 
-```sql
+```zetasql
 SELECT PARSE_TIME('%I:%M:%S %p', '2:23:38 pm') AS parsed_time
 
 /*-------------*
@@ -594,7 +594,7 @@ SELECT PARSE_TIME('%I:%M:%S %p', '2:23:38 pm') AS parsed_time
  *-------------*/
 ```
 
-```sql
+```zetasql
 SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008") AS parsed;
 
 -- Display of results may differ, depending upon the environment and
@@ -609,7 +609,7 @@ SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008") AS parsed;
 ## Format clause for CAST 
 <a id="formatting_syntax"></a>
 
-```sql
+```zetasql
 format_clause:
   FORMAT format_model
 
@@ -629,12 +629,12 @@ format elements combined together as a format string.
 ### Format bytes as string 
 <a id="format_bytes_as_string"></a>
 
-```sql
+```zetasql
 CAST(bytes_expression AS STRING FORMAT format_string_expression)
 ```
 
 You can cast a sequence of bytes to a string with a format element in the
-format string. If the bytes cannot be formatted with a
+format string. If the bytes can't be formatted with a
 format element, an error is returned. If the sequence of bytes is `NULL`, the
 result is `NULL`. Format elements are case-insensitive.
 
@@ -688,7 +688,7 @@ result is `NULL`. Format elements are case-insensitive.
       <td>ASCII</td>
       <td>
         Converts a sequence of bytes that are ASCII values to a string. If the
-        input contains bytes that are not a valid ASCII encoding, an error
+        input contains bytes that aren't a valid ASCII encoding, an error
         is returned.
       </td>
       <td>
@@ -700,7 +700,7 @@ result is `NULL`. Format elements are case-insensitive.
       <td>UTF-8</td>
       <td>
         Converts a sequence of bytes that are UTF-8 values to a string.
-        If the input contains bytes that are not a valid UTF-8 encoding,
+        If the input contains bytes that aren't a valid UTF-8 encoding,
         an error is returned.
       </td>
       <td>
@@ -725,7 +725,7 @@ result is `NULL`. Format elements are case-insensitive.
 
 **Example**
 
-```sql
+```zetasql
 SELECT CAST(b'\x48\x65\x6c\x6c\x6f' AS STRING FORMAT 'ASCII') AS bytes_to_string;
 
 /*-----------------*
@@ -738,12 +738,12 @@ SELECT CAST(b'\x48\x65\x6c\x6c\x6f' AS STRING FORMAT 'ASCII') AS bytes_to_string
 ### Format string as bytes 
 <a id="format_string_as_bytes"></a>
 
-```sql
+```zetasql
 CAST(string_expression AS BYTES FORMAT format_string_expression)
 ```
 
 You can cast a string to bytes with a format element in the
-format string. If the string cannot be formatted with the
+format string. If the string can't be formatted with the
 format element, an error is returned. Format elements are case-insensitive.
 
 In the string expression, whitespace characters, such as `\n`, are ignored
@@ -762,7 +762,7 @@ if the `BASE64` or `BASE64M` format element is used.
       <td>HEX</td>
       <td>
         Converts a hexadecimal-encoded string to bytes. If the input
-        contains characters that are not part of the HEX encoding alphabet
+        contains characters that aren't part of the HEX encoding alphabet
         (0~9, case-insensitive a~f), an error is returned.
       </td>
       <td>
@@ -777,7 +777,7 @@ if the `BASE64` or `BASE64M` format element is used.
       <td>
         Converts a <a href="#about_basex_encoding">BASEX</a>-encoded string to
         bytes.  X represents one of these numbers: 2, 8, 16, 32, 64. An error
-        is returned if the input contains characters that are not part of the
+        is returned if the input contains characters that aren't part of the
         BASEX encoding alphabet, except whitespace characters if the
         format element is <code>BASE64</code>.
       </td>
@@ -790,7 +790,7 @@ if the `BASE64` or `BASE64M` format element is used.
       <td>BASE64M</td>
       <td>
         Converts a <a href="#about_basex_encoding">base64</a>-encoded string to
-        bytes. If the input contains characters that are not whitespace and not
+        bytes. If the input contains characters that aren't whitespace and not
         part of the base64 encoding alphabet defined at
         <a href="https://tools.ietf.org/html/rfc2045#section-6.8">rfc 2045</a>,
         an error is returned. <code>BASE64M</code> and <code>BASE64</code>
@@ -805,7 +805,7 @@ if the `BASE64` or `BASE64M` format element is used.
       <td>ASCII</td>
       <td>
         Converts a string with only ASCII characters to bytes. If the input
-        contains characters that are not ASCII characters, an error is
+        contains characters that aren't ASCII characters, an error is
         returned.
       </td>
       <td>
@@ -840,7 +840,7 @@ if the `BASE64` or `BASE64M` format element is used.
 
 **Example**
 
-```sql
+```zetasql
 SELECT CAST('Hello' AS BYTES FORMAT 'ASCII') AS string_to_bytes
 
 -- Displays the bytes output value (b'\x48\x65\x6c\x6c\x6f').
@@ -890,7 +890,7 @@ format element is capitalized. This is called case matching. The rules are:
 #### Format year part as string 
 <a id="format_year_as_string"></a>
 
-```sql
+```zetasql
 CAST(expression AS STRING FORMAT format_string_expression)
 ```
 
@@ -910,8 +910,8 @@ These data types include a year part:
 
 If `expression` or `format_string_expression` is `NULL` the return value is
 `NULL`. If `format_string_expression` is an empty string, the output is an
-empty string. An error is generated if a value that is not a supported
-format element appears in `format_string_expression` or `expression` does not
+empty string. An error is generated if a value that isn't a supported
+format element appears in `format_string_expression` or `expression` doesn't
 contain a value specified by a format element.
 
 <table>
@@ -986,7 +986,7 @@ contain a value specified by a format element.
 
 **Example**
 
-```sql
+```zetasql
 SELECT CAST(DATE '2018-01-30' AS STRING FORMAT 'YYYY') AS date_time_to_string;
 
 /*---------------------*
@@ -999,7 +999,7 @@ SELECT CAST(DATE '2018-01-30' AS STRING FORMAT 'YYYY') AS date_time_to_string;
 #### Format month part as string 
 <a id="format_month_as_string"></a>
 
-```sql
+```zetasql
 CAST(expression AS STRING FORMAT format_string_expression)
 ```
 
@@ -1019,8 +1019,8 @@ These data types include a month part:
 
 If `expression` or `format_string_expression` is `NULL` the return value is
 `NULL`. If `format_string_expression` is an empty string, the output is an
-empty string. An error is generated if a value that is not a supported
-format element appears in `format_string_expression` or `expression` does not
+empty string. An error is generated if a value that isn't a supported
+format element appears in `format_string_expression` or `expression` doesn't
 contain a value specified by a format element.
 
 <table>
@@ -1073,7 +1073,7 @@ contain a value specified by a format element.
 
 **Example**
 
-```sql
+```zetasql
 SELECT CAST(DATE '2018-01-30' AS STRING FORMAT 'MONTH') AS date_time_to_string;
 
 /*---------------------*
@@ -1086,7 +1086,7 @@ SELECT CAST(DATE '2018-01-30' AS STRING FORMAT 'MONTH') AS date_time_to_string;
 #### Format day part as string 
 <a id="format_day_as_string"></a>
 
-```sql
+```zetasql
 CAST(expression AS STRING FORMAT format_string_expression)
 ```
 
@@ -1106,8 +1106,8 @@ These data types include a day part:
 
 If `expression` or `format_string_expression` is `NULL` the return value is
 `NULL`. If `format_string_expression` is an empty string, the output is an
-empty string. An error is generated if a value that is not a supported
-format element appears in `format_string_expression` or `expression` does not
+empty string. An error is generated if a value that isn't a supported
+format element appears in `format_string_expression` or `expression` doesn't
 contain a value specified by a format element.
 
 <table>
@@ -1177,7 +1177,7 @@ contain a value specified by a format element.
 
 **Example**
 
-```sql
+```zetasql
 SELECT CAST(DATE '2018-02-15' AS STRING FORMAT 'DD') AS date_time_to_string;
 
 /*---------------------*
@@ -1190,7 +1190,7 @@ SELECT CAST(DATE '2018-02-15' AS STRING FORMAT 'DD') AS date_time_to_string;
 #### Format hour part as string 
 <a id="format_hour_as_string"></a>
 
-```sql
+```zetasql
 CAST(expression AS STRING FORMAT format_string_expression)
 ```
 
@@ -1210,8 +1210,8 @@ These data types include a hour part:
 
 If `expression` or `format_string_expression` is `NULL` the return value is
 `NULL`. If `format_string_expression` is an empty string, the output is an
-empty string. An error is generated if a value that is not a supported
-format element appears in `format_string_expression` or `expression` does not
+empty string. An error is generated if a value that isn't a supported
+format element appears in `format_string_expression` or `expression` doesn't
 contain a value specified by a format element.
 
 <table>
@@ -1260,7 +1260,7 @@ contain a value specified by a format element.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT CAST(TIME '21:30:00' AS STRING FORMAT 'HH24') AS date_time_to_string;
 
 /*---------------------*
@@ -1270,7 +1270,7 @@ SELECT CAST(TIME '21:30:00' AS STRING FORMAT 'HH24') AS date_time_to_string;
  *---------------------*/
 ```
 
-```sql
+```zetasql
 SELECT CAST(TIME '21:30:00' AS STRING FORMAT 'HH12') AS date_time_to_string;
 
 /*---------------------*
@@ -1283,7 +1283,7 @@ SELECT CAST(TIME '21:30:00' AS STRING FORMAT 'HH12') AS date_time_to_string;
 #### Format minute part as string 
 <a id="format_minute_as_string"></a>
 
-```sql
+```zetasql
 CAST(expression AS STRING FORMAT format_string_expression)
 ```
 
@@ -1303,8 +1303,8 @@ These data types include a minute part:
 
 If `expression` or `format_string_expression` is `NULL` the return value is
 `NULL`. If `format_string_expression` is an empty string, the output is an
-empty string. An error is generated if a value that is not a supported
-format element appears in `format_string_expression` or `expression` does not
+empty string. An error is generated if a value that isn't a supported
+format element appears in `format_string_expression` or `expression` doesn't
 contain a value specified by a format element.
 
 <table>
@@ -1333,7 +1333,7 @@ contain a value specified by a format element.
 
 **Example**
 
-```sql
+```zetasql
 SELECT CAST(TIME '21:30:00' AS STRING FORMAT 'MI') AS date_time_to_string;
 
 /*---------------------*
@@ -1346,7 +1346,7 @@ SELECT CAST(TIME '21:30:00' AS STRING FORMAT 'MI') AS date_time_to_string;
 #### Format second part as string 
 <a id="format_second_as_string"></a>
 
-```sql
+```zetasql
 CAST(expression AS STRING FORMAT format_string_expression)
 ```
 
@@ -1366,8 +1366,8 @@ These data types include a second part:
 
 If `expression` or `format_string_expression` is `NULL` the return value is
 `NULL`. If `format_string_expression` is an empty string, the output is an
-empty string. An error is generated if a value that is not a supported
-format element appears in `format_string_expression` or `expression` does not
+empty string. An error is generated if a value that isn't a supported
+format element appears in `format_string_expression` or `expression` doesn't
 contain a value specified by a format element.
 
 <table>
@@ -1423,7 +1423,7 @@ contain a value specified by a format element.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT CAST(TIME '21:30:25.16' AS STRING FORMAT 'SS') AS date_time_to_string;
 
 /*---------------------*
@@ -1433,7 +1433,7 @@ SELECT CAST(TIME '21:30:25.16' AS STRING FORMAT 'SS') AS date_time_to_string;
  *---------------------*/
 ```
 
-```sql
+```zetasql
 SELECT CAST(TIME '21:30:25.16' AS STRING FORMAT 'FF2') AS date_time_to_string;
 
 /*---------------------*
@@ -1446,7 +1446,7 @@ SELECT CAST(TIME '21:30:25.16' AS STRING FORMAT 'FF2') AS date_time_to_string;
 #### Format meridian indicator part as string 
 <a id="format_meridian_as_string"></a>
 
-```sql
+```zetasql
 CAST(expression AS STRING FORMAT format_string_expression)
 ```
 
@@ -1466,8 +1466,8 @@ These data types include a meridian indicator part:
 
 If `expression` or `format_string_expression` is `NULL` the return value is
 `NULL`. If `format_string_expression` is an empty string, the output is an
-empty string. An error is generated if a value that is not a supported
-format element appears in `format_string_expression` or `expression` does not
+empty string. An error is generated if a value that isn't a supported
+format element appears in `format_string_expression` or `expression` doesn't
 contain a value specified by a format element.
 
 <table>
@@ -1540,7 +1540,7 @@ contain a value specified by a format element.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT CAST(TIME '21:30:00' AS STRING FORMAT 'AM') AS date_time_to_string;
 SELECT CAST(TIME '21:30:00' AS STRING FORMAT 'PM') AS date_time_to_string;
 
@@ -1551,7 +1551,7 @@ SELECT CAST(TIME '21:30:00' AS STRING FORMAT 'PM') AS date_time_to_string;
  *---------------------*/
 ```
 
-```sql
+```zetasql
 SELECT CAST(TIME '01:30:00' AS STRING FORMAT 'AM') AS date_time_to_string;
 SELECT CAST(TIME '01:30:00' AS STRING FORMAT 'PM') AS date_time_to_string;
 
@@ -1565,7 +1565,7 @@ SELECT CAST(TIME '01:30:00' AS STRING FORMAT 'PM') AS date_time_to_string;
 #### Format time zone part as string 
 <a id="format_tz_as_string"></a>
 
-```sql
+```zetasql
 CAST(expression AS STRING FORMAT format_string_expression)
 ```
 
@@ -1586,8 +1586,8 @@ These data types include a time zone part:
 
 If `expression` or `format_string_expression` is `NULL` the return value is
 `NULL`. If `format_string_expression` is an empty string, the output is an
-empty string. An error is generated if a value that is not a supported
-format element appears in `format_string_expression` or `expression` does not
+empty string. An error is generated if a value that isn't a supported
+format element appears in `format_string_expression` or `expression` doesn't
 contain a value specified by a format element.
 
 <table>
@@ -1629,7 +1629,7 @@ contain a value specified by a format element.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT CAST(TIMESTAMP '2008-12-25 00:00:00+00:00' AS STRING FORMAT 'TZH') AS date_time_to_string;
 
 -- Results depend upon where this query was executed.
@@ -1640,7 +1640,7 @@ SELECT CAST(TIMESTAMP '2008-12-25 00:00:00+00:00' AS STRING FORMAT 'TZH') AS dat
  *---------------------*/
 ```
 
-```sql
+```zetasql
 SELECT CAST(TIMESTAMP '2008-12-25 00:00:00+00:00' AS STRING FORMAT 'TZH' AT TIME ZONE 'Asia/Kolkata')
 AS date_time_to_string;
 
@@ -1652,7 +1652,7 @@ AS date_time_to_string;
  *---------------------*/
 ```
 
-```sql
+```zetasql
 SELECT CAST(TIMESTAMP '2008-12-25 00:00:00+00:00' AS STRING FORMAT 'TZM') AS date_time_to_string;
 
 -- Results depend upon where this query was executed.
@@ -1663,7 +1663,7 @@ SELECT CAST(TIMESTAMP '2008-12-25 00:00:00+00:00' AS STRING FORMAT 'TZM') AS dat
  *---------------------*/
 ```
 
-```sql
+```zetasql
 SELECT CAST(TIMESTAMP '2008-12-25 00:00:00+00:00' AS STRING FORMAT 'TZM' AT TIME ZONE 'Asia/Kolkata')
 AS date_time_to_string;
 
@@ -1678,7 +1678,7 @@ AS date_time_to_string;
 #### Format literal as string 
 <a id="format_literal_as_string"></a>
 
-```sql
+```zetasql
 CAST(expression AS STRING FORMAT format_string_expression)
 ```
 
@@ -1730,9 +1730,9 @@ CAST(expression AS STRING FORMAT format_string_expression)
       <td>Whitespace</td>
       <td>
         Output is the same as the input.
-        Whitespace means the space character, ASCII 32. It does not mean
+        Whitespace means the space character, ASCII 32. It doesn't mean
         other types of space like tab or new line. Any whitespace character
-        that is not the ASCII 32 character in the format model generates
+        that isn't the ASCII 32 character in the format model generates
         an error.
       </td>
       <td></td>
@@ -1742,7 +1742,7 @@ CAST(expression AS STRING FORMAT format_string_expression)
       <td>
         Output is the value within the double quotes. To preserve a double
         quote or backslash character, use the <code>\"</code> or <code>\\</code>
-        escape sequence. Other escape sequences are not supported.
+        escape sequence. Other escape sequences aren't supported.
       </td>
       <td>
         Input: "abc"<br />
@@ -1784,25 +1784,25 @@ rules:
 
 + It contains at most one of each of the following parts:
   meridian indicator, year, month, day, hour.
-+ A non-literal, non-whitespace format element cannot appear more than once.
-+ If it contains the day of year format element, `DDD`,  then it cannot contain
++ A non-literal, non-whitespace format element can't appear more than once.
++ If it contains the day of year format element, `DDD`,  then it can't contain
   the month.
-+ If it contains the 24-hour format element, `HH24`,  then it cannot contain the
++ If it contains the 24-hour format element, `HH24`,  then it can't contain the
   12-hour format element or a meridian indicator.
 + If it contains the 12-hour format element, `HH12` or `HH`,  then it must also
   contain a meridian indicator.
 + If it contains a meridian indicator, then it must also contain a 12-hour
   format element.
-+ If it contains the second of the day format element, `SSSSS`,  then it cannot
++ If it contains the second of the day format element, `SSSSS`,  then it can't
   contain any of the following: hour, minute, second, or meridian indicator.
-+ It cannot contain a format element such that the value it sets does not exist
-  in the target type. For example, an hour format element such as `HH24` cannot
++ It can't contain a format element such that the value it sets doesn't exist
+  in the target type. For example, an hour format element such as `HH24` can't
   appear in a string you are casting as a `DATE`.
 
 #### Format string as year part 
 <a id="format_string_as_year"></a>
 
-```sql
+```zetasql
 CAST(string_expression AS type FORMAT format_string_expression)
 ```
 
@@ -1828,8 +1828,8 @@ These data types include a year part:
 If the `YEAR` part is missing from `string_expression` and the return type
 includes this part, `YEAR` is set to the current year.
 
-An error is generated if a value that is not a supported format element appears
-in `format_string_expression` or `string_expression` does not contain a value
+An error is generated if a value that isn't a supported format element appears
+in `format_string_expression` or `string_expression` doesn't contain a value
 specified by a format element.
 
 <table>
@@ -1844,7 +1844,7 @@ specified by a format element.
     <tr>
       <td>YYYY</td>
       <td>
-        If it is delimited, matches 1 to 5 digits. If it is not delimited,
+        If it's delimited, matches 1 to 5 digits. If it isn't delimited,
         matches 4 digits. Sets the year part to the matched number.
       </td>
       <td>
@@ -1960,7 +1960,7 @@ The data type to which the string was cast. This can be:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT CAST('18-12-03' AS DATE FORMAT 'YY-MM-DD') AS string_to_date
 
 /*----------------*
@@ -1973,7 +1973,7 @@ SELECT CAST('18-12-03' AS DATE FORMAT 'YY-MM-DD') AS string_to_date
 #### Format string as month part 
 <a id="format_string_as_month"></a>
 
-```sql
+```zetasql
 CAST(string_expression AS type FORMAT format_string_expression)
 ```
 
@@ -1999,8 +1999,8 @@ These data types include a month part:
 If the `MONTH` part is missing from `string_expression` and the return type
 includes this part, `MONTH` is set to the current month.
 
-An error is generated if a value that is not a supported format element appears
-in `format_string_expression` or `string_expression` does not contain a value
+An error is generated if a value that isn't a supported format element appears
+in `format_string_expression` or `string_expression` doesn't contain a value
 specified by a format element.
 
 <table>
@@ -2057,7 +2057,7 @@ The data type to which the string was cast. This can be:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT CAST('DEC 03, 2018' AS DATE FORMAT 'MON DD, YYYY') AS string_to_date
 
 /*----------------*
@@ -2070,7 +2070,7 @@ SELECT CAST('DEC 03, 2018' AS DATE FORMAT 'MON DD, YYYY') AS string_to_date
 #### Format string as day part 
 <a id="format_string_as_day"></a>
 
-```sql
+```zetasql
 CAST(string_expression AS type FORMAT format_string_expression)
 ```
 
@@ -2096,8 +2096,8 @@ These data types include a day part:
 If the `DAY` part is missing from `string_expression` and the return type
 includes this part, `DAY` is set to `1`.
 
-An error is generated if a value that is not a supported format element appears
-in `format_string_expression` or `string_expression` does not contain a value
+An error is generated if a value that isn't a supported format element appears
+in `format_string_expression` or `string_expression` doesn't contain a value
 specified by a format element.
 
 <table>
@@ -2130,7 +2130,7 @@ The data type to which the string was cast. This can be:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT CAST('DECEMBER 03, 2018' AS DATE FORMAT 'MONTH DD, YYYY') AS string_to_date
 
 /*----------------*
@@ -2143,7 +2143,7 @@ SELECT CAST('DECEMBER 03, 2018' AS DATE FORMAT 'MONTH DD, YYYY') AS string_to_da
 #### Format string as hour part 
 <a id="format_string_as_hour"></a>
 
-```sql
+```zetasql
 CAST(string_expression AS type FORMAT format_string_expression)
 ```
 
@@ -2169,8 +2169,8 @@ These data types include a hour part:
 If the `HOUR` part is missing from `string_expression` and the return type
 includes this part, `HOUR` is set to `0`.
 
-An error is generated if a value that is not a supported format element appears
-in `format_string_expression` or `string_expression` does not contain a value
+An error is generated if a value that isn't a supported format element appears
+in `format_string_expression` or `string_expression` doesn't contain a value
 specified by a format element.
 
 <table>
@@ -2227,7 +2227,7 @@ The data type to which the string was cast. This can be:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT CAST('15:30' AS TIME FORMAT 'HH24:MI') AS string_to_date_time
 
 /*---------------------*
@@ -2240,7 +2240,7 @@ SELECT CAST('15:30' AS TIME FORMAT 'HH24:MI') AS string_to_date_time
 #### Format string as minute part 
 <a id="format_string_as_minute"></a>
 
-```sql
+```zetasql
 CAST(string_expression AS type FORMAT format_string_expression)
 ```
 
@@ -2266,8 +2266,8 @@ These data types include a minute part:
 If the `MINUTE` part is missing from `string_expression` and the return type
 includes this part, `MINUTE` is set to `0`.
 
-An error is generated if a value that is not a supported format element appears
-in `format_string_expression` or `string_expression` does not contain a value
+An error is generated if a value that isn't a supported format element appears
+in `format_string_expression` or `string_expression` doesn't contain a value
 specified by a format element.
 
 <table>
@@ -2302,7 +2302,7 @@ The data type to which the string was cast. This can be:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT CAST('03:30 P.M.' AS TIME FORMAT 'HH:MI P.M.') AS string_to_date_time
 
 /*---------------------*
@@ -2315,7 +2315,7 @@ SELECT CAST('03:30 P.M.' AS TIME FORMAT 'HH:MI P.M.') AS string_to_date_time
 #### Format string as second part 
 <a id="format_string_as_second"></a>
 
-```sql
+```zetasql
 CAST(string_expression AS type FORMAT format_string_expression)
 ```
 
@@ -2341,8 +2341,8 @@ These data types include a second part:
 If the `SECOND` part is missing from `string_expression` and the return type
 includes this part, `SECOND` is set to `0`.
 
-An error is generated if a value that is not a supported format element appears
-in `format_string_expression` or `string_expression` does not contain a value
+An error is generated if a value that isn't a supported format element appears
+in `format_string_expression` or `string_expression` doesn't contain a value
 specified by a format element.
 
 <table>
@@ -2406,7 +2406,7 @@ The data type to which the string was cast. This can be:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT CAST('01:05:07.16' AS TIME FORMAT 'HH24:MI:SS.FF1') AS string_to_date_time
 
 /*---------------------*
@@ -2419,7 +2419,7 @@ SELECT CAST('01:05:07.16' AS TIME FORMAT 'HH24:MI:SS.FF1') AS string_to_date_tim
 #### Format string as meridian indicator part 
 <a id="format_string_as_meridian"></a>
 
-```sql
+```zetasql
 CAST(string_expression AS type FORMAT format_string_expression)
 ```
 
@@ -2442,8 +2442,8 @@ These data types include a meridian indicator part:
 + `DATETIME`
 + `TIMESTAMP`
 
-An error is generated if a value that is not a supported format element appears
-in `format_string_expression` or `string_expression` does not contain a value
+An error is generated if a value that isn't a supported format element appears
+in `format_string_expression` or `string_expression` doesn't contain a value
 specified by a format element.
 
 <table>
@@ -2490,7 +2490,7 @@ The data type to which the string was cast. This can be:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT CAST('03:30 P.M.' AS TIME FORMAT 'HH:MI A.M.') AS string_to_date_time
 
 /*---------------------*
@@ -2503,7 +2503,7 @@ SELECT CAST('03:30 P.M.' AS TIME FORMAT 'HH:MI A.M.') AS string_to_date_time
 #### Format string as time zone part 
 <a id="format_string_as_tz"></a>
 
-```sql
+```zetasql
 CAST(string_expression AS type FORMAT format_string_expression)
 ```
 
@@ -2527,8 +2527,8 @@ These data types include a time zone part:
 + `DATETIME`
 + `TIMESTAMP`
 
-An error is generated if a value that is not a supported format element appears
-in `format_string_expression` or `string_expression` does not contain a value
+An error is generated if a value that isn't a supported format element appears
+in `format_string_expression` or `string_expression` doesn't contain a value
 specified by a format element.
 
 <table>
@@ -2581,7 +2581,7 @@ The data type to which the string was cast. This can be:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT CAST('2020.06.03 00:00:53+00' AS TIMESTAMP FORMAT 'YYYY.MM.DD HH:MI:SSTZH') AS string_to_date_time
 
 /*----------------------------*
@@ -2594,7 +2594,7 @@ SELECT CAST('2020.06.03 00:00:53+00' AS TIMESTAMP FORMAT 'YYYY.MM.DD HH:MI:SSTZH
 #### Format string as literal 
 <a id="format_string_as_literal"></a>
 
-```sql
+```zetasql
 CAST(string_expression AS data_type FORMAT format_string_expression)
 ```
 
@@ -2648,8 +2648,8 @@ CAST(string_expression AS data_type FORMAT format_string_expression)
         A consecutive sequence of one or more spaces in the format model
         is matched with one or more consecutive Unicode whitespace characters
         in the input. Space means the ASCII 32 space character.
-        It does not mean the general whitespace such as a tab or new line.
-        Any whitespace character that is not the ASCII 32 character in the
+        It doesn't mean the general whitespace such as a tab or new line.
+        Any whitespace character that isn't the ASCII 32 character in the
         format model generates an error.
       </td>
       <td></td>
@@ -2675,7 +2675,7 @@ CAST(string_expression AS data_type FORMAT format_string_expression)
 ### Format numeric type as string 
 <a id="format_numeric_type_as_string"></a>
 
-```sql
+```zetasql
 CAST(numeric_expression AS STRING FORMAT format_string_expression)
 ```
 
@@ -2701,7 +2701,7 @@ otherwise a space. To suppress blank characters and trailing zeroes, use the
 
 **Example**
 
-```sql
+```zetasql
 SELECT input, CAST(input AS STRING FORMAT '$999,999.999') AS output
 FROM UNNEST([1.2, 12.3, 123.456, 1234.56, -12345.678, 1234567.89]) AS input
 
@@ -2723,6 +2723,10 @@ FROM UNNEST([1.2, 12.3, 123.456, 1234.56, -12345.678, 1234567.89]) AS input
 The following format elements output digits. If there aren't enough
 digit format elements to represent the input, all digit format elements are
 replaced with `#` in the output.
+If there are no sign format elements, one extra space is reserved for the sign.
+For example, if the input is <code>12</code> and the format string is
+<code>'99'</code>, then the output is <code>' 12'</code>, with a length of three
+characters.
 
 <table>
   <thead>
@@ -2766,7 +2770,7 @@ replaced with `#` in the output.
     </tr>
     <tr>
       <td>X or x</td>
-      <td><p>A hexadecimal digit. Cannot appear with other format elements
+      <td><p>A hexadecimal digit. Can't appear with other format elements
         except 0, FM, and the sign format elements. The maximum number of
         hexadecimal digits in the format string is 16.</p>
         <p>X generates uppercase letters and x generates lowercase letters.
@@ -2803,7 +2807,7 @@ replaced with `#` in the output.
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   CAST(12 AS STRING FORMAT '999') as a,
   CAST(-12 AS STRING FORMAT '999') as b;
@@ -2855,7 +2859,7 @@ mutually exclusive. At most one can appear in the format string.
 
 **Example**
 
-```sql
+```zetasql
 SELECT CAST(12.5 AS STRING FORMAT '99.99') as a;
 
 /*--------*
@@ -2944,7 +2948,7 @@ symbol element, then the sign appears before the currency symbol.
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   CAST(12 AS STRING FORMAT 'S99') as a,
   CAST(-12 AS STRING FORMAT 'S99') as b;
@@ -3012,7 +3016,7 @@ output, the currency symbol appears before the first digit or decimal point.
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   CAST(12 AS STRING FORMAT '$99') as a,
   CAST(-12 AS STRING FORMAT '$99') as b;
@@ -3063,7 +3067,7 @@ The following format elements output a group separator.
 
 **Example**
 
-```sql
+```zetasql
 SELECT CAST(1234 AS STRING FORMAT '999,999') as a;
 
 /*----------*
@@ -3129,7 +3133,7 @@ SELECT CAST(1234 AS STRING FORMAT '999,999') as a;
       <td>RN</td>
       <td>Returns the value as Roman numerals, rounded to the nearest integer.
         The input must be between 1 and 3999. The output is padded with spaces
-        to the left to a length of 15. This element cannot be used with other
+        to the left to a length of 15. This element can't be used with other
         format elements except <code>FM</code>.
       </td>
       <td>
@@ -3141,7 +3145,7 @@ SELECT CAST(1234 AS STRING FORMAT '999,999') as a;
     <tr>
       <td>V</td>
       <td>The input value is multiplied by 10^n, where n is the number of 9s
-        after the <code>V</code>. This element cannot be used with a decimal
+        after the <code>V</code>. This element can't be used with a decimal
         point or exponent format element.
       </td>
       <td>
@@ -3159,7 +3163,7 @@ SELECT CAST(1234 AS STRING FORMAT '999,999') as a;
 
 **Example**
 
-```sql
+```zetasql
 SELECT CAST(-123456 AS STRING FORMAT '9.999EEEE') as a;"
 
 /*------------*

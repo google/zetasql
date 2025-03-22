@@ -23,6 +23,7 @@
 #include "zetasql/parser/tm_lexer.h"
 #include "zetasql/parser/tm_token.h"
 #include "zetasql/parser/token_codes.h"
+#include "absl/flags/declare.h"
 
 // Some contortions to avoid duplicate inclusion of FlexLexer.h in the
 // generated flex_tokenizer.flex.cc.
@@ -35,6 +36,8 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
+
+ABSL_DECLARE_FLAG(bool, use_textmapper_lexer);
 
 namespace zetasql {
 namespace parser {
@@ -97,7 +100,7 @@ class TextMapperTokenizer final : Lexer {
 class ZetaSqlTokenizer {
  public:
   ZetaSqlTokenizer(absl::string_view filename, absl::string_view input,
-                     int start_offset);
+                     int start_offset, bool force_flex);
 
   ZetaSqlTokenizer(const ZetaSqlTokenizer&) = delete;
   ZetaSqlTokenizer& operator=(const ZetaSqlTokenizer&) = delete;
@@ -119,6 +122,7 @@ class ZetaSqlTokenizer {
   const absl::string_view filename_;
   const absl::string_view input_;
   const int start_offset_;
+  const bool force_flex_;
 };
 
 using ZetaSqlFlexTokenizer ABSL_DEPRECATED("Inline me!") = ZetaSqlTokenizer;

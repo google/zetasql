@@ -1,3 +1,4 @@
+
 # ============== New syntax does not work without language feature =========
 SELECT *
 FROM UNNEST([1,2], mode => "STRICT");
@@ -116,7 +117,7 @@ QueryStmt
 
 # ============== UNNEST with single path expression argument =========
 [language_features=V_1_4_MULTIWAY_UNNEST{{|,V_1_4_SINGLETON_UNNEST_INFERS_ALIAS}}]
-[show_unparsed]
+[show_sqlbuilder_output]
 # Allow infer alias will introduce backward compatibility break, because the
 # selected column gets replaced.
 WITH t AS (SELECT [1, 2, 3] AS xs)
@@ -153,7 +154,8 @@ QueryStmt
             | +-ColumnRef(type=ARRAY<INT64>, column=t.xs#2)
             +-element_column_list=[$array.$unnest1#3]
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 WITH
   t AS (
     SELECT
@@ -170,6 +172,23 @@ FROM
   ) AS withrefscan_2
   JOIN
   UNNEST(withrefscan_2.a_1 AS a_3);
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+WITH
+  t AS (
+    SELECT
+      ARRAY< INT64 >[1, 2, 3] AS a_1
+  )
+FROM
+  t AS withrefscan_2
+|> SELECT
+     withrefscan_2.a_1 AS a_1
+|> AS withrefscan_2
+|> JOIN
+   UNNEST(withrefscan_2.a_1 AS a_3)
+|> SELECT
+     withrefscan_2.a_1 AS xs;
 --
 ALTERNATION GROUP: ,V_1_4_SINGLETON_UNNEST_INFERS_ALIAS
 --
@@ -201,7 +220,8 @@ QueryStmt
             | +-ColumnRef(type=ARRAY<INT64>, column=t.xs#2)
             +-element_column_list=[$array.xs#3]
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 WITH
   t AS (
     SELECT
@@ -218,6 +238,23 @@ FROM
   ) AS withrefscan_2
   JOIN
   UNNEST(withrefscan_2.a_1 AS a_3);
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+WITH
+  t AS (
+    SELECT
+      ARRAY< INT64 >[1, 2, 3] AS a_1
+  )
+FROM
+  t AS withrefscan_2
+|> SELECT
+     withrefscan_2.a_1 AS a_1
+|> AS withrefscan_2
+|> JOIN
+   UNNEST(withrefscan_2.a_1 AS a_3)
+|> SELECT
+     a_3 AS xs;
 ==
 
 # ============== UNNEST with builtin enum mode argument =========
@@ -255,7 +292,7 @@ FROM UNNEST([1, 2], unsupported_named_argument => "PAD");
 # `mode` argument only works if it can be coerced to ARRAY_ZIP_MODE enum.
 # Currently only STRING and INT64 literals are allowed. And they will be
 # unparsed to be wrapped with CAST.
-[show_unparsed]
+[show_sqlbuilder_output]
 SELECT *
 FROM UNNEST([1,2], [2], mode => {{1|0.05|"STRICT"}})
 --
@@ -278,12 +315,21 @@ QueryStmt
         +-array_zip_mode=
           +-Literal(type=ENUM<ARRAY_ZIP_MODE>, value=PAD)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   a_1 AS a_1,
   a_2 AS a_2
 FROM
   UNNEST(ARRAY< INT64 >[1, 2] AS a_1, ARRAY< INT64 >[2] AS a_2, mode  => CAST("PAD" AS ARRAY_ZIP_MODE));
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  UNNEST(ARRAY< INT64 >[1, 2] AS a_1, ARRAY< INT64 >[2] AS a_2, mode  => CAST("PAD" AS ARRAY_ZIP_MODE))
+|> SELECT
+     a_1 AS a_1,
+     a_2 AS a_2;
 
 [REWRITTEN AST]
 QueryStmt
@@ -434,7 +480,8 @@ QueryStmt
             |                   +-column_ref=
             |                     +-ColumnRef(type=INT64, column=$full_join.offset#14)
             +-element_column_list=[$array.$with_expr_element#16]
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   a_19.arr0 AS a_20,
   a_19.arr1 AS a_21
@@ -495,6 +542,62 @@ FROM
         ORDER BY filterscan_12.a_9
       ) AS orderbyscan_13
   )) AS a_19);
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  UNNEST(WITH(a_1 AS ARRAY< INT64 >[1, 2], a_15 AS `IF`((a_1) IS NULL, 0, ARRAY_LENGTH(a_1)), a_5 AS ARRAY<
+  INT64 >[2], a_16 AS `IF`((a_5) IS NULL, 0, ARRAY_LENGTH(a_5)), a_17 AS `IF`(CAST("PAD" AS ARRAY_ZIP_MODE) IS NULL,
+    ERROR("UNNEST does not allow NULL mode argument"), CAST("PAD" AS ARRAY_ZIP_MODE)), a_18 AS `IF`((a_17 =
+    CAST("STRICT" AS ARRAY_ZIP_MODE)) AND ((LEAST(a_15, a_16)) != (GREATEST(a_15, a_16))), ERROR("Unnested arrays under STRICT mode must have equal lengths"),
+    CAST(NULL AS INT64)), a_11 AS `IF`(a_17 = CAST("TRUNCATE" AS ARRAY_ZIP_MODE), LEAST(a_15, a_16), GREATEST(a_15,
+      a_16)), ARRAY(
+    FROM
+      UNNEST(a_1 AS a_2) WITH OFFSET AS a_3
+    |> SELECT
+         a_2 AS a_2,
+         a_3 AS a_3
+    |> AS arrayscan_4
+    |> FULL JOIN
+       (
+         FROM
+           UNNEST(a_5 AS a_6) WITH OFFSET AS a_7
+         |> SELECT
+              a_6 AS a_6,
+              a_7 AS a_7
+         |> AS arrayscan_8
+       )
+       ON (arrayscan_4.a_3) = (arrayscan_8.a_7)
+    |> SELECT
+         arrayscan_4.a_2 AS a_2,
+         arrayscan_4.a_3 AS a_3,
+         arrayscan_8.a_6 AS a_6,
+         arrayscan_8.a_7 AS a_7,
+         COALESCE(arrayscan_4.a_3, arrayscan_8.a_7) AS a_9
+    |> AS projectscan_10
+    |> WHERE
+         (projectscan_10.a_9) < a_11
+    |> SELECT
+         projectscan_10.a_2 AS a_2,
+         projectscan_10.a_3 AS a_3,
+         projectscan_10.a_6 AS a_6,
+         projectscan_10.a_7 AS a_7,
+         projectscan_10.a_9 AS a_9
+    |> AS filterscan_12
+    |> ORDER BY filterscan_12.a_9
+    |> SELECT
+         filterscan_12.a_2 AS a_2,
+         filterscan_12.a_3 AS a_3,
+         filterscan_12.a_6 AS a_6,
+         filterscan_12.a_7 AS a_7,
+         filterscan_12.a_9 AS a_9
+    |> AS orderbyscan_13
+    |> SELECT
+         STRUCT< arr0 INT64, arr1 INT64, offset INT64 > (orderbyscan_13.a_2, orderbyscan_13.a_6, orderbyscan_13.a_9) AS a_14
+  )) AS a_19)
+|> SELECT
+     a_19.arr0 AS a_20,
+     a_19.arr1 AS a_21;
 --
 ALTERNATION GROUP: 0.05
 --
@@ -521,12 +624,21 @@ QueryStmt
         +-array_zip_mode=
           +-Literal(type=ENUM<ARRAY_ZIP_MODE>, value=STRICT)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   a_1 AS a_1,
   a_2 AS a_2
 FROM
   UNNEST(ARRAY< INT64 >[1, 2] AS a_1, ARRAY< INT64 >[2] AS a_2, mode  => CAST("STRICT" AS ARRAY_ZIP_MODE));
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  UNNEST(ARRAY< INT64 >[1, 2] AS a_1, ARRAY< INT64 >[2] AS a_2, mode  => CAST("STRICT" AS ARRAY_ZIP_MODE))
+|> SELECT
+     a_1 AS a_1,
+     a_2 AS a_2;
 
 [REWRITTEN AST]
 QueryStmt
@@ -677,7 +789,8 @@ QueryStmt
             |                   +-column_ref=
             |                     +-ColumnRef(type=INT64, column=$full_join.offset#14)
             +-element_column_list=[$array.$with_expr_element#16]
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   a_19.arr0 AS a_20,
   a_19.arr1 AS a_21
@@ -738,6 +851,62 @@ FROM
         ORDER BY filterscan_12.a_9
       ) AS orderbyscan_13
   )) AS a_19);
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  UNNEST(WITH(a_1 AS ARRAY< INT64 >[1, 2], a_15 AS `IF`((a_1) IS NULL, 0, ARRAY_LENGTH(a_1)), a_5 AS ARRAY<
+  INT64 >[2], a_16 AS `IF`((a_5) IS NULL, 0, ARRAY_LENGTH(a_5)), a_17 AS `IF`(CAST("STRICT" AS ARRAY_ZIP_MODE) IS NULL,
+    ERROR("UNNEST does not allow NULL mode argument"), CAST("STRICT" AS ARRAY_ZIP_MODE)), a_18 AS `IF`((a_17 =
+    CAST("STRICT" AS ARRAY_ZIP_MODE)) AND ((LEAST(a_15, a_16)) != (GREATEST(a_15, a_16))), ERROR("Unnested arrays under STRICT mode must have equal lengths"),
+    CAST(NULL AS INT64)), a_11 AS `IF`(a_17 = CAST("TRUNCATE" AS ARRAY_ZIP_MODE), LEAST(a_15, a_16), GREATEST(a_15,
+      a_16)), ARRAY(
+    FROM
+      UNNEST(a_1 AS a_2) WITH OFFSET AS a_3
+    |> SELECT
+         a_2 AS a_2,
+         a_3 AS a_3
+    |> AS arrayscan_4
+    |> FULL JOIN
+       (
+         FROM
+           UNNEST(a_5 AS a_6) WITH OFFSET AS a_7
+         |> SELECT
+              a_6 AS a_6,
+              a_7 AS a_7
+         |> AS arrayscan_8
+       )
+       ON (arrayscan_4.a_3) = (arrayscan_8.a_7)
+    |> SELECT
+         arrayscan_4.a_2 AS a_2,
+         arrayscan_4.a_3 AS a_3,
+         arrayscan_8.a_6 AS a_6,
+         arrayscan_8.a_7 AS a_7,
+         COALESCE(arrayscan_4.a_3, arrayscan_8.a_7) AS a_9
+    |> AS projectscan_10
+    |> WHERE
+         (projectscan_10.a_9) < a_11
+    |> SELECT
+         projectscan_10.a_2 AS a_2,
+         projectscan_10.a_3 AS a_3,
+         projectscan_10.a_6 AS a_6,
+         projectscan_10.a_7 AS a_7,
+         projectscan_10.a_9 AS a_9
+    |> AS filterscan_12
+    |> ORDER BY filterscan_12.a_9
+    |> SELECT
+         filterscan_12.a_2 AS a_2,
+         filterscan_12.a_3 AS a_3,
+         filterscan_12.a_6 AS a_6,
+         filterscan_12.a_7 AS a_7,
+         filterscan_12.a_9 AS a_9
+    |> AS orderbyscan_13
+    |> SELECT
+         STRUCT< arr0 INT64, arr1 INT64, offset INT64 > (orderbyscan_13.a_2, orderbyscan_13.a_6, orderbyscan_13.a_9) AS a_14
+  )) AS a_19)
+|> SELECT
+     a_19.arr0 AS a_20,
+     a_19.arr1 AS a_21;
 ==
 
 # `mode` argument that is a non-literal only works if it has ARRAY_ZIP_MODE as
@@ -1291,7 +1460,7 @@ QueryStmt
 ==
 
 # `mode` argument works with other existing syntax in UNNEST operator.
-[show_unparsed]
+[show_sqlbuilder_output]
 SELECT *
 FROM UNNEST([1, 2], [1, 2], mode => "STRICT") WITH OFFSET off;
 --
@@ -1315,13 +1484,23 @@ QueryStmt
         +-array_zip_mode=
           +-Literal(type=ENUM<ARRAY_ZIP_MODE>, value=STRICT)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   a_1 AS a_1,
   a_2 AS a_2,
   a_3 AS off
 FROM
   UNNEST(ARRAY< INT64 >[1, 2] AS a_1, ARRAY< INT64 >[1, 2] AS a_2, mode  => CAST("STRICT" AS ARRAY_ZIP_MODE)) WITH OFFSET AS a_3;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  UNNEST(ARRAY< INT64 >[1, 2] AS a_1, ARRAY< INT64 >[1, 2] AS a_2, mode  => CAST("STRICT" AS ARRAY_ZIP_MODE)) WITH OFFSET AS a_3
+|> SELECT
+     a_1 AS a_1,
+     a_2 AS a_2,
+     a_3 AS off;
 
 [REWRITTEN AST]
 QueryStmt
@@ -1479,7 +1658,8 @@ QueryStmt
             |                   +-column_ref=
             |                     +-ColumnRef(type=INT64, column=$full_join.offset#15)
             +-element_column_list=[$array.$with_expr_element#17]
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   a_19.arr0 AS a_20,
   a_19.arr1 AS a_21,
@@ -1541,6 +1721,63 @@ FROM
         ORDER BY filterscan_12.a_9
       ) AS orderbyscan_13
   )) AS a_19);
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  UNNEST(WITH(a_1 AS ARRAY< INT64 >[1, 2], a_15 AS `IF`((a_1) IS NULL, 0, ARRAY_LENGTH(a_1)), a_5 AS ARRAY<
+  INT64 >[1, 2], a_16 AS `IF`((a_5) IS NULL, 0, ARRAY_LENGTH(a_5)), a_17 AS `IF`(CAST("STRICT" AS ARRAY_ZIP_MODE) IS NULL,
+    ERROR("UNNEST does not allow NULL mode argument"), CAST("STRICT" AS ARRAY_ZIP_MODE)), a_18 AS `IF`((a_17 =
+    CAST("STRICT" AS ARRAY_ZIP_MODE)) AND ((LEAST(a_15, a_16)) != (GREATEST(a_15, a_16))), ERROR("Unnested arrays under STRICT mode must have equal lengths"),
+    CAST(NULL AS INT64)), a_11 AS `IF`(a_17 = CAST("TRUNCATE" AS ARRAY_ZIP_MODE), LEAST(a_15, a_16), GREATEST(a_15,
+      a_16)), ARRAY(
+    FROM
+      UNNEST(a_1 AS a_2) WITH OFFSET AS a_3
+    |> SELECT
+         a_2 AS a_2,
+         a_3 AS a_3
+    |> AS arrayscan_4
+    |> FULL JOIN
+       (
+         FROM
+           UNNEST(a_5 AS a_6) WITH OFFSET AS a_7
+         |> SELECT
+              a_6 AS a_6,
+              a_7 AS a_7
+         |> AS arrayscan_8
+       )
+       ON (arrayscan_4.a_3) = (arrayscan_8.a_7)
+    |> SELECT
+         arrayscan_4.a_2 AS a_2,
+         arrayscan_4.a_3 AS a_3,
+         arrayscan_8.a_6 AS a_6,
+         arrayscan_8.a_7 AS a_7,
+         COALESCE(arrayscan_4.a_3, arrayscan_8.a_7) AS a_9
+    |> AS projectscan_10
+    |> WHERE
+         (projectscan_10.a_9) < a_11
+    |> SELECT
+         projectscan_10.a_2 AS a_2,
+         projectscan_10.a_3 AS a_3,
+         projectscan_10.a_6 AS a_6,
+         projectscan_10.a_7 AS a_7,
+         projectscan_10.a_9 AS a_9
+    |> AS filterscan_12
+    |> ORDER BY filterscan_12.a_9
+    |> SELECT
+         filterscan_12.a_2 AS a_2,
+         filterscan_12.a_3 AS a_3,
+         filterscan_12.a_6 AS a_6,
+         filterscan_12.a_7 AS a_7,
+         filterscan_12.a_9 AS a_9
+    |> AS orderbyscan_13
+    |> SELECT
+         STRUCT< arr0 INT64, arr1 INT64, offset INT64 > (orderbyscan_13.a_2, orderbyscan_13.a_6, orderbyscan_13.a_9) AS a_14
+  )) AS a_19)
+|> SELECT
+     a_19.arr0 AS a_20,
+     a_19.arr1 AS a_21,
+     a_19.offset AS off;
 ==
 
 # ============== UNNEST with table alias or argument alias =========
@@ -1583,7 +1820,7 @@ FROM UNNEST([1, 2] AS col_alias) AS table_alias
 ==
 
 # Column alias in single argument.
-[show_unparsed]
+[show_sqlbuilder_output]
 SELECT *
 FROM UNNEST([1,2] AS array_alias)
 --
@@ -1600,11 +1837,19 @@ QueryStmt
         | +-Literal(type=ARRAY<INT64>, value=[1, 2])
         +-element_column_list=[$array.array_alias#1]
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   a_1 AS array_alias
 FROM
   UNNEST(ARRAY< INT64 >[1, 2] AS a_1);
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  UNNEST(ARRAY< INT64 >[1, 2] AS a_1)
+|> SELECT
+     a_1 AS array_alias;
 ==
 
 # ============== UNNEST with multiple array arguments =========
@@ -3523,7 +3768,7 @@ QueryStmt
             +-element_column_list=[$array.$with_expr_element#23]
 ==
 
-[show_unparsed]
+[show_sqlbuilder_output]
 # 2 arguments: path expressions with inferred alias.
 SELECT *
 FROM TestTable, UNNEST(
@@ -3563,7 +3808,8 @@ QueryStmt
         +-array_zip_mode=
           +-Literal(type=ENUM<ARRAY_ZIP_MODE>, value=PAD)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   testtable_4.a_1 AS key,
   testtable_4.a_2 AS TestEnum,
@@ -3581,6 +3827,24 @@ FROM
   ) AS testtable_4
   JOIN
   UNNEST(testtable_4.a_3.repeated_int32_val AS a_5, testtable_4.a_3.repeated_string_val AS a_6, mode  => CAST("PAD" AS ARRAY_ZIP_MODE));
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  TestTable
+|> SELECT
+     TestTable.key AS a_1,
+     TestTable.TestEnum AS a_2,
+     TestTable.KitchenSink AS a_3
+|> AS testtable_4
+|> JOIN
+   UNNEST(testtable_4.a_3.repeated_int32_val AS a_5, testtable_4.a_3.repeated_string_val AS a_6, mode  => CAST("PAD" AS ARRAY_ZIP_MODE))
+|> SELECT
+     testtable_4.a_1 AS key,
+     testtable_4.a_2 AS TestEnum,
+     testtable_4.a_3 AS KitchenSink,
+     a_5 AS repeated_int32_val,
+     a_6 AS repeated_string_val;
 
 [REWRITTEN AST]
 QueryStmt
@@ -3748,7 +4012,8 @@ QueryStmt
             |                   +-column_ref=
             |                     +-ColumnRef(type=INT64, column=$full_join.offset#17)
             +-element_column_list=[$array.$with_expr_element#19]
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   testtable_4.a_1 AS key,
   testtable_4.a_2 AS TestEnum,
@@ -3821,9 +4086,75 @@ FROM
         ORDER BY filterscan_16.a_13
       ) AS orderbyscan_17
   )) AS a_23);
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  TestTable
+|> SELECT
+     TestTable.key AS a_1,
+     TestTable.TestEnum AS a_2,
+     TestTable.KitchenSink AS a_3
+|> AS testtable_4
+|> JOIN
+   UNNEST(WITH(a_5 AS testtable_4.a_3.repeated_int32_val, a_19 AS `IF`((a_5) IS NULL, 0, ARRAY_LENGTH(a_5)), a_9 AS testtable_4.a_3.repeated_string_val, a_20 AS `IF`((a_9) IS NULL,
+     0, ARRAY_LENGTH(a_9)), a_21 AS `IF`(CAST("PAD" AS ARRAY_ZIP_MODE) IS NULL, ERROR("UNNEST does not allow NULL mode argument"),
+     CAST("PAD" AS ARRAY_ZIP_MODE)), a_22 AS `IF`((a_21 = CAST("STRICT" AS ARRAY_ZIP_MODE)) AND ((LEAST(a_19,
+       a_20)) != (GREATEST(a_19, a_20))), ERROR("Unnested arrays under STRICT mode must have equal lengths"),
+     CAST(NULL AS INT64)), a_15 AS `IF`(a_21 = CAST("TRUNCATE" AS ARRAY_ZIP_MODE), LEAST(a_19, a_20), GREATEST(a_19,
+       a_20)), ARRAY(
+     FROM
+       UNNEST(a_5 AS a_6) WITH OFFSET AS a_7
+     |> SELECT
+          a_6 AS a_6,
+          a_7 AS a_7
+     |> AS arrayscan_8
+     |> FULL JOIN
+        (
+          FROM
+            UNNEST(a_9 AS a_10) WITH OFFSET AS a_11
+          |> SELECT
+               a_10 AS a_10,
+               a_11 AS a_11
+          |> AS arrayscan_12
+        )
+        ON (arrayscan_8.a_7) = (arrayscan_12.a_11)
+     |> SELECT
+          arrayscan_8.a_6 AS a_6,
+          arrayscan_8.a_7 AS a_7,
+          arrayscan_12.a_10 AS a_10,
+          arrayscan_12.a_11 AS a_11,
+          COALESCE(arrayscan_8.a_7, arrayscan_12.a_11) AS a_13
+     |> AS projectscan_14
+     |> WHERE
+          (projectscan_14.a_13) < a_15
+     |> SELECT
+          projectscan_14.a_6 AS a_6,
+          projectscan_14.a_7 AS a_7,
+          projectscan_14.a_10 AS a_10,
+          projectscan_14.a_11 AS a_11,
+          projectscan_14.a_13 AS a_13
+     |> AS filterscan_16
+     |> ORDER BY filterscan_16.a_13
+     |> SELECT
+          filterscan_16.a_6 AS a_6,
+          filterscan_16.a_7 AS a_7,
+          filterscan_16.a_10 AS a_10,
+          filterscan_16.a_11 AS a_11,
+          filterscan_16.a_13 AS a_13
+     |> AS orderbyscan_17
+     |> SELECT
+          STRUCT< arr0 INT32, arr1 STRING, offset INT64 > (orderbyscan_17.a_6, orderbyscan_17.a_10, orderbyscan_17.a_13) AS a_18
+   )) AS a_23)
+|> SELECT
+     testtable_4.a_1 AS key,
+     testtable_4.a_2 AS TestEnum,
+     testtable_4.a_3 AS KitchenSink,
+     a_23.arr0 AS repeated_int32_val,
+     a_23.arr1 AS repeated_string_val;
 ==
 
-[show_unparsed]
+[show_sqlbuilder_output]
 # 2 arguments: path expressions with inferred alias.
 SELECT *
 FROM TestTable, UNNEST(
@@ -3871,7 +4202,8 @@ QueryStmt
         +-array_zip_mode=
           +-Literal(type=ENUM<ARRAY_ZIP_MODE>, value=PAD)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   testtable_4.a_1 AS key,
   testtable_4.a_2 AS TestEnum,
@@ -3889,6 +4221,24 @@ FROM
   ) AS testtable_4
   JOIN
   UNNEST(testtable_4.a_3.repeated_int32_val AS a_5, testtable_4.a_3.repeated_int32_val AS a_6, mode  => CAST("PAD" AS ARRAY_ZIP_MODE));
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  TestTable
+|> SELECT
+     TestTable.key AS a_1,
+     TestTable.TestEnum AS a_2,
+     TestTable.KitchenSink AS a_3
+|> AS testtable_4
+|> JOIN
+   UNNEST(testtable_4.a_3.repeated_int32_val AS a_5, testtable_4.a_3.repeated_int32_val AS a_6, mode  => CAST("PAD" AS ARRAY_ZIP_MODE))
+|> SELECT
+     testtable_4.a_1 AS key,
+     testtable_4.a_2 AS TestEnum,
+     testtable_4.a_3 AS KitchenSink,
+     a_5 AS repeated_int32_val,
+     a_6 AS array2;
 
 [REWRITTEN AST]
 QueryStmt
@@ -4056,7 +4406,8 @@ QueryStmt
             |                   +-column_ref=
             |                     +-ColumnRef(type=INT64, column=$full_join.offset#17)
             +-element_column_list=[$array.$with_expr_element#19]
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   testtable_4.a_1 AS key,
   testtable_4.a_2 AS TestEnum,
@@ -4129,9 +4480,75 @@ FROM
         ORDER BY filterscan_16.a_13
       ) AS orderbyscan_17
   )) AS a_23);
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  TestTable
+|> SELECT
+     TestTable.key AS a_1,
+     TestTable.TestEnum AS a_2,
+     TestTable.KitchenSink AS a_3
+|> AS testtable_4
+|> JOIN
+   UNNEST(WITH(a_5 AS testtable_4.a_3.repeated_int32_val, a_19 AS `IF`((a_5) IS NULL, 0, ARRAY_LENGTH(a_5)), a_9 AS testtable_4.a_3.repeated_int32_val, a_20 AS `IF`((a_9) IS NULL,
+     0, ARRAY_LENGTH(a_9)), a_21 AS `IF`(CAST("PAD" AS ARRAY_ZIP_MODE) IS NULL, ERROR("UNNEST does not allow NULL mode argument"),
+     CAST("PAD" AS ARRAY_ZIP_MODE)), a_22 AS `IF`((a_21 = CAST("STRICT" AS ARRAY_ZIP_MODE)) AND ((LEAST(a_19,
+       a_20)) != (GREATEST(a_19, a_20))), ERROR("Unnested arrays under STRICT mode must have equal lengths"),
+     CAST(NULL AS INT64)), a_15 AS `IF`(a_21 = CAST("TRUNCATE" AS ARRAY_ZIP_MODE), LEAST(a_19, a_20), GREATEST(a_19,
+       a_20)), ARRAY(
+     FROM
+       UNNEST(a_5 AS a_6) WITH OFFSET AS a_7
+     |> SELECT
+          a_6 AS a_6,
+          a_7 AS a_7
+     |> AS arrayscan_8
+     |> FULL JOIN
+        (
+          FROM
+            UNNEST(a_9 AS a_10) WITH OFFSET AS a_11
+          |> SELECT
+               a_10 AS a_10,
+               a_11 AS a_11
+          |> AS arrayscan_12
+        )
+        ON (arrayscan_8.a_7) = (arrayscan_12.a_11)
+     |> SELECT
+          arrayscan_8.a_6 AS a_6,
+          arrayscan_8.a_7 AS a_7,
+          arrayscan_12.a_10 AS a_10,
+          arrayscan_12.a_11 AS a_11,
+          COALESCE(arrayscan_8.a_7, arrayscan_12.a_11) AS a_13
+     |> AS projectscan_14
+     |> WHERE
+          (projectscan_14.a_13) < a_15
+     |> SELECT
+          projectscan_14.a_6 AS a_6,
+          projectscan_14.a_7 AS a_7,
+          projectscan_14.a_10 AS a_10,
+          projectscan_14.a_11 AS a_11,
+          projectscan_14.a_13 AS a_13
+     |> AS filterscan_16
+     |> ORDER BY filterscan_16.a_13
+     |> SELECT
+          filterscan_16.a_6 AS a_6,
+          filterscan_16.a_7 AS a_7,
+          filterscan_16.a_10 AS a_10,
+          filterscan_16.a_11 AS a_11,
+          filterscan_16.a_13 AS a_13
+     |> AS orderbyscan_17
+     |> SELECT
+          STRUCT< arr0 INT32, arr1 INT32, offset INT64 > (orderbyscan_17.a_6, orderbyscan_17.a_10, orderbyscan_17.a_13) AS a_18
+   )) AS a_23)
+|> SELECT
+     testtable_4.a_1 AS key,
+     testtable_4.a_2 AS TestEnum,
+     testtable_4.a_3 AS KitchenSink,
+     a_23.arr0 AS repeated_int32_val,
+     a_23.arr1 AS array2;
 ==
 
-[show_unparsed]
+[show_sqlbuilder_output]
 # 2 arguments: path expressions with explicit alias.
 SELECT *
 FROM TestTable, UNNEST(
@@ -4171,7 +4588,8 @@ QueryStmt
         +-array_zip_mode=
           +-Literal(type=ENUM<ARRAY_ZIP_MODE>, value=PAD)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   testtable_4.a_1 AS key,
   testtable_4.a_2 AS TestEnum,
@@ -4189,6 +4607,24 @@ FROM
   ) AS testtable_4
   JOIN
   UNNEST(testtable_4.a_3.repeated_int32_val AS a_5, testtable_4.a_3.repeated_string_val AS a_6, mode  => CAST("PAD" AS ARRAY_ZIP_MODE));
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  TestTable
+|> SELECT
+     TestTable.key AS a_1,
+     TestTable.TestEnum AS a_2,
+     TestTable.KitchenSink AS a_3
+|> AS testtable_4
+|> JOIN
+   UNNEST(testtable_4.a_3.repeated_int32_val AS a_5, testtable_4.a_3.repeated_string_val AS a_6, mode  => CAST("PAD" AS ARRAY_ZIP_MODE))
+|> SELECT
+     testtable_4.a_1 AS key,
+     testtable_4.a_2 AS TestEnum,
+     testtable_4.a_3 AS KitchenSink,
+     a_5 AS array1,
+     a_6 AS array2;
 
 [REWRITTEN AST]
 QueryStmt
@@ -4356,7 +4792,8 @@ QueryStmt
             |                   +-column_ref=
             |                     +-ColumnRef(type=INT64, column=$full_join.offset#17)
             +-element_column_list=[$array.$with_expr_element#19]
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   testtable_4.a_1 AS key,
   testtable_4.a_2 AS TestEnum,
@@ -4429,6 +4866,72 @@ FROM
         ORDER BY filterscan_16.a_13
       ) AS orderbyscan_17
   )) AS a_23);
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  TestTable
+|> SELECT
+     TestTable.key AS a_1,
+     TestTable.TestEnum AS a_2,
+     TestTable.KitchenSink AS a_3
+|> AS testtable_4
+|> JOIN
+   UNNEST(WITH(a_5 AS testtable_4.a_3.repeated_int32_val, a_19 AS `IF`((a_5) IS NULL, 0, ARRAY_LENGTH(a_5)), a_9 AS testtable_4.a_3.repeated_string_val, a_20 AS `IF`((a_9) IS NULL,
+     0, ARRAY_LENGTH(a_9)), a_21 AS `IF`(CAST("PAD" AS ARRAY_ZIP_MODE) IS NULL, ERROR("UNNEST does not allow NULL mode argument"),
+     CAST("PAD" AS ARRAY_ZIP_MODE)), a_22 AS `IF`((a_21 = CAST("STRICT" AS ARRAY_ZIP_MODE)) AND ((LEAST(a_19,
+       a_20)) != (GREATEST(a_19, a_20))), ERROR("Unnested arrays under STRICT mode must have equal lengths"),
+     CAST(NULL AS INT64)), a_15 AS `IF`(a_21 = CAST("TRUNCATE" AS ARRAY_ZIP_MODE), LEAST(a_19, a_20), GREATEST(a_19,
+       a_20)), ARRAY(
+     FROM
+       UNNEST(a_5 AS a_6) WITH OFFSET AS a_7
+     |> SELECT
+          a_6 AS a_6,
+          a_7 AS a_7
+     |> AS arrayscan_8
+     |> FULL JOIN
+        (
+          FROM
+            UNNEST(a_9 AS a_10) WITH OFFSET AS a_11
+          |> SELECT
+               a_10 AS a_10,
+               a_11 AS a_11
+          |> AS arrayscan_12
+        )
+        ON (arrayscan_8.a_7) = (arrayscan_12.a_11)
+     |> SELECT
+          arrayscan_8.a_6 AS a_6,
+          arrayscan_8.a_7 AS a_7,
+          arrayscan_12.a_10 AS a_10,
+          arrayscan_12.a_11 AS a_11,
+          COALESCE(arrayscan_8.a_7, arrayscan_12.a_11) AS a_13
+     |> AS projectscan_14
+     |> WHERE
+          (projectscan_14.a_13) < a_15
+     |> SELECT
+          projectscan_14.a_6 AS a_6,
+          projectscan_14.a_7 AS a_7,
+          projectscan_14.a_10 AS a_10,
+          projectscan_14.a_11 AS a_11,
+          projectscan_14.a_13 AS a_13
+     |> AS filterscan_16
+     |> ORDER BY filterscan_16.a_13
+     |> SELECT
+          filterscan_16.a_6 AS a_6,
+          filterscan_16.a_7 AS a_7,
+          filterscan_16.a_10 AS a_10,
+          filterscan_16.a_11 AS a_11,
+          filterscan_16.a_13 AS a_13
+     |> AS orderbyscan_17
+     |> SELECT
+          STRUCT< arr0 INT32, arr1 STRING, offset INT64 > (orderbyscan_17.a_6, orderbyscan_17.a_10, orderbyscan_17.a_13) AS a_18
+   )) AS a_23)
+|> SELECT
+     testtable_4.a_1 AS key,
+     testtable_4.a_2 AS TestEnum,
+     testtable_4.a_3 AS KitchenSink,
+     a_23.arr0 AS array1,
+     a_23.arr1 AS array2;
 ==
 
 # 2 arguments: path expressions reference columns from different lhs tables.
@@ -4649,7 +5152,7 @@ QueryStmt
             +-element_column_list=[$array.$with_expr_element#25]
 ==
 
-[show_unparsed]
+[show_sqlbuilder_output]
 # 2 arguments: correlated path expressions reference columns from different
 # out-of-scope tables.
 SELECT (
@@ -4711,7 +5214,8 @@ QueryStmt
         +-right_scan=
           +-TableScan(column_list=[ComplexTypes.Int32Array#7], table=ComplexTypes, column_index_list=[3])
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   (
     SELECT
@@ -4739,6 +5243,33 @@ FROM
     FROM
       ComplexTypes
   ) AS complextypes_4;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  TestTable
+|> SELECT
+     TestTable.KitchenSink AS a_1
+|> AS testtable_2
+|> CROSS JOIN
+   (
+     FROM
+       ComplexTypes
+     |> SELECT
+          ComplexTypes.Int32Array AS a_3
+     |> AS complextypes_4
+   )
+|> SELECT
+     (
+       FROM
+         UNNEST(testtable_2.a_1.repeated_int32_val AS a_6, complextypes_4.a_3 AS a_7, mode  => CAST("PAD" AS ARRAY_ZIP_MODE))
+       |> SELECT
+            a_6 AS a_6,
+            a_7 AS a_7
+       |> AS projectscan_8
+       |> SELECT
+            STRUCT< array1 INT32, array2 INT32 > (projectscan_8.a_6, projectscan_8.a_7) AS a_9
+     ) AS col1;
 
 [REWRITTEN AST]
 QueryStmt
@@ -4922,7 +5453,8 @@ QueryStmt
         | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
         +-right_scan=
           +-TableScan(column_list=[ComplexTypes.Int32Array#7], table=ComplexTypes, column_index_list=[3])
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   (
     SELECT
@@ -5005,6 +5537,81 @@ FROM
     FROM
       ComplexTypes
   ) AS complextypes_4;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  TestTable
+|> SELECT
+     TestTable.KitchenSink AS a_1
+|> AS testtable_2
+|> CROSS JOIN
+   (
+     FROM
+       ComplexTypes
+     |> SELECT
+          ComplexTypes.Int32Array AS a_3
+     |> AS complextypes_4
+   )
+|> SELECT
+     (
+       FROM
+         UNNEST(WITH(a_6 AS testtable_2.a_1.repeated_int32_val, a_20 AS `IF`((a_6) IS NULL, 0, ARRAY_LENGTH(a_6)), a_10 AS complextypes_4.a_3, a_21 AS `IF`((a_10) IS NULL,
+           0, ARRAY_LENGTH(a_10)), a_22 AS `IF`(CAST("PAD" AS ARRAY_ZIP_MODE) IS NULL, ERROR("UNNEST does not allow NULL mode argument"),
+           CAST("PAD" AS ARRAY_ZIP_MODE)), a_23 AS `IF`((a_22 = CAST("STRICT" AS ARRAY_ZIP_MODE)) AND ((LEAST(a_20,
+             a_21)) != (GREATEST(a_20, a_21))), ERROR("Unnested arrays under STRICT mode must have equal lengths"),
+           CAST(NULL AS INT64)), a_16 AS `IF`(a_22 = CAST("TRUNCATE" AS ARRAY_ZIP_MODE), LEAST(a_20, a_21), GREATEST(a_20,
+             a_21)), ARRAY(
+           FROM
+             UNNEST(a_6 AS a_7) WITH OFFSET AS a_8
+           |> SELECT
+                a_7 AS a_7,
+                a_8 AS a_8
+           |> AS arrayscan_9
+           |> FULL JOIN
+              (
+                FROM
+                  UNNEST(a_10 AS a_11) WITH OFFSET AS a_12
+                |> SELECT
+                     a_11 AS a_11,
+                     a_12 AS a_12
+                |> AS arrayscan_13
+              )
+              ON (arrayscan_9.a_8) = (arrayscan_13.a_12)
+           |> SELECT
+                arrayscan_9.a_7 AS a_7,
+                arrayscan_9.a_8 AS a_8,
+                arrayscan_13.a_11 AS a_11,
+                arrayscan_13.a_12 AS a_12,
+                COALESCE(arrayscan_9.a_8, arrayscan_13.a_12) AS a_14
+           |> AS projectscan_15
+           |> WHERE
+                (projectscan_15.a_14) < a_16
+           |> SELECT
+                projectscan_15.a_7 AS a_7,
+                projectscan_15.a_8 AS a_8,
+                projectscan_15.a_11 AS a_11,
+                projectscan_15.a_12 AS a_12,
+                projectscan_15.a_14 AS a_14
+           |> AS filterscan_17
+           |> ORDER BY filterscan_17.a_14
+           |> SELECT
+                filterscan_17.a_7 AS a_7,
+                filterscan_17.a_8 AS a_8,
+                filterscan_17.a_11 AS a_11,
+                filterscan_17.a_12 AS a_12,
+                filterscan_17.a_14 AS a_14
+           |> AS orderbyscan_18
+           |> SELECT
+                STRUCT< arr0 INT32, arr1 INT32, offset INT64 > (orderbyscan_18.a_7, orderbyscan_18.a_11, orderbyscan_18.a_14) AS a_19
+         )) AS a_24)
+       |> SELECT
+            a_24.arr0 AS a_25,
+            a_24.arr1 AS a_26
+       |> AS projectscan_27
+       |> SELECT
+            STRUCT< array1 INT32, array2 INT32 > (projectscan_27.a_25, projectscan_27.a_26) AS a_28
+     ) AS col1;
 ==
 
 [language_features=V_1_4_MULTIWAY_UNNEST,V_1_3_UNNEST_AND_FLATTEN_ARRAYS,V_1_4_WITH_EXPRESSION]

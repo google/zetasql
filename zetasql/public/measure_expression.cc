@@ -102,14 +102,27 @@ class MeasureExpressionValidator : public ResolvedASTVisitor {
   bool has_aggregate_function_call_ = false;
 };
 
-static absl::Status ValidateMeasureExpression(
-    const LanguageOptions& language_options, absl::string_view measure_expr,
-    const ResolvedExpr& resolved_expr) {
+absl::Status ValidateMeasureExpression(const LanguageOptions& language_options,
+                                       absl::string_view measure_expr,
+                                       const ResolvedExpr& resolved_expr) {
   MeasureExpressionValidator validator(measure_expr);
   return validator.Validate(resolved_expr);
 }
-}  // namespace
 
+// Analyzes the expression of a measure in a table and return the resolved
+// expression.
+// The returned resolved expression is used to create a measure type catalog
+// column.
+// The `measure_expression` is an aggregate expression that defines the measure,
+// see (broken link) for details.
+// The `analyzer_options`, the options to analyze the expression. it must have:
+// ** enable `FEATURE_V_1_4_ENABLE_MEASURES`
+// ** set `allow_aggregate_standalone_expression` to true.
+// ** callbacks to resolve the columns in the expression.
+// The `catalog` is used to resolve the function calls in the measure
+// expression.
+// The `type_factory` is used to create the measure type.
+// The `analyzer_output`: the output analyzer result, owned by the caller.
 absl::StatusOr<const ResolvedExpr*> AnalyzeMeasureExpression(
     absl::string_view measure_expr, const AnalyzerOptions& analyzer_options,
     Catalog& catalog, TypeFactory& type_factory,
@@ -127,6 +140,8 @@ absl::StatusOr<const ResolvedExpr*> AnalyzeMeasureExpression(
   return resolved_expr;
 }
 
+// Creates a measure column from a measure expression.
+// The `language_options` is used to validate the `resolved_measure_expr`.
 absl::StatusOr<std::unique_ptr<SimpleColumn>> CreateMeasureColumn(
     absl::string_view table_name, absl::string_view measure_name,
     absl::string_view measure_expr, const ResolvedExpr& resolved_measure_expr,
@@ -146,11 +161,14 @@ absl::StatusOr<std::unique_ptr<SimpleColumn>> CreateMeasureColumn(
       });
 }
 
+}  // namespace
+
 absl::StatusOr<std::vector<std::unique_ptr<const AnalyzerOutput>>>
 AddMeasureColumnsToTable(SimpleTable& table,
-                         std::vector<MeasureColumnDef> measure_columns,
+                         std::vector<MeasureColumnDef> measures,
                          TypeFactory& type_factory, Catalog& catalog,
                          AnalyzerOptions& analyzer_options) {
+  ZETASQL_RET_CHECK(!table.AllowDuplicateColumnNames());
   std::vector<std::unique_ptr<const AnalyzerOutput>> analyzer_outputs;
   analyzer_options.mutable_language()->EnableLanguageFeature(
       FEATURE_V_1_4_ENABLE_MEASURES);
@@ -170,7 +188,7 @@ AddMeasureColumnsToTable(SimpleTable& table,
         *type = column->GetType();
         return absl::OkStatus();
       });
-  for (const MeasureColumnDef& measure_column : measure_columns) {
+  for (const MeasureColumnDef& measure_column : measures) {
     std::unique_ptr<const AnalyzerOutput> analyzer_output;
     ZETASQL_ASSIGN_OR_RETURN(const ResolvedExpr* resolved_measure_expr,
                      zetasql::AnalyzeMeasureExpression(

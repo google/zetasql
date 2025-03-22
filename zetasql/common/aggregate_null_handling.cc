@@ -22,6 +22,8 @@
 namespace zetasql {
 using StringViewCaseHash = ::zetasql_base::StringViewCaseHash;
 using StringViewCaseEqual = ::zetasql_base::StringViewCaseEqual;
+// TODO: b/403019760 - deprecate this function and migrate to
+// `FunctionSignatureOptions::ignores_nulls` instead.
 bool IgnoresNullArguments(
     const ResolvedNonScalarFunctionCallBase* aggregate_function) {
   static const absl::flat_hash_set<absl::string_view, StringViewCaseHash,
@@ -30,7 +32,7 @@ bool IgnoresNullArguments(
           new absl::flat_hash_set<absl::string_view, StringViewCaseHash,
                                   StringViewCaseEqual>(
               {"array_agg", "any_value", "approx_top_count", "approx_top_sum",
-               "st_nearest_neighbors"});
+               "st_nearest_neighbors", "intersect_agg"});
 
   switch (aggregate_function->null_handling_modifier()) {
     // Follow any NULL-handling annotations in the query.
@@ -39,8 +41,15 @@ bool IgnoresNullArguments(
     case ResolvedNonScalarFunctionCallBase::IGNORE_NULLS:
       return true;
     case ResolvedNonScalarFunctionCallBase::DEFAULT_NULL_HANDLING:
-      // There is no way for functions to specify their default NULL handling,
-      // so we cannot guarantee that non-builtin functions ignore NULLs.
+      if (aggregate_function->function()
+              ->function_options()
+              .default_null_handling ==
+          FunctionEnums::DEFAULT_NULL_HANDLING_IGNORE_NULLS) {
+        return true;
+      }
+
+      // If the functions do not specify their NULL handling,
+      // so we cannot guarantee it ignore NULLs.
       if (!aggregate_function->function()->IsZetaSQLBuiltin()) {
         return false;
       }

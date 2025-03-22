@@ -140,7 +140,17 @@ class ResolvedASTRewriteVisitor {
   // Helper function to dispatch a vector of nodes.
   template<typename ResolvedNodeT>
   absl::StatusOr<std::vector<std::unique_ptr<const ResolvedNodeT>>>
-  DispatchNodeList(std::vector<std::unique_ptr<const ResolvedNodeT>> nodes);
+  DispatchNodeList(std::vector<std::unique_ptr<const ResolvedNodeT>> nodes) {
+    for (std::unique_ptr<const ResolvedNodeT>& node : nodes) {
+      absl::StatusOr<std::unique_ptr<const ResolvedNodeT>> result =
+          Dispatch<ResolvedNodeT>(std::move(node));
+      if (!result.ok()) {
+        return std::move(result).status();
+      }
+      node = *std::move(result);
+    }
+    return nodes;
+  }
 
 # for node in nodes if not node.is_abstract
   absl::StatusOr<std::unique_ptr<const ResolvedNode>> DefaultVisit(

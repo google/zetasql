@@ -17,19 +17,27 @@
 #include "zetasql/analyzer/annotation_propagator.h"
 
 #include <memory>
-#include <string>
 #include <utility>
 #include <vector>
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/analyzer_options.h"
+#include "zetasql/public/builtin_function_options.h"
 #include "zetasql/public/catalog.h"
+#include "zetasql/public/function_signature.h"
 #include "zetasql/public/simple_catalog.h"
+#include "zetasql/public/types/array_type.h"
 #include "zetasql/public/types/type_factory.h"
+#include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/rewrite_utils.h"
 #include "zetasql/resolved_ast/test_utils.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "zetasql/base/check.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/ascii.h"
+#include "zetasql/base/ret_check.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 

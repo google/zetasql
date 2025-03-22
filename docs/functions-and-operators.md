@@ -17,7 +17,7 @@ see [Function calls][function-calls].
 ## Operators
 
 ZetaSQL supports operators.
-Operators are represented by special characters or keywords; they do not use
+Operators are represented by special characters or keywords; they don't use
 function call syntax. An operator manipulates any number of data inputs, also
 called operands, and returns a result.
 
@@ -354,8 +354,8 @@ is interpreted as:
 
 `( ( x * y ) / z )`
 
-All comparison operators have the same priority, but comparison operators are
-not associative. Therefore, parentheses are required to resolve
+All comparison operators have the same priority, but comparison operators
+aren't associative. Therefore, parentheses are required to resolve
 ambiguity. For example:
 
 `(x < y) IS FALSE`
@@ -497,7 +497,8 @@ ambiguity. For example:
   <td><a href="#same_predicate"><code>SAME</code> predicate</a>
 </td>
   <td>
-    In a graph, determines if all graph elements in a list bind to the same node or edge.
+    In a graph, checks if all graph elements in a list bind to the same node
+    or edge.
   </td>
 </tr>
 
@@ -596,21 +597,21 @@ a field by position is useful when fields are un-named or have ambiguous names.
 
 **Return type**
 
-+ For `STRUCT`: SQL data type of `fieldname`. If a field is not found in
++ For `STRUCT`: SQL data type of `fieldname`. If a field isn't found in
   the struct, an error is thrown.
-+ For `PROTO`: SQL data type of `fieldname`. If a field is not found in
++ For `PROTO`: SQL data type of `fieldname`. If a field isn't found in
   the protocol buffer, an error is thrown.
-+ For `JSON`: `JSON`. If a field is not found in a JSON value, a SQL `NULL` is
++ For `JSON`: `JSON`. If a field isn't found in a JSON value, a SQL `NULL` is
   returned.
-+ For `GRAPH_ELEMENT`: SQL data type of `fieldname`. If a field (property) is
-  not found in the graph element, an error is produced.
++ For `GRAPH_ELEMENT`: SQL data type of `fieldname`. If a field (property) isn't
+  found in the graph element, an error is produced.
 
 **Example**
 
 In the following example, the field access operations are `.address` and
 `.country`.
 
-```sql
+```zetasql
 SELECT
   STRUCT(
     STRUCT('Yonge Street' AS street, 'Canada' AS country)
@@ -674,10 +675,10 @@ Input values:
 
 In following query, the array subscript operator is used to return values at
 specific position in `item_array`. This query also shows what happens when you
-reference an index (`6`) in an array that is out of range. If the `SAFE` prefix
+reference an index (`6`) in an array that's out of range. If the `SAFE` prefix
 is included, `NULL` is returned, otherwise an error is produced.
 
-```sql
+```zetasql
 SELECT
   ["coffee", "tea", "milk"] AS item_array,
   ["coffee", "tea", "milk"][0] AS item_index,
@@ -692,16 +693,16 @@ SELECT
  *----------------------------------+-------------+--------------+------------------*/
 ```
 
-When you reference an index that is out of range in an array, and a positional
-keyword that begins with `SAFE` is not included, an error is produced.
+When you reference an index that's out of range in an array, and a positional
+keyword that begins with `SAFE` isn't included, an error is produced.
 For example:
 
-```sql
+```zetasql
 -- Error. Array index 6 is out of bounds.
 SELECT ["coffee", "tea", "milk"][6] AS item_offset
 ```
 
-```sql
+```zetasql
 -- Error. Array index 6 is out of bounds.
 SELECT ["coffee", "tea", "milk"][OFFSET(6)] AS item_offset
 ```
@@ -747,10 +748,10 @@ at this time.
 
 In following query, the struct subscript operator is used to return values at
 specific locations in `item_struct` using position keywords. This query also
-shows what happens when you reference an index (`6`) in an struct that is out of
+shows what happens when you reference an index (`6`) in an struct that's out of
 range.
 
-```sql
+```zetasql
 SELECT
   STRUCT<INT64, STRING, BOOL>(23, "tea", FALSE)[0] AS field_index,
   STRUCT<INT64, STRING, BOOL>(23, "tea", FALSE)[OFFSET(0)] AS field_offset,
@@ -763,15 +764,15 @@ SELECT
  *-------------+--------------+---------------*/
 ```
 
-When you reference an index that is out of range in a struct, an error is
+When you reference an index that's out of range in a struct, an error is
 produced. For example:
 
-```sql
+```zetasql
 -- Error: Field ordinal 6 is out of bounds in STRUCT
 SELECT STRUCT<INT64, STRING, BOOL>(23, "tea", FALSE)[6] AS field_offset
 ```
 
-```sql
+```zetasql
 -- Error: Field ordinal 6 is out of bounds in STRUCT
 SELECT STRUCT<INT64, STRING, BOOL>(23, "tea", FALSE)[OFFSET(6)] AS field_offset
 ```
@@ -803,7 +804,7 @@ Input values:
   or equal to the size of the array, or the JSON expression doesn't represent
   a JSON array, a SQL `NULL` is returned.
 + `[field_name]`: A `STRING` expression that represents the name of a field in
-  JSON. If the field name is not found, or the JSON expression is not a
+  JSON. If the field name isn't found, or the JSON expression isn't a
   JSON object, a SQL `NULL` is returned.
 
 **Return type**
@@ -822,7 +823,7 @@ In the following example:
 + `['name']` is a JSON subscript expression with a field name that
   accesses a field.
 
-```sql
+```zetasql
 SELECT json_value.class.students[0]['name'] AS first_student
 FROM
   UNNEST(
@@ -844,7 +845,7 @@ FROM
 ### Protocol buffer map subscript operator 
 <a id="proto_subscript_operator"></a>
 
-```sql
+```zetasql
 proto_map_field_expression[proto_subscript_specifier]
 
 proto_subscript_specifier:
@@ -863,13 +864,13 @@ Input values:
 
 + `proto_map_field_expression`: A protocol buffer map field.
 + `key_keyword(key_name)`: Determines whether to produce `NULL` or
-  an error if the key is not present in the protocol buffer map field.
-  + `KEY(key_name)`: Returns an error if the key is not present in the
+  an error if the key isn't present in the protocol buffer map field.
+  + `KEY(key_name)`: Returns an error if the key isn't present in the
     protocol buffer map field.
-  + `SAFE_KEY(key_name)`: Returns `NULL` if the key is not present in the
+  + `SAFE_KEY(key_name)`: Returns `NULL` if the key isn't present in the
     protocol buffer map field.
   + `key_name`: When `key_name` is provided without a wrapping keyword,
-    it is the same as `KEY(key_name)`.
+    it's the same as `KEY(key_name)`.
 + `key_name`: The key in the protocol buffer map field. This operator returns
   `NULL` if the key is `NULL`.
 
@@ -891,7 +892,7 @@ message Item {
 In the following example, the subscript operator returns the value when the key
 is present.
 
-```sql
+```zetasql
 SELECT
   m.purchased[KEY('A')] AS map_value
 FROM
@@ -904,10 +905,10 @@ FROM
  *-----------*/
 ```
 
-When the key does not exist in the map field and you use `KEY`, an error is
+When the key doesn't exist in the map field and you use `KEY`, an error is
 produced. For example:
 
-```sql
+```zetasql
 -- ERROR: Key not found in map: 2
 SELECT
   m.purchased[KEY('B')] AS value
@@ -915,10 +916,10 @@ FROM
   (SELECT AS VALUE CAST("purchased { key: 'A' value: 2 }" AS Item)) AS m;
 ```
 
-When the key does not exist in the map field and you use `SAFE_KEY`,
+When the key doesn't exist in the map field and you use `SAFE_KEY`,
 the subscript operator returns `NULL`. For example:
 
-```sql
+```zetasql
 SELECT
   CAST(m.purchased[SAFE_KEY('B')] AS safe_key_missing
 FROM
@@ -934,7 +935,7 @@ FROM
 The subscript operator returns `NULL` when the map field or key is `NULL`.
 For example:
 
-```sql
+```zetasql
 SELECT
   CAST(NULL AS Item).purchased[KEY('A')] AS null_map,
   m.purchased[KEY(NULL)] AS null_key
@@ -951,7 +952,7 @@ FROM
 When a key is used without `KEY()` or `SAFE_KEY()`, it has the same behavior
 as if `KEY()` had been used. For example:
 
-```sql
+```zetasql
 SELECT
   m.purchased['A'] AS map_value
 FROM
@@ -996,7 +997,7 @@ Input values:
   For example, this query returns all values for the `items` field inside of the
   `my_array` array expression:
 
-  ```sql
+  ```zetasql
   WITH MyTable AS ( SELECT [STRUCT(['foo', 'bar'] AS items)] AS my_array )
   SELECT FLATTEN(my_array.items)
   FROM MyTable
@@ -1021,7 +1022,7 @@ Input values:
   For example, this query only returns values at position 0 in the `items`
   array field:
 
-  ```sql
+  ```zetasql
   WITH MyTable AS ( SELECT [STRUCT(['foo', 'bar'] AS items)] AS my_array )
   SELECT FLATTEN(my_array.items[OFFSET(0)])
   FROM MyTable
@@ -1029,13 +1030,13 @@ Input values:
 
 Details:
 
-The array elements field access operation is not a typical expression
+The array elements field access operation isn't a typical expression
 that returns a typed value; it represents a concept outside the type system
 and can only be interpreted by the following operations:
 
 +  [`FLATTEN` operation][flatten-operation]: Returns an array. For example:
 
-   ```sql
+   ```zetasql
    FLATTEN(my_array.sales.prices)
    ```
 +  [`UNNEST` operation][operators-link-to-unnest]: Returns a table.
@@ -1043,11 +1044,11 @@ and can only be interpreted by the following operations:
    Implicitly implements the `FLATTEN` operator.
    For example, these do the same thing:
 
-   ```sql
+   ```zetasql
    UNNEST(my_array.sales.prices)
    ```
 
-   ```sql
+   ```zetasql
    UNNEST(FLATTEN(my_array.sales.prices))
    ```
 +  [`FROM` clause][operators-link-to-from-clause]: Returns a table.
@@ -1056,15 +1057,15 @@ and can only be interpreted by the following operations:
    For example, these unnesting operations produce the same values for
    `results`:
 
-   ```sql
+   ```zetasql
    SELECT results FROM SalesTable, SalesTable.my_array.sales.prices AS results;
    ```
 
-   ```sql
+   ```zetasql
    SELECT results FROM SalesTable, UNNEST(my_array.sales.prices) AS results;
    ```
 
-   ```sql
+   ```zetasql
    SELECT results FROM SalesTable, UNNEST(FLATTEN(my_array.sales.prices)) AS results;
    ```
 
@@ -1111,7 +1112,7 @@ to the resulting array.
 The next examples in this section reference a table called `SalesTable`, that
 contains a nested struct in an array called `my_array`:
 
-```sql
+```zetasql
 WITH
   SalesTable AS (
     SELECT
@@ -1136,7 +1137,7 @@ SELECT * FROM SalesTable;
 This is what the array elements field access operator looks like in the
 `FLATTEN` operator:
 
-```sql
+```zetasql
 SELECT FLATTEN(my_array.sales.prices) AS all_prices FROM SalesTable;
 
 /*--------------*
@@ -1149,7 +1150,7 @@ SELECT FLATTEN(my_array.sales.prices) AS all_prices FROM SalesTable;
 This is how you use the array subscript operator to only return values at a
 specific index in the `prices` array:
 
-```sql
+```zetasql
 SELECT FLATTEN(my_array.sales.prices[OFFSET(0)]) AS first_prices FROM SalesTable;
 
 /*--------------*
@@ -1162,7 +1163,7 @@ SELECT FLATTEN(my_array.sales.prices[OFFSET(0)]) AS first_prices FROM SalesTable
 This is an example of an explicit `UNNEST` operation that includes the
 array elements field access operator:
 
-```sql
+```zetasql
 SELECT all_prices FROM SalesTable, UNNEST(my_array.sales.prices) AS all_prices
 
 /*------------*
@@ -1177,7 +1178,7 @@ SELECT all_prices FROM SalesTable, UNNEST(my_array.sales.prices) AS all_prices
 This is an example of an implicit `UNNEST` operation that includes the
 array elements field access operator:
 
-```sql
+```zetasql
 SELECT all_prices FROM SalesTable, SalesTable.my_array.sales.prices AS all_prices
 
 /*------------*
@@ -1189,10 +1190,10 @@ SELECT all_prices FROM SalesTable, SalesTable.my_array.sales.prices AS all_price
  *------------*/
 ```
 
-This query produces an error because one of the `prices` arrays does not have
+This query produces an error because one of the `prices` arrays doesn't have
 an element at index `1` and `OFFSET` is used:
 
-```sql
+```zetasql
 SELECT FLATTEN(my_array.sales.prices[OFFSET(1)]) AS second_prices FROM SalesTable;
 
 -- Error
@@ -1201,7 +1202,7 @@ SELECT FLATTEN(my_array.sales.prices[OFFSET(1)]) AS second_prices FROM SalesTabl
 This query is like the previous query, but `SAFE_OFFSET` is used. This
 produces a `NULL` value instead of an error.
 
-```sql
+```zetasql
 SELECT FLATTEN(my_array.sales.prices[SAFE_OFFSET(1)]) AS second_prices FROM SalesTable;
 
 /*---------------*
@@ -1214,7 +1215,7 @@ SELECT FLATTEN(my_array.sales.prices[SAFE_OFFSET(1)]) AS second_prices FROM Sale
 In this next example, an empty array and a `NULL` field value have been added to
 the query. These contribute no elements to the result.
 
-```sql
+```zetasql
 WITH
   SalesTable AS (
     SELECT
@@ -1257,7 +1258,7 @@ Nested data is common in protocol buffers that have data within repeated
 messages. The following example extracts a flattened array of songs from a
 table called `AlbumList` that contains a column called `Album` of type `PROTO`.
 
-```sql
+```zetasql
 WITH
   AlbumList AS (
     SELECT
@@ -1285,7 +1286,7 @@ The following example extracts a flattened array of album names, one album name
 per row. The data comes from a table called `AlbumList` that contains a
 proto-typed column called `Album`.
 
-```sql
+```zetasql
 WITH
   AlbumList AS (
     SELECT
@@ -1469,7 +1470,7 @@ Result types for Unary Minus:
 
 Operators '+' and '-' can be used for arithmetic operations on dates.
 
-```sql
+```zetasql
 date_expression + int64_expression
 int64_expression + date_expression
 date_expression - int64_expression
@@ -1487,7 +1488,7 @@ days.
 
 **Example**
 
-```sql
+```zetasql
 SELECT DATE "2020-09-22" + 1 AS day_later, DATE "2020-09-22" - 7 AS week_ago
 
 /*------------+------------*
@@ -1500,7 +1501,7 @@ SELECT DATE "2020-09-22" + 1 AS day_later, DATE "2020-09-22" - 7 AS week_ago
 ### Datetime subtraction 
 <a id="datetime_subtraction"></a>
 
-```sql
+```zetasql
 date_expression - date_expression
 timestamp_expression - timestamp_expression
 datetime_expression - datetime_expression
@@ -1516,7 +1517,7 @@ Computes the difference between two datetime values as an interval.
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   DATE "2021-05-20" - DATE "2020-04-19" AS date_diff,
   TIMESTAMP "2021-06-01 12:34:56.789" - TIMESTAMP "2021-05-31 00:00:00" AS time_diff
@@ -1533,7 +1534,7 @@ SELECT
 
 **Addition and subtraction**
 
-```sql
+```zetasql
 date_expression + interval_expression = DATETIME
 date_expression - interval_expression = DATETIME
 timestamp_expression + interval_expression = TIMESTAMP
@@ -1550,7 +1551,7 @@ value.
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   DATE "2021-04-20" + INTERVAL 25 HOUR AS date_plus,
   TIMESTAMP "2021-05-02 00:01:02.345" - INTERVAL 10 SECOND AS time_minus;
@@ -1564,7 +1565,7 @@ SELECT
 
 **Multiplication and division**
 
-```sql
+```zetasql
 interval_expression * integer_expression = INTERVAL
 interval_expression / integer_expression = INTERVAL
 
@@ -1576,7 +1577,7 @@ Multiplies or divides an interval value by an integer.
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   INTERVAL '1:2:3' HOUR TO SECOND * 10 AS mul1,
   INTERVAL 35 SECOND * 4 AS mul2,
@@ -1683,8 +1684,8 @@ This operator throws an error if <code>Y</code> is negative.</td>
 <td style="white-space:nowrap">
 <code>X</code>: Integer or <code>BYTES</code><br>
 <code>Y</code>: <code>INT64</code></td>
-<td>Shifts the first operand <code>X</code> to the right. This operator does not
-do sign bit extension with a signed type (i.e., it fills vacant bits on the left
+<td>Shifts the first operand <code>X</code> to the right. This operator doesn't
+perform sign bit extension with a signed type (i.e., it fills vacant bits on the left
 with <code>0</code>). This operator returns
 <code>0</code> or a byte sequence of
 <code>b'\x00'</code>
@@ -1728,7 +1729,7 @@ to produce a result. The result can be `TRUE`, `FALSE`, or `NULL`:
 
 The examples in this section reference a table called `entry_table`:
 
-```sql
+```zetasql
 /*-------*
  | entry |
  +-------+
@@ -1739,7 +1740,7 @@ The examples in this section reference a table called `entry_table`:
  *-------*/
 ```
 
-```sql
+```zetasql
 SELECT 'a' FROM entry_table WHERE entry = 'a'
 
 -- a => 'a' = 'a' => TRUE
@@ -1753,7 +1754,7 @@ SELECT 'a' FROM entry_table WHERE entry = 'a'
  *-------*/
 ```
 
-```sql
+```zetasql
 SELECT entry FROM entry_table WHERE NOT (entry = 'a')
 
 -- a => NOT('a' = 'a') => NOT(TRUE) => FALSE
@@ -1768,7 +1769,7 @@ SELECT entry FROM entry_table WHERE NOT (entry = 'a')
  *-------*/
 ```
 
-```sql
+```zetasql
 SELECT entry FROM entry_table WHERE entry IS NULL
 
 -- a => 'a' IS NULL => FALSE
@@ -1787,7 +1788,7 @@ SELECT entry FROM entry_table WHERE entry IS NULL
 ### Graph concatenation operator 
 <a id="graph_concatenation_operator"></a>
 
-```sql
+```zetasql
 graph_path || graph_path [ || ... ]
 ```
 
@@ -1806,7 +1807,7 @@ Arguments:
 This operator produces an error if the last node in the first path isn't the
 same as the first node in the second path.
 
-```sql
+```zetasql
 -- This successfully produces the concatenated path called `full_path`.
 MATCH
   p=(src:Account)-[t1:Transfers]->(mid:Account),
@@ -1814,9 +1815,9 @@ MATCH
 LET full_path = p || q
 ```
 
-```sql
+```zetasql
 -- This produces an error because the first node of the path to be concatenated
--- (mid2) is not equal to the last node of the previous path (mid1).
+-- (mid2) isn't equal to the last node of the previous path (mid1).
 MATCH
   p=(src:Account)-[t1:Transfers]->(mid1:Account),
   q=(mid2:Account)-[t2:Transfers]->(dst:Account)
@@ -1826,7 +1827,7 @@ LET full_path = p || q
 The first node in each subsequent path is removed from the
 concatenated path.
 
-```sql
+```zetasql
 -- The concatenated path called `full_path` contains these elements:
 -- src, t1, mid, t2, dst.
 MATCH
@@ -1844,7 +1845,7 @@ In the following query, a path called `p` and `q` are concatenated. Notice that
 second path. Also notice that the duplicate `mid` is removed from the
 concatenated path called `full_path`:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH
   p=(src:Account)-[t1:Transfers]->(mid:Account),
@@ -1869,8 +1870,8 @@ RETURN
 The following query produces an error because the last node for `p` must
 be the first node for `q`:
 
-```sql
--- Error: `mid1` and `mid2` are not equal.
+```zetasql
+-- Error: `mid1` and `mid2` aren't equal.
 GRAPH FinGraph
 MATCH
   p=(src:Account)-[t1:Transfers]->(mid1:Account),
@@ -1881,7 +1882,7 @@ RETURN TO_JSON(full_path) AS results
 
 The following query produces an error because the path called `p` is `NULL`:
 
-```sql
+```zetasql
 -- Error: a graph path is NULL.
 GRAPH FinGraph
 MATCH
@@ -1910,7 +1911,7 @@ ZetaSQL supports the following logical operators in
       <td><code>NOT</code></td>
       <td style="white-space:nowrap"><code>!X</code></td>
       <td>
-        Returns <code>TRUE</code> if <code>X</code> is not included, otherwise,
+        Returns <code>TRUE</code> if <code>X</code> isn't included, otherwise,
         returns <code>FALSE</code>.
       </td>
     </tr>
@@ -1941,10 +1942,13 @@ ZetaSQL supports the following logical operators in
 ZetaSQL supports the following graph-specific predicates in
 graph expressions. A predicate can produce `TRUE`, `FALSE`, or `NULL`.
 
++   [`ALL_DIFFERENT` predicate][all-different-predicate]
 +   [`PROPERTY_EXISTS` predicate][property-exists-predicate]
 +   [`IS SOURCE` predicate][is-source-predicate]
 +   [`IS DESTINATION` predicate][is-destination-predicate]
 +   [`SAME` predicate][same-predicate]
+
+[all-different-predicate]: #all_different_predicate
 
 [property-exists-predicate]: #property_exists_predicate
 
@@ -1957,7 +1961,7 @@ graph expressions. A predicate can produce `TRUE`, `FALSE`, or `NULL`.
 ### `IS DESTINATION` predicate 
 <a id="is_destination_predicate"></a>
 
-```sql
+```zetasql
 node IS [ NOT ] DESTINATION [ OF ] edge
 ```
 
@@ -1973,7 +1977,7 @@ Arguments:
 
 **Examples**
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (a:Account)-[transfer:Transfers]-(b:Account)
 WHERE a IS DESTINATION of transfer
@@ -1990,7 +1994,7 @@ RETURN a.id AS a_id, b.id AS b_id
  +-------------*/
 ```
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (a:Account)-[transfer:Transfers]-(b:Account)
 WHERE b IS DESTINATION of transfer
@@ -2010,7 +2014,7 @@ RETURN a.id AS a_id, b.id AS b_id
 ### `IS SOURCE` predicate 
 <a id="is_source_predicate"></a>
 
-```sql
+```zetasql
 node IS [ NOT ] SOURCE [ OF ] edge
 ```
 
@@ -2026,7 +2030,7 @@ Arguments:
 
 **Examples**
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (a:Account)-[transfer:Transfers]-(b:Account)
 WHERE a IS SOURCE of transfer
@@ -2043,7 +2047,7 @@ RETURN a.id AS a_id, b.id AS b_id
  +-------------*/
 ```
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (a:Account)-[transfer:Transfers]-(b:Account)
 WHERE b IS SOURCE of transfer
@@ -2063,7 +2067,7 @@ RETURN a.id AS a_id, b.id AS b_id
 ### `PROPERTY_EXISTS` predicate 
 <a id="property_exists_predicate"></a>
 
-```sql
+```zetasql
 PROPERTY_EXISTS(element, element_property)
 ```
 
@@ -2077,12 +2081,12 @@ Arguments:
 + `element`: The graph pattern variable for a node or edge element.
 + `element_property`: The name of the property to look for in `element`.
   The property name must refer to a property in the graph. If the property
-  does not exist in the graph, an error is produced. The property name is
+  doesn't exist in the graph, an error is produced. The property name is
   resolved in a case-insensitive manner.
 
 **Example**
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (n:Person|Account WHERE PROPERTY_EXISTS(n, name))
 RETURN n.name
@@ -2099,24 +2103,29 @@ RETURN n.name
 ### `SAME` predicate 
 <a id="same_predicate"></a>
 
-```sql
-SAME (element, element[, element])
+```zetasql
+SAME (element, element[, ...])
 ```
 
 **Description**
 
-In a graph, determines if all graph elements in a list bind to the same node or
-edge. Can produce `TRUE`, `FALSE`, or `NULL`.
+In a graph, checks if all graph elements in a list bind to the same node or
+edge. Returns `TRUE` if the elements bind to the same node or edge, otherwise
+`FALSE`.
 
 Arguments:
 
 + `element`: The graph pattern variable for a node or edge element.
 
+**Details**
+
+Produces an error if `element` is `NULL`.
+
 **Example**
 
-The following query checks to see if `a` and `b` are not the same person.
+The following query checks to see if `a` and `b` aren't the same person.
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (src:Account)<-[transfer:Transfers]-(dest:Account)
 WHERE NOT SAME(src, dest)
@@ -2210,7 +2219,7 @@ This operator supports specifying <a href="https://github.com/google/zetasql/blo
       <td>Not Equal</td>
       <td><code>X != Y</code><br><code>X &lt;&gt; Y</code></td>
       <td>
-        Returns <code>TRUE</code> if <code>X</code> is not equal to
+        Returns <code>TRUE</code> if <code>X</code> isn't equal to
         <code>Y</code>.
         
 
@@ -2264,7 +2273,7 @@ The following rules apply to operands in a comparison operator:
     converted to a common type without loss of precision,
     they are generally coerced to that common type for the comparison.
 +   A literal operand is generally coerced to the same data type of a
-    non-literal operand that is part of the comparison.
+    non-literal operand that's part of the comparison.
 +   Comparisons between operands that are signed and unsigned integers is
     allowed.
 +   Struct operands support only these comparison operators: equal
@@ -2288,7 +2297,7 @@ The following rules apply when comparing these data types:
     fields are `NULL`. In such cases:
 
     +   If all non-`NULL` field values are equal, the comparison returns `NULL`.
-    +   If any non-`NULL` field values are not equal, the comparison returns
+    +   If any non-`NULL` field values aren't equal, the comparison returns
         `FALSE`.
 
     The following table demonstrates how `STRUCT` data types are compared when
@@ -2328,8 +2337,8 @@ The following rules apply when comparing these data types:
 ### `EXISTS` operator 
 <a id="exists_operator"></a>
 
-```sql
-EXISTS ( subquery )
+```zetasql
+EXISTS( subquery )
 ```
 
 **Description**
@@ -2344,13 +2353,13 @@ see [`EXISTS` subqueries][exists-subqueries].
 In this example, the `EXISTS` operator returns `FALSE` because there are no
 rows in `Words` where the direction is `south`:
 
-```sql
+```zetasql
 WITH Words AS (
   SELECT 'Intend' as value, 'east' as direction UNION ALL
   SELECT 'Secure', 'north' UNION ALL
   SELECT 'Clarity', 'west'
  )
-SELECT EXISTS ( SELECT value FROM Words WHERE direction = 'south' ) as result;
+SELECT EXISTS( SELECT value FROM Words WHERE direction = 'south' ) as result;
 
 /*--------*
  | result |
@@ -2366,7 +2375,7 @@ SELECT EXISTS ( SELECT value FROM Words WHERE direction = 'south' ) as result;
 
 The `IN` operator supports the following syntax:
 
-```sql
+```zetasql
 search_value [NOT] IN value_set
 
 value_set:
@@ -2385,7 +2394,7 @@ if an equal value is found, `FALSE` if an equal value is excluded, otherwise
 `NULL`. `NOT IN` returns `FALSE` if an equal value is found, `TRUE` if an
 equal value is excluded, otherwise `NULL`.
 
-+ `search_value`: The expression that is compared to a set of values.
++ `search_value`: The expression that's compared to a set of values.
 + `value_set`: One or more values to compare to a search value.
    + `(expression[, ...])`: A list of expressions.
    + `(subquery)`: A [subquery][operators-subqueries] that returns
@@ -2395,13 +2404,13 @@ equal value is excluded, otherwise `NULL`.
       that returns a column of values from an array expression. This is
       equivalent to:
 
-      ```sql
+      ```zetasql
       IN (SELECT element FROM UNNEST(array_expression) AS element)
       ```
 
 This operator supports [collation][collation], but these limitations apply:
 
-+ `[NOT] IN UNNEST` does not support collation.
++ `[NOT] IN UNNEST` doesn't support collation.
 + If collation is used with a list of expressions, there must be at least one
   item in the list.
 
@@ -2484,7 +2493,7 @@ See the [Struct Type][operators-link-to-struct-type] topic for more information.
 You can use these `WITH` clauses to emulate temporary tables for
 `Words` and `Items` in the following examples:
 
-```sql
+```zetasql
 WITH Words AS (
   SELECT 'Intend' as value UNION ALL
   SELECT 'Secure' UNION ALL
@@ -2505,7 +2514,7 @@ SELECT * FROM Words;
  *----------*/
 ```
 
-```sql
+```zetasql
 WITH
   Items AS (
     SELECT STRUCT('blue' AS color, 'round' AS shape) AS info UNION ALL
@@ -2525,7 +2534,7 @@ SELECT * FROM Items;
 
 Example with `IN` and an expression:
 
-```sql
+```zetasql
 SELECT * FROM Words WHERE value IN ('Intend', 'Secure');
 
 /*----------*
@@ -2539,7 +2548,7 @@ SELECT * FROM Words WHERE value IN ('Intend', 'Secure');
 
 Example with `NOT IN` and an expression:
 
-```sql
+```zetasql
 SELECT * FROM Words WHERE value NOT IN ('Intend');
 
 /*----------*
@@ -2553,7 +2562,7 @@ SELECT * FROM Words WHERE value NOT IN ('Intend');
 
 Example with `IN`, a scalar subquery, and an expression:
 
-```sql
+```zetasql
 SELECT * FROM Words WHERE value IN ((SELECT 'Intend'), 'Clarity');
 
 /*----------*
@@ -2567,7 +2576,7 @@ SELECT * FROM Words WHERE value IN ((SELECT 'Intend'), 'Clarity');
 
 Example with `IN` and an `UNNEST` operation:
 
-```sql
+```zetasql
 SELECT * FROM Words WHERE value IN UNNEST(['Secure', 'Clarity']);
 
 /*----------*
@@ -2580,7 +2589,7 @@ SELECT * FROM Words WHERE value IN UNNEST(['Secure', 'Clarity']);
 
 Example with `IN` and a struct:
 
-```sql
+```zetasql
 SELECT
   (SELECT AS STRUCT Items.info) as item
 FROM
@@ -2715,7 +2724,7 @@ inverted.
 ### `IS DISTINCT FROM` operator 
 <a id="is_distinct"></a>
 
-```sql
+```zetasql
 expression_1 IS [NOT] DISTINCT FROM expression_2
 ```
 
@@ -2754,37 +2763,37 @@ Input values:
 
 These return `TRUE`:
 
-```sql
+```zetasql
 SELECT 1 IS DISTINCT FROM 2
 ```
 
-```sql
+```zetasql
 SELECT 1 IS DISTINCT FROM NULL
 ```
 
-```sql
+```zetasql
 SELECT 1 IS NOT DISTINCT FROM 1
 ```
 
-```sql
+```zetasql
 SELECT NULL IS NOT DISTINCT FROM NULL
 ```
 
 These return `FALSE`:
 
-```sql
+```zetasql
 SELECT NULL IS DISTINCT FROM NULL
 ```
 
-```sql
+```zetasql
 SELECT 1 IS DISTINCT FROM 1
 ```
 
-```sql
+```zetasql
 SELECT 1 IS NOT DISTINCT FROM 2
 ```
 
-```sql
+```zetasql
 SELECT 1 IS NOT DISTINCT FROM NULL
 ```
 
@@ -2795,7 +2804,7 @@ SELECT 1 IS NOT DISTINCT FROM NULL
 ### `LIKE` operator 
 <a id="like_operator"></a>
 
-```sql
+```zetasql
 expression_1 [NOT] LIKE expression_2
 ```
 
@@ -2806,7 +2815,7 @@ matches a pattern specified by the second operand `expression_2`,
 otherwise returns `FALSE`.
 
 `NOT LIKE` returns `TRUE` if the string in the first operand `expression_1`
-does not match a pattern specified by the second operand `expression_2`,
+doesn't match a pattern specified by the second operand `expression_2`,
 otherwise returns `FALSE`.
 
 Expressions can contain these characters:
@@ -2827,13 +2836,13 @@ This operator supports [collation][collation], but caveats apply:
 
     +   The character is a percent sign (`%`).
 
-    +   The character is an underscore (`_`) and the collator is not `und:ci`.
+    +   The character is an underscore (`_`) and the collator isn't `und:ci`.
 +   These additional rules apply to the underscore (`_`) character:
 
-    +   If the collator is not `und:ci`, an error is produced when an underscore
-        is not escaped in `expression_2`.
+    +   If the collator isn't `und:ci`, an error is produced when an underscore
+        isn't escaped in `expression_2`.
 
-    +   If the collator is not `und:ci`, the underscore is not allowed when the
+    +   If the collator isn't `und:ci`, the underscore isn't allowed when the
         operands have collation specified.
 
     +   Some _compatibility composites_, such as the fi-ligature (`ﬁ`) and the
@@ -2845,7 +2854,7 @@ This operator supports [collation][collation], but caveats apply:
 +   For a contiguous sequence of single character specifiers, equality
     depends on the collator and its language tags and tailoring.
 
-    +   By default, the `und:ci` collator does not fully normalize a string.
+    +   By default, the `und:ci` collator doesn't fully normalize a string.
         Some canonically equivalent strings are considered unequal for
         both the `=` and `LIKE` operators.
 
@@ -2881,32 +2890,32 @@ This operator supports [collation][collation], but caveats apply:
 The following examples illustrate how you can check to see if the string in the
 first operand matches a pattern specified by the second operand.
 
-```sql
+```zetasql
 -- Returns TRUE
 SELECT 'apple' LIKE 'a%';
 ```
 
-```sql
+```zetasql
 -- Returns FALSE
 SELECT '%a' LIKE 'apple';
 ```
 
-```sql
+```zetasql
 -- Returns FALSE
 SELECT 'apple' NOT LIKE 'a%';
 ```
 
-```sql
+```zetasql
 -- Returns TRUE
 SELECT '%a' NOT LIKE 'apple';
 ```
 
-```sql
+```zetasql
 -- Produces an error
 SELECT NULL LIKE 'a%';
 ```
 
-```sql
+```zetasql
 -- Produces an error
 SELECT 'apple' LIKE NULL;
 ```
@@ -2914,7 +2923,7 @@ SELECT 'apple' LIKE NULL;
 The following example illustrates how to search multiple patterns in an array
 to find a match with the `LIKE` operator:
 
-```sql
+```zetasql
 WITH Words AS
  (SELECT 'Intend with clarity.' as value UNION ALL
   SELECT 'Secure with intention.' UNION ALL
@@ -2934,32 +2943,32 @@ WHERE ARRAY_INCLUDES(['%ity%', '%and%'], pattern->(Words.value LIKE pattern));
 The following examples illustrate how collation can be used with the `LIKE`
 operator.
 
-```sql
+```zetasql
 -- Returns FALSE
 'Foo' LIKE '%foo%'
 ```
 
-```sql
+```zetasql
 -- Returns TRUE
 COLLATE('Foo', 'und:ci') LIKE COLLATE('%foo%', 'und:ci');
 ```
 
-```sql
+```zetasql
 -- Returns TRUE
 COLLATE('Foo', 'und:ci') = COLLATE('foo', 'und:ci');
 ```
 
-```sql
+```zetasql
 -- Produces an error
 COLLATE('Foo', 'und:ci') LIKE COLLATE('%foo%', 'binary');
 ```
 
-```sql
+```zetasql
 -- Produces an error
 COLLATE('Foo', 'und:ci') LIKE COLLATE('%f_o%', 'und:ci');
 ```
 
-```sql
+```zetasql
 -- Returns TRUE
 COLLATE('Foo_', 'und:ci') LIKE COLLATE('%foo\\_%', 'und:ci');
 ```
@@ -2969,17 +2978,17 @@ case. While the difference between `ß` and `ẞ` is case difference (tertiary
 difference), the difference between sharp `s` and `ss` is secondary and
 considered not equal using the `und:ci` collator. For example:
 
-```sql
+```zetasql
 -- Returns FALSE
 'MASSE' LIKE 'Maße';
 ```
 
-```sql
+```zetasql
 -- Returns FALSE
 COLLATE('MASSE', 'und:ci') LIKE '%Maße%';
 ```
 
-```sql
+```zetasql
 -- Returns FALSE
 COLLATE('MASSE', 'und:ci') = COLLATE('Maße', 'und:ci');
 ```
@@ -2993,17 +3002,17 @@ secondary strength.
 
 For example:
 
-```sql
+```zetasql
 -- Returns FALSE
 '\u3042' LIKE '%\u30A2%';
 ```
 
-```sql
+```zetasql
 -- Returns TRUE
 COLLATE('\u3042', 'und:ci') LIKE COLLATE('%\u30A2%', 'und:ci');
 ```
 
-```sql
+```zetasql
 -- Returns TRUE
 COLLATE('\u3042', 'und:ci') = COLLATE('\u30A2', 'und:ci');
 ```
@@ -3020,17 +3029,17 @@ collation units are considered the same.
 In the following examples, the difference between `'\u0061\u030A'` and
 `'\u00C5'` is tertiary.
 
-```sql
+```zetasql
 -- Returns FALSE
 '\u0061\u030A' LIKE '%\u00C5%';
 ```
 
-```sql
+```zetasql
 -- Returns TRUE
 COLLATE('\u0061\u030A', 'und:ci') LIKE '%\u00C5%';
 ```
 
-```sql
+```zetasql
 -- Returns TRUE
 COLLATE('\u0061\u030A', 'und:ci') = COLLATE('\u00C5', 'und:ci');
 ```
@@ -3038,12 +3047,12 @@ COLLATE('\u0061\u030A', 'und:ci') = COLLATE('\u00C5', 'und:ci');
 In the following example, `'\u0083'` is a `NO BREAK HERE` character and
 is ignored.
 
-```sql
+```zetasql
 -- Returns FALSE
 '\u0083' LIKE '';
 ```
 
-```sql
+```zetasql
 -- Returns TRUE
 COLLATE('\u0083', 'und:ci') LIKE '';
 ```
@@ -3059,7 +3068,7 @@ COLLATE('\u0083', 'und:ci') LIKE '';
 
 The quantified `LIKE` operator supports the following syntax:
 
-```sql
+```zetasql
 search_value [NOT] LIKE quantifier patterns
 
 quantifier:
@@ -3088,8 +3097,8 @@ Checks `search_value` for matches against several patterns. Each comparison is
 case-sensitive. Wildcard searches are supported.
 [Semantic rules][semantic-rules-quant-like] apply, but in general, `LIKE`
 returns `TRUE` if a matching pattern is found, `FALSE` if a matching pattern
-is not found, or otherwise `NULL`. `NOT LIKE` returns `FALSE` if a
-matching pattern is found, `TRUE` if a matching pattern is not found, or
+isn't found, or otherwise `NULL`. `NOT LIKE` returns `FALSE` if a
+matching pattern is found, `TRUE` if a matching pattern isn't found, or
 otherwise `NULL`.
 
 + `search_value`: The value to search for matching patterns. This value can be a
@@ -3189,7 +3198,7 @@ semantics apply in this order:
 The following example checks to see if the `Intend%` or `%intention%`
 pattern exists in a value and produces that value if either pattern is found:
 
-```sql
+```zetasql
 WITH Words AS
  (SELECT 'Intend with clarity.' as value UNION ALL
   SELECT 'Secure with intention.' UNION ALL
@@ -3209,7 +3218,7 @@ pattern exists in a value and produces that value if the pattern is found.
 
 Example with `LIKE ALL`:
 
-```sql
+```zetasql
 WITH Words AS
  (SELECT 'Intend with clarity.' as value UNION ALL
   SELECT 'Secure with intention.' UNION ALL
@@ -3226,9 +3235,9 @@ SELECT * FROM Words WHERE value LIKE ALL ('%ity%');
 
 The following example checks to see if the `%ity%`
 pattern exists in a value produces that value if the pattern
-is not found:
+isn't found:
 
-```sql
+```zetasql
 WITH Words AS
  (SELECT 'Intend with clarity.' as value UNION ALL
   SELECT 'Secure with intention.' UNION ALL
@@ -3244,7 +3253,7 @@ SELECT * FROM Words WHERE value NOT LIKE ('%ity%');
 
 You can use a subquery as an expression in `patterns`. For example:
 
-```sql
+```zetasql
 WITH Words AS
  (SELECT 'Intend with clarity.' as value UNION ALL
   SELECT 'Secure with intention.' UNION ALL
@@ -3261,7 +3270,7 @@ SELECT * FROM Words WHERE value LIKE ANY ((SELECT '%ion%'), '%and%');
 
 You can pass in a subquery for `patterns`. For example:
 
-```sql
+```zetasql
 WITH Words AS
  (SELECT 'Intend with clarity.' as value UNION ALL
   SELECT 'Secure with intention.' UNION ALL
@@ -3278,7 +3287,7 @@ SELECT * FROM Words WHERE value LIKE ANY (SELECT '%with%');
 
 You can pass in an array for `patterns`. For example:
 
-```sql
+```zetasql
 WITH Words AS
  (SELECT 'Intend with clarity.' as value UNION ALL
   SELECT 'Secure with intention.' UNION ALL
@@ -3295,7 +3304,7 @@ SELECT * FROM Words WHERE value LIKE ANY UNNEST(['%ion%', '%and%']);
 
 You can pass in an array and subquery for `patterns`. For example:
 
-```sql
+```zetasql
 WITH Words AS
  (SELECT 'Intend with clarity.' as value UNION ALL
   SELECT 'Secure with intention.' UNION ALL
@@ -3316,7 +3325,7 @@ WHERE
 The following queries illustrate some of the semantic rules for the
 quantified `LIKE` operator:
 
-```sql
+```zetasql
 SELECT
   NULL LIKE ANY ('a', 'b'), -- NULL
   'a' LIKE ANY ('a', 'c'), -- TRUE
@@ -3330,7 +3339,7 @@ SELECT
   'a' NOT LIKE ANY ('b', NULL); -- TRUE
 ```
 
-```sql
+```zetasql
 SELECT
   NULL LIKE SOME ('a', 'b'), -- NULL
   'a' LIKE SOME ('a', 'c'), -- TRUE
@@ -3344,7 +3353,7 @@ SELECT
   'a' NOT LIKE SOME ('b', NULL); -- TRUE
 ```
 
-```sql
+```zetasql
 SELECT
   NULL LIKE ALL ('a', 'b'), -- NULL
   'a' LIKE ALL ('a', '%a%'), -- TRUE
@@ -3361,14 +3370,14 @@ SELECT
 The following queries illustrate some of the semantic rules for the
 quantified `LIKE` operator and collation:
 
-```sql
+```zetasql
 SELECT
   COLLATE('a', 'und:ci') LIKE ALL ('a', 'A'), -- TRUE
   'a' LIKE ALL (COLLATE('a', 'und:ci'), 'A'), -- TRUE
   'a' LIKE ALL ('%A%', COLLATE('a', 'und:ci')); -- TRUE
 ```
 
-```sql
+```zetasql
 -- ERROR: BYTES and STRING values can't be used together.
 SELECT b'a' LIKE ALL (COLLATE('a', 'und:ci'), 'A');
 ```
@@ -3393,7 +3402,7 @@ The `NEW` operator only supports protocol buffers and uses the following syntax:
  + `NEW protocol_buffer {...}`: Creates a
 protocol buffer using a map constructor.
 
-  ```sql
+  ```zetasql
   NEW protocol_buffer {
     field_name: literal_or_expression
     field_name { ... }
@@ -3403,7 +3412,7 @@ protocol buffer using a map constructor.
 +   `NEW protocol_buffer (...)`: Creates a protocol buffer using a parenthesized
     list of arguments.
 
-    ```sql
+    ```zetasql
     NEW protocol_buffer(field [AS alias], ...field [AS alias])
     ```
 
@@ -3411,7 +3420,7 @@ protocol buffer using a map constructor.
 
 The following example uses the `NEW` operator with a map constructor:
 
-```sql
+```zetasql
 NEW Universe {
   name: "Sol"
   closest_planets: ["Mercury", "Venus", "Earth" ]
@@ -3433,7 +3442,7 @@ NEW Universe {
 The following example uses the `NEW` operator with a parenthesized list of
 arguments:
 
-```sql
+```zetasql
 SELECT
   key,
   name,
@@ -3488,7 +3497,7 @@ Note: The concatenation operator is translated into a nested
 ### `WITH` expression 
 <a id="with_expression"></a>
 
-```sql
+```zetasql
 WITH(variable_assignment[, ...], result_expression)
 
 variable_assignment:
@@ -3510,7 +3519,7 @@ expressions within the `WITH` expression. Returns the value of
     +   `variable_name`: The name of the variable.
 
     +   `expression`: The value to assign to the variable.
-+   `result_expression`: An expression that is the `WITH` expression's result.
++   `result_expression`: An expression that's the `WITH` expression's result.
     `result_expression` can use all of the variables defined before it.
 
 **Return Type**
@@ -3531,7 +3540,7 @@ expressions within the `WITH` expression. Returns the value of
 The following example first concatenates variable `a` with `b`, then variable
 `b` with `c`:
 
-```sql
+```zetasql
 SELECT WITH(a AS '123',               -- a is '123'
             b AS CONCAT(a, '456'),    -- b is '123456'
             c AS '789',               -- c is '789'
@@ -3544,11 +3553,11 @@ SELECT WITH(a AS '123',               -- a is '123'
  *-------------*/
 ```
 
-In the following example, the volatile expression `RAND()` behaves as if it is
+In the following example, the volatile expression `RAND()` behaves as if it's
 evaluated only once. This means the value of the result expression will always
 be zero:
 
-```sql
+```zetasql
 SELECT WITH(a AS RAND(), a - a);
 
 /*---------*
@@ -3561,7 +3570,7 @@ SELECT WITH(a AS RAND(), a - a);
 Aggregate or analytic function
 results can be stored in variables. In this example, an average is computed:
 
-```sql
+```zetasql
 SELECT WITH(s AS SUM(input), c AS COUNT(input), s/c)
 FROM UNNEST([1.0, 2.0, 3.0]) AS input;
 
@@ -3572,10 +3581,10 @@ FROM UNNEST([1.0, 2.0, 3.0]) AS input;
  *---------*/
 ```
 
-Variables cannot be used in aggregate or
+Variables can't be used in aggregate or
 analytic function call arguments:
 
-```sql
+```zetasql
 SELECT WITH(diff AS a - b, AVG(diff))
 FROM UNNEST([
               STRUCT(1 AS a, 2 AS b),
@@ -3583,7 +3592,7 @@ FROM UNNEST([
               STRUCT(5 AS a, 6 AS b),
             ]);
 
--- ERROR: WITH variables like 'diff' cannot be used in aggregate or analytic
+-- ERROR: WITH variables like 'diff' can't be used in aggregate or analytic
 -- function arguments.
 ```
 
@@ -3687,7 +3696,7 @@ tuning.
 ### `CASE expr` 
 <a id="case_expr"></a>
 
-```sql
+```zetasql
 CASE expr
   WHEN expr_to_match THEN result
   [ ... ]
@@ -3725,7 +3734,7 @@ This expression supports specifying [collation][collation].
 
 **Example**
 
-```sql
+```zetasql
 WITH Numbers AS (
   SELECT 90 as A, 2 as B UNION ALL
   SELECT 50, 8 UNION ALL
@@ -3762,7 +3771,7 @@ FROM Numbers
 ### `CASE` 
 <a id="case"></a>
 
-```sql
+```zetasql
 CASE
   WHEN condition THEN result
   [ ... ]
@@ -3796,7 +3805,7 @@ This expression supports specifying [collation][collation].
 
 **Example**
 
-```sql
+```zetasql
 WITH Numbers AS (
   SELECT 90 as A, 2 as B UNION ALL
   SELECT 50, 6 UNION ALL
@@ -3829,7 +3838,7 @@ FROM Numbers
 ### `COALESCE` 
 <a id="coalesce"></a>
 
-```sql
+```zetasql
 COALESCE(expr[, ...])
 ```
 
@@ -3847,7 +3856,7 @@ All input expressions must be implicitly coercible to a common
 
 **Examples**
 
-```sql
+```zetasql
 SELECT COALESCE('A', 'B', 'C') as result
 
 /*--------*
@@ -3857,7 +3866,7 @@ SELECT COALESCE('A', 'B', 'C') as result
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT COALESCE(NULL, 'B', 'C') as result
 
 /*--------*
@@ -3872,7 +3881,7 @@ SELECT COALESCE(NULL, 'B', 'C') as result
 ### `IF` 
 <a id="if"></a>
 
-```sql
+```zetasql
 IF(expr, true_result, else_result)
 ```
 
@@ -3892,7 +3901,7 @@ must be coercible to a common [supertype][cond-exp-supertype].
 
 **Examples**
 
-```sql
+```zetasql
 SELECT
   10 AS A,
   20 AS B,
@@ -3905,7 +3914,7 @@ SELECT
  *------------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   30 AS A,
   20 AS B,
@@ -3923,7 +3932,7 @@ SELECT
 ### `IFNULL` 
 <a id="ifnull"></a>
 
-```sql
+```zetasql
 IFNULL(expr, null_result)
 ```
 
@@ -3942,7 +3951,7 @@ a common [supertype][cond-exp-supertype]. Synonym for
 
 **Examples**
 
-```sql
+```zetasql
 SELECT IFNULL(NULL, 0) as result
 
 /*--------*
@@ -3952,7 +3961,7 @@ SELECT IFNULL(NULL, 0) as result
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT IFNULL(10, 0) as result
 
 /*--------*
@@ -3967,7 +3976,7 @@ SELECT IFNULL(10, 0) as result
 ### `NULLIF` 
 <a id="nullif"></a>
 
-```sql
+```zetasql
 NULLIF(expr, expr_to_match)
 ```
 
@@ -3989,7 +3998,7 @@ This expression supports specifying [collation][collation].
 
 **Example**
 
-```sql
+```zetasql
 SELECT NULLIF(0, 0) as result
 
 /*--------*
@@ -3999,7 +4008,7 @@ SELECT NULLIF(0, 0) as result
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT NULLIF(10, 0) as result
 
 /*--------*
@@ -4014,7 +4023,7 @@ SELECT NULLIF(10, 0) as result
 ### `NULLIFZERO` 
 <a id="nullifzero"></a>
 
-```sql
+```zetasql
 NULLIFZERO(expr)
 ```
 
@@ -4029,7 +4038,7 @@ Type of `expr`.
 
 **Example**
 
-```sql
+```zetasql
 SELECT NULLIFZERO(0) AS result
 
 /*--------*
@@ -4042,7 +4051,7 @@ SELECT NULLIFZERO(0) AS result
 ### `ZEROIFNULL` 
 <a id="zeroifnull"></a>
 
-```sql
+```zetasql
 ZEROIFNULL(expr)
 ```
 
@@ -4057,7 +4066,7 @@ Type of `expr`.
 
 **Example**
 
-```sql
+```zetasql
 SELECT ZEROIFNULL(NULL) AS result
 
 /*--------*
@@ -4196,7 +4205,7 @@ functions work, see [AEAD encryption concepts][aead-encryption-concepts].
 
 ### `AEAD.DECRYPT_BYTES`
 
-```sql
+```zetasql
 AEAD.DECRYPT_BYTES(keyset, ciphertext, additional_data)
 ```
 
@@ -4213,7 +4222,7 @@ function returns an error. `AEAD.DECRYPT_BYTES` identifies the matching key
 in `keyset` by finding the key with the key ID that matches the one encrypted in
 `ciphertext`.
 
-`ciphertext` is a `BYTES` value that is the result of
+`ciphertext` is a `BYTES` value that's the result of
 a call to `AEAD.ENCRYPT` where the input `plaintext` was of type
 `BYTES`.
 
@@ -4247,7 +4256,7 @@ The following statement creates a table `CustomerKeysets` containing a column of
 unique IDs, a column of `AEAD_AES_GCM_256` keysets, and a column of favorite
 animals.
 
-```sql
+```zetasql
 CREATE TABLE aead.CustomerKeysets AS
 SELECT
   1 AS customer_id,
@@ -4270,7 +4279,7 @@ column of unique IDs and a column of ciphertext. The statement encrypts the
 plaintext `favorite_animal` using the keyset value from `CustomerKeysets`
 corresponding to each unique ID.
 
-```sql
+```zetasql
 CREATE TABLE aead.EncryptedCustomerData AS
 SELECT
   customer_id,
@@ -4283,7 +4292,7 @@ FROM
 The following query uses the keysets in the `CustomerKeysets` table to decrypt
 data in the `EncryptedCustomerData` table.
 
-```sql
+```zetasql
 SELECT
   ecd.customer_id,
   AEAD.DECRYPT_BYTES(
@@ -4298,7 +4307,7 @@ FROM aead.EncryptedCustomerData AS ecd;
 
 ### `AEAD.DECRYPT_STRING`
 
-```sql
+```zetasql
 AEAD.DECRYPT_STRING(keyset, ciphertext, additional_data)
 ```
 
@@ -4315,7 +4324,7 @@ of type `STRING`.
 
 ### `AEAD.ENCRYPT`
 
-```sql
+```zetasql
 AEAD.ENCRYPT(keyset, plaintext, additional_data)
 ```
 
@@ -4352,7 +4361,7 @@ in the `PlaintextCustomerData` table corresponding to that `customer_id`. The
 output contains a column of `customer_id` values and a column of
 corresponding ciphertext output as `BYTES`.
 
-```sql
+```zetasql
 WITH CustomerKeysets AS (
   SELECT 1 AS customer_id, KEYS.NEW_KEYSET('AEAD_AES_GCM_256') AS keyset UNION ALL
   SELECT 2, KEYS.NEW_KEYSET('AEAD_AES_GCM_256') UNION ALL
@@ -4378,7 +4387,7 @@ FROM PlaintextCustomerData AS pcd;
 
 ### `DETERMINISTIC_DECRYPT_BYTES`
 
-```sql
+```zetasql
 DETERMINISTIC_DECRYPT_BYTES(keyset, ciphertext, additional_data)
 ```
 
@@ -4395,7 +4404,7 @@ else the function returns an error. `DETERMINISTIC_DECRYPT_BYTES` identifies the
 matching key in `keyset` by finding the key with the key ID that matches the one
 encrypted in `ciphertext`.
 
-`ciphertext` is a `BYTES` value that is the result of a call to
+`ciphertext` is a `BYTES` value that's the result of a call to
 `DETERMINISTIC_ENCRYPT` where the input `plaintext` was of type `BYTES`.
 
 The ciphertext must follow Tink's [wire format][tink-wire-format]. The first
@@ -4427,7 +4436,7 @@ The following statement creates a table `CustomerKeysets` containing a column of
 unique IDs, a column of `DETERMINISTIC_AEAD_AES_SIV_CMAC_256` keysets, and a
 column of favorite animals.
 
-```sql
+```zetasql
 CREATE TABLE deterministic.CustomerKeysets AS
 SELECT
   1 AS customer_id,
@@ -4450,7 +4459,7 @@ column of unique IDs and a column of ciphertext. The statement encrypts the
 plaintext `favorite_animal` using the keyset value from `CustomerKeysets`
 corresponding to each unique ID.
 
-```sql
+```zetasql
 CREATE TABLE deterministic.EncryptedCustomerData AS
 SELECT
   customer_id,
@@ -4463,7 +4472,7 @@ FROM
 The following query uses the keysets in the `CustomerKeysets` table to decrypt
 data in the `EncryptedCustomerData` table.
 
-```sql
+```zetasql
 SELECT
   ecd.customer_id,
   DETERMINISTIC_DECRYPT_BYTES(
@@ -4480,7 +4489,7 @@ FROM deterministic.EncryptedCustomerData AS ecd;
 
 ### `DETERMINISTIC_DECRYPT_STRING`
 
-```sql
+```zetasql
 DETERMINISTIC_DECRYPT_STRING(keyset, ciphertext, additional_data)
 ```
 
@@ -4497,7 +4506,7 @@ Like [`DETERMINISTIC_DECRYPT_BYTES`][deterministic-decrypt-bytes], but where
 
 ### `DETERMINISTIC_ENCRYPT`
 
-```sql
+```zetasql
 DETERMINISTIC_ENCRYPT(keyset, plaintext, additional_data)
 ```
 
@@ -4521,7 +4530,7 @@ type. `DETERMINISTIC_ENCRYPT(keyset, string1, string2)` is equivalent to
 The output is ciphertext `BYTES`. The ciphertext contains a
 [Tink-specific][tink] prefix indicating the key used to perform the encryption.
 Given an identical `keyset` and `plaintext`, this function returns the same
-ciphertext each time it is invoked (including across queries).
+ciphertext each time it's invoked (including across queries).
 
 **Return Data Type**
 
@@ -4535,7 +4544,7 @@ in the `PlaintextCustomerData` table corresponding to that `customer_id`. The
 output contains a column of `customer_id` values and a column of corresponding
 ciphertext output as `BYTES`.
 
-```sql
+```zetasql
 WITH CustomerKeysets AS (
   SELECT 1 AS customer_id,
   KEYS.NEW_KEYSET('DETERMINISTIC_AEAD_AES_SIV_CMAC_256') AS keyset UNION ALL
@@ -4581,14 +4590,14 @@ supported `key_types`:
   and PKCS padding. `raw_key_bytes` is expected to be a raw key
   `BYTES` value of length 16, 24, or 32; these
   lengths have sizes of 128, 192, and 256 bits, respectively. ZetaSQL
-  AEAD functions do not support keys of these types for encryption; instead,
+  AEAD functions don't support keys of these types for encryption; instead,
   prefer `'AEAD_AES_GCM_256'` or `'AES_GCM'` keys.
 + `'AES_GCM'`: Creates a key for AES decryption or encryption using
   [Galois/Counter Mode][galois-counter-mode].
   `raw_key_bytes` must be a raw key `BYTES`
   value of length 16 or 32; these lengths have sizes of 128 and 256 bits,
   respectively. When keys of this type are inputs to `AEAD.ENCRYPT`, the output
-  ciphertext does not have a Tink-specific prefix indicating which key was
+  ciphertext doesn't have a Tink-specific prefix indicating which key was
   used as input.
 
 **Return Data Type**
@@ -4605,7 +4614,7 @@ new key to each keyset, using the `raw_key_bytes` value corresponding to that
 a keyset in `BYTES`, which contains the raw key added
 using KEYS.ADD_KEY_FROM_RAW_BYTES.
 
-```sql
+```zetasql
 WITH CustomerRawKeys AS (
   SELECT 1 AS customer_id, b'0123456789012345' AS raw_key_bytes UNION ALL
   SELECT 2, b'9876543210543210' UNION ALL
@@ -4639,7 +4648,7 @@ decrypting the ciphertext.
 
 ### `KEYS.KEYSET_FROM_JSON`
 
-```sql
+```zetasql
 KEYS.KEYSET_FROM_JSON(json_keyset)
 ```
 
@@ -4686,7 +4695,7 @@ values like the following:
 The following query creates a new keyset from a JSON-formatted
 `STRING` `json_keyset`:
 
-```sql
+```zetasql
 SELECT KEYS.KEYSET_FROM_JSON(json_keyset);
 ```
 
@@ -4703,7 +4712,7 @@ type.googleapis.com/google.crypto.tink.AesGcmKey\x12\"\x1a qX\xe4IG\x87\x1f\xde
 
 ### `KEYS.KEYSET_LENGTH`
 
-```sql
+```zetasql
 KEYS.KEYSET_LENGTH(keyset)
 ```
 
@@ -4753,7 +4762,7 @@ called `json_keyset` that contains two keys:
 The following query converts `json_keyset` to a keyset and then returns
 the number of keys in the keyset:
 
-```sql
+```zetasql
 SELECT KEYS.KEYSET_LENGTH(KEYS.KEYSET_FROM_JSON(json_keyset)) as key_count;
 
 /*-----------*
@@ -4765,7 +4774,7 @@ SELECT KEYS.KEYSET_LENGTH(KEYS.KEYSET_FROM_JSON(json_keyset)) as key_count;
 
 ### `KEYS.KEYSET_TO_JSON`
 
-```sql
+```zetasql
 KEYS.KEYSET_TO_JSON(keyset)
 ```
 
@@ -4788,7 +4797,7 @@ protocol buffer message. You can convert the JSON
 The following query returns a new `'AEAD_AES_GCM_256'` keyset as a
 JSON-formatted `STRING`.
 
-```sql
+```zetasql
 SELECT KEYS.KEYSET_TO_JSON(KEYS.NEW_KEYSET('AEAD_AES_GCM_256'));
 ```
 
@@ -4832,7 +4841,7 @@ the keyset with the `AEAD.ENCRYPT`, `AEAD.DECRYPT_BYTES`, and
 the `KEYS` group of key- and keyset-related functions.
 
 `key_type` is a `STRING` literal representation of the type of key to create.
-`key_type` cannot be `NULL`. `key_type` can be:
+`key_type` can't be `NULL`. `key_type` can be:
 
 +   `AEAD_AES_GCM_256`: Creates a 256-bit key with the pseudo-random number
     generator provided by [boringSSL][boringSSL]. The key uses AES-GCM for
@@ -4855,7 +4864,7 @@ key with randomly-generated key data. Each row in the output contains a
 `customer_id` and an `'AEAD_AES_GCM_256'` key in
 `BYTES`.
 
-```sql
+```zetasql
 SELECT customer_id, KEYS.NEW_KEYSET('AEAD_AES_GCM_256') AS keyset
 FROM (
   SELECT 1 AS customer_id UNION ALL
@@ -4870,7 +4879,7 @@ FROM (
 
 ### `KEYS.ROTATE_KEYSET`
 
-```sql
+```zetasql
 KEYS.ROTATE_KEYSET(keyset, key_type)
 ```
 
@@ -4897,7 +4906,7 @@ primary cryptographic key within each keyset in the source table using
 `KEYS.ROTATE_KEYSET`. Each row in the output contains a `customer_id` and an
 `'AEAD_AES_GCM_256'` keyset in `BYTES`.
 
-```sql
+```zetasql
 WITH ExistingKeysets AS (
 SELECT 1 AS customer_id, KEYS.NEW_KEYSET('AEAD_AES_GCM_256') AS keyset
     UNION ALL
@@ -5291,7 +5300,7 @@ To learn about the syntax for aggregate function calls, see
 
 ### `ANY_VALUE`
 
-```sql
+```zetasql
 ANY_VALUE(
   expression
   [ HAVING { MAX | MIN } expression2 ]
@@ -5318,7 +5327,7 @@ or `expression2` is
 `NULL` for all rows in the group.
 
 `ANY_VALUE` behaves as if `IGNORE NULLS` is specified;
-rows for which `expression` is `NULL` are not considered and won't be
+rows for which `expression` is `NULL` aren't considered and won't be
 selected.
 
 To learn more about the optional aggregate clauses that you can pass
@@ -5350,7 +5359,7 @@ Matches the input data type.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT ANY_VALUE(fruit) as any_value
 FROM UNNEST(["apple", "banana", "pear"]) as fruit;
 
@@ -5361,7 +5370,7 @@ FROM UNNEST(["apple", "banana", "pear"]) as fruit;
  *-----------*/
 ```
 
-```sql
+```zetasql
 SELECT
   fruit,
   ANY_VALUE(fruit) OVER (ORDER BY LENGTH(fruit) ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS any_value
@@ -5376,7 +5385,7 @@ FROM UNNEST(["apple", "banana", "pear"]) as fruit;
  *--------+-----------*/
 ```
 
-```sql
+```zetasql
 WITH
   Store AS (
     SELECT 20 AS sold, "apples" AS fruit
@@ -5396,7 +5405,7 @@ SELECT ANY_VALUE(fruit HAVING MAX sold) AS a_highest_selling_fruit FROM Store;
  *-------------------------*/
 ```
 
-```sql
+```zetasql
 WITH
   Store AS (
     SELECT 20 AS sold, "apples" AS fruit
@@ -5418,7 +5427,7 @@ SELECT ANY_VALUE(fruit HAVING MIN sold) AS a_lowest_selling_fruit FROM Store;
 
 ### `ARRAY_AGG`
 
-```sql
+```zetasql
 ARRAY_AGG(
   [ DISTINCT ]
   expression
@@ -5475,7 +5484,7 @@ If there are zero input rows, this function returns `NULL`.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT ARRAY_AGG(x) AS array_agg FROM UNNEST([2, 1,-2, 3, -2, 1, 2]) AS x;
 
 /*-------------------------*
@@ -5485,7 +5494,7 @@ SELECT ARRAY_AGG(x) AS array_agg FROM UNNEST([2, 1,-2, 3, -2, 1, 2]) AS x;
  *-------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_AGG(DISTINCT x) AS array_agg
 FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
 
@@ -5496,7 +5505,7 @@ FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
  *---------------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_AGG(x IGNORE NULLS) AS array_agg
 FROM UNNEST([NULL, 1, -2, 3, -2, 1, NULL]) AS x;
 
@@ -5507,7 +5516,7 @@ FROM UNNEST([NULL, 1, -2, 3, -2, 1, NULL]) AS x;
  *-------------------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_AGG(x ORDER BY ABS(x)) AS array_agg
 FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
 
@@ -5518,7 +5527,7 @@ FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
  *-------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_AGG(x LIMIT 5) AS array_agg
 FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
 
@@ -5529,7 +5538,7 @@ FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
  *-------------------*/
 ```
 
-```sql
+```zetasql
 WITH vals AS
   (
     SELECT 1 x UNION ALL
@@ -5548,7 +5557,7 @@ FROM vals;
  *------------*/
 ```
 
-```sql
+```zetasql
 WITH vals AS
   (
     SELECT 1 x, 'a' y UNION ALL
@@ -5568,7 +5577,7 @@ GROUP BY x;
  *---------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   x,
   ARRAY_AGG(x) OVER (ORDER BY ABS(x)) AS array_agg
@@ -5589,7 +5598,7 @@ FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
 
 ### `ARRAY_CONCAT_AGG`
 
-```sql
+```zetasql
 ARRAY_CONCAT_AGG(
   expression
   [ HAVING { MAX | MIN } expression2 ]
@@ -5627,7 +5636,7 @@ into this function, see
 
 **Examples**
 
-```sql
+```zetasql
 SELECT ARRAY_CONCAT_AGG(x) AS array_concat_agg FROM (
   SELECT [NULL, 1, 2, 3, 4] AS x
   UNION ALL SELECT NULL
@@ -5642,7 +5651,7 @@ SELECT ARRAY_CONCAT_AGG(x) AS array_concat_agg FROM (
  *-----------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_CONCAT_AGG(x ORDER BY ARRAY_LENGTH(x)) AS array_concat_agg FROM (
   SELECT [1, 2, 3, 4] AS x
   UNION ALL SELECT [5, 6]
@@ -5656,7 +5665,7 @@ SELECT ARRAY_CONCAT_AGG(x ORDER BY ARRAY_LENGTH(x)) AS array_concat_agg FROM (
  *-----------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_CONCAT_AGG(x LIMIT 2) AS array_concat_agg FROM (
   SELECT [1, 2, 3, 4] AS x
   UNION ALL SELECT [5, 6]
@@ -5670,7 +5679,7 @@ SELECT ARRAY_CONCAT_AGG(x LIMIT 2) AS array_concat_agg FROM (
  *--------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_CONCAT_AGG(x ORDER BY ARRAY_LENGTH(x) LIMIT 2) AS array_concat_agg FROM (
   SELECT [1, 2, 3, 4] AS x
   UNION ALL SELECT [5, 6]
@@ -5686,7 +5695,7 @@ SELECT ARRAY_CONCAT_AGG(x ORDER BY ARRAY_LENGTH(x) LIMIT 2) AS array_concat_agg 
 
 ### `AVG`
 
-```sql
+```zetasql
 AVG(
   [ DISTINCT ]
   expression
@@ -5750,7 +5759,7 @@ Caveats:
 
 [floating-point-types]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_types
 
-[non-deterministic]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating-point-semantics
+[non-deterministic]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Supported Argument Types**
 
@@ -5774,7 +5783,7 @@ Caveats:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT AVG(x) as avg
 FROM UNNEST([0, 2, 4, 4, 5]) as x;
 
@@ -5785,7 +5794,7 @@ FROM UNNEST([0, 2, 4, 4, 5]) as x;
  *-----*/
 ```
 
-```sql
+```zetasql
 SELECT AVG(DISTINCT x) AS avg
 FROM UNNEST([0, 2, 4, 4, 5]) AS x;
 
@@ -5796,7 +5805,7 @@ FROM UNNEST([0, 2, 4, 4, 5]) AS x;
  *------*/
 ```
 
-```sql
+```zetasql
 SELECT
   x,
   AVG(x) OVER (ORDER BY x ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS avg
@@ -5818,7 +5827,7 @@ FROM UNNEST([0, 2, NULL, 4, 4, 5]) AS x;
 
 ### `BIT_AND`
 
-```sql
+```zetasql
 BIT_AND(
   [ DISTINCT ]
   expression
@@ -5853,7 +5862,7 @@ INT64
 
 **Examples**
 
-```sql
+```zetasql
 SELECT BIT_AND(x) as bit_and FROM UNNEST([0xF001, 0x00A1]) as x;
 
 /*---------*
@@ -5865,7 +5874,7 @@ SELECT BIT_AND(x) as bit_and FROM UNNEST([0xF001, 0x00A1]) as x;
 
 ### `BIT_OR`
 
-```sql
+```zetasql
 BIT_OR(
   [ DISTINCT ]
   expression
@@ -5900,7 +5909,7 @@ INT64
 
 **Examples**
 
-```sql
+```zetasql
 SELECT BIT_OR(x) as bit_or FROM UNNEST([0xF001, 0x00A1]) as x;
 
 /*--------*
@@ -5912,7 +5921,7 @@ SELECT BIT_OR(x) as bit_or FROM UNNEST([0xF001, 0x00A1]) as x;
 
 ### `BIT_XOR`
 
-```sql
+```zetasql
 BIT_XOR(
   [ DISTINCT ]
   expression
@@ -5947,7 +5956,7 @@ INT64
 
 **Examples**
 
-```sql
+```zetasql
 SELECT BIT_XOR(x) AS bit_xor FROM UNNEST([5678, 1234]) AS x;
 
 /*---------*
@@ -5957,7 +5966,7 @@ SELECT BIT_XOR(x) AS bit_xor FROM UNNEST([5678, 1234]) AS x;
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT BIT_XOR(x) AS bit_xor FROM UNNEST([1234, 5678, 1234]) AS x;
 
 /*---------*
@@ -5967,7 +5976,7 @@ SELECT BIT_XOR(x) AS bit_xor FROM UNNEST([1234, 5678, 1234]) AS x;
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT BIT_XOR(DISTINCT x) AS bit_xor FROM UNNEST([1234, 5678, 1234]) AS x;
 
 /*---------*
@@ -5979,12 +5988,12 @@ SELECT BIT_XOR(DISTINCT x) AS bit_xor FROM UNNEST([1234, 5678, 1234]) AS x;
 
 ### `COUNT`
 
-```sql
+```zetasql
 COUNT(*)
 [ OVER over_clause ]
 ```
 
-```sql
+```zetasql
 COUNT(
   [ DISTINCT ]
   expression
@@ -6047,7 +6056,7 @@ expression evaluated to any value other than `NULL`.
 To count the number of distinct values of an expression for which a
 certain condition is satisfied, you can use the following recipe:
 
-```sql
+```zetasql
 COUNT(DISTINCT IF(condition, expression, NULL))
 ```
 
@@ -6076,7 +6085,7 @@ This function with <code>DISTINCT</code> supports specifying [collation][collati
 You can use the `COUNT` function to return the number of rows in a table or the
 number of distinct values of an expression. For example:
 
-```sql
+```zetasql
 SELECT
   COUNT(*) AS count_star,
   COUNT(DISTINCT x) AS count_dist_x
@@ -6089,7 +6098,7 @@ FROM UNNEST([1, 4, 4, 5]) AS x;
  *------------+--------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   x,
   COUNT(*) OVER (PARTITION BY MOD(x, 3)) AS count_star,
@@ -6106,7 +6115,7 @@ FROM UNNEST([1, 4, 4, 5]) AS x;
  *------+------------+--------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   x,
   COUNT(*) OVER (PARTITION BY MOD(x, 3)) AS count_star,
@@ -6126,7 +6135,7 @@ FROM UNNEST([1, 4, NULL, 4, 5]) AS x;
 
 The following query counts the number of distinct positive values of `x`:
 
-```sql
+```zetasql
 SELECT COUNT(DISTINCT IF(x > 0, x, NULL)) AS distinct_positive
 FROM UNNEST([1, -2, 4, 1, -5, 4, 1, 3, -6, 1]) AS x;
 
@@ -6140,7 +6149,7 @@ FROM UNNEST([1, -2, 4, 1, -5, 4, 1, 3, -6, 1]) AS x;
 The following query counts the number of distinct dates on which a certain kind
 of event occurred:
 
-```sql
+```zetasql
 WITH Events AS (
   SELECT DATE '2021-01-01' AS event_date, 'SUCCESS' AS event_type
   UNION ALL
@@ -6169,7 +6178,7 @@ FROM Events;
 The following query counts the number of distinct `id`s that exist in both
 the `customers` and `vendor` tables:
 
-```sql
+```zetasql
 WITH
   customers AS (
     SELECT 1934 AS id, 'a' AS team UNION ALL
@@ -6198,7 +6207,7 @@ FROM vendors;
 
 ### `COUNTIF`
 
-```sql
+```zetasql
 COUNTIF(
   [ DISTINCT ]
   expression
@@ -6263,7 +6272,7 @@ information, see the [`COUNT`][count] function.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT COUNTIF(x<0) AS num_negative, COUNTIF(x>0) AS num_positive
 FROM UNNEST([5, -2, 3, 6, -10, -7, 4, 0]) AS x;
 
@@ -6274,7 +6283,7 @@ FROM UNNEST([5, -2, 3, 6, -10, -7, 4, 0]) AS x;
  *--------------+--------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   x,
   COUNTIF(x<0) OVER (ORDER BY ABS(x) ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING) AS num_negative
@@ -6299,7 +6308,7 @@ FROM UNNEST([5, -2, 3, 6, -10, NULL, -7, 4, 0]) AS x;
 
 ### `GROUPING`
 
-```sql
+```zetasql
 GROUPING(groupable_value)
 ```
 
@@ -6350,7 +6359,7 @@ Pay close attention to what's in the `product_type_agg` and
 0                  | 0                  | Rows are grouped by `product_type` and `product_name`.
 1                  | 1                  | Grand total row.
 
-```sql
+```zetasql
 WITH
   Products AS (
     SELECT 'shirt' AS product_type, 't-shirt' AS product_name, 3 AS product_count UNION ALL
@@ -6387,7 +6396,7 @@ determine what type of `NULL` is being produced. If
 `product_type_is_aggregated` is `1`, the `NULL` value for
 the `product_type` column is a `NULL` placeholder.
 
-```sql
+```zetasql
 WITH
   Products AS (
     SELECT 'shirt' AS product_type, 't-shirt' AS product_name, 3 AS product_count UNION ALL
@@ -6420,7 +6429,7 @@ ORDER BY product_name;
 
 ### `LOGICAL_AND`
 
-```sql
+```zetasql
 LOGICAL_AND(
   expression
   [ HAVING { MAX | MIN } expression2 ]
@@ -6480,7 +6489,7 @@ To learn more about the `OVER` clause and how to use it, see
 `LOGICAL_AND` returns `FALSE` because not all of the values in the array are
 less than 3.
 
-```sql
+```zetasql
 SELECT LOGICAL_AND(x < 3) AS logical_and FROM UNNEST([1, 2, 4]) AS x;
 
 /*-------------*
@@ -6492,7 +6501,7 @@ SELECT LOGICAL_AND(x < 3) AS logical_and FROM UNNEST([1, 2, 4]) AS x;
 
 ### `LOGICAL_OR`
 
-```sql
+```zetasql
 LOGICAL_OR(
   expression
   [ HAVING { MAX | MIN } expression2 ]
@@ -6552,7 +6561,7 @@ To learn more about the `OVER` clause and how to use it, see
 `LOGICAL_OR` returns `TRUE` because at least one of the values in the array is
 less than 3.
 
-```sql
+```zetasql
 SELECT LOGICAL_OR(x < 3) AS logical_or FROM UNNEST([1, 2, 4]) AS x;
 
 /*------------*
@@ -6564,7 +6573,7 @@ SELECT LOGICAL_OR(x < 3) AS logical_or FROM UNNEST([1, 2, 4]) AS x;
 
 ### `MAX`
 
-```sql
+```zetasql
 MAX(
   expression
   [ HAVING { MAX | MIN } expression2 ]
@@ -6625,7 +6634,7 @@ The data type of the input values.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT MAX(x) AS max
 FROM UNNEST([8, 37, 55, 4]) AS x;
 
@@ -6636,7 +6645,7 @@ FROM UNNEST([8, 37, 55, 4]) AS x;
  *-----*/
 ```
 
-```sql
+```zetasql
 SELECT x, MAX(x) OVER (PARTITION BY MOD(x, 2)) AS max
 FROM UNNEST([8, NULL, 37, 55, NULL, 4]) AS x;
 
@@ -6656,7 +6665,7 @@ FROM UNNEST([8, NULL, 37, 55, NULL, 4]) AS x;
 
 ### `MIN`
 
-```sql
+```zetasql
 MIN(
   expression
   [ HAVING { MAX | MIN } expression2 ]
@@ -6717,7 +6726,7 @@ The data type of the input values.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT MIN(x) AS min
 FROM UNNEST([8, 37, 4, 55]) AS x;
 
@@ -6728,7 +6737,7 @@ FROM UNNEST([8, 37, 4, 55]) AS x;
  *-----*/
 ```
 
-```sql
+```zetasql
 SELECT x, MIN(x) OVER (PARTITION BY MOD(x, 2)) AS min
 FROM UNNEST([8, NULL, 37, 4, NULL, 55]) AS x;
 
@@ -6748,7 +6757,7 @@ FROM UNNEST([8, NULL, 37, 4, NULL, 55]) AS x;
 
 ### `STRING_AGG`
 
-```sql
+```zetasql
 STRING_AGG(
   [ DISTINCT ]
   expression [, delimiter]
@@ -6807,7 +6816,7 @@ Either `STRING` or `BYTES`.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT STRING_AGG(fruit) AS string_agg
 FROM UNNEST(["apple", NULL, "pear", "banana", "pear"]) AS fruit;
 
@@ -6818,7 +6827,7 @@ FROM UNNEST(["apple", NULL, "pear", "banana", "pear"]) AS fruit;
  *------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT STRING_AGG(fruit, " & ") AS string_agg
 FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit;
 
@@ -6829,7 +6838,7 @@ FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit;
  *------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT STRING_AGG(DISTINCT fruit, " & ") AS string_agg
 FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit;
 
@@ -6840,7 +6849,7 @@ FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit;
  *-----------------------*/
 ```
 
-```sql
+```zetasql
 SELECT STRING_AGG(fruit, " & " ORDER BY LENGTH(fruit)) AS string_agg
 FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit;
 
@@ -6851,7 +6860,7 @@ FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit;
  *------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT STRING_AGG(fruit, " & " LIMIT 2) AS string_agg
 FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit;
 
@@ -6862,7 +6871,7 @@ FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit;
  *--------------*/
 ```
 
-```sql
+```zetasql
 SELECT STRING_AGG(DISTINCT fruit, " & " ORDER BY fruit DESC LIMIT 2) AS string_agg
 FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit;
 
@@ -6873,7 +6882,7 @@ FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit;
  *---------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   fruit,
   STRING_AGG(fruit, " & ") OVER (ORDER BY LENGTH(fruit)) AS string_agg
@@ -6892,7 +6901,7 @@ FROM UNNEST(["apple", NULL, "pear", "banana", "pear"]) AS fruit;
 
 ### `SUM`
 
-```sql
+```zetasql
 SUM(
   [ DISTINCT ]
   expression
@@ -6956,7 +6965,7 @@ Caveats:
 
 [floating-point-types]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_types
 
-[non-deterministic]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating-point-semantics
+[non-deterministic]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Supported Argument Types**
 
@@ -6980,7 +6989,7 @@ Caveats:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT SUM(x) AS sum
 FROM UNNEST([1, 2, 3, 4, 5, 4, 3, 2, 1]) AS x;
 
@@ -6991,7 +7000,7 @@ FROM UNNEST([1, 2, 3, 4, 5, 4, 3, 2, 1]) AS x;
  *-----*/
 ```
 
-```sql
+```zetasql
 SELECT SUM(DISTINCT x) AS sum
 FROM UNNEST([1, 2, 3, 4, 5, 4, 3, 2, 1]) AS x;
 
@@ -7002,7 +7011,7 @@ FROM UNNEST([1, 2, 3, 4, 5, 4, 3, 2, 1]) AS x;
  *-----*/
 ```
 
-```sql
+```zetasql
 SELECT
   x,
   SUM(x) OVER (PARTITION BY MOD(x, 3)) AS sum
@@ -7023,7 +7032,7 @@ FROM UNNEST([1, 2, 3, 4, 5, 4, 3, 2, 1]) AS x;
  *---+-----*/
 ```
 
-```sql
+```zetasql
 SELECT
   x,
   SUM(DISTINCT x) OVER (PARTITION BY MOD(x, 3)) AS sum
@@ -7044,7 +7053,7 @@ FROM UNNEST([1, 2, 3, 4, 5, 4, 3, 2, 1]) AS x;
  *---+-----*/
 ```
 
-```sql
+```zetasql
 SELECT SUM(x) AS sum
 FROM UNNEST([]) AS x;
 
@@ -7075,7 +7084,7 @@ already approximate.
 
 The approximate aggregate functions in this section work directly on the
 input data, rather than an intermediate estimation of the data. These functions
-_do not allow_ users to specify the precision for the estimation with
+_don't allow_ users to specify the precision for the estimation with
 sketches. If you would like to specify precision with sketches, see:
 
 +  [HyperLogLog++ functions][hll-functions] to estimate cardinality.
@@ -7133,7 +7142,7 @@ sketches. If you would like to specify precision with sketches, see:
 
 ### `APPROX_COUNT_DISTINCT`
 
-```sql
+```zetasql
 APPROX_COUNT_DISTINCT(
   expression
 )
@@ -7161,7 +7170,7 @@ Any data type **except**:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT APPROX_COUNT_DISTINCT(x) as approx_distinct
 FROM UNNEST([0, 1, 1, 2, 3, 5]) as x;
 
@@ -7174,7 +7183,7 @@ FROM UNNEST([0, 1, 1, 2, 3, 5]) as x;
 
 ### `APPROX_QUANTILES`
 
-```sql
+```zetasql
 APPROX_QUANTILES(
   [ DISTINCT ]
   expression, number
@@ -7219,7 +7228,7 @@ into this function, see
 
 **Examples**
 
-```sql
+```zetasql
 SELECT APPROX_QUANTILES(x, 2) AS approx_quantiles
 FROM UNNEST([1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
 
@@ -7230,7 +7239,7 @@ FROM UNNEST([1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
  *------------------*/
 ```
 
-```sql
+```zetasql
 SELECT APPROX_QUANTILES(x, 100)[OFFSET(90)] AS percentile_90
 FROM UNNEST([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) AS x;
 
@@ -7241,7 +7250,7 @@ FROM UNNEST([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) AS x;
  *---------------*/
 ```
 
-```sql
+```zetasql
 SELECT APPROX_QUANTILES(DISTINCT x, 2) AS approx_quantiles
 FROM UNNEST([1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
 
@@ -7252,7 +7261,7 @@ FROM UNNEST([1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
  *------------------*/
 ```
 
-```sql
+```zetasql
 SELECT APPROX_QUANTILES(x, 2 RESPECT NULLS) AS approx_quantiles
 FROM UNNEST([NULL, NULL, 1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
 
@@ -7263,7 +7272,7 @@ FROM UNNEST([NULL, NULL, 1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
  *------------------*/
 ```
 
-```sql
+```zetasql
 SELECT APPROX_QUANTILES(DISTINCT x, 2 RESPECT NULLS) AS approx_quantiles
 FROM UNNEST([NULL, NULL, 1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
 
@@ -7276,7 +7285,7 @@ FROM UNNEST([NULL, NULL, 1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
 
 ### `APPROX_TOP_COUNT`
 
-```sql
+```zetasql
 APPROX_TOP_COUNT(
   expression, number
   [ HAVING { MAX | MIN } expression2 ]
@@ -7315,7 +7324,7 @@ into this function, see
 
 **Examples**
 
-```sql
+```zetasql
 SELECT APPROX_TOP_COUNT(x, 2) as approx_top_count
 FROM UNNEST(["apple", "apple", "pear", "pear", "pear", "banana"]) as x;
 
@@ -7328,9 +7337,9 @@ FROM UNNEST(["apple", "apple", "pear", "pear", "pear", "banana"]) as x;
 
 **NULL handling**
 
-`APPROX_TOP_COUNT` does not ignore `NULL`s in the input. For example:
+`APPROX_TOP_COUNT` doesn't ignore `NULL`s in the input. For example:
 
-```sql
+```zetasql
 SELECT APPROX_TOP_COUNT(x, 2) as approx_top_count
 FROM UNNEST([NULL, "pear", "pear", "pear", "apple", NULL]) as x;
 
@@ -7343,7 +7352,7 @@ FROM UNNEST([NULL, "pear", "pear", "pear", "apple", NULL]) as x;
 
 ### `APPROX_TOP_SUM`
 
-```sql
+```zetasql
 APPROX_TOP_SUM(
   expression, weight, number
   [ HAVING { MAX | MIN } expression2 ]
@@ -7394,7 +7403,7 @@ into this function, see
 
 **Examples**
 
-```sql
+```zetasql
 SELECT APPROX_TOP_SUM(x, weight, 2) AS approx_top_sum FROM
 UNNEST([
   STRUCT("apple" AS x, 3 AS weight),
@@ -7413,10 +7422,10 @@ UNNEST([
 
 **NULL handling**
 
-`APPROX_TOP_SUM` does not ignore `NULL` values for the `expression` and `weight`
+`APPROX_TOP_SUM` doesn't ignore `NULL` values for the `expression` and `weight`
 parameters.
 
-```sql
+```zetasql
 SELECT APPROX_TOP_SUM(x, weight, 2) AS approx_top_sum FROM
 UNNEST([STRUCT("apple" AS x, NULL AS weight), ("pear", 0), ("pear", NULL)]);
 
@@ -7427,7 +7436,7 @@ UNNEST([STRUCT("apple" AS x, NULL AS weight), ("pear", 0), ("pear", NULL)]);
  *----------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT APPROX_TOP_SUM(x, weight, 2) AS approx_top_sum FROM
 UNNEST([STRUCT("apple" AS x, 0 AS weight), (NULL, 2)]);
 
@@ -7438,7 +7447,7 @@ UNNEST([STRUCT("apple" AS x, 0 AS weight), (NULL, 2)]);
  *-------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT APPROX_TOP_SUM(x, weight, 2) AS approx_top_sum FROM
 UNNEST([STRUCT("apple" AS x, 0 AS weight), (NULL, NULL)]);
 
@@ -7449,7 +7458,7 @@ UNNEST([STRUCT("apple" AS x, 0 AS weight), (NULL, NULL)]);
  *----------------------------*/
 ```
 
-[hll-functions]: #hyperloglog_functions
+[hll-functions]: #hll_functions
 
 [kll-functions]: #kll_quantile_functions
 
@@ -7795,7 +7804,7 @@ ZetaSQL supports the following array functions.
 
 ### `ARRAY`
 
-```sql
+```zetasql
 ARRAY(subquery)
 ```
 
@@ -7816,14 +7825,14 @@ value table.
 
 **Constraints**
 
-+ Subqueries are unordered, so the elements of the output `ARRAY` are not
++ Subqueries are unordered, so the elements of the output `ARRAY` aren't
 guaranteed to preserve any order in the source table for the subquery. However,
 if the subquery includes an `ORDER BY` clause, the `ARRAY` function will return
 an `ARRAY` that honors that clause.
 + If the subquery returns more than one column, the `ARRAY` function returns an
 error.
 + If the subquery returns an `ARRAY` typed column or `ARRAY` typed rows, the
-  `ARRAY` function returns an error that ZetaSQL does not support
+  `ARRAY` function returns an error that ZetaSQL doesn't support
   `ARRAY`s with elements of type
   [`ARRAY`][array-data-type].
 + If the subquery returns zero rows, the `ARRAY` function returns an empty
@@ -7835,7 +7844,7 @@ error.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT ARRAY
   (SELECT 1 UNION ALL
    SELECT 2 UNION ALL
@@ -7854,7 +7863,7 @@ the `ARRAY` function will return an `ARRAY` of `STRUCT`s. The `ARRAY` will
 contain one `STRUCT` for each row in the subquery, and each of these `STRUCT`s
 will contain a field for each column in that row.
 
-```sql
+```zetasql
 SELECT
   ARRAY
     (SELECT AS STRUCT 1, 2, 3
@@ -7870,7 +7879,7 @@ SELECT
 Similarly, to construct an `ARRAY` from a subquery that contains
 one or more `ARRAY`s, change the subquery to use `SELECT AS STRUCT`.
 
-```sql
+```zetasql
 SELECT ARRAY
   (SELECT AS STRUCT [1, 2, 3] UNION ALL
    SELECT AS STRUCT [4, 5, 6]) AS new_array;
@@ -7882,7 +7891,7 @@ SELECT ARRAY
  *----------------------------*/
 ```
 
-[subqueries]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#subqueries
+[subqueries]: https://github.com/google/zetasql/blob/master/docs/subqueries.md
 
 [datamodel-sql-tables]: https://github.com/google/zetasql/blob/master/docs/data-model.md#standard_sql_tables
 
@@ -7892,7 +7901,7 @@ SELECT ARRAY
 
 ### `ARRAY_AVG`
 
-```sql
+```zetasql
 ARRAY_AVG(input_array)
 ```
 
@@ -7914,7 +7923,7 @@ Caveats:
 
 [floating-point-types]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_types
 
-[non-deterministic]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating-point-semantics
+[non-deterministic]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Supported Argument Types**
 
@@ -7943,7 +7952,7 @@ The return type depends upon `T` in the input array:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT ARRAY_AVG([0, 2, NULL, 4, 4, 5]) as avg
 
 /*-----*
@@ -7955,7 +7964,7 @@ SELECT ARRAY_AVG([0, 2, NULL, 4, 4, 5]) as avg
 
 ### `ARRAY_CONCAT`
 
-```sql
+```zetasql
 ARRAY_CONCAT(array_expression[, ...])
 ```
 
@@ -7974,7 +7983,7 @@ to concatenate arrays.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT ARRAY_CONCAT([1, 2], [3, 4], [5, 6]) as count_to_six;
 
 /*--------------------------------------------------*
@@ -7988,7 +7997,7 @@ SELECT ARRAY_CONCAT([1, 2], [3, 4], [5, 6]) as count_to_six;
 
 ### `ARRAY_FILTER`
 
-```sql
+```zetasql
 ARRAY_FILTER(array_expression, lambda_expression)
 
 lambda_expression:
@@ -8020,7 +8029,7 @@ ARRAY
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   ARRAY_FILTER([1 ,2, 3], e -> e > 1) AS a1,
   ARRAY_FILTER([0, 2, 3], (e, i) -> e > i) AS a2;
@@ -8036,7 +8045,7 @@ SELECT
 
 ### `ARRAY_FIRST`
 
-```sql
+```zetasql
 ARRAY_FIRST(array_expression)
 ```
 
@@ -8056,7 +8065,7 @@ Matches the data type of elements in `array_expression`.
 
 **Example**
 
-```sql
+```zetasql
 SELECT ARRAY_FIRST(['a','b','c','d']) as first_element
 
 /*---------------*
@@ -8078,7 +8087,7 @@ SELECT ARRAY_FIRST(['a','b','c','d']) as first_element
 #### Signature 1 
 <a id="array_includes_signature1"></a>
 
-```sql
+```zetasql
 ARRAY_INCLUDES(array_to_search, search_value)
 ```
 
@@ -8101,7 +8110,7 @@ Returns `NULL` if `array_to_search` or `search_value` is `NULL`.
 In the following example, the query first checks to see if `0` exists in an
 array. Then the query checks to see if `1` exists in an array.
 
-```sql
+```zetasql
 SELECT
   ARRAY_INCLUDES([1, 2, 3], 0) AS a1,
   ARRAY_INCLUDES([1, 2, 3], 1) AS a2;
@@ -8116,7 +8125,7 @@ SELECT
 #### Signature 2 
 <a id="array_includes_signature2"></a>
 
-```sql
+```zetasql
 ARRAY_INCLUDES(array_to_search, lambda_expression)
 
 lambda_expression: element_alias -> boolean_expression
@@ -8145,7 +8154,7 @@ In the following example, the query first checks to see if any elements that are
 greater than 3 exist in an array (`e > 3`). Then the query checks to see if any
 any elements that are greater than 0 exist in an array (`e > 0`).
 
-```sql
+```zetasql
 SELECT
   ARRAY_INCLUDES([1, 2, 3], e -> e > 3) AS a1,
   ARRAY_INCLUDES([1, 2, 3], e -> e > 0) AS a2;
@@ -8161,7 +8170,7 @@ SELECT
 
 ### `ARRAY_INCLUDES_ALL`
 
-```sql
+```zetasql
 ARRAY_INCLUDES_ALL(array_to_search, search_values)
 ```
 
@@ -8186,7 +8195,7 @@ In the following example, the query first checks to see if `3`, `4`, and `5`
 exists in an array. Then the query checks to see if `4`, `5`, and `6` exists in
 an array.
 
-```sql
+```zetasql
 SELECT
   ARRAY_INCLUDES_ALL([1,2,3,4,5], [3,4,5]) AS a1,
   ARRAY_INCLUDES_ALL([1,2,3,4,5], [4,5,6]) AS a2;
@@ -8200,7 +8209,7 @@ SELECT
 
 ### `ARRAY_INCLUDES_ANY`
 
-```sql
+```zetasql
 ARRAY_INCLUDES_ANY(array_to_search, search_values)
 ```
 
@@ -8225,7 +8234,7 @@ In the following example, the query first checks to see if `3`, `4`, or `5`
 exists in an array. Then the query checks to see if `4`, `5`, or `6` exists in
 an array.
 
-```sql
+```zetasql
 SELECT
   ARRAY_INCLUDES_ANY([1,2,3], [3,4,5]) AS a1,
   ARRAY_INCLUDES_ANY([1,2,3], [4,5,6]) AS a2;
@@ -8239,7 +8248,7 @@ SELECT
 
 ### `ARRAY_IS_DISTINCT`
 
-```sql
+```zetasql
 ARRAY_IS_DISTINCT(value)
 ```
 
@@ -8254,7 +8263,7 @@ equality comparison logic as `SELECT DISTINCT`.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT ARRAY_IS_DISTINCT([1, 2, 3]) AS is_distinct
 
 /*-------------*
@@ -8264,7 +8273,7 @@ SELECT ARRAY_IS_DISTINCT([1, 2, 3]) AS is_distinct
  *-------------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_IS_DISTINCT([1, 1, 1]) AS is_distinct
 
 /*-------------*
@@ -8274,7 +8283,7 @@ SELECT ARRAY_IS_DISTINCT([1, 1, 1]) AS is_distinct
  *-------------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_IS_DISTINCT([1, 2, NULL]) AS is_distinct
 
 /*-------------*
@@ -8284,7 +8293,7 @@ SELECT ARRAY_IS_DISTINCT([1, 2, NULL]) AS is_distinct
  *-------------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_IS_DISTINCT([1, 1, NULL]) AS is_distinct
 
 /*-------------*
@@ -8294,7 +8303,7 @@ SELECT ARRAY_IS_DISTINCT([1, 1, NULL]) AS is_distinct
  *-------------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_IS_DISTINCT([1, NULL, NULL]) AS is_distinct
 
 /*-------------*
@@ -8303,7 +8312,7 @@ SELECT ARRAY_IS_DISTINCT([1, NULL, NULL]) AS is_distinct
  | false       |
  *-------------*/
 ```
-```sql
+```zetasql
 SELECT ARRAY_IS_DISTINCT([]) AS is_distinct
 
 /*-------------*
@@ -8313,7 +8322,7 @@ SELECT ARRAY_IS_DISTINCT([]) AS is_distinct
  *-------------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_IS_DISTINCT(NULL) AS is_distinct
 
 /*-------------*
@@ -8325,7 +8334,7 @@ SELECT ARRAY_IS_DISTINCT(NULL) AS is_distinct
 
 ### `ARRAY_LAST`
 
-```sql
+```zetasql
 ARRAY_LAST(array_expression)
 ```
 
@@ -8345,7 +8354,7 @@ Matches the data type of elements in `array_expression`.
 
 **Example**
 
-```sql
+```zetasql
 SELECT ARRAY_LAST(['a','b','c','d']) as last_element
 
 /*---------------*
@@ -8359,7 +8368,7 @@ SELECT ARRAY_LAST(['a','b','c','d']) as last_element
 
 ### `ARRAY_LENGTH`
 
-```sql
+```zetasql
 ARRAY_LENGTH(array_expression)
 ```
 
@@ -8374,7 +8383,7 @@ the `array_expression` is `NULL`.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT
   ARRAY_LENGTH(["coffee", NULL, "milk" ]) AS size_a,
   ARRAY_LENGTH(["cake", "pie"]) AS size_b;
@@ -8388,7 +8397,7 @@ SELECT
 
 ### `ARRAY_MAX`
 
-```sql
+```zetasql
 ARRAY_MAX(input_array)
 ```
 
@@ -8413,7 +8422,7 @@ The same data type as `T` in the input array.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT ARRAY_MAX([8, 37, NULL, 55, 4]) as max
 
 /*-----*
@@ -8427,7 +8436,7 @@ SELECT ARRAY_MAX([8, 37, NULL, 55, 4]) as max
 
 ### `ARRAY_MIN`
 
-```sql
+```zetasql
 ARRAY_MIN(input_array)
 ```
 
@@ -8452,7 +8461,7 @@ The same data type as `T` in the input array.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT ARRAY_MIN([8, 37, NULL, 4, 55]) as min
 
 /*-----*
@@ -8466,7 +8475,7 @@ SELECT ARRAY_MIN([8, 37, NULL, 4, 55]) as min
 
 ### `ARRAY_REVERSE`
 
-```sql
+```zetasql
 ARRAY_REVERSE(value)
 ```
 
@@ -8480,7 +8489,7 @@ Returns the input `ARRAY` with elements in reverse order.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT ARRAY_REVERSE([1, 2, 3]) AS reverse_arr
 
 /*-------------*
@@ -8492,7 +8501,7 @@ SELECT ARRAY_REVERSE([1, 2, 3]) AS reverse_arr
 
 ### `ARRAY_SLICE`
 
-```sql
+```zetasql
 ARRAY_SLICE(array_to_slice, start_offset, end_offset)
 ```
 
@@ -8591,7 +8600,7 @@ Additional details:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 1, 3) AS result
 
 /*-----------*
@@ -8601,7 +8610,7 @@ SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 1, 3) AS result
  *-----------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], -1, 3) AS result
 
 /*-----------*
@@ -8611,7 +8620,7 @@ SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], -1, 3) AS result
  *-----------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 1, -3) AS result
 
 /*--------*
@@ -8621,7 +8630,7 @@ SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 1, -3) AS result
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], -1, -3) AS result
 
 /*-----------*
@@ -8631,7 +8640,7 @@ SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], -1, -3) AS result
  *-----------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], -3, -1) AS result
 
 /*-----------*
@@ -8641,7 +8650,7 @@ SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], -3, -1) AS result
  *-----------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 3, 3) AS result
 
 /*--------*
@@ -8651,7 +8660,7 @@ SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 3, 3) AS result
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], -3, -3) AS result
 
 /*--------*
@@ -8661,7 +8670,7 @@ SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], -3, -3) AS result
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 1, 30) AS result
 
 /*--------------*
@@ -8671,7 +8680,7 @@ SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 1, 30) AS result
  *--------------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 1, -30) AS result
 
 /*-----------*
@@ -8681,7 +8690,7 @@ SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 1, -30) AS result
  *-----------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], -30, 30) AS result
 
 /*-----------------*
@@ -8691,7 +8700,7 @@ SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], -30, 30) AS result
  *-----------------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], -30, -5) AS result
 
 /*--------*
@@ -8701,7 +8710,7 @@ SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], -30, -5) AS result
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 5, 30) AS result
 
 /*--------*
@@ -8711,7 +8720,7 @@ SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 5, 30) AS result
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 1, NULL) AS result
 
 /*-----------*
@@ -8721,7 +8730,7 @@ SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 1, NULL) AS result
  *-----------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_SLICE(['a', 'b', NULL, 'd', 'e'], 1, 3) AS result
 
 /*--------------*
@@ -8733,7 +8742,7 @@ SELECT ARRAY_SLICE(['a', 'b', NULL, 'd', 'e'], 1, 3) AS result
 
 ### `ARRAY_SUM`
 
-```sql
+```zetasql
 ARRAY_SUM(input_array)
 ```
 
@@ -8755,7 +8764,7 @@ Caveats:
 
 [floating-point-types]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_types
 
-[non-deterministic]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating-point-semantics
+[non-deterministic]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Supported Argument Types**
 
@@ -8783,7 +8792,7 @@ The return type depends upon `T` in the input array:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT ARRAY_SUM([1, 2, 3, 4, 5, NULL, 4, 3, 2, 1]) as sum
 
 /*-----*
@@ -8795,7 +8804,7 @@ SELECT ARRAY_SUM([1, 2, 3, 4, 5, NULL, 4, 3, 2, 1]) as sum
 
 ### `ARRAY_TO_STRING`
 
-```sql
+```zetasql
 ARRAY_TO_STRING(array_expression, delimiter[, null_text])
 ```
 
@@ -8809,7 +8818,7 @@ can either be an array of `STRING` or
 If the `null_text` parameter is used, the function replaces any `NULL` values in
 the array with the value of `null_text`.
 
-If the `null_text` parameter is not used, the function omits the `NULL` value
+If the `null_text` parameter isn't used, the function omits the `NULL` value
 and its preceding delimiter.
 
 **Return type**
@@ -8818,7 +8827,7 @@ and its preceding delimiter.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT ARRAY_TO_STRING(['coffee', 'tea', 'milk', NULL], '--', 'MISSING') AS text
 
 /*--------------------------------*
@@ -8828,7 +8837,7 @@ SELECT ARRAY_TO_STRING(['coffee', 'tea', 'milk', NULL], '--', 'MISSING') AS text
  *--------------------------------*/
 ```
 
-```sql
+```zetasql
 
 SELECT ARRAY_TO_STRING(['cake', 'pie', NULL], '--', 'MISSING') AS text
 
@@ -8841,7 +8850,7 @@ SELECT ARRAY_TO_STRING(['cake', 'pie', NULL], '--', 'MISSING') AS text
 
 ### `ARRAY_TRANSFORM`
 
-```sql
+```zetasql
 ARRAY_TRANSFORM(array_expression, lambda_expression)
 
 lambda_expression:
@@ -8873,15 +8882,15 @@ Returns `NULL` if the `array_expression` is `NULL`.
 
 **Example**
 
-```sql
+```zetasql
 SELECT
-  ARRAY_TRANSFORM([1, 2, 3], e -> e + 1) AS a1,
-  ARRAY_TRANSFORM([1, 2, 3], (e, i) -> e + i) AS a2;
+  ARRAY_TRANSFORM([1, 4, 3], e -> e + 1) AS a1,
+  ARRAY_TRANSFORM([1, 4, 3], (e, i) -> e + i) AS a2;
 
 /*---------+---------*
  | a1      | a2      |
  +---------+---------+
- | [2,3,4] | [1,3,5] |
+ | [2,5,4] | [1,5,5] |
  *---------+---------*/
 ```
 
@@ -8889,7 +8898,7 @@ SELECT
 
 ### `ARRAY_ZIP`
 
-```sql
+```zetasql
 ARRAY_ZIP(
   array_input [ AS alias ],
   array_input [ AS alias ][, ... ]
@@ -8945,7 +8954,7 @@ Combines the elements from two to four arrays into one array.
 
 The following query zips two arrays into one:
 
-```sql
+```zetasql
 SELECT ARRAY_ZIP([1, 2], ['a', 'b']) AS results
 
 /*----------------------*
@@ -8962,7 +8971,7 @@ where:
 +   `A1` is the alias provided for array `[1, 2]`.
 +   `alias_inferred` is the inferred alias provided for array `['a', 'b']`.
 
-```sql
+```zetasql
 WITH T AS (
   SELECT ['a', 'b'] AS alias_inferred
 )
@@ -8979,7 +8988,7 @@ FROM T
 To provide a custom transformation of the input arrays, use the `transformation`
 argument:
 
-```sql
+```zetasql
 SELECT ARRAY_ZIP([1, 2], [3, 4], transformation => (e1, e2) -> (e1 + e2))
 
 /*---------+
@@ -8989,9 +8998,9 @@ SELECT ARRAY_ZIP([1, 2], [3, 4], transformation => (e1, e2) -> (e1 + e2))
  +---------*/
 ```
 
-The argument name `transformation` is not required. For example:
+The argument name `transformation` isn't required. For example:
 
-```sql
+```zetasql
 SELECT ARRAY_ZIP([1, 2], [3, 4], (e1, e2) -> (e1 + e2))
 
 /*---------+
@@ -9001,11 +9010,11 @@ SELECT ARRAY_ZIP([1, 2], [3, 4], (e1, e2) -> (e1 + e2))
  +---------*/
 ```
 
-When `transformation` is provided, the input arrays are not allowed to have
+When `transformation` is provided, the input arrays aren't allowed to have
 aliases. For example, the following query is invalid:
 
-```sql {.bad}
--- Error: ARRAY_ZIP function with lambda argument does not allow providing
+```zetasql {.bad}
+-- Error: ARRAY_ZIP function with lambda argument doesn't allow providing
 -- argument aliases
 SELECT ARRAY_ZIP([1, 2], [3, 4] AS alias_not_allowed, (e1, e2) -> (e1 + e2))
 ```
@@ -9013,12 +9022,12 @@ SELECT ARRAY_ZIP([1, 2], [3, 4] AS alias_not_allowed, (e1, e2) -> (e1 + e2))
 To produce an error when arrays with different lengths are zipped, don't
 add `mode`, or if you do, set it as `STRICT`. For example:
 
-```sql {.bad}
+```zetasql {.bad}
 -- Error: Unequal array length
 SELECT ARRAY_ZIP([1, 2], ['a', 'b', 'c', 'd']) AS results
 ```
 
-```sql {.bad}
+```zetasql {.bad}
 -- Error: Unequal array length
 SELECT ARRAY_ZIP([1, 2], ['a', 'b', 'c', 'd'], mode => 'STRICT') AS results
 ```
@@ -9026,7 +9035,7 @@ SELECT ARRAY_ZIP([1, 2], ['a', 'b', 'c', 'd'], mode => 'STRICT') AS results
 Use the `PAD` mode to pad missing values with `NULL` when input arrays have
 different lengths. For example:
 
-```sql
+```zetasql
 SELECT ARRAY_ZIP([1, 2], ['a', 'b', 'c', 'd'], [], mode => 'PAD') AS results
 
 /*------------------------------------------------------------------------+
@@ -9039,7 +9048,7 @@ SELECT ARRAY_ZIP([1, 2], ['a', 'b', 'c', 'd'], [], mode => 'PAD') AS results
 Use the `TRUNCATE` mode to truncate all arrays that are longer than the shortest
 array. For example:
 
-```sql
+```zetasql
 SELECT ARRAY_ZIP([1, 2], ['a', 'b', 'c', 'd'], mode => 'TRUNCATE') AS results
 
 /*----------------------*
@@ -9057,7 +9066,7 @@ SELECT ARRAY_ZIP([1, 2], ['a', 'b', 'c', 'd'], mode => 'TRUNCATE') AS results
 
 ### `FLATTEN`
 
-```sql
+```zetasql
 FLATTEN(array_elements_field_access_expression)
 ```
 
@@ -9082,7 +9091,7 @@ There are several ways to flatten nested data into arrays. To learn more, see
 In the following example, all of the arrays for `v.sales.quantity` are
 concatenated in a flattened array.
 
-```sql
+```zetasql
 WITH t AS (
   SELECT
   [
@@ -9103,7 +9112,7 @@ FROM t;
 In the following example, `OFFSET` gets the second value in each array and
 concatenates them.
 
-```sql
+```zetasql
 WITH t AS (
   SELECT
   [
@@ -9124,7 +9133,7 @@ FROM t;
 In the following example, all values for `v.price` are returned in a
 flattened array.
 
-```sql
+```zetasql
 WITH t AS (
   SELECT
   [
@@ -9151,7 +9160,7 @@ For more examples, including how to use protocol buffers with `FLATTEN`, see the
 
 ### `GENERATE_ARRAY`
 
-```sql
+```zetasql
 GENERATE_ARRAY(start_expression, end_expression[, step_expression])
 ```
 
@@ -9184,7 +9193,7 @@ If any argument is `NULL`, the function will return a `NULL` array.
 
 The following returns an array of integers, with a default step of 1.
 
-```sql
+```zetasql
 SELECT GENERATE_ARRAY(1, 5) AS example_array;
 
 /*-----------------*
@@ -9196,7 +9205,7 @@ SELECT GENERATE_ARRAY(1, 5) AS example_array;
 
 The following returns an array using a user-specified step size.
 
-```sql
+```zetasql
 SELECT GENERATE_ARRAY(0, 10, 3) AS example_array;
 
 /*---------------*
@@ -9208,7 +9217,7 @@ SELECT GENERATE_ARRAY(0, 10, 3) AS example_array;
 
 The following returns an array using a negative value, `-3` for its step size.
 
-```sql
+```zetasql
 SELECT GENERATE_ARRAY(10, 0, -3) AS example_array;
 
 /*---------------*
@@ -9221,7 +9230,7 @@ SELECT GENERATE_ARRAY(10, 0, -3) AS example_array;
 The following returns an array using the same value for the `start_expression`
 and `end_expression`.
 
-```sql
+```zetasql
 SELECT GENERATE_ARRAY(4, 4, 10) AS example_array;
 
 /*---------------*
@@ -9234,7 +9243,7 @@ SELECT GENERATE_ARRAY(4, 4, 10) AS example_array;
 The following returns an empty array, because the `start_expression` is greater
 than the `end_expression`, and the `step_expression` value is positive.
 
-```sql
+```zetasql
 SELECT GENERATE_ARRAY(10, 0, 3) AS example_array;
 
 /*---------------*
@@ -9246,7 +9255,7 @@ SELECT GENERATE_ARRAY(10, 0, 3) AS example_array;
 
 The following returns a `NULL` array because `end_expression` is `NULL`.
 
-```sql
+```zetasql
 SELECT GENERATE_ARRAY(5, NULL, 1) AS example_array;
 
 /*---------------*
@@ -9258,7 +9267,7 @@ SELECT GENERATE_ARRAY(5, NULL, 1) AS example_array;
 
 The following returns multiple arrays.
 
-```sql
+```zetasql
 SELECT GENERATE_ARRAY(start, 5) AS example_array
 FROM UNNEST([3, 4, 5]) AS start;
 
@@ -9273,7 +9282,7 @@ FROM UNNEST([3, 4, 5]) AS start;
 
 ### `GENERATE_DATE_ARRAY`
 
-```sql
+```zetasql
 GENERATE_DATE_ARRAY(start_date, end_date[, INTERVAL INT64_expr date_part])
 ```
 
@@ -9302,7 +9311,7 @@ This function returns an error if `INT64_expr` is set to 0.
 
 The following returns an array of dates, with a default step of 1.
 
-```sql
+```zetasql
 SELECT GENERATE_DATE_ARRAY('2016-10-05', '2016-10-08') AS example;
 
 /*--------------------------------------------------*
@@ -9314,7 +9323,7 @@ SELECT GENERATE_DATE_ARRAY('2016-10-05', '2016-10-08') AS example;
 
 The following returns an array using a user-specified step size.
 
-```sql
+```zetasql
 SELECT GENERATE_DATE_ARRAY(
  '2016-10-05', '2016-10-09', INTERVAL 2 DAY) AS example;
 
@@ -9327,7 +9336,7 @@ SELECT GENERATE_DATE_ARRAY(
 
 The following returns an array using a negative value, `-3` for its step size.
 
-```sql
+```zetasql
 SELECT GENERATE_DATE_ARRAY('2016-10-05',
   '2016-10-01', INTERVAL -3 DAY) AS example;
 
@@ -9341,7 +9350,7 @@ SELECT GENERATE_DATE_ARRAY('2016-10-05',
 The following returns an array using the same value for the `start_date`and
 `end_date`.
 
-```sql
+```zetasql
 SELECT GENERATE_DATE_ARRAY('2016-10-05',
   '2016-10-05', INTERVAL 8 DAY) AS example;
 
@@ -9355,7 +9364,7 @@ SELECT GENERATE_DATE_ARRAY('2016-10-05',
 The following returns an empty array, because the `start_date` is greater
 than the `end_date`, and the `step` value is positive.
 
-```sql
+```zetasql
 SELECT GENERATE_DATE_ARRAY('2016-10-05',
   '2016-10-01', INTERVAL 1 DAY) AS example;
 
@@ -9369,7 +9378,7 @@ SELECT GENERATE_DATE_ARRAY('2016-10-05',
 The following returns a `NULL` array, because one of its inputs is
 `NULL`.
 
-```sql
+```zetasql
 SELECT GENERATE_DATE_ARRAY('2016-10-05', NULL) AS example;
 
 /*---------*
@@ -9382,7 +9391,7 @@ SELECT GENERATE_DATE_ARRAY('2016-10-05', NULL) AS example;
 The following returns an array of dates, using MONTH as the `date_part`
 interval:
 
-```sql
+```zetasql
 SELECT GENERATE_DATE_ARRAY('2016-01-01',
   '2016-12-31', INTERVAL 2 MONTH) AS example;
 
@@ -9395,7 +9404,7 @@ SELECT GENERATE_DATE_ARRAY('2016-01-01',
 
 The following uses non-constant dates to generate an array.
 
-```sql
+```zetasql
 SELECT GENERATE_DATE_ARRAY(date_start, date_end, INTERVAL 1 WEEK) AS date_range
 FROM (
   SELECT DATE '2016-01-01' AS date_start, DATE '2016-01-31' AS date_end
@@ -9416,7 +9425,7 @@ FROM (
 
 ### `GENERATE_TIMESTAMP_ARRAY`
 
-```sql
+```zetasql
 GENERATE_TIMESTAMP_ARRAY(start_timestamp, end_timestamp,
                          INTERVAL step_expression date_part)
 ```
@@ -9449,7 +9458,7 @@ An `ARRAY` containing 0 or more `TIMESTAMP` values.
 
 The following example returns an `ARRAY` of `TIMESTAMP`s at intervals of 1 day.
 
-```sql
+```zetasql
 SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-05 00:00:00', '2016-10-07 00:00:00',
                                 INTERVAL 1 DAY) AS timestamp_array;
 
@@ -9463,7 +9472,7 @@ SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-05 00:00:00', '2016-10-07 00:00:00',
 The following example returns an `ARRAY` of `TIMESTAMP`s at intervals of 1
 second.
 
-```sql
+```zetasql
 SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-05 00:00:00', '2016-10-05 00:00:02',
                                 INTERVAL 1 SECOND) AS timestamp_array;
 
@@ -9477,7 +9486,7 @@ SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-05 00:00:00', '2016-10-05 00:00:02',
 The following example returns an `ARRAY` of `TIMESTAMPS` with a negative
 interval.
 
-```sql
+```zetasql
 SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-06 00:00:00', '2016-10-01 00:00:00',
                                 INTERVAL -2 DAY) AS timestamp_array;
 
@@ -9491,7 +9500,7 @@ SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-06 00:00:00', '2016-10-01 00:00:00',
 The following example returns an `ARRAY` with a single element, because
 `start_timestamp` and `end_timestamp` have the same value.
 
-```sql
+```zetasql
 SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-05 00:00:00', '2016-10-05 00:00:00',
                                 INTERVAL 1 HOUR) AS timestamp_array;
 
@@ -9505,7 +9514,7 @@ SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-05 00:00:00', '2016-10-05 00:00:00',
 The following example returns an empty `ARRAY`, because `start_timestamp` is
 later than `end_timestamp`.
 
-```sql
+```zetasql
 SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-06 00:00:00', '2016-10-05 00:00:00',
                                 INTERVAL 1 HOUR) AS timestamp_array;
 
@@ -9519,7 +9528,7 @@ SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-06 00:00:00', '2016-10-05 00:00:00',
 The following example returns a null `ARRAY`, because one of the inputs is
 `NULL`.
 
-```sql
+```zetasql
 SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-05 00:00:00', NULL, INTERVAL 1 HOUR)
   AS timestamp_array;
 
@@ -9533,7 +9542,7 @@ SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-05 00:00:00', NULL, INTERVAL 1 HOUR)
 The following example generates `ARRAY`s of `TIMESTAMP`s from columns containing
 values for `start_timestamp` and `end_timestamp`.
 
-```sql
+```zetasql
 SELECT GENERATE_TIMESTAMP_ARRAY(start_timestamp, end_timestamp, INTERVAL 1 HOUR)
   AS timestamp_array
 FROM
@@ -9668,7 +9677,7 @@ ZetaSQL supports the following bit functions.
 
 ### `BIT_CAST_TO_INT32`
 
-```sql
+```zetasql
 BIT_CAST_TO_INT32(value)
 ```
 
@@ -9689,7 +9698,7 @@ The `value` parameter can represent:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT BIT_CAST_TO_UINT32(-1) as UINT32_value, BIT_CAST_TO_INT32(BIT_CAST_TO_UINT32(-1)) as bit_cast_value;
 
 /*---------------+----------------------*
@@ -9701,7 +9710,7 @@ SELECT BIT_CAST_TO_UINT32(-1) as UINT32_value, BIT_CAST_TO_INT32(BIT_CAST_TO_UIN
 
 ### `BIT_CAST_TO_INT64`
 
-```sql
+```zetasql
 BIT_CAST_TO_INT64(value)
 ```
 
@@ -9722,7 +9731,7 @@ The `value` parameter can represent:
 
 **Example**
 
-```sql
+```zetasql
 SELECT BIT_CAST_TO_UINT64(-1) as UINT64_value, BIT_CAST_TO_INT64(BIT_CAST_TO_UINT64(-1)) as bit_cast_value;
 
 /*-----------------------+----------------------*
@@ -9734,7 +9743,7 @@ SELECT BIT_CAST_TO_UINT64(-1) as UINT64_value, BIT_CAST_TO_INT64(BIT_CAST_TO_UIN
 
 ### `BIT_CAST_TO_UINT32`
 
-```sql
+```zetasql
 BIT_CAST_TO_UINT32(value)
 ```
 
@@ -9755,7 +9764,7 @@ The `value` parameter can represent:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT -1 as UINT32_value, BIT_CAST_TO_UINT32(-1) as bit_cast_value;
 
 /*--------------+----------------------*
@@ -9767,7 +9776,7 @@ SELECT -1 as UINT32_value, BIT_CAST_TO_UINT32(-1) as bit_cast_value;
 
 ### `BIT_CAST_TO_UINT64`
 
-```sql
+```zetasql
 BIT_CAST_TO_UINT64(value)
 ```
 
@@ -9788,7 +9797,7 @@ The `value` parameter can represent:
 
 **Example**
 
-```sql
+```zetasql
 SELECT -1 as INT64_value, BIT_CAST_TO_UINT64(-1) as bit_cast_value;
 
 /*--------------+----------------------*
@@ -9800,7 +9809,7 @@ SELECT -1 as INT64_value, BIT_CAST_TO_UINT64(-1) as bit_cast_value;
 
 ### `BIT_COUNT`
 
-```sql
+```zetasql
 BIT_COUNT(expression)
 ```
 
@@ -9818,7 +9827,7 @@ For signed integers, this is the number of bits in two's complement form.
 
 **Example**
 
-```sql
+```zetasql
 SELECT a, BIT_COUNT(a) AS a_bits, FORMAT("%T", b) as b, BIT_COUNT(b) AS b_bits
 FROM UNNEST([
   STRUCT(0 AS a, b'' AS b), (0, b'\x00'), (5, b'\x05'), (8, b'\x00\x08'),
@@ -10556,7 +10565,7 @@ learn more about implicit and explicit conversion [here][conversion-rules].
 ### `CAST` 
 <a id="cast"></a>
 
-```sql
+```zetasql
 CAST(expression AS typename [format_clause])
 ```
 
@@ -10569,9 +10578,9 @@ When using `CAST`, a query can fail if ZetaSQL is unable to perform
 the cast. If you want to protect your queries from these types of errors, you
 can use [SAFE_CAST][con-func-safecast].
 
-Casts between supported types that do not successfully map from the original
+Casts between supported types that don't successfully map from the original
 value to the target domain produce runtime errors. For example, casting
-`BYTES` to `STRING` where the byte sequence is not valid UTF-8 results in a
+`BYTES` to `STRING` where the byte sequence isn't valid UTF-8 results in a
 runtime error.
 
 Other examples include:
@@ -10593,13 +10602,13 @@ information is available in the section for that cast.
 The following query results in `"true"` if `x` is `1`, `"false"` for any other
 non-`NULL` value, and `NULL` if `x` is `NULL`.
 
-```sql
+```zetasql
 CAST(x=1 AS STRING)
 ```
 
 ### CAST AS ARRAY
 
-```sql
+```zetasql
 CAST(expression AS ARRAY<element_type>)
 ```
 
@@ -10631,7 +10640,7 @@ ZetaSQL supports [casting][con-func-cast] to `ARRAY`. The
       <code>ARRAY&lt;DOUBLE&gt;</code> or
       <code>ARRAY&lt;STRING&gt;</code> is valid;
       casting from type <code>ARRAY&lt;INT64&gt;</code>
-      to <code>ARRAY&lt;BYTES&gt;</code> is not valid.
+      to <code>ARRAY&lt;BYTES&gt;</code> isn't valid.
       
     </td>
   </tr>
@@ -10640,7 +10649,7 @@ ZetaSQL supports [casting][con-func-cast] to `ARRAY`. The
 ### CAST AS BIGNUMERIC 
 <a id="cast_bignumeric"></a>
 
-```sql
+```zetasql
 CAST(expression AS BIGNUMERIC)
 ```
 
@@ -10697,7 +10706,7 @@ ZetaSQL supports [casting][con-func-cast] to `BIGNUMERIC`. The
 
 ### CAST AS BOOL
 
-```sql
+```zetasql
 CAST(expression AS BOOL)
 ```
 
@@ -10745,7 +10754,7 @@ ZetaSQL supports [casting][con-func-cast] to `BOOL`. The
 
 ### CAST AS BYTES
 
-```sql
+```zetasql
 CAST(expression AS BYTES [format_clause])
 ```
 
@@ -10799,7 +10808,7 @@ the cast. You can use the format clause in this section if `expression` is a
 
 ### CAST AS DATE
 
-```sql
+```zetasql
 CAST(expression AS DATE [format_clause])
 ```
 
@@ -10835,7 +10844,7 @@ the cast. You can use the format clause in this section if `expression` is a
     <td>
       When casting from string to date, the string must conform to
       the supported date literal format, and is independent of time zone. If the
-      string expression is invalid or represents a date that is outside of the
+      string expression is invalid or represents a date that's outside of the
       supported min/max range, then an error is produced.
     </td>
   </tr>
@@ -10853,7 +10862,7 @@ the cast. You can use the format clause in this section if `expression` is a
 
 ### CAST AS DATETIME
 
-```sql
+```zetasql
 CAST(expression AS DATETIME [format_clause])
 ```
 
@@ -10889,7 +10898,7 @@ the cast. You can use the format clause in this section if `expression` is a
     <td>
       When casting from string to datetime, the string must conform to the
       supported datetime literal format, and is independent of time zone. If
-      the string expression is invalid or represents a datetime that is outside
+      the string expression is invalid or represents a datetime that's outside
       of the supported min/max range, then an error is produced.
     </td>
   </tr>
@@ -10907,7 +10916,7 @@ the cast. You can use the format clause in this section if `expression` is a
 
 ### CAST AS ENUM
 
-```sql
+```zetasql
 CAST(expression AS ENUM)
 ```
 
@@ -10941,11 +10950,11 @@ parameter can represent an expression for these data types:
 ### CAST AS Floating Point 
 <a id="cast_as_floating_point"></a>
 
-```sql
+```zetasql
 CAST(expression AS DOUBLE)
 ```
 
-```sql
+```zetasql
 CAST(expression AS FLOAT)
 ```
 
@@ -11017,19 +11026,19 @@ The `expression` parameter can represent an expression for these data types:
 ### CAST AS Integer 
 <a id="cast_as_integer"></a>
 
-```sql
+```zetasql
 CAST(expression AS INT32)
 ```
 
-```sql
+```zetasql
 CAST(expression AS UINT32)
 ```
 
-```sql
+```zetasql
 CAST(expression AS INT64)
 ```
 
-```sql
+```zetasql
 CAST(expression AS UINT64)
 ```
 
@@ -11097,7 +11106,7 @@ The `expression` parameter can represent an expression for these data types:
 If you are working with hex strings (`0x123`), you can cast those strings as
 integers:
 
-```sql
+```zetasql
 SELECT '0x123' as hex_value, CAST('0x123' as INT64) as hex_to_int;
 
 /*-----------+------------*
@@ -11107,7 +11116,7 @@ SELECT '0x123' as hex_value, CAST('0x123' as INT64) as hex_to_int;
  *-----------+------------*/
 ```
 
-```sql
+```zetasql
 SELECT '-0x123' as hex_value, CAST('-0x123' as INT64) as hex_to_int;
 
 /*-----------+------------*
@@ -11119,7 +11128,7 @@ SELECT '-0x123' as hex_value, CAST('-0x123' as INT64) as hex_to_int;
 
 ### CAST AS INTERVAL
 
-```sql
+```zetasql
 CAST(expression AS INTERVAL)
 ```
 
@@ -11147,7 +11156,7 @@ ZetaSQL supports [casting][con-func-cast] to `INTERVAL`. The
 
       standard or to interval literal
       format 'Y-M D H:M:S.F'. Partial interval literal formats are also accepted
-      when they are not ambiguous, for example 'H:M:S'.
+      when they aren't ambiguous, for example 'H:M:S'.
       If the string expression is invalid or represents an interval that is
       outside of the supported min/max range, then an error is produced.
     </td>
@@ -11156,7 +11165,7 @@ ZetaSQL supports [casting][con-func-cast] to `INTERVAL`. The
 
 **Examples**
 
-```sql
+```zetasql
 SELECT input, CAST(input AS INTERVAL) AS output
 FROM UNNEST([
   '1-2 3 10:20:30.456',
@@ -11180,7 +11189,7 @@ FROM UNNEST([
 ### CAST AS NUMERIC 
 <a id="cast_numeric"></a>
 
-```sql
+```zetasql
 CAST(expression AS NUMERIC)
 ```
 
@@ -11237,7 +11246,7 @@ ZetaSQL supports [casting][con-func-cast] to `NUMERIC`. The
 
 ### CAST AS PROTO
 
-```sql
+```zetasql
 CAST(expression AS PROTO)
 ```
 
@@ -11302,7 +11311,7 @@ message Award {
 }
 ```
 
-```sql
+```zetasql
 SELECT
   CAST(
     '''
@@ -11328,7 +11337,7 @@ SELECT
 
 ### CAST AS RANGE
 
-```sql
+```zetasql
 CAST(expression AS RANGE)
 ```
 
@@ -11353,7 +11362,7 @@ ZetaSQL supports [casting][con-func-cast] to `RANGE`. The
     <td>
       When casting from string to range, the string must conform to the
       supported range literal format. If the string expression is invalid or
-      represents a range that is outside of the supported subtype min/max range,
+      represents a range that's outside of the supported subtype min/max range,
       then an error is produced.
     </td>
   </tr>
@@ -11361,7 +11370,7 @@ ZetaSQL supports [casting][con-func-cast] to `RANGE`. The
 
 **Examples**
 
-```sql
+```zetasql
 SELECT CAST(
   '[2020-01-01, 2020-01-02)'
   AS RANGE<DATE>) AS string_to_range
@@ -11373,7 +11382,7 @@ SELECT CAST(
  *----------------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT CAST(
   '[2014-09-27 12:30:00.45, 2016-10-17 11:15:00.33)'
   AS RANGE<DATETIME>) AS string_to_range
@@ -11385,7 +11394,7 @@ SELECT CAST(
  *------------------------------------------------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT CAST(
   '[2014-09-27 12:30:00+08, 2016-10-17 11:15:00+08)'
   AS RANGE<TIMESTAMP>) AS string_to_range
@@ -11398,7 +11407,7 @@ SELECT CAST(
  *--------------------------------------------------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT CAST(
   '[UNBOUNDED, 2020-01-02)'
   AS RANGE<DATE>) AS string_to_range
@@ -11410,7 +11419,7 @@ SELECT CAST(
  *--------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT CAST(
   '[2020-01-01, NULL)'
   AS RANGE<DATE>) AS string_to_range
@@ -11425,7 +11434,7 @@ SELECT CAST(
 ### CAST AS STRING 
 <a id="cast_as_string"></a>
 
-```sql
+```zetasql
 CAST(expression AS STRING [format_clause [AT TIME ZONE timezone_expr]])
 ```
 
@@ -11477,7 +11486,7 @@ of these data types:
 
 The format clause for `STRING` has an additional optional clause called
 `AT TIME ZONE timezone_expr`, which you can use to specify a specific time zone
-to use during formatting of a `TIMESTAMP`. If this optional clause is not
+to use during formatting of a `TIMESTAMP`. If this optional clause isn't
 included when formatting a `TIMESTAMP`, your current time zone is used.
 
 For more information, see the following topics:
@@ -11516,7 +11525,7 @@ For more information, see the following topics:
       For example, the bytes literal
       <code>b'\xc2\xa9'</code>, when cast to a string,
       is interpreted as UTF-8 and becomes the unicode character "&copy;".<br />
-      An error occurs if <code>x</code> is not valid UTF-8.</td>
+      An error occurs if <code>x</code> isn't valid UTF-8.</td>
   </tr>
   
   <tr>
@@ -11592,7 +11601,7 @@ For more information, see the following topics:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT CAST(CURRENT_DATE() AS STRING) AS current_date
 
 /*---------------*
@@ -11602,7 +11611,7 @@ SELECT CAST(CURRENT_DATE() AS STRING) AS current_date
  *---------------*/
 ```
 
-```sql
+```zetasql
 SELECT CAST(CURRENT_DATE() AS STRING FORMAT 'DAY') AS current_day
 
 /*-------------*
@@ -11612,7 +11621,7 @@ SELECT CAST(CURRENT_DATE() AS STRING FORMAT 'DAY') AS current_day
  *-------------*/
 ```
 
-```sql
+```zetasql
 SELECT CAST(
   TIMESTAMP '2008-12-25 00:00:00+00:00'
   AS STRING FORMAT 'YYYY-MM-DD HH24:MI:SS TZH:TZM') AS date_time_to_string
@@ -11625,7 +11634,7 @@ SELECT CAST(
  *------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT CAST(
   TIMESTAMP '2008-12-25 00:00:00+00:00'
   AS STRING FORMAT 'YYYY-MM-DD HH24:MI:SS TZH:TZM'
@@ -11639,7 +11648,7 @@ SELECT CAST(
  *------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT CAST(INTERVAL 3 DAY AS STRING) AS interval_to_string
 
 /*--------------------*
@@ -11649,7 +11658,7 @@ SELECT CAST(INTERVAL 3 DAY AS STRING) AS interval_to_string
  *--------------------*/
 ```
 
-```sql
+```zetasql
 SELECT CAST(
   INTERVAL "1-2 3 4:5:6.789" YEAR TO SECOND
   AS STRING) AS interval_to_string
@@ -11663,7 +11672,7 @@ SELECT CAST(
 
 ### CAST AS STRUCT
 
-```sql
+```zetasql
 CAST(expression AS STRUCT)
 ```
 
@@ -11705,7 +11714,7 @@ ZetaSQL supports [casting][con-func-cast] to `STRUCT`. The
 
 ### CAST AS TIME
 
-```sql
+```zetasql
 CAST(expression AS TIME [format_clause])
 ```
 
@@ -11742,7 +11751,7 @@ the cast. You can use the format clause in this section if `expression` is a
     <td>
       When casting from string to time, the string must conform to
       the supported time literal format, and is independent of time zone. If the
-      string expression is invalid or represents a time that is outside of the
+      string expression is invalid or represents a time that's outside of the
       supported min/max range, then an error is produced.
     </td>
   </tr>
@@ -11750,7 +11759,7 @@ the cast. You can use the format clause in this section if `expression` is a
 
 ### CAST AS TIMESTAMP
 
-```sql
+```zetasql
 CAST(expression AS TIMESTAMP [format_clause [AT TIME ZONE timezone_expr]])
 ```
 
@@ -11774,7 +11783,7 @@ the cast. You can use the format clause in this section if `expression` is a
 
 The format clause for `TIMESTAMP` has an additional optional clause called
 `AT TIME ZONE timezone_expr`, which you can use to specify a specific time zone
-to use during formatting. If this optional clause is not included, your
+to use during formatting. If this optional clause isn't included, your
 current time zone is used.
 
 **Conversion rules**
@@ -11797,7 +11806,7 @@ current time zone is used.
       If there is a time zone in the <code>string_expression</code>, that
       time zone is used for conversion, otherwise the default time zone,
       which is implementation defined, is used. If the string has fewer than six digits,
-      then it is implicitly widened.
+      then it's implicitly widened.
       <br /><br />
       An error is produced if the <code>string_expression</code> is invalid,
       has more than six subsecond digits (i.e., precision greater than
@@ -11842,7 +11851,7 @@ current time zone is used.
 
 The following example casts a string-formatted timestamp as a timestamp:
 
-```sql
+```zetasql
 SELECT CAST("2020-06-02 17:00:53.110+00:00" AS TIMESTAMP) AS as_timestamp
 
 -- Results depend upon where this query was executed.
@@ -11856,15 +11865,15 @@ SELECT CAST("2020-06-02 17:00:53.110+00:00" AS TIMESTAMP) AS as_timestamp
 The following examples cast a string-formatted date and time as a timestamp.
 These examples return the same output as the previous example.
 
-```sql
+```zetasql
 SELECT CAST('06/02/2020 17:00:53.110' AS TIMESTAMP FORMAT 'MM/DD/YYYY HH24:MI:SS.FF3' AT TIME ZONE 'UTC') AS as_timestamp
 ```
 
-```sql
+```zetasql
 SELECT CAST('06/02/2020 17:00:53.110' AS TIMESTAMP FORMAT 'MM/DD/YYYY HH24:MI:SS.FF3' AT TIME ZONE '+00') AS as_timestamp
 ```
 
-```sql
+```zetasql
 SELECT CAST('06/02/2020 17:00:53.110 +00' AS TIMESTAMP FORMAT 'MM/DD/YYYY HH24:MI:SS.FF3 TZH') AS as_timestamp
 ```
 
@@ -11887,7 +11896,7 @@ SELECT CAST('06/02/2020 17:00:53.110 +00' AS TIMESTAMP FORMAT 'MM/DD/YYYY HH24:M
 ### `PARSE_BIGNUMERIC` 
 <a id="parse_bignumeric"></a>
 
-```sql
+```zetasql
 PARSE_BIGNUMERIC(string_expression)
 ```
 
@@ -11902,7 +11911,7 @@ the resulting `BIGNUMERIC` value rounds
 [half away from zero][half-from-zero-wikipedia] to have 38 digits after the
 decimal point.
 
-```sql
+```zetasql
 
 -- This example shows how a string with a decimal point is parsed.
 SELECT PARSE_BIGNUMERIC("123.45") AS parsed;
@@ -11990,7 +11999,7 @@ Rules for valid input strings:
     </tr>
     <tr>
       <td>
-        If the integer part is not empty, then it must contain at least one
+        If the integer part isn't empty, then it must contain at least one
         digit.
       </td>
       <td>" 0,.12 -"</td>
@@ -12006,7 +12015,7 @@ Rules for valid input strings:
     </tr>
     <tr>
       <td>
-        The string cannot contain more than one sign.
+        The string can't contain more than one sign.
       </td>
       <td>" 0.5 +"</td>
       <td>0.5</td>
@@ -12023,7 +12032,7 @@ Rules for valid input strings:
 This example shows an input with spaces before, after, and between the
 sign and the number:
 
-```sql
+```zetasql
 SELECT PARSE_BIGNUMERIC("  -  12.34 ") as parsed;
 
 /*--------*
@@ -12036,7 +12045,7 @@ SELECT PARSE_BIGNUMERIC("  -  12.34 ") as parsed;
 This example shows an input with an exponent as well as the sign after the
 number:
 
-```sql
+```zetasql
 SELECT PARSE_BIGNUMERIC("12.34e-1-") as parsed;
 
 /*--------*
@@ -12049,7 +12058,7 @@ SELECT PARSE_BIGNUMERIC("12.34e-1-") as parsed;
 This example shows an input with multiple commas in the integer part of the
 number:
 
-```sql
+```zetasql
 SELECT PARSE_BIGNUMERIC("  1,2,,3,.45 + ") as parsed;
 
 /*--------*
@@ -12062,7 +12071,7 @@ SELECT PARSE_BIGNUMERIC("  1,2,,3,.45 + ") as parsed;
 This example shows an input with a decimal point and no digits in the whole
 number part:
 
-```sql
+```zetasql
 SELECT PARSE_BIGNUMERIC(".1234  ") as parsed;
 
 /*--------*
@@ -12076,38 +12085,38 @@ SELECT PARSE_BIGNUMERIC(".1234  ") as parsed;
 
 This example is invalid because the whole number part contains no digits:
 
-```sql
+```zetasql
 SELECT PARSE_BIGNUMERIC(",,,.1234  ") as parsed;
 ```
 
 This example is invalid because there are whitespaces between digits:
 
-```sql
+```zetasql
 SELECT PARSE_BIGNUMERIC("1  23.4 5  ") as parsed;
 ```
 
 This example is invalid because the number is empty except for an exponent:
 
-```sql
+```zetasql
 SELECT PARSE_BIGNUMERIC("  e1 ") as parsed;
 ```
 
 This example is invalid because the string contains multiple signs:
 
-```sql
+```zetasql
 SELECT PARSE_BIGNUMERIC("  - 12.3 - ") as parsed;
 ```
 
 This example is invalid because the value of the number falls outside the range
 of `BIGNUMERIC`:
 
-```sql
+```zetasql
 SELECT PARSE_BIGNUMERIC("12.34E100 ") as parsed;
 ```
 
 This example is invalid because the string contains invalid characters:
 
-```sql
+```zetasql
 SELECT PARSE_BIGNUMERIC("$12.34") as parsed;
 ```
 
@@ -12119,7 +12128,7 @@ SELECT PARSE_BIGNUMERIC("$12.34") as parsed;
 
 ### `PARSE_NUMERIC`
 
-```sql
+```zetasql
 PARSE_NUMERIC(string_expression)
 ```
 
@@ -12134,7 +12143,7 @@ resulting `NUMERIC` value rounds
 [half away from zero][half-from-zero-wikipedia] to have nine digits after the
 decimal point.
 
-```sql
+```zetasql
 
 -- This example shows how a string with a decimal point is parsed.
 SELECT PARSE_NUMERIC("123.45") AS parsed;
@@ -12223,7 +12232,7 @@ Rules for valid input strings:
     </tr>
     <tr>
       <td>
-        If the integer part is not empty, then it must contain at least one
+        If the integer part isn't empty, then it must contain at least one
         digit.
       </td>
       <td>" 0,.12 -"</td>
@@ -12239,7 +12248,7 @@ Rules for valid input strings:
     </tr>
     <tr>
       <td>
-        The string cannot contain more than one sign.
+        The string can't contain more than one sign.
       </td>
       <td>" 0.5 +"</td>
       <td>0.5</td>
@@ -12256,7 +12265,7 @@ Rules for valid input strings:
 This example shows an input with spaces before, after, and between the
 sign and the number:
 
-```sql
+```zetasql
 SELECT PARSE_NUMERIC("  -  12.34 ") as parsed;
 
 /*--------*
@@ -12269,7 +12278,7 @@ SELECT PARSE_NUMERIC("  -  12.34 ") as parsed;
 This example shows an input with an exponent as well as the sign after the
 number:
 
-```sql
+```zetasql
 SELECT PARSE_NUMERIC("12.34e-1-") as parsed;
 
 /*--------*
@@ -12282,7 +12291,7 @@ SELECT PARSE_NUMERIC("12.34e-1-") as parsed;
 This example shows an input with multiple commas in the integer part of the
 number:
 
-```sql
+```zetasql
 SELECT PARSE_NUMERIC("  1,2,,3,.45 + ") as parsed;
 
 /*--------*
@@ -12295,7 +12304,7 @@ SELECT PARSE_NUMERIC("  1,2,,3,.45 + ") as parsed;
 This example shows an input with a decimal point and no digits in the whole
 number part:
 
-```sql
+```zetasql
 SELECT PARSE_NUMERIC(".1234  ") as parsed;
 
 /*--------*
@@ -12309,38 +12318,38 @@ SELECT PARSE_NUMERIC(".1234  ") as parsed;
 
 This example is invalid because the whole number part contains no digits:
 
-```sql
+```zetasql
 SELECT PARSE_NUMERIC(",,,.1234  ") as parsed;
 ```
 
 This example is invalid because there are whitespaces between digits:
 
-```sql
+```zetasql
 SELECT PARSE_NUMERIC("1  23.4 5  ") as parsed;
 ```
 
 This example is invalid because the number is empty except for an exponent:
 
-```sql
+```zetasql
 SELECT PARSE_NUMERIC("  e1 ") as parsed;
 ```
 
 This example is invalid because the string contains multiple signs:
 
-```sql
+```zetasql
 SELECT PARSE_NUMERIC("  - 12.3 - ") as parsed;
 ```
 
 This example is invalid because the value of the number falls outside the range
 of `BIGNUMERIC`:
 
-```sql
+```zetasql
 SELECT PARSE_NUMERIC("12.34E100 ") as parsed;
 ```
 
 This example is invalid because the string contains invalid characters:
 
-```sql
+```zetasql
 SELECT PARSE_NUMERIC("$12.34") as parsed;
 ```
 
@@ -12362,7 +12371,7 @@ SELECT PARSE_NUMERIC("$12.34") as parsed;
 When using `CAST`, a query can fail if ZetaSQL is unable to perform
 the cast. For example, the following query generates an error:
 
-```sql
+```zetasql
 SELECT CAST("apple" AS INT64) AS not_a_number;
 ```
 
@@ -12371,7 +12380,7 @@ If you want to protect your queries from these types of errors, you can use
 static analysis, impossible casts between two non-castable types still produce
 an error because the query is invalid.
 
-```sql
+```zetasql
 SELECT SAFE_CAST("apple" AS INT64) AS not_a_number;
 
 /*--------------*
@@ -12536,15 +12545,15 @@ ZetaSQL supports the following date functions.
 
 ### `CURRENT_DATE`
 
-```sql
+```zetasql
 CURRENT_DATE()
 ```
 
-```sql
+```zetasql
 CURRENT_DATE(time_zone_expression)
 ```
 
-```sql
+```zetasql
 CURRENT_DATE
 ```
 
@@ -12560,9 +12569,9 @@ This function supports the following arguments:
   default time zone, which is implementation defined, is used. If this expression is
   used and it evaluates to `NULL`, this function returns `NULL`.
 
-The current date is recorded at the start of the query
-statement which contains this function, not when this specific function is
-evaluated.
+The current date value is set at the start of the query statement that contains
+this function. All invocations of `CURRENT_DATE()` within a query statement
+yield the same value.
 
 **Return Data Type**
 
@@ -12572,7 +12581,7 @@ evaluated.
 
 The following query produces the current date in the default time zone:
 
-```sql
+```zetasql
 SELECT CURRENT_DATE() AS the_date;
 
 /*--------------*
@@ -12584,7 +12593,7 @@ SELECT CURRENT_DATE() AS the_date;
 
 The following queries produce the current date in a specified time zone:
 
-```sql
+```zetasql
 SELECT CURRENT_DATE('America/Los_Angeles') AS the_date;
 
 /*--------------*
@@ -12594,7 +12603,7 @@ SELECT CURRENT_DATE('America/Los_Angeles') AS the_date;
  *--------------*/
 ```
 
-```sql
+```zetasql
 SELECT CURRENT_DATE('-08') AS the_date;
 
 /*--------------*
@@ -12605,9 +12614,9 @@ SELECT CURRENT_DATE('-08') AS the_date;
 ```
 
 The following query produces the current date in the default time zone.
-Parentheses are not needed if the function has no arguments.
+Parentheses aren't needed if the function has no arguments.
 
-```sql
+```zetasql
 SELECT CURRENT_DATE AS the_date;
 
 /*--------------*
@@ -12623,15 +12632,15 @@ SELECT CURRENT_DATE AS the_date;
 
 ### `DATE`
 
-```sql
+```zetasql
 DATE(year, month, day)
 ```
 
-```sql
+```zetasql
 DATE(timestamp_expression)
 ```
 
-```sql
+```zetasql
 DATE(timestamp_expression, time_zone_expression)
 ```
 
@@ -12661,7 +12670,7 @@ This function supports the following arguments:
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   DATE(2016, 12, 25) AS date_ymd,
   DATE(DATETIME '2016-12-25 23:59:59') AS date_dt,
@@ -12678,7 +12687,7 @@ SELECT
 
 ### `DATE_ADD`
 
-```sql
+```zetasql
 DATE_ADD(date_expression, INTERVAL int64_expression date_part)
 ```
 
@@ -12705,7 +12714,7 @@ DATE
 
 **Example**
 
-```sql
+```zetasql
 SELECT DATE_ADD(DATE '2008-12-25', INTERVAL 5 DAY) AS five_days_later;
 
 /*--------------------*
@@ -12717,7 +12726,7 @@ SELECT DATE_ADD(DATE '2008-12-25', INTERVAL 5 DAY) AS five_days_later;
 
 ### `DATE_DIFF`
 
-```sql
+```zetasql
 DATE_DIFF(end_date, start_date, granularity)
 ```
 
@@ -12762,7 +12771,7 @@ behaves like `TIMESTAMP_DIFF(TIMESTAMP, TIMESTAMP, PART)`.
 
 **Example**
 
-```sql
+```zetasql
 SELECT DATE_DIFF(DATE '2010-07-07', DATE '2008-12-25', DAY) AS days_diff;
 
 /*-----------*
@@ -12772,7 +12781,7 @@ SELECT DATE_DIFF(DATE '2010-07-07', DATE '2008-12-25', DAY) AS days_diff;
  *-----------*/
 ```
 
-```sql
+```zetasql
 SELECT
   DATE_DIFF(DATE '2017-10-15', DATE '2017-10-14', DAY) AS days_diff,
   DATE_DIFF(DATE '2017-10-15', DATE '2017-10-14', WEEK) AS weeks_diff;
@@ -12797,7 +12806,7 @@ with the date part `ISOYEAR` returns 2 because the second date belongs to the
 ISO year 2015. The first Thursday of the 2015 calendar year was 2015-01-01, so
 the ISO year 2015 begins on the preceding Monday, 2014-12-29.
 
-```sql
+```zetasql
 SELECT
   DATE_DIFF('2017-12-30', '2014-12-30', YEAR) AS year_diff,
   DATE_DIFF('2017-12-30', '2014-12-30', ISOYEAR) AS isoyear_diff;
@@ -12816,7 +12825,7 @@ uses weeks that begin on Sunday. `DATE_DIFF` with the date part `WEEK(MONDAY)`
 returns 1. `DATE_DIFF` with the date part `ISOWEEK` also returns 1 because
 ISO weeks begin on Monday.
 
-```sql
+```zetasql
 SELECT
   DATE_DIFF('2017-12-18', '2017-12-17', WEEK) AS week_diff,
   DATE_DIFF('2017-12-18', '2017-12-17', WEEK(MONDAY)) AS week_weekday_diff,
@@ -12835,7 +12844,7 @@ SELECT
 
 ### `DATE_FROM_UNIX_DATE`
 
-```sql
+```zetasql
 DATE_FROM_UNIX_DATE(int64_expression)
 ```
 
@@ -12849,7 +12858,7 @@ DATE
 
 **Example**
 
-```sql
+```zetasql
 SELECT DATE_FROM_UNIX_DATE(14238) AS date_from_epoch;
 
 /*-----------------*
@@ -12861,7 +12870,7 @@ SELECT DATE_FROM_UNIX_DATE(14238) AS date_from_epoch;
 
 ### `DATE_SUB`
 
-```sql
+```zetasql
 DATE_SUB(date_expression, INTERVAL int64_expression date_part)
 ```
 
@@ -12888,7 +12897,7 @@ DATE
 
 **Example**
 
-```sql
+```zetasql
 SELECT DATE_SUB(DATE '2008-12-25', INTERVAL 5 DAY) AS five_days_ago;
 
 /*---------------*
@@ -12900,15 +12909,15 @@ SELECT DATE_SUB(DATE '2008-12-25', INTERVAL 5 DAY) AS five_days_ago;
 
 ### `DATE_TRUNC`
 
-```sql
+```zetasql
 DATE_TRUNC(date_value, date_granularity)
 ```
 
-```sql
+```zetasql
 DATE_TRUNC(datetime_value, datetime_granularity)
 ```
 
-```sql
+```zetasql
 DATE_TRUNC(timestamp_value, timestamp_granularity[, time_zone])
 ```
 
@@ -12942,7 +12951,7 @@ granularity.
     and subtracts the minutes and seconds (when truncating to `HOUR`) or the
     seconds (when truncating to `MINUTE`) from that timestamp.
     While this provides intuitive results in most cases, the result is
-    non-intuitive near daylight savings transitions that are not hour-aligned.
+    non-intuitive near daylight savings transitions that aren't hour-aligned.
 
 <a id="date_trunc_granularity_date"></a>
 
@@ -13028,7 +13037,7 @@ The same data type as the first argument passed into this function.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT DATE_TRUNC(DATE '2008-12-25', MONTH) AS month;
 
 /*------------*
@@ -13042,7 +13051,7 @@ In the following example, the original date falls on a Sunday. Because
 the `date_part` is `WEEK(MONDAY)`, `DATE_TRUNC` returns the `DATE` for the
 preceding Monday.
 
-```sql
+```zetasql
 SELECT date AS original, DATE_TRUNC(date, WEEK(MONDAY)) AS truncated
 FROM (SELECT DATE('2017-11-05') AS date);
 
@@ -13061,7 +13070,7 @@ Gregorian calendar year. The first Thursday of the 2015 calendar year was
 Therefore the ISO year boundary preceding the `date_expression` 2015-06-15 is
 2014-12-29.
 
-```sql
+```zetasql
 SELECT
   DATE_TRUNC('2015-06-15', ISOYEAR) AS isoyear_boundary,
   EXTRACT(ISOYEAR FROM DATE '2015-06-15') AS isoyear_number;
@@ -13081,7 +13090,7 @@ SELECT
 
 ### `EXTRACT`
 
-```sql
+```zetasql
 EXTRACT(part FROM date_expression)
 ```
 
@@ -13121,7 +13130,7 @@ INT64
 In the following example, `EXTRACT` returns a value corresponding to the `DAY`
 date part.
 
-```sql
+```zetasql
 SELECT EXTRACT(DAY FROM DATE '2013-12-25') AS the_day;
 
 /*---------*
@@ -13134,7 +13143,7 @@ SELECT EXTRACT(DAY FROM DATE '2013-12-25') AS the_day;
 In the following example, `EXTRACT` returns values corresponding to different
 date parts from a column of dates near the end of the year.
 
-```sql
+```zetasql
 SELECT
   date,
   EXTRACT(ISOYEAR FROM date) AS isoyear,
@@ -13172,7 +13181,7 @@ In the following example, `date_expression` falls on a Sunday. `EXTRACT`
 calculates the first column using weeks that begin on Sunday, and it calculates
 the second column using weeks that begin on Monday.
 
-```sql
+```zetasql
 WITH table AS (SELECT DATE('2017-11-05') AS date)
 SELECT
   date,
@@ -13192,7 +13201,7 @@ SELECT
 
 ### `FORMAT_DATE`
 
-```sql
+```zetasql
 FORMAT_DATE(format_string, date_expr)
 ```
 
@@ -13212,7 +13221,7 @@ Formats a `DATE` value according to a specified format string.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT FORMAT_DATE('%x', DATE '2008-12-25') AS US_format;
 
 /*------------*
@@ -13222,7 +13231,7 @@ SELECT FORMAT_DATE('%x', DATE '2008-12-25') AS US_format;
  *------------*/
 ```
 
-```sql
+```zetasql
 SELECT FORMAT_DATE('%b-%d-%Y', DATE '2008-12-25') AS formatted;
 
 /*-------------*
@@ -13232,7 +13241,7 @@ SELECT FORMAT_DATE('%b-%d-%Y', DATE '2008-12-25') AS formatted;
  *-------------*/
 ```
 
-```sql
+```zetasql
 SELECT FORMAT_DATE('%b %Y', DATE '2008-12-25') AS formatted;
 
 /*-------------*
@@ -13246,7 +13255,7 @@ SELECT FORMAT_DATE('%b %Y', DATE '2008-12-25') AS formatted;
 
 ### `LAST_DAY`
 
-```sql
+```zetasql
 LAST_DAY(date_expression[, date_part])
 ```
 
@@ -13256,7 +13265,7 @@ Returns the last day from a date expression. This is commonly used to return
 the last day of the month.
 
 You can optionally specify the date part for which the last day is returned.
-If this parameter is not used, the default value is `MONTH`.
+If this parameter isn't used, the default value is `MONTH`.
 `LAST_DAY` supports the following values for `date_part`:
 
 +  `YEAR`
@@ -13280,7 +13289,7 @@ If this parameter is not used, the default value is `MONTH`.
 
 These both return the last day of the month:
 
-```sql
+```zetasql
 SELECT LAST_DAY(DATE '2008-11-25', MONTH) AS last_day
 
 /*------------*
@@ -13290,7 +13299,7 @@ SELECT LAST_DAY(DATE '2008-11-25', MONTH) AS last_day
  *------------*/
 ```
 
-```sql
+```zetasql
 SELECT LAST_DAY(DATE '2008-11-25') AS last_day
 
 /*------------*
@@ -13302,7 +13311,7 @@ SELECT LAST_DAY(DATE '2008-11-25') AS last_day
 
 This returns the last day of the year:
 
-```sql
+```zetasql
 SELECT LAST_DAY(DATE '2008-11-25', YEAR) AS last_day
 
 /*------------*
@@ -13314,7 +13323,7 @@ SELECT LAST_DAY(DATE '2008-11-25', YEAR) AS last_day
 
 This returns the last day of the week for a week that starts on a Sunday:
 
-```sql
+```zetasql
 SELECT LAST_DAY(DATE '2008-11-10', WEEK(SUNDAY)) AS last_day
 
 /*------------*
@@ -13326,7 +13335,7 @@ SELECT LAST_DAY(DATE '2008-11-10', WEEK(SUNDAY)) AS last_day
 
 This returns the last day of the week for a week that starts on a Monday:
 
-```sql
+```zetasql
 SELECT LAST_DAY(DATE '2008-11-10', WEEK(MONDAY)) AS last_day
 
 /*------------*
@@ -13342,7 +13351,7 @@ SELECT LAST_DAY(DATE '2008-11-10', WEEK(MONDAY)) AS last_day
 
 ### `PARSE_DATE`
 
-```sql
+```zetasql
 PARSE_DATE(format_string, date_string)
 ```
 
@@ -13362,7 +13371,7 @@ Each element in `date_string` must have a corresponding element in
 `format_string`. The location of each element in `format_string` must match the
 location of each element in `date_string`.
 
-```sql
+```zetasql
 -- This works because elements on both sides match.
 SELECT PARSE_DATE('%A %b %e %Y', 'Thursday Dec 25 2008');
 
@@ -13376,7 +13385,8 @@ SELECT PARSE_DATE('%A %b %e', 'Thursday Dec 25 2008');
 SELECT PARSE_DATE('%F', '2000-12-30');
 ```
 
-When using `PARSE_DATE`, keep the following in mind:
+The following additional considerations apply when using the `PARSE_DATE`
+function:
 
 + Unspecified fields. Any unspecified field is initialized from `1970-01-01`.
 + Case insensitivity. Names, such as `Monday`, `February`, and so on, are
@@ -13384,10 +13394,25 @@ When using `PARSE_DATE`, keep the following in mind:
 + Whitespace. One or more consecutive white spaces in the format string
   matches zero or more consecutive white spaces in the date string. In
   addition, leading and trailing white spaces in the date string are always
-  allowed -- even if they are not in the format string.
+  allowed, even if they aren't in the format string.
 + Format precedence. When two (or more) format elements have overlapping
   information (for example both `%F` and `%Y` affect the year), the last one
   generally overrides any earlier ones.
++   Mixed ISO and non-ISO elements. The ISO format elements are `%G`, `%g`,
+    `%J`, and `%V`. When these ISO elements are used together with other non-ISO
+    elements, the ISO elements are ignored, resulting in different values. For
+    example, the function arguments `('%g %J', '8405')` return a value with the
+    year `1984`, whereas the arguments `('%g %j', '8405')` return a value with
+    the year `1970` because the ISO element `%g` is ignored.
++   Numeric values after `%G` input values. Any input string value that
+    corresponds to the `%G` format element requires a whitespace or non-digit
+    character as a separator from numeric values that follow. This is a known
+    issue in ZetaSQL. For example, the function arguments `('%G
+    %V','2020 50')` or `('%G-%V','2020-50')` work, but not `('%G%V','202050')`.
+    For input values before the corresponding `%G` value, no separator is
+    needed. For example, the arguments `('%V%G','502020')` work. The separator
+    after the `%G` values identifies the end of the specified ISO year value so
+    that the function can parse properly.
 
 **Return Data Type**
 
@@ -13397,7 +13422,7 @@ When using `PARSE_DATE`, keep the following in mind:
 
 This example converts a `MM/DD/YY` formatted string to a `DATE` object:
 
-```sql
+```zetasql
 SELECT PARSE_DATE('%x', '12/25/08') AS parsed;
 
 /*------------*
@@ -13409,7 +13434,7 @@ SELECT PARSE_DATE('%x', '12/25/08') AS parsed;
 
 This example converts a `YYYYMMDD` formatted string to a `DATE` object:
 
-```sql
+```zetasql
 SELECT PARSE_DATE('%Y%m%d', '20081225') AS parsed;
 
 /*------------*
@@ -13425,7 +13450,7 @@ SELECT PARSE_DATE('%Y%m%d', '20081225') AS parsed;
 
 ### `UNIX_DATE`
 
-```sql
+```zetasql
 UNIX_DATE(date_expression)
 ```
 
@@ -13439,7 +13464,7 @@ INT64
 
 **Example**
 
-```sql
+```zetasql
 SELECT UNIX_DATE(DATE '2008-12-25') AS days_from_epoch;
 
 /*-----------------*
@@ -13557,11 +13582,11 @@ ZetaSQL supports the following datetime functions.
 
 ### `CURRENT_DATETIME`
 
-```sql
+```zetasql
 CURRENT_DATETIME([time_zone])
 ```
 
-```sql
+```zetasql
 CURRENT_DATETIME
 ```
 
@@ -13574,9 +13599,9 @@ This function supports an optional `time_zone` parameter.
 See [Time zone definitions][datetime-timezone-definitions] for
 information on how to specify a time zone.
 
-The current date and time is recorded at the start of the query
-statement which contains this function, not when this specific function is
-evaluated.
+The current date and time value is set at the start of the query statement that
+contains this function. All invocations of `CURRENT_DATETIME()` within a query
+statement yield the same value.
 
 **Return Data Type**
 
@@ -13584,7 +13609,7 @@ evaluated.
 
 **Example**
 
-```sql
+```zetasql
 SELECT CURRENT_DATETIME() as now;
 
 /*----------------------------*
@@ -13600,7 +13625,7 @@ SELECT CURRENT_DATETIME() as now;
 
 ### `DATETIME`
 
-```sql
+```zetasql
 1. DATETIME(year, month, day, hour, minute, second)
 2. DATETIME(date_expression[, time_expression])
 3. DATETIME(timestamp_expression [, time_zone])
@@ -13624,7 +13649,7 @@ SELECT CURRENT_DATETIME() as now;
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   DATETIME(2008, 12, 25, 05, 30, 00) as datetime_ymdhms,
   DATETIME(TIMESTAMP "2008-12-25 05:30:00+00", "America/Los_Angeles") as datetime_tstz;
@@ -13640,7 +13665,7 @@ SELECT
 
 ### `DATETIME_ADD`
 
-```sql
+```zetasql
 DATETIME_ADD(datetime_expression, INTERVAL int64_expression part)
 ```
 
@@ -13674,7 +13699,7 @@ the new month.
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   DATETIME "2008-12-25 15:30:00" as original_date,
   DATETIME_ADD(DATETIME "2008-12-25 15:30:00", INTERVAL 10 MINUTE) as later;
@@ -13688,7 +13713,7 @@ SELECT
 
 ### `DATETIME_DIFF`
 
-```sql
+```zetasql
 DATETIME_DIFF(end_datetime, start_datetime, granularity)
 ```
 
@@ -13745,7 +13770,7 @@ behaves like `TIMESTAMP_DIFF(TIMESTAMP, TIMESTAMP, PART)`.
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   DATETIME "2010-07-07 10:20:00" as first_datetime,
   DATETIME "2008-12-25 15:30:00" as second_datetime,
@@ -13759,7 +13784,7 @@ SELECT
  *----------------------------+------------------------+------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   DATETIME_DIFF(DATETIME '2017-10-15 00:00:00',
     DATETIME '2017-10-14 00:00:00', DAY) as days_diff,
@@ -13787,7 +13812,7 @@ second `DATETIME` belongs to the ISO year 2015. The first Thursday of the 2015
 calendar year was 2015-01-01, so the ISO year 2015 begins on the preceding
 Monday, 2014-12-29.
 
-```sql
+```zetasql
 SELECT
   DATETIME_DIFF('2017-12-30 00:00:00',
     '2014-12-30 00:00:00', YEAR) AS year_diff,
@@ -13808,7 +13833,7 @@ part uses weeks that begin on Sunday. `DATETIME_DIFF` with the date part
 `WEEK(MONDAY)` returns 1. `DATETIME_DIFF` with the date part
 `ISOWEEK` also returns 1 because ISO weeks begin on Monday.
 
-```sql
+```zetasql
 SELECT
   DATETIME_DIFF('2017-12-18', '2017-12-17', WEEK) AS week_diff,
   DATETIME_DIFF('2017-12-18', '2017-12-17', WEEK(MONDAY)) AS week_weekday_diff,
@@ -13827,7 +13852,7 @@ SELECT
 
 ### `DATETIME_SUB`
 
-```sql
+```zetasql
 DATETIME_SUB(datetime_expression, INTERVAL int64_expression part)
 ```
 
@@ -13861,7 +13886,7 @@ the new month.
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   DATETIME "2008-12-25 15:30:00" as original_date,
   DATETIME_SUB(DATETIME "2008-12-25 15:30:00", INTERVAL 10 MINUTE) as earlier;
@@ -13875,11 +13900,11 @@ SELECT
 
 ### `DATETIME_TRUNC`
 
-```sql
+```zetasql
 DATETIME_TRUNC(datetime_value, datetime_granularity)
 ```
 
-```sql
+```zetasql
 DATETIME_TRUNC(timestamp_value, timestamp_granularity[, time_zone])
 ```
 
@@ -13909,7 +13934,7 @@ Truncates a `DATETIME` or `TIMESTAMP` value at a particular granularity.
     and subtracts the minutes and seconds (when truncating to `HOUR`) or the
     seconds (when truncating to `MINUTE`) from that timestamp.
     While this provides intuitive results in most cases, the result is
-    non-intuitive near daylight savings transitions that are not hour-aligned.
+    non-intuitive near daylight savings transitions that aren't hour-aligned.
 
 <a id="datetime_trunc_granularity_date"></a>
 
@@ -13995,7 +14020,7 @@ The same data type as the first argument passed into this function.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT
   DATETIME "2008-12-25 15:30:00" as original,
   DATETIME_TRUNC(DATETIME "2008-12-25 15:30:00", DAY) as truncated;
@@ -14011,7 +14036,7 @@ In the following example, the original `DATETIME` falls on a Sunday. Because the
 `part` is `WEEK(MONDAY)`, `DATE_TRUNC` returns the `DATETIME` for the
 preceding Monday.
 
-```sql
+```zetasql
 SELECT
  datetime AS original,
  DATETIME_TRUNC(datetime, WEEK(MONDAY)) AS truncated
@@ -14032,7 +14057,7 @@ Gregorian calendar year. The first Thursday of the 2015 calendar year was
 Therefore the ISO year boundary preceding the `datetime_expression`
 2015-06-15 00:00:00 is 2014-12-29.
 
-```sql
+```zetasql
 SELECT
   DATETIME_TRUNC('2015-06-15 00:00:00', ISOYEAR) AS isoyear_boundary,
   EXTRACT(ISOYEAR FROM DATETIME '2015-06-15 00:00:00') AS isoyear_number;
@@ -14052,7 +14077,7 @@ SELECT
 
 ### `EXTRACT`
 
-```sql
+```zetasql
 EXTRACT(part FROM datetime_expression)
 ```
 
@@ -14109,7 +14134,7 @@ seconds, `EXTRACT` truncates the millisecond and microsecond values.
 In the following example, `EXTRACT` returns a value corresponding to the `HOUR`
 time part.
 
-```sql
+```zetasql
 SELECT EXTRACT(HOUR FROM DATETIME(2008, 12, 25, 15, 30, 00)) as hour;
 
 /*------------------*
@@ -14122,7 +14147,7 @@ SELECT EXTRACT(HOUR FROM DATETIME(2008, 12, 25, 15, 30, 00)) as hour;
 In the following example, `EXTRACT` returns values corresponding to different
 time parts from a column of datetimes.
 
-```sql
+```zetasql
 WITH Datetimes AS (
   SELECT DATETIME '2005-01-03 12:34:56' AS datetime UNION ALL
   SELECT DATETIME '2007-12-31' UNION ALL
@@ -14156,7 +14181,7 @@ In the following example, `datetime_expression` falls on a Sunday. `EXTRACT`
 calculates the first column using weeks that begin on Sunday, and it calculates
 the second column using weeks that begin on Monday.
 
-```sql
+```zetasql
 WITH table AS (SELECT DATETIME(TIMESTAMP "2017-11-05 00:00:00+00", "UTC") AS datetime)
 SELECT
   datetime,
@@ -14177,7 +14202,7 @@ FROM table;
 
 ### `FORMAT_DATETIME`
 
-```sql
+```zetasql
 FORMAT_DATETIME(format_string, datetime_expr)
 ```
 
@@ -14199,7 +14224,7 @@ Formats a `DATETIME` value according to a specified format string.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT
   FORMAT_DATETIME("%c", DATETIME "2008-12-25 15:30:00")
   AS formatted;
@@ -14211,7 +14236,7 @@ SELECT
  *--------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   FORMAT_DATETIME("%b-%d-%Y", DATETIME "2008-12-25 15:30:00")
   AS formatted;
@@ -14223,7 +14248,7 @@ SELECT
  *-------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   FORMAT_DATETIME("%b %Y", DATETIME "2008-12-25 15:30:00")
   AS formatted;
@@ -14239,7 +14264,7 @@ SELECT
 
 ### `LAST_DAY`
 
-```sql
+```zetasql
 LAST_DAY(datetime_expression[, date_part])
 ```
 
@@ -14249,7 +14274,7 @@ Returns the last day from a datetime expression that contains the date.
 This is commonly used to return the last day of the month.
 
 You can optionally specify the date part for which the last day is returned.
-If this parameter is not used, the default value is `MONTH`.
+If this parameter isn't used, the default value is `MONTH`.
 `LAST_DAY` supports the following values for `date_part`:
 
 +  `YEAR`
@@ -14273,7 +14298,7 @@ If this parameter is not used, the default value is `MONTH`.
 
 These both return the last day of the month:
 
-```sql
+```zetasql
 SELECT LAST_DAY(DATETIME '2008-11-25', MONTH) AS last_day
 
 /*------------*
@@ -14283,7 +14308,7 @@ SELECT LAST_DAY(DATETIME '2008-11-25', MONTH) AS last_day
  *------------*/
 ```
 
-```sql
+```zetasql
 SELECT LAST_DAY(DATETIME '2008-11-25') AS last_day
 
 /*------------*
@@ -14295,7 +14320,7 @@ SELECT LAST_DAY(DATETIME '2008-11-25') AS last_day
 
 This returns the last day of the year:
 
-```sql
+```zetasql
 SELECT LAST_DAY(DATETIME '2008-11-25 15:30:00', YEAR) AS last_day
 
 /*------------*
@@ -14307,7 +14332,7 @@ SELECT LAST_DAY(DATETIME '2008-11-25 15:30:00', YEAR) AS last_day
 
 This returns the last day of the week for a week that starts on a Sunday:
 
-```sql
+```zetasql
 SELECT LAST_DAY(DATETIME '2008-11-10 15:30:00', WEEK(SUNDAY)) AS last_day
 
 /*------------*
@@ -14319,7 +14344,7 @@ SELECT LAST_DAY(DATETIME '2008-11-10 15:30:00', WEEK(SUNDAY)) AS last_day
 
 This returns the last day of the week for a week that starts on a Monday:
 
-```sql
+```zetasql
 SELECT LAST_DAY(DATETIME '2008-11-10 15:30:00', WEEK(MONDAY)) AS last_day
 
 /*------------*
@@ -14335,7 +14360,7 @@ SELECT LAST_DAY(DATETIME '2008-11-10 15:30:00', WEEK(MONDAY)) AS last_day
 
 ### `PARSE_DATETIME`
 
-```sql
+```zetasql
 PARSE_DATETIME(format_string, datetime_string)
 ```
 
@@ -14356,7 +14381,7 @@ Each element in `datetime_string` must have a corresponding element in
 `format_string`. The location of each element in `format_string` must match the
 location of each element in `datetime_string`.
 
-```sql
+```zetasql
 -- This works because elements on both sides match.
 SELECT PARSE_DATETIME("%a %b %e %I:%M:%S %Y", "Thu Dec 25 07:30:00 2008");
 
@@ -14370,7 +14395,8 @@ SELECT PARSE_DATETIME("%a %b %e %I:%M:%S", "Thu Dec 25 07:30:00 2008");
 SELECT PARSE_DATETIME("%c", "Thu Dec 25 07:30:00 2008");
 ```
 
-`PARSE_DATETIME` parses `string` according to the following rules:
+The following additional considerations apply when using the `PARSE_DATETIME`
+function:
 
 + Unspecified fields. Any unspecified field is initialized from
   `1970-01-01 00:00:00.0`. For example, if the year is unspecified then it
@@ -14381,7 +14407,7 @@ SELECT PARSE_DATETIME("%c", "Thu Dec 25 07:30:00 2008");
   matches zero or more consecutive white spaces in the
   `DATETIME` string. Leading and trailing
   white spaces in the `DATETIME` string are always
-  allowed, even if they are not in the format string.
+  allowed, even if they aren't in the format string.
 + Format precedence. When two or more format elements have overlapping
   information, the last one generally overrides any earlier ones, with some
   exceptions. For example, both `%F` and `%Y` affect the year, so the earlier
@@ -14389,6 +14415,21 @@ SELECT PARSE_DATETIME("%c", "Thu Dec 25 07:30:00 2008");
   of `%s`, `%C`, and `%y` in
   [Supported Format Elements For DATETIME][datetime-format-elements].
 + Format divergence. `%p` can be used with `am`, `AM`, `pm`, and `PM`.
++   Mixed ISO and non-ISO elements. The ISO format elements are `%G`, `%g`,
+    `%J`, and `%V`. When these ISO elements are used together with other non-ISO
+    elements, the ISO elements are ignored, resulting in different values. For
+    example, the function arguments `('%g %J', '8405')` return a value with the
+    year `1984`, whereas the arguments `('%g %j', '8405')` return a value with
+    the year `1970` because the ISO element `%g` is ignored.
++   Numeric values after `%G` input values. Any input string value that
+    corresponds to the `%G` format element requires a whitespace or non-digit
+    character as a separator from numeric values that follow. This is a known
+    issue in ZetaSQL. For example, the function arguments `('%G
+    %V','2020 50')` or `('%G-%V','2020-50')` work, but not `('%G%V','202050')`.
+    For input values before the corresponding `%G` value, no separator is
+    needed. For example, the arguments `('%V%G','502020')` work. The separator
+    after the `%G` values identifies the end of the specified ISO year value so
+    that the function can parse properly.
 
 **Return Data Type**
 
@@ -14399,7 +14440,7 @@ SELECT PARSE_DATETIME("%c", "Thu Dec 25 07:30:00 2008");
 The following examples parse a `STRING` literal as a
 `DATETIME`.
 
-```sql
+```zetasql
 SELECT PARSE_DATETIME('%Y-%m-%d %H:%M:%S', '1998-10-18 13:45:55') AS datetime;
 
 /*---------------------*
@@ -14409,7 +14450,7 @@ SELECT PARSE_DATETIME('%Y-%m-%d %H:%M:%S', '1998-10-18 13:45:55') AS datetime;
  *---------------------*/
 ```
 
-```sql
+```zetasql
 SELECT PARSE_DATETIME('%m/%d/%Y %I:%M:%S %p', '8/30/2018 2:23:38 pm') AS datetime;
 
 /*---------------------*
@@ -14423,7 +14464,7 @@ The following example parses a `STRING` literal
 containing a date in a natural language format as a
 `DATETIME`.
 
-```sql
+```zetasql
 SELECT PARSE_DATETIME('%A, %B %e, %Y','Wednesday, December 19, 2018')
   AS datetime;
 
@@ -14495,7 +14536,7 @@ ZetaSQL supports the following debugging functions.
 
 ### `ERROR`
 
-```sql
+```zetasql
 ERROR(error_message)
 ```
 
@@ -14522,15 +14563,15 @@ ZetaSQL infers the return type in context.
 
 In the following example, the query produces an error message:
 
-```sql
+```zetasql
 -- ERROR: Show this error message (while evaluating error("Show this error message"))
 SELECT ERROR('Show this error message')
 ```
 
 In the following example, the query returns an error message if the value of the
-row does not match one of two defined values.
+row doesn't match one of two defined values.
 
-```sql
+```zetasql
 SELECT
   CASE
     WHEN value = 'foo' THEN 'Value is foo.'
@@ -14550,7 +14591,7 @@ before or after the <nobr>`x > 0`</nobr> condition, because ZetaSQL
 generally provides no ordering guarantees between `WHERE` clause conditions and
 there are no special guarantees for the `ERROR` function.
 
-```sql
+```zetasql
 SELECT *
 FROM (SELECT -1 AS x)
 WHERE x > 0 AND ERROR('Example error');
@@ -14560,7 +14601,7 @@ In the next example, the `WHERE` clause evaluates an `IF` condition, which
 ensures that ZetaSQL only evaluates the `ERROR` function if the
 condition fails.
 
-```sql
+```zetasql
 SELECT *
 FROM (SELECT -1 AS x)
 WHERE IF(x > 0, true, ERROR(FORMAT('Error: x must be positive but is %t', x)));
@@ -14570,7 +14611,7 @@ WHERE IF(x > 0, true, ERROR(FORMAT('Error: x must be positive but is %t', x)));
 
 ### `IFERROR`
 
-```sql
+```zetasql
 IFERROR(try_expression, catch_expression)
 ```
 
@@ -14580,7 +14621,7 @@ Evaluates `try_expression`.
 
 When `try_expression` is evaluated:
 
-+ If the evaluation of `try_expression` does not produce an error, then
++ If the evaluation of `try_expression` doesn't produce an error, then
   `IFERROR` returns the result of `try_expression` without evaluating
   `catch_expression`.
 + If the evaluation of `try_expression` produces a system error, then `IFERROR`
@@ -14590,7 +14631,7 @@ When `try_expression` is evaluated:
 
 If `catch_expression` is evaluated:
 
-+ If the evaluation of `catch_expression` does not produce an error, then
++ If the evaluation of `catch_expression` doesn't produce an error, then
   `IFERROR` returns the result of `catch_expression`.
 + If the evaluation of `catch_expression` produces any error, then `IFERROR`
   produces that error.
@@ -14612,7 +14653,7 @@ The [supertype][supertype] for `try_expression` and
 
 In the following example, the query successfully evaluates `try_expression`.
 
-```sql
+```zetasql
 SELECT IFERROR('a', 'b') AS result
 
 /*--------*
@@ -14625,7 +14666,7 @@ SELECT IFERROR('a', 'b') AS result
 In the following example, the query successfully evaluates the
 `try_expression` subquery.
 
-```sql
+```zetasql
 SELECT IFERROR((SELECT [1,2,3][OFFSET(0)]), -1) AS result
 
 /*--------*
@@ -14638,7 +14679,7 @@ SELECT IFERROR((SELECT [1,2,3][OFFSET(0)]), -1) AS result
 In the following example, `IFERROR` catches an evaluation error in the
 `try_expression` and successfully evaluates `catch_expression`.
 
-```sql
+```zetasql
 SELECT IFERROR(ERROR('a'), 'b') AS result
 
 /*--------*
@@ -14651,7 +14692,7 @@ SELECT IFERROR(ERROR('a'), 'b') AS result
 In the following example, `IFERROR` catches an evaluation error in the
 `try_expression` subquery and successfully evaluates `catch_expression`.
 
-```sql
+```zetasql
 SELECT IFERROR((SELECT [1,2,3][OFFSET(9)]), -1) AS result
 
 /*--------*
@@ -14664,7 +14705,7 @@ SELECT IFERROR((SELECT [1,2,3][OFFSET(9)]), -1) AS result
 In the following query, the error is handled by the innermost `IFERROR`
 operation, `IFERROR(ERROR('a'), 'b')`.
 
-```sql
+```zetasql
 SELECT IFERROR(IFERROR(ERROR('a'), 'b'), 'c') AS result
 
 /*--------*
@@ -14677,7 +14718,7 @@ SELECT IFERROR(IFERROR(ERROR('a'), 'b'), 'c') AS result
 In the following query, the error is handled by the outermost `IFERROR`
 operation, `IFERROR(..., 'c')`.
 
-```sql
+```zetasql
 SELECT IFERROR(IFERROR(ERROR('a'), ERROR('b')), 'c') AS result
 
 /*--------*
@@ -14690,7 +14731,7 @@ SELECT IFERROR(IFERROR(ERROR('a'), ERROR('b')), 'c') AS result
 In the following example, an evaluation error is produced because the subquery
 passed in as the `try_expression` evaluates to a table, not a scalar value.
 
-```sql
+```zetasql
 SELECT IFERROR((SELECT e FROM UNNEST([1, 2]) AS e), 3) AS result
 
 /*--------*
@@ -14704,7 +14745,7 @@ In the following example, `IFERROR` catches an evaluation error in `ERROR('a')`
 and then evaluates `ERROR('b')`. Because there is also an evaluation error in
 `ERROR('b')`, `IFERROR` produces an evaluation error for `ERROR('b')`.
 
-```sql
+```zetasql
 SELECT IFERROR(ERROR('a'), ERROR('b')) AS result
 
 --ERROR: OUT_OF_RANGE 'b'
@@ -14714,7 +14755,7 @@ SELECT IFERROR(ERROR('a'), ERROR('b')) AS result
 
 ### `ISERROR`
 
-```sql
+```zetasql
 ISERROR(try_expression)
 ```
 
@@ -14722,7 +14763,7 @@ ISERROR(try_expression)
 
 Evaluates `try_expression`.
 
-+ If the evaluation of `try_expression` does not produce an error, then
++ If the evaluation of `try_expression` doesn't produce an error, then
   `ISERROR` returns `FALSE`.
 + If the evaluation of `try_expression` produces a system error, then `ISERROR`
   produces that system error.
@@ -14741,7 +14782,7 @@ Evaluates `try_expression`.
 
 In the following examples, `ISERROR` successfully evaluates `try_expression`.
 
-```sql
+```zetasql
 SELECT ISERROR('a') AS is_error
 
 /*----------*
@@ -14751,7 +14792,7 @@ SELECT ISERROR('a') AS is_error
  *----------*/
 ```
 
-```sql
+```zetasql
 SELECT ISERROR(2/1) AS is_error
 
 /*----------*
@@ -14761,7 +14802,7 @@ SELECT ISERROR(2/1) AS is_error
  *----------*/
 ```
 
-```sql
+```zetasql
 SELECT ISERROR((SELECT [1,2,3][OFFSET(0)])) AS is_error
 
 /*----------*
@@ -14774,7 +14815,7 @@ SELECT ISERROR((SELECT [1,2,3][OFFSET(0)])) AS is_error
 In the following examples, `ISERROR` catches an evaluation error in
 `try_expression`.
 
-```sql
+```zetasql
 SELECT ISERROR(ERROR('a')) AS is_error
 
 /*----------*
@@ -14784,7 +14825,7 @@ SELECT ISERROR(ERROR('a')) AS is_error
  *----------*/
 ```
 
-```sql
+```zetasql
 SELECT ISERROR(2/0) AS is_error
 
 /*----------*
@@ -14794,7 +14835,7 @@ SELECT ISERROR(2/0) AS is_error
  *----------*/
 ```
 
-```sql
+```zetasql
 SELECT ISERROR((SELECT [1,2,3][OFFSET(9)])) AS is_error
 
 /*----------*
@@ -14807,7 +14848,7 @@ SELECT ISERROR((SELECT [1,2,3][OFFSET(9)])) AS is_error
 In the following example, an evaluation error is produced because the subquery
 passed in as `try_expression` evaluates to a table, not a scalar value.
 
-```sql
+```zetasql
 SELECT ISERROR((SELECT e FROM UNNEST([1, 2]) AS e)) AS is_error
 
 /*----------*
@@ -14819,7 +14860,7 @@ SELECT ISERROR((SELECT e FROM UNNEST([1, 2]) AS e)) AS is_error
 
 ### `NULLIFERROR`
 
-```sql
+```zetasql
 NULLIFERROR(try_expression)
 ```
 
@@ -14827,7 +14868,7 @@ NULLIFERROR(try_expression)
 
 Evaluates `try_expression`.
 
-+ If the evaluation of `try_expression` does not produce an error, then
++ If the evaluation of `try_expression` doesn't produce an error, then
   `NULLIFERROR` returns the result of `try_expression`.
 + If the evaluation of `try_expression` produces a system error, then
  `NULLIFERROR` produces that system error.
@@ -14848,7 +14889,7 @@ The data type for `try_expression` or `NULL`
 In the following example, `NULLIFERROR` successfully evaluates
 `try_expression`.
 
-```sql
+```zetasql
 SELECT NULLIFERROR('a') AS result
 
 /*--------*
@@ -14861,7 +14902,7 @@ SELECT NULLIFERROR('a') AS result
 In the following example, `NULLIFERROR` successfully evaluates
 the `try_expression` subquery.
 
-```sql
+```zetasql
 SELECT NULLIFERROR((SELECT [1,2,3][OFFSET(0)])) AS result
 
 /*--------*
@@ -14874,7 +14915,7 @@ SELECT NULLIFERROR((SELECT [1,2,3][OFFSET(0)])) AS result
 In the following example, `NULLIFERROR` catches an evaluation error in
 `try_expression`.
 
-```sql
+```zetasql
 SELECT NULLIFERROR(ERROR('a')) AS result
 
 /*--------*
@@ -14887,7 +14928,7 @@ SELECT NULLIFERROR(ERROR('a')) AS result
 In the following example, `NULLIFERROR` catches an evaluation error in
 the `try_expression` subquery.
 
-```sql
+```zetasql
 SELECT NULLIFERROR((SELECT [1,2,3][OFFSET(9)])) AS result
 
 /*--------*
@@ -14900,7 +14941,7 @@ SELECT NULLIFERROR((SELECT [1,2,3][OFFSET(9)])) AS result
 In the following example, an evaluation error is produced because the subquery
 passed in as `try_expression` evaluates to a table, not a scalar value.
 
-```sql
+```zetasql
 SELECT NULLIFERROR((SELECT e FROM UNNEST([1, 2]) AS e)) AS result
 
 /*--------*
@@ -14921,7 +14962,7 @@ You can only use differentially private aggregate functions with
 [differentially private queries][dp-guide] in a
 [differential privacy clause][dp-syntax].
 
-Note: In this topic, the privacy parameters in the examples are not
+Note: In this topic, the privacy parameters in the examples aren't
 recommendations. You should work with your privacy or security officer to
 determine the optimal privacy parameters for your dataset and organization.
 
@@ -15083,7 +15124,7 @@ determine the optimal privacy parameters for your dataset and organization.
 ### `AVG` (`DIFFERENTIAL_PRIVACY`) 
 <a id="dp_avg"></a>
 
-```sql
+```zetasql
 WITH DIFFERENTIAL_PRIVACY ...
   AVG(
     expression,
@@ -15117,7 +15158,7 @@ The following differentially private query gets the average number of each item
 requested per professor. Smaller aggregations might not be included. This query
 references a table called [`professors`][dp-example-tables].
 
-```sql
+```zetasql
 -- With noise, using the epsilon parameter.
 SELECT
   WITH DIFFERENTIAL_PRIVACY
@@ -15137,7 +15178,7 @@ GROUP BY item;
  *----------+------------------*/
 ```
 
-```sql
+```zetasql
 -- Without noise, using the epsilon parameter.
 -- (this un-noised version is for demonstration only)
 SELECT
@@ -15162,7 +15203,7 @@ The following differentially private query gets the average number of each item
 requested per professor. Smaller aggregations might not be included. This query
 references a view called [`view_on_professors`][dp-example-views].
 
-```sql
+```zetasql
 -- With noise, using the epsilon parameter.
 SELECT
   WITH DIFFERENTIAL_PRIVACY
@@ -15182,7 +15223,7 @@ GROUP BY item;
  *----------+------------------*/
 ```
 
-```sql
+```zetasql
 -- Without noise, using the epsilon parameter.
 -- (this un-noised version is for demonstration only)
 SELECT
@@ -15227,7 +15268,7 @@ noise, see [Remove noise][dp-noise].
 #### Signature 1 
 <a id="dp_count_signature1"></a>
 
-```sql
+```zetasql
 WITH DIFFERENTIAL_PRIVACY ...
   COUNT(
     *,
@@ -15259,7 +15300,7 @@ The following differentially private query counts the number of requests for
 each item. This query references a table called
 [`professors`][dp-example-tables].
 
-```sql
+```zetasql
 -- With noise, using the epsilon parameter.
 SELECT
   WITH DIFFERENTIAL_PRIVACY
@@ -15279,7 +15320,7 @@ GROUP BY item;
  *----------+-----------------*/
 ```
 
-```sql
+```zetasql
 -- Without noise, using the epsilon parameter.
 -- (this un-noised version is for demonstration only)
 SELECT
@@ -15304,7 +15345,7 @@ The following differentially private query counts the number of requests for
 each item. This query references a view called
 [`view_on_professors`][dp-example-views].
 
-```sql
+```zetasql
 -- With noise, using the epsilon parameter.
 SELECT
   WITH DIFFERENTIAL_PRIVACY
@@ -15324,7 +15365,7 @@ GROUP BY item;
  *----------+-----------------*/
 ```
 
-```sql
+```zetasql
 -- Without noise, using the epsilon parameter.
 -- (this un-noised version is for demonstration only)
 SELECT
@@ -15351,7 +15392,7 @@ noise, see [Remove noise][dp-noise].
 #### Signature 2 
 <a id="dp_count_signature2"></a>
 
-```sql
+```zetasql
 WITH DIFFERENTIAL_PRIVACY ...
   COUNT(
     expression,
@@ -15384,7 +15425,7 @@ The following differentially private query counts the number of requests made
 for each type of item. This query references a table called
 [`professors`][dp-example-tables].
 
-```sql
+```zetasql
 -- With noise, using the epsilon parameter.
 SELECT
   WITH DIFFERENTIAL_PRIVACY
@@ -15404,7 +15445,7 @@ GROUP BY item;
  *----------+-----------------*/
 ```
 
-```sql
+```zetasql
 -- Without noise, using the epsilon parameter.
 -- (this un-noised version is for demonstration only)
 SELECT
@@ -15429,7 +15470,7 @@ The following differentially private query counts the number of requests made
 for each type of item. This query references a view called
 [`view_on_professors`][dp-example-views].
 
-```sql
+```zetasql
 -- With noise
 SELECT
   WITH DIFFERENTIAL_PRIVACY
@@ -15449,7 +15490,7 @@ GROUP BY item;
  *----------+-----------------*/
 ```
 
-```sql
+```zetasql
 --Without noise (this un-noised version is for demonstration only)
 SELECT
   WITH DIFFERENTIAL_PRIVACY
@@ -15474,7 +15515,7 @@ noise, see [Remove noise][dp-noise].
 
 [dp-clamp-implicit]: #dp_implicit_clamping
 
-[dp-from-clause]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_from
+[dp-from-clause]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_from_rules
 
 [dp-example-tables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_tables
 
@@ -15489,7 +15530,7 @@ noise, see [Remove noise][dp-noise].
 ### `PERCENTILE_CONT` (`DIFFERENTIAL_PRIVACY`) 
 <a id="dp_percentile_cont"></a>
 
-```sql
+```zetasql
 WITH DIFFERENTIAL_PRIVACY ...
   PERCENTILE_CONT(
     expression,
@@ -15515,7 +15556,7 @@ and can support these arguments:
   Performs clamping for each row separately before performing intermediate
   grouping on the privacy unit column.
 
-`NUMERIC` and `BIGNUMERIC` arguments are not allowed.
+`NUMERIC` and `BIGNUMERIC` arguments aren't allowed.
  If you need them, cast them as the
 `DOUBLE` data type first.
 
@@ -15529,7 +15570,7 @@ The following differentially private query gets the percentile of items
 requested. Smaller aggregations might not be included. This query references a
 view called [`professors`][dp-example-tables].
 
-```sql
+```zetasql
 -- With noise, using the epsilon parameter.
 SELECT
   WITH DIFFERENTIAL_PRIVACY
@@ -15554,7 +15595,7 @@ The following differentially private query gets the percentile of items
 requested. Smaller aggregations might not be included. This query references a
 view called [`view_on_professors`][dp-example-views].
 
-```sql
+```zetasql
 -- With noise, using the epsilon parameter.
 SELECT
   WITH DIFFERENTIAL_PRIVACY
@@ -15586,7 +15627,7 @@ GROUP BY item;
 ### `SUM` (`DIFFERENTIAL_PRIVACY`) 
 <a id="dp_sum"></a>
 
-```sql
+```zetasql
 WITH DIFFERENTIAL_PRIVACY ...
   SUM(
     expression,
@@ -15622,7 +15663,7 @@ The following differentially private query gets the sum of items requested.
 Smaller aggregations might not be included. This query references a view called
 [`professors`][dp-example-tables].
 
-```sql
+```zetasql
 -- With noise, using the epsilon parameter.
 SELECT
   WITH DIFFERENTIAL_PRIVACY
@@ -15642,7 +15683,7 @@ GROUP BY item;
  *----------+-----------*/
 ```
 
-```sql
+```zetasql
 -- Without noise, using the epsilon parameter.
 -- (this un-noised version is for demonstration only)
 SELECT
@@ -15667,7 +15708,7 @@ The following differentially private query gets the sum of items requested.
 Smaller aggregations might not be included. This query references a view called
 [`view_on_professors`][dp-example-views].
 
-```sql
+```zetasql
 -- With noise, using the epsilon parameter.
 SELECT
   WITH DIFFERENTIAL_PRIVACY
@@ -15687,7 +15728,7 @@ GROUP BY item;
  *----------+-----------*/
 ```
 
-```sql
+```zetasql
 -- Without noise, using the epsilon parameter.
 -- (this un-noised version is for demonstration only)
 SELECT
@@ -15726,7 +15767,7 @@ noise, see [Use differential privacy][dp-noise].
 ### `VAR_POP` (`DIFFERENTIAL_PRIVACY`) 
 <a id="dp_var_pop"></a>
 
-```sql
+```zetasql
 WITH DIFFERENTIAL_PRIVACY ...
   VAR_POP(
     expression,
@@ -15752,7 +15793,7 @@ can support these arguments:
   Performs clamping for each row separately before performing intermediate
   grouping on individual user values.
 
-`NUMERIC` and `BIGNUMERIC` arguments are not allowed.
+`NUMERIC` and `BIGNUMERIC` arguments aren't allowed.
  If you need them, cast them as the
 `DOUBLE` data type first.
 
@@ -15767,7 +15808,7 @@ population (biased) variance of items requested. Smaller aggregations may not
 be included. This query references a view called
 [`professors`][dp-example-tables].
 
-```sql
+```zetasql
 -- With noise
 SELECT
   WITH DIFFERENTIAL_PRIVACY
@@ -15793,7 +15834,7 @@ population (biased) variance of items requested. Smaller aggregations might not
 be included. This query references a view called
 [`view_on_professors`][dp-example-views].
 
-```sql
+```zetasql
 -- With noise
 SELECT
   WITH DIFFERENTIAL_PRIVACY
@@ -15828,7 +15869,7 @@ GROUP BY item;
 Warning: This function has been deprecated. Use
 `AVG` (differential privacy) instead.
 
-```sql
+```zetasql
 WITH ANONYMIZATION ...
   ANON_AVG(expression [clamped_between_clause])
 
@@ -15860,7 +15901,7 @@ The following differentially private query gets the average number of each item
 requested per professor. Smaller aggregations might not be included. This query
 references a view called [`view_on_professors`][dp-example-views].
 
-```sql
+```zetasql
 -- With noise, using the epsilon parameter.
 SELECT
   WITH ANONYMIZATION
@@ -15880,7 +15921,7 @@ GROUP BY item;
  *----------+------------------*/
 ```
 
-```sql
+```zetasql
 -- Without noise, using the epsilon parameter.
 -- (this un-noised version is for demonstration only)
 SELECT
@@ -15922,7 +15963,7 @@ Warning: This function has been deprecated. Use
 #### Signature 1 
 <a id="anon_count_signature1"></a>
 
-```sql
+```zetasql
 WITH ANONYMIZATION ...
   ANON_COUNT(*)
 ```
@@ -15947,7 +15988,7 @@ The following differentially private query counts the number of requests for
 each item. This query references a view called
 [`view_on_professors`][dp-example-views].
 
-```sql
+```zetasql
 -- With noise, using the epsilon parameter.
 SELECT
   WITH ANONYMIZATION
@@ -15967,7 +16008,7 @@ GROUP BY item;
  *----------+-----------------*/
 ```
 
-```sql
+```zetasql
 -- Without noise, using the epsilon parameter.
 -- (this un-noised version is for demonstration only)
 SELECT
@@ -15994,7 +16035,7 @@ noise [here][dp-noise].
 #### Signature 2 
 <a id="anon_count_signature2"></a>
 
-```sql
+```zetasql
 WITH ANONYMIZATION ...
   ANON_COUNT(expression [CLAMPED BETWEEN lower_bound AND upper_bound])
 ```
@@ -16022,7 +16063,7 @@ The following differentially private query counts the number of requests made
 for each type of item. This query references a view called
 [`view_on_professors`][dp-example-views].
 
-```sql
+```zetasql
 -- With noise
 SELECT
   WITH ANONYMIZATION
@@ -16042,7 +16083,7 @@ GROUP BY item;
  *----------+-----------------*/
 ```
 
-```sql
+```zetasql
 --Without noise (this un-noised version is for demonstration only)
 SELECT
   WITH ANONYMIZATION
@@ -16081,7 +16122,7 @@ noise [here][dp-noise].
 Warning: This function has been deprecated. Use
 `PERCENTILE_CONT` (differential privacy) instead.
 
-```sql
+```zetasql
 WITH ANONYMIZATION ...
   ANON_PERCENTILE_CONT(expression, percentile [CLAMPED BETWEEN lower_bound AND upper_bound])
 ```
@@ -16101,7 +16142,7 @@ can support these arguments:
 + `CLAMPED BETWEEN` clause:
   Perform [clamping][dp-clamp-between] per privacy unit column.
 
-`NUMERIC` and `BIGNUMERIC` arguments are not allowed.
+`NUMERIC` and `BIGNUMERIC` arguments aren't allowed.
  If you need them, cast them as the
 `DOUBLE` data type first.
 
@@ -16115,7 +16156,7 @@ The following differentially private query gets the percentile of items
 requested. Smaller aggregations might not be included. This query references a
 view called [`view_on_professors`][dp-example-views].
 
-```sql
+```zetasql
 -- With noise, using the epsilon parameter.
 SELECT
   WITH ANONYMIZATION
@@ -16146,7 +16187,7 @@ GROUP BY item;
 Warning: This function has been deprecated. Use
 `QUANTILES` (differential privacy) instead.
 
-```sql
+```zetasql
 WITH ANONYMIZATION ...
   ANON_QUANTILES(expression, number CLAMPED BETWEEN lower_bound AND upper_bound)
 ```
@@ -16167,7 +16208,7 @@ can support these arguments:
 + `CLAMPED BETWEEN` clause:
   Perform [clamping][dp-clamp-between] per privacy unit column.
 
-`NUMERIC` and `BIGNUMERIC` arguments are not allowed.
+`NUMERIC` and `BIGNUMERIC` arguments aren't allowed.
  If you need them, cast them as the
 `DOUBLE` data type first.
 
@@ -16182,7 +16223,7 @@ the four quartiles of the number of items requested. Smaller aggregations
 might not be included. This query references a view called
 [`view_on_professors`][dp-example-views].
 
-```sql
+```zetasql
 -- With noise, using the epsilon parameter.
 SELECT
   WITH ANONYMIZATION
@@ -16212,7 +16253,7 @@ GROUP BY item;
 Warning: This function has been deprecated. Use
 `STDDEV_POP` (differential privacy) instead.
 
-```sql
+```zetasql
 WITH ANONYMIZATION ...
   ANON_STDDEV_POP(expression [CLAMPED BETWEEN lower_bound AND upper_bound])
 ```
@@ -16231,7 +16272,7 @@ can support these arguments:
 + `CLAMPED BETWEEN` clause:
   Perform [clamping][dp-clamp-between] per individual entity values.
 
-`NUMERIC` and `BIGNUMERIC` arguments are not allowed.
+`NUMERIC` and `BIGNUMERIC` arguments aren't allowed.
  If you need them, cast them as the
 `DOUBLE` data type first.
 
@@ -16246,7 +16287,7 @@ population (biased) standard deviation of items requested. Smaller aggregations
 might not be included. This query references a view called
 [`view_on_professors`][dp-example-views].
 
-```sql
+```zetasql
 -- With noise, using the epsilon parameter.
 SELECT
   WITH ANONYMIZATION
@@ -16277,7 +16318,7 @@ GROUP BY item;
 Warning: This function has been deprecated. Use
 `SUM` (differential privacy) instead.
 
-```sql
+```zetasql
 WITH ANONYMIZATION ...
   ANON_SUM(expression [CLAMPED BETWEEN lower_bound AND upper_bound])
 ```
@@ -16309,7 +16350,7 @@ The following differentially private query gets the sum of items requested.
 Smaller aggregations might not be included. This query references a view called
 [`view_on_professors`][dp-example-views].
 
-```sql
+```zetasql
 -- With noise, using the epsilon parameter.
 SELECT
   WITH ANONYMIZATION
@@ -16329,7 +16370,7 @@ GROUP BY item;
  *----------+-----------*/
 ```
 
-```sql
+```zetasql
 -- Without noise, using the epsilon parameter.
 -- (this un-noised version is for demonstration only)
 SELECT
@@ -16367,7 +16408,7 @@ noise [here][dp-noise].
 Warning: This function has been deprecated. Use
 `VAR_POP` (differential privacy) instead.
 
-```sql
+```zetasql
 WITH ANONYMIZATION ...
   ANON_VAR_POP(expression [CLAMPED BETWEEN lower_bound AND upper_bound])
 ```
@@ -16388,7 +16429,7 @@ can support these arguments:
 + `CLAMPED BETWEEN` clause:
   Perform [clamping][dp-clamp-between] per individual entity values.
 
-`NUMERIC` and `BIGNUMERIC` arguments are not allowed.
+`NUMERIC` and `BIGNUMERIC` arguments aren't allowed.
  If you need them, cast them as the
 `DOUBLE` data type first.
 
@@ -16403,7 +16444,7 @@ population (biased) variance of items requested. Smaller aggregations might not
 be included. This query references a view called
 [`view_on_professors`][dp-example-views].
 
-```sql
+```zetasql
 -- With noise, using the epsilon parameter.
 SELECT
   WITH ANONYMIZATION
@@ -16483,7 +16524,7 @@ As long as all or most values fall within this range, your results
 will be accurate. This query references a view called
 [`view_on_professors`][dp-example-views].
 
-```sql
+```zetasql
 --Without noise (this un-noised version is for demonstration only)
 SELECT WITH DIFFERENTIAL_PRIVACY
   OPTIONS (
@@ -16511,7 +16552,7 @@ As long as all or most values fall within this range, your results
 will be accurate. This query references a view called
 [`view_on_professors`][dp-example-views].
 
-```sql
+```zetasql
 --Without noise (this un-noised version is for demonstration only)
 SELECT WITH DIFFERENTIAL_PRIVACY
   OPTIONS (
@@ -16536,11 +16577,11 @@ GROUP BY item;
 #### Explicitly clamp values 
 <a id="dp_clamped_named"></a>
 
-```sql
+```zetasql
 contribution_bounds_per_group => (lower_bound,upper_bound)
 ```
 
-```sql
+```zetasql
 contribution_bounds_per_row => (lower_bound,upper_bound)
 ```
 
@@ -16566,7 +16607,7 @@ Input values:
 + `upper_bound`: Numeric literal that represents the largest value to
   include in an aggregation.
 
-`NUMERIC` and `BIGNUMERIC` arguments are not allowed.
+`NUMERIC` and `BIGNUMERIC` arguments aren't allowed.
 
 **Details**
 
@@ -16584,7 +16625,7 @@ Explicit bounds should be chosen to reflect public information.
 For example, bounding ages between 0 and 100 reflects public information
 because the age of most people generally falls within this range.
 
-Important: The results of the query reveal the explicit bounds. Do not use
+Important: The results of the query reveal the explicit bounds. Don't use
 explicit bounds based on the entity data; explicit bounds should be based on
 public information.
 
@@ -16596,7 +16637,7 @@ As long as all or most values fall within this range, your results
 will be accurate. This query references a view called
 [`view_on_professors`][dp-example-views].
 
-```sql
+```zetasql
 --Without noise (this un-noised version is for demonstration only)
 SELECT WITH DIFFERENTIAL_PRIVACY
   OPTIONS (
@@ -16623,7 +16664,7 @@ To get accurate results, ensure that the difference between the upper and lower
 bound is as small as possible, and that most inputs are between the upper and
 lower bound.
 
-```sql {.bad}
+```zetasql {.bad}
 --Without noise (this un-noised version is for demonstration only)
 SELECT WITH DIFFERENTIAL_PRIVACY
   OPTIONS (
@@ -16651,7 +16692,7 @@ As long as all or most values fall within this range, your results will be
 accurate. This query references a view called
 [`view_on_professors`][dp-example-views].
 
-```sql
+```zetasql
 --Without noise (this un-noised version is for demonstration only)
 SELECT WITH DIFFERENTIAL_PRIVACY
   OPTIONS (
@@ -16678,7 +16719,7 @@ To get accurate results, ensure that the difference between the upper and lower
 bound is as small as possible, and that most inputs are between the upper and
 lower bound.
 
-```sql {.bad}
+```zetasql {.bad}
 --Without noise (this un-noised version is for demonstration only)
 SELECT WITH DIFFERENTIAL_PRIVACY
   OPTIONS (
@@ -16877,13 +16918,13 @@ ZetaSQL supports the following GQL functions:
 
 ### `DESTINATION_NODE_ID`
 
-```sql
+```zetasql
 DESTINATION_NODE_ID(edge_element)
 ```
 
 **Description**
 
-Gets a unique identifier of a graph edge's destination node. The unique identifier is only valid for the scope of the query where it is obtained.
+Gets a unique identifier of a graph edge's destination node. The unique identifier is only valid for the scope of the query where it's obtained.
 
 **Arguments**
 
@@ -16899,7 +16940,7 @@ Returns `NULL` if `edge_element` is `NULL`.
 
 **Examples**
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (:Person)-[o:Owns]->(a:Account)
 RETURN a.id AS account_id, DESTINATION_NODE_ID(o) AS destination_node_id
@@ -16917,7 +16958,7 @@ Note that the actual identifiers obtained may be different from what's shown abo
 
 ### `EDGES`
 
-```sql
+```zetasql
 EDGES(graph_path)
 ```
 
@@ -16940,36 +16981,40 @@ If `graph_path` is `NULL`, returns `NULL`.
 
 **Examples**
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH p=(src:Account)-[t1:Transfers]->(mid:Account)-[t2:Transfers]->(dst:Account)
 LET es = EDGES(p)
-RETURN
-  LABELS(es[0]) AS labels,
-  es[0].to_id AS to_account;
+RETURN ARRAY_CONCAT(ARRAY_TRANSFORM(es, e -> e.Id), [dst.Id]) as ids_in_path
 
-/*----------------------------*
- | labels        | to_account |
- +----------------------------+
- | ["Transfers"] | 7          |
- | ["Transfers"] | 7          |
- | ["Transfers"] | 16         |
- | ["Transfers"] | 16         |
- | ["Transfers"] | 16         |
- | ["Transfers"] | 20         |
- | ["Transfers"] | 20         |
- *----------------------------/*
+/*-------------+
+ | ids_in_path |
+ +-------------+
+ | [16,20,7]   |
+ +-------------+
+ | [20,7,16]   |
+ +-------------+
+ | [20,7,16]   |
+ +-------------+
+ | [16,20,16]  |
+ +-------------+
+ | [7,16,20]   |
+ +-------------+
+ | [7,16,20]   |
+ +-------------+
+ | [20,16,20]  |
+ +-------------*/
 ```
 
 ### `ELEMENT_ID`
 
-```sql
+```zetasql
 ELEMENT_ID(element)
 ```
 
 **Description**
 
-Gets a graph element's unique identifier. The unique identifier is only valid for the scope of the query where it is obtained.
+Gets a graph element's unique identifier. The unique identifier is only valid for the scope of the query where it's obtained.
 
 **Arguments**
 
@@ -16985,7 +17030,7 @@ Returns `NULL` if `element` is `NULL`.
 
 **Examples**
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (p:Person)-[o:Owns]->(:Account)
 RETURN p.name AS name, ELEMENT_ID(p) AS node_element_id, ELEMENT_ID(o) AS edge_element_id
@@ -17003,7 +17048,7 @@ Note that the actual identifiers obtained may be different from what's shown abo
 
 ### `IS_ACYCLIC`
 
-```sql
+```zetasql
 IS_ACYCLIC(graph_path)
 ```
 
@@ -17028,7 +17073,7 @@ Returns `NULL` if `graph_path` is `NULL`.
 
 **Examples**
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH p=(src:Account)-[t1:Transfers]->(mid:Account)-[t2:Transfers]->(dst:Account)
 RETURN src.id AS source_account_id, IS_ACYCLIC(p) AS is_acyclic_path
@@ -17048,7 +17093,7 @@ RETURN src.id AS source_account_id, IS_ACYCLIC(p) AS is_acyclic_path
 
 ### `IS_TRAIL`
 
-```sql
+```zetasql
 IS_TRAIL(graph_path)
 ```
 
@@ -17071,7 +17116,7 @@ Returns `NULL` if `graph_path` is `NULL`.
 
 **Examples**
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH
   p=(a1:Account)-[t1:Transfers]->(a2:Account)-[t2:Transfers]->
@@ -17091,7 +17136,7 @@ RETURN
 
 ### `LABELS`
 
-```sql
+```zetasql
 LABELS(element)
 ```
 
@@ -17115,7 +17160,7 @@ Returns `NULL` if `element` is `NULL`.
 
 **Examples**
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (n:Person|Account)
 RETURN LABELS(n) AS label, n.id
@@ -17134,7 +17179,7 @@ RETURN LABELS(n) AS label, n.id
 
 ### `NODES`
 
-```sql
+```zetasql
 NODES(graph_path)
 ```
 
@@ -17157,7 +17202,7 @@ Returns `NULL` if `graph_path` is `NULL`.
 
 **Examples**
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH p=(src:Account)-[t1:Transfers]->(mid:Account)-[t2:Transfers]->(dst:Account)
 LET ns = NODES(p)
@@ -17176,12 +17221,12 @@ RETURN
  | ["Account"] | "Vacation Fund"  |
  | ["Account"] | "Vacation Fund"  |
  | ["Account"] | "Rainy Day Fund" |
- *--------------------------------/*
+ *--------------------------------*/
 ```
 
 ### `PATH`
 
-```sql
+```zetasql
 PATH(graph_element[, ...])
 ```
 
@@ -17208,7 +17253,7 @@ This function produces an error if:
 
 **Examples**
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (src:Account)-[t1:Transfers]->(mid:Account)-[t2:Transfers]->(dst:Account)
 LET p = PATH(src, t1, mid, t2, dst)
@@ -17225,7 +17270,7 @@ RETURN
  *-------------------------------------------*/
 ```
 
-```sql
+```zetasql
 -- Error: in 'p', a graph element is NULL.
 GRAPH FinGraph
 MATCH (src:Account)-[t1:Transfers]->(mid:Account)-[t2:Transfers]->(dst:Account)
@@ -17233,7 +17278,7 @@ LET p = PATH(src, NULL, mid, t2, dst)
 RETURN TO_JSON(p) AS results
 ```
 
-```sql
+```zetasql
 -- Error: in 'p', 'src' and 'mid' are nodes that should be interleaved with an
 -- edge.
 GRAPH FinGraph
@@ -17242,8 +17287,8 @@ LET p = PATH(src, mid, t2, dst)
 RETURN TO_JSON(p) AS results
 ```
 
-```sql
--- Error: in 'p', 't2' is an edge that does not connect to a neighboring node on
+```zetasql
+-- Error: in 'p', 't2' is an edge that doesn't connect to a neighboring node on
 -- the right.
 GRAPH FinGraph
 MATCH (src:Account)-[t1:Transfers]->(mid:Account)-[t2:Transfers]->(dst:Account)
@@ -17253,7 +17298,7 @@ RETURN TO_JSON(p) AS results
 
 ### `PATH_FIRST`
 
-```sql
+```zetasql
 PATH_FIRST(graph_path)
 ```
 
@@ -17276,7 +17321,7 @@ Returns `NULL` if `graph_path` is `NULL`.
 
 **Examples**
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH p=(src:Account)-[t1:Transfers]->(mid:Account)-[t2:Transfers]->(dst:Account)
 LET f = PATH_FIRST(p)
@@ -17294,12 +17339,12 @@ RETURN
  | Account | Vacation Fund  |
  | Account | Vacation Fund  |
  | Account | Rainy Day Fund |
- *--------------------------/*
+ *--------------------------*/
 ```
 
 ### `PATH_LAST`
 
-```sql
+```zetasql
 PATH_LAST(graph_path)
 ```
 
@@ -17322,7 +17367,7 @@ Returns `NULL` if `graph_path` is `NULL`.
 
 **Examples**
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH p=(src:Account)-[t1:Transfers]->(mid:Account)-[t2:Transfers]->(dst:Account)
 LET f = PATH_LAST(p)
@@ -17340,12 +17385,12 @@ RETURN
  | Account | Rainy Day Fund |
  | Account | Rainy Day Fund |
  | Account | Rainy Day Fund |
- *--------------------------/*
+ *--------------------------*/
 ```
 
 ### `PATH_LENGTH`
 
-```sql
+```zetasql
 PATH_LENGTH(graph_path)
 ```
 
@@ -17368,7 +17413,7 @@ Returns `NULL` if `graph_path` is `NULL`.
 
 **Examples**
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH p=(src:Account)-[t1:Transfers]->(mid:Account)-[t2:Transfers]->(dst:Account)
 RETURN PATH_LENGTH(p) AS results
@@ -17388,7 +17433,7 @@ RETURN PATH_LENGTH(p) AS results
 
 ### `PROPERTY_NAMES`
 
-```sql
+```zetasql
 PROPERTY_NAMES(element)
 ```
 
@@ -17411,7 +17456,7 @@ Returns `NULL` if `element` is `NULL`.
 
 **Examples**
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (n:Person|Account)
 RETURN PROPERTY_NAMES(n) AS property_names, n.id
@@ -17430,13 +17475,13 @@ RETURN PROPERTY_NAMES(n) AS property_names, n.id
 
 ### `SOURCE_NODE_ID`
 
-```sql
+```zetasql
 SOURCE_NODE_ID(edge_element)
 ```
 
 **Description**
 
-Gets a unique identifier of a graph edge's source node. The unique identifier is only valid for the scope of the query where it is obtained.
+Gets a unique identifier of a graph edge's source node. The unique identifier is only valid for the scope of the query where it's obtained.
 
 **Arguments**
 
@@ -17452,7 +17497,7 @@ Returns `NULL` if `edge_element` is `NULL`.
 
 **Examples**
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (p:Person)-[o:Owns]->(:Account)
 RETURN p.name AS name, SOURCE_NODE_ID(o) AS source_node_id
@@ -17604,6 +17649,7 @@ behavior:
         <a href="#st_disjoint"><code>ST_DISJOINT</code></a><br>
         <a href="#st_dwithin"><code>ST_DWITHIN</code></a><br>
         <a href="#st_equals"><code>ST_EQUALS</code></a><br>
+        <a href="#st_hausdorffdwithin"><code>ST_HAUSDORFFDWITHIN</code></a><br>
         <a href="#st_intersects"><code>ST_INTERSECTS</code></a><br>
         <a href="#st_intersectsbox"><code>ST_INTERSECTSBOX</code></a><br>
         <a href="#st_touches"><code>ST_TOUCHES</code></a><br>
@@ -17880,7 +17926,7 @@ behavior:
   <td><a href="#st_disjoint"><code>ST_DISJOINT</code></a>
 </td>
   <td>
-    Checks if two <code>GEOGRAPHY</code> values are disjoint (do not intersect).
+    Checks if two <code>GEOGRAPHY</code> values are disjoint (don't intersect).
   </td>
 </tr>
 
@@ -18013,7 +18059,7 @@ behavior:
   <td><a href="#st_geogpointfromgeohash"><code>ST_GEOGPOINTFROMGEOHASH</code></a>
 </td>
   <td>
-    Gets a point <code>GEOGRAPHY</code> value that is in the middle of a
+    Gets a point <code>GEOGRAPHY</code> value that's in the middle of a
     bounding box defined in a <code>STRING</code> GeoHash value.
   </td>
 </tr>
@@ -18040,6 +18086,15 @@ behavior:
   <td><a href="#st_hausdorffdistance"><code>ST_HAUSDORFFDISTANCE</code></a>
 </td>
   <td>Gets the discrete Hausdorff distance between two geometries.</td>
+</tr>
+
+<tr>
+  <td><a href="#st_hausdorffdwithin"><code>ST_HAUSDORFFDWITHIN</code></a>
+</td>
+  <td>
+    Checks if the Hausdorff distance between two <code>GEOGRAPHY</code> values
+    is within a given distance.
+  </td>
 </tr>
 
 <tr>
@@ -18306,7 +18361,7 @@ behavior:
 
 ### `S2_CELLIDFROMPOINT`
 
-```sql
+```zetasql
 S2_CELLIDFROMPOINT(point_geography[, level => cell_level])
 ```
 
@@ -18338,11 +18393,11 @@ This is advanced functionality for interoperability with systems utilizing the
 
 **Example**
 
-```sql
+```zetasql
 WITH data AS (
   SELECT 1 AS id, ST_GEOGPOINT(-122, 47) AS geo
   UNION ALL
-  -- empty geography is not supported
+  -- empty geography isn't supported
   SELECT 2 AS id, ST_GEOGFROMTEXT('POINT EMPTY') AS geo
   UNION ALL
   -- only points are supported
@@ -18370,7 +18425,7 @@ FROM data;
 
 ### `S2_COVERINGCELLIDS`
 
-```sql
+```zetasql
 S2_COVERINGCELLIDS(
     geography
     [, min_level => cell_level]
@@ -18408,7 +18463,7 @@ This is advanced functionality for interoperability with systems utilizing the
 
 **Example**
 
-```sql
+```zetasql
 WITH data AS (
   SELECT 1 AS id, ST_GEOGPOINT(-122, 47) AS geo
   UNION ALL
@@ -18435,7 +18490,7 @@ FROM data;
 
 ### `ST_ACCUM`
 
-```sql
+```zetasql
 ST_ACCUM(geography)
 ```
 
@@ -18454,7 +18509,7 @@ but only applies to `GEOGRAPHY` objects.
 
 ### `ST_ANGLE`
 
-```sql
+```zetasql
 ST_ANGLE(point_geography_1, point_geography_2, point_geography_3)
 ```
 
@@ -18472,7 +18527,7 @@ clockwise from the first line to the second line.
 + If points 2 and 1 are the same, returns `NULL`.
 + If points 2 and 3 are exactly antipodal, returns `NULL`.
 + If points 2 and 1 are exactly antipodal, returns `NULL`.
-+ If any of the input geographies are not single points or are the empty
++ If any of the input geographies aren't single points or are the empty
   geography, then throws an error.
 
 **Return type**
@@ -18481,7 +18536,7 @@ clockwise from the first line to the second line.
 
 **Example**
 
-```sql
+```zetasql
 WITH geos AS (
   SELECT 1 id, ST_GEOGPOINT(1, 0) geo1, ST_GEOGPOINT(0, 0) geo2, ST_GEOGPOINT(0, 1) geo3 UNION ALL
   SELECT 2 id, ST_GEOGPOINT(0, 0), ST_GEOGPOINT(1, 0), ST_GEOGPOINT(0, 1) UNION ALL
@@ -18509,7 +18564,7 @@ SELECT ST_ANGLE(geo1,geo2,geo3) AS angle FROM geos ORDER BY id;
 
 ### `ST_AREA`
 
-```sql
+```zetasql
 ST_AREA(geography_expression[, use_spheroid])
 ```
 
@@ -18520,7 +18575,7 @@ Returns the area in square meters covered by the polygons in the input
 
 If `geography_expression` is a point or a line, returns zero. If
 `geography_expression` is a collection, returns the area of the polygons in the
-collection; if the collection does not contain polygons, returns zero.
+collection; if the collection doesn't contain polygons, returns zero.
 
 The optional `use_spheroid` parameter determines how this function measures
 distance. If `use_spheroid` is `FALSE`, the function measures distance on the
@@ -18537,7 +18592,7 @@ the value `FALSE`. The default value of `use_spheroid` is `FALSE`.
 
 ### `ST_ASBINARY`
 
-```sql
+```zetasql
 ST_ASBINARY(geography_expression)
 ```
 
@@ -18559,7 +18614,7 @@ See [`ST_GEOGFROMWKB`][st-geogfromwkb] to construct a
 
 ### `ST_ASGEOJSON`
 
-```sql
+```zetasql
 ST_ASGEOJSON(geography_expression)
 ```
 
@@ -18589,7 +18644,7 @@ See [`ST_GEOGFROMGEOJSON`][st-geogfromgeojson] to construct a
 
 ### `ST_ASKML`
 
-```sql
+```zetasql
 ST_ASKML(geography)
 ```
 
@@ -18607,7 +18662,7 @@ of precision.
 
 ### `ST_ASTEXT`
 
-```sql
+```zetasql
 ST_ASTEXT(geography_expression)
 ```
 
@@ -18629,7 +18684,7 @@ See [`ST_GEOGFROMTEXT`][st-geogfromtext] to construct a
 
 ### `ST_AZIMUTH`
 
-```sql
+```zetasql
 ST_AZIMUTH(point_geography_1, point_geography_2)
 ```
 
@@ -18652,7 +18707,7 @@ example, the azimuth for a line segment:
 
 +   If the two input points are the same, returns `NULL`.
 +   If the two input points are exactly antipodal, returns `NULL`.
-+   If either of the input geographies are not single points or are the empty
++   If either of the input geographies aren't single points or are the empty
     geography, throws an error.
 
 **Return type**
@@ -18661,7 +18716,7 @@ example, the azimuth for a line segment:
 
 **Example**
 
-```sql
+```zetasql
 WITH geos AS (
   SELECT 1 id, ST_GEOGPOINT(1, 0) AS geo1, ST_GEOGPOINT(0, 0) AS geo2 UNION ALL
   SELECT 2, ST_GEOGPOINT(0, 0), ST_GEOGPOINT(1, 0) UNION ALL
@@ -18690,7 +18745,7 @@ SELECT ST_AZIMUTH(geo1, geo2) AS azimuth FROM geos ORDER BY id;
 
 ### `ST_BOUNDARY`
 
-```sql
+```zetasql
 ST_BOUNDARY(geography_expression)
 ```
 
@@ -18714,7 +18769,7 @@ defined as follows:
 
 ### `ST_BOUNDINGBOX`
 
-```sql
+```zetasql
 ST_BOUNDINGBOX(geography_expression)
 ```
 
@@ -18745,7 +18800,7 @@ Bounding box parts:
 
 **Example**
 
-```sql
+```zetasql
 WITH data AS (
   SELECT 1 id, ST_GEOGFROMTEXT('POLYGON((-125 48, -124 46, -117 46, -117 49, -125 48))') g
   UNION ALL
@@ -18774,7 +18829,7 @@ See [`ST_EXTENT`][st-extent] for the aggregate version of `ST_BOUNDINGBOX`.
 
 ### `ST_BUFFER`
 
-```sql
+```zetasql
 ST_BUFFER(
     geography,
     buffer_radius
@@ -18826,7 +18881,7 @@ eight sides and [`ST_NUMPOINTS`][st-numpoints] returns nine vertices. When
 and therefore the buffered circle has thirty-two sides and
 [`ST_NUMPOINTS`][st-numpoints] returns thirty-three vertices.
 
-```sql
+```zetasql
 SELECT
   -- num_seg_quarter_circle=2
   ST_NUMPOINTS(ST_BUFFER(ST_GEOGFROMTEXT('POINT(1 2)'), 50, 2)) AS eight_sides,
@@ -18848,7 +18903,7 @@ SELECT
 
 ### `ST_BUFFERWITHTOLERANCE`
 
-```sql
+```zetasql
 ST_BUFFERWITHTOLERANCE(
     geography,
     buffer_radius,
@@ -18898,7 +18953,7 @@ five segments are used to approximate a circle around the input point. When
 radius, and therefore twenty-four edges are used to approximate a circle around
 the input point.
 
-```sql
+```zetasql
 SELECT
   -- tolerance_meters=25, or 25% of the buffer radius.
   ST_NumPoints(ST_BUFFERWITHTOLERANCE(ST_GEOGFROMTEXT('POINT(1 2)'), 100, 25)) AS five_sides,
@@ -18918,7 +18973,7 @@ SELECT
 
 ### `ST_CENTROID`
 
-```sql
+```zetasql
 ST_CENTROID(geography_expression)
 ```
 
@@ -18939,7 +18994,7 @@ If the input `GEOGRAPHY` is empty, an empty `GEOGRAPHY` is returned.
 
 **Constraints**
 
-In the unlikely event that the centroid of a `GEOGRAPHY` cannot be defined by a
+In the unlikely event that the centroid of a `GEOGRAPHY` can't be defined by a
 single point on the surface of the Earth, a deterministic but otherwise
 arbitrary point is returned. This can only happen if the centroid is exactly at
 the center of the Earth, such as the centroid for a pair of antipodal points,
@@ -18951,7 +19006,7 @@ Point `GEOGRAPHY`
 
 ### `ST_CLOSESTPOINT`
 
-```sql
+```zetasql
 ST_CLOSESTPOINT(geography_1, geography_2[, use_spheroid])
 ```
 
@@ -18980,7 +19035,7 @@ Point `GEOGRAPHY`
 
 ### `ST_CLUSTERDBSCAN`
 
-```sql
+```zetasql
 ST_CLUSTERDBSCAN(geography_column, epsilon, minimum_geographies)
 OVER over_clause
 
@@ -19013,7 +19068,7 @@ To learn more about the `OVER` clause and how to use it, see
 +   `epsilon`: The epsilon that specifies the radius, measured in meters, around
     a core value. Non-negative `DOUBLE` value.
 +   `minimum_geographies`: Specifies the minimum number of geographies in a
-    single cluster. Only dense input forms a cluster, otherwise it is classified
+    single cluster. Only dense input forms a cluster, otherwise it's classified
     as noise. Non-negative `INT64` value.
 
 **Geography types and the DBSCAN algorithm**
@@ -19022,17 +19077,17 @@ The DBSCAN algorithm identifies high-density clusters of data and marks outliers
 in low-density areas of noise. Geographies passed in through `geography_column`
 are classified in one of three ways by the DBSCAN algorithm:
 
-+   Core value: A geography is a core value if it is within `epsilon` distance
++   Core value: A geography is a core value if it's within `epsilon` distance
     of `minimum_geographies` geographies, including itself. The core value
     starts a new cluster, or is added to the same cluster as a core value within
     `epsilon` distance. Core values are grouped in a cluster together with all
     other core and border values that are within `epsilon` distance.
-+   Border value: A geography is a border value if it is within epsilon distance
-    of a core value. It is added to the same cluster as a core value within
++   Border value: A geography is a border value if it's within epsilon distance
+    of a core value. It's added to the same cluster as a core value within
     `epsilon` distance. A border value may be within `epsilon` distance of more
     than one cluster. In this case, it may be arbitrarily assigned to either
     cluster and the function will produce the same result in subsequent calls.
-+   Noise: A geography is noise if it is neither a core nor a border value.
++   Noise: A geography is noise if it's neither a core nor a border value.
     Noise values are assigned to a `NULL` cluster. An empty
     `GEOGRAPHY` is always classified as noise.
 
@@ -19041,7 +19096,7 @@ are classified in one of three ways by the DBSCAN algorithm:
 +   The argument `minimum_geographies` is a non-negative
     `INT64`and `epsilon` is a non-negative
     `DOUBLE`.
-+   An empty geography cannot join any cluster.
++   An empty geography can't join any cluster.
 +   Multiple clustering assignments could be possible for a border value. If a
     geography is a border value, `ST_CLUSTERDBSCAN` will assign it to an
     arbitrary valid cluster.
@@ -19056,7 +19111,7 @@ This example performs DBSCAN clustering with a radius of 100,000 meters with a
 `minimum_geographies` argument of 1. The geographies being analyzed are a
 mixture of points, lines, and polygons.
 
-```sql
+```zetasql
 WITH Geos as
   (SELECT 1 as row_id, ST_GEOGFROMTEXT('POINT EMPTY') as geo UNION ALL
     SELECT 2, ST_GEOGFROMTEXT('MULTIPOINT(1 1, 2 2, 4 4, 5 2)') UNION ALL
@@ -19081,7 +19136,7 @@ Geos ORDER BY row_id
 
 ### `ST_CONTAINS`
 
-```sql
+```zetasql
 ST_CONTAINS(geography_1, geography_2)
 ```
 
@@ -19103,7 +19158,7 @@ The following query tests whether the polygon `POLYGON((1 1, 20 1, 10 20, 1 1))`
 contains each of the three points `(0, 0)`, `(1, 1)`, and `(10, 10)`, which lie
 on the exterior, the boundary, and the interior of the polygon respectively.
 
-```sql
+```zetasql
 SELECT
   ST_GEOGPOINT(i, i) AS p,
   ST_CONTAINS(ST_GEOGFROMTEXT('POLYGON((1 1, 20 1, 10 20, 1 1))'),
@@ -19123,7 +19178,7 @@ FROM UNNEST([0, 1, 10]) AS i;
 
 ### `ST_CONVEXHULL`
 
-```sql
+```zetasql
 ST_CONVEXHULL(geography_expression)
 ```
 
@@ -19155,7 +19210,7 @@ include the following:
 The convex hull returned by `ST_CONVEXHULL` can be a point, linestring, or a
 polygon, depending on the input.
 
-```sql
+```zetasql
 WITH Geographies AS
  (SELECT ST_GEOGFROMTEXT('POINT(1 1)') AS g UNION ALL
   SELECT ST_GEOGFROMTEXT('LINESTRING(1 1, 2 2)') AS g UNION ALL
@@ -19176,7 +19231,7 @@ FROM Geographies;
 
 ### `ST_COVEREDBY`
 
-```sql
+```zetasql
 ST_COVEREDBY(geography_1, geography_2)
 ```
 
@@ -19197,7 +19252,7 @@ Given two `GEOGRAPHY`s `a` and `b`,
 
 ### `ST_COVERS`
 
-```sql
+```zetasql
 ST_COVERS(geography_1, geography_2)
 ```
 
@@ -19217,7 +19272,7 @@ The following query tests whether the polygon `POLYGON((1 1, 20 1, 10 20, 1 1))`
 covers each of the three points `(0, 0)`, `(1, 1)`, and `(10, 10)`, which lie
 on the exterior, the boundary, and the interior of the polygon respectively.
 
-```sql
+```zetasql
 SELECT
   ST_GEOGPOINT(i, i) AS p,
   ST_COVERS(ST_GEOGFROMTEXT('POLYGON((1 1, 20 1, 10 20, 1 1))'),
@@ -19235,7 +19290,7 @@ FROM UNNEST([0, 1, 10]) AS i;
 
 ### `ST_DIFFERENCE`
 
-```sql
+```zetasql
 ST_DIFFERENCE(geography_1, geography_2)
 ```
 
@@ -19243,7 +19298,7 @@ ST_DIFFERENCE(geography_1, geography_2)
 
 Returns a `GEOGRAPHY` that represents the point set
 difference of `geography_1` and `geography_2`. Therefore, the result consists of
-the part of `geography_1` that does not intersect with `geography_2`.
+the part of `geography_1` that doesn't intersect with `geography_2`.
 
 If `geometry_1` is completely contained in `geometry_2`, then `ST_DIFFERENCE`
 returns an empty `GEOGRAPHY`.
@@ -19268,7 +19323,7 @@ The following query illustrates the difference between `geog1`, a larger polygon
 `POLYGON((4 2, 6 2, 8 6, 4 2))` that intersects with `geog1`. The result is
 `geog1` with a hole where `geog2` intersects with it.
 
-```sql
+```zetasql
 SELECT
   ST_DIFFERENCE(
       ST_GEOGFROMTEXT('POLYGON((0 0, 10 0, 10 10, 0 0))'),
@@ -19284,7 +19339,7 @@ SELECT
 
 ### `ST_DIMENSION`
 
-```sql
+```zetasql
 ST_DIMENSION(geography_expression)
 ```
 
@@ -19308,7 +19363,7 @@ returns `-1`.
 
 ### `ST_DISJOINT`
 
-```sql
+```zetasql
 ST_DISJOINT(geography_1, geography_2)
 ```
 
@@ -19353,7 +19408,7 @@ of `use_spheroid` is `FALSE`.
 
 ### `ST_DUMP`
 
-```sql
+```zetasql
 ST_DUMP(geography[, dimension])
 ```
 
@@ -19382,7 +19437,7 @@ dimension of -1 is equivalent to omitting `dimension`.
 The following example shows how `ST_DUMP` returns the simple geographies within
 a complex geography.
 
-```sql
+```zetasql
 WITH example AS (
   SELECT ST_GEOGFROMTEXT('POINT(0 0)') AS geography
   UNION ALL
@@ -19407,7 +19462,7 @@ FROM example
 The following example shows how `ST_DUMP` with the dimension argument only
 returns simple geographies of the given dimension.
 
-```sql
+```zetasql
 WITH example AS (
   SELECT ST_GEOGFROMTEXT('GEOMETRYCOLLECTION(POINT(0 0), LINESTRING(1 2, 2 1))') AS geography)
 SELECT
@@ -19425,7 +19480,7 @@ FROM example
 
 ### `ST_DUMPPOINTS`
 
-```sql
+```zetasql
 ST_DUMPPOINTS(geography)
 ```
 
@@ -19440,7 +19495,7 @@ polygon vertices as an array of point geographies.
 
 **Examples**
 
-```sql
+```zetasql
 WITH example AS (
   SELECT ST_GEOGFROMTEXT('POINT(0 0)') AS geography
   UNION ALL
@@ -19464,7 +19519,7 @@ FROM example
 
 ### `ST_DWITHIN`
 
-```sql
+```zetasql
 ST_DWITHIN(geography_1, geography_2, distance[, use_spheroid])
 ```
 
@@ -19491,14 +19546,14 @@ the value `FALSE`. The default value of `use_spheroid` is `FALSE`.
 
 ### `ST_ENDPOINT`
 
-```sql
+```zetasql
 ST_ENDPOINT(linestring_geography)
 ```
 
 **Description**
 
 Returns the last point of a linestring geography as a point geography. Returns
-an error if the input is not a linestring or if the input is empty. Use the
+an error if the input isn't a linestring or if the input is empty. Use the
 `SAFE` prefix to obtain `NULL` for invalid input instead of an error.
 
 **Return Type**
@@ -19507,7 +19562,7 @@ Point `GEOGRAPHY`
 
 **Example**
 
-```sql
+```zetasql
 SELECT ST_ENDPOINT(ST_GEOGFROMTEXT('LINESTRING(1 1, 2 1, 3 2, 3 3)')) last
 
 /*--------------*
@@ -19519,7 +19574,7 @@ SELECT ST_ENDPOINT(ST_GEOGFROMTEXT('LINESTRING(1 1, 2 1, 3 2, 3 3)')) last
 
 ### `ST_EQUALS`
 
-```sql
+```zetasql
 ST_EQUALS(geography_1, geography_2)
 ```
 
@@ -19544,7 +19599,7 @@ function to return `TRUE`:
     `ST_COVERS(geography_2, geography_1)` are `TRUE`.
 +   Both `geography_1` and `geography_2` are empty.
 
-`ST_EQUALS` is not guaranteed to be a transitive function.
+`ST_EQUALS` isn't guaranteed to be a transitive function.
 
 **Return type**
 
@@ -19552,7 +19607,7 @@ function to return `TRUE`:
 
 ### `ST_EXTENT`
 
-```sql
+```zetasql
 ST_EXTENT(geography_expression)
 ```
 
@@ -19587,7 +19642,7 @@ Bounding box parts:
 
 **Example**
 
-```sql
+```zetasql
 WITH data AS (
   SELECT 1 id, ST_GEOGFROMTEXT('POLYGON((-125 48, -124 46, -117 46, -117 49, -125 48))') g
   UNION ALL
@@ -19611,7 +19666,7 @@ FROM data
 
 ### `ST_EXTERIORRING`
 
-```sql
+```zetasql
 ST_EXTERIORRING(polygon_geography)
 ```
 
@@ -19623,7 +19678,7 @@ polygon geography.
 +   If the input geography is a polygon, gets the outermost ring of the polygon
     geography and returns the corresponding linestring.
 +   If the input is the full `GEOGRAPHY`, returns an empty geography.
-+   Returns an error if the input is not a single polygon.
++   Returns an error if the input isn't a single polygon.
 
 Use the `SAFE` prefix to return `NULL` for invalid input instead of an error.
 
@@ -19634,7 +19689,7 @@ Use the `SAFE` prefix to return `NULL` for invalid input instead of an error.
 
 **Examples**
 
-```sql
+```zetasql
 WITH geo as
  (SELECT ST_GEOGFROMTEXT('POLYGON((0 0, 1 4, 2 2, 0 0))') AS g UNION ALL
   SELECT ST_GEOGFROMTEXT('''POLYGON((1 1, 1 10, 5 10, 5 1, 1 1),
@@ -19651,7 +19706,7 @@ SELECT ST_EXTERIORRING(g) AS ring FROM geo;
 
 ### `ST_GEOGFROM`
 
-```sql
+```zetasql
 ST_GEOGFROM(expression)
 ```
 
@@ -19684,7 +19739,7 @@ If `expression` is `NULL`, the output is `NULL`.
 
 This takes a WKT-formatted string and returns a `GEOGRAPHY` polygon:
 
-```sql
+```zetasql
 SELECT ST_GEOGFROM('POLYGON((0 0, 0 2, 2 2, 2 0, 0 0))') AS WKT_format;
 
 /*------------------------------------*
@@ -19697,7 +19752,7 @@ SELECT ST_GEOGFROM('POLYGON((0 0, 0 2, 2 2, 2 0, 0 0))') AS WKT_format;
 This takes a WKB-formatted hexadecimal-encoded string and returns a
 `GEOGRAPHY` point:
 
-```sql
+```zetasql
 SELECT ST_GEOGFROM(FROM_HEX('010100000000000000000000400000000000001040')) AS WKB_format;
 
 /*----------------*
@@ -19709,7 +19764,7 @@ SELECT ST_GEOGFROM(FROM_HEX('010100000000000000000000400000000000001040')) AS WK
 
 This takes WKB-formatted bytes and returns a `GEOGRAPHY` point:
 
-```sql
+```zetasql
 SELECT ST_GEOGFROM('010100000000000000000000400000000000001040') AS WKB_format;
 
 /*----------------*
@@ -19721,7 +19776,7 @@ SELECT ST_GEOGFROM('010100000000000000000000400000000000001040') AS WKB_format;
 
 This takes a GeoJSON-formatted string and returns a `GEOGRAPHY` polygon:
 
-```sql
+```zetasql
 SELECT ST_GEOGFROM(
   '{ "type": "Polygon", "coordinates": [ [ [2, 0], [2, 2], [1, 2], [0, 2], [0, 0], [2, 0] ] ] }'
 ) AS GEOJSON_format;
@@ -19741,7 +19796,7 @@ SELECT ST_GEOGFROM(
 
 ### `ST_GEOGFROMGEOJSON`
 
-```sql
+```zetasql
 ST_GEOGFROMGEOJSON(
   geojson_string
   [, make_valid => constant_expression ]
@@ -19753,7 +19808,7 @@ ST_GEOGFROMGEOJSON(
 Returns a `GEOGRAPHY` value that corresponds to the
 input [GeoJSON][geojson-link] representation.
 
-`ST_GEOGFROMGEOJSON` accepts input that is [RFC 7946][geojson-spec-link]
+`ST_GEOGFROMGEOJSON` accepts input that's [RFC 7946][geojson-spec-link]
 compliant.
 
 If the named argument `make_valid` is set to `TRUE`, the function attempts to
@@ -19773,7 +19828,7 @@ See [`ST_ASGEOJSON`][st-asgeojson] to format a
 
 The JSON input is subject to the following constraints:
 
-+   `ST_GEOGFROMGEOJSON` only accepts JSON geometry fragments and cannot be used
++   `ST_GEOGFROMGEOJSON` only accepts JSON geometry fragments and can't be used
     to ingest a whole JSON document.
 +   The input JSON fragment must consist of a GeoJSON geometry type, which
     includes `Point`, `MultiPoint`, `LineString`, `MultiLineString`, `Polygon`,
@@ -19781,7 +19836,7 @@ The JSON input is subject to the following constraints:
     `Feature` or `FeatureCollection` will result in an error.
 +   A position in the `coordinates` member of a GeoJSON geometry type must
     consist of exactly two elements. The first is the longitude and the second
-    is the latitude. Therefore, `ST_GEOGFROMGEOJSON` does not support the
+    is the latitude. Therefore, `ST_GEOGFROMGEOJSON` doesn't support the
     optional third element for a position in the `coordinates` member.
 
 **Return type**
@@ -19798,7 +19853,7 @@ The JSON input is subject to the following constraints:
 
 ### `ST_GEOGFROMKML`
 
-```sql
+```zetasql
 ST_GEOGFROMKML(kml_geometry)
 ```
 
@@ -19816,7 +19871,7 @@ Takes a `STRING` [KML geometry][kml-geometry-link] and returns a
 
 <a id="st_geogfromtext_signature1"></a><a id="st_geogfromtext_signature2"></a>
 
-```sql
+```zetasql
 ST_GEOGFROMTEXT(
   wkt_string
   [ , oriented => value ]
@@ -19856,7 +19911,7 @@ To format `GEOGRAPHY` value as WKT, use [`ST_ASTEXT`][st-astext].
 
 **Details**
 
-+   The function does not support three-dimensional geometries that have a `Z`
++   The function doesn't support three-dimensional geometries that have a `Z`
     suffix, nor does it support linear referencing system geometries with an `M`
     suffix.
 +   `oriented` and `planar` can't be `TRUE` at the same time.
@@ -19868,7 +19923,7 @@ The following query reads the WKT string `POLYGON((0 0, 0 2, 2 2, 0 2, 0 0))`
 both as a non-oriented polygon and as an oriented polygon, and checks whether
 each result contains the point `(1, 1)`.
 
-```sql
+```zetasql
 WITH polygon AS (SELECT 'POLYGON((0 0, 0 2, 2 2, 2 0, 0 0))' AS p)
 SELECT
   ST_CONTAINS(ST_GEOGFROMTEXT(p), ST_GEOGPOINT(1, 1)) AS fromtext_default,
@@ -19885,11 +19940,11 @@ FROM polygon;
 
 The following query converts a WKT string with an invalid polygon to
 `GEOGRAPHY`. The WKT string violates two properties
-of a valid polygon - the loop describing the polygon is not closed, and it
+of a valid polygon - the loop describing the polygon isn't closed, and it
 contains self-intersection. With the `make_valid` option, `ST_GEOGFROMTEXT`
 successfully converts it to a multipolygon shape.
 
-```sql
+```zetasql
 WITH data AS (
   SELECT 'POLYGON((0 -1, 2 1, 2 -1, 0 1))' wkt)
 SELECT
@@ -19916,7 +19971,7 @@ FROM data
 
 ### `ST_GEOGFROMWKB`
 
-```sql
+```zetasql
 ST_GEOGFROMWKB(
   wkb_bytes_expression
   [ , oriented => value ]
@@ -19925,7 +19980,7 @@ ST_GEOGFROMWKB(
 )
 ```
 
-```sql
+```zetasql
 ST_GEOGFROMWKB(
   wkb_hex_string_expression
   [, oriented => value ]
@@ -19969,7 +20024,7 @@ To format `GEOGRAPHY` as WKB, use [`ST_ASBINARY`][st-asbinary].
 
 **Details**
 
-+   The function does not support three-dimensional geometries that have a `Z`
++   The function doesn't support three-dimensional geometries that have a `Z`
     suffix, nor does it support linear referencing system geometries with an `M`
     suffix.
 +   `oriented` and `planar` can't be `TRUE` at the same time.
@@ -19986,7 +20041,7 @@ The following query reads the hex-encoded WKB data containing
 planar is used, the function approximates the planar input line using
 line that contains a chain of geodesic segments.
 
-```sql
+```zetasql
 WITH wkb_data AS (
   SELECT '010200000002000000feffffffffffef3f000000000000f03f01000000000008400000000000000040' geo
 )
@@ -20010,7 +20065,7 @@ FROM wkb_data
 
 ### `ST_GEOGPOINT`
 
-```sql
+```zetasql
 ST_GEOGPOINT(longitude, latitude)
 ```
 
@@ -20037,7 +20092,7 @@ Point `GEOGRAPHY`
 
 ### `ST_GEOGPOINTFROMGEOHASH`
 
-```sql
+```zetasql
 ST_GEOGPOINTFROMGEOHASH(geohash)
 ```
 
@@ -20054,7 +20109,7 @@ Point `GEOGRAPHY`
 
 ### `ST_GEOHASH`
 
-```sql
+```zetasql
 ST_GEOHASH(geography_expression[, maxchars])
 ```
 
@@ -20081,7 +20136,7 @@ representation of that `GEOGRAPHY` object.
 
 Returns a GeoHash of the Seattle Center with 10 characters of precision.
 
-```sql
+```zetasql
 SELECT ST_GEOHASH(ST_GEOGPOINT(-122.35, 47.62), 10) geohash
 
 /*--------------*
@@ -20095,7 +20150,7 @@ SELECT ST_GEOHASH(ST_GEOGPOINT(-122.35, 47.62), 10) geohash
 
 ### `ST_GEOMETRYTYPE`
 
-```sql
+```zetasql
 ST_GEOMETRYTYPE(geography_expression)
 ```
 
@@ -20127,7 +20182,7 @@ printed for [ST_ASTEXT][st-astext] and [ST_ASGEOJSON][st-asgeojson].
 The following example shows how `ST_GEOMETRYTYPE` takes geographies and returns
 the names of their OGC geometry types.
 
-```sql
+```zetasql
 WITH example AS(
   SELECT ST_GEOGFROMTEXT('POINT(0 1)') AS geography
   UNION ALL
@@ -20163,7 +20218,7 @@ FROM example;
 
 ### `ST_HAUSDORFFDISTANCE`
 
-```sql
+```zetasql
 ST_HAUSDORFFDISTANCE(
   geography_1,
   geography_2
@@ -20204,7 +20259,7 @@ If an input geography is `NULL`, the function returns `NULL`.
 
 The following query gets the Hausdorff distance between `geo1` and `geo2`:
 
-```sql
+```zetasql
 WITH data AS (
   SELECT
     ST_GEOGFROMTEXT('LINESTRING(20 70, 70 60, 10 70, 70 70)') AS geo1,
@@ -20222,7 +20277,7 @@ FROM data;
 
 The following query gets the Hausdorff distance between `geo2` and `geo1`:
 
-```sql
+```zetasql
 WITH data AS (
   SELECT
     ST_GEOGFROMTEXT('LINESTRING(20 70, 70 60, 10 70, 70 70)') AS geo1,
@@ -20241,7 +20296,7 @@ FROM data;
 The following query gets the largest Hausdorff distance between
 (`geo1` and `geo2`) and (`geo2` and `geo1`):
 
-```sql
+```zetasql
 WITH data AS (
   SELECT
     ST_GEOGFROMTEXT('LINESTRING(20 70, 70 60, 10 70, 70 70)') AS geo1,
@@ -20260,7 +20315,7 @@ FROM data;
 The following query produces the same results as the previous query because
 `ST_HAUSDORFFDISTANCE` uses `directed=>FALSE` by default.
 
-```sql
+```zetasql
 WITH data AS (
   SELECT
     ST_GEOGFROMTEXT('LINESTRING(20 70, 70 60, 10 70, 70 70)') AS geo1,
@@ -20272,9 +20327,72 @@ FROM data;
 
 [h-distance]: http://en.wikipedia.org/wiki/Hausdorff_distance
 
+### `ST_HAUSDORFFDWITHIN`
+
+```zetasql
+ST_HAUSDORFFDWITHIN(
+  geography_1,
+  geography_2,
+  distance
+  [, directed => { TRUE | FALSE } ]
+)
+```
+
+**Description**
+
+Returns `TRUE` if the [Hausdorff distance][st-hausdorffdistance] between `geography_1` and
+`geography_2` is less than or equal to the distance given by the
+`distance` argument; otherwise, returns `FALSE`.
+
+**Definitions**
+
++   `geography_1`: A `GEOGRAPHY` value that represents the first geography.
++   `geography_2`: A `GEOGRAPHY` value that represents the second geography.
++   `distance`: A `DOUBLE` value that represents meters on the
+    surface of the Earth.
++   `directed`: A named argument with a `BOOL` value. Represents the type of
+    computation to use on the input geographies. If this argument isn't
+    specified, `directed => FALSE` is used by default.
+
+    +   `FALSE`: The largest Hausdorff distance found in
+        (`geography_1`, `geography_2`) and
+        (`geography_2`, `geography_1`).
+
+    +   `TRUE` (default): The Hausdorff distance for
+        (`geography_1`, `geography_2`).
+
+**Details**
+
+If an input geography is `NULL`, the function returns `NULL`.
+
+**Return type**
+
+`BOOL`
+
+**Examples**
+
+The following example checks whether the Hausdorff distance between the first
+and second geographies is less than or equal to 100,000 meters.
+
+```zetasql
+SELECT
+  ST_HAUSDORFFDWITHIN(
+    ST_GEOGFROMTEXT('LINESTRING(10 1, 20 1)'),
+    ST_GEOGFROMTEXT('LINESTRING(10 2, 20 2)'),
+    100000) AS is_close;
+
+/*----------*
+ | is_close |
+ +----------+
+ | false    |
+ *----------*/
+```
+
+[st-hausdorffdistance]: #st_hausdorffdistance
+
 ### `ST_INTERIORRINGS`
 
-```sql
+```zetasql
 ST_INTERIORRINGS(polygon_geography)
 ```
 
@@ -20289,7 +20407,7 @@ the input polygon.
     rings.
 +   If the input is the full `GEOGRAPHY`, returns an empty array.
 +   If the input polygon has no holes, returns an empty array.
-+   Returns an error if the input is not a single polygon.
++   Returns an error if the input isn't a single polygon.
 
 Use the `SAFE` prefix to return `NULL` for invalid input instead of an error.
 
@@ -20299,7 +20417,7 @@ Use the `SAFE` prefix to return `NULL` for invalid input instead of an error.
 
 **Examples**
 
-```sql
+```zetasql
 WITH geo AS (
   SELECT ST_GEOGFROMTEXT('POLYGON((0 0, 1 1, 1 2, 0 0))') AS g UNION ALL
   SELECT ST_GEOGFROMTEXT('POLYGON((1 1, 1 10, 5 10, 5 1, 1 1), (2 2, 3 4, 2 4, 2 2))') UNION ALL
@@ -20321,7 +20439,7 @@ SELECT ST_INTERIORRINGS(g) AS rings FROM geo;
 
 ### `ST_INTERSECTION`
 
-```sql
+```zetasql
 ST_INTERSECTION(geography_1, geography_2)
 ```
 
@@ -20348,7 +20466,7 @@ predicate functions.
 
 ### `ST_INTERSECTS`
 
-```sql
+```zetasql
 ST_INTERSECTS(geography_1, geography_2)
 ```
 
@@ -20369,7 +20487,7 @@ returns `FALSE`.
 
 ### `ST_INTERSECTSBOX`
 
-```sql
+```zetasql
 ST_INTERSECTSBOX(geography, lng1, lat1, lng2, lat2)
 ```
 
@@ -20399,7 +20517,7 @@ The input arguments are subject to the following constraints:
 
 **Example**
 
-```sql
+```zetasql
 SELECT p, ST_INTERSECTSBOX(p, -90, 0, 90, 20) AS box1,
        ST_INTERSECTSBOX(p, 90, 0, -90, 20) AS box2
 FROM UNNEST([ST_GEOGPOINT(10, 10), ST_GEOGPOINT(170, 10),
@@ -20416,7 +20534,7 @@ FROM UNNEST([ST_GEOGPOINT(10, 10), ST_GEOGPOINT(170, 10),
 
 ### `ST_ISCLOSED`
 
-```sql
+```zetasql
 ST_ISCLOSED(geography_expression)
 ```
 
@@ -20429,11 +20547,11 @@ has an empty boundary. The boundary for each element can be defined with
 +   A point is closed.
 +   A linestring is closed if the start and end points of the linestring are
     the same.
-+   A polygon is closed only if it is a full polygon.
++   A polygon is closed only if it's a full polygon.
 +   A collection is closed if and only if every element in the collection is
     closed.
 
-An empty `GEOGRAPHY` is not closed.
+An empty `GEOGRAPHY` isn't closed.
 
 **Return type**
 
@@ -20441,7 +20559,7 @@ An empty `GEOGRAPHY` is not closed.
 
 **Example**
 
-```sql
+```zetasql
 WITH example AS(
   SELECT ST_GEOGFROMTEXT('POINT(5 0)') AS geography
   UNION ALL
@@ -20472,7 +20590,7 @@ FROM example;
 
 ### `ST_ISCOLLECTION`
 
-```sql
+```zetasql
 ST_ISCOLLECTION(geography_expression)
 ```
 
@@ -20481,7 +20599,7 @@ ST_ISCOLLECTION(geography_expression)
 Returns `TRUE` if the total number of points, linestrings, and polygons is
 greater than one.
 
-An empty `GEOGRAPHY` is not a collection.
+An empty `GEOGRAPHY` isn't a collection.
 
 **Return type**
 
@@ -20489,16 +20607,16 @@ An empty `GEOGRAPHY` is not a collection.
 
 ### `ST_ISEMPTY`
 
-```sql
+```zetasql
 ST_ISEMPTY(geography_expression)
 ```
 
 **Description**
 
-Returns `TRUE` if the given `GEOGRAPHY` is empty; that is, the `GEOGRAPHY` does
-not contain any points, lines, or polygons.
+Returns `TRUE` if the given `GEOGRAPHY` is empty; that is, the `GEOGRAPHY`
+doesn't contain any points, lines, or polygons.
 
-NOTE: An empty `GEOGRAPHY` is not associated with a particular geometry shape.
+NOTE: An empty `GEOGRAPHY` isn't associated with a particular geometry shape.
 For example, the results of expressions `ST_GEOGFROMTEXT('POINT EMPTY')` and
 `ST_GEOGFROMTEXT('GEOMETRYCOLLECTION EMPTY')` are identical.
 
@@ -20508,7 +20626,7 @@ For example, the results of expressions `ST_GEOGFROMTEXT('POINT EMPTY')` and
 
 ### `ST_ISRING`
 
-```sql
+```zetasql
 ST_ISRING(geography_expression)
 ```
 
@@ -20516,11 +20634,11 @@ ST_ISRING(geography_expression)
 
 Returns `TRUE` if the input `GEOGRAPHY` is a linestring and if the
 linestring is both [`ST_ISCLOSED`][st-isclosed] and
-simple. A linestring is considered simple if it does not pass through the
+simple. A linestring is considered simple if it doesn't pass through the
 same point twice (with the exception of the start and endpoint, which may
 overlap to form a ring).
 
-An empty `GEOGRAPHY` is not a ring.
+An empty `GEOGRAPHY` isn't a ring.
 
 **Return type**
 
@@ -20530,7 +20648,7 @@ An empty `GEOGRAPHY` is not a ring.
 
 ### `ST_LENGTH`
 
-```sql
+```zetasql
 ST_LENGTH(geography_expression[, use_spheroid])
 ```
 
@@ -20541,7 +20659,7 @@ Returns the total length in meters of the lines in the input
 
 If `geography_expression` is a point or a polygon, returns zero. If
 `geography_expression` is a collection, returns the length of the lines in the
-collection; if the collection does not contain lines, returns zero.
+collection; if the collection doesn't contain lines, returns zero.
 
 The optional `use_spheroid` parameter determines how this function measures
 distance. If `use_spheroid` is `FALSE`, the function measures distance on the
@@ -20558,7 +20676,7 @@ the value `FALSE`. The default value of `use_spheroid` is `FALSE`.
 
 ### `ST_LINEINTERPOLATEPOINT`
 
-```sql
+```zetasql
 ST_LINEINTERPOLATEPOINT(linestring_geography, fraction)
 ```
 
@@ -20580,7 +20698,7 @@ value.
 
 +   Returns `NULL` if any input argument is `NULL`.
 +   Returns an empty geography if `linestring_geography` is an empty geography.
-+   Returns an error if `linestring_geography` is not a linestring or an empty
++   Returns an error if `linestring_geography` isn't a linestring or an empty
     geography, or if `fraction` is outside the `[0, 1]` range.
 
 **Return Type**
@@ -20593,7 +20711,7 @@ The following query returns a few points on a linestring. Notice that the
  midpoint of the linestring `LINESTRING(1 1, 5 5)` is slightly different from
  `POINT(3 3)` because the `GEOGRAPHY` type uses geodesic line segments.
 
-```sql
+```zetasql
 WITH fractions AS (
     SELECT 0 AS fraction UNION ALL
     SELECT 0.5 UNION ALL
@@ -20618,7 +20736,7 @@ FROM fractions
 
 ### `ST_LINELOCATEPOINT`
 
-```sql
+```zetasql
 ST_LINELOCATEPOINT(linestring_geography, point_geography)
 ```
 
@@ -20634,7 +20752,7 @@ Details:
     this function takes a point `GEOGRAPHY` (`point_geography`) and finds the
     [closest point][st-closestpoint] to it on the linestring.
 +   If two points on `linestring_geography` are an equal distance away from
-    `point_geography`, it is not guaranteed which one will be selected.
+    `point_geography`, it isn't guaranteed which one will be selected.
 +   The return value is an inclusive value between 0 and 1 (0-100%).
 +   If the selected point is the start point on the linestring, function returns
     0 (0%).
@@ -20644,8 +20762,8 @@ Details:
 `NULL` and error handling:
 
 +   Returns `NULL` if any input argument is `NULL`.
-+   Returns an error if `linestring_geography` is not a linestring or if
-    `point_geography` is not a point. Use the `SAFE` prefix
++   Returns an error if `linestring_geography` isn't a linestring or if
+    `point_geography` isn't a point. Use the `SAFE` prefix
     to obtain `NULL` for invalid input instead of an error.
 
 **Return Type**
@@ -20654,7 +20772,7 @@ Details:
 
 **Examples**
 
-```sql
+```zetasql
 WITH geos AS (
     SELECT ST_GEOGPOINT(0, 0) AS point UNION ALL
     SELECT ST_GEOGPOINT(1, 0) UNION ALL
@@ -20691,7 +20809,7 @@ FROM geos
 
 ### `ST_LINESUBSTRING`
 
-```sql
+```zetasql
 ST_LINESUBSTRING(linestring_geography, start_fraction, end_fraction);
 ```
 
@@ -20726,7 +20844,7 @@ one point is produced.
 
 The following query returns the second half of the linestring:
 
-```sql
+```zetasql
 WITH data AS (
   SELECT ST_GEOGFROMTEXT('LINESTRING(20 70, 70 60, 10 70, 70 70)') AS geo1
 )
@@ -20742,7 +20860,7 @@ FROM data;
 
 The following query returns a linestring that only contains one point:
 
-```sql
+```zetasql
 WITH data AS (
   SELECT ST_GEOGFROMTEXT('LINESTRING(20 70, 70 60, 10 70, 70 70)') AS geo1
 )
@@ -20758,11 +20876,11 @@ FROM data;
 
 ### `ST_MAKELINE`
 
-```sql
+```zetasql
 ST_MAKELINE(geography_1, geography_2)
 ```
 
-```sql
+```zetasql
 ST_MAKELINE(array_of_geography)
 ```
 
@@ -20800,7 +20918,7 @@ LineString `GEOGRAPHY`
 
 ### `ST_MAKEPOLYGON`
 
-```sql
+```zetasql
 ST_MAKEPOLYGON(polygon_shell[, array_of_polygon_holes])
 ```
 
@@ -20840,7 +20958,7 @@ Together, the input rings must form a valid polygon:
 
 +   The polygon shell must cover each of the polygon holes.
 +   There can be only one polygon shell (which has to be the first input ring).
-    This implies that polygon holes cannot be nested.
+    This implies that polygon holes can't be nested.
 +   Polygon rings may only intersect in a vertex on the boundary of both rings.
 
 Every edge must span strictly less than 180 degrees.
@@ -20854,7 +20972,7 @@ the two regions, see [`ST_MAKEPOLYGONORIENTED`][st-makepolygonoriented].
 
 NOTE: The ZetaSQL snapping process may discard sufficiently
 short edges and snap the two endpoints together. Hence, when vertices are
-snapped together, it is possible that a polygon hole that is sufficiently small
+snapped together, it's possible that a polygon hole that's sufficiently small
 may disappear, or the output `GEOGRAPHY` may contain only a line or a
 point.
 
@@ -20866,7 +20984,7 @@ point.
 
 ### `ST_MAKEPOLYGONORIENTED`
 
-```sql
+```zetasql
 ST_MAKEPOLYGONORIENTED(array_of_geography)
 ```
 
@@ -20897,7 +21015,7 @@ Together, the input rings must form a valid polygon:
 
 +   The polygon shell must cover each of the polygon holes.
 +   There must be only one polygon shell, which must to be the first input ring.
-    This implies that polygon holes cannot be nested.
+    This implies that polygon holes can't be nested.
 +   Polygon rings may only intersect in a vertex on the boundary of both rings.
 
 Every edge must span strictly less than 180 degrees.
@@ -20911,9 +21029,9 @@ other constraints on building a valid polygon.
 
 NOTE: Due to the ZetaSQL snapping process, edges with a sufficiently
 short length will be discarded and the two endpoints will be snapped to a single
-point. Therefore, it is possible that vertices in a linestring may be snapped
-together such that one or more edge disappears. Hence, it is possible that a
-polygon hole that is sufficiently small may disappear, or the resulting
+point. Therefore, it's possible that vertices in a linestring may be snapped
+together such that one or more edge disappears. Hence, it's possible that a
+polygon hole that's sufficiently small may disappear, or the resulting
 `GEOGRAPHY` may contain only a line or a point.
 
 **Return type**
@@ -20924,7 +21042,7 @@ polygon hole that is sufficiently small may disappear, or the resulting
 
 ### `ST_MAXDISTANCE`
 
-```sql
+```zetasql
 ST_MAXDISTANCE(geography_1, geography_2[, use_spheroid])
 ```
 
@@ -20955,7 +21073,7 @@ the value `FALSE`. The default value of `use_spheroid` is `FALSE`.
 
 ### `ST_NPOINTS`
 
-```sql
+```zetasql
 ST_NPOINTS(geography_expression)
 ```
 
@@ -20988,7 +21106,7 @@ collection. `ST_NUMGEOMETRIES` returns `0` if the input is the empty
 The following example computes `ST_NUMGEOMETRIES` for a single point geography,
 two collections, and an empty geography.
 
-```sql
+```zetasql
 WITH example AS(
   SELECT ST_GEOGFROMTEXT('POINT(5 0)') AS geography
   UNION ALL
@@ -21014,7 +21132,7 @@ FROM example;
 
 ### `ST_NUMPOINTS`
 
-```sql
+```zetasql
 ST_NUMPOINTS(geography_expression)
 ```
 
@@ -21033,7 +21151,7 @@ vertices.
 
 ### `ST_PERIMETER`
 
-```sql
+```zetasql
 ST_PERIMETER(geography_expression[, use_spheroid])
 ```
 
@@ -21044,7 +21162,7 @@ Returns the length in meters of the boundary of the polygons in the input
 
 If `geography_expression` is a point or a line, returns zero. If
 `geography_expression` is a collection, returns the perimeter of the polygons
-in the collection; if the collection does not contain polygons, returns zero.
+in the collection; if the collection doesn't contain polygons, returns zero.
 
 The optional `use_spheroid` parameter determines how this function measures
 distance. If `use_spheroid` is `FALSE`, the function measures distance on the
@@ -21061,7 +21179,7 @@ the value `FALSE`. The default value of `use_spheroid` is `FALSE`.
 
 ### `ST_POINTN`
 
-```sql
+```zetasql
 ST_POINTN(linestring_geography, index)
 ```
 
@@ -21070,7 +21188,7 @@ ST_POINTN(linestring_geography, index)
 Returns the Nth point of a linestring geography as a point geography, where N is
 the index. The index is 1-based. Negative values are counted backwards from the
 end of the linestring, so that -1 is the last point. Returns an error if the
-input is not a linestring, if the input is empty, or if there is no vertex at
+input isn't a linestring, if the input is empty, or if there is no vertex at
 the given index. Use the `SAFE` prefix to obtain `NULL` for invalid input
 instead of an error.
 
@@ -21083,7 +21201,7 @@ Point `GEOGRAPHY`
 The following example uses `ST_POINTN`, [`ST_STARTPOINT`][st-startpoint] and
 [`ST_ENDPOINT`][st-endpoint] to extract points from a linestring.
 
-```sql
+```zetasql
 WITH linestring AS (
     SELECT ST_GEOGFROMTEXT('LINESTRING(1 1, 2 1, 3 2, 3 3)') g
 )
@@ -21104,7 +21222,7 @@ FROM linestring;
 
 ### `ST_SIMPLIFY`
 
-```sql
+```zetasql
 ST_SIMPLIFY(geography, tolerance_meters)
 ```
 
@@ -21142,7 +21260,7 @@ is one of the following:
 The following example shows how `ST_SIMPLIFY` simplifies the input line
 `GEOGRAPHY` by removing intermediate vertices.
 
-```sql
+```zetasql
 WITH example AS
  (SELECT ST_GEOGFROMTEXT('LINESTRING(0 0, 0.05 0, 0.1 0, 0.15 0, 2 0)') AS line)
 SELECT
@@ -21160,7 +21278,7 @@ FROM example;
 The following example illustrates how the result of `ST_SIMPLIFY` can have a
 lower dimension than the original shape.
 
-```sql
+```zetasql
 WITH example AS
  (SELECT
     ST_GEOGFROMTEXT('POLYGON((0 0, 0.1 0, 0.1 0.1, 0 0))') AS polygon,
@@ -21183,7 +21301,7 @@ FROM example
 
 ### `ST_SNAPTOGRID`
 
-```sql
+```zetasql
 ST_SNAPTOGRID(geography_expression, grid_size)
 ```
 
@@ -21195,8 +21313,8 @@ been snapped to a longitude/latitude grid. The grid size is determined by the
 
 **Constraints**
 
-Arbitrary grid sizes are not supported. The `grid_size` parameter is rounded so
-that it is of the form `10^n`, where `-10 < n < 0`.
+Arbitrary grid sizes aren't supported. The `grid_size` parameter is rounded so
+that it's of the form `10^n`, where `-10 < n < 0`.
 
 **Return type**
 
@@ -21204,14 +21322,14 @@ that it is of the form `10^n`, where `-10 < n < 0`.
 
 ### `ST_STARTPOINT`
 
-```sql
+```zetasql
 ST_STARTPOINT(linestring_geography)
 ```
 
 **Description**
 
 Returns the first point of a linestring geography as a point geography. Returns
-an error if the input is not a linestring or if the input is empty. Use the
+an error if the input isn't a linestring or if the input is empty. Use the
 `SAFE` prefix to obtain `NULL` for invalid input instead of an error.
 
 **Return Type**
@@ -21220,7 +21338,7 @@ Point `GEOGRAPHY`
 
 **Example**
 
-```sql
+```zetasql
 SELECT ST_STARTPOINT(ST_GEOGFROMTEXT('LINESTRING(1 1, 2 1, 3 2, 3 3)')) first
 
 /*--------------*
@@ -21232,7 +21350,7 @@ SELECT ST_STARTPOINT(ST_GEOGFROMTEXT('LINESTRING(1 1, 2 1, 3 2, 3 3)')) first
 
 ### `ST_TOUCHES`
 
-```sql
+```zetasql
 ST_TOUCHES(geography_1, geography_2)
 ```
 
@@ -21250,11 +21368,11 @@ Returns `TRUE` provided the following two conditions are satisfied:
 
 ### `ST_UNION`
 
-```sql
+```zetasql
 ST_UNION(geography_1, geography_2)
 ```
 
-```sql
+```zetasql
 ST_UNION(array_of_geography)
 ```
 
@@ -21272,7 +21390,7 @@ For the first variant of `ST_UNION`, if an input
 For the second variant, if the input `ARRAY` value
 is `NULL`, `ST_UNION` returns `NULL`.
 For a non-`NULL` input `ARRAY`, the union is computed
-and `NULL` elements are ignored so that they do not affect the output.
+and `NULL` elements are ignored so that they don't affect the output.
 
 See [`ST_UNION_AGG`][st-union-agg] for the aggregate version of `ST_UNION`.
 
@@ -21282,7 +21400,7 @@ See [`ST_UNION_AGG`][st-union-agg] for the aggregate version of `ST_UNION`.
 
 **Example**
 
-```sql
+```zetasql
 SELECT ST_UNION(
   ST_GEOGFROMTEXT('LINESTRING(-122.12 47.67, -122.19 47.69)'),
   ST_GEOGFROMTEXT('LINESTRING(-122.12 47.67, -100.19 47.69)')
@@ -21299,7 +21417,7 @@ SELECT ST_UNION(
 
 ### `ST_UNION_AGG`
 
-```sql
+```zetasql
 ST_UNION_AGG(geography)
 ```
 
@@ -21318,7 +21436,7 @@ See [`ST_UNION`][st-union] for the non-aggregate version of `ST_UNION_AGG`.
 
 **Example**
 
-```sql
+```zetasql
 SELECT ST_UNION_AGG(items) AS results
 FROM UNNEST([
   ST_GEOGFROMTEXT('LINESTRING(-122.12 47.67, -122.19 47.69)'),
@@ -21336,7 +21454,7 @@ FROM UNNEST([
 
 ### `ST_WITHIN`
 
-```sql
+```zetasql
 ST_WITHIN(geography_1, geography_2)
 ```
 
@@ -21356,7 +21474,7 @@ as [`ST_CONTAINS`][st-contains]`(b, a)`. Note the opposite order of arguments.
 
 ### `ST_X`
 
-```sql
+```zetasql
 ST_X(point_geography_expression)
 ```
 
@@ -21365,7 +21483,7 @@ ST_X(point_geography_expression)
 Returns the longitude in degrees of the single-point input
 `GEOGRAPHY`.
 
-For any input `GEOGRAPHY` that is not a single point,
+For any input `GEOGRAPHY` that isn't a single point,
 including an empty `GEOGRAPHY`, `ST_X` returns an
 error. Use the `SAFE.` prefix to obtain `NULL`.
 
@@ -21378,7 +21496,7 @@ error. Use the `SAFE.` prefix to obtain `NULL`.
 The following example uses `ST_X` and `ST_Y` to extract coordinates from
 single-point geographies.
 
-```sql
+```zetasql
 WITH points AS
    (SELECT ST_GEOGPOINT(i, i + 1) AS p FROM UNNEST([0, 5, 12]) AS i)
  SELECT
@@ -21398,7 +21516,7 @@ FROM points;
 
 ### `ST_Y`
 
-```sql
+```zetasql
 ST_Y(point_geography_expression)
 ```
 
@@ -21407,7 +21525,7 @@ ST_Y(point_geography_expression)
 Returns the latitude in degrees of the single-point input
 `GEOGRAPHY`.
 
-For any input `GEOGRAPHY` that is not a single point,
+For any input `GEOGRAPHY` that isn't a single point,
 including an empty `GEOGRAPHY`, `ST_Y` returns an
 error. Use the `SAFE.` prefix to return `NULL` instead.
 
@@ -21503,7 +21621,7 @@ INT64
 
 **Examples**
 
-```sql
+```zetasql
 WITH example AS (
   SELECT 1 AS x, "foo" AS y, true AS z UNION ALL
   SELECT 2 AS x, "apple" AS y, false AS z UNION ALL
@@ -21548,7 +21666,7 @@ For increased security use another hashing function.
 
 **Example**
 
-```sql
+```zetasql
 SELECT MD5("Hello World") as md5;
 
 /*-------------------------------------------------*
@@ -21583,7 +21701,7 @@ For increased security, use another hashing function.
 
 **Example**
 
-```sql
+```zetasql
 SELECT SHA1("Hello World") as sha1;
 
 /*-----------------------------------------------------------*
@@ -21615,7 +21733,7 @@ This function returns 32 bytes.
 
 **Example**
 
-```sql
+```zetasql
 SELECT SHA256("Hello World") as sha256;
 ```
 
@@ -21641,7 +21759,7 @@ This function returns 64 bytes.
 
 **Example**
 
-```sql
+```zetasql
 SELECT SHA512("Hello World") as sha512;
 ```
 
@@ -21661,10 +21779,10 @@ This makes HLL++ functions appropriate for large data streams for
 which linear memory usage is impractical, as well as for data that is
 already approximate.
 
-If you do not need materialized sketches, you can alternatively use an
+If you don't need materialized sketches, you can alternatively use an
 [approximate aggregate function with system-defined precision][approx-functions-reference],
 such as [`APPROX_COUNT_DISTINCT`][approx-count-distinct]. However,
-`APPROX_COUNT_DISTINCT` does not allow partial aggregations, re-aggregations,
+`APPROX_COUNT_DISTINCT` doesn't allow partial aggregations, re-aggregations,
 and custom precision.
 
 ZetaSQL supports the following HLL++ functions:
@@ -21742,7 +21860,7 @@ If `sketch` is `NULL`, this function returns a cardinality estimate of `0`.
 The following query returns the number of distinct users for each country who
 have at least one invoice.
 
-```sql
+```zetasql
 SELECT
   country,
   HLL_COUNT.EXTRACT(HLL_sketch) AS distinct_customers_with_open_invoice
@@ -21772,7 +21890,7 @@ FROM
  *---------+--------------------------------------*/
 ```
 
-[hll-link-to-research-whitepaper]: https://research.google.com/pubs/pub40671.html
+[hll-link-to-research-whitepaper]: https://static.googleusercontent.com/media/research.google.com/en//pubs/archive/40671.pdf
 
 ### `HLL_COUNT.INIT`
 
@@ -21818,7 +21936,7 @@ a State of The Art Cardinality Estimation Algorithm][hll-link-to-research-whitep
 The following query creates HLL++ sketches that count the number of distinct
 users with at least one invoice per country.
 
-```sql
+```zetasql
 SELECT
   country,
   HLL_COUNT.INIT(customer_id, 10)
@@ -21842,7 +21960,7 @@ GROUP BY country;
  *---------+------------------------------------------------------------------------------------*/
 ```
 
-[hll-link-to-research-whitepaper]: https://research.google.com/pubs/pub40671.html
+[hll-link-to-research-whitepaper]: https://static.googleusercontent.com/media/research.google.com/en//pubs/archive/40671.pdf
 
 [precision_hll]: https://github.com/google/zetasql/blob/master/docs/sketches.md#precision_hll
 
@@ -21858,7 +21976,7 @@ An aggregate function that returns the cardinality of several
 [HLL++][hll-link-to-research-whitepaper] sketches by computing their union.
 
 Each `sketch` must be initialized on the same type. Attempts to merge sketches
-for different types results in an error. For example, you cannot merge a sketch
+for different types results in an error. For example, you can't merge a sketch
 initialized from `INT64` data with one initialized from `STRING` data.
 
 If the merged sketches were initialized with different precisions, the precision
@@ -21880,7 +21998,7 @@ over zero rows or only over `NULL` values, the function returns `0`.
  The following query counts the number of distinct users across all countries
  who have at least one invoice.
 
-```sql
+```zetasql
 SELECT HLL_COUNT.MERGE(hll_sketch) AS distinct_customers_with_open_invoice
 FROM
   (
@@ -21906,7 +22024,7 @@ FROM
  *--------------------------------------*/
 ```
 
-[hll-link-to-research-whitepaper]: https://research.google.com/pubs/pub40671.html
+[hll-link-to-research-whitepaper]: https://static.googleusercontent.com/media/research.google.com/en//pubs/archive/40671.pdf
 
 ### `HLL_COUNT.MERGE_PARTIAL`
 
@@ -21921,7 +22039,7 @@ An aggregate function that takes one or more
 inputs and merges them into a new sketch.
 
 Each `sketch` must be initialized on the same type. Attempts to merge sketches
-for different types results in an error. For example, you cannot merge a sketch
+for different types results in an error. For example, you can't merge a sketch
 initialized from `INT64` data with one initialized from `STRING` data.
 
 If the merged sketches were initialized with different precisions, the precision
@@ -21944,7 +22062,7 @@ This function returns `NULL` if there is no input or all inputs are `NULL`.
 The following query returns an HLL++ sketch that counts the number of distinct
 users who have at least one invoice across all countries.
 
-```sql
+```zetasql
 SELECT HLL_COUNT.MERGE_PARTIAL(HLL_sketch) AS distinct_customers_with_open_invoice
 FROM
   (
@@ -21970,7 +22088,7 @@ FROM
  *----------------------------------------------------------------------------------------------*/
 ```
 
-[hll-link-to-research-whitepaper]: https://research.google.com/pubs/pub40671.html
+[hll-link-to-research-whitepaper]: https://static.googleusercontent.com/media/research.google.com/en//pubs/archive/40671.pdf
 
 [hll-sketches]: https://github.com/google/zetasql/blob/master/docs/sketches.md#sketches_hll
 
@@ -21978,7 +22096,7 @@ FROM
 
 [count-distinct]: #count
 
-[approx-count-distinct]: #approx-count-distinct
+[approx-count-distinct]: #approx_count_distinct
 
 [approx-functions-reference]: #approximate_aggregate_functions
 
@@ -22042,7 +22160,7 @@ ZetaSQL supports the following interval functions.
 
 ### `EXTRACT`
 
-```sql
+```zetasql
 EXTRACT(part FROM interval_expression)
 ```
 
@@ -22060,7 +22178,7 @@ one of `YEAR`, `MONTH`, `DAY`, `HOUR`, `MINUTE`, `SECOND`, `MILLISECOND` or
 
 In the following example, different parts of two intervals are extracted.
 
-```sql
+```zetasql
 SELECT
   EXTRACT(YEAR FROM i) AS year,
   EXTRACT(MONTH FROM i) AS month,
@@ -22085,7 +22203,7 @@ FROM
 When a negative sign precedes the time part in an interval, the negative sign
 distributes over the hours, minutes, and seconds. For example:
 
-```sql
+```zetasql
 SELECT
   EXTRACT(HOUR FROM i) AS hour,
   EXTRACT(MINUTE FROM i) AS minute
@@ -22102,7 +22220,7 @@ FROM
 When a negative sign precedes the year and month part in an interval, the
 negative sign distributes over the years and months. For example:
 
-```sql
+```zetasql
 SELECT
   EXTRACT(YEAR FROM i) AS year,
   EXTRACT(MONTH FROM i) AS month
@@ -22118,7 +22236,7 @@ FROM
 
 ### `JUSTIFY_DAYS`
 
-```sql
+```zetasql
 JUSTIFY_DAYS(interval_expression)
 ```
 
@@ -22133,7 +22251,7 @@ incrementing/decrementing the month or year part of the interval.
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   JUSTIFY_DAYS(INTERVAL 29 DAY) AS i1,
   JUSTIFY_DAYS(INTERVAL -30 DAY) AS i2,
@@ -22150,7 +22268,7 @@ SELECT
 
 ### `JUSTIFY_HOURS`
 
-```sql
+```zetasql
 JUSTIFY_HOURS(interval_expression)
 ```
 
@@ -22165,7 +22283,7 @@ Normalizes the time part of the interval to the range from -23:59:59.999999 to
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   JUSTIFY_HOURS(INTERVAL 23 HOUR) AS i1,
   JUSTIFY_HOURS(INTERVAL -24 HOUR) AS i2,
@@ -22181,7 +22299,7 @@ SELECT
 
 ### `JUSTIFY_INTERVAL`
 
-```sql
+```zetasql
 JUSTIFY_INTERVAL(interval_expression)
 ```
 
@@ -22195,7 +22313,7 @@ Normalizes the days and time parts of the interval.
 
 **Example**
 
-```sql
+```zetasql
 SELECT JUSTIFY_INTERVAL(INTERVAL '29 49:00:00' DAY TO SECOND) AS i
 
 /*-------------*
@@ -22207,7 +22325,7 @@ SELECT JUSTIFY_INTERVAL(INTERVAL '29 49:00:00' DAY TO SECOND) AS i
 
 ### `MAKE_INTERVAL`
 
-```sql
+```zetasql
 MAKE_INTERVAL(
   [ [ year => ] value ]
   [, [ month => ] value ]
@@ -22230,7 +22348,7 @@ optional, `0` by default, and can be [named arguments][named-arguments].
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   MAKE_INTERVAL(1, 6, 15) AS i1,
   MAKE_INTERVAL(hour => 10, second => 20) AS i2,
@@ -23046,7 +23164,7 @@ behavior:
 ### `BOOL` 
 <a id="bool_for_json"></a>
 
-```sql
+```zetasql
 BOOL(json_expr)
 ```
 
@@ -23062,7 +23180,7 @@ Arguments:
     JSON 'true'
     ```
 
-    If the JSON value is not a boolean, an error is produced. If the expression
+    If the JSON value isn't a boolean, an error is produced. If the expression
     is SQL `NULL`, the function returns SQL `NULL`.
 
 **Return type**
@@ -23071,7 +23189,7 @@ Arguments:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT BOOL(JSON 'true') AS vacancy;
 
 /*---------*
@@ -23081,7 +23199,7 @@ SELECT BOOL(JSON 'true') AS vacancy;
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT BOOL(JSON_QUERY(JSON '{"hotel class": "5-star", "vacancy": true}', "$.vacancy")) AS vacancy;
 
 /*---------*
@@ -23093,8 +23211,8 @@ SELECT BOOL(JSON_QUERY(JSON '{"hotel class": "5-star", "vacancy": true}', "$.vac
 
 The following examples show how invalid requests are handled:
 
-```sql
--- An error is thrown if JSON is not of type bool.
+```zetasql
+-- An error is thrown if JSON isn't of type bool.
 SELECT BOOL(JSON '123') AS result; -- Throws an error
 SELECT BOOL(JSON 'null') AS result; -- Throws an error
 SELECT SAFE.BOOL(JSON '123') AS result; -- Returns a SQL NULL
@@ -23103,7 +23221,7 @@ SELECT SAFE.BOOL(JSON '123') AS result; -- Returns a SQL NULL
 ### `BOOL_ARRAY` 
 <a id="bool_array_for_json"></a>
 
-```sql
+```zetasql
 BOOL_ARRAY(json_expr)
 ```
 
@@ -23119,7 +23237,7 @@ Arguments:
     JSON '[true]'
     ```
 
-    If the JSON value is not an array of booleans, an error is produced. If the
+    If the JSON value isn't an array of booleans, an error is produced. If the
     expression is SQL `NULL`, the function returns SQL `NULL`.
 
 **Return type**
@@ -23128,7 +23246,7 @@ Arguments:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT BOOL_ARRAY(JSON '[true, false]') AS vacancies;
 
 /*---------------*
@@ -23140,8 +23258,8 @@ SELECT BOOL_ARRAY(JSON '[true, false]') AS vacancies;
 
 The following examples show how invalid requests are handled:
 
-```sql
--- An error is thrown if the JSON is not an array of booleans.
+```zetasql
+-- An error is thrown if the JSON isn't an array of booleans.
 SELECT BOOL_ARRAY(JSON '[123]') AS result; -- Throws an error
 SELECT BOOL_ARRAY(JSON '[null]') AS result; -- Throws an error
 SELECT BOOL_ARRAY(JSON 'null') AS result; -- Throws an error
@@ -23150,7 +23268,7 @@ SELECT BOOL_ARRAY(JSON 'null') AS result; -- Throws an error
 ### `DOUBLE` 
 <a id="double_for_json"></a>
 
-```sql
+```zetasql
 DOUBLE(
   json_expr
   [, wide_number_mode => { 'exact' | 'round' } ]
@@ -23169,17 +23287,17 @@ Arguments:
     JSON '9.8'
     ```
 
-    If the JSON value is not a number, an error is produced. If the expression
+    If the JSON value isn't a number, an error is produced. If the expression
     is a SQL `NULL`, the function returns SQL `NULL`.
 +   `wide_number_mode`: A named argument with a `STRING` value.
     Defines what happens with a number that can't be
     represented as a `DOUBLE` without loss of
     precision. This argument accepts one of the two case-sensitive values:
 
-    +   `exact`: The function fails if the result cannot be represented as a
+    +   `exact`: The function fails if the result can't be represented as a
         `DOUBLE` without loss of precision.
     +   `round` (default): The numeric value stored in JSON will be rounded to
-        `DOUBLE`. If such rounding is not possible,
+        `DOUBLE`. If such rounding isn't possible,
         the function fails.
 
 **Return type**
@@ -23188,7 +23306,7 @@ Arguments:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT DOUBLE(JSON '9.8') AS velocity;
 
 /*----------*
@@ -23198,7 +23316,7 @@ SELECT DOUBLE(JSON '9.8') AS velocity;
  *----------*/
 ```
 
-```sql
+```zetasql
 SELECT DOUBLE(JSON_QUERY(JSON '{"vo2_max": 39.1, "age": 18}', "$.vo2_max")) AS vo2_max;
 
 /*---------*
@@ -23208,7 +23326,7 @@ SELECT DOUBLE(JSON_QUERY(JSON '{"vo2_max": 39.1, "age": 18}', "$.vo2_max")) AS v
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT DOUBLE(JSON '18446744073709551615', wide_number_mode=>'round') as result;
 
 /*------------------------*
@@ -23218,7 +23336,7 @@ SELECT DOUBLE(JSON '18446744073709551615', wide_number_mode=>'round') as result;
  *------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT DOUBLE(JSON '18446744073709551615') as result;
 
 /*------------------------*
@@ -23230,8 +23348,8 @@ SELECT DOUBLE(JSON '18446744073709551615') as result;
 
 The following examples show how invalid requests are handled:
 
-```sql
--- An error is thrown if JSON is not of type DOUBLE.
+```zetasql
+-- An error is thrown if JSON isn't of type DOUBLE.
 SELECT DOUBLE(JSON '"strawberry"') AS result;
 SELECT DOUBLE(JSON 'null') AS result;
 
@@ -23239,7 +23357,7 @@ SELECT DOUBLE(JSON 'null') AS result;
 SELECT DOUBLE(JSON '123.4', wide_number_mode=>'EXACT') as result;
 SELECT DOUBLE(JSON '123.4', wide_number_mode=>'exac') as result;
 
--- An error is thrown because the number cannot be converted to DOUBLE without loss of precision
+-- An error is thrown because the number can't be converted to DOUBLE without loss of precision
 SELECT DOUBLE(JSON '18446744073709551615', wide_number_mode=>'exact') as result;
 
 -- Returns a SQL NULL
@@ -23249,7 +23367,7 @@ SELECT SAFE.DOUBLE(JSON '"strawberry"') AS result;
 ### `DOUBLE_ARRAY` 
 <a id="double_array_for_json"></a>
 
-```sql
+```zetasql
 DOUBLE_ARRAY(
   json_expr
   [, wide_number_mode => { 'exact' | 'round' } ]
@@ -23268,17 +23386,17 @@ Arguments:
     JSON '[9.8]'
     ```
 
-    If the JSON value is not an array of numbers, an error is produced. If the
+    If the JSON value isn't an array of numbers, an error is produced. If the
     expression is a SQL `NULL`, the function returns SQL `NULL`.
 +   `wide_number_mode`: A named argument that takes a `STRING` value. Defines
     what happens with a number that can't be represented as a
     `DOUBLE` without loss of precision. This argument accepts
     one of the two case-sensitive values:
 
-    +   `exact`: The function fails if the result cannot be represented as a
+    +   `exact`: The function fails if the result can't be represented as a
         `DOUBLE` without loss of precision.
     +   `round` (default): The numeric value stored in JSON will be rounded to
-        `DOUBLE`. If such rounding is not possible, the
+        `DOUBLE`. If such rounding isn't possible, the
         function fails.
 
 **Return type**
@@ -23287,7 +23405,7 @@ Arguments:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT DOUBLE_ARRAY(JSON '[9, 9.8]') AS velocities;
 
 /*-------------*
@@ -23297,7 +23415,7 @@ SELECT DOUBLE_ARRAY(JSON '[9, 9.8]') AS velocities;
  *-------------*/
 ```
 
-```sql
+```zetasql
 SELECT DOUBLE_ARRAY(JSON '[18446744073709551615]', wide_number_mode=>'round') as result;
 
 /*--------------------------*
@@ -23307,7 +23425,7 @@ SELECT DOUBLE_ARRAY(JSON '[18446744073709551615]', wide_number_mode=>'round') as
  *--------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT DOUBLE_ARRAY(JSON '[18446744073709551615]') as result;
 
 /*--------------------------*
@@ -23319,8 +23437,8 @@ SELECT DOUBLE_ARRAY(JSON '[18446744073709551615]') as result;
 
 The following examples show how invalid requests are handled:
 
-```sql
--- An error is thrown if the JSON is not an array of numbers.
+```zetasql
+-- An error is thrown if the JSON isn't an array of numbers.
 SELECT DOUBLE_ARRAY(JSON '["strawberry"]') AS result;
 SELECT DOUBLE_ARRAY(JSON '[null]') AS result;
 SELECT DOUBLE_ARRAY(JSON 'null') AS result;
@@ -23329,14 +23447,14 @@ SELECT DOUBLE_ARRAY(JSON 'null') AS result;
 SELECT DOUBLE_ARRAY(JSON '[123.4]', wide_number_mode=>'EXACT') as result;
 SELECT DOUBLE_ARRAY(JSON '[123.4]', wide_number_mode=>'exac') as result;
 
--- An error is thrown because the number cannot be converted to DOUBLE without loss of precision
+-- An error is thrown because the number can't be converted to DOUBLE without loss of precision
 SELECT DOUBLE_ARRAY(JSON '[18446744073709551615]', wide_number_mode=>'exact') as result;
 ```
 
 ### `FLOAT` 
 <a id="float_for_json"></a>
 
-```sql
+```zetasql
 FLOAT(
   json_expr
   [, [ wide_number_mode => ] { 'exact' | 'round' } ]
@@ -23355,17 +23473,17 @@ Arguments:
     JSON '9.8'
     ```
 
-    If the JSON value is not a number, an error is produced. If the expression
+    If the JSON value isn't a number, an error is produced. If the expression
     is a SQL `NULL`, the function returns SQL `NULL`.
 +   `wide_number_mode`: A named argument with a `STRING` value. Defines what
-    happens with a number that cannot be represented as a
+    happens with a number that can't be represented as a
     `FLOAT` without loss of precision. This argument accepts
     one of the two case-sensitive values:
 
-    +   `exact`: The function fails if the result cannot be represented as a
+    +   `exact`: The function fails if the result can't be represented as a
         `FLOAT` without loss of precision.
     +   `round` (default): The numeric value stored in JSON will be rounded to
-        `FLOAT`. If such rounding is not possible, the function
+        `FLOAT`. If such rounding isn't possible, the function
         fails.
 
 **Return type**
@@ -23374,7 +23492,7 @@ Arguments:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT FLOAT(JSON '9.8') AS velocity;
 
 /*----------*
@@ -23384,7 +23502,7 @@ SELECT FLOAT(JSON '9.8') AS velocity;
  *----------*/
 ```
 
-```sql
+```zetasql
 SELECT FLOAT(JSON_QUERY(JSON '{"vo2_max": 39.1, "age": 18}', "$.vo2_max")) AS vo2_max;
 
 /*---------*
@@ -23394,7 +23512,7 @@ SELECT FLOAT(JSON_QUERY(JSON '{"vo2_max": 39.1, "age": 18}', "$.vo2_max")) AS vo
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT FLOAT(JSON '16777217', wide_number_mode=>'round') as result;
 
 /*------------*
@@ -23404,7 +23522,7 @@ SELECT FLOAT(JSON '16777217', wide_number_mode=>'round') as result;
  *------------*/
 ```
 
-```sql
+```zetasql
 SELECT FLOAT(JSON '16777216') as result;
 
 /*------------*
@@ -23416,8 +23534,8 @@ SELECT FLOAT(JSON '16777216') as result;
 
 The following examples show how invalid requests are handled:
 
-```sql
--- An error is thrown if JSON is not of type FLOAT.
+```zetasql
+-- An error is thrown if JSON isn't of type FLOAT.
 SELECT FLOAT(JSON '"strawberry"') AS result;
 SELECT FLOAT(JSON 'null') AS result;
 
@@ -23425,7 +23543,7 @@ SELECT FLOAT(JSON 'null') AS result;
 SELECT FLOAT(JSON '123.4', wide_number_mode=>'EXACT') as result;
 SELECT FLOAT(JSON '123.4', wide_number_mode=>'exac') as result;
 
--- An error is thrown because the number cannot be converted to FLOAT without loss of precision
+-- An error is thrown because the number can't be converted to FLOAT without loss of precision
 SELECT FLOAT(JSON '16777217', wide_number_mode=>'exact') as result;
 
 -- Returns a SQL NULL
@@ -23435,7 +23553,7 @@ SELECT SAFE.FLOAT(JSON '"strawberry"') AS result;
 ### `FLOAT_ARRAY` 
 <a id="float_array_for_json"></a>
 
-```sql
+```zetasql
 FLOAT_ARRAY(
   json_expr
   [, wide_number_mode => { 'exact' | 'round' } ]
@@ -23454,17 +23572,17 @@ Arguments:
     JSON '[9.8]'
     ```
 
-    If the JSON value is not an array of numbers, an error is produced. If the
+    If the JSON value isn't an array of numbers, an error is produced. If the
     expression is a SQL `NULL`, the function returns SQL `NULL`.
 +   `wide_number_mode`: A named argument with a `STRING` value. Defines
     what happens with a number that can't be represented as a
     `FLOAT` without loss of precision. This argument accepts
     one of the two case-sensitive values:
 
-    +   `exact`: The function fails if the result cannot be represented as a
+    +   `exact`: The function fails if the result can't be represented as a
         `FLOAT` without loss of precision.
     +   `round` (default): The numeric value stored in JSON will be rounded to
-        `FLOAT`. If such rounding is not possible, the function
+        `FLOAT`. If such rounding isn't possible, the function
         fails.
 
 **Return type**
@@ -23473,7 +23591,7 @@ Arguments:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT FLOAT_ARRAY(JSON '[9, 9.8]') AS velocities;
 
 /*-------------*
@@ -23483,7 +23601,7 @@ SELECT FLOAT_ARRAY(JSON '[9, 9.8]') AS velocities;
  *-------------*/
 ```
 
-```sql
+```zetasql
 SELECT FLOAT_ARRAY(JSON '[16777217]', wide_number_mode=>'round') as result;
 
 /*--------------*
@@ -23493,7 +23611,7 @@ SELECT FLOAT_ARRAY(JSON '[16777217]', wide_number_mode=>'round') as result;
  *--------------*/
 ```
 
-```sql
+```zetasql
 SELECT FLOAT_ARRAY(JSON '[16777216]') as result;
 
 /*--------------*
@@ -23505,8 +23623,8 @@ SELECT FLOAT_ARRAY(JSON '[16777216]') as result;
 
 The following examples show how invalid requests are handled:
 
-```sql
--- An error is thrown if the JSON is not an array of numbers in FLOAT domain.
+```zetasql
+-- An error is thrown if the JSON isn't an array of numbers in FLOAT domain.
 SELECT FLOAT_ARRAY(JSON '["strawberry"]') AS result;
 SELECT FLOAT_ARRAY(JSON '[null]') AS result;
 SELECT FLOAT_ARRAY(JSON 'null') AS result;
@@ -23515,14 +23633,14 @@ SELECT FLOAT_ARRAY(JSON 'null') AS result;
 SELECT FLOAT_ARRAY(JSON '[123.4]', wide_number_mode=>'EXACT') as result;
 SELECT FLOAT_ARRAY(JSON '[123.4]', wide_number_mode=>'exac') as result;
 
--- An error is thrown because the number cannot be converted to FLOAT without loss of precision
+-- An error is thrown because the number can't be converted to FLOAT without loss of precision
 SELECT FLOAT_ARRAY(JSON '[16777217]', wide_number_mode=>'exact') as result;
 ```
 
 ### `INT32` 
 <a id="int32_for_json"></a>
 
-```sql
+```zetasql
 INT32(json_expr)
 ```
 
@@ -23538,7 +23656,7 @@ Arguments:
     JSON '999'
     ```
 
-    If the JSON value is not a number, or the JSON number is not in the SQL
+    If the JSON value isn't a number, or the JSON number isn't in the SQL
     `INT32` domain, an error is produced. If the expression is SQL `NULL`, the
     function returns SQL `NULL`.
 
@@ -23548,7 +23666,7 @@ Arguments:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT INT32(JSON '2005') AS flight_number;
 
 /*---------------*
@@ -23558,7 +23676,7 @@ SELECT INT32(JSON '2005') AS flight_number;
  *---------------*/
 ```
 
-```sql
+```zetasql
 SELECT INT32(JSON_QUERY(JSON '{"gate": "A4", "flight_number": 2005}', "$.flight_number")) AS flight_number;
 
 /*---------------*
@@ -23568,7 +23686,7 @@ SELECT INT32(JSON_QUERY(JSON '{"gate": "A4", "flight_number": 2005}', "$.flight_
  *---------------*/
 ```
 
-```sql
+```zetasql
 SELECT INT32(JSON '10.0') AS score;
 
 /*-------*
@@ -23580,8 +23698,8 @@ SELECT INT32(JSON '10.0') AS score;
 
 The following examples show how invalid requests are handled:
 
-```sql
--- An error is thrown if JSON is not a number or cannot be converted to a 64-bit integer.
+```zetasql
+-- An error is thrown if JSON isn't a number or can't be converted to a 64-bit integer.
 SELECT INT32(JSON '10.1') AS result;  -- Throws an error
 SELECT INT32(JSON '"strawberry"') AS result; -- Throws an error
 SELECT INT32(JSON 'null') AS result; -- Throws an error
@@ -23591,7 +23709,7 @@ SELECT SAFE.INT32(JSON '"strawberry"') AS result;  -- Returns a SQL NULL
 ### `INT32_ARRAY` 
 <a id="int32_array_for_json"></a>
 
-```sql
+```zetasql
 INT32_ARRAY(json_expr)
 ```
 
@@ -23607,7 +23725,7 @@ Arguments:
     JSON '[999]'
     ```
 
-    If the JSON value is not an array of numbers, or the JSON numbers are not in
+    If the JSON value isn't an array of numbers, or the JSON numbers aren't in
     the SQL `INT32` domain, an error is produced. If the expression is SQL
     `NULL`, the function returns SQL `NULL`.
 
@@ -23617,7 +23735,7 @@ Arguments:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT INT32_ARRAY(JSON '[2005, 2003]') AS flight_numbers;
 
 /*----------------*
@@ -23627,7 +23745,7 @@ SELECT INT32_ARRAY(JSON '[2005, 2003]') AS flight_numbers;
  *----------------*/
 ```
 
-```sql
+```zetasql
 SELECT INT32_ARRAY(JSON '[10.0]') AS scores;
 
 /*--------*
@@ -23639,8 +23757,8 @@ SELECT INT32_ARRAY(JSON '[10.0]') AS scores;
 
 The following examples show how invalid requests are handled:
 
-```sql
--- An error is thrown if the JSON is not an array of numbers in INT32 domain.
+```zetasql
+-- An error is thrown if the JSON isn't an array of numbers in INT32 domain.
 SELECT INT32_ARRAY(JSON '[10.1]') AS result;  -- Throws an error
 SELECT INT32_ARRAY(JSON '["strawberry"]') AS result; -- Throws an error
 SELECT INT32_ARRAY(JSON '[null]') AS result; -- Throws an error
@@ -23650,7 +23768,7 @@ SELECT INT32_ARRAY(JSON 'null') AS result; -- Throws an error
 ### `INT64` 
 <a id="int64_for_json"></a>
 
-```sql
+```zetasql
 INT64(json_expr)
 ```
 
@@ -23666,7 +23784,7 @@ Arguments:
     JSON '999'
     ```
 
-    If the JSON value is not a number, or the JSON number is not in the SQL
+    If the JSON value isn't a number, or the JSON number isn't in the SQL
     `INT64` domain, an error is produced. If the expression is SQL `NULL`, the
     function returns SQL `NULL`.
 
@@ -23676,7 +23794,7 @@ Arguments:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT INT64(JSON '2005') AS flight_number;
 
 /*---------------*
@@ -23686,7 +23804,7 @@ SELECT INT64(JSON '2005') AS flight_number;
  *---------------*/
 ```
 
-```sql
+```zetasql
 SELECT INT64(JSON_QUERY(JSON '{"gate": "A4", "flight_number": 2005}', "$.flight_number")) AS flight_number;
 
 /*---------------*
@@ -23696,7 +23814,7 @@ SELECT INT64(JSON_QUERY(JSON '{"gate": "A4", "flight_number": 2005}', "$.flight_
  *---------------*/
 ```
 
-```sql
+```zetasql
 SELECT INT64(JSON '10.0') AS score;
 
 /*-------*
@@ -23708,8 +23826,8 @@ SELECT INT64(JSON '10.0') AS score;
 
 The following examples show how invalid requests are handled:
 
-```sql
--- An error is thrown if JSON is not a number or cannot be converted to a 64-bit integer.
+```zetasql
+-- An error is thrown if JSON isn't a number or can't be converted to a 64-bit integer.
 SELECT INT64(JSON '10.1') AS result;  -- Throws an error
 SELECT INT64(JSON '"strawberry"') AS result; -- Throws an error
 SELECT INT64(JSON 'null') AS result; -- Throws an error
@@ -23719,7 +23837,7 @@ SELECT SAFE.INT64(JSON '"strawberry"') AS result;  -- Returns a SQL NULL
 ### `INT64_ARRAY` 
 <a id="int64_array_for_json"></a>
 
-```sql
+```zetasql
 INT64_ARRAY(json_expr)
 ```
 
@@ -23735,7 +23853,7 @@ Arguments:
     JSON '[999]'
     ```
 
-    If the JSON value is not an array of numbers, or the JSON numbers are not in
+    If the JSON value isn't an array of numbers, or the JSON numbers aren't in
     the SQL `INT64` domain, an error is produced. If the expression is SQL
     `NULL`, the function returns SQL `NULL`.
 
@@ -23745,7 +23863,7 @@ Arguments:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT INT64_ARRAY(JSON '[2005, 2003]') AS flight_numbers;
 
 /*----------------*
@@ -23755,7 +23873,7 @@ SELECT INT64_ARRAY(JSON '[2005, 2003]') AS flight_numbers;
  *----------------*/
 ```
 
-```sql
+```zetasql
 SELECT INT64_ARRAY(JSON '[10.0]') AS scores;
 
 /*--------*
@@ -23767,8 +23885,8 @@ SELECT INT64_ARRAY(JSON '[10.0]') AS scores;
 
 The following examples show how invalid requests are handled:
 
-```sql
--- An error is thrown if the JSON is not an array of numbers in INT64 domain.
+```zetasql
+-- An error is thrown if the JSON isn't an array of numbers in INT64 domain.
 SELECT INT64_ARRAY(JSON '[10.1]') AS result;  -- Throws an error
 SELECT INT64_ARRAY(JSON '["strawberry"]') AS result; -- Throws an error
 SELECT INT64_ARRAY(JSON '[null]') AS result; -- Throws an error
@@ -23777,7 +23895,7 @@ SELECT INT64_ARRAY(JSON 'null') AS result; -- Throws an error
 
 ### `JSON_ARRAY`
 
-```sql
+```zetasql
 JSON_ARRAY([value][, ...])
 ```
 
@@ -23798,7 +23916,7 @@ Arguments:
 
 The following query creates a JSON array with one value in it:
 
-```sql
+```zetasql
 SELECT JSON_ARRAY(10) AS json_data
 
 /*-----------*
@@ -23810,7 +23928,7 @@ SELECT JSON_ARRAY(10) AS json_data
 
 You can create a JSON array with an empty JSON array in it. For example:
 
-```sql
+```zetasql
 SELECT JSON_ARRAY([]) AS json_data
 
 /*-----------*
@@ -23820,7 +23938,7 @@ SELECT JSON_ARRAY([]) AS json_data
  *-----------*/
 ```
 
-```sql
+```zetasql
 SELECT JSON_ARRAY(10, 'foo', NULL) AS json_data
 
 /*-----------------*
@@ -23830,7 +23948,7 @@ SELECT JSON_ARRAY(10, 'foo', NULL) AS json_data
  *-----------------*/
 ```
 
-```sql
+```zetasql
 SELECT JSON_ARRAY(STRUCT(10 AS a, 'foo' AS b)) AS json_data
 
 /*----------------------*
@@ -23840,7 +23958,7 @@ SELECT JSON_ARRAY(STRUCT(10 AS a, 'foo' AS b)) AS json_data
  *----------------------*/
 ```
 
-```sql
+```zetasql
 SELECT JSON_ARRAY(10, ['foo', 'bar'], [20, 30]) AS json_data
 
 /*----------------------------*
@@ -23850,7 +23968,7 @@ SELECT JSON_ARRAY(10, ['foo', 'bar'], [20, 30]) AS json_data
  *----------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT JSON_ARRAY(10, [JSON '20', JSON '"foo"']) AS json_data
 
 /*-----------------*
@@ -23862,7 +23980,7 @@ SELECT JSON_ARRAY(10, [JSON '20', JSON '"foo"']) AS json_data
 
 You can create an empty JSON array. For example:
 
-```sql
+```zetasql
 SELECT JSON_ARRAY() AS json_data
 
 /*-----------*
@@ -23874,7 +23992,7 @@ SELECT JSON_ARRAY() AS json_data
 
 ### `JSON_ARRAY_APPEND`
 
-```sql
+```zetasql
 JSON_ARRAY_APPEND(
   json_expr,
   json_path_value_pair[, ...]
@@ -23916,7 +24034,7 @@ Details:
     evaluating one pair becomes the JSON against which the next pair
     is evaluated.
 +   The operation is ignored if the path points to a JSON non-array value that
-    is not a JSON null.
+    isn't a JSON null.
 +   If `json_path` points to a JSON null, the JSON null is replaced by a
     JSON array that contains `value`.
 +   If the path exists but has an incompatible type at any given path token,
@@ -23940,7 +24058,7 @@ Details:
 
 In the following example, path `$` is matched and appends `1`.
 
-```sql
+```zetasql
 SELECT JSON_ARRAY_APPEND(JSON '["a", "b", "c"]', '$', 1) AS json_data
 
 /*-----------------*
@@ -23953,7 +24071,7 @@ SELECT JSON_ARRAY_APPEND(JSON '["a", "b", "c"]', '$', 1) AS json_data
 In the following example, `append_each_element` defaults to `TRUE`, so
 `[1, 2]` is appended as individual elements.
 
-```sql
+```zetasql
 SELECT JSON_ARRAY_APPEND(JSON '["a", "b", "c"]', '$', [1, 2]) AS json_data
 
 /*-------------------*
@@ -23966,7 +24084,7 @@ SELECT JSON_ARRAY_APPEND(JSON '["a", "b", "c"]', '$', [1, 2]) AS json_data
 In the following example, `append_each_element` is `FALSE`, so
 `[1, 2]` is appended as one element.
 
-```sql
+```zetasql
 SELECT JSON_ARRAY_APPEND(
   JSON '["a", "b", "c"]',
   '$', [1, 2],
@@ -23982,7 +24100,7 @@ SELECT JSON_ARRAY_APPEND(
 In the following example, `append_each_element` is `FALSE`, so
 `[1, 2]` and `[3, 4]` are each appended as one element.
 
-```sql
+```zetasql
 SELECT JSON_ARRAY_APPEND(
   JSON '["a", ["b"], "c"]',
   '$[1]', [1, 2],
@@ -23997,10 +24115,10 @@ SELECT JSON_ARRAY_APPEND(
 ```
 
 In the following example, the first path `$[1]` appends `[1, 2]` as single
-elements, and then the second path `$[1][1]` is not a valid path to an array,
+elements, and then the second path `$[1][1]` isn't a valid path to an array,
 so the second operation is ignored.
 
-```sql
+```zetasql
 SELECT JSON_ARRAY_APPEND(
   JSON '["a", ["b"], "c"]',
   '$[1]', [1, 2],
@@ -24015,7 +24133,7 @@ SELECT JSON_ARRAY_APPEND(
 
 In the following example, path `$.a` is matched and appends `2`.
 
-```sql
+```zetasql
 SELECT JSON_ARRAY_APPEND(JSON '{"a": [1]}', '$.a', 2) AS json_data
 
 /*-------------*
@@ -24027,7 +24145,7 @@ SELECT JSON_ARRAY_APPEND(JSON '{"a": [1]}', '$.a', 2) AS json_data
 
 In the following example, a value is appended into a JSON null.
 
-```sql
+```zetasql
 SELECT JSON_ARRAY_APPEND(JSON '{"a": null}', '$.a', 10)
 
 /*------------*
@@ -24037,10 +24155,10 @@ SELECT JSON_ARRAY_APPEND(JSON '{"a": null}', '$.a', 10)
  *------------*/
 ```
 
-In the following example, path `$.a` is not an array, so the operation is
+In the following example, path `$.a` isn't an array, so the operation is
 ignored.
 
-```sql
+```zetasql
 SELECT JSON_ARRAY_APPEND(JSON '{"a": 1}', '$.a', 2) AS json_data
 
 /*-----------*
@@ -24050,10 +24168,10 @@ SELECT JSON_ARRAY_APPEND(JSON '{"a": 1}', '$.a', 2) AS json_data
  *-----------*/
 ```
 
-In the following example, path `$.b` does not exist, so the operation is
+In the following example, path `$.b` doesn't exist, so the operation is
 ignored.
 
-```sql
+```zetasql
 SELECT JSON_ARRAY_APPEND(JSON '{"a": 1}', '$.b', 2) AS json_data
 
 /*-----------*
@@ -24065,7 +24183,7 @@ SELECT JSON_ARRAY_APPEND(JSON '{"a": 1}', '$.b', 2) AS json_data
 
 ### `JSON_ARRAY_INSERT`
 
-```sql
+```zetasql
 JSON_ARRAY_INSERT(
   json_expr,
   json_path_value_pair[, ...]
@@ -24076,7 +24194,7 @@ json_path_value_pair:
   json_path, value
 ```
 
-Produces a new JSON value that is created by inserting JSON data into
+Produces a new JSON value that's created by inserting JSON data into
 a JSON array.
 
 Arguments:
@@ -24108,7 +24226,7 @@ Details:
     evaluating one pair becomes the JSON against which the next pair
     is evaluated.
 +   The operation is ignored if the path points to a JSON non-array value that
-    is not a JSON null.
+    isn't a JSON null.
 +   If `json_path` points to a JSON null, the JSON null is replaced by a
     JSON array of the appropriate size and padded on the left with JSON nulls.
 +   If the path exists but has an incompatible type at any given path token,
@@ -24135,7 +24253,7 @@ Details:
 
 In the following example, path `$[1]` is matched and inserts `1`.
 
-```sql
+```zetasql
 SELECT JSON_ARRAY_INSERT(JSON '["a", ["b", "c"], "d"]', '$[1]', 1) AS json_data
 
 /*-----------------------*
@@ -24147,7 +24265,7 @@ SELECT JSON_ARRAY_INSERT(JSON '["a", ["b", "c"], "d"]', '$[1]', 1) AS json_data
 
 In the following example, path `$[1][0]` is matched and inserts `1`.
 
-```sql
+```zetasql
 SELECT JSON_ARRAY_INSERT(JSON '["a", ["b", "c"], "d"]', '$[1][0]', 1) AS json_data
 
 /*-----------------------*
@@ -24160,7 +24278,7 @@ SELECT JSON_ARRAY_INSERT(JSON '["a", ["b", "c"], "d"]', '$[1][0]', 1) AS json_da
 In the following example, `insert_each_element` defaults to `TRUE`, so
 `[1, 2]` is inserted as individual elements.
 
-```sql
+```zetasql
 SELECT JSON_ARRAY_INSERT(JSON '["a", "b", "c"]', '$[1]', [1, 2]) AS json_data
 
 /*-------------------*
@@ -24173,7 +24291,7 @@ SELECT JSON_ARRAY_INSERT(JSON '["a", "b", "c"]', '$[1]', [1, 2]) AS json_data
 In the following example, `insert_each_element` is `FALSE`, so `[1, 2]` is
 inserted as one element.
 
-```sql
+```zetasql
 SELECT JSON_ARRAY_INSERT(
   JSON '["a", "b", "c"]',
   '$[1]', [1, 2],
@@ -24190,7 +24308,7 @@ In the following example, path `$[7]` is larger than the length of the
 matched array, so the array is extended with JSON nulls and `"e"` is inserted at
 the end of the array.
 
-```sql
+```zetasql
 SELECT JSON_ARRAY_INSERT(JSON '["a", "b", "c", "d"]', '$[7]', "e") AS json_data
 
 /*--------------------------------------*
@@ -24202,7 +24320,7 @@ SELECT JSON_ARRAY_INSERT(JSON '["a", "b", "c", "d"]', '$[7]', "e") AS json_data
 
 In the following example, path `$.a` is an object, so the operation is ignored.
 
-```sql
+```zetasql
 SELECT JSON_ARRAY_INSERT(JSON '{"a": {}}', '$.a[0]', 2) AS json_data
 
 /*-----------*
@@ -24212,10 +24330,10 @@ SELECT JSON_ARRAY_INSERT(JSON '{"a": {}}', '$.a[0]', 2) AS json_data
  *-----------*/
 ```
 
-In the following example, path `$` does not specify a valid array position,
+In the following example, path `$` doesn't specify a valid array position,
 so the operation is ignored.
 
-```sql
+```zetasql
 SELECT JSON_ARRAY_INSERT(JSON '[1, 2]', '$', 3) AS json_data
 
 /*-----------*
@@ -24227,7 +24345,7 @@ SELECT JSON_ARRAY_INSERT(JSON '[1, 2]', '$', 3) AS json_data
 
 In the following example, a value is inserted into a JSON null.
 
-```sql
+```zetasql
 SELECT JSON_ARRAY_INSERT(JSON '{"a": null}', '$.a[2]', 10) AS json_data
 
 /*----------------------*
@@ -24240,7 +24358,7 @@ SELECT JSON_ARRAY_INSERT(JSON '{"a": null}', '$.a[2]', 10) AS json_data
 In the following example, the operation is ignored because you can't insert
 data into a JSON number.
 
-```sql
+```zetasql
 SELECT JSON_ARRAY_INSERT(JSON '1', '$[0]', 'r1') AS json_data
 
 /*-----------*
@@ -24254,11 +24372,11 @@ SELECT JSON_ARRAY_INSERT(JSON '1', '$[0]', 'r1') AS json_data
 
 Note: This function is deprecated. Consider using [JSON_QUERY][json-query].
 
-```sql
+```zetasql
 JSON_EXTRACT(json_string_expr, json_path)
 ```
 
-```sql
+```zetasql
 JSON_EXTRACT(json_expr, json_path)
 ```
 
@@ -24280,7 +24398,7 @@ Arguments:
     Extracts a SQL `NULL` when a JSON-formatted string `null` is encountered.
     For example:
 
-    ```sql
+    ```zetasql
     SELECT JSON_EXTRACT("null", "$") -- Returns a SQL NULL
     ```
 +   `json_expr`: JSON. For example:
@@ -24291,7 +24409,7 @@ Arguments:
 
     Extracts a JSON `null` when a JSON `null` is encountered.
 
-    ```sql
+    ```zetasql
     SELECT JSON_EXTRACT(JSON 'null', "$") -- Returns a JSON 'null'
     ```
 +   `json_path`: The [JSONPath][JSONPath-format]. This identifies the data that
@@ -24309,7 +24427,7 @@ For details, see [Differences between the JSON and JSON-formatted STRING types][
 
 In the following example, JSON data is extracted and returned as JSON.
 
-```sql
+```zetasql
 SELECT
   JSON_EXTRACT(JSON '{"class": {"students": [{"id": 5}, {"id": 12}]}}', '$.class')
   AS json_data;
@@ -24324,7 +24442,7 @@ SELECT
 In the following examples, JSON data is extracted and returned as
 JSON-formatted strings.
 
-```sql
+```zetasql
 SELECT JSON_EXTRACT(
   '{"class": {"students": [{"name": "Jane"}]}}',
   '$') AS json_text_string;
@@ -24336,7 +24454,7 @@ SELECT JSON_EXTRACT(
  *-----------------------------------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT JSON_EXTRACT(
   '{"class": {"students": []}}',
   '$') AS json_text_string;
@@ -24348,7 +24466,7 @@ SELECT JSON_EXTRACT(
  *-----------------------------------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT JSON_EXTRACT(
   '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}',
   '$') AS json_text_string;
@@ -24360,7 +24478,7 @@ SELECT JSON_EXTRACT(
  *-----------------------------------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT JSON_EXTRACT(
   '{"class": {"students": [{"name": "Jane"}]}}',
   '$.class.students[0]') AS first_student;
@@ -24372,7 +24490,7 @@ SELECT JSON_EXTRACT(
  *-----------------*/
 ```
 
-```sql
+```zetasql
 SELECT JSON_EXTRACT(
   '{"class": {"students": []}}',
   '$.class.students[0]') AS first_student;
@@ -24384,7 +24502,7 @@ SELECT JSON_EXTRACT(
  *-----------------*/
 ```
 
-```sql
+```zetasql
 SELECT JSON_EXTRACT(
   '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}',
   '$.class.students[0]') AS first_student;
@@ -24396,7 +24514,7 @@ SELECT JSON_EXTRACT(
  *-----------------*/
 ```
 
-```sql
+```zetasql
 SELECT JSON_EXTRACT(
   '{"class": {"students": [{"name": "Jane"}]}}',
   '$.class.students[1].name') AS second_student;
@@ -24408,7 +24526,7 @@ SELECT JSON_EXTRACT(
  *----------------*/
 ```
 
-```sql
+```zetasql
 SELECT JSON_EXTRACT(
   '{"class": {"students": []}}',
   '$.class.students[1].name') AS second_student;
@@ -24420,7 +24538,7 @@ SELECT JSON_EXTRACT(
  *----------------*/
 ```
 
-```sql
+```zetasql
 SELECT JSON_EXTRACT(
   '{"class": {"students": [{"name": "John"}, {"name": null}]}}',
   '$.class.students[1].name') AS second_student;
@@ -24432,7 +24550,7 @@ SELECT JSON_EXTRACT(
  *----------------*/
 ```
 
-```sql
+```zetasql
 SELECT JSON_EXTRACT(
   '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}',
   '$.class.students[1].name') AS second_student;
@@ -24444,7 +24562,7 @@ SELECT JSON_EXTRACT(
  *----------------*/
 ```
 
-```sql
+```zetasql
 SELECT JSON_EXTRACT(
   '{"class": {"students": [{"name": "Jane"}]}}',
   "$.class['students']") AS student_names;
@@ -24456,7 +24574,7 @@ SELECT JSON_EXTRACT(
  *------------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT JSON_EXTRACT(
   '{"class": {"students": []}}',
   "$.class['students']") AS student_names;
@@ -24468,7 +24586,7 @@ SELECT JSON_EXTRACT(
  *------------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT JSON_EXTRACT(
   '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}',
   "$.class['students']") AS student_names;
@@ -24480,12 +24598,12 @@ SELECT JSON_EXTRACT(
  *------------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT JSON_EXTRACT('{"a": null}', "$.a"); -- Returns a SQL NULL
 SELECT JSON_EXTRACT('{"a": null}', "$.b"); -- Returns a SQL NULL
 ```
 
-```sql
+```zetasql
 SELECT JSON_EXTRACT(JSON '{"a": null}', "$.a"); -- Returns a JSON 'null'
 SELECT JSON_EXTRACT(JSON '{"a": null}', "$.b"); -- Returns a SQL NULL
 ```
@@ -24501,11 +24619,11 @@ SELECT JSON_EXTRACT(JSON '{"a": null}', "$.b"); -- Returns a SQL NULL
 Note: This function is deprecated. Consider using
 [JSON_QUERY_ARRAY][json-query-array].
 
-```sql
+```zetasql
 JSON_EXTRACT_ARRAY(json_string_expr[, json_path])
 ```
 
-```sql
+```zetasql
 JSON_EXTRACT_ARRAY(json_expr[, json_path])
 ```
 
@@ -24530,7 +24648,7 @@ Arguments:
     JSON '["a", "b", {"key": "c"}]'
     ```
 +   `json_path`: The [JSONPath][JSONPath-format]. This identifies the data that
-    you want to obtain from the input. If this optional parameter is not
+    you want to obtain from the input. If this optional parameter isn't
     provided, then the JSONPath `$` symbol is applied, which means that all of
     the data is analyzed.
 
@@ -24546,7 +24664,7 @@ For details, see [Differences between the JSON and JSON-formatted STRING types][
 
 This extracts items in JSON to an array of `JSON` values:
 
-```sql
+```zetasql
 SELECT JSON_EXTRACT_ARRAY(
   JSON '{"fruits":["apples","oranges","grapes"]}','$.fruits'
   ) AS json_array;
@@ -24560,7 +24678,7 @@ SELECT JSON_EXTRACT_ARRAY(
 
 This extracts the items in a JSON-formatted string to a string array:
 
-```sql
+```zetasql
 SELECT JSON_EXTRACT_ARRAY('[1,2,3]') AS string_array;
 
 /*--------------*
@@ -24572,7 +24690,7 @@ SELECT JSON_EXTRACT_ARRAY('[1,2,3]') AS string_array;
 
 This extracts a string array and converts it to an integer array:
 
-```sql
+```zetasql
 SELECT ARRAY(
   SELECT CAST(integer_element AS INT64)
   FROM UNNEST(
@@ -24589,7 +24707,7 @@ SELECT ARRAY(
 
 This extracts string values in a JSON-formatted string to an array:
 
-```sql
+```zetasql
 -- Doesn't strip the double quotes
 SELECT JSON_EXTRACT_ARRAY('["apples", "oranges", "grapes"]', '$') AS string_array;
 
@@ -24614,7 +24732,7 @@ SELECT ARRAY(
 
 This extracts only the items in the `fruit` property to an array:
 
-```sql
+```zetasql
 SELECT JSON_EXTRACT_ARRAY(
   '{"fruit": [{"apples": 5, "oranges": 10}, {"apples": 2, "oranges": 4}], "vegetables": [{"lettuce": 7, "kale": 8}]}',
   '$.fruit'
@@ -24629,7 +24747,7 @@ SELECT JSON_EXTRACT_ARRAY(
 
 These are equivalent:
 
-```sql
+```zetasql
 SELECT JSON_EXTRACT_ARRAY('{"fruits": ["apples", "oranges", "grapes"]}', '$[fruits]') AS string_array;
 
 SELECT JSON_EXTRACT_ARRAY('{"fruits": ["apples", "oranges", "grapes"]}', '$.fruits') AS string_array;
@@ -24645,7 +24763,7 @@ SELECT JSON_EXTRACT_ARRAY('{"fruits": ["apples", "oranges", "grapes"]}', '$.frui
 In cases where a JSON key uses invalid JSONPath characters, you can escape those
 characters using single quotes and brackets, `[' ']`. For example:
 
-```sql
+```zetasql
 SELECT JSON_EXTRACT_ARRAY('{"a.b": {"c": ["world"]}}', "$['a.b'].c") AS hello;
 
 /*-----------*
@@ -24660,13 +24778,13 @@ handled:
 
 +  If a JSONPath is invalid, an error is thrown.
 +  If a JSON-formatted string is invalid, the output is NULL.
-+  It is okay to have empty arrays in the JSON-formatted string.
++  It's okay to have empty arrays in the JSON-formatted string.
 
-```sql
+```zetasql
 -- An error is thrown if you provide an invalid JSONPath.
 SELECT JSON_EXTRACT_ARRAY('["foo", "bar", "baz"]', 'INVALID_JSONPath') AS result;
 
--- If the JSONPath does not refer to an array, then NULL is returned.
+-- If the JSONPath doesn't refer to an array, then NULL is returned.
 SELECT JSON_EXTRACT_ARRAY('{"a": "foo"}', '$.a') AS result;
 
 /*--------*
@@ -24675,7 +24793,7 @@ SELECT JSON_EXTRACT_ARRAY('{"a": "foo"}', '$.a') AS result;
  | NULL   |
  *--------*/
 
--- If a key that does not exist is specified, then the result is NULL.
+-- If a key that doesn't exist is specified, then the result is NULL.
 SELECT JSON_EXTRACT_ARRAY('{"a": "foo"}', '$.b') AS result;
 
 /*--------*
@@ -24704,11 +24822,11 @@ SELECT JSON_EXTRACT_ARRAY('{"a": "foo", "b": []}', '$.b') AS result;
 
 Note: This function is deprecated. Consider using [JSON_VALUE][json-value].
 
-```sql
+```zetasql
 JSON_EXTRACT_SCALAR(json_string_expr[, json_path])
 ```
 
-```sql
+```zetasql
 JSON_EXTRACT_SCALAR(json_expr[, json_path])
 ```
 
@@ -24735,7 +24853,7 @@ Arguments:
     JSON '{"name": "Jane", "age": "6"}'
     ```
 +   `json_path`: The [JSONPath][JSONPath-format]. This identifies the data that
-    you want to obtain from the input. If this optional parameter is not
+    you want to obtain from the input. If this optional parameter isn't
     provided, then the JSONPath `$` symbol is applied, which means that all of
     the data is analyzed.
 
@@ -24754,7 +24872,7 @@ For details, see [Differences between the JSON and JSON-formatted STRING types][
 
 In the following example, `age` is extracted.
 
-```sql
+```zetasql
 SELECT JSON_EXTRACT_SCALAR(JSON '{"name": "Jakob", "age": "6" }', '$.age') AS scalar_age;
 
 /*------------*
@@ -24767,7 +24885,7 @@ SELECT JSON_EXTRACT_SCALAR(JSON '{"name": "Jakob", "age": "6" }', '$.age') AS sc
 The following example compares how results are returned for the `JSON_EXTRACT`
 and `JSON_EXTRACT_SCALAR` functions.
 
-```sql
+```zetasql
 SELECT JSON_EXTRACT('{"name": "Jakob", "age": "6" }', '$.name') AS json_name,
   JSON_EXTRACT_SCALAR('{"name": "Jakob", "age": "6" }', '$.name') AS scalar_name,
   JSON_EXTRACT('{"name": "Jakob", "age": "6" }', '$.age') AS json_age,
@@ -24780,7 +24898,7 @@ SELECT JSON_EXTRACT('{"name": "Jakob", "age": "6" }', '$.name') AS json_name,
  *-----------+-------------+----------+------------*/
 ```
 
-```sql
+```zetasql
 SELECT JSON_EXTRACT('{"fruits": ["apple", "banana"]}', '$.fruits') AS json_extract,
   JSON_EXTRACT_SCALAR('{"fruits": ["apple", "banana"]}', '$.fruits') AS json_extract_scalar;
 
@@ -24794,7 +24912,7 @@ SELECT JSON_EXTRACT('{"fruits": ["apple", "banana"]}', '$.fruits') AS json_extra
 In cases where a JSON key uses invalid JSONPath characters, you can escape those
 characters using single quotes and brackets, `[' ']`. For example:
 
-```sql
+```zetasql
 SELECT JSON_EXTRACT_SCALAR('{"a.b": {"c": "world"}}', "$['a.b'].c") AS hello;
 
 /*-------*
@@ -24815,11 +24933,11 @@ SELECT JSON_EXTRACT_SCALAR('{"a.b": {"c": "world"}}', "$['a.b'].c") AS hello;
 Note: This function is deprecated. Consider using
 [JSON_VALUE_ARRAY][json-value-array].
 
-```sql
+```zetasql
 JSON_EXTRACT_STRING_ARRAY(json_string_expr[, json_path])
 ```
 
-```sql
+```zetasql
 JSON_EXTRACT_STRING_ARRAY(json_expr[, json_path])
 ```
 
@@ -24829,7 +24947,7 @@ Extracts a JSON array of scalar values and converts it to a SQL `ARRAY<STRING>`
 value. In addition, this function:
 
 +   Removes the outermost quotes and unescapes the values.
-+   Returns a SQL `NULL` if the selected value is not an array or
++   Returns a SQL `NULL` if the selected value isn't an array or
     not an array containing only scalar values.
 +   Uses single quotes and brackets to escape invalid [JSONPath][JSONPath-format]
     characters in JSON keys. For example: `['a.b']`.
@@ -24847,7 +24965,7 @@ Arguments:
     JSON '["apples", "oranges", "grapes"]'
     ```
 +   `json_path`: The [JSONPath][JSONPath-format]. This identifies the data that
-    you want to obtain from the input. If this optional parameter is not
+    you want to obtain from the input. If this optional parameter isn't
     provided, then the JSONPath `$` symbol is applied, which means that all of
     the data is analyzed.
 
@@ -24869,7 +24987,7 @@ Caveats:
 
 This extracts items in JSON to a string array:
 
-```sql
+```zetasql
 SELECT JSON_EXTRACT_STRING_ARRAY(
   JSON '{"fruits": ["apples", "oranges", "grapes"]}', '$.fruits'
   ) AS string_array;
@@ -24884,7 +25002,7 @@ SELECT JSON_EXTRACT_STRING_ARRAY(
 The following example compares how results are returned for the
 `JSON_EXTRACT_ARRAY` and `JSON_EXTRACT_STRING_ARRAY` functions.
 
-```sql
+```zetasql
 SELECT JSON_EXTRACT_ARRAY('["apples", "oranges"]') AS json_array,
 JSON_EXTRACT_STRING_ARRAY('["apples", "oranges"]') AS string_array;
 
@@ -24897,7 +25015,7 @@ JSON_EXTRACT_STRING_ARRAY('["apples", "oranges"]') AS string_array;
 
 This extracts the items in a JSON-formatted string to a string array:
 
-```sql
+```zetasql
 -- Strips the double quotes
 SELECT JSON_EXTRACT_STRING_ARRAY('["foo", "bar", "baz"]', '$') AS string_array;
 
@@ -24910,7 +25028,7 @@ SELECT JSON_EXTRACT_STRING_ARRAY('["foo", "bar", "baz"]', '$') AS string_array;
 
 This extracts a string array and converts it to an integer array:
 
-```sql
+```zetasql
 SELECT ARRAY(
   SELECT CAST(integer_element AS INT64)
   FROM UNNEST(
@@ -24927,7 +25045,7 @@ SELECT ARRAY(
 
 These are equivalent:
 
-```sql
+```zetasql
 SELECT JSON_EXTRACT_STRING_ARRAY('{"fruits": ["apples", "oranges", "grapes"]}', '$[fruits]') AS string_array;
 
 SELECT JSON_EXTRACT_STRING_ARRAY('{"fruits": ["apples", "oranges", "grapes"]}', '$.fruits') AS string_array;
@@ -24943,7 +25061,7 @@ SELECT JSON_EXTRACT_STRING_ARRAY('{"fruits": ["apples", "oranges", "grapes"]}', 
 In cases where a JSON key uses invalid JSONPath characters, you can escape those
 characters using single quotes and brackets: `[' ']`. For example:
 
-```sql
+```zetasql
 SELECT JSON_EXTRACT_STRING_ARRAY('{"a.b": {"c": ["world"]}}', "$['a.b'].c") AS hello;
 
 /*---------*
@@ -24956,7 +25074,7 @@ SELECT JSON_EXTRACT_STRING_ARRAY('{"a.b": {"c": ["world"]}}', "$['a.b'].c") AS h
 The following examples explore how invalid requests and empty arrays are
 handled:
 
-```sql
+```zetasql
 -- An error is thrown if you provide an invalid JSONPath.
 SELECT JSON_EXTRACT_STRING_ARRAY('["foo", "bar", "baz"]', 'INVALID_JSONPath') AS result;
 
@@ -24978,7 +25096,7 @@ SELECT JSON_EXTRACT_STRING_ARRAY(NULL, '$') AS result;
  | NULL   |
  *--------*/
 
--- If a JSONPath does not match anything, then the output is NULL.
+-- If a JSONPath doesn't match anything, then the output is NULL.
 SELECT JSON_EXTRACT_STRING_ARRAY('{"a": ["foo", "bar", "baz"]}', '$.b') AS result;
 
 /*--------*
@@ -24987,7 +25105,7 @@ SELECT JSON_EXTRACT_STRING_ARRAY('{"a": ["foo", "bar", "baz"]}', '$.b') AS resul
  | NULL   |
  *--------*/
 
--- If a JSONPath matches an object that is not an array, then the output is NULL.
+-- If a JSONPath matches an object that isn't an array, then the output is NULL.
 SELECT JSON_EXTRACT_STRING_ARRAY('{"a": "foo"}', '$') AS result;
 
 /*--------*
@@ -25051,7 +25169,7 @@ SELECT JSON_EXTRACT_STRING_ARRAY('["world", 1, null]') AS result;
 #### Signature 1 
 <a id="json_object_signature1"></a>
 
-```sql
+```zetasql
 JSON_OBJECT([json_key, json_value][, ...])
 ```
 
@@ -25068,7 +25186,7 @@ Details:
 
 +   If two keys are passed in with the same name, only the first key-value pair
     is preserved.
-+   The order of key-value pairs is not preserved.
++   The order of key-value pairs isn't preserved.
 +   If `json_key` is `NULL`, an error is produced.
 
 **Return type**
@@ -25080,7 +25198,7 @@ Details:
 You can create an empty JSON object by passing in no JSON keys and values.
 For example:
 
-```sql
+```zetasql
 SELECT JSON_OBJECT() AS json_data
 
 /*-----------*
@@ -25092,7 +25210,7 @@ SELECT JSON_OBJECT() AS json_data
 
 You can create a JSON object by passing in key-value pairs. For example:
 
-```sql
+```zetasql
 SELECT JSON_OBJECT('foo', 10, 'bar', TRUE) AS json_data
 
 /*-----------------------*
@@ -25102,7 +25220,7 @@ SELECT JSON_OBJECT('foo', 10, 'bar', TRUE) AS json_data
  *-----------------------*/
 ```
 
-```sql
+```zetasql
 SELECT JSON_OBJECT('foo', 10, 'bar', ['a', 'b']) AS json_data
 
 /*----------------------------*
@@ -25112,7 +25230,7 @@ SELECT JSON_OBJECT('foo', 10, 'bar', ['a', 'b']) AS json_data
  *----------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT JSON_OBJECT('a', NULL, 'b', JSON 'null') AS json_data
 
 /*---------------------*
@@ -25122,7 +25240,7 @@ SELECT JSON_OBJECT('a', NULL, 'b', JSON 'null') AS json_data
  *---------------------*/
 ```
 
-```sql
+```zetasql
 SELECT JSON_OBJECT('a', 10, 'a', 'foo') AS json_data
 
 /*-----------*
@@ -25132,7 +25250,7 @@ SELECT JSON_OBJECT('a', 10, 'a', 'foo') AS json_data
  *-----------*/
 ```
 
-```sql
+```zetasql
 WITH Items AS (SELECT 'hello' AS key, 'world' AS value)
 SELECT JSON_OBJECT(key, value) AS json_data FROM Items
 
@@ -25145,14 +25263,14 @@ SELECT JSON_OBJECT(key, value) AS json_data FROM Items
 
 An error is produced if a SQL `NULL` is passed in for a JSON key.
 
-```sql
--- Error: A key cannot be NULL.
+```zetasql
+-- Error: A key can't be NULL.
 SELECT JSON_OBJECT(NULL, 1) AS json_data
 ```
 
 An error is produced if the number of JSON keys and JSON values don't match:
 
-```sql
+```zetasql
 -- Error: No matching signature for function JSON_OBJECT for argument types:
 -- STRING, INT64, STRING
 SELECT JSON_OBJECT('a', 1, 'b') AS json_data
@@ -25161,7 +25279,7 @@ SELECT JSON_OBJECT('a', 1, 'b') AS json_data
 #### Signature 2 
 <a id="json_object_signature2"></a>
 
-```sql
+```zetasql
 JSON_OBJECT(json_key_array, json_value_array)
 ```
 
@@ -25177,7 +25295,7 @@ Details:
 
 +   If two keys are passed in with the same name, only the first key-value pair
     is preserved.
-+   The order of key-value pairs is not preserved.
++   The order of key-value pairs isn't preserved.
 +   The number of keys must match the number of values, otherwise an error is
     produced.
 +   If any argument is `NULL`, an error is produced.
@@ -25192,7 +25310,7 @@ Details:
 You can create an empty JSON object by passing in an empty array of
 keys and values. For example:
 
-```sql
+```zetasql
 SELECT JSON_OBJECT(CAST([] AS ARRAY<STRING>), []) AS json_data
 
 /*-----------*
@@ -25205,7 +25323,7 @@ SELECT JSON_OBJECT(CAST([] AS ARRAY<STRING>), []) AS json_data
 You can create a JSON object by passing in an array of keys and an array of
 values. For example:
 
-```sql
+```zetasql
 SELECT JSON_OBJECT(['a', 'b'], [10, NULL]) AS json_data
 
 /*-------------------*
@@ -25215,7 +25333,7 @@ SELECT JSON_OBJECT(['a', 'b'], [10, NULL]) AS json_data
  *-------------------*/
 ```
 
-```sql
+```zetasql
 SELECT JSON_OBJECT(['a', 'b'], [JSON '10', JSON '"foo"']) AS json_data
 
 /*--------------------*
@@ -25225,7 +25343,7 @@ SELECT JSON_OBJECT(['a', 'b'], [JSON '10', JSON '"foo"']) AS json_data
  *--------------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   JSON_OBJECT(
     ['a', 'b'],
@@ -25239,7 +25357,7 @@ SELECT
  *------------------------------------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   JSON_OBJECT(
     ['a', 'b'],
@@ -25256,7 +25374,7 @@ SELECT
 The following query groups by `id` and then creates an array of keys and
 values from the rows with the same `id`:
 
-```sql
+```zetasql
 WITH
   Fruits AS (
     SELECT 0 AS id, 'color' AS json_key, 'red' AS json_value UNION ALL
@@ -25279,20 +25397,20 @@ GROUP BY id
 An error is produced if the size of the JSON keys and values arrays don't
 match:
 
-```sql
+```zetasql
 -- Error: The number of keys and values must match.
 SELECT JSON_OBJECT(['a', 'b'], [10]) AS json_data
 ```
 
 An error is produced if the array of JSON keys or JSON values is a SQL `NULL`.
 
-```sql
--- Error: The keys array cannot be NULL.
+```zetasql
+-- Error: The keys array can't be NULL.
 SELECT JSON_OBJECT(CAST(NULL AS ARRAY<STRING>), [10, 20]) AS json_data
 ```
 
-```sql
--- Error: The values array cannot be NULL.
+```zetasql
+-- Error: The values array can't be NULL.
 SELECT JSON_OBJECT(['a', 'b'], CAST(NULL AS ARRAY<INT64>)) AS json_data
 ```
 
@@ -25300,11 +25418,11 @@ SELECT JSON_OBJECT(['a', 'b'], CAST(NULL AS ARRAY<INT64>)) AS json_data
 
 ### `JSON_QUERY`
 
-```sql
+```zetasql
 JSON_QUERY(json_string_expr, json_path)
 ```
 
-```sql
+```zetasql
 JSON_QUERY(json_expr, json_path)
 ```
 
@@ -25327,7 +25445,7 @@ Arguments:
     Extracts a SQL `NULL` when a JSON-formatted string `null` is encountered.
     For example:
 
-    ```sql
+    ```zetasql
     SELECT JSON_QUERY("null", "$") -- Returns a SQL NULL
     ```
 +   `json_expr`: JSON. For example:
@@ -25338,7 +25456,7 @@ Arguments:
 
     Extracts a JSON `null` when a JSON `null` is encountered.
 
-    ```sql
+    ```zetasql
     SELECT JSON_QUERY(JSON 'null', "$") -- Returns a JSON 'null'
     ```
 +   `json_path`: The [JSONPath][JSONPath-format]. This identifies the data that
@@ -25356,7 +25474,7 @@ For details, see [Differences between the JSON and JSON-formatted STRING types][
 
 In the following example, JSON data is extracted and returned as JSON.
 
-```sql
+```zetasql
 SELECT
   JSON_QUERY(
     JSON '{"class": {"students": [{"id": 5}, {"id": 12}]}}',
@@ -25372,7 +25490,7 @@ SELECT
 In the following examples, JSON data is extracted and returned as
 JSON-formatted strings.
 
-```sql
+```zetasql
 SELECT
   JSON_QUERY('{"class": {"students": [{"name": "Jane"}]}}', '$') AS json_text_string;
 
@@ -25383,7 +25501,7 @@ SELECT
  *-----------------------------------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT JSON_QUERY('{"class": {"students": []}}', '$') AS json_text_string;
 
 /*-----------------------------------------------------------*
@@ -25393,7 +25511,7 @@ SELECT JSON_QUERY('{"class": {"students": []}}', '$') AS json_text_string;
  *-----------------------------------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   JSON_QUERY(
     '{"class": {"students": [{"name": "John"},{"name": "Jamie"}]}}',
@@ -25406,7 +25524,7 @@ SELECT
  *-----------------------------------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   JSON_QUERY(
     '{"class": {"students": [{"name": "Jane"}]}}',
@@ -25419,7 +25537,7 @@ SELECT
  *-----------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   JSON_QUERY('{"class": {"students": []}}', '$.class.students[0]') AS first_student;
 
@@ -25430,7 +25548,7 @@ SELECT
  *-----------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   JSON_QUERY(
     '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}',
@@ -25443,7 +25561,7 @@ SELECT
  *-----------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   JSON_QUERY(
     '{"class": {"students": [{"name": "Jane"}]}}',
@@ -25456,7 +25574,7 @@ SELECT
  *----------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   JSON_QUERY(
     '{"class": {"students": []}}',
@@ -25469,7 +25587,7 @@ SELECT
  *----------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   JSON_QUERY(
     '{"class": {"students": [{"name": "John"}, {"name": null}]}}',
@@ -25482,7 +25600,7 @@ SELECT
  *----------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   JSON_QUERY(
     '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}',
@@ -25495,7 +25613,7 @@ SELECT
  *----------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   JSON_QUERY(
     '{"class": {"students": [{"name": "Jane"}]}}',
@@ -25508,7 +25626,7 @@ SELECT
  *------------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   JSON_QUERY(
     '{"class": {"students": []}}',
@@ -25521,7 +25639,7 @@ SELECT
  *------------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   JSON_QUERY(
     '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}',
@@ -25534,12 +25652,12 @@ SELECT
  *------------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT JSON_QUERY('{"a": null}', "$.a"); -- Returns a SQL NULL
 SELECT JSON_QUERY('{"a": null}', "$.b"); -- Returns a SQL NULL
 ```
 
-```sql
+```zetasql
 SELECT JSON_QUERY(JSON '{"a": null}', "$.a"); -- Returns a JSON 'null'
 SELECT JSON_QUERY(JSON '{"a": null}', "$.b"); -- Returns a SQL NULL
 ```
@@ -25552,11 +25670,11 @@ SELECT JSON_QUERY(JSON '{"a": null}', "$.b"); -- Returns a SQL NULL
 
 ### `JSON_QUERY_ARRAY`
 
-```sql
+```zetasql
 JSON_QUERY_ARRAY(json_string_expr[, json_path])
 ```
 
-```sql
+```zetasql
 JSON_QUERY_ARRAY(json_expr[, json_path])
 ```
 
@@ -25581,7 +25699,7 @@ Arguments:
     JSON '["a", "b", {"key": "c"}]'
     ```
 +   `json_path`: The [JSONPath][JSONPath-format]. This identifies the data that
-    you want to obtain from the input. If this optional parameter is not
+    you want to obtain from the input. If this optional parameter isn't
     provided, then the JSONPath `$` symbol is applied, which means that all of
     the data is analyzed.
 
@@ -25597,7 +25715,7 @@ For details, see [Differences between the JSON and JSON-formatted STRING types][
 
 This extracts items in JSON to an array of `JSON` values:
 
-```sql
+```zetasql
 SELECT JSON_QUERY_ARRAY(
   JSON '{"fruits": ["apples", "oranges", "grapes"]}', '$.fruits'
   ) AS json_array;
@@ -25611,7 +25729,7 @@ SELECT JSON_QUERY_ARRAY(
 
 This extracts the items in a JSON-formatted string to a string array:
 
-```sql
+```zetasql
 SELECT JSON_QUERY_ARRAY('[1, 2, 3]') AS string_array;
 
 /*--------------*
@@ -25623,7 +25741,7 @@ SELECT JSON_QUERY_ARRAY('[1, 2, 3]') AS string_array;
 
 This extracts a string array and converts it to an integer array:
 
-```sql
+```zetasql
 SELECT ARRAY(
   SELECT CAST(integer_element AS INT64)
   FROM UNNEST(
@@ -25640,7 +25758,7 @@ SELECT ARRAY(
 
 This extracts string values in a JSON-formatted string to an array:
 
-```sql
+```zetasql
 -- Doesn't strip the double quotes
 SELECT JSON_QUERY_ARRAY('["apples", "oranges", "grapes"]', '$') AS string_array;
 
@@ -25651,7 +25769,7 @@ SELECT JSON_QUERY_ARRAY('["apples", "oranges", "grapes"]', '$') AS string_array;
  *---------------------------------*/
 ```
 
-```sql
+```zetasql
 -- Strips the double quotes
 SELECT ARRAY(
   SELECT JSON_VALUE(string_element, '$')
@@ -25667,7 +25785,7 @@ SELECT ARRAY(
 
 This extracts only the items in the `fruit` property to an array:
 
-```sql
+```zetasql
 SELECT JSON_QUERY_ARRAY(
   '{"fruit": [{"apples": 5, "oranges": 10}, {"apples": 2, "oranges": 4}], "vegetables": [{"lettuce": 7, "kale": 8}]}',
   '$.fruit'
@@ -25682,7 +25800,7 @@ SELECT JSON_QUERY_ARRAY(
 
 These are equivalent:
 
-```sql
+```zetasql
 SELECT JSON_QUERY_ARRAY('{"fruits": ["apples", "oranges", "grapes"]}', '$.fruits') AS string_array;
 
 SELECT JSON_QUERY_ARRAY('{"fruits": ["apples", "oranges", "grapes"]}', '$."fruits"') AS string_array;
@@ -25698,7 +25816,7 @@ SELECT JSON_QUERY_ARRAY('{"fruits": ["apples", "oranges", "grapes"]}', '$."fruit
 In cases where a JSON key uses invalid JSONPath characters, you can escape those
 characters using double quotes: `" "`. For example:
 
-```sql
+```zetasql
 SELECT JSON_QUERY_ARRAY('{"a.b": {"c": ["world"]}}', '$."a.b".c') AS hello;
 
 /*-----------*
@@ -25710,11 +25828,11 @@ SELECT JSON_QUERY_ARRAY('{"a.b": {"c": ["world"]}}', '$."a.b".c') AS hello;
 
 The following examples show how invalid requests and empty arrays are handled:
 
-```sql
+```zetasql
 -- An error is returned if you provide an invalid JSONPath.
 SELECT JSON_QUERY_ARRAY('["foo", "bar", "baz"]', 'INVALID_JSONPath') AS result;
 
--- If the JSONPath does not refer to an array, then NULL is returned.
+-- If the JSONPath doesn't refer to an array, then NULL is returned.
 SELECT JSON_QUERY_ARRAY('{"a": "foo"}', '$.a') AS result;
 
 /*--------*
@@ -25723,7 +25841,7 @@ SELECT JSON_QUERY_ARRAY('{"a": "foo"}', '$.a') AS result;
  | NULL   |
  *--------*/
 
--- If a key that does not exist is specified, then the result is NULL.
+-- If a key that doesn't exist is specified, then the result is NULL.
 SELECT JSON_QUERY_ARRAY('{"a": "foo"}', '$.b') AS result;
 
 /*--------*
@@ -25748,7 +25866,7 @@ SELECT JSON_QUERY_ARRAY('{"a": "foo", "b": []}', '$.b') AS result;
 
 ### `JSON_REMOVE`
 
-```sql
+```zetasql
 JSON_REMOVE(json_expr, json_path[, ...])
 ```
 
@@ -25789,7 +25907,7 @@ Details:
 In the following example, the path `$[1]` is matched and removes
 `["b", "c"]`.
 
-```sql
+```zetasql
 SELECT JSON_REMOVE(JSON '["a", ["b", "c"], "d"]', '$[1]') AS json_data
 
 /*-----------*
@@ -25802,7 +25920,7 @@ SELECT JSON_REMOVE(JSON '["a", ["b", "c"], "d"]', '$[1]') AS json_data
 You can use the field access operator to pass JSON data into this function.
 For example:
 
-```sql
+```zetasql
 WITH T AS (SELECT JSON '{"a": {"b": 10, "c": 20}}' AS data)
 SELECT JSON_REMOVE(data.a, '$.b') AS json_data FROM T
 
@@ -25816,7 +25934,7 @@ SELECT JSON_REMOVE(data.a, '$.b') AS json_data FROM T
 In the following example, the first path `$[1]` is matched and removes
 `["b", "c"]`. Then, the second path `$[1]` is matched and removes `"d"`.
 
-```sql
+```zetasql
 SELECT JSON_REMOVE(JSON '["a", ["b", "c"], "d"]', '$[1]', '$[1]') AS json_data
 
 /*-----------*
@@ -25829,7 +25947,7 @@ SELECT JSON_REMOVE(JSON '["a", ["b", "c"], "d"]', '$[1]', '$[1]') AS json_data
 The structure of an empty array is preserved when all elements are deleted
 from it. For example:
 
-```sql
+```zetasql
 SELECT JSON_REMOVE(JSON '["a", ["b", "c"], "d"]', '$[1]', '$[1]', '$[0]') AS json_data
 
 /*-----------*
@@ -25842,7 +25960,7 @@ SELECT JSON_REMOVE(JSON '["a", ["b", "c"], "d"]', '$[1]', '$[1]', '$[0]') AS jso
 In the following example, the path `$.a.b.c` is matched and removes the
 `"c":"d"` key-value pair from the JSON object.
 
-```sql
+```zetasql
 SELECT JSON_REMOVE(JSON '{"a": {"b": {"c": "d"}}}', '$.a.b.c') AS json_data
 
 /*----------------*
@@ -25855,7 +25973,7 @@ SELECT JSON_REMOVE(JSON '{"a": {"b": {"c": "d"}}}', '$.a.b.c') AS json_data
 In the following example, the path `$.a.b` is matched and removes the
 `"b": {"c":"d"}` key-value pair from the JSON object.
 
-```sql
+```zetasql
 SELECT JSON_REMOVE(JSON '{"a": {"b": {"c": "d"}}}', '$.a.b') AS json_data
 
 /*-----------*
@@ -25865,10 +25983,10 @@ SELECT JSON_REMOVE(JSON '{"a": {"b": {"c": "d"}}}', '$.a.b') AS json_data
  *-----------*/
 ```
 
-In the following example, the path `$.b` is not valid, so the operation makes
+In the following example, the path `$.b` isn't valid, so the operation makes
 no changes.
 
-```sql
+```zetasql
 SELECT JSON_REMOVE(JSON '{"a": 1}', '$.b') AS json_data
 
 /*-----------*
@@ -25881,7 +25999,7 @@ SELECT JSON_REMOVE(JSON '{"a": 1}', '$.b') AS json_data
 In the following example, path `$.a.b` and `$.b` don't exist, so those
 operations are ignored, but the others are processed.
 
-```sql
+```zetasql
 SELECT JSON_REMOVE(JSON '{"a": [1, 2, 3]}', '$.a[0]', '$.a.b', '$.b', '$.a[0]') AS json_data
 
 /*-----------*
@@ -25893,15 +26011,15 @@ SELECT JSON_REMOVE(JSON '{"a": [1, 2, 3]}', '$.a[0]', '$.a.b', '$.b', '$.a[0]') 
 
 If you pass in `$` as the path, an error is produced. For example:
 
-```sql
--- Error: The JSONPath cannot be '$'
+```zetasql
+-- Error: The JSONPath can't be '$'
 SELECT JSON_REMOVE(JSON '{}', '$') AS json_data
 ```
 
 In the following example, the operation is ignored because you can't remove
 data from a JSON null.
 
-```sql
+```zetasql
 SELECT JSON_REMOVE(JSON 'null', '$.a.b') AS json_data
 
 /*-----------*
@@ -25913,7 +26031,7 @@ SELECT JSON_REMOVE(JSON 'null', '$.a.b') AS json_data
 
 ### `JSON_SET`
 
-```sql
+```zetasql
 JSON_SET(
   json_expr,
   json_path_value_pair[, ...]
@@ -25988,7 +26106,7 @@ Details:
 In the following example, the path `$` matches the entire `JSON` value
 and replaces it with `{"b": 2, "c": 3}`.
 
-```sql
+```zetasql
 SELECT JSON_SET(JSON '{"a": 1}', '$', JSON '{"b": 2, "c": 3}') AS json_data
 
 /*---------------*
@@ -26001,7 +26119,7 @@ SELECT JSON_SET(JSON '{"a": 1}', '$', JSON '{"b": 2, "c": 3}') AS json_data
 In the following example, `create_if_missing` is `FALSE` and the path `$.b`
 doesn't exist, so the set operation is ignored.
 
-```sql
+```zetasql
 SELECT JSON_SET(
   JSON '{"a": 1}',
   "$.b", 999,
@@ -26017,7 +26135,7 @@ SELECT JSON_SET(
 In the following example, `create_if_missing` is `TRUE` and the path `$.a`
 exists, so the value is replaced.
 
-```sql
+```zetasql
 SELECT JSON_SET(
   JSON '{"a": 1}',
   "$.a", 999,
@@ -26030,10 +26148,10 @@ SELECT JSON_SET(
  *--------------*/
 ```
 
-In the following example, the path `$.a` is matched, but `$.a.b` does not
+In the following example, the path `$.a` is matched, but `$.a.b` doesn't
 exist, so the new path and the value are inserted.
 
-```sql
+```zetasql
 SELECT JSON_SET(JSON '{"a": {}}', '$.a.b', 100) AS json_data
 
 /*-----------------*
@@ -26046,7 +26164,7 @@ SELECT JSON_SET(JSON '{"a": {}}', '$.a.b', 100) AS json_data
 In the following example, the path prefix `$` points to a JSON null, so the
 remainder of the path is created for the value `100`.
 
-```sql
+```zetasql
 SELECT JSON_SET(JSON 'null', '$.a.b', 100) AS json_data
 
 /*-----------------*
@@ -26060,7 +26178,7 @@ In the following example, the path `$.a.c` implies that the value at `$.a` is
 a JSON object but it's not. This part of the operation is ignored, but the other
 parts of the operation are completed successfully.
 
-```sql
+```zetasql
 SELECT JSON_SET(
   JSON '{"a": 1}',
   '$.b', 2,
@@ -26077,7 +26195,7 @@ SELECT JSON_SET(
 In the following example, the path `$.a[2]` implies that the value for `$.a` is
 an array, but it's not, so the operation is ignored for that value.
 
-```sql
+```zetasql
 SELECT JSON_SET(
   JSON '{"a": 1}',
   '$.a[2]', 100,
@@ -26093,7 +26211,7 @@ SELECT JSON_SET(
 In the following example, the path `$[1]` is matched and replaces the
 array element value with `foo`.
 
-```sql
+```zetasql
 SELECT JSON_SET(JSON '["a", ["b", "c"], "d"]', '$[1]', "foo") AS json_data
 
 /*-----------------*
@@ -26106,7 +26224,7 @@ SELECT JSON_SET(JSON '["a", ["b", "c"], "d"]', '$[1]', "foo") AS json_data
 In the following example, the path `$[1][0]` is matched and replaces the
 array element value with `foo`.
 
-```sql
+```zetasql
 SELECT JSON_SET(JSON '["a", ["b", "c"], "d"]', '$[1][0]', "foo") AS json_data
 
 /*-----------------------*
@@ -26120,7 +26238,7 @@ In the following example, the path prefix `$` points to a JSON null, so the
 remainder of the path is created. The resulting array is padded with
 JSON nulls and appended with `foo`.
 
-```sql
+```zetasql
 SELECT JSON_SET(JSON 'null', '$[0][3]', "foo")
 
 /*--------------------------*
@@ -26134,7 +26252,7 @@ In the following example, the path `$[1]` is matched, the matched array is
 extended since `$[1][4]` is larger than the existing array, and then `foo` is
 inserted in the array.
 
-```sql
+```zetasql
 SELECT JSON_SET(JSON '["a", ["b", "c"], "d"]', '$[1][4]', "foo") AS json_data
 
 /*-------------------------------------*
@@ -26145,9 +26263,9 @@ SELECT JSON_SET(JSON '["a", ["b", "c"], "d"]', '$[1][4]', "foo") AS json_data
 ```
 
 In the following example, the path `$[1][0][0]` implies that the value of
-`$[1][0]` is an array, but it is not, so the operation is ignored.
+`$[1][0]` is an array, but it isn't, so the operation is ignored.
 
-```sql
+```zetasql
 SELECT JSON_SET(JSON '["a", ["b", "c"], "d"]', '$[1][0][0]', "foo") AS json_data
 
 /*---------------------*
@@ -26162,7 +26280,7 @@ the matched array. The array length is extended and the remainder of the path
 is recursively created. The operation continues to the path `$[1][2][1]`
 and inserts `foo`.
 
-```sql
+```zetasql
 SELECT JSON_SET(JSON '["a", ["b", "c"], "d"]', '$[1][2][1]', "foo") AS json_data
 
 /*----------------------------------*
@@ -26175,7 +26293,7 @@ SELECT JSON_SET(JSON '["a", ["b", "c"], "d"]', '$[1][2][1]', "foo") AS json_data
 In the following example, because the `JSON` object is empty, key `b` is
 inserted, and the remainder of the path is recursively created.
 
-```sql
+```zetasql
 SELECT JSON_SET(JSON '{}', '$.b[2].d', 100) AS json_data
 
 /*-----------------------------*
@@ -26187,7 +26305,7 @@ SELECT JSON_SET(JSON '{}', '$.b[2].d', 100) AS json_data
 
 In the following example, multiple values are set.
 
-```sql
+```zetasql
 SELECT JSON_SET(
   JSON '{"a": 1, "b": {"c":3}, "d": [4]}',
   '$.a', 'v1',
@@ -26203,7 +26321,7 @@ SELECT JSON_SET(
 
 ### `JSON_STRIP_NULLS`
 
-```sql
+```zetasql
 JSON_STRIP_NULLS(
   json_expr
   [, json_path ]
@@ -26225,10 +26343,10 @@ Arguments:
     `json_expr`.
 +   `include_arrays`: A named argument that's either
      `TRUE` (default) or `FALSE`. If `TRUE` or omitted, the function removes
-     JSON nulls from JSON arrays. If `FALSE`, does not.
+     JSON nulls from JSON arrays. If `FALSE`, doesn't.
 +   `remove_empty`: A named argument that's either
      `TRUE` or `FALSE` (default). If `TRUE`, the function removes empty
-     JSON objects after JSON nulls are removed. If `FALSE` or omitted, does not.
+     JSON objects after JSON nulls are removed. If `FALSE` or omitted, doesn't.
 
     If `remove_empty` is `TRUE` and `include_arrays` is `TRUE` or omitted,
     the function additionally removes empty JSON arrays.
@@ -26254,7 +26372,7 @@ Details:
 
 In the following example, all JSON nulls are removed.
 
-```sql
+```zetasql
 SELECT JSON_STRIP_NULLS(JSON '{"a": null, "b": "c"}') AS json_data
 
 /*-----------*
@@ -26266,7 +26384,7 @@ SELECT JSON_STRIP_NULLS(JSON '{"a": null, "b": "c"}') AS json_data
 
 In the following example, all JSON nulls are removed from a JSON array.
 
-```sql
+```zetasql
 SELECT JSON_STRIP_NULLS(JSON '[1, null, 2, null]') AS json_data
 
 /*-----------*
@@ -26277,9 +26395,9 @@ SELECT JSON_STRIP_NULLS(JSON '[1, null, 2, null]') AS json_data
 ```
 
 In the following example, `include_arrays` is set as `FALSE` so that JSON nulls
-are not removed from JSON arrays.
+aren't removed from JSON arrays.
 
-```sql
+```zetasql
 SELECT JSON_STRIP_NULLS(JSON '[1, null, 2, null]', include_arrays=>FALSE) AS json_data
 
 /*-----------------*
@@ -26292,7 +26410,7 @@ SELECT JSON_STRIP_NULLS(JSON '[1, null, 2, null]', include_arrays=>FALSE) AS jso
 In the following example, `remove_empty` is omitted and defaults to
 `FALSE`, and the empty structures are retained.
 
-```sql
+```zetasql
 SELECT JSON_STRIP_NULLS(JSON '[1, null, 2, null, [null]]') AS json_data
 
 /*-----------*
@@ -26305,7 +26423,7 @@ SELECT JSON_STRIP_NULLS(JSON '[1, null, 2, null, [null]]') AS json_data
 In the following example, `remove_empty` is set as `TRUE`, and the
 empty structures are removed.
 
-```sql
+```zetasql
 SELECT JSON_STRIP_NULLS(
   JSON '[1, null, 2, null, [null]]',
   remove_empty=>TRUE) AS json_data
@@ -26321,7 +26439,7 @@ In the following examples, `remove_empty` is set as `TRUE`, and the
 empty structures are removed. Because no JSON data is left the function
 returns JSON null.
 
-```sql
+```zetasql
 SELECT JSON_STRIP_NULLS(JSON '{"a": null}', remove_empty=>TRUE) AS json_data
 
 /*-----------*
@@ -26331,7 +26449,7 @@ SELECT JSON_STRIP_NULLS(JSON '{"a": null}', remove_empty=>TRUE) AS json_data
  *-----------*/
 ```
 
-```sql
+```zetasql
 SELECT JSON_STRIP_NULLS(JSON '{"a": [null]}', remove_empty=>TRUE) AS json_data
 
 /*-----------*
@@ -26344,7 +26462,7 @@ SELECT JSON_STRIP_NULLS(JSON '{"a": [null]}', remove_empty=>TRUE) AS json_data
 In the following example, empty structures are removed for JSON objects,
 but not JSON arrays.
 
-```sql
+```zetasql
 SELECT JSON_STRIP_NULLS(
   JSON '{"a": {"b": {"c": null}}, "d": [null], "e": [], "f": 1}',
   include_arrays=>FALSE,
@@ -26360,7 +26478,7 @@ SELECT JSON_STRIP_NULLS(
 In the following example, empty structures are removed for both JSON objects,
 and JSON arrays.
 
-```sql
+```zetasql
 SELECT JSON_STRIP_NULLS(
   JSON '{"a": {"b": {"c": null}}, "d": [null], "e": [], "f": 1}',
   remove_empty=>TRUE) AS json_data
@@ -26375,7 +26493,7 @@ SELECT JSON_STRIP_NULLS(
 In the following example, because no JSON data is left, the function returns a
 JSON null.
 
-```sql
+```zetasql
 SELECT JSON_STRIP_NULLS(JSON 'null') AS json_data
 
 /*-----------*
@@ -26388,7 +26506,7 @@ SELECT JSON_STRIP_NULLS(JSON 'null') AS json_data
 ### `JSON_TYPE` 
 <a id="json_type"></a>
 
-```sql
+```zetasql
 JSON_TYPE(json_expr)
 ```
 
@@ -26407,7 +26525,7 @@ Arguments:
     ```
 
     If this expression is SQL `NULL`, the function returns SQL `NULL`. If the
-    extracted JSON value is not a valid JSON type, an error is produced.
+    extracted JSON value isn't a valid JSON type, an error is produced.
 
 **Return type**
 
@@ -26415,7 +26533,7 @@ Arguments:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT json_val, JSON_TYPE(json_val) AS type
 FROM
   UNNEST(
@@ -26445,11 +26563,11 @@ FROM
 
 ### `JSON_VALUE`
 
-```sql
+```zetasql
 JSON_VALUE(json_string_expr[, json_path])
 ```
 
-```sql
+```zetasql
 JSON_VALUE(json_expr[, json_path])
 ```
 
@@ -26476,7 +26594,7 @@ Arguments:
     JSON '{"name": "Jane", "age": "6"}'
     ```
 +   `json_path`: The [JSONPath][JSONPath-format]. This identifies the data that
-    you want to obtain from the input. If this optional parameter is not
+    you want to obtain from the input. If this optional parameter isn't
     provided, then the JSONPath `$` symbol is applied, which means that all of
     the data is analyzed.
 
@@ -26495,7 +26613,7 @@ For details, see [Differences between the JSON and JSON-formatted STRING types][
 
 In the following example, JSON data is extracted and returned as a scalar value.
 
-```sql
+```zetasql
 SELECT JSON_VALUE(JSON '{"name": "Jakob", "age": "6" }', '$.age') AS scalar_age;
 
 /*------------*
@@ -26508,7 +26626,7 @@ SELECT JSON_VALUE(JSON '{"name": "Jakob", "age": "6" }', '$.age') AS scalar_age;
 The following example compares how results are returned for the `JSON_QUERY`
 and `JSON_VALUE` functions.
 
-```sql
+```zetasql
 SELECT JSON_QUERY('{"name": "Jakob", "age": "6"}', '$.name') AS json_name,
   JSON_VALUE('{"name": "Jakob", "age": "6"}', '$.name') AS scalar_name,
   JSON_QUERY('{"name": "Jakob", "age": "6"}', '$.age') AS json_age,
@@ -26521,7 +26639,7 @@ SELECT JSON_QUERY('{"name": "Jakob", "age": "6"}', '$.name') AS json_name,
  *-----------+-------------+----------+------------*/
 ```
 
-```sql
+```zetasql
 SELECT JSON_QUERY('{"fruits": ["apple", "banana"]}', '$.fruits') AS json_query,
   JSON_VALUE('{"fruits": ["apple", "banana"]}', '$.fruits') AS json_value;
 
@@ -26535,7 +26653,7 @@ SELECT JSON_QUERY('{"fruits": ["apple", "banana"]}', '$.fruits') AS json_query,
 In cases where a JSON key uses invalid JSONPath characters, you can escape those
 characters using double quotes. For example:
 
-```sql
+```zetasql
 SELECT JSON_VALUE('{"a.b": {"c": "world"}}', '$."a.b".c') AS hello;
 
 /*-------*
@@ -26551,11 +26669,11 @@ SELECT JSON_VALUE('{"a.b": {"c": "world"}}', '$."a.b".c') AS hello;
 
 ### `JSON_VALUE_ARRAY`
 
-```sql
+```zetasql
 JSON_VALUE_ARRAY(json_string_expr[, json_path])
 ```
 
-```sql
+```zetasql
 JSON_VALUE_ARRAY(json_expr[, json_path])
 ```
 
@@ -26566,7 +26684,7 @@ Extracts a JSON array of scalar values and converts it to a SQL
 In addition, this function:
 
 +   Removes the outermost quotes and unescapes the values.
-+   Returns a SQL `NULL` if the selected value is not an array or
++   Returns a SQL `NULL` if the selected value isn't an array or
     not an array containing only scalar values.
 +   Uses double quotes to escape invalid [JSONPath][JSONPath-format] characters
     in JSON keys. For example: `"a.b"`.
@@ -26584,7 +26702,7 @@ Arguments:
     JSON '["apples", "oranges", "grapes"]'
     ```
 +   `json_path`: The [JSONPath][JSONPath-format]. This identifies the data that
-    you want to obtain from the input. If this optional parameter is not
+    you want to obtain from the input. If this optional parameter isn't
     provided, then the JSONPath `$` symbol is applied, which means that all of
     the data is analyzed.
 
@@ -26606,7 +26724,7 @@ Caveats:
 
 This extracts items in JSON to a string array:
 
-```sql
+```zetasql
 SELECT JSON_VALUE_ARRAY(
   JSON '{"fruits": ["apples", "oranges", "grapes"]}', '$.fruits'
   ) AS string_array;
@@ -26621,7 +26739,7 @@ SELECT JSON_VALUE_ARRAY(
 The following example compares how results are returned for the
 `JSON_QUERY_ARRAY` and `JSON_VALUE_ARRAY` functions.
 
-```sql
+```zetasql
 SELECT JSON_QUERY_ARRAY('["apples", "oranges"]') AS json_array,
        JSON_VALUE_ARRAY('["apples", "oranges"]') AS string_array;
 
@@ -26634,7 +26752,7 @@ SELECT JSON_QUERY_ARRAY('["apples", "oranges"]') AS json_array,
 
 This extracts the items in a JSON-formatted string to a string array:
 
-```sql
+```zetasql
 -- Strips the double quotes
 SELECT JSON_VALUE_ARRAY('["foo", "bar", "baz"]', '$') AS string_array;
 
@@ -26647,7 +26765,7 @@ SELECT JSON_VALUE_ARRAY('["foo", "bar", "baz"]', '$') AS string_array;
 
 This extracts a string array and converts it to an integer array:
 
-```sql
+```zetasql
 SELECT ARRAY(
   SELECT CAST(integer_element AS INT64)
   FROM UNNEST(
@@ -26664,7 +26782,7 @@ SELECT ARRAY(
 
 These are equivalent:
 
-```sql
+```zetasql
 SELECT JSON_VALUE_ARRAY('{"fruits": ["apples", "oranges", "grapes"]}', '$.fruits') AS string_array;
 SELECT JSON_VALUE_ARRAY('{"fruits": ["apples", "oranges", "grapes"]}', '$."fruits"') AS string_array;
 
@@ -26679,7 +26797,7 @@ SELECT JSON_VALUE_ARRAY('{"fruits": ["apples", "oranges", "grapes"]}', '$."fruit
 In cases where a JSON key uses invalid JSONPath characters, you can escape those
 characters using double quotes: `" "`. For example:
 
-```sql
+```zetasql
 SELECT JSON_VALUE_ARRAY('{"a.b": {"c": ["world"]}}', '$."a.b".c') AS hello;
 
 /*---------*
@@ -26692,7 +26810,7 @@ SELECT JSON_VALUE_ARRAY('{"a.b": {"c": ["world"]}}', '$."a.b".c') AS hello;
 The following examples explore how invalid requests and empty arrays are
 handled:
 
-```sql
+```zetasql
 -- An error is thrown if you provide an invalid JSONPath.
 SELECT JSON_VALUE_ARRAY('["foo", "bar", "baz"]', 'INVALID_JSONPath') AS result;
 
@@ -26714,7 +26832,7 @@ SELECT JSON_VALUE_ARRAY(NULL, '$') AS result;
  | NULL   |
  *--------*/
 
--- If a JSONPath does not match anything, then the output is NULL.
+-- If a JSONPath doesn't match anything, then the output is NULL.
 SELECT JSON_VALUE_ARRAY('{"a": ["foo", "bar", "baz"]}', '$.b') AS result;
 
 /*--------*
@@ -26723,7 +26841,7 @@ SELECT JSON_VALUE_ARRAY('{"a": ["foo", "bar", "baz"]}', '$.b') AS result;
  | NULL   |
  *--------*/
 
--- If a JSONPath matches an object that is not an array, then the output is NULL.
+-- If a JSONPath matches an object that isn't an array, then the output is NULL.
 SELECT JSON_VALUE_ARRAY('{"a": "foo"}', '$') AS result;
 
 /*--------*
@@ -26779,7 +26897,7 @@ SELECT JSON_VALUE_ARRAY('["world", null, 1]') AS result;
 ### `LAX_BOOL` 
 <a id="lax_bool"></a>
 
-```sql
+```zetasql
 LAX_BOOL(json_expr)
 ```
 
@@ -26843,9 +26961,9 @@ Details:
 
 **Examples**
 
-Example with input that is a JSON boolean:
+Example with input that's a JSON boolean:
 
-```sql
+```zetasql
 SELECT LAX_BOOL(JSON 'true') AS result;
 
 /*--------*
@@ -26857,7 +26975,7 @@ SELECT LAX_BOOL(JSON 'true') AS result;
 
 Examples with inputs that are JSON strings:
 
-```sql
+```zetasql
 SELECT LAX_BOOL(JSON '"true"') AS result;
 
 /*--------*
@@ -26867,7 +26985,7 @@ SELECT LAX_BOOL(JSON '"true"') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_BOOL(JSON '"true "') AS result;
 
 /*--------*
@@ -26877,7 +26995,7 @@ SELECT LAX_BOOL(JSON '"true "') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_BOOL(JSON '"foo"') AS result;
 
 /*--------*
@@ -26889,7 +27007,7 @@ SELECT LAX_BOOL(JSON '"foo"') AS result;
 
 Examples with inputs that are JSON numbers:
 
-```sql
+```zetasql
 SELECT LAX_BOOL(JSON '10') AS result;
 
 /*--------*
@@ -26899,7 +27017,7 @@ SELECT LAX_BOOL(JSON '10') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_BOOL(JSON '0') AS result;
 
 /*--------*
@@ -26909,7 +27027,7 @@ SELECT LAX_BOOL(JSON '0') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_BOOL(JSON '0.0') AS result;
 
 /*--------*
@@ -26919,7 +27037,7 @@ SELECT LAX_BOOL(JSON '0.0') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_BOOL(JSON '-1.1') AS result;
 
 /*--------*
@@ -26932,7 +27050,7 @@ SELECT LAX_BOOL(JSON '-1.1') AS result;
 ### `LAX_BOOL_ARRAY` 
 <a id="lax_bool_array"></a>
 
-```sql
+```zetasql
 LAX_BOOL_ARRAY(json_expr)
 ```
 
@@ -26978,9 +27096,9 @@ Details:
 
 **Examples**
 
-Example with input that is a JSON array of booleans:
+Example with input that's a JSON array of booleans:
 
-```sql
+```zetasql
 SELECT LAX_BOOL_ARRAY(JSON '[true, false]') AS result;
 
 /*---------------*
@@ -26992,7 +27110,7 @@ SELECT LAX_BOOL_ARRAY(JSON '[true, false]') AS result;
 
 Examples with inputs that are JSON arrays of strings:
 
-```sql
+```zetasql
 SELECT LAX_BOOL_ARRAY(JSON '["true", "false", "TRue", "FaLse"]') AS result;
 
 /*----------------------------*
@@ -27002,7 +27120,7 @@ SELECT LAX_BOOL_ARRAY(JSON '["true", "false", "TRue", "FaLse"]') AS result;
  *----------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_BOOL_ARRAY(JSON '["true ", "foo", "null", ""]') AS result;
 
 /*-------------------------*
@@ -27012,9 +27130,9 @@ SELECT LAX_BOOL_ARRAY(JSON '["true ", "foo", "null", ""]') AS result;
  *-------------------------*/
 ```
 
-Examples with input that is JSON array of numbers:
+Examples with input that's JSON array of numbers:
 
-```sql
+```zetasql
 SELECT LAX_BOOL_ARRAY(JSON '[10, 0, 0.0, -1.1]') AS result;
 
 /*--------------------------*
@@ -27024,9 +27142,9 @@ SELECT LAX_BOOL_ARRAY(JSON '[10, 0, 0.0, -1.1]') AS result;
  *--------------------------*/
 ```
 
-Example with input that is JSON array of other types:
+Example with input that's JSON array of other types:
 
-```sql
+```zetasql
 SELECT LAX_BOOL_ARRAY(JSON '[null, {"foo": 1}, [1]]') AS result;
 
 /*--------------------*
@@ -27036,9 +27154,9 @@ SELECT LAX_BOOL_ARRAY(JSON '[null, {"foo": 1}, [1]]') AS result;
  *--------------------*/
 ```
 
-Examples with inputs that are not JSON arrays:
+Examples with inputs that aren't JSON arrays:
 
-```sql
+```zetasql
 SELECT LAX_BOOL_ARRAY(NULL) AS result;
 
 /*--------*
@@ -27048,7 +27166,7 @@ SELECT LAX_BOOL_ARRAY(NULL) AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_BOOL_ARRAY(JSON 'null') AS result;
 
 /*--------*
@@ -27058,7 +27176,7 @@ SELECT LAX_BOOL_ARRAY(JSON 'null') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_BOOL_ARRAY(JSON 'true') AS result;
 
 /*--------*
@@ -27071,7 +27189,7 @@ SELECT LAX_BOOL_ARRAY(JSON 'true') AS result;
 ### `LAX_DOUBLE` 
 <a id="lax_double"></a>
 
-```sql
+```zetasql
 LAX_DOUBLE(json_expr)
 ```
 
@@ -27137,7 +27255,7 @@ Details:
 
 Examples with inputs that are JSON numbers:
 
-```sql
+```zetasql
 SELECT LAX_DOUBLE(JSON '9.8') AS result;
 
 /*--------*
@@ -27147,7 +27265,7 @@ SELECT LAX_DOUBLE(JSON '9.8') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_DOUBLE(JSON '9') AS result;
 
 /*--------*
@@ -27157,7 +27275,7 @@ SELECT LAX_DOUBLE(JSON '9') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_DOUBLE(JSON '9007199254740993') AS result;
 
 /*--------------------*
@@ -27167,7 +27285,7 @@ SELECT LAX_DOUBLE(JSON '9007199254740993') AS result;
  *--------------------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_DOUBLE(JSON '1e100') AS result;
 
 /*--------*
@@ -27179,7 +27297,7 @@ SELECT LAX_DOUBLE(JSON '1e100') AS result;
 
 Examples with inputs that are JSON booleans:
 
-```sql
+```zetasql
 SELECT LAX_DOUBLE(JSON 'true') AS result;
 
 /*--------*
@@ -27189,7 +27307,7 @@ SELECT LAX_DOUBLE(JSON 'true') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_DOUBLE(JSON 'false') AS result;
 
 /*--------*
@@ -27201,7 +27319,7 @@ SELECT LAX_DOUBLE(JSON 'false') AS result;
 
 Examples with inputs that are JSON strings:
 
-```sql
+```zetasql
 SELECT LAX_DOUBLE(JSON '"10"') AS result;
 
 /*--------*
@@ -27211,7 +27329,7 @@ SELECT LAX_DOUBLE(JSON '"10"') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_DOUBLE(JSON '"1.1"') AS result;
 
 /*--------*
@@ -27221,7 +27339,7 @@ SELECT LAX_DOUBLE(JSON '"1.1"') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_DOUBLE(JSON '"1.1e2"') AS result;
 
 /*--------*
@@ -27231,7 +27349,7 @@ SELECT LAX_DOUBLE(JSON '"1.1e2"') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_DOUBLE(JSON '"9007199254740993"') AS result;
 
 /*--------------------*
@@ -27241,7 +27359,7 @@ SELECT LAX_DOUBLE(JSON '"9007199254740993"') AS result;
  *--------------------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_DOUBLE(JSON '"+1.5"') AS result;
 
 /*--------*
@@ -27251,7 +27369,7 @@ SELECT LAX_DOUBLE(JSON '"+1.5"') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_DOUBLE(JSON '"NaN"') AS result;
 
 /*--------*
@@ -27261,7 +27379,7 @@ SELECT LAX_DOUBLE(JSON '"NaN"') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_DOUBLE(JSON '"Inf"') AS result;
 
 /*----------*
@@ -27271,7 +27389,7 @@ SELECT LAX_DOUBLE(JSON '"Inf"') AS result;
  *----------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_DOUBLE(JSON '"-InfiNiTY"') AS result;
 
 /*-----------*
@@ -27281,7 +27399,7 @@ SELECT LAX_DOUBLE(JSON '"-InfiNiTY"') AS result;
  *-----------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_DOUBLE(JSON '"foo"') AS result;
 
 /*--------*
@@ -27294,7 +27412,7 @@ SELECT LAX_DOUBLE(JSON '"foo"') AS result;
 ### `LAX_DOUBLE_ARRAY` 
 <a id="lax_double_array"></a>
 
-```sql
+```zetasql
 LAX_DOUBLE_ARRAY(json_expr)
 ```
 
@@ -27345,7 +27463,7 @@ Details:
 
 Examples with inputs that are JSON arrays of numbers:
 
-```sql
+```zetasql
 SELECT LAX_DOUBLE_ARRAY(JSON '[9.8, 9]') AS result;
 
 /*-------------*
@@ -27355,7 +27473,7 @@ SELECT LAX_DOUBLE_ARRAY(JSON '[9.8, 9]') AS result;
  *-------------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_DOUBLE_ARRAY(JSON '[9007199254740993, -9007199254740993]') AS result;
 
 /*-------------------------------------------*
@@ -27365,7 +27483,7 @@ SELECT LAX_DOUBLE_ARRAY(JSON '[9007199254740993, -9007199254740993]') AS result;
  *-------------------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_DOUBLE_ARRAY(JSON '[-1.79769e+308, 2.22507e-308, 1.79769e+308, 1e100]') AS result;
 
 /*-----------------------------------------------------*
@@ -27375,9 +27493,9 @@ SELECT LAX_DOUBLE_ARRAY(JSON '[-1.79769e+308, 2.22507e-308, 1.79769e+308, 1e100]
  *-----------------------------------------------------*/
 ```
 
-Example with inputs that is JSON array of booleans:
+Example with inputs that's JSON array of booleans:
 
-```sql
+```zetasql
 SELECT LAX_DOUBLE_ARRAY(JSON '[true, false]') AS result;
 
 /*----------------*
@@ -27389,7 +27507,7 @@ SELECT LAX_DOUBLE_ARRAY(JSON '[true, false]') AS result;
 
 Examples with inputs that are JSON arrays of strings:
 
-```sql
+```zetasql
 SELECT LAX_DOUBLE_ARRAY(JSON '["10", "1.1", "1.1e2", "+1.5"]') AS result;
 
 /*-------------------------*
@@ -27399,7 +27517,7 @@ SELECT LAX_DOUBLE_ARRAY(JSON '["10", "1.1", "1.1e2", "+1.5"]') AS result;
  *-------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_DOUBLE_ARRAY(JSON '["9007199254740993"]') AS result;
 
 /*----------------------*
@@ -27409,7 +27527,7 @@ SELECT LAX_DOUBLE_ARRAY(JSON '["9007199254740993"]') AS result;
  *----------------------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_DOUBLE_ARRAY(JSON '["NaN", "Inf", "-InfiNiTY"]') AS result;
 
 /*----------------------------*
@@ -27419,7 +27537,7 @@ SELECT LAX_DOUBLE_ARRAY(JSON '["NaN", "Inf", "-InfiNiTY"]') AS result;
  *----------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_DOUBLE_ARRAY(JSON '["foo", "null", ""]') AS result;
 
 /*--------------------*
@@ -27429,9 +27547,9 @@ SELECT LAX_DOUBLE_ARRAY(JSON '["foo", "null", ""]') AS result;
  *--------------------*/
 ```
 
-Example with input that is JSON array of other types:
+Example with input that's JSON array of other types:
 
-```sql
+```zetasql
 SELECT LAX_DOUBLE_ARRAY(JSON '[null, {"foo": 1}, [1]]') AS result;
 
 /*--------------------*
@@ -27441,9 +27559,9 @@ SELECT LAX_DOUBLE_ARRAY(JSON '[null, {"foo": 1}, [1]]') AS result;
  *--------------------*/
 ```
 
-Examples with inputs that are not JSON arrays:
+Examples with inputs that aren't JSON arrays:
 
-```sql
+```zetasql
 SELECT LAX_DOUBLE_ARRAY(NULL) AS result;
 
 /*--------*
@@ -27453,7 +27571,7 @@ SELECT LAX_DOUBLE_ARRAY(NULL) AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_DOUBLE_ARRAY(JSON 'null') AS result;
 
 /*--------*
@@ -27463,7 +27581,7 @@ SELECT LAX_DOUBLE_ARRAY(JSON 'null') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_DOUBLE_ARRAY(JSON '9.8') AS result;
 
 /*--------*
@@ -27476,7 +27594,7 @@ SELECT LAX_DOUBLE_ARRAY(JSON '9.8') AS result;
 ### `LAX_FLOAT` 
 <a id="lax_float"></a>
 
-```sql
+```zetasql
 LAX_FLOAT(json_expr)
 ```
 
@@ -27541,7 +27659,7 @@ Details:
 
 Examples with inputs that are JSON numbers:
 
-```sql
+```zetasql
 SELECT LAX_FLOAT(JSON '9.8') AS result;
 
 /*--------*
@@ -27551,7 +27669,7 @@ SELECT LAX_FLOAT(JSON '9.8') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_FLOAT(JSON '9') AS result;
 
 /*--------*
@@ -27561,7 +27679,7 @@ SELECT LAX_FLOAT(JSON '9') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_FLOAT(JSON '16777217') AS result;
 
 /*--------------------*
@@ -27571,7 +27689,7 @@ SELECT LAX_FLOAT(JSON '16777217') AS result;
  *--------------------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_FLOAT(JSON '1e100') AS result;
 
 /*--------*
@@ -27583,7 +27701,7 @@ SELECT LAX_FLOAT(JSON '1e100') AS result;
 
 Examples with inputs that are JSON booleans:
 
-```sql
+```zetasql
 SELECT LAX_FLOAT(JSON 'true') AS result;
 
 /*--------*
@@ -27593,7 +27711,7 @@ SELECT LAX_FLOAT(JSON 'true') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_FLOAT(JSON 'false') AS result;
 
 /*--------*
@@ -27605,7 +27723,7 @@ SELECT LAX_FLOAT(JSON 'false') AS result;
 
 Examples with inputs that are JSON strings:
 
-```sql
+```zetasql
 SELECT LAX_FLOAT(JSON '"10"') AS result;
 
 /*--------*
@@ -27615,7 +27733,7 @@ SELECT LAX_FLOAT(JSON '"10"') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_FLOAT(JSON '"1.1"') AS result;
 
 /*--------*
@@ -27625,7 +27743,7 @@ SELECT LAX_FLOAT(JSON '"1.1"') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_FLOAT(JSON '"1.1e2"') AS result;
 
 /*--------*
@@ -27635,7 +27753,7 @@ SELECT LAX_FLOAT(JSON '"1.1e2"') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_FLOAT(JSON '"16777217"') AS result;
 
 /*--------------------*
@@ -27645,7 +27763,7 @@ SELECT LAX_FLOAT(JSON '"16777217"') AS result;
  *--------------------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_FLOAT(JSON '"+1.5"') AS result;
 
 /*--------*
@@ -27655,7 +27773,7 @@ SELECT LAX_FLOAT(JSON '"+1.5"') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_FLOAT(JSON '"NaN"') AS result;
 
 /*--------*
@@ -27665,7 +27783,7 @@ SELECT LAX_FLOAT(JSON '"NaN"') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_FLOAT(JSON '"Inf"') AS result;
 
 /*----------*
@@ -27675,7 +27793,7 @@ SELECT LAX_FLOAT(JSON '"Inf"') AS result;
  *----------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_FLOAT(JSON '"-InfiNiTY"') AS result;
 
 /*-----------*
@@ -27685,7 +27803,7 @@ SELECT LAX_FLOAT(JSON '"-InfiNiTY"') AS result;
  *-----------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_FLOAT(JSON '"foo"') AS result;
 
 /*--------*
@@ -27698,7 +27816,7 @@ SELECT LAX_FLOAT(JSON '"foo"') AS result;
 ### `LAX_FLOAT_ARRAY` 
 <a id="lax_float_array"></a>
 
-```sql
+```zetasql
 LAX_FLOAT_ARRAY(json_expr)
 ```
 
@@ -27748,7 +27866,7 @@ Details:
 
 Examples with inputs that are JSON arrays of numbers:
 
-```sql
+```zetasql
 SELECT LAX_FLOAT_ARRAY(JSON '[9.8, 9]') AS result;
 
 /*------------*
@@ -27758,7 +27876,7 @@ SELECT LAX_FLOAT_ARRAY(JSON '[9.8, 9]') AS result;
  *------------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_FLOAT_ARRAY(JSON '[16777217, -16777217]') AS result;
 
 /*---------------------------*
@@ -27768,7 +27886,7 @@ SELECT LAX_FLOAT_ARRAY(JSON '[16777217, -16777217]') AS result;
  *---------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_FLOAT_ARRAY(JSON '[-3.40282e+38, 1.17549e-38, 3.40282e+38]') AS result;
 
 /*------------------------------------------*
@@ -27778,7 +27896,7 @@ SELECT LAX_FLOAT_ARRAY(JSON '[-3.40282e+38, 1.17549e-38, 3.40282e+38]') AS resul
  *------------------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_FLOAT_ARRAY(JSON '[-1.79769e+308, 2.22507e-308, 1.79769e+308, 1e100]') AS result;
 
 /*-----------------------*
@@ -27788,9 +27906,9 @@ SELECT LAX_FLOAT_ARRAY(JSON '[-1.79769e+308, 2.22507e-308, 1.79769e+308, 1e100]'
  *-----------------------*/
 ```
 
-Example with inputs that is JSON array of booleans:
+Example with inputs that's JSON array of booleans:
 
-```sql
+```zetasql
 SELECT LAX_FLOAT_ARRAY(JSON '[true, false]') AS result;
 
 /*----------------*
@@ -27802,7 +27920,7 @@ SELECT LAX_FLOAT_ARRAY(JSON '[true, false]') AS result;
 
 Examples with inputs that are JSON arrays of strings:
 
-```sql
+```zetasql
 SELECT LAX_FLOAT_ARRAY(JSON '["10", "1.1", "1.1e2", "+1.5"]') AS result;
 
 /*-------------------------*
@@ -27812,7 +27930,7 @@ SELECT LAX_FLOAT_ARRAY(JSON '["10", "1.1", "1.1e2", "+1.5"]') AS result;
  *------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_FLOAT_ARRAY(JSON '["16777217"]') AS result;
 
 /*--------------*
@@ -27822,7 +27940,7 @@ SELECT LAX_FLOAT_ARRAY(JSON '["16777217"]') AS result;
  *--------------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_FLOAT_ARRAY(JSON '["NaN", "Inf", "-InfiNiTY"]') AS result;
 
 /*----------------------------*
@@ -27832,7 +27950,7 @@ SELECT LAX_FLOAT_ARRAY(JSON '["NaN", "Inf", "-InfiNiTY"]') AS result;
  *----------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_FLOAT_ARRAY(JSON '["foo", "null", ""]') AS result;
 
 /*--------------------*
@@ -27842,9 +27960,9 @@ SELECT LAX_FLOAT_ARRAY(JSON '["foo", "null", ""]') AS result;
  *--------------------*/
 ```
 
-Example with input that is JSON array of other types:
+Example with input that's JSON array of other types:
 
-```sql
+```zetasql
 SELECT LAX_FLOAT_ARRAY(JSON '[null, {"foo": 1}, [1]]') AS result;
 
 /*--------------------*
@@ -27854,9 +27972,9 @@ SELECT LAX_FLOAT_ARRAY(JSON '[null, {"foo": 1}, [1]]') AS result;
  *--------------------*/
 ```
 
-Examples with inputs that are not JSON arrays:
+Examples with inputs that aren't JSON arrays:
 
-```sql
+```zetasql
 SELECT LAX_FLOAT_ARRAY(NULL) AS result;
 
 /*--------*
@@ -27866,7 +27984,7 @@ SELECT LAX_FLOAT_ARRAY(NULL) AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_FLOAT_ARRAY(JSON 'null') AS result;
 
 /*--------*
@@ -27876,7 +27994,7 @@ SELECT LAX_FLOAT_ARRAY(JSON 'null') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_FLOAT_ARRAY(JSON '9.8') AS result;
 
 /*--------*
@@ -27889,7 +28007,7 @@ SELECT LAX_FLOAT_ARRAY(JSON '9.8') AS result;
 ### `LAX_INT32` 
 <a id="lax_int32"></a>
 
-```sql
+```zetasql
 LAX_INT32(json_expr)
 ```
 
@@ -27954,7 +28072,7 @@ Details:
 
 Examples with inputs that are JSON numbers:
 
-```sql
+```zetasql
 SELECT LAX_INT32(JSON '10') AS result;
 
 /*--------*
@@ -27964,7 +28082,7 @@ SELECT LAX_INT32(JSON '10') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_INT32(JSON '10.0') AS result;
 
 /*--------*
@@ -27974,7 +28092,7 @@ SELECT LAX_INT32(JSON '10.0') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_INT32(JSON '1.1') AS result;
 
 /*--------*
@@ -27984,7 +28102,7 @@ SELECT LAX_INT32(JSON '1.1') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_INT32(JSON '3.5') AS result;
 
 /*--------*
@@ -27994,7 +28112,7 @@ SELECT LAX_INT32(JSON '3.5') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_INT32(JSON '1.1e2') AS result;
 
 /*--------*
@@ -28004,7 +28122,7 @@ SELECT LAX_INT32(JSON '1.1e2') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_INT32(JSON '1e100') AS result;
 
 /*--------*
@@ -28016,7 +28134,7 @@ SELECT LAX_INT32(JSON '1e100') AS result;
 
 Examples with inputs that are JSON booleans:
 
-```sql
+```zetasql
 SELECT LAX_INT32(JSON 'true') AS result;
 
 /*--------*
@@ -28026,7 +28144,7 @@ SELECT LAX_INT32(JSON 'true') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_INT32(JSON 'false') AS result;
 
 /*--------*
@@ -28038,7 +28156,7 @@ SELECT LAX_INT32(JSON 'false') AS result;
 
 Examples with inputs that are JSON strings:
 
-```sql
+```zetasql
 SELECT LAX_INT32(JSON '"10"') AS result;
 
 /*--------*
@@ -28048,7 +28166,7 @@ SELECT LAX_INT32(JSON '"10"') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_INT32(JSON '"1.1"') AS result;
 
 /*--------*
@@ -28058,7 +28176,7 @@ SELECT LAX_INT32(JSON '"1.1"') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_INT32(JSON '"1.1e2"') AS result;
 
 /*--------*
@@ -28068,7 +28186,7 @@ SELECT LAX_INT32(JSON '"1.1e2"') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_INT32(JSON '"+1.5"') AS result;
 
 /*--------*
@@ -28078,7 +28196,7 @@ SELECT LAX_INT32(JSON '"+1.5"') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_INT32(JSON '"1e100"') AS result;
 
 /*--------*
@@ -28088,7 +28206,7 @@ SELECT LAX_INT32(JSON '"1e100"') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_INT32(JSON '"foo"') AS result;
 
 /*--------*
@@ -28101,7 +28219,7 @@ SELECT LAX_INT32(JSON '"foo"') AS result;
 ### `LAX_INT32_ARRAY` 
 <a id="lax_int32_array"></a>
 
-```sql
+```zetasql
 LAX_INT32_ARRAY(json_expr)
 ```
 
@@ -28149,7 +28267,7 @@ Details:
 
 Examples with inputs that are JSON arrays of numbers:
 
-```sql
+```zetasql
 SELECT LAX_INT32_ARRAY(JSON '[10, 10.0, 1.1, 3.5, 1.1e2]') AS result;
 
 /*---------------------*
@@ -28159,7 +28277,7 @@ SELECT LAX_INT32_ARRAY(JSON '[10, 10.0, 1.1, 3.5, 1.1e2]') AS result;
  *---------------- ----*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_INT32_ARRAY(JSON '[1e100]') AS result;
 
 /*--------*
@@ -28169,9 +28287,9 @@ SELECT LAX_INT32_ARRAY(JSON '[1e100]') AS result;
  *--------*/
 ```
 
-Example with inputs that is JSON array of booleans:
+Example with inputs that's JSON array of booleans:
 
-```sql
+```zetasql
 SELECT LAX_INT32_ARRAY(JSON '[true, false]') AS result;
 
 /*--------*
@@ -28183,7 +28301,7 @@ SELECT LAX_INT32_ARRAY(JSON '[true, false]') AS result;
 
 Examples with inputs that are JSON strings:
 
-```sql
+```zetasql
 SELECT LAX_INT32_ARRAY(JSON '["10", "1.1", "1.1e2", "+1.5"]') AS result;
 
 /*-----------------*
@@ -28193,7 +28311,7 @@ SELECT LAX_INT32_ARRAY(JSON '["10", "1.1", "1.1e2", "+1.5"]') AS result;
  *-----------------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_INT32_ARRAY(JSON '["1e100"]') AS result;
 
 /*--------*
@@ -28203,7 +28321,7 @@ SELECT LAX_INT32_ARRAY(JSON '["1e100"]') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_INT32_ARRAY(JSON '["foo", "null", ""]') AS result;
 
 /*--------------------*
@@ -28213,9 +28331,9 @@ SELECT LAX_INT32_ARRAY(JSON '["foo", "null", ""]') AS result;
  *--------------------*/
 ```
 
-Example with input that is JSON array of other types:
+Example with input that's JSON array of other types:
 
-```sql
+```zetasql
 SELECT LAX_INT32_ARRAY(JSON '[null, {"foo": 1}, [1]]') AS result;
 
 /*--------------------*
@@ -28225,9 +28343,9 @@ SELECT LAX_INT32_ARRAY(JSON '[null, {"foo": 1}, [1]]') AS result;
  *--------------------*/
 ```
 
-Examples with inputs that are not JSON arrays:
+Examples with inputs that aren't JSON arrays:
 
-```sql
+```zetasql
 SELECT LAX_INT32_ARRAY(NULL) AS result;
 
 /*--------*
@@ -28237,7 +28355,7 @@ SELECT LAX_INT32_ARRAY(NULL) AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_INT32_ARRAY(JSON 'null') AS result;
 
 /*--------*
@@ -28247,7 +28365,7 @@ SELECT LAX_INT32_ARRAY(JSON 'null') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_INT32_ARRAY(JSON '9.8') AS result;
 
 /*--------*
@@ -28260,7 +28378,7 @@ SELECT LAX_INT32_ARRAY(JSON '9.8') AS result;
 ### `LAX_INT64` 
 <a id="lax_int64"></a>
 
-```sql
+```zetasql
 LAX_INT64(json_expr)
 ```
 
@@ -28325,7 +28443,7 @@ Details:
 
 Examples with inputs that are JSON numbers:
 
-```sql
+```zetasql
 SELECT LAX_INT64(JSON '10') AS result;
 
 /*--------*
@@ -28335,7 +28453,7 @@ SELECT LAX_INT64(JSON '10') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_INT64(JSON '10.0') AS result;
 
 /*--------*
@@ -28345,7 +28463,7 @@ SELECT LAX_INT64(JSON '10.0') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_INT64(JSON '1.1') AS result;
 
 /*--------*
@@ -28355,7 +28473,7 @@ SELECT LAX_INT64(JSON '1.1') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_INT64(JSON '3.5') AS result;
 
 /*--------*
@@ -28365,7 +28483,7 @@ SELECT LAX_INT64(JSON '3.5') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_INT64(JSON '1.1e2') AS result;
 
 /*--------*
@@ -28375,7 +28493,7 @@ SELECT LAX_INT64(JSON '1.1e2') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_INT64(JSON '1e100') AS result;
 
 /*--------*
@@ -28387,7 +28505,7 @@ SELECT LAX_INT64(JSON '1e100') AS result;
 
 Examples with inputs that are JSON booleans:
 
-```sql
+```zetasql
 SELECT LAX_INT64(JSON 'true') AS result;
 
 /*--------*
@@ -28397,7 +28515,7 @@ SELECT LAX_INT64(JSON 'true') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_INT64(JSON 'false') AS result;
 
 /*--------*
@@ -28409,7 +28527,7 @@ SELECT LAX_INT64(JSON 'false') AS result;
 
 Examples with inputs that are JSON strings:
 
-```sql
+```zetasql
 SELECT LAX_INT64(JSON '"10"') AS result;
 
 /*--------*
@@ -28419,7 +28537,7 @@ SELECT LAX_INT64(JSON '"10"') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_INT64(JSON '"1.1"') AS result;
 
 /*--------*
@@ -28429,7 +28547,7 @@ SELECT LAX_INT64(JSON '"1.1"') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_INT64(JSON '"1.1e2"') AS result;
 
 /*--------*
@@ -28439,7 +28557,7 @@ SELECT LAX_INT64(JSON '"1.1e2"') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_INT64(JSON '"+1.5"') AS result;
 
 /*--------*
@@ -28449,7 +28567,7 @@ SELECT LAX_INT64(JSON '"+1.5"') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_INT64(JSON '"1e100"') AS result;
 
 /*--------*
@@ -28459,7 +28577,7 @@ SELECT LAX_INT64(JSON '"1e100"') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_INT64(JSON '"foo"') AS result;
 
 /*--------*
@@ -28472,7 +28590,7 @@ SELECT LAX_INT64(JSON '"foo"') AS result;
 ### `LAX_INT64_ARRAY` 
 <a id="lax_int64_array"></a>
 
-```sql
+```zetasql
 LAX_INT64_ARRAY(json_expr)
 ```
 
@@ -28520,7 +28638,7 @@ Details:
 
 Examples with inputs that are JSON arrays of numbers:
 
-```sql
+```zetasql
 SELECT LAX_INT64_ARRAY(JSON '[10, 10.0, 1.1, 3.5, 1.1e2]') AS result;
 
 /*---------------------*
@@ -28530,7 +28648,7 @@ SELECT LAX_INT64_ARRAY(JSON '[10, 10.0, 1.1, 3.5, 1.1e2]') AS result;
  *---------------------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_INT64_ARRAY(JSON '[1e100]') AS result;
 
 /*--------*
@@ -28540,9 +28658,9 @@ SELECT LAX_INT64_ARRAY(JSON '[1e100]') AS result;
  *--------*/
 ```
 
-Example with inputs that is JSON array of booleans:
+Example with inputs that's JSON array of booleans:
 
-```sql
+```zetasql
 SELECT LAX_INT64_ARRAY(JSON '[true, false]') AS result;
 
 /*--------*
@@ -28554,7 +28672,7 @@ SELECT LAX_INT64_ARRAY(JSON '[true, false]') AS result;
 
 Examples with inputs that are JSON strings:
 
-```sql
+```zetasql
 SELECT LAX_INT64_ARRAY(JSON '["10", "1.1", "1.1e2", "+1.5"]') AS result;
 
 /*-----------------*
@@ -28564,7 +28682,7 @@ SELECT LAX_INT64_ARRAY(JSON '["10", "1.1", "1.1e2", "+1.5"]') AS result;
  *-----------------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_INT64_ARRAY(JSON '["1e100"]') AS result;
 
 /*--------*
@@ -28574,7 +28692,7 @@ SELECT LAX_INT64_ARRAY(JSON '["1e100"]') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_INT64_ARRAY(JSON '["foo", "null", ""]') AS result;
 
 /*--------------------*
@@ -28584,9 +28702,9 @@ SELECT LAX_INT64_ARRAY(JSON '["foo", "null", ""]') AS result;
  *--------------------*/
 ```
 
-Example with input that is JSON array of other types:
+Example with input that's JSON array of other types:
 
-```sql
+```zetasql
 SELECT LAX_INT64_ARRAY(JSON '[null, {"foo": 1}, [1]]') AS result;
 
 /*--------------------*
@@ -28596,9 +28714,9 @@ SELECT LAX_INT64_ARRAY(JSON '[null, {"foo": 1}, [1]]') AS result;
  *--------------------*/
 ```
 
-Examples with inputs that are not JSON arrays:
+Examples with inputs that aren't JSON arrays:
 
-```sql
+```zetasql
 SELECT LAX_INT64_ARRAY(NULL) AS result;
 
 /*--------*
@@ -28608,7 +28726,7 @@ SELECT LAX_INT64_ARRAY(NULL) AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_INT64_ARRAY(JSON 'null') AS result;
 
 /*--------*
@@ -28618,7 +28736,7 @@ SELECT LAX_INT64_ARRAY(JSON 'null') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_INT64_ARRAY(JSON '9.8') AS result;
 
 /*--------*
@@ -28631,7 +28749,7 @@ SELECT LAX_INT64_ARRAY(JSON '9.8') AS result;
 ### `LAX_STRING` 
 <a id="lax_string"></a>
 
-```sql
+```zetasql
 LAX_STRING(json_expr)
 ```
 
@@ -28692,7 +28810,7 @@ Details:
 
 Examples with inputs that are JSON strings:
 
-```sql
+```zetasql
 SELECT LAX_STRING(JSON '"purple"') AS result;
 
 /*--------*
@@ -28702,7 +28820,7 @@ SELECT LAX_STRING(JSON '"purple"') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_STRING(JSON '"10"') AS result;
 
 /*--------*
@@ -28714,7 +28832,7 @@ SELECT LAX_STRING(JSON '"10"') AS result;
 
 Examples with inputs that are JSON booleans:
 
-```sql
+```zetasql
 SELECT LAX_STRING(JSON 'true') AS result;
 
 /*--------*
@@ -28724,7 +28842,7 @@ SELECT LAX_STRING(JSON 'true') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_STRING(JSON 'false') AS result;
 
 /*--------*
@@ -28736,7 +28854,7 @@ SELECT LAX_STRING(JSON 'false') AS result;
 
 Examples with inputs that are JSON numbers:
 
-```sql
+```zetasql
 SELECT LAX_STRING(JSON '10.0') AS result;
 
 /*--------*
@@ -28746,7 +28864,7 @@ SELECT LAX_STRING(JSON '10.0') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_STRING(JSON '10') AS result;
 
 /*--------*
@@ -28756,7 +28874,7 @@ SELECT LAX_STRING(JSON '10') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_STRING(JSON '1e100') AS result;
 
 /*--------*
@@ -28769,7 +28887,7 @@ SELECT LAX_STRING(JSON '1e100') AS result;
 ### `LAX_STRING_ARRAY` 
 <a id="lax_string_array"></a>
 
-```sql
+```zetasql
 LAX_STRING_ARRAY(json_expr)
 ```
 
@@ -28815,9 +28933,9 @@ Details:
 
 **Examples**
 
-Example with input that is a JSON array of strings:
+Example with input that's a JSON array of strings:
 
-```sql
+```zetasql
 SELECT LAX_STRING_ARRAY(JSON '["purple", "10"]') AS result;
 
 /*--------------*
@@ -28827,9 +28945,9 @@ SELECT LAX_STRING_ARRAY(JSON '["purple", "10"]') AS result;
  *--------------*/
 ```
 
-Example with input that is a JSON array of booleans:
+Example with input that's a JSON array of booleans:
 
-```sql
+```zetasql
 SELECT LAX_STRING_ARRAY(JSON '[true, false]') AS result;
 
 /*---------------*
@@ -28839,9 +28957,9 @@ SELECT LAX_STRING_ARRAY(JSON '[true, false]') AS result;
  *---------------*/
 ```
 
-Example with input that is a JSON array of numbers:
+Example with input that's a JSON array of numbers:
 
-```sql
+```zetasql
 SELECT LAX_STRING_ARRAY(JSON '[10.0, 10, 1e100]') AS result;
 
 /*------------------*
@@ -28851,9 +28969,9 @@ SELECT LAX_STRING_ARRAY(JSON '[10.0, 10, 1e100]') AS result;
  *------------------*/
 ```
 
-Example with input that is a JSON array of other types:
+Example with input that's a JSON array of other types:
 
-```sql
+```zetasql
 SELECT LAX_STRING_ARRAY(JSON '[null, {"foo": 1}, [1]]') AS result;
 
 /*--------------------*
@@ -28863,9 +28981,9 @@ SELECT LAX_STRING_ARRAY(JSON '[null, {"foo": 1}, [1]]') AS result;
  *--------------------*/
 ```
 
-Examples with inputs that are not JSON arrays:
+Examples with inputs that aren't JSON arrays:
 
-```sql
+```zetasql
 SELECT LAX_STRING_ARRAY(NULL) AS result;
 
 /*--------*
@@ -28875,7 +28993,7 @@ SELECT LAX_STRING_ARRAY(NULL) AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_STRING_ARRAY(JSON 'null') AS result;
 
 /*--------*
@@ -28885,7 +29003,7 @@ SELECT LAX_STRING_ARRAY(JSON 'null') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_STRING_ARRAY(JSON '9.8') AS result;
 
 /*--------*
@@ -28898,7 +29016,7 @@ SELECT LAX_STRING_ARRAY(JSON '9.8') AS result;
 ### `LAX_UINT32` 
 <a id="lax_uint32"></a>
 
-```sql
+```zetasql
 LAX_UINT32(json_expr)
 ```
 
@@ -28963,7 +29081,7 @@ Details:
 
 Examples with inputs that are JSON numbers:
 
-```sql
+```zetasql
 SELECT LAX_UINT32(JSON '10') AS result;
 
 /*--------*
@@ -28973,7 +29091,7 @@ SELECT LAX_UINT32(JSON '10') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_UINT32(JSON '10.0') AS result;
 
 /*--------*
@@ -28983,7 +29101,7 @@ SELECT LAX_UINT32(JSON '10.0') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_UINT32(JSON '1.1') AS result;
 
 /*--------*
@@ -28993,7 +29111,7 @@ SELECT LAX_UINT32(JSON '1.1') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_UINT32(JSON '3.5') AS result;
 
 /*--------*
@@ -29003,7 +29121,7 @@ SELECT LAX_UINT32(JSON '3.5') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_UINT32(JSON '1.1e2') AS result;
 
 /*--------*
@@ -29013,7 +29131,7 @@ SELECT LAX_UINT32(JSON '1.1e2') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_UINT32(JSON '-1') AS result;
 
 /*--------*
@@ -29023,7 +29141,7 @@ SELECT LAX_UINT32(JSON '-1') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_UINT32(JSON '1e100') AS result;
 
 /*--------*
@@ -29035,7 +29153,7 @@ SELECT LAX_UINT32(JSON '1e100') AS result;
 
 Examples with inputs that are JSON booleans:
 
-```sql
+```zetasql
 SELECT LAX_UINT32(JSON 'true') AS result;
 
 /*--------*
@@ -29045,7 +29163,7 @@ SELECT LAX_UINT32(JSON 'true') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_UINT32(JSON 'false') AS result;
 
 /*--------*
@@ -29057,7 +29175,7 @@ SELECT LAX_UINT32(JSON 'false') AS result;
 
 Examples with inputs that are JSON strings:
 
-```sql
+```zetasql
 SELECT LAX_UINT32(JSON '"10"') AS result;
 
 /*--------*
@@ -29067,7 +29185,7 @@ SELECT LAX_UINT32(JSON '"10"') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_UINT32(JSON '"1.1"') AS result;
 
 /*--------*
@@ -29077,7 +29195,7 @@ SELECT LAX_UINT32(JSON '"1.1"') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_UINT32(JSON '"1.1e2"') AS result;
 
 /*--------*
@@ -29087,7 +29205,7 @@ SELECT LAX_UINT32(JSON '"1.1e2"') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_UINT32(JSON '"+1.5"') AS result;
 
 /*--------*
@@ -29097,7 +29215,7 @@ SELECT LAX_UINT32(JSON '"+1.5"') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_UINT32(JSON '"1e100"') AS result;
 
 /*--------*
@@ -29107,7 +29225,7 @@ SELECT LAX_UINT32(JSON '"1e100"') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_UINT32(JSON '"foo"') AS result;
 
 /*--------*
@@ -29120,7 +29238,7 @@ SELECT LAX_UINT32(JSON '"foo"') AS result;
 ### `LAX_UINT32_ARRAY` 
 <a id="lax_uint32_array"></a>
 
-```sql
+```zetasql
 LAX_UINT32_ARRAY(json_expr)
 ```
 
@@ -29170,7 +29288,7 @@ Details:
 
 Examples with inputs that are JSON arrays of numbers:
 
-```sql
+```zetasql
 SELECT LAX_UINT32_ARRAY(JSON '[10, 10.0, 1.1, 3.5, 1.1e2]') AS result;
 
 /*---------------------*
@@ -29180,7 +29298,7 @@ SELECT LAX_UINT32_ARRAY(JSON '[10, 10.0, 1.1, 3.5, 1.1e2]') AS result;
  *---------------------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_UINT32_ARRAY(JSON '[1e100]') AS result;
 
 /*--------*
@@ -29190,9 +29308,9 @@ SELECT LAX_UINT32_ARRAY(JSON '[1e100]') AS result;
  *--------*/
 ```
 
-Example with inputs that is a JSON array of booleans:
+Example with inputs that's a JSON array of booleans:
 
-```sql
+```zetasql
 SELECT LAX_UINT32_ARRAY(JSON '[true, false]') AS result;
 
 /*--------*
@@ -29204,7 +29322,7 @@ SELECT LAX_UINT32_ARRAY(JSON '[true, false]') AS result;
 
 Examples with inputs that are JSON strings:
 
-```sql
+```zetasql
 SELECT LAX_UINT32_ARRAY(JSON '["10", "1.1", "1.1e2", "+1.5"]') AS result;
 
 /*-----------------*
@@ -29214,7 +29332,7 @@ SELECT LAX_UINT32_ARRAY(JSON '["10", "1.1", "1.1e2", "+1.5"]') AS result;
  *-----------------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_UINT32_ARRAY(JSON '["1e100"]') AS result;
 
 /*--------*
@@ -29224,7 +29342,7 @@ SELECT LAX_UINT32_ARRAY(JSON '["1e100"]') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_UINT32_ARRAY(JSON '["foo", "null", ""]') AS result;
 
 /*--------------------*
@@ -29234,9 +29352,9 @@ SELECT LAX_UINT32_ARRAY(JSON '["foo", "null", ""]') AS result;
  *--------------------*/
 ```
 
-Example with input that is a JSON array of other types:
+Example with input that's a JSON array of other types:
 
-```sql
+```zetasql
 SELECT LAX_UINT32_ARRAY(JSON '[null, {"foo": 1}, [1]]') AS result;
 
 /*--------------------*
@@ -29246,9 +29364,9 @@ SELECT LAX_UINT32_ARRAY(JSON '[null, {"foo": 1}, [1]]') AS result;
  *--------------------*/
 ```
 
-Examples with inputs that are not JSON arrays:
+Examples with inputs that aren't JSON arrays:
 
-```sql
+```zetasql
 SELECT LAX_UINT32_ARRAY(NULL) AS result;
 
 /*--------*
@@ -29258,7 +29376,7 @@ SELECT LAX_UINT32_ARRAY(NULL) AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_UINT32_ARRAY(JSON 'null') AS result;
 
 /*--------*
@@ -29268,7 +29386,7 @@ SELECT LAX_UINT32_ARRAY(JSON 'null') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_UINT32_ARRAY(JSON '9.8') AS result;
 
 /*--------*
@@ -29281,7 +29399,7 @@ SELECT LAX_UINT32_ARRAY(JSON '9.8') AS result;
 ### `LAX_UINT64` 
 <a id="lax_uint64"></a>
 
-```sql
+```zetasql
 LAX_UINT64(json_expr)
 ```
 
@@ -29346,7 +29464,7 @@ Details:
 
 Examples with inputs that are JSON numbers:
 
-```sql
+```zetasql
 SELECT LAX_UINT64(JSON '10') AS result;
 
 /*--------*
@@ -29356,7 +29474,7 @@ SELECT LAX_UINT64(JSON '10') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_UINT64(JSON '10.0') AS result;
 
 /*--------*
@@ -29366,7 +29484,7 @@ SELECT LAX_UINT64(JSON '10.0') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_UINT64(JSON '1.1') AS result;
 
 /*--------*
@@ -29376,7 +29494,7 @@ SELECT LAX_UINT64(JSON '1.1') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_UINT64(JSON '3.5') AS result;
 
 /*--------*
@@ -29386,7 +29504,7 @@ SELECT LAX_UINT64(JSON '3.5') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_UINT64(JSON '1.1e2') AS result;
 
 /*--------*
@@ -29396,7 +29514,7 @@ SELECT LAX_UINT64(JSON '1.1e2') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_UINT64(JSON '-1') AS result;
 
 /*--------*
@@ -29406,7 +29524,7 @@ SELECT LAX_UINT64(JSON '-1') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_UINT64(JSON '1e100') AS result;
 
 /*--------*
@@ -29418,7 +29536,7 @@ SELECT LAX_UINT64(JSON '1e100') AS result;
 
 Examples with inputs that are JSON booleans:
 
-```sql
+```zetasql
 SELECT LAX_UINT64(JSON 'true') AS result;
 
 /*--------*
@@ -29428,7 +29546,7 @@ SELECT LAX_UINT64(JSON 'true') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_UINT64(JSON 'false') AS result;
 
 /*--------*
@@ -29440,7 +29558,7 @@ SELECT LAX_UINT64(JSON 'false') AS result;
 
 Examples with inputs that are JSON strings:
 
-```sql
+```zetasql
 SELECT LAX_UINT64(JSON '"10"') AS result;
 
 /*--------*
@@ -29450,7 +29568,7 @@ SELECT LAX_UINT64(JSON '"10"') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_UINT64(JSON '"1.1"') AS result;
 
 /*--------*
@@ -29460,7 +29578,7 @@ SELECT LAX_UINT64(JSON '"1.1"') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_UINT64(JSON '"1.1e2"') AS result;
 
 /*--------*
@@ -29470,7 +29588,7 @@ SELECT LAX_UINT64(JSON '"1.1e2"') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_UINT64(JSON '"+1.5"') AS result;
 
 /*--------*
@@ -29480,7 +29598,7 @@ SELECT LAX_UINT64(JSON '"+1.5"') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_UINT64(JSON '"1e100"') AS result;
 
 /*--------*
@@ -29490,7 +29608,7 @@ SELECT LAX_UINT64(JSON '"1e100"') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_UINT64(JSON '"foo"') AS result;
 
 /*--------*
@@ -29503,7 +29621,7 @@ SELECT LAX_UINT64(JSON '"foo"') AS result;
 ### `LAX_UINT64_ARRAY` 
 <a id="lax_uint64_array"></a>
 
-```sql
+```zetasql
 LAX_UINT64_ARRAY(json_expr)
 ```
 
@@ -29551,7 +29669,7 @@ Details:
 
 Examples with inputs that are JSON arrays of numbers:
 
-```sql
+```zetasql
 SELECT LAX_UINT64_ARRAY(JSON '[10, 10.0, 1.1, 3.5, 1.1e2]') AS result;
 
 /*---------------------*
@@ -29561,7 +29679,7 @@ SELECT LAX_UINT64_ARRAY(JSON '[10, 10.0, 1.1, 3.5, 1.1e2]') AS result;
  *---------------------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_UINT64_ARRAY(JSON '[1e100]') AS result;
 
 /*--------*
@@ -29571,9 +29689,9 @@ SELECT LAX_UINT64_ARRAY(JSON '[1e100]') AS result;
  *--------*/
 ```
 
-Example with inputs that is a JSON array of booleans:
+Example with inputs that's a JSON array of booleans:
 
-```sql
+```zetasql
 SELECT LAX_UINT64_ARRAY(JSON '[true, false]') AS result;
 
 /*--------*
@@ -29585,7 +29703,7 @@ SELECT LAX_UINT64_ARRAY(JSON '[true, false]') AS result;
 
 Examples with inputs that are JSON strings:
 
-```sql
+```zetasql
 SELECT LAX_UINT64_ARRAY(JSON '["10", "1.1", "1.1e2", "+1.5"]') AS result;
 
 /*-----------------*
@@ -29595,7 +29713,7 @@ SELECT LAX_UINT64_ARRAY(JSON '["10", "1.1", "1.1e2", "+1.5"]') AS result;
  *-----------------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_UINT64_ARRAY(JSON '["1e100"]') AS result;
 
 /*--------*
@@ -29605,7 +29723,7 @@ SELECT LAX_UINT64_ARRAY(JSON '["1e100"]') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_UINT64_ARRAY(JSON '["foo", "null", ""]') AS result;
 
 /*--------------------*
@@ -29615,9 +29733,9 @@ SELECT LAX_UINT64_ARRAY(JSON '["foo", "null", ""]') AS result;
  *--------------------*/
 ```
 
-Example with input that is a JSON array of other types:
+Example with input that's a JSON array of other types:
 
-```sql
+```zetasql
 SELECT LAX_UINT64_ARRAY(JSON '[null, {"foo": 1}, [1]]') AS result;
 
 /*--------------------*
@@ -29627,9 +29745,9 @@ SELECT LAX_UINT64_ARRAY(JSON '[null, {"foo": 1}, [1]]') AS result;
  *--------------------*/
 ```
 
-Examples with inputs that are not JSON arrays:
+Examples with inputs that aren't JSON arrays:
 
-```sql
+```zetasql
 SELECT LAX_UINT64_ARRAY(NULL) AS result;
 
 /*--------*
@@ -29639,7 +29757,7 @@ SELECT LAX_UINT64_ARRAY(NULL) AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_UINT64_ARRAY(JSON 'null') AS result;
 
 /*--------*
@@ -29649,7 +29767,7 @@ SELECT LAX_UINT64_ARRAY(JSON 'null') AS result;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT LAX_UINT64_ARRAY(JSON '9.8') AS result;
 
 /*--------*
@@ -29661,7 +29779,7 @@ SELECT LAX_UINT64_ARRAY(JSON '9.8') AS result;
 
 ### `PARSE_JSON`
 
-```sql
+```zetasql
 PARSE_JSON(
   json_string_expr
   [, wide_number_mode => { 'exact' | 'round' } ]
@@ -29685,11 +29803,11 @@ Arguments:
     following values:
 
     +   `exact` (default): Only accept numbers that can be stored without loss
-        of precision. If a number that cannot be stored without loss of
+        of precision. If a number that can't be stored without loss of
         precision is encountered, the function throws an error.
-    +   `round`: If a number that cannot be stored without loss of precision is
+    +   `round`: If a number that can't be stored without loss of precision is
         encountered, attempt to round it to a number that can be stored without
-        loss of precision. If the number cannot be rounded, the function throws
+        loss of precision. If the number can't be rounded, the function throws
         an error.
 
     If a number appears in a JSON object or array, the `wide_number_mode`
@@ -29709,7 +29827,7 @@ precision:
 
 In the following example, a JSON-formatted string is converted to `JSON`.
 
-```sql
+```zetasql
 SELECT PARSE_JSON('{"coordinates": [10, 20], "id": 1}') AS json_data;
 
 /*--------------------------------*
@@ -29721,18 +29839,18 @@ SELECT PARSE_JSON('{"coordinates": [10, 20], "id": 1}') AS json_data;
 
 The following queries fail because:
 
-+ The number that was passed in cannot be stored without loss of precision.
++ The number that was passed in can't be stored without loss of precision.
 + `wide_number_mode=>'exact'` is used implicitly in the first query and
   explicitly in the second query.
 
-```sql
+```zetasql
 SELECT PARSE_JSON('{"id": 922337203685477580701}') AS json_data; -- fails
 SELECT PARSE_JSON('{"id": 922337203685477580701}', wide_number_mode=>'exact') AS json_data; -- fails
 ```
 
 The following query rounds the number to a number that can be stored in JSON.
 
-```sql
+```zetasql
 SELECT PARSE_JSON('{"id": 922337203685477580701}', wide_number_mode=>'round') AS json_data;
 
 /*------------------------------*
@@ -29744,7 +29862,7 @@ SELECT PARSE_JSON('{"id": 922337203685477580701}', wide_number_mode=>'round') AS
 
 You can also use valid JSON-formatted strings that don't represent name/value pairs. For example:
 
-```sql
+```zetasql
 SELECT PARSE_JSON('6') AS json_data;
 
 /*------------------------------*
@@ -29754,7 +29872,7 @@ SELECT PARSE_JSON('6') AS json_data;
  *------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT PARSE_JSON('"red"') AS json_data;
 
 /*------------------------------*
@@ -29766,7 +29884,7 @@ SELECT PARSE_JSON('"red"') AS json_data;
 
 ### `SAFE_TO_JSON`
 
-```sql
+```zetasql
 SAFE_TO_JSON(sql_value)
 ```
 
@@ -29791,12 +29909,12 @@ The following queries are functionally the same, except that `SAFE_TO_JSON`
 produces a JSON null instead of an error when a hypothetical unsupported
 data type is encountered:
 
-```sql
+```zetasql
 -- Produces a JSON null.
 SELECT SAFE_TO_JSON(CAST(b'' AS UNSUPPORTED_TYPE)) as result;
 ```
 
-```sql
+```zetasql
 -- Produces an error.
 SELECT TO_JSON(CAST(b'' AS UNSUPPORTED_TYPE), stringify_wide_numbers=>TRUE) as result;
 ```
@@ -29804,7 +29922,7 @@ SELECT TO_JSON(CAST(b'' AS UNSUPPORTED_TYPE), stringify_wide_numbers=>TRUE) as r
 In the following query, the value for `ut` is ignored because the value is an
 unsupported type:
 
-```sql
+```zetasql
 SELECT SAFE_TO_JSON(STRUCT(CAST(b'' AS UNSUPPORTED_TYPE) AS ut) AS result;
 
 /*--------------*
@@ -29815,9 +29933,9 @@ SELECT SAFE_TO_JSON(STRUCT(CAST(b'' AS UNSUPPORTED_TYPE) AS ut) AS result;
 ```
 
 The following array produces a JSON null instead of an error because the data
-type for the array is not supported.
+type for the array isn't supported.
 
-```sql
+```zetasql
 SELECT SAFE_TO_JSON([
         CAST(b'' AS UNSUPPORTED_TYPE),
         CAST(b'' AS UNSUPPORTED_TYPE),
@@ -29836,7 +29954,7 @@ SELECT SAFE_TO_JSON([
 ### `STRING` 
 <a id="string_for_json"></a>
 
-```sql
+```zetasql
 STRING(json_expr)
 ```
 
@@ -29852,7 +29970,7 @@ Arguments:
     JSON '"purple"'
     ```
 
-    If the JSON value is not a string, an error is produced. If the expression
+    If the JSON value isn't a string, an error is produced. If the expression
     is SQL `NULL`, the function returns SQL `NULL`.
 
 **Return type**
@@ -29861,7 +29979,7 @@ Arguments:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT STRING(JSON '"purple"') AS color;
 
 /*--------*
@@ -29871,7 +29989,7 @@ SELECT STRING(JSON '"purple"') AS color;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT STRING(JSON_QUERY(JSON '{"name": "sky", "color": "blue"}', "$.color")) AS color;
 
 /*-------*
@@ -29883,8 +30001,8 @@ SELECT STRING(JSON_QUERY(JSON '{"name": "sky", "color": "blue"}', "$.color")) AS
 
 The following examples show how invalid requests are handled:
 
-```sql
--- An error is thrown if the JSON is not of type string.
+```zetasql
+-- An error is thrown if the JSON isn't of type string.
 SELECT STRING(JSON '123') AS result; -- Throws an error
 SELECT STRING(JSON 'null') AS result; -- Throws an error
 SELECT SAFE.STRING(JSON '123') AS result; -- Returns a SQL NULL
@@ -29893,7 +30011,7 @@ SELECT SAFE.STRING(JSON '123') AS result; -- Returns a SQL NULL
 ### `STRING_ARRAY` 
 <a id="string_array_for_json"></a>
 
-```sql
+```zetasql
 STRING_ARRAY(json_expr)
 ```
 
@@ -29909,7 +30027,7 @@ Arguments:
     JSON '["purple", "blue"]'
     ```
 
-    If the JSON value is not an array of strings, an error is produced. If the
+    If the JSON value isn't an array of strings, an error is produced. If the
     expression is SQL `NULL`, the function returns SQL `NULL`.
 
 **Return type**
@@ -29918,7 +30036,7 @@ Arguments:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT STRING_ARRAY(JSON '["purple", "blue"]') AS colors;
 
 /*----------------*
@@ -29930,8 +30048,8 @@ SELECT STRING_ARRAY(JSON '["purple", "blue"]') AS colors;
 
 The following examples show how invalid requests are handled:
 
-```sql
--- An error is thrown if the JSON is not an array of strings.
+```zetasql
+-- An error is thrown if the JSON isn't an array of strings.
 SELECT STRING_ARRAY(JSON '[123]') AS result; -- Throws an error
 SELECT STRING_ARRAY(JSON '[null]') AS result; -- Throws an error
 SELECT STRING_ARRAY(JSON 'null') AS result; -- Throws an error
@@ -29939,7 +30057,7 @@ SELECT STRING_ARRAY(JSON 'null') AS result; -- Throws an error
 
 ### `TO_JSON`
 
-```sql
+```zetasql
 TO_JSON(
   sql_value
   [, stringify_wide_numbers => { TRUE | FALSE } ]
@@ -29961,8 +30079,8 @@ Arguments:
     +   If `TRUE`, numeric values outside of the
         `DOUBLE` type domain are encoded as strings.
     +   If `FALSE` (default), numeric values outside of the
-    `DOUBLE` type domain are not encoded as strings,
-    but are stored as JSON numbers. If a numerical value cannot be stored in
+    `DOUBLE` type domain aren't encoded as strings,
+    but are stored as JSON numbers. If a numerical value can't be stored in
     JSON without loss of precision, an error is thrown.
 
     The following numerical data types are affected by the
@@ -29989,7 +30107,7 @@ Arguments:
 
 In the following example, the query converts rows in a table to JSON values.
 
-```sql
+```zetasql
 With CoordinatesTable AS (
     (SELECT 1 AS id, [10, 20] AS coordinates) UNION ALL
     (SELECT 2 AS id, [30, 40] AS coordinates) UNION ALL
@@ -30009,7 +30127,7 @@ FROM CoordinatesTable AS t;
 In the following example, the query returns a large numerical value as a
 JSON string.
 
-```sql
+```zetasql
 SELECT TO_JSON(9007199254740993, stringify_wide_numbers=>TRUE) as stringify_on;
 
 /*--------------------*
@@ -30022,7 +30140,7 @@ SELECT TO_JSON(9007199254740993, stringify_wide_numbers=>TRUE) as stringify_on;
 In the following example, both queries return a large numerical value as a
 JSON number.
 
-```sql
+```zetasql
 SELECT TO_JSON(9007199254740993, stringify_wide_numbers=>FALSE) as stringify_off;
 SELECT TO_JSON(9007199254740993) as stringify_off;
 
@@ -30036,7 +30154,7 @@ SELECT TO_JSON(9007199254740993) as stringify_off;
 In the following example, only large numeric values are converted to
 JSON strings.
 
-```sql
+```zetasql
 With T1 AS (
   (SELECT 9007199254740993 AS id) UNION ALL
   (SELECT 2 AS id))
@@ -30053,10 +30171,10 @@ FROM T1 AS t;
 
 In this example, the values `9007199254740993` (`INT64`)
 and `2.1` (`DOUBLE`) are converted
-to the common supertype `DOUBLE`, which is not
+to the common supertype `DOUBLE`, which isn't
 affected by the `stringify_wide_numbers` argument.
 
-```sql
+```zetasql
 With T1 AS (
   (SELECT 9007199254740993 AS id) UNION ALL
   (SELECT 2.1 AS id))
@@ -30075,7 +30193,7 @@ FROM T1 AS t;
 
 ### `TO_JSON_STRING`
 
-```sql
+```zetasql
 TO_JSON_STRING(value[, pretty_print])
 ```
 
@@ -30088,7 +30206,7 @@ Arguments:
 +   `value`: A SQL value. You can review the ZetaSQL data types that
     this function supports and their JSON encodings [here][json-encodings].
 +   `pretty_print`: Optional boolean parameter. If `pretty_print` is `true`, the
-    `returned value is formatted for easy readability.
+    returned value is formatted for easy readability.
 
 **Return type**
 
@@ -30098,7 +30216,7 @@ A JSON-formatted `STRING`
 
 The following query converts a `STRUCT` value to a JSON-formatted string:
 
-```sql
+```zetasql
 SELECT TO_JSON_STRING(STRUCT(1 AS id, [10,20] AS coordinates)) AS json_data
 
 /*--------------------------------*
@@ -30111,7 +30229,7 @@ SELECT TO_JSON_STRING(STRUCT(1 AS id, [10,20] AS coordinates)) AS json_data
 The following query converts a `STRUCT` value to a JSON-formatted string that is
 easy to read:
 
-```sql
+```zetasql
 SELECT TO_JSON_STRING(STRUCT(1 AS id, [10,20] AS coordinates), true) AS json_data
 
 /*--------------------*
@@ -30132,7 +30250,7 @@ SELECT TO_JSON_STRING(STRUCT(1 AS id, [10,20] AS coordinates), true) AS json_dat
 ### `UINT32` 
 <a id="uint32_for_json"></a>
 
-```sql
+```zetasql
 UINT32(json_expr)
 ```
 
@@ -30148,7 +30266,7 @@ Arguments:
     JSON '999'
     ```
 
-    If the JSON value is not a number, or the JSON number is not in the SQL
+    If the JSON value isn't a number, or the JSON number isn't in the SQL
     `UINT32` domain, an error is produced. If the expression is SQL `NULL`, the
     function returns SQL `NULL`.
 
@@ -30158,7 +30276,7 @@ Arguments:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT UINT32(JSON '2005') AS flight_number;
 
 /*---------------*
@@ -30168,7 +30286,7 @@ SELECT UINT32(JSON '2005') AS flight_number;
  *---------------*/
 ```
 
-```sql
+```zetasql
 SELECT UINT32(JSON_QUERY(JSON '{"gate": "A4", "flight_number": 2005}', "$.flight_number")) AS flight_number;
 
 /*---------------*
@@ -30178,7 +30296,7 @@ SELECT UINT32(JSON_QUERY(JSON '{"gate": "A4", "flight_number": 2005}', "$.flight
  *---------------*/
 ```
 
-```sql
+```zetasql
 SELECT UINT32(JSON '10.0') AS score;
 
 /*-------*
@@ -30190,8 +30308,8 @@ SELECT UINT32(JSON '10.0') AS score;
 
 The following examples show how invalid requests are handled:
 
-```sql
--- An error is thrown if JSON is not a number or cannot be converted to a 64-bit integer.
+```zetasql
+-- An error is thrown if JSON isn't a number or can't be converted to a 64-bit integer.
 SELECT UINT32(JSON '10.1') AS result;  -- Throws an error
 SELECT UINT32(JSON '-1') AS result;  -- Throws an error
 SELECT UINT32(JSON '"strawberry"') AS result; -- Throws an error
@@ -30202,7 +30320,7 @@ SELECT SAFE.UINT32(JSON '"strawberry"') AS result;  -- Returns a SQL NULL
 ### `UINT32_ARRAY` 
 <a id="uint32_array_for_json"></a>
 
-```sql
+```zetasql
 UINT32_ARRAY(json_expr)
 ```
 
@@ -30218,7 +30336,7 @@ Arguments:
     JSON '[999, 12]'
     ```
 
-    If the JSON value is not an array of numbers, or the JSON numbers are not in
+    If the JSON value isn't an array of numbers, or the JSON numbers aren't in
     the SQL `UINT32` domain, an error is produced. If the expression is SQL
     `NULL`, the function returns SQL `NULL`.
 
@@ -30228,7 +30346,7 @@ Arguments:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT UINT32_ARRAY(JSON '[2005, 2003]') AS flight_numbers;
 
 /*----------------*
@@ -30238,7 +30356,7 @@ SELECT UINT32_ARRAY(JSON '[2005, 2003]') AS flight_numbers;
  *----------------*/
 ```
 
-```sql
+```zetasql
 SELECT UINT32_ARRAY(JSON '[10.0]') AS scores;
 
 /*--------*
@@ -30250,8 +30368,8 @@ SELECT UINT32_ARRAY(JSON '[10.0]') AS scores;
 
 The following examples show how invalid requests are handled:
 
-```sql
--- An error is thrown if the JSON is not an array of numbers in UINT32 domain.
+```zetasql
+-- An error is thrown if the JSON isn't an array of numbers in UINT32 domain.
 SELECT UINT32_ARRAY(JSON '[10.1]') AS result;  -- Throws an error
 SELECT UINT32_ARRAY(JSON '[-1]') AS result;  -- Throws an error
 SELECT UINT32_ARRAY(JSON '["strawberry"]') AS result; -- Throws an error
@@ -30262,7 +30380,7 @@ SELECT UINT32_ARRAY(JSON 'null') AS result; -- Throws an error
 ### `UINT64` 
 <a id="uint64_for_json"></a>
 
-```sql
+```zetasql
 UINT64(json_expr)
 ```
 
@@ -30278,7 +30396,7 @@ Arguments:
     JSON '999'
     ```
 
-    If the JSON value is not a number, or the JSON number is not in the SQL
+    If the JSON value isn't a number, or the JSON number isn't in the SQL
     `UINT64` domain, an error is produced. If the expression is SQL `NULL`, the
     function returns SQL `NULL`.
 
@@ -30288,7 +30406,7 @@ Arguments:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT UINT64(JSON '2005') AS flight_number;
 
 /*---------------*
@@ -30298,7 +30416,7 @@ SELECT UINT64(JSON '2005') AS flight_number;
  *---------------*/
 ```
 
-```sql
+```zetasql
 SELECT UINT64(JSON_QUERY(JSON '{"gate": "A4", "flight_number": 2005}', "$.flight_number")) AS flight_number;
 
 /*---------------*
@@ -30308,7 +30426,7 @@ SELECT UINT64(JSON_QUERY(JSON '{"gate": "A4", "flight_number": 2005}', "$.flight
  *---------------*/
 ```
 
-```sql
+```zetasql
 SELECT UINT64(JSON '10.0') AS score;
 
 /*-------*
@@ -30320,8 +30438,8 @@ SELECT UINT64(JSON '10.0') AS score;
 
 The following examples show how invalid requests are handled:
 
-```sql
--- An error is thrown if JSON is not a number or cannot be converted to a 64-bit integer.
+```zetasql
+-- An error is thrown if JSON isn't a number or can't be converted to a 64-bit integer.
 SELECT UINT64(JSON '10.1') AS result;  -- Throws an error
 SELECT UINT64(JSON '-1') AS result;  -- Throws an error
 SELECT UINT64(JSON '"strawberry"') AS result; -- Throws an error
@@ -30332,7 +30450,7 @@ SELECT SAFE.UINT64(JSON '"strawberry"') AS result;  -- Returns a SQL NULL
 ### `UINT64_ARRAY` 
 <a id="uint64_array_for_json"></a>
 
-```sql
+```zetasql
 UINT64_ARRAY(json_expr)
 ```
 
@@ -30348,7 +30466,7 @@ Arguments:
     JSON '[999, 12]'
     ```
 
-    If the JSON value is not an array of numbers, or the JSON numbers are not in
+    If the JSON value isn't an array of numbers, or the JSON numbers aren't in
     the SQL `UINT64` domain, an error is produced. If the expression is SQL
     `NULL`, the function returns SQL `NULL`.
 
@@ -30358,7 +30476,7 @@ Arguments:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT UINT64_ARRAY(JSON '[2005, 2003]') AS flight_numbers;
 
 /*----------------*
@@ -30368,7 +30486,7 @@ SELECT UINT64_ARRAY(JSON '[2005, 2003]') AS flight_numbers;
  *----------------*/
 ```
 
-```sql
+```zetasql
 SELECT UINT64_ARRAY(JSON '[10.0]') AS scores;
 
 /*--------*
@@ -30380,8 +30498,8 @@ SELECT UINT64_ARRAY(JSON '[10.0]') AS scores;
 
 The following examples show how invalid requests are handled:
 
-```sql
--- An error is thrown if the JSON is not an array of numbers in UINT64 domain.
+```zetasql
+-- An error is thrown if the JSON isn't an array of numbers in UINT64 domain.
 SELECT UINT64_ARRAY(JSON '[10.1]') AS result;  -- Throws an error
 SELECT UINT64_ARRAY(JSON '[-1]') AS result;  -- Throws an error
 SELECT UINT64_ARRAY(JSON '["strawberry"]') AS result; -- Throws an error
@@ -30401,11 +30519,11 @@ Many JSON functions accept two input types:
 
 The `STRING` version of the extraction functions behaves differently than the
 `JSON` version, mainly because `JSON` type values are always validated whereas
-JSON-formatted `STRING` type values are not.
+JSON-formatted `STRING` type values aren't.
 
 #### Non-validation of `STRING` inputs
 
-The following `STRING` is invalid JSON because it is missing a trailing `}`:
+The following `STRING` is invalid JSON because it's missing a trailing `}`:
 
 ```
 {"hello": "world"
@@ -30413,14 +30531,14 @@ The following `STRING` is invalid JSON because it is missing a trailing `}`:
 
 The JSON function reads the input from the beginning and stops as soon as the
 field to extract is found, without reading the remainder of the input. A parsing
-error is not produced.
+error isn't produced.
 
 With the `JSON` type, however, `JSON '{"hello": "world"'` returns a parsing
 error.
 
 For example:
 
-```sql
+```zetasql
 SELECT JSON_VALUE('{"hello": "world"', "$.hello") AS hello;
 
 /*-------*
@@ -30430,7 +30548,7 @@ SELECT JSON_VALUE('{"hello": "world"', "$.hello") AS hello;
  *-------*/
 ```
 
-```sql
+```zetasql
 SELECT JSON_VALUE(JSON '{"hello": "world"', "$.hello") AS hello;
 -- An error is returned: Invalid JSON literal: syntax error while parsing
 -- object - unexpected end of input; expected '}'
@@ -30438,12 +30556,12 @@ SELECT JSON_VALUE(JSON '{"hello": "world"', "$.hello") AS hello;
 
 #### No strict validation of extracted values
 
-In the following examples, duplicated keys are not removed when using a
+In the following examples, duplicated keys aren't removed when using a
 JSON-formatted string. Similarly, keys order is preserved. For the `JSON`
 type, `JSON '{"key": 1, "key": 2}'` will result in `JSON '{"key":1}'` during
 parsing.
 
-```sql
+```zetasql
 SELECT JSON_QUERY('{"key": 1, "key": 2}', "$") AS string;
 
 /*-------------------*
@@ -30453,7 +30571,7 @@ SELECT JSON_QUERY('{"key": 1, "key": 2}', "$") AS string;
  *-------------------*/
 ```
 
-```sql
+```zetasql
 SELECT JSON_QUERY(JSON '{"key": 1, "key": 2}', "$") AS json;
 
 /*-----------*
@@ -30471,7 +30589,7 @@ value is extracted as a SQL `NULL` value.
 When using a JSON type in a JSON function, a JSON `null` value returns a JSON
 `null` value.
 
-```sql
+```zetasql
 WITH t AS (
   SELECT '{"name": null}' AS json_string, JSON '{"name": null}' AS json)
 SELECT JSON_QUERY(json_string, "$.name") AS name_string,
@@ -30596,16 +30714,16 @@ The following SQL to JSON encodings are supported:
           If the <code>stringify_wide_numbers</code> argument
           is <code>TRUE</code> and the value is outside of the
           DOUBLE type domain, the value is
-          encoded as a string. If the value cannot be stored in
+          encoded as a string. If the value can't be stored in
           JSON without loss of precision, the function fails.
           Otherwise, the value is encoded as a number.
         </p>
         <p>
-          If the <code>stringify_wide_numbers</code> is not used or is
+          If the <code>stringify_wide_numbers</code> isn't used or is
           <code>FALSE</code>, numeric values outside of the
-          `DOUBLE` type domain are not
+          `DOUBLE` type domain aren't
           encoded as strings, but are stored as JSON numbers. If a
-          numerical value cannot be stored in JSON without loss of precision,
+          numerical value can't be stored in JSON without loss of precision,
           an error is thrown.
         </p>
       <td>
@@ -30691,7 +30809,7 @@ The following SQL to JSON encodings are supported:
         <p>
           If the <code>stringify_wide_numbers</code> argument
           is <code>TRUE</code> and the value is outside of the
-          DOUBLE type domain, it is
+          DOUBLE type domain, it's
           encoded as a string. Otherwise, it's encoded as a number.
         </p>
       </td>
@@ -30977,7 +31095,7 @@ The following SQL to JSON encodings are supported:
         <ul>
           <li>
             The graph element identifier is only valid within the scope of the
-            same query response and cannot be used to correlate entities across
+            same query response and can't be used to correlate entities across
             different queries.
           </li>
           <li>
@@ -30985,7 +31103,7 @@ The following SQL to JSON encodings are supported:
             JSON.
           </li>
           <li>
-            The result may include internal key-value pairs that are not defined
+            The result may include internal key-value pairs that aren't defined
             by the users.
           </li>
           <li>
@@ -31041,8 +31159,8 @@ obtain from a JSON-formatted string.
 If a key in a JSON functions contains a JSON format operator, refer to each
 JSON function for how to escape them.
 
-A JSON function returns `NULL` if the JSONPath format does not match a value in
-a JSON-formatted string. If the selected value for a scalar function is not
+A JSON function returns `NULL` if the JSONPath format doesn't match a value in
+a JSON-formatted string. If the selected value for a scalar function isn't
 scalar, such as an object or an array, the function returns `NULL`. If the
 JSONPath format is invalid, an error is produced.
 
@@ -31416,7 +31534,7 @@ All mathematical functions have the following behaviors:
   <td><a href="#ceil"><code>CEIL</code></a>
 </td>
   <td>
-    Gets the smallest integral value that is not less than <code>X</code>.
+    Gets the smallest integral value that isn't less than <code>X</code>.
   </td>
 </tr>
 
@@ -31508,7 +31626,7 @@ All mathematical functions have the following behaviors:
   <td><a href="#floor"><code>FLOOR</code></a>
 </td>
   <td>
-    Gets the largest integral value that is not greater than <code>X</code>.
+    Gets the largest integral value that isn't greater than <code>X</code>.
   </td>
 </tr>
 
@@ -31524,7 +31642,7 @@ All mathematical functions have the following behaviors:
   <td><a href="#ieee_divide"><code>IEEE_DIVIDE</code></a>
 </td>
   <td>
-    Divides <code>X</code> by <code>Y</code>, but does not generate errors for
+    Divides <code>X</code> by <code>Y</code>, but doesn't generate errors for
     division by zero or overflow.
   </td>
 </tr>
@@ -31820,7 +31938,7 @@ ABS(X)
 **Description**
 
 Computes absolute value. Returns an error if the argument is an integer and the
-output value cannot be represented as the same type; this happens only for the
+output value can't be represented as the same type; this happens only for the
 largest negative input value, which has no positive representation.
 
 <table>
@@ -31997,7 +32115,7 @@ ASINH(X)
 
 **Description**
 
-Computes the inverse hyperbolic sine of X. Does not fail.
+Computes the inverse hyperbolic sine of X. Doesn't fail.
 
 <table>
   <thead>
@@ -32031,7 +32149,7 @@ ATAN(X)
 **Description**
 
 Computes the principal value of the inverse tangent of X. The return value is
-in the range [-&pi;/2,&pi;/2]. Does not fail.
+in the range [-&pi;/2,&pi;/2]. Doesn't fail.
 
 <table>
   <thead>
@@ -32231,7 +32349,7 @@ Supports the `SAFE.` prefix.
 
 **Example**
 
-```sql
+```zetasql
 SELECT CBRT(27) AS cube_root;
 
 /*--------------------*
@@ -32251,7 +32369,7 @@ CEIL(X)
 
 **Description**
 
-Returns the smallest integral value that is not less than X.
+Returns the smallest integral value that isn't less than X.
 
 <table>
   <thead>
@@ -32402,7 +32520,7 @@ Generates an error if overflow occurs.
 
 ### `COSINE_DISTANCE`
 
-```sql
+```zetasql
 COSINE_DISTANCE(vector1, vector2)
 ```
 
@@ -32412,10 +32530,10 @@ Computes the [cosine distance][wiki-cosine-distance] between two vectors.
 
 **Definitions**
 
-+   `vector1`: A vector that is represented by an
++   `vector1`: A vector that's represented by an
     `ARRAY<T>` value or a sparse vector that is
     represented by an `ARRAY<STRUCT<dimension,magnitude>>` value.
-+   `vector2`: A vector that is represented by an
++   `vector2`: A vector that's represented by an
     `ARRAY<T>` value or a sparse vector that is
     represented by an `ARRAY<STRUCT<dimension,magnitude>>` value.
 
@@ -32471,12 +32589,12 @@ Computes the [cosine distance][wiki-cosine-distance] between two vectors.
     sparse vector. For example, the following sparse vector and
     non-sparse vector are equivalent:
 
-    ```sql
+    ```zetasql
     -- sparse vector ARRAY<STRUCT<INT64, DOUBLE>>
     [(1, 10.0), (2, 30.0), (5, 40.0)]
     ```
 
-    ```sql
+    ```zetasql
     -- vector ARRAY<DOUBLE>
     [0.0, 10.0, 30.0, 0.0, 0.0, 40.0]
     ```
@@ -32484,11 +32602,11 @@ Computes the [cosine distance][wiki-cosine-distance] between two vectors.
     In a sparse vector, dimension-magnitude pairs don't need to be in any
     particular order. The following sparse vectors are equivalent:
 
-    ```sql
+    ```zetasql
     [('a', 10.0), ('b', 30.0), ('d', 40.0)]
     ```
 
-    ```sql
+    ```zetasql
     [('d', 40.0), ('a', 10.0), ('b', 30.0)]
     ```
 +   Both  non-sparse vectors
@@ -32509,7 +32627,7 @@ Computes the [cosine distance][wiki-cosine-distance] between two vectors.
 In the following example, non-sparsevectors
 are used to compute the cosine distance:
 
-```sql
+```zetasql
 SELECT COSINE_DISTANCE([1.0, 2.0], [3.0, 4.0]) AS results;
 
 /*----------*
@@ -32522,7 +32640,7 @@ SELECT COSINE_DISTANCE([1.0, 2.0], [3.0, 4.0]) AS results;
 In the following example, sparse vectors are used to compute the
 cosine distance:
 
-```sql
+```zetasql
 SELECT COSINE_DISTANCE(
  [(1, 1.0), (2, 2.0)],
  [(2, 4.0), (1, 3.0)]) AS results;
@@ -32538,19 +32656,19 @@ The ordering of numeric values in a vector doesn't impact the results
 produced by this function. For example these queries produce the same results
 even though the numeric values in each vector is in a different order:
 
-```sql
+```zetasql
 SELECT COSINE_DISTANCE([1.0, 2.0], [3.0, 4.0]) AS results;
 ```
 
-```sql
+```zetasql
 SELECT COSINE_DISTANCE([2.0, 1.0], [4.0, 3.0]) AS results;
 ```
 
-```sql
+```zetasql
 SELECT COSINE_DISTANCE([(1, 1.0), (2, 2.0)], [(1, 3.0), (2, 4.0)]) AS results;
 ```
 
-```sql
+```zetasql
  /*----------*
   | results  |
   +----------+
@@ -32561,12 +32679,12 @@ SELECT COSINE_DISTANCE([(1, 1.0), (2, 2.0)], [(1, 3.0), (2, 4.0)]) AS results;
 In the following example, the function can't compute cosine distance against
 the first vector, which is a zero vector:
 
-```sql
+```zetasql
 -- ERROR
 SELECT COSINE_DISTANCE([0.0, 0.0], [3.0, 4.0]) AS results;
 ```
 
-```sql
+```zetasql
 -- ERROR
 SELECT COSINE_DISTANCE([(1, 0.0), (2, 0.0)], [(1, 3.0), (2, 4.0)]) AS results;
 ```
@@ -32575,7 +32693,7 @@ Both non-sparse vectors must have the same
 dimensions. If not, an error is produced. In the following example, the
 first vector has two dimensions and the second vector has three:
 
-```sql
+```zetasql
 -- ERROR
 SELECT COSINE_DISTANCE([9.0, 7.0], [8.0, 4.0, 5.0]) AS results;
 ```
@@ -32583,7 +32701,7 @@ SELECT COSINE_DISTANCE([9.0, 7.0], [8.0, 4.0, 5.0]) AS results;
 If you use sparse vectors and you repeat a dimension, an error is
 produced:
 
-```sql
+```zetasql
 -- ERROR
 SELECT COSINE_DISTANCE(
   [(1, 9.0), (2, 7.0), (2, 8.0)], [(1, 8.0), (2, 4.0), (3, 5.0)]) AS results;
@@ -32641,7 +32759,7 @@ Supports the `SAFE.` prefix.
 
 **Example**
 
-```sql
+```zetasql
 SELECT COT(1) AS a, SAFE.COT(0) AS b;
 
 /*---------------------+------*
@@ -32703,7 +32821,7 @@ Supports the `SAFE.` prefix.
 
 **Example**
 
-```sql
+```zetasql
 SELECT COTH(1) AS a, SAFE.COTH(0) AS b;
 
 /*----------------+------*
@@ -32765,7 +32883,7 @@ Supports the `SAFE.` prefix.
 
 **Example**
 
-```sql
+```zetasql
 SELECT CSC(100) AS a, CSC(-1) AS b, SAFE.CSC(0) AS c;
 
 /*----------------+-----------------+------*
@@ -32827,7 +32945,7 @@ Supports the `SAFE.` prefix.
 
 **Example**
 
-```sql
+```zetasql
 SELECT CSCH(0.5) AS a, CSCH(-2) AS b, SAFE.CSCH(0) AS c;
 
 /*----------------+----------------+------*
@@ -32961,7 +33079,7 @@ result overflows.
 
 ### `EUCLIDEAN_DISTANCE`
 
-```sql
+```zetasql
 EUCLIDEAN_DISTANCE(vector1, vector2)
 ```
 
@@ -32971,10 +33089,10 @@ Computes the [Euclidean distance][wiki-euclidean-distance] between two vectors.
 
 **Definitions**
 
-+   `vector1`: A vector that is represented by an
++   `vector1`: A vector that's represented by an
     `ARRAY<T>` value or a sparse vector that is
     represented by an `ARRAY<STRUCT<dimension,magnitude>>` value.
-+   `vector2`: A vector that is represented by an
++   `vector2`: A vector that's represented by an
     `ARRAY<T>` value or a sparse vector that is
     represented by an `ARRAY<STRUCT<dimension,magnitude>>` value.
 
@@ -33030,12 +33148,12 @@ Computes the [Euclidean distance][wiki-euclidean-distance] between two vectors.
     sparse vector. For example, the following sparse vector and
     non-sparse vector are equivalent:
 
-    ```sql
+    ```zetasql
     -- sparse vector ARRAY<STRUCT<INT64, DOUBLE>>
     [(1, 10.0), (2, 30.0), (5, 40.0)]
     ```
 
-    ```sql
+    ```zetasql
     -- vector ARRAY<DOUBLE>
     [0.0, 10.0, 30.0, 0.0, 0.0, 40.0]
     ```
@@ -33043,11 +33161,11 @@ Computes the [Euclidean distance][wiki-euclidean-distance] between two vectors.
     In a sparse vector, dimension-magnitude pairs don't need to be in any
     particular order. The following sparse vectors are equivalent:
 
-    ```sql
+    ```zetasql
     [('a', 10.0), ('b', 30.0), ('d', 40.0)]
     ```
 
-    ```sql
+    ```zetasql
     [('d', 40.0), ('a', 10.0), ('b', 30.0)]
     ```
 +   Both  non-sparse vectors
@@ -33068,7 +33186,7 @@ Computes the [Euclidean distance][wiki-euclidean-distance] between two vectors.
 In the following example, non-sparse vectors
 are used to compute the Euclidean distance:
 
-```sql
+```zetasql
 SELECT EUCLIDEAN_DISTANCE([1.0, 2.0], [3.0, 4.0]) AS results;
 
 /*----------*
@@ -33081,7 +33199,7 @@ SELECT EUCLIDEAN_DISTANCE([1.0, 2.0], [3.0, 4.0]) AS results;
 In the following example, sparse vectors are used to compute the
 Euclidean distance:
 
-```sql
+```zetasql
 SELECT EUCLIDEAN_DISTANCE(
  [(1, 1.0), (2, 2.0)],
  [(2, 4.0), (1, 3.0)]) AS results;
@@ -33097,19 +33215,19 @@ The ordering of magnitudes in a vector doesn't impact the results
 produced by this function. For example these queries produce the same results
 even though the magnitudes in each vector is in a different order:
 
-```sql
+```zetasql
 SELECT EUCLIDEAN_DISTANCE([1.0, 2.0], [3.0, 4.0]);
 ```
 
-```sql
+```zetasql
 SELECT EUCLIDEAN_DISTANCE([2.0, 1.0], [4.0, 3.0]);
 ```
 
-```sql
+```zetasql
 SELECT EUCLIDEAN_DISTANCE([(1, 1.0), (2, 2.0)], [(1, 3.0), (2, 4.0)]) AS results;
 ```
 
-```sql
+```zetasql
  /*----------*
   | results  |
   +----------+
@@ -33121,7 +33239,7 @@ Both non-sparse vectors must have the same
 dimensions. If not, an error is produced. In the following example, the first
 vector has two dimensions and the second vector has three:
 
-```sql
+```zetasql
 -- ERROR
 SELECT EUCLIDEAN_DISTANCE([9.0, 7.0], [8.0, 4.0, 5.0]) AS results;
 ```
@@ -33129,7 +33247,7 @@ SELECT EUCLIDEAN_DISTANCE([9.0, 7.0], [8.0, 4.0, 5.0]) AS results;
 If you use sparse vectors and you repeat a dimension, an error is
 produced:
 
-```sql
+```zetasql
 -- ERROR
 SELECT EUCLIDEAN_DISTANCE(
   [(1, 9.0), (2, 7.0), (2, 8.0)], [(1, 8.0), (2, 4.0), (3, 5.0)]) AS results;
@@ -33145,7 +33263,7 @@ FLOOR(X)
 
 **Description**
 
-Returns the largest integral value that is not greater than X.
+Returns the largest integral value that isn't greater than X.
 
 <table>
   <thead>
@@ -33267,7 +33385,7 @@ Divides X by Y; this function never fails. Returns
 `DOUBLE` unless
 both X and Y are `FLOAT`, in which case it returns
 `FLOAT`. Unlike the division operator (/),
-this function does not generate errors for division by zero or overflow.</p>
+this function doesn't generate errors for division by zero or overflow.</p>
 
 <table>
   <thead>
@@ -33668,7 +33786,7 @@ table.
 
 ### `PI`
 
-```sql
+```zetasql
 PI()
 ```
 
@@ -33683,7 +33801,7 @@ value.
 
 **Example**
 
-```sql
+```zetasql
 SELECT PI() AS pi
 
 /*--------------------*
@@ -33695,7 +33813,7 @@ SELECT PI() AS pi
 
 ### `PI_BIGNUMERIC`
 
-```sql
+```zetasql
 PI_BIGNUMERIC()
 ```
 
@@ -33709,7 +33827,7 @@ Returns the mathematical constant `π` as a `BIGNUMERIC` value.
 
 **Example**
 
-```sql
+```zetasql
 SELECT PI_BIGNUMERIC() AS pi
 
 /*-----------------------------------------*
@@ -33721,7 +33839,7 @@ SELECT PI_BIGNUMERIC() AS pi
 
 ### `PI_NUMERIC`
 
-```sql
+```zetasql
 PI_NUMERIC()
 ```
 
@@ -33735,7 +33853,7 @@ Returns the mathematical constant `π` as a `NUMERIC` value.
 
 **Example**
 
-```sql
+```zetasql
 SELECT PI_NUMERIC() AS pi
 
 /*-------------*
@@ -33753,8 +33871,8 @@ POW(X, Y)
 
 **Description**
 
-Returns the value of X raised to the power of Y. If the result underflows and is
-not representable, then the function returns a  value of zero.
+Returns the value of X raised to the power of Y. If the result underflows and
+isn't representable, then the function returns a  value of zero.
 
 <table>
   <thead>
@@ -33893,7 +34011,7 @@ the range of [0, 1), inclusive of 0 and exclusive of 1.
 
 ### `RANGE_BUCKET`
 
-```sql
+```zetasql
 RANGE_BUCKET(point, boundaries_array)
 ```
 
@@ -33907,40 +34025,40 @@ build partitions, histograms, business-defined rules, and more.
 
 +  If the point exists in the array, returns the index of the next larger value.
 
-   ```sql
+   ```zetasql
    RANGE_BUCKET(20, [0, 10, 20, 30, 40]) -- 3 is return value
    RANGE_BUCKET(20, [0, 10, 20, 20, 40, 40]) -- 4 is return value
    ```
-+  If the point does not exist in the array, but it falls between two values,
++  If the point doesn't exist in the array, but it falls between two values,
    returns the index of the larger value.
 
-   ```sql
+   ```zetasql
    RANGE_BUCKET(25, [0, 10, 20, 30, 40]) -- 3 is return value
    ```
 +  If the point is smaller than the first value in the array, returns 0.
 
-   ```sql
+   ```zetasql
    RANGE_BUCKET(-10, [5, 10, 20, 30, 40]) -- 0 is return value
    ```
 +  If the point is greater than or equal to the last value in the array,
    returns the length of the array.
 
-   ```sql
+   ```zetasql
    RANGE_BUCKET(80, [0, 10, 20, 30, 40]) -- 5 is return value
    ```
 +  If the array is empty, returns 0.
 
-   ```sql
+   ```zetasql
    RANGE_BUCKET(80, []) -- 0 is return value
    ```
 +  If the point is `NULL` or `NaN`, returns `NULL`.
 
-   ```sql
+   ```zetasql
    RANGE_BUCKET(NULL, [0, 10, 20, 30, 40]) -- NULL is return value
    ```
 +  The data type for the point and array must be compatible.
 
-   ```sql
+   ```zetasql
    RANGE_BUCKET('a', ['a', 'b', 'c', 'd']) -- 1 is return value
    RANGE_BUCKET(1.2, [1, 1.2, 1.4, 1.6]) -- 2 is return value
    RANGE_BUCKET(1.2, [1, 2, 4, 6]) -- execution failure
@@ -33950,12 +34068,12 @@ Execution failure occurs when:
 
 +  The array has a `NaN` or `NULL` value in it.
 
-   ```sql
+   ```zetasql
    RANGE_BUCKET(80, [NULL, 10, 20, 30, 40]) -- execution failure
    ```
-+  The array is not sorted in ascending order.
++  The array isn't sorted in ascending order.
 
-   ```sql
+   ```zetasql
    RANGE_BUCKET(30, [10, 30, 20, 40, 50]) -- execution failure
    ```
 
@@ -33981,7 +34099,7 @@ exist in each `age_group` bucket, based on a student's age:
 +  age_group 2 (age >= 20, age < 30)
 +  age_group 3 (age >= 30)
 
-```sql
+```zetasql
 WITH students AS
 (
   SELECT 9 AS age UNION ALL
@@ -34028,7 +34146,7 @@ to one of the following:
 +   [`"ROUND_HALF_EVEN"`][round-half-even]: Rounds halfway cases
     towards the nearest even digit.
 
-If you set the `rounding_mode` and X is not a `NUMERIC` or `BIGNUMERIC` type,
+If you set the `rounding_mode` and X isn't a `NUMERIC` or `BIGNUMERIC` type,
 then the function generates an error.
 
 <table>
@@ -34442,7 +34560,7 @@ that [coerces to `DOUBLE`][conversion-rules].
 
 **Example**
 
-```sql
+```zetasql
 SELECT SEC(100) AS a, SEC(-1) AS b;
 
 /*----------------+---------------*
@@ -34500,7 +34618,7 @@ Never produces an error.
 
 **Example**
 
-```sql
+```zetasql
 SELECT SECH(0.5) AS a, SECH(-2) AS b, SECH(100) AS c;
 
 /*----------------+----------------+---------------------*
@@ -34521,7 +34639,7 @@ SIGN(X)
 **Description**
 
 Returns `-1`, `0`, or `+1` for negative, zero and positive arguments
-respectively. For floating point arguments, this function does not distinguish
+respectively. For floating point arguments, this function doesn't distinguish
 between positive and negative zero.
 
 <table>
@@ -34723,7 +34841,7 @@ TANH(X)
 
 **Description**
 
-Computes the hyperbolic tangent of X where X is specified in radians. Does not
+Computes the hyperbolic tangent of X where X is specified in radians. Doesn't
 fail.
 
 <table>
@@ -34758,7 +34876,7 @@ TRUNC(X [, N])
 **Description**
 
 If only X is present, `TRUNC` rounds X to the nearest integer whose absolute
-value is not greater than the absolute value of X. If N is also present, `TRUNC`
+value isn't greater than the absolute value of X. If N is also present, `TRUNC`
 behaves like `ROUND(X, N)`, but always rounds towards zero and never overflows.
 
 <table>
@@ -34925,7 +35043,7 @@ For all navigation functions, the result data type is the same type as
 
 ### `FIRST_VALUE`
 
-```sql
+```zetasql
 FIRST_VALUE (value_expression [{RESPECT | IGNORE} NULLS])
 OVER over_clause
 
@@ -34970,7 +35088,7 @@ Same type as `value_expression`.
 
 The following example computes the fastest time for each division.
 
-```sql
+```zetasql
 WITH finishers AS
  (SELECT 'Sophia Liu' as name,
   TIMESTAMP '2016-10-18 2:51:45' as finish_time,
@@ -35016,7 +35134,7 @@ FROM (
 
 ### `LAG`
 
-```sql
+```zetasql
 LAG (value_expression[, offset [, default_expression]])
 OVER over_clause
 
@@ -35066,7 +35184,7 @@ Same type as `value_expression`.
 
 The following example illustrates a basic use of the `LAG` function.
 
-```sql
+```zetasql
 WITH finishers AS
  (SELECT 'Sophia Liu' as name,
   TIMESTAMP '2016-10-18 2:51:45' as finish_time,
@@ -35105,7 +35223,7 @@ FROM finishers;
 
 This next example uses the optional `offset` parameter.
 
-```sql
+```zetasql
 WITH finishers AS
  (SELECT 'Sophia Liu' as name,
   TIMESTAMP '2016-10-18 2:51:45' as finish_time,
@@ -35144,7 +35262,7 @@ FROM finishers;
 
 The following example replaces NULL values with a default value.
 
-```sql
+```zetasql
 WITH finishers AS
  (SELECT 'Sophia Liu' as name,
   TIMESTAMP '2016-10-18 2:51:45' as finish_time,
@@ -35183,7 +35301,7 @@ FROM finishers;
 
 ### `LAST_VALUE`
 
-```sql
+```zetasql
 LAST_VALUE (value_expression [{RESPECT | IGNORE} NULLS])
 OVER over_clause
 
@@ -35228,7 +35346,7 @@ Same type as `value_expression`.
 
 The following example computes the slowest time for each division.
 
-```sql
+```zetasql
 WITH finishers AS
  (SELECT 'Sophia Liu' as name,
   TIMESTAMP '2016-10-18 2:51:45' as finish_time,
@@ -35274,7 +35392,7 @@ FROM (
 
 ### `LEAD`
 
-```sql
+```zetasql
 LEAD (value_expression[, offset [, default_expression]])
 OVER over_clause
 
@@ -35324,7 +35442,7 @@ Same type as `value_expression`.
 
 The following example illustrates a basic use of the `LEAD` function.
 
-```sql
+```zetasql
 WITH finishers AS
  (SELECT 'Sophia Liu' as name,
   TIMESTAMP '2016-10-18 2:51:45' as finish_time,
@@ -35363,7 +35481,7 @@ FROM finishers;
 
 This next example uses the optional `offset` parameter.
 
-```sql
+```zetasql
 WITH finishers AS
  (SELECT 'Sophia Liu' as name,
   TIMESTAMP '2016-10-18 2:51:45' as finish_time,
@@ -35402,7 +35520,7 @@ FROM finishers;
 
 The following example replaces NULL values with a default value.
 
-```sql
+```zetasql
 WITH finishers AS
  (SELECT 'Sophia Liu' as name,
   TIMESTAMP '2016-10-18 2:51:45' as finish_time,
@@ -35441,7 +35559,7 @@ FROM finishers;
 
 ### `NTH_VALUE`
 
-```sql
+```zetasql
 NTH_VALUE (value_expression, constant_integer_expression [{RESPECT | IGNORE} NULLS])
 OVER over_clause
 
@@ -35488,7 +35606,7 @@ Same type as `value_expression`.
 
 **Examples**
 
-```sql
+```zetasql
 WITH finishers AS
  (SELECT 'Sophia Liu' as name,
   TIMESTAMP '2016-10-18 2:51:45' as finish_time,
@@ -35538,7 +35656,7 @@ FROM (
 
 ### `PERCENTILE_CONT`
 
-```sql
+```zetasql
 PERCENTILE_CONT (value_expression, percentile [{RESPECT | IGNORE} NULLS])
 OVER over_clause
 
@@ -35608,7 +35726,7 @@ table.
 The following example computes the value for some percentiles from a column of
 values while ignoring nulls.
 
-```sql
+```zetasql
 SELECT
   PERCENTILE_CONT(x, 0) OVER() AS min,
   PERCENTILE_CONT(x, 0.01) OVER() AS percentile1,
@@ -35627,7 +35745,7 @@ FROM UNNEST([0, 3, NULL, 1, 2]) AS x LIMIT 1;
 The following example computes the value for some percentiles from a column of
 values while respecting nulls.
 
-```sql
+```zetasql
 SELECT
   PERCENTILE_CONT(x, 0 RESPECT NULLS) OVER() AS min,
   PERCENTILE_CONT(x, 0.01 RESPECT NULLS) OVER() AS percentile1,
@@ -35647,7 +35765,7 @@ FROM UNNEST([0, 3, NULL, 1, 2]) AS x LIMIT 1;
 
 ### `PERCENTILE_DISC`
 
-```sql
+```zetasql
 PERCENTILE_DISC (value_expression, percentile [{RESPECT | IGNORE} NULLS])
 OVER over_clause
 
@@ -35697,7 +35815,7 @@ Same type as `value_expression`.
 The following example computes the value for some percentiles from a column of
 values while ignoring nulls.
 
-```sql
+```zetasql
 SELECT
   x,
   PERCENTILE_DISC(x, 0) OVER() AS min,
@@ -35718,7 +35836,7 @@ FROM UNNEST(['c', NULL, 'b', 'a']) AS x;
 The following example computes the value for some percentiles from a column of
 values while respecting nulls.
 
-```sql
+```zetasql
 SELECT
   x,
   PERCENTILE_DISC(x, 0 RESPECT NULLS) OVER() AS min,
@@ -35909,9 +36027,9 @@ NET.FORMAT_IP(integer)
 
 **Description**
 
-This function is deprecated. It is the same as
+This function is deprecated. It's the same as
 [`NET.IP_TO_STRING`][net-link-to-ip-to-string]`(`[`NET.IPV4_FROM_INT64`][net-link-to-ipv4-from-int64]`(integer))`,
-except that this function does not allow negative input values.
+except that this function doesn't allow negative input values.
 
 **Return Data Type**
 
@@ -35930,7 +36048,7 @@ NET.FORMAT_PACKED_IP(bytes_value)
 
 **Description**
 
-This function is deprecated. It is the same as [`NET.IP_TO_STRING`][net-link-to-ip-to-string].
+This function is deprecated. It's the same as [`NET.IP_TO_STRING`][net-link-to-ip-to-string].
 
 **Return Data Type**
 
@@ -35948,12 +36066,12 @@ NET.HOST(url)
 
 Takes a URL as a `STRING` value and returns the host. For best results, URL
 values should comply with the format as defined by
-[RFC 3986][net-link-to-rfc-3986-appendix-a]. If the URL value does not comply
+[RFC 3986][net-link-to-rfc-3986-appendix-a]. If the URL value doesn't comply
 with RFC 3986 formatting, this function makes a best effort to parse the input
-and return a relevant result. If the function cannot parse the input, it
+and return a relevant result. If the function can't parse the input, it
 returns `NULL`.
 
-Note: The function does not perform any normalization.
+Note: The function doesn't perform any normalization.
 
 **Return Data Type**
 
@@ -35961,7 +36079,7 @@ Note: The function does not perform any normalization.
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   FORMAT("%T", input) AS input,
   description,
@@ -36011,7 +36129,7 @@ This function supports the following formats for `addr_str`:
   `1234:5678:90ab:cdef:1234:5678:90ab:cdef`. For more examples, see the
   [IP Version 6 Addressing Architecture][net-link-to-ipv6-rfc].
 
-This function does not support [CIDR notation][net-link-to-cidr-notation], such as `10.1.2.3/32`.
+This function doesn't support [CIDR notation][net-link-to-cidr-notation], such as `10.1.2.3/32`.
 
 If this function receives a `NULL` input, it returns `NULL`. If the input is
 considered invalid, an `OUT_OF_RANGE` error occurs.
@@ -36022,7 +36140,7 @@ BYTES
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   addr_str, FORMAT("%T", NET.IP_FROM_STRING(addr_str)) AS ip_from_string
 FROM UNNEST([
@@ -36086,7 +36204,7 @@ NET.IP_NET_MASK(num_output_bytes, prefix_length)
 Returns a network mask: a byte sequence with length equal to `num_output_bytes`,
 where the first `prefix_length` bits are set to 1 and the other bits are set to
 0. `num_output_bytes` and `prefix_length` are INT64.
-This function throws an error if `num_output_bytes` is not 4 (for IPv4) or 16
+This function throws an error if `num_output_bytes` isn't 4 (for IPv4) or 16
 (for IPv6). It also throws an error if `prefix_length` is negative or greater
 than `8 * num_output_bytes`.
 
@@ -36096,7 +36214,7 @@ BYTES
 
 **Example**
 
-```sql
+```zetasql
 SELECT x, y, FORMAT("%T", NET.IP_NET_MASK(x, y)) AS ip_net_mask
 FROM UNNEST([
   STRUCT(4 as x, 0 as y),
@@ -36141,7 +36259,7 @@ STRING
 
 **Example**
 
-```sql
+```zetasql
 SELECT FORMAT("%T", x) AS addr_bin, NET.IP_TO_STRING(x) AS ip_to_string
 FROM UNNEST([
   b"0123",
@@ -36172,7 +36290,7 @@ byte order, and returns a subnet address in the same format. The result has the
 same length as `addr_bin`, where the first `prefix_length` bits are equal to
 those in `addr_bin` and the remaining bits are 0.
 
-This function throws an error if `LENGTH(addr_bin)` is not 4 or 16, or if
+This function throws an error if `LENGTH(addr_bin)` isn't 4 or 16, or if
 `prefix_len` is negative or greater than `LENGTH(addr_bin) * 8`.
 
 **Return Data Type**
@@ -36181,7 +36299,7 @@ BYTES
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   FORMAT("%T", x) as addr_bin, prefix_length,
   FORMAT("%T", NET.IP_TRUNC(x, prefix_length)) AS ip_trunc
@@ -36222,7 +36340,7 @@ the most significant 33 bits are 1 (sign-extended from a 32-bit integer).
 In other words, the input should be in the range `[-0x80000000, 0xFFFFFFFF]`;
 otherwise, this function throws an error.
 
-This function does not support IPv6.
+This function doesn't support IPv6.
 
 **Return Data Type**
 
@@ -36230,7 +36348,7 @@ BYTES
 
 **Example**
 
-```sql
+```zetasql
 SELECT x, x_hex, FORMAT("%T", NET.IPV4_FROM_INT64(x)) AS ipv4_from_int64
 FROM (
   SELECT CAST(x_hex AS INT64) x, x_hex
@@ -36262,9 +36380,9 @@ address is stored in the least significant bit of the integer, regardless of
 host or client architecture. For example, `1` means `0.0.0.1`, and `0x1FF` means
 `0.0.1.255`. The output is in the range `[0, 0xFFFFFFFF]`.
 
-If the input length is not 4, this function throws an error.
+If the input length isn't 4, this function throws an error.
 
-This function does not support IPv6.
+This function doesn't support IPv6.
 
 **Return Data Type**
 
@@ -36272,7 +36390,7 @@ INT64
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   FORMAT("%T", x) AS addr_bin,
   FORMAT("0x%X", NET.IPV4_TO_INT64(x)) AS ipv4_to_int64
@@ -36340,7 +36458,7 @@ NET.PARSE_IP(addr_str)
 
 **Description**
 
-This function is deprecated. It is the same as
+This function is deprecated. It's the same as
 [`NET.IPV4_TO_INT64`][net-link-to-ipv4-to-int64]`(`[`NET.IP_FROM_STRING`][net-link-to-ip-from-string]`(addr_str))`,
 except that this function truncates the input at the first `'\x00'` character,
 if any, while `NET.IP_FROM_STRING` treats `'\x00'` as invalid.
@@ -36362,7 +36480,7 @@ NET.PARSE_PACKED_IP(addr_str)
 
 **Description**
 
-This function is deprecated. It is the same as
+This function is deprecated. It's the same as
 [`NET.IP_FROM_STRING`][net-link-to-ip-from-string], except that this function truncates
 the input at the first `'\x00'` character, if any, while `NET.IP_FROM_STRING`
 treats `'\x00'` as invalid.
@@ -36385,16 +36503,16 @@ Takes a URL as a `STRING` value and returns the public suffix (such as `com`,
 `org`, or `net`). A public suffix is an ICANN domain registered at
 [publicsuffix.org][net-link-to-public-suffix]. For best results, URL values
 should comply with the format as defined by
-[RFC 3986][net-link-to-rfc-3986-appendix-a]. If the URL value does not comply
+[RFC 3986][net-link-to-rfc-3986-appendix-a]. If the URL value doesn't comply
 with RFC 3986 formatting, this function makes a best effort to parse the input
 and return a relevant result.
 
 This function returns `NULL` if any of the following is true:
 
-+ It cannot parse the host from the input;
++ It can't parse the host from the input;
 + The parsed host contains adjacent dots in the middle
   (not leading or trailing);
-+ The parsed host does not contain any public suffix.
++ The parsed host doesn't contain any public suffix.
 
 Before looking up the public suffix, this function temporarily normalizes the
 host by converting uppercase English letters to lowercase and encoding all
@@ -36402,7 +36520,7 @@ non-ASCII characters with [Punycode][net-link-to-punycode].
 The function then returns the public suffix as part of the original host instead
 of the normalized host.
 
-Note: The function does not perform
+Note: The function doesn't perform
 [Unicode normalization][unicode-normalization].
 
 Note: The public suffix data at
@@ -36418,7 +36536,7 @@ produces a `NULL` result now may produce a non-`NULL` value in the future.
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   FORMAT("%T", input) AS input,
   description,
@@ -36467,16 +36585,16 @@ NET.REG_DOMAIN(url)
 Takes a URL as a string and returns the registered or registrable domain (the
 [public suffix](#netpublic_suffix) plus one preceding label), as a
 string. For best results, URL values should comply with the format as defined by
-[RFC 3986][net-link-to-rfc-3986-appendix-a]. If the URL value does not comply
+[RFC 3986][net-link-to-rfc-3986-appendix-a]. If the URL value doesn't comply
 with RFC 3986 formatting, this function makes a best effort to parse the input
 and return a relevant result.
 
 This function returns `NULL` if any of the following is true:
 
-+ It cannot parse the host from the input;
++ It can't parse the host from the input;
 + The parsed host contains adjacent dots in the middle
   (not leading or trailing);
-+ The parsed host does not contain any public suffix;
++ The parsed host doesn't contain any public suffix;
 + The parsed host contains only a public suffix without any preceding label.
 
 Before looking up the public suffix, this function temporarily normalizes the
@@ -36485,12 +36603,12 @@ non-ASCII characters with [Punycode][net-link-to-punycode]. The function then
 returns the registered or registerable domain as part of the original host
 instead of the normalized host.
 
-Note: The function does not perform
+Note: The function doesn't perform
 [Unicode normalization][unicode-normalization].
 
 Note: The public suffix data at
 [publicsuffix.org][net-link-to-public-suffix] also contains
-private domains. This function does not treat a private domain as a public
+private domains. This function doesn't treat a private domain as a public
 suffix. For example, if `us.com` is a private domain in the public suffix data,
 `NET.REG_DOMAIN("foo.us.com")` returns `us.com` (the public suffix `com` plus
 the preceding label `us`) rather than `foo.us.com` (the private domain `us.com`
@@ -36506,7 +36624,7 @@ value in the future.
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   FORMAT("%T", input) AS input,
   description,
@@ -36561,7 +36679,7 @@ BYTES
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   addr_str,
   FORMAT("%T", NET.SAFE_IP_FROM_STRING(addr_str)) AS safe_ip_from_string
@@ -36632,6 +36750,24 @@ numbering functions.
 </tr>
 
 <tr>
+  <td><a href="#IS_FIRST"><code>IS_FIRST</code></a>
+</td>
+  <td>
+        Returns `true` if this row is in the first `k` rows (1-based) within the window.
+    
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#IS_LAST"><code>IS_LAST</code></a>
+</td>
+  <td>
+        Returns `true` if this row is in the last `k` rows (1-based) within the window.
+    
+  </td>
+</tr>
+
+<tr>
   <td><a href="#ntile"><code>NTILE</code></a>
 </td>
   <td>
@@ -36672,7 +36808,7 @@ numbering functions.
 
 ### `CUME_DIST`
 
-```sql
+```zetasql
 CUME_DIST()
 OVER over_clause
 
@@ -36707,7 +36843,7 @@ To learn more about the `OVER` clause and how to use it, see
 
 **Example**
 
-```sql
+```zetasql
 WITH finishers AS
  (SELECT 'Sophia Liu' as name,
   TIMESTAMP '2016-10-18 2:51:45' as finish_time,
@@ -36741,7 +36877,7 @@ FROM finishers;
 
 ### `DENSE_RANK`
 
-```sql
+```zetasql
 DENSE_RANK()
 OVER over_clause
 
@@ -36776,7 +36912,7 @@ To learn more about the `OVER` clause and how to use it, see
 
 **Examples**
 
-```sql
+```zetasql
 WITH Numbers AS
  (SELECT 1 as x
   UNION ALL SELECT 2
@@ -36803,7 +36939,7 @@ FROM Numbers
  *-------------------------*/
 ```
 
-```sql
+```zetasql
 WITH finishers AS
  (SELECT 'Sophia Liu' as name,
   TIMESTAMP '2016-10-18 2:51:45' as finish_time,
@@ -36835,9 +36971,221 @@ FROM finishers;
  *-----------------+------------------------+----------+-------------*/
 ```
 
+### `IS_FIRST`
+
+```zetasql
+IS_FIRST(k)
+OVER over_clause
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+
+```
+
+**Description**
+
+Returns `true` if the current row is in the first `k` rows (1-based) in the
+window; otherwise, returns `false`. This function doesn't require the `ORDER BY`
+clause.
+
+**Details**
+
+* The `k` value must be positive; otherwise, a runtime error is raised.
+* If `k` is 0, the scenario is considered a degenerate case where the result is always `false`.
+* If `k` is `NULL`, the result is `NULL`.
+* Disallows the window framing clause, similar to the `ROW_NUMBER` function.
+* If any rows are tied or if `ORDER BY` is omitted, the result is non-deterministic.
+  If the `ORDER BY` clause is unspecified or if all rows are tied, the
+  result is equivalent to `ANY-k`.
+
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
+
+**Return Type**
+
+`BOOL`
+
+**Examples**
+
+```zetasql
+WITH Numbers AS
+ (SELECT 1 as x
+  UNION ALL SELECT 2
+  UNION ALL SELECT 2
+  UNION ALL SELECT 5
+  UNION ALL SELECT 8
+  UNION ALL SELECT 10
+  UNION ALL SELECT 10
+)
+SELECT x,
+  IS_FIRST(2) OVER (ORDER BY x) AS is_first
+FROM Numbers
+
+/*-------------------------*
+ | x          | is_first   |
+ +-------------------------+
+ | 1          | true       |
+ | 2          | true       |
+ | 2          | false      |
+ | 5          | false      |
+ | 8          | false      |
+ | 10         | false      |
+ | 10         | false      |
+ *-------------------------*/
+```
+
+```zetasql
+WITH finishers AS
+ (SELECT 'Sophia Liu' as name,
+  TIMESTAMP '2016-10-18 2:51:45' as finish_time,
+  'F30-34' as division
+  UNION ALL SELECT 'Lisa Stelzner', TIMESTAMP '2016-10-18 2:54:11', 'F35-39'
+  UNION ALL SELECT 'Nikki Leith', TIMESTAMP '2016-10-18 2:59:01', 'F30-34'
+  UNION ALL SELECT 'Lauren Matthews', TIMESTAMP '2016-10-18 3:01:17', 'F35-39'
+  UNION ALL SELECT 'Desiree Berry', TIMESTAMP '2016-10-18 3:05:42', 'F35-39'
+  UNION ALL SELECT 'Suzy Slane', TIMESTAMP '2016-10-18 3:06:24', 'F35-39'
+  UNION ALL SELECT 'Jen Edwards', TIMESTAMP '2016-10-18 3:06:36', 'F30-34'
+  UNION ALL SELECT 'Meghan Lederer', TIMESTAMP '2016-10-18 2:59:01', 'F30-34')
+SELECT name,
+  finish_time,
+  division,
+  IS_FIRST(2) OVER (PARTITION BY division ORDER BY finish_time ASC) AS is_first
+FROM finishers;
+
+/*-----------------+------------------------+----------+-------------*
+ | name            | finish_time            | division | finish_rank |
+ +-----------------+------------------------+----------+-------------+
+ | Sophia Liu      | 2016-10-18 09:51:45+00 | F30-34   | true        |
+ | Meghan Lederer  | 2016-10-18 09:59:01+00 | F30-34   | true        |
+ | Nikki Leith     | 2016-10-18 09:59:01+00 | F30-34   | false       |
+ | Jen Edwards     | 2016-10-18 10:06:36+00 | F30-34   | false       |
+ | Lisa Stelzner   | 2016-10-18 09:54:11+00 | F35-39   | true        |
+ | Lauren Matthews | 2016-10-18 10:01:17+00 | F35-39   | true        |
+ | Desiree Berry   | 2016-10-18 10:05:42+00 | F35-39   | false       |
+ | Suzy Slane      | 2016-10-18 10:06:24+00 | F35-39   | false       |
+ *-----------------+------------------------+----------+-------------*/
+```
+
+### `IS_LAST`
+
+```zetasql
+IS_LAST(k)
+OVER over_clause
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+
+```
+
+**Description**
+
+Returns `true` if the current row is in the last `k` rows (1-based) in the
+window; otherwise, returns `false`. This function doesn't require the `ORDER BY`
+clause.
+
+**Details**
+
+* The `k` value must be positive; otherwise, a runtime error is raised.
+* If `k` is 0, the scenario is considered a degenerate case where the result is always `false`.
+* If `k` is `NULL`, the result is `NULL`.
+* Disallows the window framing clause, similar to the `ROW_NUMBER` function.
+* If any rows are tied or if `ORDER BY` is omitted, the result is non-deterministic.
+  If the `ORDER BY` clause is unspecified or if all rows are tied, the
+  result is equivalent to `ANY-k`.
+
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
+
+**Return Type**
+
+`BOOL`
+
+**Examples**
+
+```zetasql
+WITH Numbers AS
+ (SELECT 1 as x
+  UNION ALL SELECT 2
+  UNION ALL SELECT 2
+  UNION ALL SELECT 5
+  UNION ALL SELECT 10
+  UNION ALL SELECT 10
+  UNION ALL SELECT 10
+)
+SELECT x,
+  IS_LAST(2) OVER (ORDER BY x) AS is_last
+FROM Numbers
+
+/*-------------------------*
+ | x          | is_last    |
+ +-------------------------+
+ | 1          | false      |
+ | 2          | false      |
+ | 2          | false      |
+ | 5          | false      |
+ | 10         | false      |
+ | 10         | true       |
+ | 10         | true       |
+ *-------------------------*/
+```
+
+```zetasql
+WITH finishers AS
+ (SELECT 'Sophia Liu' as name,
+  TIMESTAMP '2016-10-18 2:51:45' as finish_time,
+  'F30-34' as division
+  UNION ALL SELECT 'Lisa Stelzner', TIMESTAMP '2016-10-18 2:54:11', 'F35-39'
+  UNION ALL SELECT 'Nikki Leith', TIMESTAMP '2016-10-18 2:59:01', 'F30-34'
+  UNION ALL SELECT 'Lauren Matthews', TIMESTAMP '2016-10-18 3:01:17', 'F35-39'
+  UNION ALL SELECT 'Desiree Berry', TIMESTAMP '2016-10-18 3:05:42', 'F35-39'
+  UNION ALL SELECT 'Suzy Slane', TIMESTAMP '2016-10-18 3:06:24', 'F35-39'
+  UNION ALL SELECT 'Jen Edwards', TIMESTAMP '2016-10-18 3:06:36', 'F30-34'
+  UNION ALL SELECT 'Meghan Lederer', TIMESTAMP '2016-10-18 2:59:01', 'F30-34')
+SELECT name,
+  finish_time,
+  division,
+  IS_LAST(2) OVER (PARTITION BY division ORDER BY finish_time ASC) AS is_last
+FROM finishers;
+
+/*-----------------+------------------------+----------+-------------*
+ | name            | finish_time            | division | finish_rank |
+ +-----------------+------------------------+----------+-------------+
+ | Sophia Liu      | 2016-10-18 09:51:45+00 | F30-34   | false       |
+ | Meghan Lederer  | 2016-10-18 09:59:01+00 | F30-34   | false       |
+ | Nikki Leith     | 2016-10-18 09:59:01+00 | F30-34   | true        |
+ | Jen Edwards     | 2016-10-18 10:06:36+00 | F30-34   | true        |
+ | Lisa Stelzner   | 2016-10-18 09:54:11+00 | F35-39   | false       |
+ | Lauren Matthews | 2016-10-18 10:01:17+00 | F35-39   | false       |
+ | Desiree Berry   | 2016-10-18 10:05:42+00 | F35-39   | true        |
+ | Suzy Slane      | 2016-10-18 10:06:24+00 | F35-39   | true        |
+ *-----------------+------------------------+----------+-------------*/
+```
+
 ### `NTILE`
 
-```sql
+```zetasql
 NTILE(constant_integer_expression)
 OVER over_clause
 
@@ -36876,7 +37224,7 @@ To learn more about the `OVER` clause and how to use it, see
 
 **Example**
 
-```sql
+```zetasql
 WITH finishers AS
  (SELECT 'Sophia Liu' as name,
   TIMESTAMP '2016-10-18 2:51:45' as finish_time,
@@ -36910,7 +37258,7 @@ FROM finishers;
 
 ### `PERCENT_RANK`
 
-```sql
+```zetasql
 PERCENT_RANK()
 OVER over_clause
 
@@ -36945,7 +37293,7 @@ To learn more about the `OVER` clause and how to use it, see
 
 **Example**
 
-```sql
+```zetasql
 WITH finishers AS
  (SELECT 'Sophia Liu' as name,
   TIMESTAMP '2016-10-18 2:51:45' as finish_time,
@@ -36979,7 +37327,7 @@ FROM finishers;
 
 ### `RANK`
 
-```sql
+```zetasql
 RANK()
 OVER over_clause
 
@@ -37015,7 +37363,7 @@ To learn more about the `OVER` clause and how to use it, see
 
 **Examples**
 
-```sql
+```zetasql
 WITH Numbers AS
  (SELECT 1 as x
   UNION ALL SELECT 2
@@ -37042,7 +37390,7 @@ FROM Numbers
  *-------------------------*/
 ```
 
-```sql
+```zetasql
 WITH finishers AS
  (SELECT 'Sophia Liu' as name,
   TIMESTAMP '2016-10-18 2:51:45' as finish_time,
@@ -37076,7 +37424,7 @@ FROM finishers;
 
 ### `ROW_NUMBER`
 
-```sql
+```zetasql
 ROW_NUMBER()
 OVER over_clause
 
@@ -37092,7 +37440,7 @@ window_specification:
 
 **Description**
 
-Does not require the `ORDER BY` clause. Returns the sequential
+Doesn't require the `ORDER BY` clause. Returns the sequential
 row ordinal (1-based) of each row for each ordered partition. If the
 `ORDER BY` clause is unspecified then the result is
 non-deterministic.
@@ -37112,7 +37460,7 @@ To learn more about the `OVER` clause and how to use it, see
 
 **Examples**
 
-```sql
+```zetasql
 WITH Numbers AS
  (SELECT 1 as x
   UNION ALL SELECT 2
@@ -37139,7 +37487,7 @@ FROM Numbers
  *-------------------------*/
 ```
 
-```sql
+```zetasql
 WITH finishers AS
  (SELECT 'Sophia Liu' as name,
   TIMESTAMP '2016-10-18 2:51:45' as finish_time,
@@ -37274,7 +37622,7 @@ ZetaSQL supports the following protocol buffer functions.
 
 ### `ENUM_VALUE_DESCRIPTOR_PROTO`
 
-```sql
+```zetasql
 ENUM_VALUE_DESCRIPTOR_PROTO(proto_enum)
 ```
 
@@ -37297,7 +37645,7 @@ The following query gets the `ideally_enabled` and `in_development` options from
 the value descriptors in the `LanguageFeature` enum, and then produces query
 results that are based on these value descriptors.
 
-```sql
+```zetasql
 WITH
   EnabledFeatures AS (
     SELECT CAST(999991 AS zetasql.LanguageFeature) AS feature UNION ALL
@@ -37326,7 +37674,7 @@ FROM
 ### `EXTRACT` 
 <a id="proto_extract"></a>
 
-```sql
+```zetasql
 EXTRACT( extraction_type (proto_field) FROM proto_expression )
 
 extraction_type:
@@ -37336,10 +37684,14 @@ extraction_type:
 **Description**
 
 Extracts a value from a protocol buffer. `proto_expression` represents the
-expression that returns a protocol buffer, `proto_field` represents the field
-of the protocol buffer to extract from, and `extraction_type` determines the
-type of data to return. `EXTRACT` can be used to get values of ambiguous fields.
-An alternative to `EXTRACT` is the [dot operator][querying-protocol-buffers].
+expression that returns a protocol buffer, `proto_field` represents the field of
+the protocol buffer to extract from, and `extraction_type` determines the type
+of data to return.
+
+You can access most simple proto message fields idiomatically using the
+[dot operator][dot-operator]. `EXTRACT` is a more general way to access fields
+that can handle most cases. For instance, `EXTRACT` can access the values of
+fields made ambiguous by tag reuse.
 
 **Extraction Types**
 
@@ -37350,8 +37702,8 @@ You can choose the type of information to get with `EXTRACT`. Your choices are:
     protocol buffer field. Raw values
     ignore any ZetaSQL type annotations.
 +  `HAS`: Returns `TRUE` if a protocol buffer field is set in a proto message;
-   otherwise, `FALSE`. Returns an error if this is used with a scalar proto3
-   field. Alternatively, use [`has_x`][has-value], to perform this task.
+   otherwise, `FALSE`. Alternatively, use [`has_x`][has-value] to perform this
+   task.
 +  `ONEOF_CASE`: Returns the name of the set protocol buffer field in a Oneof.
    If no field is set, returns an empty string.
 
@@ -37391,7 +37743,7 @@ message Chart {
 }
 ```
 
-```sql
+```zetasql
 WITH AlbumList AS (
   SELECT
     NEW Album(
@@ -37418,7 +37770,7 @@ SELECT * FROM AlbumList
 The following example extracts the album names from a table called `AlbumList`
 that contains a proto-typed column called `Album`.
 
-```sql
+```zetasql
 SELECT EXTRACT(FIELD(album_name) FROM album_col) AS name_of_album
 FROM AlbumList
 
@@ -37430,8 +37782,8 @@ FROM AlbumList
  *------------------*/
 ```
 
-A table called `AlbumList` contains a proto-typed column called `Album`.
-`Album` contains a field called `date`, which can store an integer. The
+A table called `AlbumList` contains a proto-typed column called `Chart`.
+`Chart` contains a field called `date`, which can store an integer. The
 `date` field has an annotated format called `DATE` assigned to it, which means
 that when you extract the value in this field, it returns a `DATE`, not an
 `INT64`.
@@ -37439,7 +37791,7 @@ that when you extract the value in this field, it returns a `DATE`, not an
 If you would like to return the value for `date` as an `INT64`, not
 as a `DATE`, use the `RAW` extraction type in your query. For example:
 
-```sql
+```zetasql
 SELECT
   EXTRACT(RAW(date) FROM chart_col) AS raw_date,
   EXTRACT(FIELD(date) FROM chart_col) AS formatted_date
@@ -37456,7 +37808,7 @@ FROM AlbumList
 The following example checks to see if release dates exist in a table called
 `AlbumList` that contains a protocol buffer called `Chart`.
 
-```sql
+```zetasql
 SELECT EXTRACT(HAS(date) FROM chart_col) AS has_release_date
 FROM AlbumList
 
@@ -37468,12 +37820,12 @@ FROM AlbumList
  *------------------*/
 ```
 
-The following example extracts the group name that is assigned to an artist in
+The following example extracts the group name that's assigned to an artist in
 a table called `AlbumList`. The group name is set for exactly one
 protocol buffer field inside of the `group_name` Oneof. The `group_name` Oneof
-exists inside the `Chart` protocol buffer.
+exists inside the `Album` protocol buffer.
 
-```sql
+```zetasql
 SELECT EXTRACT(ONEOF_CASE(group_name) FROM album_col) AS artist_type
 FROM AlbumList;
 
@@ -37485,13 +37837,13 @@ FROM AlbumList;
  *-------------*/
 ```
 
-[querying-protocol-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#querying_protocol_buffers
+[dot-operator]: https://github.com/google/zetasql/blob/master/docs/operators.md#field_access_operator
 
 [has-value]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#checking_if_a_field_has_a_value
 
 ### `FILTER_FIELDS`
 
-```sql
+```zetasql
 FILTER_FIELDS(
   proto_expression,
   proto_field_list
@@ -37521,7 +37873,7 @@ Input values:
 + `reset_cleared_required_fields`: Named argument with a `BOOL` value.
   If not explicitly set, `FALSE` is used implicitly.
   If `FALSE`, you must include all protocol buffer `required` fields in the
-  `FILTER_FIELDS` function. If `TRUE`, you do not need to include all required
+  `FILTER_FIELDS` function. If `TRUE`, you don't need to include all required
   protocol buffer fields and the value of required fields
   defaults to these values:
 
@@ -37539,7 +37891,7 @@ Protocol buffer field expression behavior:
   inclusion/exclusion. By default, when you include the first field, all other
   fields are excluded. Or by default, when you exclude the first field, all
   other fields are included.
-+ A required field in the protocol buffer cannot be excluded explicitly or
++ A required field in the protocol buffer can't be excluded explicitly or
   implicitly, unless you have the
   `RESET_CLEARED_REQUIRED_FIELDS` named argument set as `TRUE`.
 + If a field is included, its child fields and descendants are implicitly
@@ -37547,7 +37899,7 @@ Protocol buffer field expression behavior:
 + If a field is excluded, its child fields and descendants are
   implicitly excluded in the results.
 + A child field must be listed after its parent field in the argument list,
-  but does not need to come right after the parent field.
+  but doesn't need to come right after the parent field.
 
 Caveats:
 
@@ -37578,7 +37930,7 @@ message Award {
 }
 ```
 
-```sql
+```zetasql
 WITH
   MusicAwards AS (
     SELECT
@@ -37623,7 +37975,7 @@ FROM MusicAwards
 The following example returns protocol buffers that only include the `year`
 field.
 
-```sql
+```zetasql
 SELECT FILTER_FIELDS(award_col, +year) AS filtered_fields
 FROM MusicAwards
 
@@ -37638,7 +37990,7 @@ FROM MusicAwards
 The following example returns protocol buffers that include all but the `type`
 field.
 
-```sql
+```zetasql
 SELECT FILTER_FIELDS(award_col, -type) AS filtered_fields
 FROM MusicAwards
 
@@ -37653,7 +38005,7 @@ FROM MusicAwards
 The following example returns protocol buffers that only include the `year` and
 `type.award_name` fields.
 
-```sql
+```zetasql
 SELECT FILTER_FIELDS(award_col, +year, +type.award_name) AS filtered_fields
 FROM MusicAwards
 
@@ -37675,7 +38027,7 @@ FROM MusicAwards
 The following example returns the `year` and `type` fields, but excludes the
 `award_name` field in the `type` field.
 
-```sql
+```zetasql
 SELECT FILTER_FIELDS(award_col, +year, +type, -type.award_name) AS filtered_fields
 FROM MusicAwards
 
@@ -37695,9 +38047,9 @@ FROM MusicAwards
 ```
 
 The following example produces an error because `year` is a required field
-and cannot be excluded explicitly or implicitly from the results.
+and can't be excluded explicitly or implicitly from the results.
 
-```sql
+```zetasql
 SELECT FILTER_FIELDS(award_col, -year) AS filtered_fields
 FROM MusicAwards
 
@@ -37705,10 +38057,10 @@ FROM MusicAwards
 ```
 
 The following example produces an error because when `year` was included,
-`month` was implicitly excluded. You cannot explicitly exclude a field that
+`month` was implicitly excluded. You can't explicitly exclude a field that
 has already been implicitly excluded.
 
-```sql
+```zetasql
 SELECT FILTER_FIELDS(award_col, +year, -month) AS filtered_fields
 FROM MusicAwards
 
@@ -37717,10 +38069,10 @@ FROM MusicAwards
 
 When `RESET_CLEARED_REQUIRED_FIELDS` is set as `TRUE`, `FILTER_FIELDS` doesn't
 need to include required fields. In the example below, `MusicAwards` has a
-required field called `year`, but this is not added as an argument for
+required field called `year`, but this isn't added as an argument for
 `FILTER_FIELDS`. `year` is added to the results with its default value, `0`.
 
-```sql
+```zetasql
 SELECT FILTER_FIELDS(
   award_col,
   +month,
@@ -37745,7 +38097,7 @@ FROM MusicAwards;
 
 ### `FROM_PROTO`
 
-```sql
+```zetasql
 FROM_PROTO(expression)
 ```
 
@@ -37753,7 +38105,7 @@ FROM_PROTO(expression)
 
 Returns a ZetaSQL value. The valid `expression` types are defined
 in the table below, along with the return types that they produce.
-Other input `expression` types are invalid. If `expression` cannot be converted
+Other input `expression` types are invalid. If `expression` can't be converted
 to a valid value, an error is returned.
 
 <table width="100%">
@@ -37905,7 +38257,7 @@ in the table above.
 
 Convert a `google.type.Date` type into a `DATE` type.
 
-```sql
+```zetasql
 SELECT FROM_PROTO(
   new google.type.Date(
     2019 as year,
@@ -37923,7 +38275,7 @@ SELECT FROM_PROTO(
 
 Pass in and return a `DATE` type.
 
-```sql
+```zetasql
 SELECT FROM_PROTO(DATE '2019-10-30')
 
 /*------------*
@@ -37935,7 +38287,7 @@ SELECT FROM_PROTO(DATE '2019-10-30')
 
 ### `PROTO_DEFAULT_IF_NULL`
 
-```sql
+```zetasql
 PROTO_DEFAULT_IF_NULL(proto_field_expression)
 ```
 
@@ -37947,11 +38299,11 @@ value for the field. Otherwise, returns the field value.
 
 Stipulations:
 
-+ The expression cannot resolve to a required field.
-+ The expression cannot resolve to a message field.
++ The expression can't resolve to a required field.
++ The expression can't resolve to a message field.
 + The expression must resolve to a regular proto field access, not
   a virtual field.
-+ The expression cannot access a field with
++ The expression can't access a field with
   `zetasql.use_defaults=false`.
 
 **Return Type**
@@ -37961,12 +38313,12 @@ Type of `proto_field_expression`.
 **Example**
 
 In the following example, each book in a library has a country of origin. If
-the country is not set, the country defaults to unknown.
+the country isn't set, the country defaults to unknown.
 
 In this statement, table `library_books` contains a column named `book`,
 whose type is `Book`.
 
-```sql
+```zetasql
 SELECT PROTO_DEFAULT_IF_NULL(book.country) AS origin FROM library_books;
 ```
 
@@ -37980,7 +38332,7 @@ message Book {
 
 This is the result if `book.country` evaluates to `Canada`.
 
-```sql
+```zetasql
 /*-----------------*
  | origin          |
  +-----------------+
@@ -37992,7 +38344,7 @@ This is the result if `book` is `NULL`. Since `book` is `NULL`,
 `book.country` evaluates to `NULL` and therefore the function result is the
 default value for `country`.
 
-```sql
+```zetasql
 /*-----------------*
  | origin          |
  +-----------------+
@@ -38002,7 +38354,7 @@ default value for `country`.
 
 ### `PROTO_MAP_CONTAINS_KEY`
 
-```sql
+```zetasql
 PROTO_MAP_CONTAINS_KEY(proto_map_field_expression, key)
 ```
 
@@ -38038,7 +38390,7 @@ message Item {
 In the following example, the function returns `TRUE` when the key is
 present, `FALSE` otherwise.
 
-```sql
+```zetasql
 SELECT
   PROTO_MAP_CONTAINS_KEY(m.purchased, 'A') AS contains_a,
   PROTO_MAP_CONTAINS_KEY(m.purchased, 'B') AS contains_b
@@ -38056,7 +38408,7 @@ FROM
 
 ### `PROTO_MODIFY_MAP`
 
-```sql
+```zetasql
 PROTO_MODIFY_MAP(proto_map_field_expression, key_value_pair[, ...])
 
 key_value_pair:
@@ -38075,7 +38427,7 @@ Input values:
 
 Modification behavior:
 
-+ If the key is not already in the map field, adds the key and its value to the
++ If the key isn't already in the map field, adds the key and its value to the
   map field.
 + If the key is already in the map field, replaces its value.
 + If the key is in the map field and the value is `NULL`, removes the key and
@@ -38105,7 +38457,7 @@ message Item {
 In the following example, the query deletes key `A`, replaces `B`, and adds
 `C` in a map field called `purchased`.
 
-```sql
+```zetasql
 SELECT
   PROTO_MODIFY_MAP(m.purchased, 'A', NULL, 'B', 4, 'C', 6) AS result_map
 FROM
@@ -38122,14 +38474,14 @@ FROM
 
 ### `REPLACE_FIELDS`
 
-```sql
+```zetasql
 REPLACE_FIELDS(proto_expression, value AS field_path [, ... ])
 ```
 
 **Description**
 
 Returns a copy of a protocol buffer, replacing the values in one or more fields.
-`field_path` is a delimited path to the protocol buffer field that is replaced.
+`field_path` is a delimited path to the protocol buffer field that's replaced.
 When using `replace_fields`, the following limitations apply:
 
 +   If `value` is `NULL`, it un-sets `field_path` or returns an error if the
@@ -38164,7 +38516,7 @@ This statement replaces the values of the field `title` and subfield `chapters`
 of proto type `Book`. Note that field `details` must be set for the statement
 to succeed.
 
-```sql
+```zetasql
 SELECT REPLACE_FIELDS(
   NEW Book(
     "The Hummingbird" AS title,
@@ -38182,7 +38534,7 @@ AS proto;
 
 The function can replace value of repeated fields.
 
-```sql
+```zetasql
 SELECT REPLACE_FIELDS(
   NEW Book("The Hummingbird" AS title,
     NEW BookDetails(10 AS chapters) AS details),
@@ -38199,7 +38551,7 @@ AS proto;
 
 The function can also set a field to `NULL`.
 
-```sql
+```zetasql
 SELECT REPLACE_FIELDS(
   NEW Book("The Hummingbird" AS title,
     NEW BookDetails(10 AS chapters) AS details),
@@ -38353,7 +38705,7 @@ in the table above.
 
 Convert a `DATE` type into a `google.type.Date` type.
 
-```sql
+```zetasql
 SELECT TO_PROTO(DATE '2019-10-30')
 
 /*--------------------------------*
@@ -38365,7 +38717,7 @@ SELECT TO_PROTO(DATE '2019-10-30')
 
 Pass in and return a `google.type.Date` type.
 
-```sql
+```zetasql
 SELECT TO_PROTO(
   new google.type.Date(
     2019 as year,
@@ -38474,11 +38826,11 @@ ZetaSQL supports the following range functions.
 
 ### `GENERATE_RANGE_ARRAY`
 
-```sql
+```zetasql
 GENERATE_RANGE_ARRAY(range_to_split, step_interval)
 ```
 
-```sql
+```zetasql
 GENERATE_RANGE_ARRAY(range_to_split, step_interval, include_last_partial_range)
 ```
 
@@ -38492,7 +38844,7 @@ Splits a range into an array of subranges.
 +   `step_interval`: The `INTERVAL` value, which determines the maximum size of
     each subrange in the resulting array. An
     [interval single date and time part][interval-single]
-    is supported, but an interval range of date and time parts is not.
+    is supported, but an interval range of date and time parts isn't.
 
     +   If `range_to_split` is `RANGE<DATE>`, these interval
         date parts are supported: `YEAR` to `DAY`.
@@ -38504,7 +38856,7 @@ Splits a range into an array of subranges.
         date and time parts are supported: `DAY` to `SECOND`.
 +   `include_last_partial_range`: A `BOOL` value, which determines whether or
     not to include the last subrange if it's a partial subrange.
-    If this argument is not specified, the default value is `TRUE`.
+    If this argument isn't specified, the default value is `TRUE`.
 
     +   `TRUE` (default): The last subrange is included, even if it's
         smaller than `step_interval`.
@@ -38526,7 +38878,7 @@ In the following example, a date range between `2020-01-01` and `2020-01-06`
 is split into an array of subranges that are one day long. There are
 no partial ranges.
 
-```sql
+```zetasql
 SELECT GENERATE_RANGE_ARRAY(
   RANGE(DATE '2020-01-01', DATE '2020-01-06'),
   INTERVAL 1 DAY) AS results;
@@ -38548,7 +38900,7 @@ In the following examples, a date range between `2020-01-01` and `2020-01-06`
 is split into an array of subranges that are two days long. The final subrange
 is smaller than two days:
 
-```sql
+```zetasql
 SELECT GENERATE_RANGE_ARRAY(
   RANGE(DATE '2020-01-01', DATE '2020-01-06'),
   INTERVAL 2 DAY) AS results;
@@ -38564,7 +38916,7 @@ SELECT GENERATE_RANGE_ARRAY(
  +----------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT GENERATE_RANGE_ARRAY(
   RANGE(DATE '2020-01-01', DATE '2020-01-06'),
   INTERVAL 2 DAY,
@@ -38585,7 +38937,7 @@ In the following example, a date range between `2020-01-01` and `2020-01-06`
 is split into an array of subranges that are two days long, but the final
 subrange is excluded because it's smaller than two days:
 
-```sql
+```zetasql
 SELECT GENERATE_RANGE_ARRAY(
   RANGE(DATE '2020-01-01', DATE '2020-01-06'),
   INTERVAL 2 DAY,
@@ -38605,7 +38957,7 @@ SELECT GENERATE_RANGE_ARRAY(
 
 ### `RANGE`
 
-```sql
+```zetasql
 RANGE(lower_bound, upper_bound)
 ```
 
@@ -38638,7 +38990,7 @@ To return `NULL` instead, add the `SAFE.` prefix to the function name.
 
 The following query constructs a date range:
 
-```sql
+```zetasql
 SELECT RANGE(DATE '2022-12-01', DATE '2022-12-31') AS results;
 
 /*--------------------------+
@@ -38650,7 +39002,7 @@ SELECT RANGE(DATE '2022-12-01', DATE '2022-12-31') AS results;
 
 The following query constructs a datetime range:
 
-```sql
+```zetasql
 SELECT RANGE(DATETIME '2022-10-01 14:53:27',
              DATETIME '2022-10-01 16:00:00') AS results;
 
@@ -38663,7 +39015,7 @@ SELECT RANGE(DATETIME '2022-10-01 14:53:27',
 
 The following query constructs a timestamp range:
 
-```sql
+```zetasql
 SELECT RANGE(TIMESTAMP '2022-10-01 14:53:27 America/Los_Angeles',
              TIMESTAMP '2022-10-01 16:00:00 America/Los_Angeles') AS results;
 
@@ -38677,7 +39029,7 @@ SELECT RANGE(TIMESTAMP '2022-10-01 14:53:27 America/Los_Angeles',
 
 The following query constructs a date range with no lower bound:
 
-```sql
+```zetasql
 SELECT RANGE(NULL, DATE '2022-12-31') AS results;
 
 /*-------------------------+
@@ -38689,7 +39041,7 @@ SELECT RANGE(NULL, DATE '2022-12-31') AS results;
 
 The following query constructs a date range with no upper bound:
 
-```sql
+```zetasql
 SELECT RANGE(DATE '2022-10-01', NULL) AS results;
 
 /*--------------------------+
@@ -38713,7 +39065,7 @@ SELECT RANGE(DATE '2022-10-01', NULL) AS results;
 
 #### Signature 1
 
-```sql
+```zetasql
 RANGE_CONTAINS(outer_range, inner_range)
 ```
 
@@ -38741,7 +39093,7 @@ Otherwise, returns `FALSE`.
 
 In the following query, the inner range is in the outer range:
 
-```sql
+```zetasql
 SELECT RANGE_CONTAINS(
   RANGE<DATE> '[2022-01-01, 2023-01-01)',
   RANGE<DATE> '[2022-04-01, 2022-07-01)') AS results;
@@ -38753,9 +39105,9 @@ SELECT RANGE_CONTAINS(
  +---------*/
 ```
 
-In the following query, the inner range is not in the outer range:
+In the following query, the inner range isn't in the outer range:
 
-```sql
+```zetasql
 SELECT RANGE_CONTAINS(
   RANGE<DATE> '[2022-01-01, 2023-01-01)',
   RANGE<DATE> '[2023-01-01, 2023-04-01)') AS results;
@@ -38769,7 +39121,7 @@ SELECT RANGE_CONTAINS(
 
 #### Signature 2
 
-```sql
+```zetasql
 RANGE_CONTAINS(range_to_search, value_to_find)
 ```
 
@@ -38799,7 +39151,7 @@ The data type for `value_to_find` must be the same data type as `T`in
 In the following query, the value `2022-04-01` is found in the range
 `[2022-01-01, 2023-01-01)`:
 
-```sql
+```zetasql
 SELECT RANGE_CONTAINS(
   RANGE<DATE> '[2022-01-01, 2023-01-01)',
   DATE '2022-04-01') AS results;
@@ -38811,10 +39163,10 @@ SELECT RANGE_CONTAINS(
  +---------*/
 ```
 
-In the following query, the value `2023-04-01` is not found in the range
+In the following query, the value `2023-04-01` isn't found in the range
 `[2022-01-01, 2023-01-01)`:
 
-```sql
+```zetasql
 SELECT RANGE_CONTAINS(
   RANGE<DATE> '[2022-01-01, 2023-01-01)',
   DATE '2023-04-01') AS results;
@@ -38832,7 +39184,7 @@ SELECT RANGE_CONTAINS(
 
 ### `RANGE_END`
 
-```sql
+```zetasql
 RANGE_END(range_to_check)
 ```
 
@@ -38858,7 +39210,7 @@ Returns `NULL` if `range_to_check` is `NULL`.
 
 In the following query, the upper bound of the range is retrieved:
 
-```sql
+```zetasql
 SELECT RANGE_END(RANGE<DATE> '[2022-12-01, 2022-12-31)') AS results;
 
 /*------------+
@@ -38871,7 +39223,7 @@ SELECT RANGE_END(RANGE<DATE> '[2022-12-01, 2022-12-31)') AS results;
 In the following query, the upper bound of the range is unbounded, so
 `NULL` is returned:
 
-```sql
+```zetasql
 SELECT RANGE_END(RANGE<DATE> '[2022-12-01, UNBOUNDED)') AS results;
 
 /*------------+
@@ -38883,7 +39235,7 @@ SELECT RANGE_END(RANGE<DATE> '[2022-12-01, UNBOUNDED)') AS results;
 
 ### `RANGE_INTERSECT`
 
-```sql
+```zetasql
 RANGE_INTERSECT(range_a, range_b)
 ```
 
@@ -38911,7 +39263,7 @@ Produces an error if `range_a` and `range_b` don't overlap. To return
 
 **Examples**
 
-```sql
+```zetasql
 SELECT RANGE_INTERSECT(
   RANGE<DATE> '[2022-02-01, 2022-09-01)',
   RANGE<DATE> '[2021-06-15, 2022-04-15)') AS results;
@@ -38923,7 +39275,7 @@ SELECT RANGE_INTERSECT(
  +--------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT RANGE_INTERSECT(
   RANGE<DATE> '[2022-02-01, UNBOUNDED)',
   RANGE<DATE> '[2021-06-15, 2022-04-15)') AS results;
@@ -38935,7 +39287,7 @@ SELECT RANGE_INTERSECT(
  +--------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT RANGE_INTERSECT(
   RANGE<DATE> '[2022-02-01, UNBOUNDED)',
   RANGE<DATE> '[2021-06-15, UNBOUNDED)') AS results;
@@ -38949,7 +39301,7 @@ SELECT RANGE_INTERSECT(
 
 ### `RANGE_OVERLAPS`
 
-```sql
+```zetasql
 RANGE_OVERLAPS(range_a, range_b)
 ```
 
@@ -38981,7 +39333,7 @@ To get the part of the range that overlaps, use the
 In the following query, the first and second ranges overlap between
 `2022-02-01` and `2022-04-15`:
 
-```sql
+```zetasql
 SELECT RANGE_OVERLAPS(
   RANGE<DATE> '[2022-02-01, 2022-09-01)',
   RANGE<DATE> '[2021-06-15, 2022-04-15)') AS results;
@@ -38995,7 +39347,7 @@ SELECT RANGE_OVERLAPS(
 
 In the following query, the first and second ranges don't overlap:
 
-```sql
+```zetasql
 SELECT RANGE_OVERLAPS(
   RANGE<DATE> '[2020-02-01, 2020-09-01)',
   RANGE<DATE> '[2021-06-15, 2022-04-15)') AS results;
@@ -39010,7 +39362,7 @@ SELECT RANGE_OVERLAPS(
 In the following query, the first and second ranges overlap between
 `2022-02-01` and `UNBOUNDED`:
 
-```sql
+```zetasql
 SELECT RANGE_OVERLAPS(
   RANGE<DATE> '[2022-02-01, UNBOUNDED)',
   RANGE<DATE> '[2021-06-15, UNBOUNDED)') AS results;
@@ -39026,7 +39378,7 @@ SELECT RANGE_OVERLAPS(
 
 ### `RANGE_SESSIONIZE`
 
-```sql
+```zetasql
 RANGE_SESSIONIZE(
   TABLE table_name,
   range_column,
@@ -39034,7 +39386,7 @@ RANGE_SESSIONIZE(
 )
 ```
 
-```sql
+```zetasql
 RANGE_SESSIONIZE(
   TABLE table_name,
   range_column,
@@ -39060,10 +39412,10 @@ Produces a table of sessionized ranges.
 
     +   `MEETS` (default): Ranges that meet or overlap are sessionized.
 
-    +   `OVERLAPS`: Only a range that is overlapped by another range is
+    +   `OVERLAPS`: Only a range that's overlapped by another range is
         sessionized.
 
-    If this argument is not provided, `MEETS` is used by default.
+    If this argument isn't provided, `MEETS` is used by default.
 
 **Details**
 
@@ -39082,7 +39434,7 @@ argument.
 The examples in this section reference the following table called
 `my_sessionized_range_table` in a dataset called `mydataset`:
 
-```sql
+```zetasql
 INSERT mydataset.my_sessionized_range_table (emp_id, dept_id, duration)
 VALUES(10, 1000, RANGE<DATE> '[2010-01-10, 2010-03-10)'),
       (10, 2000, RANGE<DATE> '[2010-03-10, 2010-07-15)'),
@@ -39107,7 +39459,7 @@ In the following query, a table of sessionized data is produced for
 `my_sessionized_range_table`, and only ranges that meet or overlap are
 sessionized:
 
-```sql
+```zetasql
 SELECT
   emp_id, duration, session_range
 FROM
@@ -39129,10 +39481,10 @@ ORDER BY emp_id;
 ```
 
 In the following query, a table of sessionized data is produced for
-`my_sessionized_range_table`, and only a range that is overlapped by another
+`my_sessionized_range_table`, and only a range that's overlapped by another
 range is sessionized:
 
-```sql
+```zetasql
 SELECT
   emp_id, duration, session_range
 FROM
@@ -39157,7 +39509,7 @@ ORDER BY emp_id;
 If you need to normalize sessionized data, you can use a query similar to the
 following:
 
-```sql
+```zetasql
 SELECT emp_id, session_range AS normalized FROM (
   SELECT emp_id, session_range
   FROM RANGE_SESSIONIZE(
@@ -39179,7 +39531,7 @@ GROUP BY emp_id, normalized;
 
 ### `RANGE_START`
 
-```sql
+```zetasql
 RANGE_START(range_to_check)
 ```
 
@@ -39205,7 +39557,7 @@ Returns `NULL` if `range_to_check` is `NULL`.
 
 In the following query, the lower bound of the range is retrieved:
 
-```sql
+```zetasql
 SELECT RANGE_START(RANGE<DATE> '[2022-12-01, 2022-12-31)') AS results;
 
 /*------------+
@@ -39218,7 +39570,7 @@ SELECT RANGE_START(RANGE<DATE> '[2022-12-01, 2022-12-31)') AS results;
 In the following query, the lower bound of the range is unbounded, so
 `NULL` is returned:
 
-```sql
+```zetasql
 SELECT RANGE_START(RANGE<DATE> '[UNBOUNDED, 2022-12-31)') AS results;
 
 /*------------+
@@ -39247,7 +39599,7 @@ ZetaSQL supports the following security functions.
   <td><a href="#session_user"><code>SESSION_USER</code></a>
 </td>
   <td>
-    Get the email address or principal identifier of the user that is running
+    Get the email address or principal identifier of the user that's running
     the query.
   </td>
 </tr>
@@ -39263,11 +39615,11 @@ SESSION_USER()
 
 **Description**
 
-For first-party users, returns the email address of the user that is running the
+For first-party users, returns the email address of the user that's running the
 query.
 For third-party users, returns the
 [principal identifier](https://cloud.google.com/iam/docs/principal-identifiers)
-of the user that is running the query.
+of the user that's running the query.
 For more information about identities, see
 [Principals](https://cloud.google.com/docs/authentication#principal).
 
@@ -39277,7 +39629,7 @@ For more information about identities, see
 
 **Example**
 
-```sql
+```zetasql
 SELECT SESSION_USER() as user;
 
 /*----------------------*
@@ -39390,7 +39742,7 @@ To learn about the syntax for aggregate function calls, see
 
 ### `CORR`
 
-```sql
+```zetasql
 CORR(
   X1, X2
   [ HAVING { MAX | MIN } expression2 ]
@@ -39458,7 +39810,7 @@ To learn more about the `OVER` clause and how to use it, see
 
 **Examples**
 
-```sql
+```zetasql
 SELECT CORR(y, x) AS results
 FROM
   UNNEST(
@@ -39474,7 +39826,7 @@ FROM
  *--------------------*/
 ```
 
-```sql
+```zetasql
 SELECT CORR(y, x) AS results
 FROM
   UNNEST(
@@ -39490,7 +39842,7 @@ FROM
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT CORR(y, x) AS results
 FROM UNNEST([STRUCT(1.0 AS y, NULL AS x),(9.0, 3.0)])
 
@@ -39501,7 +39853,7 @@ FROM UNNEST([STRUCT(1.0 AS y, NULL AS x),(9.0, 3.0)])
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT CORR(y, x) AS results
 FROM UNNEST([STRUCT(1.0 AS y, NULL AS x),(9.0, NULL)])
 
@@ -39512,7 +39864,7 @@ FROM UNNEST([STRUCT(1.0 AS y, NULL AS x),(9.0, NULL)])
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT CORR(y, x) AS results
 FROM
   UNNEST(
@@ -39530,7 +39882,7 @@ FROM
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT CORR(x, y) AS results
 FROM
   (
@@ -39550,7 +39902,7 @@ FROM
 
 ### `COVAR_POP`
 
-```sql
+```zetasql
 COVAR_POP(
   X1, X2
   [ HAVING { MAX | MIN } expression2 ]
@@ -39616,7 +39968,7 @@ To learn more about the `OVER` clause and how to use it, see
 
 **Examples**
 
-```sql
+```zetasql
 SELECT COVAR_POP(y, x) AS results
 FROM
   UNNEST(
@@ -39634,7 +39986,7 @@ FROM
  *---------------------*/
 ```
 
-```sql
+```zetasql
 SELECT COVAR_POP(y, x) AS results
 FROM UNNEST([STRUCT(1.0 AS y, NULL AS x),(9.0, 3.0)])
 
@@ -39645,7 +39997,7 @@ FROM UNNEST([STRUCT(1.0 AS y, NULL AS x),(9.0, 3.0)])
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT COVAR_POP(y, x) AS results
 FROM UNNEST([STRUCT(1.0 AS y, NULL AS x),(9.0, NULL)])
 
@@ -39656,7 +40008,7 @@ FROM UNNEST([STRUCT(1.0 AS y, NULL AS x),(9.0, NULL)])
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT COVAR_POP(y, x) AS results
 FROM
   UNNEST(
@@ -39674,7 +40026,7 @@ FROM
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT COVAR_POP(y, x) AS results
 FROM
   UNNEST(
@@ -39696,7 +40048,7 @@ FROM
 
 ### `COVAR_SAMP`
 
-```sql
+```zetasql
 COVAR_SAMP(
   X1, X2
   [ HAVING { MAX | MIN } expression2 ]
@@ -39766,7 +40118,7 @@ To learn more about the `OVER` clause and how to use it, see
 
 **Examples**
 
-```sql
+```zetasql
 SELECT COVAR_SAMP(y, x) AS results
 FROM
   UNNEST(
@@ -39784,7 +40136,7 @@ FROM
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT COVAR_SAMP(y, x) AS results
 FROM
   UNNEST(
@@ -39802,7 +40154,7 @@ FROM
  *----------------------*/
 ```
 
-```sql
+```zetasql
 SELECT COVAR_SAMP(y, x) AS results
 FROM UNNEST([STRUCT(1.0 AS y, NULL AS x),(9.0, 3.0)])
 
@@ -39813,7 +40165,7 @@ FROM UNNEST([STRUCT(1.0 AS y, NULL AS x),(9.0, 3.0)])
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT COVAR_SAMP(y, x) AS results
 FROM UNNEST([STRUCT(1.0 AS y, NULL AS x),(9.0, NULL)])
 
@@ -39824,7 +40176,7 @@ FROM UNNEST([STRUCT(1.0 AS y, NULL AS x),(9.0, NULL)])
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT COVAR_SAMP(y, x) AS results
 FROM
   UNNEST(
@@ -39846,7 +40198,7 @@ FROM
 
 ### `STDDEV`
 
-```sql
+```zetasql
 STDDEV(
   [ DISTINCT ]
   expression
@@ -39873,7 +40225,7 @@ An alias of [STDDEV_SAMP][stat-agg-link-to-stddev-samp].
 
 ### `STDDEV_POP`
 
-```sql
+```zetasql
 STDDEV_POP(
   [ DISTINCT ]
   expression
@@ -39945,7 +40297,7 @@ To learn more about the `OVER` clause and how to use it, see
 
 **Examples**
 
-```sql
+```zetasql
 SELECT STDDEV_POP(x) AS results FROM UNNEST([10, 14, 18]) AS x
 
 /*-------------------*
@@ -39955,7 +40307,7 @@ SELECT STDDEV_POP(x) AS results FROM UNNEST([10, 14, 18]) AS x
  *-------------------*/
 ```
 
-```sql
+```zetasql
 SELECT STDDEV_POP(x) AS results FROM UNNEST([10, 14, NULL]) AS x
 
 /*---------*
@@ -39965,7 +40317,7 @@ SELECT STDDEV_POP(x) AS results FROM UNNEST([10, 14, NULL]) AS x
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT STDDEV_POP(x) AS results FROM UNNEST([10, NULL]) AS x
 
 /*---------*
@@ -39975,7 +40327,7 @@ SELECT STDDEV_POP(x) AS results FROM UNNEST([10, NULL]) AS x
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT STDDEV_POP(x) AS results FROM UNNEST([NULL]) AS x
 
 /*---------*
@@ -39985,7 +40337,7 @@ SELECT STDDEV_POP(x) AS results FROM UNNEST([NULL]) AS x
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT STDDEV_POP(x) AS results FROM UNNEST([10, 14, CAST('Infinity' as DOUBLE)]) AS x
 
 /*---------*
@@ -39999,7 +40351,7 @@ SELECT STDDEV_POP(x) AS results FROM UNNEST([10, 14, CAST('Infinity' as DOUBLE)]
 
 ### `STDDEV_SAMP`
 
-```sql
+```zetasql
 STDDEV_SAMP(
   [ DISTINCT ]
   expression
@@ -40067,7 +40419,7 @@ To learn more about the `OVER` clause and how to use it, see
 
 **Examples**
 
-```sql
+```zetasql
 SELECT STDDEV_SAMP(x) AS results FROM UNNEST([10, 14, 18]) AS x
 
 /*---------*
@@ -40077,7 +40429,7 @@ SELECT STDDEV_SAMP(x) AS results FROM UNNEST([10, 14, 18]) AS x
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT STDDEV_SAMP(x) AS results FROM UNNEST([10, 14, NULL]) AS x
 
 /*--------------------*
@@ -40087,7 +40439,7 @@ SELECT STDDEV_SAMP(x) AS results FROM UNNEST([10, 14, NULL]) AS x
  *--------------------*/
 ```
 
-```sql
+```zetasql
 SELECT STDDEV_SAMP(x) AS results FROM UNNEST([10, NULL]) AS x
 
 /*---------*
@@ -40097,7 +40449,7 @@ SELECT STDDEV_SAMP(x) AS results FROM UNNEST([10, NULL]) AS x
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT STDDEV_SAMP(x) AS results FROM UNNEST([NULL]) AS x
 
 /*---------*
@@ -40107,7 +40459,7 @@ SELECT STDDEV_SAMP(x) AS results FROM UNNEST([NULL]) AS x
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT STDDEV_SAMP(x) AS results FROM UNNEST([10, 14, CAST('Infinity' as DOUBLE)]) AS x
 
 /*---------*
@@ -40119,7 +40471,7 @@ SELECT STDDEV_SAMP(x) AS results FROM UNNEST([10, 14, CAST('Infinity' as DOUBLE)
 
 ### `VAR_POP`
 
-```sql
+```zetasql
 VAR_POP(
   [ DISTINCT ]
   expression
@@ -40176,7 +40528,7 @@ To learn more about the `OVER` clause and how to use it, see
 
 **Examples**
 
-```sql
+```zetasql
 SELECT VAR_POP(x) AS results FROM UNNEST([10, 14, 18]) AS x
 
 /*--------------------*
@@ -40186,7 +40538,7 @@ SELECT VAR_POP(x) AS results FROM UNNEST([10, 14, 18]) AS x
  *--------------------*/
 ```
 
-```sql
+```zetasql
 SELECT VAR_POP(x) AS results FROM UNNEST([10, 14, NULL]) AS x
 
 /*----------*
@@ -40196,7 +40548,7 @@ SELECT VAR_POP(x) AS results FROM UNNEST([10, 14, NULL]) AS x
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT VAR_POP(x) AS results FROM UNNEST([10, NULL]) AS x
 
 /*----------*
@@ -40206,7 +40558,7 @@ SELECT VAR_POP(x) AS results FROM UNNEST([10, NULL]) AS x
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT VAR_POP(x) AS results FROM UNNEST([NULL]) AS x
 
 /*---------*
@@ -40216,7 +40568,7 @@ SELECT VAR_POP(x) AS results FROM UNNEST([NULL]) AS x
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT VAR_POP(x) AS results FROM UNNEST([10, 14, CAST('Infinity' as DOUBLE)]) AS x
 
 /*---------*
@@ -40230,7 +40582,7 @@ SELECT VAR_POP(x) AS results FROM UNNEST([10, 14, CAST('Infinity' as DOUBLE)]) A
 
 ### `VAR_SAMP`
 
-```sql
+```zetasql
 VAR_SAMP(
   [ DISTINCT ]
   expression
@@ -40298,7 +40650,7 @@ To learn more about the `OVER` clause and how to use it, see
 
 **Examples**
 
-```sql
+```zetasql
 SELECT VAR_SAMP(x) AS results FROM UNNEST([10, 14, 18]) AS x
 
 /*---------*
@@ -40308,7 +40660,7 @@ SELECT VAR_SAMP(x) AS results FROM UNNEST([10, 14, 18]) AS x
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT VAR_SAMP(x) AS results FROM UNNEST([10, 14, NULL]) AS x
 
 /*---------*
@@ -40318,7 +40670,7 @@ SELECT VAR_SAMP(x) AS results FROM UNNEST([10, 14, NULL]) AS x
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT VAR_SAMP(x) AS results FROM UNNEST([10, NULL]) AS x
 
 /*---------*
@@ -40328,7 +40680,7 @@ SELECT VAR_SAMP(x) AS results FROM UNNEST([10, NULL]) AS x
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT VAR_SAMP(x) AS results FROM UNNEST([NULL]) AS x
 
 /*---------*
@@ -40338,7 +40690,7 @@ SELECT VAR_SAMP(x) AS results FROM UNNEST([NULL]) AS x
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT VAR_SAMP(x) AS results FROM UNNEST([10, 14, CAST('Infinity' as DOUBLE)]) AS x
 
 /*---------*
@@ -40350,7 +40702,7 @@ SELECT VAR_SAMP(x) AS results FROM UNNEST([10, 14, CAST('Infinity' as DOUBLE)]) 
 
 ### `VARIANCE`
 
-```sql
+```zetasql
 VARIANCE(
   [ DISTINCT ]
   expression
@@ -40966,7 +41318,7 @@ canonical equivalence.
 
 ### `ASCII`
 
-```sql
+```zetasql
 ASCII(value)
 ```
 
@@ -40982,7 +41334,7 @@ or byte.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT ASCII('abcd') as A, ASCII('a') as B, ASCII('') as C, ASCII(NULL) as D;
 
 /*-------+-------+-------+-------*
@@ -40994,7 +41346,7 @@ SELECT ASCII('abcd') as A, ASCII('a') as B, ASCII('') as C, ASCII(NULL) as D;
 
 ### `BYTE_LENGTH`
 
-```sql
+```zetasql
 BYTE_LENGTH(value)
 ```
 
@@ -41009,7 +41361,7 @@ regardless of whether the value is a `STRING` or `BYTES` type.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT BYTE_LENGTH('абвгд') AS string_example;
 
 /*----------------*
@@ -41019,7 +41371,7 @@ SELECT BYTE_LENGTH('абвгд') AS string_example;
  *----------------*/
 ```
 
-```sql
+```zetasql
 SELECT BYTE_LENGTH(b'абвгд') AS bytes_example;
 
 /*----------------*
@@ -41031,7 +41383,7 @@ SELECT BYTE_LENGTH(b'абвгд') AS bytes_example;
 
 ### `CHAR_LENGTH`
 
-```sql
+```zetasql
 CHAR_LENGTH(value)
 ```
 
@@ -41045,7 +41397,7 @@ Gets the number of characters in a `STRING` value.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT CHAR_LENGTH('абвгд') AS char_length;
 
 /*-------------*
@@ -41057,7 +41409,7 @@ SELECT CHAR_LENGTH('абвгд') AS char_length;
 
 ### `CHARACTER_LENGTH`
 
-```sql
+```zetasql
 CHARACTER_LENGTH(value)
 ```
 
@@ -41071,7 +41423,7 @@ Synonym for [CHAR_LENGTH][string-link-to-char-length].
 
 **Examples**
 
-```sql
+```zetasql
 SELECT
   'абвгд' AS characters,
   CHARACTER_LENGTH('абвгд') AS char_length_example
@@ -41087,7 +41439,7 @@ SELECT
 
 ### `CHR`
 
-```sql
+```zetasql
 CHR(value)
 ```
 
@@ -41108,7 +41460,7 @@ To work with an array of Unicode code points, see
 
 **Examples**
 
-```sql
+```zetasql
 SELECT CHR(65) AS A, CHR(255) AS B, CHR(513) AS C, CHR(1024)  AS D;
 
 /*-------+-------+-------+-------*
@@ -41118,7 +41470,7 @@ SELECT CHR(65) AS A, CHR(255) AS B, CHR(513) AS C, CHR(1024)  AS D;
  *-------+-------+-------+-------*/
 ```
 
-```sql
+```zetasql
 SELECT CHR(97) AS A, CHR(0xF9B5) AS B, CHR(0) AS C, CHR(NULL) AS D;
 
 /*-------+-------+-------+-------*
@@ -41134,7 +41486,7 @@ SELECT CHR(97) AS A, CHR(0xF9B5) AS B, CHR(0) AS C, CHR(NULL) AS D;
 
 ### `CODE_POINTS_TO_BYTES`
 
-```sql
+```zetasql
 CODE_POINTS_TO_BYTES(ascii_code_points)
 ```
 
@@ -41155,7 +41507,7 @@ To convert from `BYTES` to an array of code points, see
 
 The following is a basic example using `CODE_POINTS_TO_BYTES`.
 
-```sql
+```zetasql
 SELECT CODE_POINTS_TO_BYTES([65, 98, 67, 100]) AS bytes;
 
 /*----------*
@@ -41168,7 +41520,7 @@ SELECT CODE_POINTS_TO_BYTES([65, 98, 67, 100]) AS bytes;
 The following example uses a rotate-by-13 places (ROT13) algorithm to encode a
 string.
 
-```sql
+```zetasql
 SELECT CODE_POINTS_TO_BYTES(ARRAY_AGG(
   (SELECT
       CASE
@@ -41198,7 +41550,7 @@ FROM UNNEST(TO_CODE_POINTS(b'Test String!')) code WITH OFFSET;
 
 ### `CODE_POINTS_TO_STRING`
 
-```sql
+```zetasql
 CODE_POINTS_TO_STRING(unicode_code_points)
 ```
 
@@ -41218,7 +41570,7 @@ To convert from a string to an array of code points, see
 
 The following are basic examples using `CODE_POINTS_TO_STRING`.
 
-```sql
+```zetasql
 SELECT CODE_POINTS_TO_STRING([65, 255, 513, 1024]) AS string;
 
 /*--------*
@@ -41228,7 +41580,7 @@ SELECT CODE_POINTS_TO_STRING([65, 255, 513, 1024]) AS string;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT CODE_POINTS_TO_STRING([97, 0, 0xF9B5]) AS string;
 
 /*--------*
@@ -41238,7 +41590,7 @@ SELECT CODE_POINTS_TO_STRING([97, 0, 0xF9B5]) AS string;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT CODE_POINTS_TO_STRING([65, 255, NULL, 1024]) AS string;
 
 /*--------*
@@ -41250,7 +41602,7 @@ SELECT CODE_POINTS_TO_STRING([65, 255, NULL, 1024]) AS string;
 
 The following example computes the frequency of letters in a set of words.
 
-```sql
+```zetasql
 WITH Words AS (
   SELECT word
   FROM UNNEST(['foo', 'bar', 'baz', 'giraffe', 'llama']) AS word
@@ -41286,7 +41638,7 @@ ORDER BY 2 DESC;
 
 ### `COLLATE`
 
-```sql
+```zetasql
 COLLATE(value, collate_specification)
 ```
 
@@ -41311,7 +41663,7 @@ and sorted. To learn more, see
 In this example, the weight of `a` is less than the weight of `Z`. This
 is because the collate specification, `und:ci` assigns more weight to `Z`.
 
-```sql
+```zetasql
 WITH Words AS (
   SELECT
     COLLATE('a', 'und:ci') AS char1,
@@ -41330,7 +41682,7 @@ FROM Words;
 In this example, the weight of `a` is greater than the weight of `Z`. This
 is because the default collate specification assigns more weight to `a`.
 
-```sql
+```zetasql
 WITH Words AS (
   SELECT
     'a' AS char1,
@@ -41352,7 +41704,7 @@ FROM Words;
 
 ### `CONCAT`
 
-```sql
+```zetasql
 CONCAT(value1[, ...])
 ```
 
@@ -41373,7 +41725,7 @@ values into a string.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT CONCAT('T.P.', ' ', 'Bar') as author;
 
 /*---------------------*
@@ -41383,7 +41735,7 @@ SELECT CONCAT('T.P.', ' ', 'Bar') as author;
  *---------------------*/
 ```
 
-```sql
+```zetasql
 SELECT CONCAT('Summer', ' ', 1923) as release_date;
 
 /*---------------------*
@@ -41393,7 +41745,7 @@ SELECT CONCAT('Summer', ' ', 1923) as release_date;
  *---------------------*/
 ```
 
-```sql
+```zetasql
 
 With Employees AS
   (SELECT
@@ -41426,7 +41778,7 @@ FROM Employees;
 
 ### `EDIT_DISTANCE`
 
-```sql
+```zetasql
 EDIT_DISTANCE(
   value1,
   value2,
@@ -41443,7 +41795,7 @@ Computes the [Levenshtein distance][l-distance] between two `STRING` or
 
 +   `value1`: The first `STRING` or `BYTES` value to compare.
 +   `value2`: The second `STRING` or `BYTES` value to compare.
-+   `max_distance`: A named argument with a `INT64` value that is greater than
++   `max_distance`: A named argument with a `INT64` value that's greater than
     or equal to zero. Represents the maximum distance between the two values
     to compute.
 
@@ -41465,7 +41817,7 @@ You can only compare values of the same type. Otherwise, an error is produced.
 
 In the following example, the first character in both strings is different:
 
-```sql
+```zetasql
 SELECT EDIT_DISTANCE('a', 'b') AS results;
 
 /*---------*
@@ -41478,7 +41830,7 @@ SELECT EDIT_DISTANCE('a', 'b') AS results;
 In the following example, the first and second characters in both strings are
 different:
 
-```sql
+```zetasql
 SELECT EDIT_DISTANCE('aa', 'b') AS results;
 
 /*---------*
@@ -41491,7 +41843,7 @@ SELECT EDIT_DISTANCE('aa', 'b') AS results;
 In the following example, only the first character in both strings is
 different:
 
-```sql
+```zetasql
 SELECT EDIT_DISTANCE('aa', 'ba') AS results;
 
 /*---------*
@@ -41505,7 +41857,7 @@ In the following example, the last six characters are different, but because
 the maximum distance is `2`, this function exits early and returns `2`, the
 maximum distance:
 
-```sql
+```zetasql
 SELECT EDIT_DISTANCE('abcdefg', 'a', max_distance => 2) AS results;
 
 /*---------*
@@ -41519,7 +41871,7 @@ SELECT EDIT_DISTANCE('abcdefg', 'a', max_distance => 2) AS results;
 
 ### `ENDS_WITH`
 
-```sql
+```zetasql
 ENDS_WITH(value, suffix)
 ```
 
@@ -41538,7 +41890,7 @@ This function supports specifying [collation][collation].
 
 **Examples**
 
-```sql
+```zetasql
 SELECT ENDS_WITH('apple', 'e') as example
 
 /*---------*
@@ -41551,7 +41903,7 @@ SELECT ENDS_WITH('apple', 'e') as example
 ### `FORMAT` 
 <a id="format_string"></a>
 
-```sql
+```zetasql
 FORMAT(format_string_expression, data_type_expression[, ...])
 ```
 
@@ -41565,7 +41917,7 @@ FORMAT(format_string_expression, data_type_expression[, ...])
   In general, this is a one-to-one mapping, except when the `*` specifier is
   present. For example, `%.*i` maps to two arguments&mdash;a length argument
   and a signed integer argument.  If the number of arguments related to the
-  format specifiers is not the same as the number of arguments, an error occurs.
+  format specifiers isn't the same as the number of arguments, an error occurs.
 + `data_type_expression`: The value to format as a string. This can be any
   ZetaSQL data type.
 
@@ -41626,14 +41978,14 @@ America/Los_Angeles')</td>
 </tr>
 </table>
 
-The `FORMAT()` function does not provide fully customizable formatting for all
-types and values, nor formatting that is sensitive to locale.
+The `FORMAT()` function doesn't provide fully customizable formatting for all
+types and values, nor formatting that's sensitive to locale.
 
 If custom formatting is necessary for a type, you must first format it using
 type-specific format functions, such as `FORMAT_DATE()` or `FORMAT_TIMESTAMP()`.
 For example:
 
-```sql
+```zetasql
 SELECT FORMAT('date: %s!', FORMAT_DATE('%B %d, %Y', date '2015-01-02'));
 ```
 
@@ -41894,7 +42246,7 @@ month: 10
  <tr>
     <td><code>T</code></td>
     <td>
-      Produces a string that is a valid ZetaSQL constant with a
+      Produces a string that's a valid ZetaSQL constant with a
       similar type to the value's type (maybe wider, or maybe string).
       See <a href="#t_and_t_behavior">%t and %T behavior</a>.
     </td>
@@ -41979,8 +42331,8 @@ value</td>
  </tr>
 </table>
 
-Flags may be specified in any order. Duplicate flags are not an error. When
-flags are not relevant for some element type, they are ignored.
+Flags may be specified in any order. Duplicate flags aren't an error. When
+flags aren't relevant for some element type, they are ignored.
 
 ##### Width 
 <a id="width"></a>
@@ -41995,13 +42347,13 @@ flags are not relevant for some element type, they are ignored.
     <td>
       Minimum number of characters to be printed. If the value to be printed
       is shorter than this number, the result is padded with blank spaces.
-      The value is not truncated even if the result is larger
+      The value isn't truncated even if the result is larger
     </td>
   </tr>
   <tr>
     <td><code>*</code></td>
     <td>
-      The width is not specified in the format string, but as an additional
+      The width isn't specified in the format string, but as an additional
       integer value argument preceding the argument that has to be formatted
     </td>
   </tr>
@@ -42023,7 +42375,7 @@ flags are not relevant for some element type, they are ignored.
           precision specifies the
           minimum number of digits to be written. If the value to be written is
           shorter than this number, the result is padded with trailing zeros.
-          The value is not truncated even if the result is longer. A precision
+          The value isn't truncated even if the result is longer. A precision
           of 0 means that no character is written for the value 0.</li>
       <li>For specifiers `%a`, `%A`, `%e`, `%E`, `%f`, and `%F`: this is the
           number of digits to be printed after the decimal point. The default
@@ -42037,7 +42389,7 @@ flags are not relevant for some element type, they are ignored.
  <tr>
     <td><code>.*</code></td>
     <td>
-      The precision is not specified in the format string, but as an
+      The precision isn't specified in the format string, but as an
       additional integer value argument preceding the argument that has to be
       formatted
    </td>
@@ -42303,15 +42655,15 @@ The `STRING` is formatted as follows:
 ##### Error conditions 
 <a id="error_format_specifiers"></a>
 
-If a format specifier is invalid, or is not compatible with the related
+If a format specifier is invalid, or isn't compatible with the related
 argument type, or the wrong number or arguments are provided, then an error is
 produced.  For example, the following `<format_string>` expressions are invalid:
 
-```sql
+```zetasql
 FORMAT('%s', 1)
 ```
 
-```sql
+```zetasql
 FORMAT('%')
 ```
 
@@ -42330,13 +42682,13 @@ However, there are some exceptions: if the format specifier is %t or %T
 semantics), a `NULL` value produces 'NULL' (without the quotes) in the result
 `STRING`. For example, the function:
 
-```sql
+```zetasql
 FORMAT('00-%t-00', NULL_expression);
 ```
 
 Returns
 
-```sql
+```zetasql
 00-NULL-00
 ```
 
@@ -42377,7 +42729,7 @@ representations.
 
 ### `FROM_BASE32`
 
-```sql
+```zetasql
 FROM_BASE32(string_expr)
 ```
 
@@ -42392,7 +42744,7 @@ Converts the base32-encoded input `string_expr` into `BYTES` format. To convert
 
 **Example**
 
-```sql
+```zetasql
 SELECT FROM_BASE32('MFRGGZDF74======') AS byte_data;
 
 /*-----------*
@@ -42406,7 +42758,7 @@ SELECT FROM_BASE32('MFRGGZDF74======') AS byte_data;
 
 ### `FROM_BASE64`
 
-```sql
+```zetasql
 FROM_BASE64(string_expr)
 ```
 
@@ -42415,7 +42767,7 @@ FROM_BASE64(string_expr)
 Converts the base64-encoded input `string_expr` into
 `BYTES` format. To convert
 `BYTES` to a base64-encoded `STRING`,
-use [TO_BASE64][string-link-to-base64].
+use [TO_BASE64][string-link-to-to-base64].
 
 There are several base64 encodings in common use that vary in exactly which
 alphabet of 65 ASCII characters are used to encode the 64 digits and padding.
@@ -42428,7 +42780,7 @@ function expects the alphabet `[A-Za-z0-9+/=]`.
 
 **Example**
 
-```sql
+```zetasql
 SELECT FROM_BASE64('/+A=') AS byte_data;
 
 /*-----------*
@@ -42444,7 +42796,7 @@ compose `FROM_BASE64` with the `REPLACE` function. For instance, the
 uses `-_=` as the last characters rather than `+/=`. To decode a
 `base64url`-encoded string, replace `-` and `_` with `+` and `/` respectively.
 
-```sql
+```zetasql
 SELECT FROM_BASE64(REPLACE(REPLACE('_-A=', '-', '+'), '_', '/')) AS binary;
 
 /*-----------*
@@ -42456,11 +42808,11 @@ SELECT FROM_BASE64(REPLACE(REPLACE('_-A=', '-', '+'), '_', '/')) AS binary;
 
 [RFC-4648]: https://tools.ietf.org/html/rfc4648#section-4
 
-[string-link-to-from-base64]: #from_base64
+[string-link-to-to-base64]: #to_base64
 
 ### `FROM_HEX`
 
-```sql
+```zetasql
 FROM_HEX(string)
 ```
 
@@ -42468,7 +42820,7 @@ FROM_HEX(string)
 
 Converts a hexadecimal-encoded `STRING` into `BYTES` format. Returns an error
 if the input `STRING` contains characters outside the range
-`(0..9, A..F, a..f)`. The lettercase of the characters does not matter. If the
+`(0..9, A..F, a..f)`. The lettercase of the characters doesn't matter. If the
 input `STRING` has an odd number of characters, the function acts as if the
 input has an additional leading `0`. To convert `BYTES` to a hexadecimal-encoded
 `STRING`, use [TO_HEX][string-link-to-to-hex].
@@ -42479,7 +42831,7 @@ input has an additional leading `0`. To convert `BYTES` to a hexadecimal-encoded
 
 **Example**
 
-```sql
+```zetasql
 WITH Input AS (
   SELECT '00010203aaeeefff' AS hex_str UNION ALL
   SELECT '0AF' UNION ALL
@@ -42501,7 +42853,7 @@ FROM Input;
 
 ### `INITCAP`
 
-```sql
+```zetasql
 INITCAP(value[, delimiters])
 ```
 
@@ -42511,8 +42863,8 @@ Takes a `STRING` and returns it with the first character in each word in
 uppercase and all other characters in lowercase. Non-alphabetic characters
 remain the same.
 
-`delimiters` is an optional string argument that is used to override the default
-set of characters used to separate words. If `delimiters` is not specified, it
+`delimiters` is an optional string argument that's used to override the default
+set of characters used to separate words. If `delimiters` isn't specified, it
 defaults to the following characters: \
 `<whitespace> [ ] ( ) { } / | \ < > ! ? @ " ^ # $ & ~ _ , . : ; * % + -`
 
@@ -42524,7 +42876,7 @@ If `value` or `delimiters` is `NULL`, the function returns `NULL`.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT
   'Hello World-everyone!' AS value,
   INITCAP('Hello World-everyone!') AS initcap_value
@@ -42536,7 +42888,7 @@ SELECT
  *-------------------------------+-------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   'Apples1oranges2pears' as value,
   '12' AS delimiters,
@@ -42551,7 +42903,7 @@ SELECT
 
 ### `INSTR`
 
-```sql
+```zetasql
 INSTR(value, subvalue[, position[, occurrence]])
 ```
 
@@ -42565,7 +42917,7 @@ If `position` is specified, the search starts at this position in
 `value`, otherwise it starts at `1`, which is the beginning of
 `value`. If `position` is negative, the function searches backwards
 from the end of `value`, with `-1` indicating the last character.
-`position` is of type `INT64` and cannot be `0`.
+`position` is of type `INT64` and can't be `0`.
 
 If `occurrence` is specified, the search returns the position of a specific
 instance of `subvalue` in `value`. If not specified, `occurrence`
@@ -42598,7 +42950,7 @@ Returns an error if:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT
   'banana' AS value, 'an' AS subvalue, 1 AS position, 1 AS occurrence,
   INSTR('banana', 'an', 1, 1) AS instr;
@@ -42610,7 +42962,7 @@ SELECT
  *--------------+--------------+----------+------------+-------*/
 ```
 
-```sql
+```zetasql
 SELECT
   'banana' AS value, 'an' AS subvalue, 1 AS position, 2 AS occurrence,
   INSTR('banana', 'an', 1, 2) AS instr;
@@ -42622,7 +42974,7 @@ SELECT
  *--------------+--------------+----------+------------+-------*/
 ```
 
-```sql
+```zetasql
 SELECT
   'banana' AS value, 'an' AS subvalue, 1 AS position, 3 AS occurrence,
   INSTR('banana', 'an', 1, 3) AS instr;
@@ -42634,7 +42986,7 @@ SELECT
  *--------------+--------------+----------+------------+-------*/
 ```
 
-```sql
+```zetasql
 SELECT
   'banana' AS value, 'an' AS subvalue, 3 AS position, 1 AS occurrence,
   INSTR('banana', 'an', 3, 1) AS instr;
@@ -42646,7 +42998,7 @@ SELECT
  *--------------+--------------+----------+------------+-------*/
 ```
 
-```sql
+```zetasql
 SELECT
   'banana' AS value, 'an' AS subvalue, -1 AS position, 1 AS occurrence,
   INSTR('banana', 'an', -1, 1) AS instr;
@@ -42658,7 +43010,7 @@ SELECT
  *--------------+--------------+----------+------------+-------*/
 ```
 
-```sql
+```zetasql
 SELECT
   'banana' AS value, 'an' AS subvalue, -3 AS position, 1 AS occurrence,
   INSTR('banana', 'an', -3, 1) AS instr;
@@ -42670,7 +43022,7 @@ SELECT
  *--------------+--------------+----------+------------+-------*/
 ```
 
-```sql
+```zetasql
 SELECT
   'banana' AS value, 'ann' AS subvalue, 1 AS position, 1 AS occurrence,
   INSTR('banana', 'ann', 1, 1) AS instr;
@@ -42682,7 +43034,7 @@ SELECT
  *--------------+--------------+----------+------------+-------*/
 ```
 
-```sql
+```zetasql
 SELECT
   'helloooo' AS value, 'oo' AS subvalue, 1 AS position, 1 AS occurrence,
   INSTR('helloooo', 'oo', 1, 1) AS instr;
@@ -42694,7 +43046,7 @@ SELECT
  *--------------+--------------+----------+------------+-------*/
 ```
 
-```sql
+```zetasql
 SELECT
   'helloooo' AS value, 'oo' AS subvalue, 1 AS position, 2 AS occurrence,
   INSTR('helloooo', 'oo', 1, 2) AS instr;
@@ -42708,7 +43060,7 @@ SELECT
 
 ### `LEFT`
 
-```sql
+```zetasql
 LEFT(value, length)
 ```
 
@@ -42732,7 +43084,7 @@ will be returned.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT LEFT('banana', 3) AS results
 
 /*---------*
@@ -42742,7 +43094,7 @@ SELECT LEFT('banana', 3) AS results
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT LEFT(b'\xab\xcd\xef\xaa\xbb', 3) AS results
 
 /*--------------*
@@ -42754,7 +43106,7 @@ SELECT LEFT(b'\xab\xcd\xef\xaa\xbb', 3) AS results
 
 ### `LENGTH`
 
-```sql
+```zetasql
 LENGTH(value)
 ```
 
@@ -42770,7 +43122,7 @@ argument.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT
   LENGTH('абвгд') AS string_example,
   LENGTH(CAST('абвгд' AS BYTES)) AS bytes_example;
@@ -42784,7 +43136,7 @@ SELECT
 
 ### `LOWER`
 
-```sql
+```zetasql
 LOWER(value)
 ```
 
@@ -42805,7 +43157,7 @@ greater than 127 left intact.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT
   LOWER('FOO BAR BAZ') AS example
 FROM items;
@@ -42821,7 +43173,7 @@ FROM items;
 
 ### `LPAD`
 
-```sql
+```zetasql
 LPAD(original_value, return_length[, pattern])
 ```
 
@@ -42855,7 +43207,7 @@ This function returns an error if:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT FORMAT('%T', LPAD('c', 5)) AS results
 
 /*---------*
@@ -42865,7 +43217,7 @@ SELECT FORMAT('%T', LPAD('c', 5)) AS results
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT LPAD('b', 5, 'a') AS results
 
 /*---------*
@@ -42875,7 +43227,7 @@ SELECT LPAD('b', 5, 'a') AS results
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT LPAD('abc', 10, 'ghd') AS results
 
 /*------------*
@@ -42885,7 +43237,7 @@ SELECT LPAD('abc', 10, 'ghd') AS results
  *------------*/
 ```
 
-```sql
+```zetasql
 SELECT LPAD('abc', 2, 'd') AS results
 
 /*---------*
@@ -42895,7 +43247,7 @@ SELECT LPAD('abc', 2, 'd') AS results
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT FORMAT('%T', LPAD(b'abc', 10, b'ghd')) AS results
 
 /*---------------*
@@ -42907,7 +43259,7 @@ SELECT FORMAT('%T', LPAD(b'abc', 10, b'ghd')) AS results
 
 ### `LTRIM`
 
-```sql
+```zetasql
 LTRIM(value1[, value2])
 ```
 
@@ -42921,7 +43273,7 @@ Identical to [TRIM][string-link-to-trim], but only removes leading characters.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT CONCAT('#', LTRIM('   apple   '), '#') AS example
 
 /*-------------*
@@ -42931,7 +43283,7 @@ SELECT CONCAT('#', LTRIM('   apple   '), '#') AS example
  *-------------*/
 ```
 
-```sql
+```zetasql
 SELECT LTRIM('***apple***', '*') AS example
 
 /*-----------*
@@ -42941,7 +43293,7 @@ SELECT LTRIM('***apple***', '*') AS example
  *-----------*/
 ```
 
-```sql
+```zetasql
 SELECT LTRIM('xxxapplexxx', 'xyz') AS example
 
 /*-----------*
@@ -42955,13 +43307,13 @@ SELECT LTRIM('xxxapplexxx', 'xyz') AS example
 
 ### `NORMALIZE`
 
-```sql
+```zetasql
 NORMALIZE(value[, normalization_mode])
 ```
 
 **Description**
 
-Takes a string value and returns it as a normalized string. If you do not
+Takes a string value and returns it as a normalized string. If you don't
 provide a normalization mode, `NFC` is used.
 
 [Normalization][string-link-to-normalization-wikipedia] is used to ensure that
@@ -42986,7 +43338,7 @@ points.
 
 The following example normalizes different language characters:
 
-```sql
+```zetasql
 SELECT
   NORMALIZE('\u00ea') as a,
   NORMALIZE('\u0065\u0302') as b,
@@ -43000,7 +43352,7 @@ SELECT
 ```
 The following examples normalize different space characters:
 
-```sql
+```zetasql
 SELECT NORMALIZE('Raha\u2004Mahan', NFKC) AS normalized_name
 
 /*-----------------*
@@ -43010,7 +43362,7 @@ SELECT NORMALIZE('Raha\u2004Mahan', NFKC) AS normalized_name
  *-----------------*/
 ```
 
-```sql
+```zetasql
 SELECT NORMALIZE('Raha\u2005Mahan', NFKC) AS normalized_name
 
 /*-----------------*
@@ -43020,7 +43372,7 @@ SELECT NORMALIZE('Raha\u2005Mahan', NFKC) AS normalized_name
  *-----------------*/
 ```
 
-```sql
+```zetasql
 SELECT NORMALIZE('Raha\u2006Mahan', NFKC) AS normalized_name
 
 /*-----------------*
@@ -43030,7 +43382,7 @@ SELECT NORMALIZE('Raha\u2006Mahan', NFKC) AS normalized_name
  *-----------------*/
 ```
 
-```sql
+```zetasql
 SELECT NORMALIZE('Raha Mahan', NFKC) AS normalized_name
 
 /*-----------------*
@@ -43044,13 +43396,13 @@ SELECT NORMALIZE('Raha Mahan', NFKC) AS normalized_name
 
 ### `NORMALIZE_AND_CASEFOLD`
 
-```sql
+```zetasql
 NORMALIZE_AND_CASEFOLD(value[, normalization_mode])
 ```
 
 **Description**
 
-Takes a string value and returns it as a normalized string. If you do not
+Takes a string value and returns it as a normalized string. If you don't
 provide a normalization mode, `NFC` is used.
 
 [Normalization][string-link-to-normalization-wikipedia] is used to ensure that
@@ -43059,7 +43411,7 @@ two strings render the same on the screen but have different Unicode code
 points.
 
 [Case folding][string-link-to-case-folding-wikipedia] is used for the caseless
-comparison of strings. If you need to compare strings and case should not be
+comparison of strings. If you need to compare strings and case shouldn't be
 considered, use `NORMALIZE_AND_CASEFOLD`, otherwise use
 [`NORMALIZE`][string-link-to-normalize].
 
@@ -43078,7 +43430,7 @@ considered, use `NORMALIZE_AND_CASEFOLD`, otherwise use
 
 **Examples**
 
-```sql
+```zetasql
 SELECT
   NORMALIZE('The red barn') = NORMALIZE('The Red Barn') AS normalized,
   NORMALIZE_AND_CASEFOLD('The red barn')
@@ -43091,7 +43443,7 @@ SELECT
  *------------+------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   '\u2168' AS a,
   'IX' AS b,
@@ -43107,7 +43459,7 @@ SELECT
  *---+----+-------+-------+------+------*/
 ```
 
-```sql
+```zetasql
 SELECT
   '\u0041\u030A' AS a,
   '\u00C5' AS b,
@@ -43131,7 +43483,7 @@ SELECT
 
 ### `OCTET_LENGTH`
 
-```sql
+```zetasql
 OCTET_LENGTH(value)
 ```
 
@@ -43141,7 +43493,7 @@ Alias for [`BYTE_LENGTH`][byte-length].
 
 ### `REGEXP_CONTAINS`
 
-```sql
+```zetasql
 REGEXP_CONTAINS(value, regexp)
 ```
 
@@ -43153,7 +43505,7 @@ Returns `TRUE` if `value` is a partial match for the regular expression,
 If the `regexp` argument is invalid, the function returns an error.
 
 You can search for a full match by using `^` (beginning of text) and `$` (end of
-text). Due to regular expression operator precedence, it is good practice to use
+text). Due to regular expression operator precedence, it's good practice to use
 parentheses around everything between `^` and `$`.
 
 Note: ZetaSQL provides regular expression support using the
@@ -43168,7 +43520,7 @@ regular expression syntax.
 
 The following queries check to see if an email is valid:
 
-```sql
+```zetasql
 SELECT
   'foo@example.com' AS email,
   REGEXP_CONTAINS('foo@example.com', r'@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+') AS is_valid
@@ -43180,7 +43532,7 @@ SELECT
  *-----------------+----------*/
  ```
 
- ```sql
+ ```zetasql
 SELECT
   'www.example.net' AS email,
   REGEXP_CONTAINS('www.example.net', r'@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+') AS is_valid
@@ -43194,10 +43546,10 @@ SELECT
 
 The following queries check to see if an email is valid. They
 perform a full match, using `^` and `$`. Due to regular expression operator
-precedence, it is good practice to use parentheses around everything between `^`
+precedence, it's good practice to use parentheses around everything between `^`
 and `$`.
 
-```sql
+```zetasql
 SELECT
   'a@foo.com' AS email,
   REGEXP_CONTAINS('a@foo.com', r'^([\w.+-]+@foo\.com|[\w.+-]+@bar\.org)$') AS valid_email_address,
@@ -43210,7 +43562,7 @@ SELECT
  *----------------+---------------------+---------------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   'a@foo.computer' AS email,
   REGEXP_CONTAINS('a@foo.computer', r'^([\w.+-]+@foo\.com|[\w.+-]+@bar\.org)$') AS valid_email_address,
@@ -43223,7 +43575,7 @@ SELECT
  *----------------+---------------------+---------------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   'b@bar.org' AS email,
   REGEXP_CONTAINS('b@bar.org', r'^([\w.+-]+@foo\.com|[\w.+-]+@bar\.org)$') AS valid_email_address,
@@ -43236,7 +43588,7 @@ SELECT
  *----------------+---------------------+---------------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   '!b@bar.org' AS email,
   REGEXP_CONTAINS('!b@bar.org', r'^([\w.+-]+@foo\.com|[\w.+-]+@bar\.org)$') AS valid_email_address,
@@ -43249,7 +43601,7 @@ SELECT
  *----------------+---------------------+---------------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   'c@buz.net' AS email,
   REGEXP_CONTAINS('c@buz.net', r'^([\w.+-]+@foo\.com|[\w.+-]+@bar\.org)$') AS valid_email_address,
@@ -43266,7 +43618,7 @@ SELECT
 
 ### `REGEXP_EXTRACT`
 
-```sql
+```zetasql
 REGEXP_EXTRACT(value, regexp[, position[, occurrence]])
 ```
 
@@ -43282,7 +43634,7 @@ are multiple matches for a capturing group, the first match is returned.
 
 If `position` is specified, the search starts at this
 position in `value`, otherwise it starts at the beginning of `value`. The
-`position` must be a positive integer and cannot be 0. If `position` is greater
+`position` must be a positive integer and can't be 0. If `position` is greater
 than the length of `value`, `NULL` is returned.
 
 If `occurrence` is specified, the search returns a specific occurrence of the
@@ -43295,8 +43647,8 @@ Returns an error if:
 
 + The regular expression is invalid
 + The regular expression has more than one capturing group
-+ The `position` is not a positive integer
-+ The `occurrence` is not a positive integer
++ The `position` isn't a positive integer
++ The `occurrence` isn't a positive integer
 
 **Return type**
 
@@ -43304,7 +43656,7 @@ Returns an error if:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT REGEXP_EXTRACT('foo@example.com', r'^[a-zA-Z0-9_.+-]+') AS user_name
 
 /*-----------*
@@ -43314,7 +43666,7 @@ SELECT REGEXP_EXTRACT('foo@example.com', r'^[a-zA-Z0-9_.+-]+') AS user_name
  *-----------*/
 ```
 
-```sql
+```zetasql
 SELECT REGEXP_EXTRACT('foo@example.com', r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.([a-zA-Z0-9-.]+$)')
 
 /*------------------*
@@ -43324,7 +43676,7 @@ SELECT REGEXP_EXTRACT('foo@example.com', r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.([a-
  *------------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   REGEXP_EXTRACT('ab', '.b') AS result_a,
   REGEXP_EXTRACT('ab', '(.)b') AS result_b,
@@ -43338,7 +43690,7 @@ SELECT
  *-------------------------------------------*/
 ```
 
-```sql
+```zetasql
 WITH example AS
 (SELECT 'Hello Helloo and Hellooo' AS value, 'H?ello+' AS regex, 1 as position,
 1 AS occurrence UNION ALL
@@ -43377,7 +43729,7 @@ position, occurrence) AS regexp_value FROM example;
 
 ### `REGEXP_EXTRACT_ALL`
 
-```sql
+```zetasql
 REGEXP_EXTRACT_ALL(value, regexp)
 ```
 
@@ -43405,7 +43757,7 @@ Returns an error if:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT REGEXP_EXTRACT_ALL('Try `func(x)` or `func(y)`', '`(.+?)`') AS example
 
 /*--------------------*
@@ -43419,7 +43771,7 @@ SELECT REGEXP_EXTRACT_ALL('Try `func(x)` or `func(y)`', '`(.+?)`') AS example
 
 ### `REGEXP_INSTR`
 
-```sql
+```zetasql
 REGEXP_INSTR(source_value, regexp [, position[, occurrence, [occurrence_position]]])
 ```
 
@@ -43473,7 +43825,7 @@ Returns an error if:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT
   REGEXP_INSTR('ab@cd-ef',  '@[^-]*') AS instr_a,
   REGEXP_INSTR('ab@d-ef',   '@[^-]*') AS instr_b,
@@ -43487,7 +43839,7 @@ SELECT
  *---------------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   REGEXP_INSTR('a@cd-ef b@cd-ef', '@[^-]*', 1) AS instr_a,
   REGEXP_INSTR('a@cd-ef b@cd-ef', '@[^-]*', 2) AS instr_b,
@@ -43501,7 +43853,7 @@ SELECT
  *---------------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   REGEXP_INSTR('a@cd-ef b@cd-ef c@cd-ef', '@[^-]*', 1, 1) AS instr_a,
   REGEXP_INSTR('a@cd-ef b@cd-ef c@cd-ef', '@[^-]*', 1, 2) AS instr_b,
@@ -43514,7 +43866,7 @@ SELECT
  *-----------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   REGEXP_INSTR('a@cd-ef', '@[^-]*', 1, 1, 0) AS instr_a,
   REGEXP_INSTR('a@cd-ef', '@[^-]*', 1, 1, 1) AS instr_b
@@ -43529,7 +43881,7 @@ SELECT
 ### `REGEXP_MATCH` (Deprecated) 
 <a id="regexp_match"></a>
 
-```sql
+```zetasql
 REGEXP_MATCH(value, regexp)
 ```
 
@@ -43553,7 +43905,7 @@ regular expression syntax.
 
 **Examples**
 
-```sql
+```zetasql
 WITH email_addresses AS
   (SELECT 'foo@example.com' as email
   UNION ALL
@@ -43583,7 +43935,7 @@ FROM email_addresses;
 
 ### `REGEXP_REPLACE`
 
-```sql
+```zetasql
 REGEXP_REPLACE(value, regexp, replacement)
 ```
 
@@ -43605,7 +43957,7 @@ The `REGEXP_REPLACE` function only replaces non-overlapping matches. For
 example, replacing `ana` within `banana` results in only one replacement, not
 two.
 
-If the `regexp` argument is not a valid regular expression, this function
+If the `regexp` argument isn't a valid regular expression, this function
 returns an error.
 
 Note: ZetaSQL provides regular expression support using the
@@ -43618,7 +43970,7 @@ regular expression syntax.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT REGEXP_REPLACE('# Heading', r'^# ([a-zA-Z0-9\s]+$)', '<h1>\\1</h1>') AS html
 
 /*--------------------------*
@@ -43634,7 +43986,7 @@ SELECT REGEXP_REPLACE('# Heading', r'^# ([a-zA-Z0-9\s]+$)', '<h1>\\1</h1>') AS h
 
 ### `REGEXP_SUBSTR`
 
-```sql
+```zetasql
 REGEXP_SUBSTR(value, regexp[, position[, occurrence]])
 ```
 
@@ -43648,7 +44000,7 @@ Synonym for [REGEXP_EXTRACT][string-link-to-regex].
 
 **Examples**
 
-```sql
+```zetasql
 WITH example AS
 (SELECT 'Hello World Helloo' AS value, 'H?ello+' AS regex, 1 AS position, 1 AS
 occurrence
@@ -43667,7 +44019,7 @@ position, occurrence) AS regexp_value FROM example;
 
 ### `REPEAT`
 
-```sql
+```zetasql
 REPEAT(original_value, repetitions)
 ```
 
@@ -43686,7 +44038,7 @@ This function returns an error if the `repetitions` value is negative.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT REPEAT('abc', 3) AS results
 
 /*-----------*
@@ -43696,7 +44048,7 @@ SELECT REPEAT('abc', 3) AS results
  *-----------*/
 ```
 
-```sql
+```zetasql
 SELECT REPEAT('abc', NULL) AS results
 
 /*---------*
@@ -43706,7 +44058,7 @@ SELECT REPEAT('abc', NULL) AS results
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT REPEAT(NULL, 3) AS results
 
 /*---------*
@@ -43718,7 +44070,7 @@ SELECT REPEAT(NULL, 3) AS results
 
 ### `REPLACE`
 
-```sql
+```zetasql
 REPLACE(original_value, from_pattern, to_pattern)
 ```
 
@@ -43737,7 +44089,7 @@ This function supports specifying [collation][collation].
 
 **Examples**
 
-```sql
+```zetasql
 WITH desserts AS
   (SELECT 'apple pie' as dessert
   UNION ALL
@@ -43760,7 +44112,7 @@ FROM desserts;
 
 ### `REVERSE`
 
-```sql
+```zetasql
 REVERSE(value)
 ```
 
@@ -43774,7 +44126,7 @@ Returns the reverse of the input `STRING` or `BYTES`.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT REVERSE('abc') AS results
 
 /*---------*
@@ -43784,7 +44136,7 @@ SELECT REVERSE('abc') AS results
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT FORMAT('%T', REVERSE(b'1a3')) AS results
 
 /*---------*
@@ -43796,7 +44148,7 @@ SELECT FORMAT('%T', REVERSE(b'1a3')) AS results
 
 ### `RIGHT`
 
-```sql
+```zetasql
 RIGHT(value, length)
 ```
 
@@ -43820,7 +44172,7 @@ will be returned.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT 'apple' AS example, RIGHT('apple', 3) AS right_example
 
 /*---------+---------------*
@@ -43830,7 +44182,7 @@ SELECT 'apple' AS example, RIGHT('apple', 3) AS right_example
  *---------+---------------*/
 ```
 
-```sql
+```zetasql
 SELECT b'apple' AS example, RIGHT(b'apple', 3) AS right_example
 
 /*----------------------+---------------*
@@ -43842,7 +44194,7 @@ SELECT b'apple' AS example, RIGHT(b'apple', 3) AS right_example
 
 ### `RPAD`
 
-```sql
+```zetasql
 RPAD(original_value, return_length[, pattern])
 ```
 
@@ -43877,7 +44229,7 @@ This function returns an error if:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT FORMAT('%T', RPAD('c', 5)) AS results
 
 /*---------*
@@ -43887,7 +44239,7 @@ SELECT FORMAT('%T', RPAD('c', 5)) AS results
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT RPAD('b', 5, 'a') AS results
 
 /*---------*
@@ -43897,7 +44249,7 @@ SELECT RPAD('b', 5, 'a') AS results
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT RPAD('abc', 10, 'ghd') AS results
 
 /*------------*
@@ -43907,7 +44259,7 @@ SELECT RPAD('abc', 10, 'ghd') AS results
  *------------*/
 ```
 
-```sql
+```zetasql
 SELECT RPAD('abc', 2, 'd') AS results
 
 /*---------*
@@ -43917,7 +44269,7 @@ SELECT RPAD('abc', 2, 'd') AS results
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT FORMAT('%T', RPAD(b'abc', 10, b'ghd')) AS results
 
 /*---------------*
@@ -43929,7 +44281,7 @@ SELECT FORMAT('%T', RPAD(b'abc', 10, b'ghd')) AS results
 
 ### `RTRIM`
 
-```sql
+```zetasql
 RTRIM(value1[, value2])
 ```
 
@@ -43943,7 +44295,7 @@ Identical to [TRIM][string-link-to-trim], but only removes trailing characters.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT RTRIM('***apple***', '*') AS example
 
 /*-----------*
@@ -43953,7 +44305,7 @@ SELECT RTRIM('***apple***', '*') AS example
  *-----------*/
 ```
 
-```sql
+```zetasql
 SELECT RTRIM('applexxz', 'xyz') AS example
 
 /*---------*
@@ -43967,7 +44319,7 @@ SELECT RTRIM('applexxz', 'xyz') AS example
 
 ### `SAFE_CONVERT_BYTES_TO_STRING`
 
-```sql
+```zetasql
 SAFE_CONVERT_BYTES_TO_STRING(value)
 ```
 
@@ -43984,13 +44336,13 @@ replaced with the Unicode replacement character, `U+FFFD`.
 
 The following statement returns the Unicode replacement character, &#65533;.
 
-```sql
+```zetasql
 SELECT SAFE_CONVERT_BYTES_TO_STRING(b'\xc2') as safe_convert;
 ```
 
 ### `SOUNDEX`
 
-```sql
+```zetasql
 SOUNDEX(value)
 ```
 
@@ -44000,7 +44352,7 @@ Returns a `STRING` that represents the
 [Soundex][string-link-to-soundex-wikipedia] code for `value`.
 
 SOUNDEX produces a phonetic representation of a string. It indexes words by
-sound, as pronounced in English. It is typically used to help determine whether
+sound, as pronounced in English. It's typically used to help determine whether
 two strings, such as the family names _Levine_ and _Lavine_, or the words _to_
 and _too_, have similar English-language pronunciation.
 
@@ -44014,7 +44366,7 @@ non-Latin characters, an empty `STRING` is returned.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT 'Ashcraft' AS value, SOUNDEX('Ashcraft') AS soundex
 
 /*----------------------+---------*
@@ -44028,7 +44380,7 @@ SELECT 'Ashcraft' AS value, SOUNDEX('Ashcraft') AS soundex
 
 ### `SPLIT`
 
-```sql
+```zetasql
 SPLIT(value[, delimiter])
 ```
 
@@ -44059,7 +44411,7 @@ This function supports specifying [collation][collation].
 
 **Examples**
 
-```sql
+```zetasql
 WITH letters AS
   (SELECT '' as letter_group
   UNION ALL
@@ -44081,7 +44433,7 @@ FROM letters;
 
 ### `SPLIT_SUBSTR`
 
-```sql
+```zetasql
 SPLIT_SUBSTR(value, delimiter, start_split[, count])
 ```
 
@@ -44142,7 +44494,7 @@ This function supports specifying [collation][collation].
 
 The following example returns an empty string because `count` is `0`:
 
-```sql
+```zetasql
 SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", 1, 0) AS example
 
 /*---------*
@@ -44154,7 +44506,7 @@ SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", 1, 0) AS example
 
 The following example returns two splits starting with the first split:
 
-```sql
+```zetasql
 SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", 1, 2) AS example
 
 /*---------*
@@ -44166,7 +44518,7 @@ SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", 1, 2) AS example
 
 The following example returns one split starting with the first split:
 
-```sql
+```zetasql
 SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", 1, 1) AS example
 
 /*---------*
@@ -44179,7 +44531,7 @@ SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", 1, 1) AS example
 The following example returns splits from the right because `start_split` is a
 negative value:
 
-```sql
+```zetasql
 SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", -1, 1) AS example
 
 /*---------*
@@ -44192,7 +44544,7 @@ SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", -1, 1) AS example
 The following example returns a substring with three splits, starting with the
 first split:
 
-```sql
+```zetasql
 SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", 1, 3) AS example
 
 /*-------------*
@@ -44205,7 +44557,7 @@ SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", 1, 3) AS example
 If `start_split` is zero, then it's treated as if it's `1`. The following
 example returns three substrings starting with the first split:
 
-```sql
+```zetasql
 SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", 0, 3) AS example
 
 /*-------------*
@@ -44218,7 +44570,7 @@ SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", 0, 3) AS example
 If `start_split` is greater than the number of splits, then an empty string is
 returned:
 
-```sql
+```zetasql
 SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", 5, 3) AS example
 
 /*---------*
@@ -44231,7 +44583,7 @@ SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", 5, 3) AS example
 In the following example, the `start_split` value (`-5`) is less than the
 negative of the number of splits (`-4`), so `start_split` is treated as `1`:
 
-```sql
+```zetasql
 SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", -5, 3) AS example
 
 /*-------------*
@@ -44244,7 +44596,7 @@ SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", -5, 3) AS example
 In the following example, the substring from `start_split` to the end of the
 string is returned because `count` isn't specified:
 
-```sql
+```zetasql
 SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", 3) AS example
 
 /*---------*
@@ -44259,7 +44611,7 @@ multi-character delimiter that has overlapping matches in the input string. In
 each example, the input string contains instances of three asterisks in a row
 (`***`) and the delimiter is two asterisks (`**`).
 
-```sql
+```zetasql
 SELECT SPLIT_SUBSTR('aaa***bbb***ccc', '**', 1, 2) AS example
 
 /*-----------*
@@ -44269,7 +44621,7 @@ SELECT SPLIT_SUBSTR('aaa***bbb***ccc', '**', 1, 2) AS example
  *----------*/
 ```
 
-```sql
+```zetasql
 SELECT SPLIT_SUBSTR('aaa***bbb***ccc', '**', 2, 2) AS example
 
 /*------------*
@@ -44281,7 +44633,7 @@ SELECT SPLIT_SUBSTR('aaa***bbb***ccc', '**', 2, 2) AS example
 
 ### `STARTS_WITH`
 
-```sql
+```zetasql
 STARTS_WITH(value, prefix)
 ```
 
@@ -44300,7 +44652,7 @@ This function supports specifying [collation][collation].
 
 **Examples**
 
-```sql
+```zetasql
 SELECT STARTS_WITH('bar', 'b') AS example
 
 /*---------*
@@ -44312,14 +44664,14 @@ SELECT STARTS_WITH('bar', 'b') AS example
 
 ### `STRPOS`
 
-```sql
+```zetasql
 STRPOS(value, subvalue)
 ```
 
 **Description**
 
 Takes two `STRING` or `BYTES` values. Returns the 1-based position of the first
-occurrence of `subvalue` inside `value`. Returns `0` if `subvalue` is not found.
+occurrence of `subvalue` inside `value`. Returns `0` if `subvalue` isn't found.
 
 This function supports specifying [collation][collation].
 
@@ -44331,7 +44683,7 @@ This function supports specifying [collation][collation].
 
 **Examples**
 
-```sql
+```zetasql
 SELECT STRPOS('foo@example.com', '@') AS example
 
 /*---------*
@@ -44343,7 +44695,7 @@ SELECT STRPOS('foo@example.com', '@') AS example
 
 ### `SUBSTR`
 
-```sql
+```zetasql
 SUBSTR(value, position[, length])
 ```
 
@@ -44365,7 +44717,7 @@ substring.
 The `length` argument specifies the maximum number of characters or bytes to
 return.
 
-+ If `length` is not specified, the function produces a substring that starts
++ If `length` isn't specified, the function produces a substring that starts
   at the specified position and ends at the last character or byte of `value`.
 + If `length` is `0`, the function produces an empty substring.
 + If `length` is negative, the function produces an error.
@@ -44379,7 +44731,7 @@ return.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT SUBSTR('apple', 2) AS example
 
 /*---------*
@@ -44389,7 +44741,7 @@ SELECT SUBSTR('apple', 2) AS example
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT SUBSTR('apple', 2, 2) AS example
 
 /*---------*
@@ -44399,7 +44751,7 @@ SELECT SUBSTR('apple', 2, 2) AS example
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT SUBSTR('apple', -2) AS example
 
 /*---------*
@@ -44409,7 +44761,7 @@ SELECT SUBSTR('apple', -2) AS example
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT SUBSTR('apple', 1, 123) AS example
 
 /*---------*
@@ -44419,7 +44771,7 @@ SELECT SUBSTR('apple', 1, 123) AS example
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT SUBSTR('apple', 123) AS example
 
 /*---------*
@@ -44429,7 +44781,7 @@ SELECT SUBSTR('apple', 123) AS example
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT SUBSTR('apple', 123, 5) AS example
 
 /*---------*
@@ -44441,7 +44793,7 @@ SELECT SUBSTR('apple', 123, 5) AS example
 
 ### `SUBSTRING`
 
-```sql
+```zetasql
 SUBSTRING(value, position[, length])
 ```
 
@@ -44451,7 +44803,7 @@ Alias for [`SUBSTR`][substr].
 
 ### `TO_BASE32`
 
-```sql
+```zetasql
 TO_BASE32(bytes_expr)
 ```
 
@@ -44466,7 +44818,7 @@ base32-encoded `STRING` into `BYTES`, use [FROM_BASE32][string-link-to-from-base
 
 **Example**
 
-```sql
+```zetasql
 SELECT TO_BASE32(b'abcde\xFF') AS base32_string;
 
 /*------------------*
@@ -44480,7 +44832,7 @@ SELECT TO_BASE32(b'abcde\xFF') AS base32_string;
 
 ### `TO_BASE64`
 
-```sql
+```zetasql
 TO_BASE64(bytes_expr)
 ```
 
@@ -44500,7 +44852,7 @@ function adds padding and uses the alphabet `[A-Za-z0-9+/=]`.
 
 **Example**
 
-```sql
+```zetasql
 SELECT TO_BASE64(b'\377\340') AS base64_string;
 
 /*---------------*
@@ -44516,7 +44868,7 @@ compose `TO_BASE64` with the `REPLACE` function. For instance, the
 uses `-_=` as the last characters rather than `+/=`. To encode a
 `base64url`-encoded string, replace `+` and `/` with `-` and `_` respectively.
 
-```sql
+```zetasql
 SELECT REPLACE(REPLACE(TO_BASE64(b'\377\340'), '+', '-'), '/', '_') as websafe_base64;
 
 /*----------------*
@@ -44532,7 +44884,7 @@ SELECT REPLACE(REPLACE(TO_BASE64(b'\377\340'), '+', '-'), '/', '_') as websafe_b
 
 ### `TO_CODE_POINTS`
 
-```sql
+```zetasql
 TO_CODE_POINTS(value)
 ```
 
@@ -44560,7 +44912,7 @@ To convert from an array of code points to a `STRING` or `BYTES`, see
 The following examples get the code points for each element in an array of
 words.
 
-```sql
+```zetasql
 SELECT
   'foo' AS word,
   TO_CODE_POINTS('foo') AS code_points
@@ -44572,7 +44924,7 @@ SELECT
  *---------+------------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   'bar' AS word,
   TO_CODE_POINTS('bar') AS code_points
@@ -44584,7 +44936,7 @@ SELECT
  *---------+------------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   'baz' AS word,
   TO_CODE_POINTS('baz') AS code_points
@@ -44596,7 +44948,7 @@ SELECT
  *---------+------------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   'giraffe' AS word,
   TO_CODE_POINTS('giraffe') AS code_points
@@ -44608,7 +44960,7 @@ SELECT
  *---------+------------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   'llama' AS word,
   TO_CODE_POINTS('llama') AS code_points
@@ -44623,7 +44975,7 @@ SELECT
 The following examples convert integer representations of `BYTES` to their
 corresponding ASCII character values.
 
-```sql
+```zetasql
 SELECT
   b'\x66\x6f\x6f' AS bytes_value,
   TO_CODE_POINTS(b'\x66\x6f\x6f') AS bytes_value_as_integer
@@ -44635,7 +44987,7 @@ SELECT
  *------------------+------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   b'\x00\x01\x10\xff' AS bytes_value,
   TO_CODE_POINTS(b'\x00\x01\x10\xff') AS bytes_value_as_integer
@@ -44653,7 +45005,7 @@ Unicode sequence. As a result, the `BYTES` version of `TO_CODE_POINTS` returns
 an array with two elements, while the `STRING` version returns an array with a
 single element.
 
-```sql
+```zetasql
 SELECT TO_CODE_POINTS(b'Ā') AS b_result, TO_CODE_POINTS('Ā') AS s_result;
 
 /*------------+----------*
@@ -44671,7 +45023,7 @@ SELECT TO_CODE_POINTS(b'Ā') AS b_result, TO_CODE_POINTS('Ā') AS s_result;
 
 ### `TO_HEX`
 
-```sql
+```zetasql
 TO_HEX(bytes)
 ```
 
@@ -44688,7 +45040,7 @@ in the `STRING` as two hexadecimal characters in the range
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   b'\x00\x01\x02\x03\xAA\xEE\xEF\xFF' AS byte_string,
   TO_HEX(b'\x00\x01\x02\x03\xAA\xEE\xEF\xFF') AS hex_string
@@ -44704,7 +45056,7 @@ SELECT
 
 ### `TRANSLATE`
 
-```sql
+```zetasql
 TRANSLATE(expression, source_characters, target_characters)
 ```
 
@@ -44715,7 +45067,7 @@ corresponding character in `target_characters`. All inputs must be the same
 type, either `STRING` or `BYTES`.
 
 + Each character in `expression` is translated at most once.
-+ A character in `expression` that is not present in `source_characters` is left
++ A character in `expression` that isn't present in `source_characters` is left
   unchanged in `expression`.
 + A character in `source_characters` without a corresponding character in
   `target_characters` is omitted from the result.
@@ -44727,7 +45079,7 @@ type, either `STRING` or `BYTES`.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT TRANSLATE('This is a cookie', 'sco', 'zku') AS translate
 
 /*------------------*
@@ -44739,7 +45091,7 @@ SELECT TRANSLATE('This is a cookie', 'sco', 'zku') AS translate
 
 ### `TRIM`
 
-```sql
+```zetasql
 TRIM(value_to_trim[, set_of_characters_to_remove])
 ```
 
@@ -44749,7 +45101,7 @@ Takes a `STRING` or `BYTES` value to trim.
 
 If the value to trim is a `STRING`, removes from this value all leading and
 trailing Unicode code points in `set_of_characters_to_remove`.
-The set of code points is optional. If it is not specified, all
+The set of code points is optional. If it isn't specified, all
 whitespace characters are removed from the beginning and end of the
 value to trim.
 
@@ -44764,9 +45116,9 @@ trailing bytes in `set_of_characters_to_remove`. The set of bytes is required.
 **Examples**
 
 In the following example, all leading and trailing whitespace characters are
-removed from `item` because `set_of_characters_to_remove` is not specified.
+removed from `item` because `set_of_characters_to_remove` isn't specified.
 
-```sql
+```zetasql
 SELECT CONCAT('#', TRIM( '   apple   '), '#') AS example
 
 /*----------*
@@ -44779,7 +45131,7 @@ SELECT CONCAT('#', TRIM( '   apple   '), '#') AS example
 In the following example, all leading and trailing `*` characters are removed
 from '***apple***'.
 
-```sql
+```zetasql
 SELECT TRIM('***apple***', '*') AS example
 
 /*---------*
@@ -44792,7 +45144,7 @@ SELECT TRIM('***apple***', '*') AS example
 In the following example, all leading and trailing `x`, `y`, and `z` characters
 are removed from 'xzxapplexxy'.
 
-```sql
+```zetasql
 SELECT TRIM('xzxapplexxy', 'xyz') as example
 
 /*---------*
@@ -44807,7 +45159,7 @@ Unicode code-points. If your trailing character set contains a combining
 diacritic mark over a particular letter, `TRIM` might strip the
 same diacritic mark from a different letter.
 
-```sql
+```zetasql
 SELECT
   TRIM('abaW̊', 'Y̊') AS a,
   TRIM('W̊aba', 'Y̊') AS b,
@@ -44824,7 +45176,7 @@ SELECT
 In the following example, all leading and trailing `b'n'`, `b'a'`, `b'\xab'`
 bytes are removed from `item`.
 
-```sql
+```zetasql
 SELECT b'apple', TRIM(b'apple', b'na\xab') AS example
 
 /*----------------------+------------------*
@@ -44836,7 +45188,7 @@ SELECT b'apple', TRIM(b'apple', b'na\xab') AS example
 
 ### `UNICODE`
 
-```sql
+```zetasql
 UNICODE(value)
 ```
 
@@ -44852,7 +45204,7 @@ point is `0`.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT UNICODE('âbcd') as A, UNICODE('â') as B, UNICODE('') as C, UNICODE(NULL) as D;
 
 /*-------+-------+-------+-------*
@@ -44866,7 +45218,7 @@ SELECT UNICODE('âbcd') as A, UNICODE('â') as B, UNICODE('') as C, UNICODE(NULL
 
 ### `UPPER`
 
-```sql
+```zetasql
 UPPER(value)
 ```
 
@@ -44887,7 +45239,7 @@ greater than 127 left intact.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT UPPER('foo') AS example
 
 /*---------*
@@ -44995,11 +45347,11 @@ ZetaSQL supports the following time functions.
 
 ### `CURRENT_TIME`
 
-```sql
+```zetasql
 CURRENT_TIME([time_zone])
 ```
 
-```sql
+```zetasql
 CURRENT_TIME
 ```
 
@@ -45012,9 +45364,9 @@ This function supports an optional `time_zone` parameter.
 See [Time zone definitions][time-link-to-timezone-definitions] for information
 on how to specify a time zone.
 
-The current time is recorded at the start of the query
-statement which contains this function, not when this specific function is
-evaluated.
+The current time value is set at the start of the query statement that contains
+this function. All invocations of `CURRENT_TIME()` within a query statement
+yield the same value.
 
 **Return Data Type**
 
@@ -45022,7 +45374,7 @@ evaluated.
 
 **Example**
 
-```sql
+```zetasql
 SELECT CURRENT_TIME() as now;
 
 /*----------------------------*
@@ -45038,7 +45390,7 @@ SELECT CURRENT_TIME() as now;
 
 ### `EXTRACT`
 
-```sql
+```zetasql
 EXTRACT(part FROM time_expression)
 ```
 
@@ -45069,7 +45421,7 @@ seconds, `EXTRACT` truncates the millisecond and microsecond values.
 In the following example, `EXTRACT` returns a value corresponding to the `HOUR`
 time part.
 
-```sql
+```zetasql
 SELECT EXTRACT(HOUR FROM TIME "15:30:00") as hour;
 
 /*------------------*
@@ -45081,7 +45433,7 @@ SELECT EXTRACT(HOUR FROM TIME "15:30:00") as hour;
 
 ### `FORMAT_TIME`
 
-```sql
+```zetasql
 FORMAT_TIME(format_string, time_expr)
 ```
 
@@ -45101,7 +45453,7 @@ Formats a `TIME` value according to the specified format string.
 
 **Example**
 
-```sql
+```zetasql
 SELECT FORMAT_TIME("%R", TIME "15:30:00") as formatted_time;
 
 /*----------------*
@@ -45115,7 +45467,7 @@ SELECT FORMAT_TIME("%R", TIME "15:30:00") as formatted_time;
 
 ### `PARSE_TIME`
 
-```sql
+```zetasql
 PARSE_TIME(format_string, time_string)
 ```
 
@@ -45135,7 +45487,7 @@ Each element in `time_string` must have a corresponding element in
 `format_string`. The location of each element in `format_string` must match the
 location of each element in `time_string`.
 
-```sql
+```zetasql
 -- This works because elements on both sides match.
 SELECT PARSE_TIME("%I:%M:%S", "07:30:00");
 
@@ -45149,7 +45501,8 @@ SELECT PARSE_TIME("%I:%M", "07:30:00");
 SELECT PARSE_TIME("%T", "07:30:00");
 ```
 
-When using `PARSE_TIME`, keep the following in mind:
+The following additional considerations apply when using the `PARSE_TIME`
+function:
 
 + Unspecified fields. Any unspecified field is initialized from
   `00:00:00.0`. For instance, if `seconds` is unspecified then it
@@ -45157,7 +45510,7 @@ When using `PARSE_TIME`, keep the following in mind:
 + Whitespace. One or more consecutive white spaces in the format string
   matches zero or more consecutive white spaces in the `TIME` string. In
   addition, leading and trailing white spaces in the `TIME` string are always
-  allowed, even if they are not in the format string.
+  allowed, even if they aren't in the format string.
 + Format precedence. When two (or more) format elements have overlapping
   information, the last one generally overrides any earlier ones.
 + Format divergence. `%p` can be used with `am`, `AM`, `pm`, and `PM`.
@@ -45168,7 +45521,7 @@ When using `PARSE_TIME`, keep the following in mind:
 
 **Example**
 
-```sql
+```zetasql
 SELECT PARSE_TIME("%H", "15") as parsed_time;
 
 /*-------------*
@@ -45178,7 +45531,7 @@ SELECT PARSE_TIME("%H", "15") as parsed_time;
  *-------------*/
 ```
 
-```sql
+```zetasql
 SELECT PARSE_TIME('%I:%M:%S %p', '2:23:38 pm') AS parsed_time;
 
 /*-------------*
@@ -45194,7 +45547,7 @@ SELECT PARSE_TIME('%I:%M:%S %p', '2:23:38 pm') AS parsed_time;
 
 ### `TIME`
 
-```sql
+```zetasql
 1. TIME(hour, minute, second)
 2. TIME(timestamp, [time_zone])
 3. TIME(datetime)
@@ -45218,7 +45571,7 @@ SELECT PARSE_TIME('%I:%M:%S %p', '2:23:38 pm') AS parsed_time;
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   TIME(15, 30, 00) as time_hms,
   TIME(TIMESTAMP "2008-12-25 15:30:00+08", "America/Los_Angeles") as time_tstz;
@@ -45230,7 +45583,7 @@ SELECT
  *----------+-----------*/
 ```
 
-```sql
+```zetasql
 SELECT TIME(DATETIME "2008-12-25 15:30:00.000000") AS time_dt;
 
 /*----------*
@@ -45244,7 +45597,7 @@ SELECT TIME(DATETIME "2008-12-25 15:30:00.000000") AS time_dt;
 
 ### `TIME_ADD`
 
-```sql
+```zetasql
 TIME_ADD(time_expression, INTERVAL int64_expression part)
 ```
 
@@ -45272,7 +45625,7 @@ value is `00:30:00`.
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   TIME "15:30:00" as original_time,
   TIME_ADD(TIME "15:30:00", INTERVAL 10 MINUTE) as later;
@@ -45286,8 +45639,8 @@ SELECT
 
 ### `TIME_DIFF`
 
-```sql
-TIME_DIFF(start_time, end_time, granularity)
+```zetasql
+TIME_DIFF(end_time, start_time, granularity)
 ```
 
 **Description**
@@ -45329,7 +45682,7 @@ behaves like `TIMESTAMP_DIFF(TIMESTAMP, TIMESTAMP, PART)`.
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   TIME "15:30:00" as first_time,
   TIME "14:35:00" as second_time,
@@ -45344,7 +45697,7 @@ SELECT
 
 ### `TIME_SUB`
 
-```sql
+```zetasql
 TIME_SUB(time_expression, INTERVAL int64_expression part)
 ```
 
@@ -45372,7 +45725,7 @@ returned value is `23:30:00`.
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   TIME "15:30:00" as original_date,
   TIME_SUB(TIME "15:30:00", INTERVAL 10 MINUTE) as earlier;
@@ -45386,7 +45739,7 @@ SELECT
 
 ### `TIME_TRUNC`
 
-```sql
+```zetasql
 TIME_TRUNC(time_value, time_granularity)
 ```
 
@@ -45426,7 +45779,7 @@ The resulting value is always rounded to the beginning of `granularity`.
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   TIME "15:30:00" as original,
   TIME_TRUNC(TIME "15:30:00", HOUR) as truncated;
@@ -45486,11 +45839,11 @@ ZetaSQL supports the following time series functions.
 
 ### `DATE_BUCKET`
 
-```sql
+```zetasql
 DATE_BUCKET(date_in_bucket, bucket_width)
 ```
 
-```sql
+```zetasql
 DATE_BUCKET(date_in_bucket, bucket_width, bucket_origin_date)
 ```
 
@@ -45505,7 +45858,7 @@ Gets the lower bound of the date bucket that contains a date.
     a date bucket. A [single interval][interval-single] with
     [date parts][interval-parts] is supported.
 +   `bucket_origin_date`: A `DATE` value that represents a point in time. All
-    buckets expand left and right from this point. If this argument is not set,
+    buckets expand left and right from this point. If this argument isn't set,
     `1950-01-01` is used by default.
 
 **Return type**
@@ -45519,7 +45872,7 @@ In the following example, the origin is omitted and the default origin,
 and the size of each bucket is two days. The lower bound of the bucket in
 which `my_date` belongs is returned.
 
-```sql
+```zetasql
 WITH some_dates AS (
   SELECT DATE '1949-12-29' AS my_date UNION ALL
   SELECT DATE '1949-12-30' UNION ALL
@@ -45557,7 +45910,7 @@ and all buckets expand in both directions from this point. The size of each
 bucket is seven days. The lower bound of the bucket in which `my_date` belongs
 is returned:
 
-```sql
+```zetasql
 WITH some_dates AS (
   SELECT DATE '2000-12-20' AS my_date UNION ALL
   SELECT DATE '2000-12-21' UNION ALL
@@ -45601,11 +45954,11 @@ FROM some_dates;
 
 ### `DATETIME_BUCKET`
 
-```sql
+```zetasql
 DATETIME_BUCKET(datetime_in_bucket, bucket_width)
 ```
 
-```sql
+```zetasql
 DATETIME_BUCKET(datetime_in_bucket, bucket_width, bucket_origin_datetime)
 ```
 
@@ -45622,7 +45975,7 @@ Gets the lower bound of the datetime bucket that contains a datetime.
     [date and time parts][interval-parts] is supported.
 +   `bucket_origin_datetime`: A `DATETIME` value that represents a point in
     time. All buckets expand left and right from this point. If this argument
-    is not set, `1950-01-01 00:00:00` is used by default.
+    isn't set, `1950-01-01 00:00:00` is used by default.
 
 **Return type**
 
@@ -45635,7 +45988,7 @@ In the following example, the origin is omitted and the default origin,
 origin, and the size of each bucket is 12 hours. The lower bound of the bucket
 in which `my_datetime` belongs is returned:
 
-```sql
+```zetasql
 WITH some_datetimes AS (
   SELECT DATETIME '1949-12-30 13:00:00' AS my_datetime UNION ALL
   SELECT DATETIME '1949-12-31 00:00:00' UNION ALL
@@ -45673,7 +46026,7 @@ and all buckets expand in both directions from this point. The size of each
 bucket is seven days. The lower bound of the bucket in which `my_datetime`
 belongs is returned:
 
-```sql
+```zetasql
 WITH some_datetimes AS (
   SELECT DATETIME '2000-12-20 00:00:00' AS my_datetime UNION ALL
   SELECT DATETIME '2000-12-21 00:00:00' UNION ALL
@@ -45715,11 +46068,11 @@ FROM some_datetimes;
 
 ### `TIMESTAMP_BUCKET`
 
-```sql
+```zetasql
 TIMESTAMP_BUCKET(timestamp_in_bucket, bucket_width)
 ```
 
-```sql
+```zetasql
 TIMESTAMP_BUCKET(timestamp_in_bucket, bucket_width, bucket_origin_timestamp)
 ```
 
@@ -45736,7 +46089,7 @@ Gets the lower bound of the timestamp bucket that contains a timestamp.
     [date and time parts][interval-parts] is supported.
 +   `bucket_origin_timestamp`: A `TIMESTAMP` value that represents a point in
     time. All buckets expand left and right from this point. If this argument
-    is not set, `1950-01-01 00:00:00` is used by default.
+    isn't set, `1950-01-01 00:00:00` is used by default.
 
 **Return type**
 
@@ -45750,7 +46103,7 @@ origin, and the size of each bucket is 12 hours. The default time zone,
 which is implementation defined, is included in the results. The lower bound of the
 bucket in which `my_timestamp` belongs is returned:
 
-```sql
+```zetasql
 WITH some_timestamps AS (
   SELECT TIMESTAMP '1949-12-30 13:00:00.00' AS my_timestamp UNION ALL
   SELECT TIMESTAMP '1949-12-31 00:00:00.00' UNION ALL
@@ -45791,7 +46144,7 @@ bucket is seven days. The default time zone, which is implementation defined, is
 in the results. The lower bound of the bucket in which `my_timestamp`
 belongs is returned:
 
-```sql
+```zetasql
 WITH some_timestamps AS (
   SELECT TIMESTAMP '2000-12-20 00:00:00.00' AS my_timestamp UNION ALL
   SELECT TIMESTAMP '2000-12-21 00:00:00.00' UNION ALL
@@ -46048,26 +46401,26 @@ and [`TIMESTAMP` range][data-types-link-to-timestamp_type].
 
 ### `CURRENT_TIMESTAMP`
 
-```sql
+```zetasql
 CURRENT_TIMESTAMP()
 ```
 
-```sql
+```zetasql
 CURRENT_TIMESTAMP
 ```
 
 **Description**
 
 Returns the current date and time as a timestamp object. The timestamp is
-continuous, non-ambiguous, has exactly 60 seconds per minute and does not repeat
+continuous, non-ambiguous, has exactly 60 seconds per minute and doesn't repeat
 values over the leap second. Parentheses are optional.
 
 This function handles leap seconds by smearing them across a window of 20 hours
 around the inserted leap second.
 
-The current date and time is recorded at the start of the query
-statement which contains this function, not when this specific function is
-evaluated.
+The current timestamp value is set at the start of the query statement that
+contains this function. All invocations of `CURRENT_TIMESTAMP()` within a query
+statement yield the same value.
 
 **Supported Input Types**
 
@@ -46079,7 +46432,7 @@ Not applicable
 
 **Examples**
 
-```sql
+```zetasql
 SELECT CURRENT_TIMESTAMP() AS now;
 
 /*---------------------------------------------*
@@ -46093,7 +46446,7 @@ SELECT CURRENT_TIMESTAMP() AS now;
 
 ### `EXTRACT`
 
-```sql
+```zetasql
 EXTRACT(part FROM timestamp_expression [AT TIME ZONE time_zone])
 ```
 
@@ -46152,7 +46505,7 @@ seconds, `EXTRACT` truncates the millisecond and microsecond values.
 In the following example, `EXTRACT` returns a value corresponding to the `DAY`
 time part.
 
-```sql
+```zetasql
 SELECT
   EXTRACT(
     DAY
@@ -46173,7 +46526,7 @@ SELECT
 In the following examples, `EXTRACT` returns values corresponding to different
 time parts from a column of type `TIMESTAMP`.
 
-```sql
+```zetasql
 SELECT
   EXTRACT(ISOYEAR FROM TIMESTAMP("2005-01-03 12:34:56+00")) AS isoyear,
   EXTRACT(ISOWEEK FROM TIMESTAMP("2005-01-03 12:34:56+00")) AS isoweek,
@@ -46189,7 +46542,7 @@ SELECT
  *---------+---------+------+------*/
 ```
 
-```sql
+```zetasql
 SELECT
   TIMESTAMP("2007-12-31 12:00:00+00") AS timestamp_value,
   EXTRACT(ISOYEAR FROM TIMESTAMP("2007-12-31 12:00:00+00")) AS isoyear,
@@ -46206,7 +46559,7 @@ SELECT
  *---------+---------+------+------*/
 ```
 
-```sql
+```zetasql
 SELECT
   TIMESTAMP("2009-01-01 12:00:00+00") AS timestamp_value,
   EXTRACT(ISOYEAR FROM TIMESTAMP("2009-01-01 12:00:00+00")) AS isoyear,
@@ -46223,7 +46576,7 @@ SELECT
  *---------+---------+------+------*/
 ```
 
-```sql
+```zetasql
 SELECT
   TIMESTAMP("2009-12-31 12:00:00+00") AS timestamp_value,
   EXTRACT(ISOYEAR FROM TIMESTAMP("2009-12-31 12:00:00+00")) AS isoyear,
@@ -46240,7 +46593,7 @@ SELECT
  *---------+---------+------+------*/
 ```
 
-```sql
+```zetasql
 SELECT
   TIMESTAMP("2017-01-02 12:00:00+00") AS timestamp_value,
   EXTRACT(ISOYEAR FROM TIMESTAMP("2017-01-02 12:00:00+00")) AS isoyear,
@@ -46257,7 +46610,7 @@ SELECT
  *---------+---------+------+------*/
 ```
 
-```sql
+```zetasql
 SELECT
   TIMESTAMP("2017-05-26 12:00:00+00") AS timestamp_value,
   EXTRACT(ISOYEAR FROM TIMESTAMP("2017-05-26 12:00:00+00")) AS isoyear,
@@ -46278,7 +46631,7 @@ In the following example, `timestamp_expression` falls on a Monday. `EXTRACT`
 calculates the first column using weeks that begin on Sunday, and it calculates
 the second column using weeks that begin on Monday.
 
-```sql
+```zetasql
 SELECT
   EXTRACT(WEEK(SUNDAY) FROM TIMESTAMP("2017-11-06 00:00:00+00")) AS week_sunday,
   EXTRACT(WEEK(MONDAY) FROM TIMESTAMP("2017-11-06 00:00:00+00")) AS week_monday
@@ -46300,7 +46653,7 @@ SELECT
 
 ### `FORMAT_TIMESTAMP`
 
-```sql
+```zetasql
 FORMAT_TIMESTAMP(format_string, timestamp_expr[, time_zone])
 ```
 
@@ -46324,7 +46677,7 @@ Formats a `TIMESTAMP` value according to the specified format string.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT FORMAT_TIMESTAMP("%c", TIMESTAMP "2050-12-25 15:30:55+00", "UTC")
   AS formatted;
 
@@ -46335,7 +46688,7 @@ SELECT FORMAT_TIMESTAMP("%c", TIMESTAMP "2050-12-25 15:30:55+00", "UTC")
  *--------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT FORMAT_TIMESTAMP("%b-%d-%Y", TIMESTAMP "2050-12-25 15:30:55+00")
   AS formatted;
 
@@ -46346,7 +46699,7 @@ SELECT FORMAT_TIMESTAMP("%b-%d-%Y", TIMESTAMP "2050-12-25 15:30:55+00")
  *-------------*/
 ```
 
-```sql
+```zetasql
 SELECT FORMAT_TIMESTAMP("%b %Y", TIMESTAMP "2050-12-25 15:30:55+00")
   AS formatted;
 
@@ -46357,7 +46710,7 @@ SELECT FORMAT_TIMESTAMP("%b %Y", TIMESTAMP "2050-12-25 15:30:55+00")
  *-------------*/
 ```
 
-```sql
+```zetasql
 SELECT FORMAT_TIMESTAMP("%Y-%m-%dT%H:%M:%SZ", TIMESTAMP "2050-12-25 15:30:55", "UTC")
   AS formatted;
 
@@ -46374,7 +46727,7 @@ SELECT FORMAT_TIMESTAMP("%Y-%m-%dT%H:%M:%SZ", TIMESTAMP "2050-12-25 15:30:55", "
 
 ### `PARSE_TIMESTAMP`
 
-```sql
+```zetasql
 PARSE_TIMESTAMP(format_string, timestamp_string[, time_zone])
 ```
 
@@ -46397,7 +46750,7 @@ Each element in `timestamp_string` must have a corresponding element in
 `format_string`. The location of each element in `format_string` must match the
 location of each element in `timestamp_string`.
 
-```sql
+```zetasql
 -- This works because elements on both sides match.
 SELECT PARSE_TIMESTAMP("%a %b %e %I:%M:%S %Y", "Thu Dec 25 07:30:00 2008");
 
@@ -46411,7 +46764,8 @@ SELECT PARSE_TIMESTAMP("%a %b %e %I:%M:%S", "Thu Dec 25 07:30:00 2008");
 SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008");
 ```
 
-When using `PARSE_TIMESTAMP`, keep the following in mind:
+The following additional considerations apply when using the `PARSE_TIMESTAMP`
+function:
 
 + Unspecified fields. Any unspecified field is initialized from `1970-01-01
   00:00:00.0`. This initialization value uses the time zone specified by the
@@ -46423,12 +46777,27 @@ When using `PARSE_TIMESTAMP`, keep the following in mind:
 + Whitespace. One or more consecutive white spaces in the format string
   matches zero or more consecutive white spaces in the timestamp string. In
   addition, leading and trailing white spaces in the timestamp string are always
-  allowed, even if they are not in the format string.
+  allowed, even if they aren't in the format string.
 + Format precedence. When two (or more) format elements have overlapping
   information (for example both `%F` and `%Y` affect the year), the last one
   generally overrides any earlier ones, with some exceptions (see the
   descriptions of `%s`, `%C`, and `%y`).
 + Format divergence. `%p` can be used with `am`, `AM`, `pm`, and `PM`.
++   Mixed ISO and non-ISO elements. The ISO format elements are `%G`, `%g`,
+    `%J`, and `%V`. When these ISO elements are used together with other non-ISO
+    elements, the ISO elements are ignored, resulting in different values. For
+    example, the function arguments `('%g %J', '8405')` return a value with the
+    year `1984`, whereas the arguments `('%g %j', '8405')` return a value with
+    the year `1970` because the ISO element `%g` is ignored.
++   Numeric values after `%G` input values. Any input string value that
+    corresponds to the `%G` format element requires a whitespace or non-digit
+    character as a separator from numeric values that follow. This is a known
+    issue in ZetaSQL. For example, the function arguments `('%G
+    %V','2020 50')` or `('%G-%V','2020-50')` work, but not `('%G%V','202050')`.
+    For input values before the corresponding `%G` value, no separator is
+    needed. For example, the arguments `('%V%G','502020')` work. The separator
+    after the `%G` values identifies the end of the specified ISO year value so
+    that the function can parse properly.
 
 **Return Data Type**
 
@@ -46436,7 +46805,7 @@ When using `PARSE_TIMESTAMP`, keep the following in mind:
 
 **Example**
 
-```sql
+```zetasql
 SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008") AS parsed;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
@@ -46455,7 +46824,7 @@ SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008") AS parsed;
 
 ### `STRING`
 
-```sql
+```zetasql
 STRING(timestamp_expression[, time_zone])
 ```
 
@@ -46472,7 +46841,7 @@ on how to specify a time zone.
 
 **Example**
 
-```sql
+```zetasql
 SELECT STRING(TIMESTAMP "2008-12-25 15:30:00+00", "UTC") AS string;
 
 /*-------------------------------*
@@ -46486,7 +46855,7 @@ SELECT STRING(TIMESTAMP "2008-12-25 15:30:00+00", "UTC") AS string;
 
 ### `TIMESTAMP`
 
-```sql
+```zetasql
 TIMESTAMP(string_expression[, time_zone])
 TIMESTAMP(date_expression[, time_zone])
 TIMESTAMP(datetime_expression[, time_zone])
@@ -46497,8 +46866,8 @@ TIMESTAMP(datetime_expression[, time_zone])
 +  `string_expression[, time_zone]`: Converts a string to a
    timestamp. `string_expression` must include a
    timestamp literal.
-   If `string_expression` includes a time zone in the timestamp literal, do
-   not include an explicit `time_zone`
+   If `string_expression` includes a time zone in the timestamp literal,
+   don't include an explicit `time_zone`
    argument.
 +  `date_expression[, time_zone]`: Converts a date to a timestamp.
    The value returned is the earliest timestamp that falls within
@@ -46517,7 +46886,7 @@ is used.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT TIMESTAMP("2008-12-25 15:30:00+00") AS timestamp_str;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
@@ -46528,7 +46897,7 @@ SELECT TIMESTAMP("2008-12-25 15:30:00+00") AS timestamp_str;
  *---------------------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT TIMESTAMP("2008-12-25 15:30:00", "America/Los_Angeles") AS timestamp_str;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
@@ -46539,7 +46908,7 @@ SELECT TIMESTAMP("2008-12-25 15:30:00", "America/Los_Angeles") AS timestamp_str;
  *---------------------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT TIMESTAMP("2008-12-25 15:30:00 UTC") AS timestamp_str;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
@@ -46550,7 +46919,7 @@ SELECT TIMESTAMP("2008-12-25 15:30:00 UTC") AS timestamp_str;
  *---------------------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT TIMESTAMP(DATETIME "2008-12-25 15:30:00") AS timestamp_datetime;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
@@ -46561,7 +46930,7 @@ SELECT TIMESTAMP(DATETIME "2008-12-25 15:30:00") AS timestamp_datetime;
  *---------------------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT TIMESTAMP(DATE "2008-12-25") AS timestamp_date;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
@@ -46578,7 +46947,7 @@ SELECT TIMESTAMP(DATE "2008-12-25") AS timestamp_date;
 
 ### `TIMESTAMP_ADD`
 
-```sql
+```zetasql
 TIMESTAMP_ADD(timestamp_expression, INTERVAL int64_expression date_part)
 ```
 
@@ -46604,7 +46973,7 @@ any time zone.
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   TIMESTAMP("2008-12-25 15:30:00+00") AS original,
   TIMESTAMP_ADD(TIMESTAMP "2008-12-25 15:30:00+00", INTERVAL 10 MINUTE) AS later;
@@ -46619,7 +46988,7 @@ SELECT
 
 ### `TIMESTAMP_DIFF`
 
-```sql
+```zetasql
 TIMESTAMP_DIFF(end_timestamp, start_timestamp, granularity)
 ```
 
@@ -46663,7 +47032,7 @@ behaves like `DATE_DIFF(DATE, DATE, PART)`.
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   TIMESTAMP("2010-07-07 10:20:00+00") AS later_timestamp,
   TIMESTAMP("2008-12-25 15:30:00+00") AS earlier_timestamp,
@@ -46680,7 +47049,7 @@ SELECT
 In the following example, the first timestamp occurs before the
 second timestamp, resulting in a negative output.
 
-```sql
+```zetasql
 SELECT TIMESTAMP_DIFF(TIMESTAMP "2018-08-14", TIMESTAMP "2018-10-14", DAY) AS negative_diff;
 
 /*---------------*
@@ -46693,7 +47062,7 @@ SELECT TIMESTAMP_DIFF(TIMESTAMP "2018-08-14", TIMESTAMP "2018-10-14", DAY) AS ne
 In this example, the result is 0 because only the number of whole specified
 `HOUR` intervals are included.
 
-```sql
+```zetasql
 SELECT TIMESTAMP_DIFF("2001-02-01 01:00:00", "2001-02-01 00:00:01", HOUR) AS diff;
 
 /*---------------*
@@ -46705,11 +47074,11 @@ SELECT TIMESTAMP_DIFF("2001-02-01 01:00:00", "2001-02-01 00:00:01", HOUR) AS dif
 
 ### `TIMESTAMP_FROM_UNIX_MICROS`
 
-```sql
+```zetasql
 TIMESTAMP_FROM_UNIX_MICROS(int64_expression)
 ```
 
-```sql
+```zetasql
 TIMESTAMP_FROM_UNIX_MICROS(timestamp_expression)
 ```
 
@@ -46725,7 +47094,7 @@ the same timestamp is returned.
 
 **Example**
 
-```sql
+```zetasql
 SELECT TIMESTAMP_FROM_UNIX_MICROS(1230219000000000) AS timestamp_value;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
@@ -46738,11 +47107,11 @@ SELECT TIMESTAMP_FROM_UNIX_MICROS(1230219000000000) AS timestamp_value;
 
 ### `TIMESTAMP_FROM_UNIX_MILLIS`
 
-```sql
+```zetasql
 TIMESTAMP_FROM_UNIX_MILLIS(int64_expression)
 ```
 
-```sql
+```zetasql
 TIMESTAMP_FROM_UNIX_MILLIS(timestamp_expression)
 ```
 
@@ -46758,7 +47127,7 @@ the same timestamp is returned.
 
 **Example**
 
-```sql
+```zetasql
 SELECT TIMESTAMP_FROM_UNIX_MILLIS(1230219000000) AS timestamp_value;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
@@ -46771,11 +47140,11 @@ SELECT TIMESTAMP_FROM_UNIX_MILLIS(1230219000000) AS timestamp_value;
 
 ### `TIMESTAMP_FROM_UNIX_SECONDS`
 
-```sql
+```zetasql
 TIMESTAMP_FROM_UNIX_SECONDS(int64_expression)
 ```
 
-```sql
+```zetasql
 TIMESTAMP_FROM_UNIX_SECONDS(timestamp_expression)
 ```
 
@@ -46791,7 +47160,7 @@ the same timestamp is returned.
 
 **Example**
 
-```sql
+```zetasql
 SELECT TIMESTAMP_FROM_UNIX_SECONDS(1230219000) AS timestamp_value;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
@@ -46804,7 +47173,7 @@ SELECT TIMESTAMP_FROM_UNIX_SECONDS(1230219000) AS timestamp_value;
 
 ### `TIMESTAMP_MICROS`
 
-```sql
+```zetasql
 TIMESTAMP_MICROS(int64_expression)
 ```
 
@@ -46819,7 +47188,7 @@ Interprets `int64_expression` as the number of microseconds since 1970-01-01
 
 **Example**
 
-```sql
+```zetasql
 SELECT TIMESTAMP_MICROS(1230219000000000) AS timestamp_value;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
@@ -46832,7 +47201,7 @@ SELECT TIMESTAMP_MICROS(1230219000000000) AS timestamp_value;
 
 ### `TIMESTAMP_MILLIS`
 
-```sql
+```zetasql
 TIMESTAMP_MILLIS(int64_expression)
 ```
 
@@ -46847,7 +47216,7 @@ Interprets `int64_expression` as the number of milliseconds since 1970-01-01
 
 **Example**
 
-```sql
+```zetasql
 SELECT TIMESTAMP_MILLIS(1230219000000) AS timestamp_value;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
@@ -46860,7 +47229,7 @@ SELECT TIMESTAMP_MILLIS(1230219000000) AS timestamp_value;
 
 ### `TIMESTAMP_SECONDS`
 
-```sql
+```zetasql
 TIMESTAMP_SECONDS(int64_expression)
 ```
 
@@ -46875,7 +47244,7 @@ UTC and returns a timestamp.
 
 **Example**
 
-```sql
+```zetasql
 SELECT TIMESTAMP_SECONDS(1230219000) AS timestamp_value;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
@@ -46888,7 +47257,7 @@ SELECT TIMESTAMP_SECONDS(1230219000) AS timestamp_value;
 
 ### `TIMESTAMP_SUB`
 
-```sql
+```zetasql
 TIMESTAMP_SUB(timestamp_expression, INTERVAL int64_expression date_part)
 ```
 
@@ -46914,7 +47283,7 @@ independent of any time zone.
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   TIMESTAMP("2008-12-25 15:30:00+00") AS original,
   TIMESTAMP_SUB(TIMESTAMP "2008-12-25 15:30:00+00", INTERVAL 10 MINUTE) AS earlier;
@@ -46929,11 +47298,11 @@ SELECT
 
 ### `TIMESTAMP_TRUNC`
 
-```sql
+```zetasql
 TIMESTAMP_TRUNC(timestamp_value, timestamp_granularity[, time_zone])
 ```
 
-```sql
+```zetasql
 TIMESTAMP_TRUNC(datetime_value, datetime_granularity)
 ```
 
@@ -46959,7 +47328,7 @@ Truncates a `TIMESTAMP` or `DATETIME` value at a particular granularity.
     and subtracts the minutes and seconds (when truncating to `HOUR`) or the
     seconds (when truncating to `MINUTE`) from that timestamp.
     While this provides intuitive results in most cases, the result is
-    non-intuitive near daylight savings transitions that are not hour-aligned.
+    non-intuitive near daylight savings transitions that aren't hour-aligned.
 + `datetime_value`: A `DATETIME` value to truncate.
 + `datetime_granularity`: The truncation granularity for a `DATETIME` value.
   [Date granularities][timestamp-trunc-granularity-date] and
@@ -47049,7 +47418,7 @@ The same data type as the first argument passed into this function.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT
   TIMESTAMP_TRUNC(TIMESTAMP "2008-12-25 15:30:00+00", DAY, "UTC") AS utc,
   TIMESTAMP_TRUNC(TIMESTAMP "2008-12-25 15:30:00+00", DAY, "America/Los_Angeles") AS la;
@@ -47072,7 +47441,7 @@ argument 'Pacific/Auckland'. Here, the function truncates the
 `timestamp_expression` using New Zealand Daylight Time, where it falls on a
 Monday.
 
-```sql
+```zetasql
 SELECT
   timestamp_value AS timestamp_value,
   TIMESTAMP_TRUNC(timestamp_value, WEEK(MONDAY), "UTC") AS utc_truncated,
@@ -47095,7 +47464,7 @@ the Gregorian calendar year. The first Thursday of the 2015 calendar year was
 Therefore the ISO year boundary preceding the `timestamp_expression`
 2015-06-15 00:00:00+00 is 2014-12-29.
 
-```sql
+```zetasql
 SELECT
   TIMESTAMP_TRUNC("2015-06-15 00:00:00+00", ISOYEAR) AS isoyear_boundary,
   EXTRACT(ISOYEAR FROM TIMESTAMP "2015-06-15 00:00:00+00") AS isoyear_number;
@@ -47118,7 +47487,7 @@ SELECT
 
 ### `UNIX_MICROS`
 
-```sql
+```zetasql
 UNIX_MICROS(timestamp_expression)
 ```
 
@@ -47134,7 +47503,7 @@ rounding down to the beginning of the microsecond.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT UNIX_MICROS(TIMESTAMP "2008-12-25 15:30:00+00") AS micros;
 
 /*------------------*
@@ -47144,7 +47513,7 @@ SELECT UNIX_MICROS(TIMESTAMP "2008-12-25 15:30:00+00") AS micros;
  *------------------*/
 ```
 
-```sql
+```zetasql
 SELECT UNIX_MICROS(TIMESTAMP "1970-01-01 00:00:00.0000018+00") AS micros;
 
 /*------------------*
@@ -47156,7 +47525,7 @@ SELECT UNIX_MICROS(TIMESTAMP "1970-01-01 00:00:00.0000018+00") AS micros;
 
 ### `UNIX_MILLIS`
 
-```sql
+```zetasql
 UNIX_MILLIS(timestamp_expression)
 ```
 
@@ -47171,7 +47540,7 @@ higher levels of precision by rounding down to the beginning of the millisecond.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT UNIX_MILLIS(TIMESTAMP "2008-12-25 15:30:00+00") AS millis;
 
 /*---------------*
@@ -47181,7 +47550,7 @@ SELECT UNIX_MILLIS(TIMESTAMP "2008-12-25 15:30:00+00") AS millis;
  *---------------*/
 ```
 
-```sql
+```zetasql
 SELECT UNIX_MILLIS(TIMESTAMP "1970-01-01 00:00:00.0018+00") AS millis;
 
 /*---------------*
@@ -47193,7 +47562,7 @@ SELECT UNIX_MILLIS(TIMESTAMP "1970-01-01 00:00:00.0018+00") AS millis;
 
 ### `UNIX_SECONDS`
 
-```sql
+```zetasql
 UNIX_SECONDS(timestamp_expression)
 ```
 
@@ -47208,7 +47577,7 @@ levels of precision by rounding down to the beginning of the second.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT UNIX_SECONDS(TIMESTAMP "2008-12-25 15:30:00+00") AS seconds;
 
 /*------------*
@@ -47218,7 +47587,7 @@ SELECT UNIX_SECONDS(TIMESTAMP "2008-12-25 15:30:00+00") AS seconds;
  *------------*/
 ```
 
-```sql
+```zetasql
 SELECT UNIX_SECONDS(TIMESTAMP "1970-01-01 00:00:01.8+00") AS seconds;
 
 /*------------*
@@ -47234,11 +47603,11 @@ SELECT UNIX_SECONDS(TIMESTAMP "1970-01-01 00:00:01.8+00") AS seconds;
 <a id="timezone_definitions"></a>
 
 A timestamp represents an absolute point in time, independent of any time
-zone. However, when a timestamp value is displayed, it is usually converted to
+zone. However, when a timestamp value is displayed, it's usually converted to
 a human-readable format consisting of a civil date and time
 (YYYY-MM-DD HH:MM:SS)
-and a time zone. This is not the internal representation of the
-`TIMESTAMP`; it is only a human-understandable way to describe the point in time
+and a time zone. This isn't the internal representation of the
+`TIMESTAMP`; it's only a human-understandable way to describe the point in time
 that the timestamp represents.
 
 Some timestamp functions have a time zone argument. A time zone is needed to
@@ -47313,6 +47682,26 @@ ZetaSQL supports the following
   <td>
     Gets a value for the first row in the current window frame.
     <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/navigation_functions.md">Navigation functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#IS_FIRST"><code>IS_FIRST</code></a>
+</td>
+  <td>
+        Returns `true` if this row is in the first `k` rows (1-based) within the window.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/numbering_functions.md">Numbering functions</a>.
+
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#IS_LAST"><code>IS_LAST</code></a>
+</td>
+  <td>
+        Returns `true` if this row is in the last `k` rows (1-based) within the window.
+    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/numbering_functions.md">Numbering functions</a>.
 
   </td>
 </tr>

@@ -14,28 +14,25 @@
 // limitations under the License.
 //
 
-#include "zetasql/public/types/internal_utils.h"
+#include "zetasql/public/types/internal_proto_utils.h"
 
 #include <cstdint>
-#include <limits>
 #include <memory>
 #include <optional>
-#include <set>
 
 #include "zetasql/base/logging.h"
 #include "google/protobuf/descriptor.pb.h"
-#include "google/protobuf/descriptor.h"
 #include "zetasql/common/proto_helper.h"
 #include "zetasql/public/types/type.h"
-#include "absl/memory/memory.h"
 #include "absl/status/status.h"
+#include "google/protobuf/descriptor.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 namespace internal {
 
-int64_t FileDescriptorSetMapTotalSize(
+static int64_t FileDescriptorSetMapTotalSize(
     const FileDescriptorSetMap& file_descriptor_set_map) {
   int64_t total_size = 0;
   for (const auto& entry : file_descriptor_set_map) {

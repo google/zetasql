@@ -199,6 +199,11 @@ absl::StatusOr<std::string> GraphPathType::TypeNameWithModifiers(
   return absl::StrCat("PATH<", node_name, ", ", edge_name, ">");
 }
 
+std::string GraphPathType::CapitalizedName() const {
+  ABSL_CHECK_EQ(kind(), TYPE_GRAPH_PATH);  // Crash OK
+  return "GraphPath";
+}
+
 int64_t GraphPathType::GetEstimatedOwnedMemoryBytesSize() const {
   int64_t result = sizeof(*this);
   result += node_type_->GetEstimatedOwnedMemoryBytesSize();

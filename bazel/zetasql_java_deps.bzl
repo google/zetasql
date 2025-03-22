@@ -43,7 +43,7 @@ ZETASQL_MAVEN_ARTIFACTS = [
     "com.google.code.gson:gson:jar:2.10.1",
     "com.google.protobuf:protobuf-java:3.23.1",
     "com.google.truth:truth:1.1.5",
-    "com.google.truth.extensions:truth-proto-extension:1.1.3",
+    "com.google.truth.extensions:truth-proto-extension:1.4.4",
     "junit:junit:4.13.2",
 ]
 

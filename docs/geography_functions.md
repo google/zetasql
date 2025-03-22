@@ -136,6 +136,7 @@ behavior:
         <a href="#st_disjoint"><code>ST_DISJOINT</code></a><br>
         <a href="#st_dwithin"><code>ST_DWITHIN</code></a><br>
         <a href="#st_equals"><code>ST_EQUALS</code></a><br>
+        <a href="#st_hausdorffdwithin"><code>ST_HAUSDORFFDWITHIN</code></a><br>
         <a href="#st_intersects"><code>ST_INTERSECTS</code></a><br>
         <a href="#st_intersectsbox"><code>ST_INTERSECTSBOX</code></a><br>
         <a href="#st_touches"><code>ST_TOUCHES</code></a><br>
@@ -412,7 +413,7 @@ behavior:
   <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_disjoint"><code>ST_DISJOINT</code></a>
 </td>
   <td>
-    Checks if two <code>GEOGRAPHY</code> values are disjoint (do not intersect).
+    Checks if two <code>GEOGRAPHY</code> values are disjoint (don't intersect).
   </td>
 </tr>
 
@@ -545,7 +546,7 @@ behavior:
   <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_geogpointfromgeohash"><code>ST_GEOGPOINTFROMGEOHASH</code></a>
 </td>
   <td>
-    Gets a point <code>GEOGRAPHY</code> value that is in the middle of a
+    Gets a point <code>GEOGRAPHY</code> value that's in the middle of a
     bounding box defined in a <code>STRING</code> GeoHash value.
   </td>
 </tr>
@@ -572,6 +573,15 @@ behavior:
   <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_hausdorffdistance"><code>ST_HAUSDORFFDISTANCE</code></a>
 </td>
   <td>Gets the discrete Hausdorff distance between two geometries.</td>
+</tr>
+
+<tr>
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_hausdorffdwithin"><code>ST_HAUSDORFFDWITHIN</code></a>
+</td>
+  <td>
+    Checks if the Hausdorff distance between two <code>GEOGRAPHY</code> values
+    is within a given distance.
+  </td>
 </tr>
 
 <tr>
@@ -838,7 +848,7 @@ behavior:
 
 ## `S2_CELLIDFROMPOINT`
 
-```sql
+```zetasql
 S2_CELLIDFROMPOINT(point_geography[, level => cell_level])
 ```
 
@@ -870,11 +880,11 @@ This is advanced functionality for interoperability with systems utilizing the
 
 **Example**
 
-```sql
+```zetasql
 WITH data AS (
   SELECT 1 AS id, ST_GEOGPOINT(-122, 47) AS geo
   UNION ALL
-  -- empty geography is not supported
+  -- empty geography isn't supported
   SELECT 2 AS id, ST_GEOGFROMTEXT('POINT EMPTY') AS geo
   UNION ALL
   -- only points are supported
@@ -902,7 +912,7 @@ FROM data;
 
 ## `S2_COVERINGCELLIDS`
 
-```sql
+```zetasql
 S2_COVERINGCELLIDS(
     geography
     [, min_level => cell_level]
@@ -940,7 +950,7 @@ This is advanced functionality for interoperability with systems utilizing the
 
 **Example**
 
-```sql
+```zetasql
 WITH data AS (
   SELECT 1 AS id, ST_GEOGPOINT(-122, 47) AS geo
   UNION ALL
@@ -967,7 +977,7 @@ FROM data;
 
 ## `ST_ACCUM`
 
-```sql
+```zetasql
 ST_ACCUM(geography)
 ```
 
@@ -986,7 +996,7 @@ but only applies to `GEOGRAPHY` objects.
 
 ## `ST_ANGLE`
 
-```sql
+```zetasql
 ST_ANGLE(point_geography_1, point_geography_2, point_geography_3)
 ```
 
@@ -1004,7 +1014,7 @@ clockwise from the first line to the second line.
 + If points 2 and 1 are the same, returns `NULL`.
 + If points 2 and 3 are exactly antipodal, returns `NULL`.
 + If points 2 and 1 are exactly antipodal, returns `NULL`.
-+ If any of the input geographies are not single points or are the empty
++ If any of the input geographies aren't single points or are the empty
   geography, then throws an error.
 
 **Return type**
@@ -1013,7 +1023,7 @@ clockwise from the first line to the second line.
 
 **Example**
 
-```sql
+```zetasql
 WITH geos AS (
   SELECT 1 id, ST_GEOGPOINT(1, 0) geo1, ST_GEOGPOINT(0, 0) geo2, ST_GEOGPOINT(0, 1) geo3 UNION ALL
   SELECT 2 id, ST_GEOGPOINT(0, 0), ST_GEOGPOINT(1, 0), ST_GEOGPOINT(0, 1) UNION ALL
@@ -1041,7 +1051,7 @@ SELECT ST_ANGLE(geo1,geo2,geo3) AS angle FROM geos ORDER BY id;
 
 ## `ST_AREA`
 
-```sql
+```zetasql
 ST_AREA(geography_expression[, use_spheroid])
 ```
 
@@ -1052,7 +1062,7 @@ Returns the area in square meters covered by the polygons in the input
 
 If `geography_expression` is a point or a line, returns zero. If
 `geography_expression` is a collection, returns the area of the polygons in the
-collection; if the collection does not contain polygons, returns zero.
+collection; if the collection doesn't contain polygons, returns zero.
 
 The optional `use_spheroid` parameter determines how this function measures
 distance. If `use_spheroid` is `FALSE`, the function measures distance on the
@@ -1069,7 +1079,7 @@ the value `FALSE`. The default value of `use_spheroid` is `FALSE`.
 
 ## `ST_ASBINARY`
 
-```sql
+```zetasql
 ST_ASBINARY(geography_expression)
 ```
 
@@ -1091,7 +1101,7 @@ See [`ST_GEOGFROMWKB`][st-geogfromwkb] to construct a
 
 ## `ST_ASGEOJSON`
 
-```sql
+```zetasql
 ST_ASGEOJSON(geography_expression)
 ```
 
@@ -1121,7 +1131,7 @@ See [`ST_GEOGFROMGEOJSON`][st-geogfromgeojson] to construct a
 
 ## `ST_ASKML`
 
-```sql
+```zetasql
 ST_ASKML(geography)
 ```
 
@@ -1139,7 +1149,7 @@ of precision.
 
 ## `ST_ASTEXT`
 
-```sql
+```zetasql
 ST_ASTEXT(geography_expression)
 ```
 
@@ -1161,7 +1171,7 @@ See [`ST_GEOGFROMTEXT`][st-geogfromtext] to construct a
 
 ## `ST_AZIMUTH`
 
-```sql
+```zetasql
 ST_AZIMUTH(point_geography_1, point_geography_2)
 ```
 
@@ -1184,7 +1194,7 @@ example, the azimuth for a line segment:
 
 +   If the two input points are the same, returns `NULL`.
 +   If the two input points are exactly antipodal, returns `NULL`.
-+   If either of the input geographies are not single points or are the empty
++   If either of the input geographies aren't single points or are the empty
     geography, throws an error.
 
 **Return type**
@@ -1193,7 +1203,7 @@ example, the azimuth for a line segment:
 
 **Example**
 
-```sql
+```zetasql
 WITH geos AS (
   SELECT 1 id, ST_GEOGPOINT(1, 0) AS geo1, ST_GEOGPOINT(0, 0) AS geo2 UNION ALL
   SELECT 2, ST_GEOGPOINT(0, 0), ST_GEOGPOINT(1, 0) UNION ALL
@@ -1222,7 +1232,7 @@ SELECT ST_AZIMUTH(geo1, geo2) AS azimuth FROM geos ORDER BY id;
 
 ## `ST_BOUNDARY`
 
-```sql
+```zetasql
 ST_BOUNDARY(geography_expression)
 ```
 
@@ -1246,7 +1256,7 @@ defined as follows:
 
 ## `ST_BOUNDINGBOX`
 
-```sql
+```zetasql
 ST_BOUNDINGBOX(geography_expression)
 ```
 
@@ -1277,7 +1287,7 @@ Bounding box parts:
 
 **Example**
 
-```sql
+```zetasql
 WITH data AS (
   SELECT 1 id, ST_GEOGFROMTEXT('POLYGON((-125 48, -124 46, -117 46, -117 49, -125 48))') g
   UNION ALL
@@ -1306,7 +1316,7 @@ See [`ST_EXTENT`][st-extent] for the aggregate version of `ST_BOUNDINGBOX`.
 
 ## `ST_BUFFER`
 
-```sql
+```zetasql
 ST_BUFFER(
     geography,
     buffer_radius
@@ -1358,7 +1368,7 @@ eight sides and [`ST_NUMPOINTS`][st-numpoints] returns nine vertices. When
 and therefore the buffered circle has thirty-two sides and
 [`ST_NUMPOINTS`][st-numpoints] returns thirty-three vertices.
 
-```sql
+```zetasql
 SELECT
   -- num_seg_quarter_circle=2
   ST_NUMPOINTS(ST_BUFFER(ST_GEOGFROMTEXT('POINT(1 2)'), 50, 2)) AS eight_sides,
@@ -1380,7 +1390,7 @@ SELECT
 
 ## `ST_BUFFERWITHTOLERANCE`
 
-```sql
+```zetasql
 ST_BUFFERWITHTOLERANCE(
     geography,
     buffer_radius,
@@ -1430,7 +1440,7 @@ five segments are used to approximate a circle around the input point. When
 radius, and therefore twenty-four edges are used to approximate a circle around
 the input point.
 
-```sql
+```zetasql
 SELECT
   -- tolerance_meters=25, or 25% of the buffer radius.
   ST_NumPoints(ST_BUFFERWITHTOLERANCE(ST_GEOGFROMTEXT('POINT(1 2)'), 100, 25)) AS five_sides,
@@ -1450,7 +1460,7 @@ SELECT
 
 ## `ST_CENTROID`
 
-```sql
+```zetasql
 ST_CENTROID(geography_expression)
 ```
 
@@ -1471,7 +1481,7 @@ If the input `GEOGRAPHY` is empty, an empty `GEOGRAPHY` is returned.
 
 **Constraints**
 
-In the unlikely event that the centroid of a `GEOGRAPHY` cannot be defined by a
+In the unlikely event that the centroid of a `GEOGRAPHY` can't be defined by a
 single point on the surface of the Earth, a deterministic but otherwise
 arbitrary point is returned. This can only happen if the centroid is exactly at
 the center of the Earth, such as the centroid for a pair of antipodal points,
@@ -1483,7 +1493,7 @@ Point `GEOGRAPHY`
 
 ## `ST_CLOSESTPOINT`
 
-```sql
+```zetasql
 ST_CLOSESTPOINT(geography_1, geography_2[, use_spheroid])
 ```
 
@@ -1512,7 +1522,7 @@ Point `GEOGRAPHY`
 
 ## `ST_CLUSTERDBSCAN`
 
-```sql
+```zetasql
 ST_CLUSTERDBSCAN(geography_column, epsilon, minimum_geographies)
 OVER over_clause
 
@@ -1545,7 +1555,7 @@ To learn more about the `OVER` clause and how to use it, see
 +   `epsilon`: The epsilon that specifies the radius, measured in meters, around
     a core value. Non-negative `DOUBLE` value.
 +   `minimum_geographies`: Specifies the minimum number of geographies in a
-    single cluster. Only dense input forms a cluster, otherwise it is classified
+    single cluster. Only dense input forms a cluster, otherwise it's classified
     as noise. Non-negative `INT64` value.
 
 **Geography types and the DBSCAN algorithm**
@@ -1554,17 +1564,17 @@ The DBSCAN algorithm identifies high-density clusters of data and marks outliers
 in low-density areas of noise. Geographies passed in through `geography_column`
 are classified in one of three ways by the DBSCAN algorithm:
 
-+   Core value: A geography is a core value if it is within `epsilon` distance
++   Core value: A geography is a core value if it's within `epsilon` distance
     of `minimum_geographies` geographies, including itself. The core value
     starts a new cluster, or is added to the same cluster as a core value within
     `epsilon` distance. Core values are grouped in a cluster together with all
     other core and border values that are within `epsilon` distance.
-+   Border value: A geography is a border value if it is within epsilon distance
-    of a core value. It is added to the same cluster as a core value within
++   Border value: A geography is a border value if it's within epsilon distance
+    of a core value. It's added to the same cluster as a core value within
     `epsilon` distance. A border value may be within `epsilon` distance of more
     than one cluster. In this case, it may be arbitrarily assigned to either
     cluster and the function will produce the same result in subsequent calls.
-+   Noise: A geography is noise if it is neither a core nor a border value.
++   Noise: A geography is noise if it's neither a core nor a border value.
     Noise values are assigned to a `NULL` cluster. An empty
     `GEOGRAPHY` is always classified as noise.
 
@@ -1573,7 +1583,7 @@ are classified in one of three ways by the DBSCAN algorithm:
 +   The argument `minimum_geographies` is a non-negative
     `INT64`and `epsilon` is a non-negative
     `DOUBLE`.
-+   An empty geography cannot join any cluster.
++   An empty geography can't join any cluster.
 +   Multiple clustering assignments could be possible for a border value. If a
     geography is a border value, `ST_CLUSTERDBSCAN` will assign it to an
     arbitrary valid cluster.
@@ -1588,7 +1598,7 @@ This example performs DBSCAN clustering with a radius of 100,000 meters with a
 `minimum_geographies` argument of 1. The geographies being analyzed are a
 mixture of points, lines, and polygons.
 
-```sql
+```zetasql
 WITH Geos as
   (SELECT 1 as row_id, ST_GEOGFROMTEXT('POINT EMPTY') as geo UNION ALL
     SELECT 2, ST_GEOGFROMTEXT('MULTIPOINT(1 1, 2 2, 4 4, 5 2)') UNION ALL
@@ -1613,7 +1623,7 @@ Geos ORDER BY row_id
 
 ## `ST_CONTAINS`
 
-```sql
+```zetasql
 ST_CONTAINS(geography_1, geography_2)
 ```
 
@@ -1635,7 +1645,7 @@ The following query tests whether the polygon `POLYGON((1 1, 20 1, 10 20, 1 1))`
 contains each of the three points `(0, 0)`, `(1, 1)`, and `(10, 10)`, which lie
 on the exterior, the boundary, and the interior of the polygon respectively.
 
-```sql
+```zetasql
 SELECT
   ST_GEOGPOINT(i, i) AS p,
   ST_CONTAINS(ST_GEOGFROMTEXT('POLYGON((1 1, 20 1, 10 20, 1 1))'),
@@ -1655,7 +1665,7 @@ FROM UNNEST([0, 1, 10]) AS i;
 
 ## `ST_CONVEXHULL`
 
-```sql
+```zetasql
 ST_CONVEXHULL(geography_expression)
 ```
 
@@ -1687,7 +1697,7 @@ include the following:
 The convex hull returned by `ST_CONVEXHULL` can be a point, linestring, or a
 polygon, depending on the input.
 
-```sql
+```zetasql
 WITH Geographies AS
  (SELECT ST_GEOGFROMTEXT('POINT(1 1)') AS g UNION ALL
   SELECT ST_GEOGFROMTEXT('LINESTRING(1 1, 2 2)') AS g UNION ALL
@@ -1708,7 +1718,7 @@ FROM Geographies;
 
 ## `ST_COVEREDBY`
 
-```sql
+```zetasql
 ST_COVEREDBY(geography_1, geography_2)
 ```
 
@@ -1729,7 +1739,7 @@ Given two `GEOGRAPHY`s `a` and `b`,
 
 ## `ST_COVERS`
 
-```sql
+```zetasql
 ST_COVERS(geography_1, geography_2)
 ```
 
@@ -1749,7 +1759,7 @@ The following query tests whether the polygon `POLYGON((1 1, 20 1, 10 20, 1 1))`
 covers each of the three points `(0, 0)`, `(1, 1)`, and `(10, 10)`, which lie
 on the exterior, the boundary, and the interior of the polygon respectively.
 
-```sql
+```zetasql
 SELECT
   ST_GEOGPOINT(i, i) AS p,
   ST_COVERS(ST_GEOGFROMTEXT('POLYGON((1 1, 20 1, 10 20, 1 1))'),
@@ -1767,7 +1777,7 @@ FROM UNNEST([0, 1, 10]) AS i;
 
 ## `ST_DIFFERENCE`
 
-```sql
+```zetasql
 ST_DIFFERENCE(geography_1, geography_2)
 ```
 
@@ -1775,7 +1785,7 @@ ST_DIFFERENCE(geography_1, geography_2)
 
 Returns a `GEOGRAPHY` that represents the point set
 difference of `geography_1` and `geography_2`. Therefore, the result consists of
-the part of `geography_1` that does not intersect with `geography_2`.
+the part of `geography_1` that doesn't intersect with `geography_2`.
 
 If `geometry_1` is completely contained in `geometry_2`, then `ST_DIFFERENCE`
 returns an empty `GEOGRAPHY`.
@@ -1800,7 +1810,7 @@ The following query illustrates the difference between `geog1`, a larger polygon
 `POLYGON((4 2, 6 2, 8 6, 4 2))` that intersects with `geog1`. The result is
 `geog1` with a hole where `geog2` intersects with it.
 
-```sql
+```zetasql
 SELECT
   ST_DIFFERENCE(
       ST_GEOGFROMTEXT('POLYGON((0 0, 10 0, 10 10, 0 0))'),
@@ -1816,7 +1826,7 @@ SELECT
 
 ## `ST_DIMENSION`
 
-```sql
+```zetasql
 ST_DIMENSION(geography_expression)
 ```
 
@@ -1840,7 +1850,7 @@ returns `-1`.
 
 ## `ST_DISJOINT`
 
-```sql
+```zetasql
 ST_DISJOINT(geography_1, geography_2)
 ```
 
@@ -1885,7 +1895,7 @@ of `use_spheroid` is `FALSE`.
 
 ## `ST_DUMP`
 
-```sql
+```zetasql
 ST_DUMP(geography[, dimension])
 ```
 
@@ -1914,7 +1924,7 @@ dimension of -1 is equivalent to omitting `dimension`.
 The following example shows how `ST_DUMP` returns the simple geographies within
 a complex geography.
 
-```sql
+```zetasql
 WITH example AS (
   SELECT ST_GEOGFROMTEXT('POINT(0 0)') AS geography
   UNION ALL
@@ -1939,7 +1949,7 @@ FROM example
 The following example shows how `ST_DUMP` with the dimension argument only
 returns simple geographies of the given dimension.
 
-```sql
+```zetasql
 WITH example AS (
   SELECT ST_GEOGFROMTEXT('GEOMETRYCOLLECTION(POINT(0 0), LINESTRING(1 2, 2 1))') AS geography)
 SELECT
@@ -1957,7 +1967,7 @@ FROM example
 
 ## `ST_DUMPPOINTS`
 
-```sql
+```zetasql
 ST_DUMPPOINTS(geography)
 ```
 
@@ -1972,7 +1982,7 @@ polygon vertices as an array of point geographies.
 
 **Examples**
 
-```sql
+```zetasql
 WITH example AS (
   SELECT ST_GEOGFROMTEXT('POINT(0 0)') AS geography
   UNION ALL
@@ -1996,7 +2006,7 @@ FROM example
 
 ## `ST_DWITHIN`
 
-```sql
+```zetasql
 ST_DWITHIN(geography_1, geography_2, distance[, use_spheroid])
 ```
 
@@ -2023,14 +2033,14 @@ the value `FALSE`. The default value of `use_spheroid` is `FALSE`.
 
 ## `ST_ENDPOINT`
 
-```sql
+```zetasql
 ST_ENDPOINT(linestring_geography)
 ```
 
 **Description**
 
 Returns the last point of a linestring geography as a point geography. Returns
-an error if the input is not a linestring or if the input is empty. Use the
+an error if the input isn't a linestring or if the input is empty. Use the
 `SAFE` prefix to obtain `NULL` for invalid input instead of an error.
 
 **Return Type**
@@ -2039,7 +2049,7 @@ Point `GEOGRAPHY`
 
 **Example**
 
-```sql
+```zetasql
 SELECT ST_ENDPOINT(ST_GEOGFROMTEXT('LINESTRING(1 1, 2 1, 3 2, 3 3)')) last
 
 /*--------------*
@@ -2051,7 +2061,7 @@ SELECT ST_ENDPOINT(ST_GEOGFROMTEXT('LINESTRING(1 1, 2 1, 3 2, 3 3)')) last
 
 ## `ST_EQUALS`
 
-```sql
+```zetasql
 ST_EQUALS(geography_1, geography_2)
 ```
 
@@ -2076,7 +2086,7 @@ function to return `TRUE`:
     `ST_COVERS(geography_2, geography_1)` are `TRUE`.
 +   Both `geography_1` and `geography_2` are empty.
 
-`ST_EQUALS` is not guaranteed to be a transitive function.
+`ST_EQUALS` isn't guaranteed to be a transitive function.
 
 **Return type**
 
@@ -2084,7 +2094,7 @@ function to return `TRUE`:
 
 ## `ST_EXTENT`
 
-```sql
+```zetasql
 ST_EXTENT(geography_expression)
 ```
 
@@ -2119,7 +2129,7 @@ Bounding box parts:
 
 **Example**
 
-```sql
+```zetasql
 WITH data AS (
   SELECT 1 id, ST_GEOGFROMTEXT('POLYGON((-125 48, -124 46, -117 46, -117 49, -125 48))') g
   UNION ALL
@@ -2143,7 +2153,7 @@ FROM data
 
 ## `ST_EXTERIORRING`
 
-```sql
+```zetasql
 ST_EXTERIORRING(polygon_geography)
 ```
 
@@ -2155,7 +2165,7 @@ polygon geography.
 +   If the input geography is a polygon, gets the outermost ring of the polygon
     geography and returns the corresponding linestring.
 +   If the input is the full `GEOGRAPHY`, returns an empty geography.
-+   Returns an error if the input is not a single polygon.
++   Returns an error if the input isn't a single polygon.
 
 Use the `SAFE` prefix to return `NULL` for invalid input instead of an error.
 
@@ -2166,7 +2176,7 @@ Use the `SAFE` prefix to return `NULL` for invalid input instead of an error.
 
 **Examples**
 
-```sql
+```zetasql
 WITH geo as
  (SELECT ST_GEOGFROMTEXT('POLYGON((0 0, 1 4, 2 2, 0 0))') AS g UNION ALL
   SELECT ST_GEOGFROMTEXT('''POLYGON((1 1, 1 10, 5 10, 5 1, 1 1),
@@ -2183,7 +2193,7 @@ SELECT ST_EXTERIORRING(g) AS ring FROM geo;
 
 ## `ST_GEOGFROM`
 
-```sql
+```zetasql
 ST_GEOGFROM(expression)
 ```
 
@@ -2216,7 +2226,7 @@ If `expression` is `NULL`, the output is `NULL`.
 
 This takes a WKT-formatted string and returns a `GEOGRAPHY` polygon:
 
-```sql
+```zetasql
 SELECT ST_GEOGFROM('POLYGON((0 0, 0 2, 2 2, 2 0, 0 0))') AS WKT_format;
 
 /*------------------------------------*
@@ -2229,7 +2239,7 @@ SELECT ST_GEOGFROM('POLYGON((0 0, 0 2, 2 2, 2 0, 0 0))') AS WKT_format;
 This takes a WKB-formatted hexadecimal-encoded string and returns a
 `GEOGRAPHY` point:
 
-```sql
+```zetasql
 SELECT ST_GEOGFROM(FROM_HEX('010100000000000000000000400000000000001040')) AS WKB_format;
 
 /*----------------*
@@ -2241,7 +2251,7 @@ SELECT ST_GEOGFROM(FROM_HEX('010100000000000000000000400000000000001040')) AS WK
 
 This takes WKB-formatted bytes and returns a `GEOGRAPHY` point:
 
-```sql
+```zetasql
 SELECT ST_GEOGFROM('010100000000000000000000400000000000001040') AS WKB_format;
 
 /*----------------*
@@ -2253,7 +2263,7 @@ SELECT ST_GEOGFROM('010100000000000000000000400000000000001040') AS WKB_format;
 
 This takes a GeoJSON-formatted string and returns a `GEOGRAPHY` polygon:
 
-```sql
+```zetasql
 SELECT ST_GEOGFROM(
   '{ "type": "Polygon", "coordinates": [ [ [2, 0], [2, 2], [1, 2], [0, 2], [0, 0], [2, 0] ] ] }'
 ) AS GEOJSON_format;
@@ -2273,7 +2283,7 @@ SELECT ST_GEOGFROM(
 
 ## `ST_GEOGFROMGEOJSON`
 
-```sql
+```zetasql
 ST_GEOGFROMGEOJSON(
   geojson_string
   [, make_valid => constant_expression ]
@@ -2285,7 +2295,7 @@ ST_GEOGFROMGEOJSON(
 Returns a `GEOGRAPHY` value that corresponds to the
 input [GeoJSON][geojson-link] representation.
 
-`ST_GEOGFROMGEOJSON` accepts input that is [RFC 7946][geojson-spec-link]
+`ST_GEOGFROMGEOJSON` accepts input that's [RFC 7946][geojson-spec-link]
 compliant.
 
 If the named argument `make_valid` is set to `TRUE`, the function attempts to
@@ -2305,7 +2315,7 @@ See [`ST_ASGEOJSON`][st-asgeojson] to format a
 
 The JSON input is subject to the following constraints:
 
-+   `ST_GEOGFROMGEOJSON` only accepts JSON geometry fragments and cannot be used
++   `ST_GEOGFROMGEOJSON` only accepts JSON geometry fragments and can't be used
     to ingest a whole JSON document.
 +   The input JSON fragment must consist of a GeoJSON geometry type, which
     includes `Point`, `MultiPoint`, `LineString`, `MultiLineString`, `Polygon`,
@@ -2313,7 +2323,7 @@ The JSON input is subject to the following constraints:
     `Feature` or `FeatureCollection` will result in an error.
 +   A position in the `coordinates` member of a GeoJSON geometry type must
     consist of exactly two elements. The first is the longitude and the second
-    is the latitude. Therefore, `ST_GEOGFROMGEOJSON` does not support the
+    is the latitude. Therefore, `ST_GEOGFROMGEOJSON` doesn't support the
     optional third element for a position in the `coordinates` member.
 
 **Return type**
@@ -2330,7 +2340,7 @@ The JSON input is subject to the following constraints:
 
 ## `ST_GEOGFROMKML`
 
-```sql
+```zetasql
 ST_GEOGFROMKML(kml_geometry)
 ```
 
@@ -2348,7 +2358,7 @@ Takes a `STRING` [KML geometry][kml-geometry-link] and returns a
 
 <a id="st_geogfromtext_signature1"></a><a id="st_geogfromtext_signature2"></a>
 
-```sql
+```zetasql
 ST_GEOGFROMTEXT(
   wkt_string
   [ , oriented => value ]
@@ -2388,7 +2398,7 @@ To format `GEOGRAPHY` value as WKT, use [`ST_ASTEXT`][st-astext].
 
 **Details**
 
-+   The function does not support three-dimensional geometries that have a `Z`
++   The function doesn't support three-dimensional geometries that have a `Z`
     suffix, nor does it support linear referencing system geometries with an `M`
     suffix.
 +   `oriented` and `planar` can't be `TRUE` at the same time.
@@ -2400,7 +2410,7 @@ The following query reads the WKT string `POLYGON((0 0, 0 2, 2 2, 0 2, 0 0))`
 both as a non-oriented polygon and as an oriented polygon, and checks whether
 each result contains the point `(1, 1)`.
 
-```sql
+```zetasql
 WITH polygon AS (SELECT 'POLYGON((0 0, 0 2, 2 2, 2 0, 0 0))' AS p)
 SELECT
   ST_CONTAINS(ST_GEOGFROMTEXT(p), ST_GEOGPOINT(1, 1)) AS fromtext_default,
@@ -2417,11 +2427,11 @@ FROM polygon;
 
 The following query converts a WKT string with an invalid polygon to
 `GEOGRAPHY`. The WKT string violates two properties
-of a valid polygon - the loop describing the polygon is not closed, and it
+of a valid polygon - the loop describing the polygon isn't closed, and it
 contains self-intersection. With the `make_valid` option, `ST_GEOGFROMTEXT`
 successfully converts it to a multipolygon shape.
 
-```sql
+```zetasql
 WITH data AS (
   SELECT 'POLYGON((0 -1, 2 1, 2 -1, 0 1))' wkt)
 SELECT
@@ -2448,7 +2458,7 @@ FROM data
 
 ## `ST_GEOGFROMWKB`
 
-```sql
+```zetasql
 ST_GEOGFROMWKB(
   wkb_bytes_expression
   [ , oriented => value ]
@@ -2457,7 +2467,7 @@ ST_GEOGFROMWKB(
 )
 ```
 
-```sql
+```zetasql
 ST_GEOGFROMWKB(
   wkb_hex_string_expression
   [, oriented => value ]
@@ -2501,7 +2511,7 @@ To format `GEOGRAPHY` as WKB, use [`ST_ASBINARY`][st-asbinary].
 
 **Details**
 
-+   The function does not support three-dimensional geometries that have a `Z`
++   The function doesn't support three-dimensional geometries that have a `Z`
     suffix, nor does it support linear referencing system geometries with an `M`
     suffix.
 +   `oriented` and `planar` can't be `TRUE` at the same time.
@@ -2518,7 +2528,7 @@ The following query reads the hex-encoded WKB data containing
 planar is used, the function approximates the planar input line using
 line that contains a chain of geodesic segments.
 
-```sql
+```zetasql
 WITH wkb_data AS (
   SELECT '010200000002000000feffffffffffef3f000000000000f03f01000000000008400000000000000040' geo
 )
@@ -2542,7 +2552,7 @@ FROM wkb_data
 
 ## `ST_GEOGPOINT`
 
-```sql
+```zetasql
 ST_GEOGPOINT(longitude, latitude)
 ```
 
@@ -2569,7 +2579,7 @@ Point `GEOGRAPHY`
 
 ## `ST_GEOGPOINTFROMGEOHASH`
 
-```sql
+```zetasql
 ST_GEOGPOINTFROMGEOHASH(geohash)
 ```
 
@@ -2586,7 +2596,7 @@ Point `GEOGRAPHY`
 
 ## `ST_GEOHASH`
 
-```sql
+```zetasql
 ST_GEOHASH(geography_expression[, maxchars])
 ```
 
@@ -2613,7 +2623,7 @@ representation of that `GEOGRAPHY` object.
 
 Returns a GeoHash of the Seattle Center with 10 characters of precision.
 
-```sql
+```zetasql
 SELECT ST_GEOHASH(ST_GEOGPOINT(-122.35, 47.62), 10) geohash
 
 /*--------------*
@@ -2627,7 +2637,7 @@ SELECT ST_GEOHASH(ST_GEOGPOINT(-122.35, 47.62), 10) geohash
 
 ## `ST_GEOMETRYTYPE`
 
-```sql
+```zetasql
 ST_GEOMETRYTYPE(geography_expression)
 ```
 
@@ -2659,7 +2669,7 @@ printed for [ST_ASTEXT][st-astext] and [ST_ASGEOJSON][st-asgeojson].
 The following example shows how `ST_GEOMETRYTYPE` takes geographies and returns
 the names of their OGC geometry types.
 
-```sql
+```zetasql
 WITH example AS(
   SELECT ST_GEOGFROMTEXT('POINT(0 1)') AS geography
   UNION ALL
@@ -2695,7 +2705,7 @@ FROM example;
 
 ## `ST_HAUSDORFFDISTANCE`
 
-```sql
+```zetasql
 ST_HAUSDORFFDISTANCE(
   geography_1,
   geography_2
@@ -2736,7 +2746,7 @@ If an input geography is `NULL`, the function returns `NULL`.
 
 The following query gets the Hausdorff distance between `geo1` and `geo2`:
 
-```sql
+```zetasql
 WITH data AS (
   SELECT
     ST_GEOGFROMTEXT('LINESTRING(20 70, 70 60, 10 70, 70 70)') AS geo1,
@@ -2754,7 +2764,7 @@ FROM data;
 
 The following query gets the Hausdorff distance between `geo2` and `geo1`:
 
-```sql
+```zetasql
 WITH data AS (
   SELECT
     ST_GEOGFROMTEXT('LINESTRING(20 70, 70 60, 10 70, 70 70)') AS geo1,
@@ -2773,7 +2783,7 @@ FROM data;
 The following query gets the largest Hausdorff distance between
 (`geo1` and `geo2`) and (`geo2` and `geo1`):
 
-```sql
+```zetasql
 WITH data AS (
   SELECT
     ST_GEOGFROMTEXT('LINESTRING(20 70, 70 60, 10 70, 70 70)') AS geo1,
@@ -2792,7 +2802,7 @@ FROM data;
 The following query produces the same results as the previous query because
 `ST_HAUSDORFFDISTANCE` uses `directed=>FALSE` by default.
 
-```sql
+```zetasql
 WITH data AS (
   SELECT
     ST_GEOGFROMTEXT('LINESTRING(20 70, 70 60, 10 70, 70 70)') AS geo1,
@@ -2804,9 +2814,72 @@ FROM data;
 
 [h-distance]: http://en.wikipedia.org/wiki/Hausdorff_distance
 
+## `ST_HAUSDORFFDWITHIN`
+
+```zetasql
+ST_HAUSDORFFDWITHIN(
+  geography_1,
+  geography_2,
+  distance
+  [, directed => { TRUE | FALSE } ]
+)
+```
+
+**Description**
+
+Returns `TRUE` if the [Hausdorff distance][st-hausdorffdistance] between `geography_1` and
+`geography_2` is less than or equal to the distance given by the
+`distance` argument; otherwise, returns `FALSE`.
+
+**Definitions**
+
++   `geography_1`: A `GEOGRAPHY` value that represents the first geography.
++   `geography_2`: A `GEOGRAPHY` value that represents the second geography.
++   `distance`: A `DOUBLE` value that represents meters on the
+    surface of the Earth.
++   `directed`: A named argument with a `BOOL` value. Represents the type of
+    computation to use on the input geographies. If this argument isn't
+    specified, `directed => FALSE` is used by default.
+
+    +   `FALSE`: The largest Hausdorff distance found in
+        (`geography_1`, `geography_2`) and
+        (`geography_2`, `geography_1`).
+
+    +   `TRUE` (default): The Hausdorff distance for
+        (`geography_1`, `geography_2`).
+
+**Details**
+
+If an input geography is `NULL`, the function returns `NULL`.
+
+**Return type**
+
+`BOOL`
+
+**Examples**
+
+The following example checks whether the Hausdorff distance between the first
+and second geographies is less than or equal to 100,000 meters.
+
+```zetasql
+SELECT
+  ST_HAUSDORFFDWITHIN(
+    ST_GEOGFROMTEXT('LINESTRING(10 1, 20 1)'),
+    ST_GEOGFROMTEXT('LINESTRING(10 2, 20 2)'),
+    100000) AS is_close;
+
+/*----------*
+ | is_close |
+ +----------+
+ | false    |
+ *----------*/
+```
+
+[st-hausdorffdistance]: #st_hausdorffdistance
+
 ## `ST_INTERIORRINGS`
 
-```sql
+```zetasql
 ST_INTERIORRINGS(polygon_geography)
 ```
 
@@ -2821,7 +2894,7 @@ the input polygon.
     rings.
 +   If the input is the full `GEOGRAPHY`, returns an empty array.
 +   If the input polygon has no holes, returns an empty array.
-+   Returns an error if the input is not a single polygon.
++   Returns an error if the input isn't a single polygon.
 
 Use the `SAFE` prefix to return `NULL` for invalid input instead of an error.
 
@@ -2831,7 +2904,7 @@ Use the `SAFE` prefix to return `NULL` for invalid input instead of an error.
 
 **Examples**
 
-```sql
+```zetasql
 WITH geo AS (
   SELECT ST_GEOGFROMTEXT('POLYGON((0 0, 1 1, 1 2, 0 0))') AS g UNION ALL
   SELECT ST_GEOGFROMTEXT('POLYGON((1 1, 1 10, 5 10, 5 1, 1 1), (2 2, 3 4, 2 4, 2 2))') UNION ALL
@@ -2853,7 +2926,7 @@ SELECT ST_INTERIORRINGS(g) AS rings FROM geo;
 
 ## `ST_INTERSECTION`
 
-```sql
+```zetasql
 ST_INTERSECTION(geography_1, geography_2)
 ```
 
@@ -2880,7 +2953,7 @@ predicate functions.
 
 ## `ST_INTERSECTS`
 
-```sql
+```zetasql
 ST_INTERSECTS(geography_1, geography_2)
 ```
 
@@ -2901,7 +2974,7 @@ returns `FALSE`.
 
 ## `ST_INTERSECTSBOX`
 
-```sql
+```zetasql
 ST_INTERSECTSBOX(geography, lng1, lat1, lng2, lat2)
 ```
 
@@ -2931,7 +3004,7 @@ The input arguments are subject to the following constraints:
 
 **Example**
 
-```sql
+```zetasql
 SELECT p, ST_INTERSECTSBOX(p, -90, 0, 90, 20) AS box1,
        ST_INTERSECTSBOX(p, 90, 0, -90, 20) AS box2
 FROM UNNEST([ST_GEOGPOINT(10, 10), ST_GEOGPOINT(170, 10),
@@ -2948,7 +3021,7 @@ FROM UNNEST([ST_GEOGPOINT(10, 10), ST_GEOGPOINT(170, 10),
 
 ## `ST_ISCLOSED`
 
-```sql
+```zetasql
 ST_ISCLOSED(geography_expression)
 ```
 
@@ -2961,11 +3034,11 @@ has an empty boundary. The boundary for each element can be defined with
 +   A point is closed.
 +   A linestring is closed if the start and end points of the linestring are
     the same.
-+   A polygon is closed only if it is a full polygon.
++   A polygon is closed only if it's a full polygon.
 +   A collection is closed if and only if every element in the collection is
     closed.
 
-An empty `GEOGRAPHY` is not closed.
+An empty `GEOGRAPHY` isn't closed.
 
 **Return type**
 
@@ -2973,7 +3046,7 @@ An empty `GEOGRAPHY` is not closed.
 
 **Example**
 
-```sql
+```zetasql
 WITH example AS(
   SELECT ST_GEOGFROMTEXT('POINT(5 0)') AS geography
   UNION ALL
@@ -3004,7 +3077,7 @@ FROM example;
 
 ## `ST_ISCOLLECTION`
 
-```sql
+```zetasql
 ST_ISCOLLECTION(geography_expression)
 ```
 
@@ -3013,7 +3086,7 @@ ST_ISCOLLECTION(geography_expression)
 Returns `TRUE` if the total number of points, linestrings, and polygons is
 greater than one.
 
-An empty `GEOGRAPHY` is not a collection.
+An empty `GEOGRAPHY` isn't a collection.
 
 **Return type**
 
@@ -3021,16 +3094,16 @@ An empty `GEOGRAPHY` is not a collection.
 
 ## `ST_ISEMPTY`
 
-```sql
+```zetasql
 ST_ISEMPTY(geography_expression)
 ```
 
 **Description**
 
-Returns `TRUE` if the given `GEOGRAPHY` is empty; that is, the `GEOGRAPHY` does
-not contain any points, lines, or polygons.
+Returns `TRUE` if the given `GEOGRAPHY` is empty; that is, the `GEOGRAPHY`
+doesn't contain any points, lines, or polygons.
 
-NOTE: An empty `GEOGRAPHY` is not associated with a particular geometry shape.
+NOTE: An empty `GEOGRAPHY` isn't associated with a particular geometry shape.
 For example, the results of expressions `ST_GEOGFROMTEXT('POINT EMPTY')` and
 `ST_GEOGFROMTEXT('GEOMETRYCOLLECTION EMPTY')` are identical.
 
@@ -3040,7 +3113,7 @@ For example, the results of expressions `ST_GEOGFROMTEXT('POINT EMPTY')` and
 
 ## `ST_ISRING`
 
-```sql
+```zetasql
 ST_ISRING(geography_expression)
 ```
 
@@ -3048,11 +3121,11 @@ ST_ISRING(geography_expression)
 
 Returns `TRUE` if the input `GEOGRAPHY` is a linestring and if the
 linestring is both [`ST_ISCLOSED`][st-isclosed] and
-simple. A linestring is considered simple if it does not pass through the
+simple. A linestring is considered simple if it doesn't pass through the
 same point twice (with the exception of the start and endpoint, which may
 overlap to form a ring).
 
-An empty `GEOGRAPHY` is not a ring.
+An empty `GEOGRAPHY` isn't a ring.
 
 **Return type**
 
@@ -3062,7 +3135,7 @@ An empty `GEOGRAPHY` is not a ring.
 
 ## `ST_LENGTH`
 
-```sql
+```zetasql
 ST_LENGTH(geography_expression[, use_spheroid])
 ```
 
@@ -3073,7 +3146,7 @@ Returns the total length in meters of the lines in the input
 
 If `geography_expression` is a point or a polygon, returns zero. If
 `geography_expression` is a collection, returns the length of the lines in the
-collection; if the collection does not contain lines, returns zero.
+collection; if the collection doesn't contain lines, returns zero.
 
 The optional `use_spheroid` parameter determines how this function measures
 distance. If `use_spheroid` is `FALSE`, the function measures distance on the
@@ -3090,7 +3163,7 @@ the value `FALSE`. The default value of `use_spheroid` is `FALSE`.
 
 ## `ST_LINEINTERPOLATEPOINT`
 
-```sql
+```zetasql
 ST_LINEINTERPOLATEPOINT(linestring_geography, fraction)
 ```
 
@@ -3112,7 +3185,7 @@ value.
 
 +   Returns `NULL` if any input argument is `NULL`.
 +   Returns an empty geography if `linestring_geography` is an empty geography.
-+   Returns an error if `linestring_geography` is not a linestring or an empty
++   Returns an error if `linestring_geography` isn't a linestring or an empty
     geography, or if `fraction` is outside the `[0, 1]` range.
 
 **Return Type**
@@ -3125,7 +3198,7 @@ The following query returns a few points on a linestring. Notice that the
  midpoint of the linestring `LINESTRING(1 1, 5 5)` is slightly different from
  `POINT(3 3)` because the `GEOGRAPHY` type uses geodesic line segments.
 
-```sql
+```zetasql
 WITH fractions AS (
     SELECT 0 AS fraction UNION ALL
     SELECT 0.5 UNION ALL
@@ -3150,7 +3223,7 @@ FROM fractions
 
 ## `ST_LINELOCATEPOINT`
 
-```sql
+```zetasql
 ST_LINELOCATEPOINT(linestring_geography, point_geography)
 ```
 
@@ -3166,7 +3239,7 @@ Details:
     this function takes a point `GEOGRAPHY` (`point_geography`) and finds the
     [closest point][st-closestpoint] to it on the linestring.
 +   If two points on `linestring_geography` are an equal distance away from
-    `point_geography`, it is not guaranteed which one will be selected.
+    `point_geography`, it isn't guaranteed which one will be selected.
 +   The return value is an inclusive value between 0 and 1 (0-100%).
 +   If the selected point is the start point on the linestring, function returns
     0 (0%).
@@ -3176,8 +3249,8 @@ Details:
 `NULL` and error handling:
 
 +   Returns `NULL` if any input argument is `NULL`.
-+   Returns an error if `linestring_geography` is not a linestring or if
-    `point_geography` is not a point. Use the `SAFE` prefix
++   Returns an error if `linestring_geography` isn't a linestring or if
+    `point_geography` isn't a point. Use the `SAFE` prefix
     to obtain `NULL` for invalid input instead of an error.
 
 **Return Type**
@@ -3186,7 +3259,7 @@ Details:
 
 **Examples**
 
-```sql
+```zetasql
 WITH geos AS (
     SELECT ST_GEOGPOINT(0, 0) AS point UNION ALL
     SELECT ST_GEOGPOINT(1, 0) UNION ALL
@@ -3223,7 +3296,7 @@ FROM geos
 
 ## `ST_LINESUBSTRING`
 
-```sql
+```zetasql
 ST_LINESUBSTRING(linestring_geography, start_fraction, end_fraction);
 ```
 
@@ -3258,7 +3331,7 @@ one point is produced.
 
 The following query returns the second half of the linestring:
 
-```sql
+```zetasql
 WITH data AS (
   SELECT ST_GEOGFROMTEXT('LINESTRING(20 70, 70 60, 10 70, 70 70)') AS geo1
 )
@@ -3274,7 +3347,7 @@ FROM data;
 
 The following query returns a linestring that only contains one point:
 
-```sql
+```zetasql
 WITH data AS (
   SELECT ST_GEOGFROMTEXT('LINESTRING(20 70, 70 60, 10 70, 70 70)') AS geo1
 )
@@ -3290,11 +3363,11 @@ FROM data;
 
 ## `ST_MAKELINE`
 
-```sql
+```zetasql
 ST_MAKELINE(geography_1, geography_2)
 ```
 
-```sql
+```zetasql
 ST_MAKELINE(array_of_geography)
 ```
 
@@ -3332,7 +3405,7 @@ LineString `GEOGRAPHY`
 
 ## `ST_MAKEPOLYGON`
 
-```sql
+```zetasql
 ST_MAKEPOLYGON(polygon_shell[, array_of_polygon_holes])
 ```
 
@@ -3372,7 +3445,7 @@ Together, the input rings must form a valid polygon:
 
 +   The polygon shell must cover each of the polygon holes.
 +   There can be only one polygon shell (which has to be the first input ring).
-    This implies that polygon holes cannot be nested.
+    This implies that polygon holes can't be nested.
 +   Polygon rings may only intersect in a vertex on the boundary of both rings.
 
 Every edge must span strictly less than 180 degrees.
@@ -3386,7 +3459,7 @@ the two regions, see [`ST_MAKEPOLYGONORIENTED`][st-makepolygonoriented].
 
 NOTE: The ZetaSQL snapping process may discard sufficiently
 short edges and snap the two endpoints together. Hence, when vertices are
-snapped together, it is possible that a polygon hole that is sufficiently small
+snapped together, it's possible that a polygon hole that's sufficiently small
 may disappear, or the output `GEOGRAPHY` may contain only a line or a
 point.
 
@@ -3398,7 +3471,7 @@ point.
 
 ## `ST_MAKEPOLYGONORIENTED`
 
-```sql
+```zetasql
 ST_MAKEPOLYGONORIENTED(array_of_geography)
 ```
 
@@ -3429,7 +3502,7 @@ Together, the input rings must form a valid polygon:
 
 +   The polygon shell must cover each of the polygon holes.
 +   There must be only one polygon shell, which must to be the first input ring.
-    This implies that polygon holes cannot be nested.
+    This implies that polygon holes can't be nested.
 +   Polygon rings may only intersect in a vertex on the boundary of both rings.
 
 Every edge must span strictly less than 180 degrees.
@@ -3443,9 +3516,9 @@ other constraints on building a valid polygon.
 
 NOTE: Due to the ZetaSQL snapping process, edges with a sufficiently
 short length will be discarded and the two endpoints will be snapped to a single
-point. Therefore, it is possible that vertices in a linestring may be snapped
-together such that one or more edge disappears. Hence, it is possible that a
-polygon hole that is sufficiently small may disappear, or the resulting
+point. Therefore, it's possible that vertices in a linestring may be snapped
+together such that one or more edge disappears. Hence, it's possible that a
+polygon hole that's sufficiently small may disappear, or the resulting
 `GEOGRAPHY` may contain only a line or a point.
 
 **Return type**
@@ -3456,7 +3529,7 @@ polygon hole that is sufficiently small may disappear, or the resulting
 
 ## `ST_MAXDISTANCE`
 
-```sql
+```zetasql
 ST_MAXDISTANCE(geography_1, geography_2[, use_spheroid])
 ```
 
@@ -3487,7 +3560,7 @@ the value `FALSE`. The default value of `use_spheroid` is `FALSE`.
 
 ## `ST_NPOINTS`
 
-```sql
+```zetasql
 ST_NPOINTS(geography_expression)
 ```
 
@@ -3520,7 +3593,7 @@ collection. `ST_NUMGEOMETRIES` returns `0` if the input is the empty
 The following example computes `ST_NUMGEOMETRIES` for a single point geography,
 two collections, and an empty geography.
 
-```sql
+```zetasql
 WITH example AS(
   SELECT ST_GEOGFROMTEXT('POINT(5 0)') AS geography
   UNION ALL
@@ -3546,7 +3619,7 @@ FROM example;
 
 ## `ST_NUMPOINTS`
 
-```sql
+```zetasql
 ST_NUMPOINTS(geography_expression)
 ```
 
@@ -3565,7 +3638,7 @@ vertices.
 
 ## `ST_PERIMETER`
 
-```sql
+```zetasql
 ST_PERIMETER(geography_expression[, use_spheroid])
 ```
 
@@ -3576,7 +3649,7 @@ Returns the length in meters of the boundary of the polygons in the input
 
 If `geography_expression` is a point or a line, returns zero. If
 `geography_expression` is a collection, returns the perimeter of the polygons
-in the collection; if the collection does not contain polygons, returns zero.
+in the collection; if the collection doesn't contain polygons, returns zero.
 
 The optional `use_spheroid` parameter determines how this function measures
 distance. If `use_spheroid` is `FALSE`, the function measures distance on the
@@ -3593,7 +3666,7 @@ the value `FALSE`. The default value of `use_spheroid` is `FALSE`.
 
 ## `ST_POINTN`
 
-```sql
+```zetasql
 ST_POINTN(linestring_geography, index)
 ```
 
@@ -3602,7 +3675,7 @@ ST_POINTN(linestring_geography, index)
 Returns the Nth point of a linestring geography as a point geography, where N is
 the index. The index is 1-based. Negative values are counted backwards from the
 end of the linestring, so that -1 is the last point. Returns an error if the
-input is not a linestring, if the input is empty, or if there is no vertex at
+input isn't a linestring, if the input is empty, or if there is no vertex at
 the given index. Use the `SAFE` prefix to obtain `NULL` for invalid input
 instead of an error.
 
@@ -3615,7 +3688,7 @@ Point `GEOGRAPHY`
 The following example uses `ST_POINTN`, [`ST_STARTPOINT`][st-startpoint] and
 [`ST_ENDPOINT`][st-endpoint] to extract points from a linestring.
 
-```sql
+```zetasql
 WITH linestring AS (
     SELECT ST_GEOGFROMTEXT('LINESTRING(1 1, 2 1, 3 2, 3 3)') g
 )
@@ -3636,7 +3709,7 @@ FROM linestring;
 
 ## `ST_SIMPLIFY`
 
-```sql
+```zetasql
 ST_SIMPLIFY(geography, tolerance_meters)
 ```
 
@@ -3674,7 +3747,7 @@ is one of the following:
 The following example shows how `ST_SIMPLIFY` simplifies the input line
 `GEOGRAPHY` by removing intermediate vertices.
 
-```sql
+```zetasql
 WITH example AS
  (SELECT ST_GEOGFROMTEXT('LINESTRING(0 0, 0.05 0, 0.1 0, 0.15 0, 2 0)') AS line)
 SELECT
@@ -3692,7 +3765,7 @@ FROM example;
 The following example illustrates how the result of `ST_SIMPLIFY` can have a
 lower dimension than the original shape.
 
-```sql
+```zetasql
 WITH example AS
  (SELECT
     ST_GEOGFROMTEXT('POLYGON((0 0, 0.1 0, 0.1 0.1, 0 0))') AS polygon,
@@ -3715,7 +3788,7 @@ FROM example
 
 ## `ST_SNAPTOGRID`
 
-```sql
+```zetasql
 ST_SNAPTOGRID(geography_expression, grid_size)
 ```
 
@@ -3727,8 +3800,8 @@ been snapped to a longitude/latitude grid. The grid size is determined by the
 
 **Constraints**
 
-Arbitrary grid sizes are not supported. The `grid_size` parameter is rounded so
-that it is of the form `10^n`, where `-10 < n < 0`.
+Arbitrary grid sizes aren't supported. The `grid_size` parameter is rounded so
+that it's of the form `10^n`, where `-10 < n < 0`.
 
 **Return type**
 
@@ -3736,14 +3809,14 @@ that it is of the form `10^n`, where `-10 < n < 0`.
 
 ## `ST_STARTPOINT`
 
-```sql
+```zetasql
 ST_STARTPOINT(linestring_geography)
 ```
 
 **Description**
 
 Returns the first point of a linestring geography as a point geography. Returns
-an error if the input is not a linestring or if the input is empty. Use the
+an error if the input isn't a linestring or if the input is empty. Use the
 `SAFE` prefix to obtain `NULL` for invalid input instead of an error.
 
 **Return Type**
@@ -3752,7 +3825,7 @@ Point `GEOGRAPHY`
 
 **Example**
 
-```sql
+```zetasql
 SELECT ST_STARTPOINT(ST_GEOGFROMTEXT('LINESTRING(1 1, 2 1, 3 2, 3 3)')) first
 
 /*--------------*
@@ -3764,7 +3837,7 @@ SELECT ST_STARTPOINT(ST_GEOGFROMTEXT('LINESTRING(1 1, 2 1, 3 2, 3 3)')) first
 
 ## `ST_TOUCHES`
 
-```sql
+```zetasql
 ST_TOUCHES(geography_1, geography_2)
 ```
 
@@ -3782,11 +3855,11 @@ Returns `TRUE` provided the following two conditions are satisfied:
 
 ## `ST_UNION`
 
-```sql
+```zetasql
 ST_UNION(geography_1, geography_2)
 ```
 
-```sql
+```zetasql
 ST_UNION(array_of_geography)
 ```
 
@@ -3804,7 +3877,7 @@ For the first variant of `ST_UNION`, if an input
 For the second variant, if the input `ARRAY` value
 is `NULL`, `ST_UNION` returns `NULL`.
 For a non-`NULL` input `ARRAY`, the union is computed
-and `NULL` elements are ignored so that they do not affect the output.
+and `NULL` elements are ignored so that they don't affect the output.
 
 See [`ST_UNION_AGG`][st-union-agg] for the aggregate version of `ST_UNION`.
 
@@ -3814,7 +3887,7 @@ See [`ST_UNION_AGG`][st-union-agg] for the aggregate version of `ST_UNION`.
 
 **Example**
 
-```sql
+```zetasql
 SELECT ST_UNION(
   ST_GEOGFROMTEXT('LINESTRING(-122.12 47.67, -122.19 47.69)'),
   ST_GEOGFROMTEXT('LINESTRING(-122.12 47.67, -100.19 47.69)')
@@ -3831,7 +3904,7 @@ SELECT ST_UNION(
 
 ## `ST_UNION_AGG`
 
-```sql
+```zetasql
 ST_UNION_AGG(geography)
 ```
 
@@ -3850,7 +3923,7 @@ See [`ST_UNION`][st-union] for the non-aggregate version of `ST_UNION_AGG`.
 
 **Example**
 
-```sql
+```zetasql
 SELECT ST_UNION_AGG(items) AS results
 FROM UNNEST([
   ST_GEOGFROMTEXT('LINESTRING(-122.12 47.67, -122.19 47.69)'),
@@ -3868,7 +3941,7 @@ FROM UNNEST([
 
 ## `ST_WITHIN`
 
-```sql
+```zetasql
 ST_WITHIN(geography_1, geography_2)
 ```
 
@@ -3888,7 +3961,7 @@ as [`ST_CONTAINS`][st-contains]`(b, a)`. Note the opposite order of arguments.
 
 ## `ST_X`
 
-```sql
+```zetasql
 ST_X(point_geography_expression)
 ```
 
@@ -3897,7 +3970,7 @@ ST_X(point_geography_expression)
 Returns the longitude in degrees of the single-point input
 `GEOGRAPHY`.
 
-For any input `GEOGRAPHY` that is not a single point,
+For any input `GEOGRAPHY` that isn't a single point,
 including an empty `GEOGRAPHY`, `ST_X` returns an
 error. Use the `SAFE.` prefix to obtain `NULL`.
 
@@ -3910,7 +3983,7 @@ error. Use the `SAFE.` prefix to obtain `NULL`.
 The following example uses `ST_X` and `ST_Y` to extract coordinates from
 single-point geographies.
 
-```sql
+```zetasql
 WITH points AS
    (SELECT ST_GEOGPOINT(i, i + 1) AS p FROM UNNEST([0, 5, 12]) AS i)
  SELECT
@@ -3930,7 +4003,7 @@ FROM points;
 
 ## `ST_Y`
 
-```sql
+```zetasql
 ST_Y(point_geography_expression)
 ```
 
@@ -3939,7 +4012,7 @@ ST_Y(point_geography_expression)
 Returns the latitude in degrees of the single-point input
 `GEOGRAPHY`.
 
-For any input `GEOGRAPHY` that is not a single point,
+For any input `GEOGRAPHY` that isn't a single point,
 including an empty `GEOGRAPHY`, `ST_Y` returns an
 error. Use the `SAFE.` prefix to return `NULL` instead.
 

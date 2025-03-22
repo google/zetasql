@@ -1,0 +1,274 @@
+# This tests pipe CREATE TABLE with various modifiers.
+# All modifiers from CreateTableStatement are allowed except
+# for the AS-query.
+[default language_features=PIPES]
+
+from t
+|> CREATE TABLE t2
+|> CREATE OR REPLACE TABLE IF NOT EXISTS t3
+|> CREATE TEMP TABLE t4
+|> CREATE PRIVATE TABLE t5
+--
+QueryStatement [0-120] [from t |>...PRIVATE TABLE t5]
+  Query [0-120] [from t |>...PRIVATE TABLE t5]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeCreateTable [7-25] [|> CREATE TABLE t2]
+      CreateTableStatement [10-25] [CREATE TABLE t2]
+        PathExpression [23-25] [t2]
+          Identifier(t2) [23-25] [t2]
+    PipeCreateTable [26-69] [|> CREATE...EXISTS t3]
+      CreateTableStatement(is_or_replace, is_if_not_exists) [29-69] [CREATE OR...EXISTS t3]
+        PathExpression [67-69] [t3]
+          Identifier(t3) [67-69] [t3]
+    PipeCreateTable [70-93] [|> CREATE TEMP TABLE t4]
+      CreateTableStatement(is_temp) [73-93] [CREATE TEMP TABLE t4]
+        PathExpression [91-93] [t4]
+          Identifier(t4) [91-93] [t4]
+    PipeCreateTable [94-120] [|> CREATE PRIVATE TABLE t5]
+      CreateTableStatement(is_private) [97-120] [CREATE PRIVATE TABLE t5]
+        PathExpression [118-120] [t5]
+          Identifier(t5) [118-120] [t5]
+--
+FROM
+  t
+|> CREATE TABLE t2
+|> CREATE OR REPLACE TABLE IF NOT EXISTS t3
+|> CREATE TEMP TABLE t4
+|> CREATE PRIVATE TABLE t5
+==
+
+FROM t
+|> CREATE TABLE t2 OPTIONS(key=value)
+--
+QueryStatement [0-44] [FROM t |>...key=value)]
+  Query [0-44] [FROM t |>...key=value)]
+    FromQuery [0-6] [FROM t]
+      FromClause [0-6] [FROM t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeCreateTable [7-44] [|> CREATE...key=value)]
+      CreateTableStatement [10-44] [CREATE TABLE...key=value)]
+        PathExpression [23-25] [t2]
+          Identifier(t2) [23-25] [t2]
+        OptionsList [33-44] [(key=value)]
+          OptionsEntry [34-43] [key=value]
+            Identifier(key) [34-37] [key]
+            PathExpression [38-43] [value]
+              Identifier(value) [38-43] [value]
+--
+FROM
+  t
+|> CREATE TABLE t2 OPTIONS(key = value)
+==
+
+FROM t
+|> CREATE
+--
+ERROR: Syntax error: Expected keyword TABLE but got end of statement [at 2:10]
+|> CREATE
+         ^
+==
+
+FROM t
+|> CREATE TABLE
+--
+ERROR: Syntax error: Unexpected end of statement [at 2:16]
+|> CREATE TABLE
+               ^
+==
+
+FROM t
+|> CREATE TABLE AS (select 1)
+--
+ERROR: Syntax error: Unexpected keyword AS [at 2:17]
+|> CREATE TABLE AS (select 1)
+                ^
+==
+
+from t
+|> CREATE TABLE t2 (
+      x INT64,
+      y STRING PRIMARY KEY
+    )
+--
+QueryStatement [0-75] [from t |>...KEY     )]
+  Query [0-75] [from t |>...KEY     )]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeCreateTable [7-75] [|> CREATE...KEY     )]
+      CreateTableStatement [10-75] [CREATE TABLE...KEY     )]
+        PathExpression [23-25] [t2]
+          Identifier(t2) [23-25] [t2]
+        TableElementList [26-75] [(       x...KEY     )]
+          ColumnDefinition [34-41] [x INT64]
+            Identifier(x) [34-35] [x]
+            SimpleColumnSchema [36-41] [INT64]
+              PathExpression [36-41] [INT64]
+                Identifier(INT64) [36-41] [INT64]
+          ColumnDefinition [49-69] [y STRING PRIMARY KEY]
+            Identifier(y) [49-50] [y]
+            SimpleColumnSchema [51-69] [STRING PRIMARY KEY]
+              PathExpression [51-57] [STRING]
+                Identifier(STRING) [51-57] [STRING]
+              ColumnAttributeList [58-69] [PRIMARY KEY]
+                PrimaryKeyColumnAttribute(ENFORCED) [58-69] [PRIMARY KEY]
+--
+FROM
+  t
+|> CREATE TABLE t2
+   (
+     x INT64,
+     y STRING PRIMARY KEY
+   )
+==
+
+from t
+|> CREATE TABLE t2 LIKE t3
+|> CREATE TABLE t2 CLONE t4
+--
+QueryStatement [0-61] [from t |>...t2 CLONE t4]
+  Query [0-61] [from t |>...t2 CLONE t4]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeCreateTable [7-33] [|> CREATE TABLE t2 LIKE t3]
+      CreateTableStatement [10-33] [CREATE TABLE t2 LIKE t3]
+        PathExpression [23-25] [t2]
+          Identifier(t2) [23-25] [t2]
+        PathExpression [31-33] [t3]
+          Identifier(t3) [31-33] [t3]
+    PipeCreateTable [34-61] [|> CREATE TABLE t2 CLONE t4]
+      CreateTableStatement [37-61] [CREATE TABLE t2 CLONE t4]
+        PathExpression [50-52] [t2]
+          Identifier(t2) [50-52] [t2]
+        CloneDataSource [59-61] [t4]
+          PathExpression [59-61] [t4]
+            Identifier(t4) [59-61] [t4]
+--
+FROM
+  t
+|> CREATE TABLE t2 LIKE
+   t3
+|> CREATE TABLE t2 CLONE
+   t4
+==
+
+from t
+|> CREATE TABLE t2
+   PARTITION BY x,y
+   CLUSTER BY a,b
+   WITH CONNECTION abc.def
+   OPTIONS (opt1=2, opt3=abc)
+--
+QueryStatement [0-120] [from t |>...opt3=abc)]
+  Query [0-120] [from t |>...opt3=abc)]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeCreateTable [7-120] [|> CREATE...opt3=abc)]
+      CreateTableStatement [10-120] [CREATE TABLE...opt3=abc)]
+        PathExpression [23-25] [t2]
+          Identifier(t2) [23-25] [t2]
+        PartitionBy [29-45] [PARTITION BY x,y]
+          PathExpression [42-43] [x]
+            Identifier(x) [42-43] [x]
+          PathExpression [44-45] [y]
+            Identifier(y) [44-45] [y]
+        ClusterBy [49-63] [CLUSTER BY a,b]
+          PathExpression [60-61] [a]
+            Identifier(a) [60-61] [a]
+          PathExpression [62-63] [b]
+            Identifier(b) [62-63] [b]
+        WithConnectionClause [67-90] [WITH CONNECTION abc.def]
+          ConnectionClause [72-90] [CONNECTION abc.def]
+            PathExpression [83-90] [abc.def]
+              Identifier(abc) [83-86] [abc]
+              Identifier(def) [87-90] [def]
+        OptionsList [102-120] [(opt1=2, opt3=abc)]
+          OptionsEntry [103-109] [opt1=2]
+            Identifier(opt1) [103-107] [opt1]
+            IntLiteral(2) [108-109] [2]
+          OptionsEntry [111-119] [opt3=abc]
+            Identifier(opt3) [111-115] [opt3]
+            PathExpression [116-119] [abc]
+              Identifier(abc) [116-119] [abc]
+--
+FROM
+  t
+|> CREATE TABLE t2 PARTITION BY x, y CLUSTER BY a, b WITH CONNECTION abc.def OPTIONS(opt1 = 2, opt3 =
+     abc)
+==
+
+from t
+|> CREATE TABLE t2
+   AS select * from t3;
+--
+ERROR: Syntax error: AS query is not allowed on pipe CREATE TABLE [at 3:4]
+   AS select * from t3;
+   ^
+==
+
+from t
+|> CREATE TABLE t2
+   AS FROM t3
+      |> WHERE true
+--
+ERROR: Syntax error: AS query is not allowed on pipe CREATE TABLE [at 3:4]
+   AS FROM t3
+   ^
+==
+
+from t
+|> CREATE TABLE t2
+   AS (FROM t3)
+--
+ERROR: Syntax error: AS query is not allowed on pipe CREATE TABLE [at 3:4]
+   AS (FROM t3)
+   ^
+==
+
+from t
+|> CREATE TABLE t2
+   AS (FROM t3
+       |> WHERE true)
+--
+ERROR: Syntax error: AS query is not allowed on pipe CREATE TABLE [at 3:4]
+   AS (FROM t3
+   ^
+==
+
+CREATE TABLE t1
+AS
+FROM t2
+|> CREATE TABLE t3
+--
+CreateTableStatement [0-45] [CREATE TABLE...CREATE TABLE t3]
+  PathExpression [13-15] [t1]
+    Identifier(t1) [13-15] [t1]
+  Query [19-45] [FROM t2 |> CREATE TABLE t3]
+    FromQuery [19-26] [FROM t2]
+      FromClause [19-26] [FROM t2]
+        TablePathExpression [24-26] [t2]
+          PathExpression [24-26] [t2]
+            Identifier(t2) [24-26] [t2]
+    PipeCreateTable [27-45] [|> CREATE TABLE t3]
+      CreateTableStatement [30-45] [CREATE TABLE t3]
+        PathExpression [43-45] [t3]
+          Identifier(t3) [43-45] [t3]
+--
+CREATE TABLE t1 AS
+FROM
+  t2
+|> CREATE TABLE t3

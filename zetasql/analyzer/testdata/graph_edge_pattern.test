@@ -1,6 +1,6 @@
 [default language_features=V_1_4_SQL_GRAPH]
 [default no_test_extract_table_names]
-[default show_unparsed]
+[default show_sqlbuilder_output]
 
 # Full edge pattern without label expr.
 select * from
@@ -20,7 +20,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=[$graph_table.AccountId#4]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
         | +-GraphScan
         |   +-column_list=$element_table.[$element1#1, e#2, $element2#3]
@@ -39,7 +39,7 @@ QueryStmt
         |       | | |       +-op=NOT
         |       | | |       +-operand_list=
         |       | | |         +-GraphWildCardLabel
-        |       | | +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+        |       | | +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
         |       | +-GraphEdgeScan
         |       | | +-column_list=[$element_table.e#2]
         |       | | +-filter_expr=
@@ -59,7 +59,7 @@ QueryStmt
         |       | | |       +-op=NOT
         |       | | |       +-operand_list=
         |       | | |         +-GraphWildCardLabel
-        |       | | +-target_element_table_list=[sample_catalog.aml.PersonOwnAccount,sample_catalog.aml.Transfer]
+        |       | | +-target_element_table_list=[aml.PersonOwnAccount,aml.Transfer]
         |       | | +-orientation=RIGHT
         |       | +-GraphNodeScan
         |       |   +-column_list=[$element_table.$element2#3]
@@ -72,7 +72,7 @@ QueryStmt
         |       |   |       +-op=NOT
         |       |   |       +-operand_list=
         |       |   |         +-GraphWildCardLabel
-        |       |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+        |       |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
         |       +-head=$element_table.$element1#1
         |       +-tail=$element_table.$element2#3
         +-shape_expr_list=
@@ -83,7 +83,8 @@ QueryStmt
               | +-ColumnRef(type=GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, targetAccountId INT64>, column=$element_table.e#2)
               +-property=accountId(INT64)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   aml_1.a_5 AS AccountId
 FROM
@@ -102,6 +103,27 @@ FROM
       a_3.accountId AS a_5
     )
   ) AS aml_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a_2
+      IS (% | ! %))
+      -[a_3
+      IS (% | ! %)
+      WHERE
+        (a_3.personId) = 1]->
+      (a_4
+      IS (% | ! %))
+    COLUMNS(
+      a_3.accountId AS a_5
+    )
+  ) AS aml_1
+|> SELECT
+     aml_1.a_5 AS AccountId;
 ==
 
 # Full edge pattern.
@@ -122,7 +144,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=[$graph_table.AccountId#4]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
         | +-GraphScan
         |   +-column_list=$element_table.[$element1#1, e#2, $element2#3]
@@ -141,7 +163,7 @@ QueryStmt
         |       | | |       +-op=NOT
         |       | | |       +-operand_list=
         |       | | |         +-GraphWildCardLabel
-        |       | | +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+        |       | | +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
         |       | +-GraphEdgeScan
         |       | | +-column_list=[$element_table.e#2]
         |       | | +-filter_expr=
@@ -153,8 +175,8 @@ QueryStmt
         |       | | |   | +-property=personId(INT64)
         |       | | |   +-Literal(type=INT64, value=1)
         |       | | +-label_expr=
-        |       | | | +-GraphLabel(label=sample_catalog.aml.PersonOwnAccount)
-        |       | | +-target_element_table_list=[sample_catalog.aml.PersonOwnAccount]
+        |       | | | +-GraphLabel(label=aml.PersonOwnAccount)
+        |       | | +-target_element_table_list=[aml.PersonOwnAccount]
         |       | | +-orientation=RIGHT
         |       | +-GraphNodeScan
         |       |   +-column_list=[$element_table.$element2#3]
@@ -167,7 +189,7 @@ QueryStmt
         |       |   |       +-op=NOT
         |       |   |       +-operand_list=
         |       |   |         +-GraphWildCardLabel
-        |       |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+        |       |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
         |       +-head=$element_table.$element1#1
         |       +-tail=$element_table.$element2#3
         +-shape_expr_list=
@@ -178,7 +200,8 @@ QueryStmt
               | +-ColumnRef(type=GRAPH_EDGE(aml)<accountId INT64, personId INT64>, column=$element_table.e#2)
               +-property=accountId(INT64)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   aml_1.a_5 AS AccountId
 FROM
@@ -197,6 +220,27 @@ FROM
       a_3.accountId AS a_5
     )
   ) AS aml_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a_2
+      IS (% | ! %))
+      -[a_3
+      IS PersonOwnAccount
+      WHERE
+        (a_3.personId) = 1]->
+      (a_4
+      IS (% | ! %))
+    COLUMNS(
+      a_3.accountId AS a_5
+    )
+  ) AS aml_1
+|> SELECT
+     aml_1.a_5 AS AccountId;
 ==
 
 # Empty edge pattern.
@@ -217,7 +261,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=[$graph_table.one#4]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
         | +-GraphScan
         |   +-column_list=$element_table.[$element1#1, $element2#2, $element3#3]
@@ -236,7 +280,7 @@ QueryStmt
         |       | | |       +-op=NOT
         |       | | |       +-operand_list=
         |       | | |         +-GraphWildCardLabel
-        |       | | +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+        |       | | +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
         |       | +-GraphEdgeScan
         |       | | +-column_list=[$element_table.$element2#2]
         |       | | +-label_expr=
@@ -248,7 +292,7 @@ QueryStmt
         |       | | |       +-op=NOT
         |       | | |       +-operand_list=
         |       | | |         +-GraphWildCardLabel
-        |       | | +-target_element_table_list=[sample_catalog.aml.PersonOwnAccount,sample_catalog.aml.Transfer]
+        |       | | +-target_element_table_list=[aml.PersonOwnAccount,aml.Transfer]
         |       | | +-orientation=ANY
         |       | +-GraphNodeScan
         |       |   +-column_list=[$element_table.$element3#3]
@@ -261,13 +305,14 @@ QueryStmt
         |       |   |       +-op=NOT
         |       |   |       +-operand_list=
         |       |   |         +-GraphWildCardLabel
-        |       |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+        |       |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
         |       +-head=$element_table.$element1#1
         |       +-tail=$element_table.$element3#3
         +-shape_expr_list=
           +-one#4 := Literal(type=INT64, value=1)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   aml_1.a_5 AS one
 FROM
@@ -284,6 +329,25 @@ FROM
       1 AS a_5
     )
   ) AS aml_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a_2
+      IS (% | ! %))
+      -[a_3
+      IS (% | ! %)]-
+      (a_4
+      IS (% | ! %))
+    COLUMNS(
+      1 AS a_5
+    )
+  ) AS aml_1
+|> SELECT
+     aml_1.a_5 AS one;
 ==
 
 # Abbreviated edge pattern.
@@ -304,7 +368,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=[$graph_table.one#4]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
         | +-GraphScan
         |   +-column_list=$element_table.[$element1#1, $element2#2, $element3#3]
@@ -323,7 +387,7 @@ QueryStmt
         |       | | |       +-op=NOT
         |       | | |       +-operand_list=
         |       | | |         +-GraphWildCardLabel
-        |       | | +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+        |       | | +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
         |       | +-GraphEdgeScan
         |       | | +-column_list=[$element_table.$element2#2]
         |       | | +-label_expr=
@@ -335,7 +399,7 @@ QueryStmt
         |       | | |       +-op=NOT
         |       | | |       +-operand_list=
         |       | | |         +-GraphWildCardLabel
-        |       | | +-target_element_table_list=[sample_catalog.aml.PersonOwnAccount,sample_catalog.aml.Transfer]
+        |       | | +-target_element_table_list=[aml.PersonOwnAccount,aml.Transfer]
         |       | | +-orientation=LEFT
         |       | +-GraphNodeScan
         |       |   +-column_list=[$element_table.$element3#3]
@@ -348,13 +412,14 @@ QueryStmt
         |       |   |       +-op=NOT
         |       |   |       +-operand_list=
         |       |   |         +-GraphWildCardLabel
-        |       |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+        |       |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
         |       +-head=$element_table.$element1#1
         |       +-tail=$element_table.$element3#3
         +-shape_expr_list=
           +-one#4 := Literal(type=INT64, value=1)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   aml_1.a_5 AS one
 FROM
@@ -371,6 +436,25 @@ FROM
       1 AS a_5
     )
   ) AS aml_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a_2
+      IS (% | ! %))
+      <-[a_3
+      IS (% | ! %)]-
+      (a_4
+      IS (% | ! %))
+    COLUMNS(
+      1 AS a_5
+    )
+  ) AS aml_1
+|> SELECT
+     aml_1.a_5 AS one;
 ==
 
 # Cannot access node properties in edge pattern.
@@ -403,7 +487,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=[$graph_table.value#4]
-        +-property_graph=sample_catalog.aml_multi
+        +-property_graph=aml_multi
         +-input_scan=
         | +-GraphScan
         |   +-column_list=$element_table.[$element1#1, e#2, $element2#3]
@@ -422,7 +506,7 @@ QueryStmt
         |       | | |       +-op=NOT
         |       | | |       +-operand_list=
         |       | | |         +-GraphWildCardLabel
-        |       | | +-target_element_table_list=[sample_catalog.aml_multi.Entity]
+        |       | | +-target_element_table_list=[aml_multi.Entity]
         |       | +-GraphEdgeScan
         |       | | +-column_list=[$element_table.e#2]
         |       | | +-filter_expr=
@@ -442,7 +526,7 @@ QueryStmt
         |       | | |       +-op=NOT
         |       | | |       +-operand_list=
         |       | | |         +-GraphWildCardLabel
-        |       | | +-target_element_table_list=[sample_catalog.aml_multi.Relation]
+        |       | | +-target_element_table_list=[aml_multi.Relation]
         |       | | +-orientation=RIGHT
         |       | +-GraphNodeScan
         |       |   +-column_list=[$element_table.$element2#3]
@@ -455,7 +539,7 @@ QueryStmt
         |       |   |       +-op=NOT
         |       |   |       +-operand_list=
         |       |   |         +-GraphWildCardLabel
-        |       |   +-target_element_table_list=[sample_catalog.aml_multi.Entity]
+        |       |   +-target_element_table_list=[aml_multi.Entity]
         |       +-head=$element_table.$element1#1
         |       +-tail=$element_table.$element2#3
         +-shape_expr_list=
@@ -466,7 +550,8 @@ QueryStmt
               | +-ColumnRef(type=GRAPH_EDGE(aml_multi)<value STRING>, column=$element_table.e#2)
               +-property=value(STRING)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   aml_multi_1.a_5 AS value
 FROM
@@ -485,6 +570,27 @@ FROM
       a_3.value AS a_5
     )
   ) AS aml_multi_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml_multi
+    MATCH
+      (a_2
+      IS (% | ! %))
+      -[a_3
+      IS (% | ! %)
+      WHERE
+        (a_3.value) = ""]->
+      (a_4
+      IS (% | ! %))
+    COLUMNS(
+      a_3.value AS a_5
+    )
+  ) AS aml_multi_1
+|> SELECT
+     aml_multi_1.a_5 AS value;
 ==
 
 select * from
@@ -503,7 +609,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=[$graph_table.value#4]
-        +-property_graph=sample_catalog.aml_composite_key
+        +-property_graph=aml_composite_key
         +-input_scan=
         | +-GraphScan
         |   +-column_list=$element_table.[$element1#1, e#2, $element2#3]
@@ -522,12 +628,12 @@ QueryStmt
         |       | | |       +-op=NOT
         |       | | |       +-operand_list=
         |       | | |         +-GraphWildCardLabel
-        |       | | +-target_element_table_list=[sample_catalog.aml_composite_key.CompositeKeyEntity]
+        |       | | +-target_element_table_list=[aml_composite_key.CompositeKeyEntity]
         |       | +-GraphEdgeScan
         |       | | +-column_list=[$element_table.e#2]
         |       | | +-label_expr=
-        |       | | | +-GraphLabel(label=sample_catalog.aml_composite_key.RelatesTo)
-        |       | | +-target_element_table_list=[sample_catalog.aml_composite_key.CompositeKeyRelation]
+        |       | | | +-GraphLabel(label=aml_composite_key.RelatesTo)
+        |       | | +-target_element_table_list=[aml_composite_key.CompositeKeyRelation]
         |       | | +-orientation=RIGHT
         |       | +-GraphNodeScan
         |       |   +-column_list=[$element_table.$element2#3]
@@ -540,7 +646,7 @@ QueryStmt
         |       |   |       +-op=NOT
         |       |   |       +-operand_list=
         |       |   |         +-GraphWildCardLabel
-        |       |   +-target_element_table_list=[sample_catalog.aml_composite_key.CompositeKeyEntity]
+        |       |   +-target_element_table_list=[aml_composite_key.CompositeKeyEntity]
         |       +-head=$element_table.$element1#1
         |       +-tail=$element_table.$element2#3
         +-shape_expr_list=
@@ -551,7 +657,8 @@ QueryStmt
               | +-ColumnRef(type=GRAPH_EDGE(aml_composite_key)<value STRING>, column=$element_table.e#2)
               +-property=value(STRING)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   aml_composite_key_1.a_5 AS value
 FROM
@@ -568,6 +675,25 @@ FROM
       a_3.value AS a_5
     )
   ) AS aml_composite_key_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml_composite_key
+    MATCH
+      (a_2
+      IS (% | ! %))
+      -[a_3
+      IS RelatesTo]->
+      (a_4
+      IS (% | ! %))
+    COLUMNS(
+      a_3.value AS a_5
+    )
+  ) AS aml_composite_key_1
+|> SELECT
+     aml_composite_key_1.a_5 AS value;
 ==
 
 select * from
@@ -586,7 +712,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=[$graph_table.one#4]
-        +-property_graph=sample_catalog.aml_composite_key
+        +-property_graph=aml_composite_key
         +-input_scan=
         | +-GraphScan
         |   +-column_list=$element_table.[$element1#1, $element2#2, $element3#3]
@@ -605,12 +731,12 @@ QueryStmt
         |       | | |       +-op=NOT
         |       | | |       +-operand_list=
         |       | | |         +-GraphWildCardLabel
-        |       | | +-target_element_table_list=[sample_catalog.aml_composite_key.CompositeKeyEntity]
+        |       | | +-target_element_table_list=[aml_composite_key.CompositeKeyEntity]
         |       | +-GraphEdgeScan
         |       | | +-column_list=[$element_table.$element2#2]
         |       | | +-label_expr=
-        |       | | | +-GraphLabel(label=sample_catalog.aml_composite_key.RelatesByValue)
-        |       | | +-target_element_table_list=[sample_catalog.aml_composite_key.RelatesByValue]
+        |       | | | +-GraphLabel(label=aml_composite_key.RelatesByValue)
+        |       | | +-target_element_table_list=[aml_composite_key.RelatesByValue]
         |       | | +-orientation=RIGHT
         |       | +-GraphNodeScan
         |       |   +-column_list=[$element_table.$element3#3]
@@ -623,13 +749,14 @@ QueryStmt
         |       |   |       +-op=NOT
         |       |   |       +-operand_list=
         |       |   |         +-GraphWildCardLabel
-        |       |   +-target_element_table_list=[sample_catalog.aml_composite_key.CompositeKeyEntity]
+        |       |   +-target_element_table_list=[aml_composite_key.CompositeKeyEntity]
         |       +-head=$element_table.$element1#1
         |       +-tail=$element_table.$element3#3
         +-shape_expr_list=
           +-one#4 := Literal(type=INT64, value=1)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   aml_composite_key_1.a_5 AS one
 FROM
@@ -646,3 +773,22 @@ FROM
       1 AS a_5
     )
   ) AS aml_composite_key_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml_composite_key
+    MATCH
+      (a_2
+      IS (% | ! %))
+      -[a_3
+      IS RelatesByValue]->
+      (a_4
+      IS (% | ! %))
+    COLUMNS(
+      1 AS a_5
+    )
+  ) AS aml_composite_key_1
+|> SELECT
+     aml_composite_key_1.a_5 AS one;

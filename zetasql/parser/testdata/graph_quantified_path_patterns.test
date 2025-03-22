@@ -1,0 +1,962 @@
+[default reserve_graph_table]
+[default language_features=V_1_4_SQL_GRAPH]
+
+# Quantification on a node pattern is not allowed
+select * from graph_table(
+  my.graph.name
+  MATCH (a){1, 3}
+  COLUMNS(1 AS One)
+)
+--
+ERROR: Quantifier cannot be used on a node pattern [at 4:9]
+  MATCH (a){1, 3}
+        ^
+==
+
+# General bounded path quantifier
+SELECT one FROM GRAPH_TABLE(
+  aml
+  MATCH((a)-[b]->(c)){1, 3}
+  COLUMNS(1 AS one)
+  )
+--
+QueryStatement [0-86] [SELECT one...AS one)   )]
+  Query [0-86] [SELECT one...AS one)   )]
+    Select [0-86] [SELECT one...AS one)   )]
+      SelectList [7-10] [one]
+        SelectColumn [7-10] [one]
+          PathExpression [7-10] [one]
+            Identifier(one) [7-10] [one]
+      FromClause [11-86] [FROM GRAPH_TABLE...AS one)   )]
+        GraphTableQuery [16-86] [GRAPH_TABLE...AS one)   )]
+          PathExpression [31-34] [aml]
+            Identifier(aml) [31-34] [aml]
+          GqlMatch [37-62] [MATCH((a)-[b]->(c)){1, 3}]
+            GraphPattern [42-62] [((a)-[b]->(c)){1, 3}]
+              ParenthesizedGraphPathPattern [42-62] [((a)-[b]->(c)){1, 3}]
+                BoundedQuantifier [56-62] [{1, 3}]
+                  QuantifierBound [57-58] [1]
+                    IntLiteral(1) [57-58] [1]
+                  QuantifierBound [60-61] [3]
+                    IntLiteral(3) [60-61] [3]
+                GraphNodePattern [43-46] [(a)]
+                  GraphElementPatternFiller [44-45] [a]
+                    Identifier(a) [44-45] [a]
+                GraphEdgePattern [46-52] [-[b]->]
+                  GraphElementPatternFiller [48-49] [b]
+                    Identifier(b) [48-49] [b]
+                GraphNodePattern [52-55] [(c)]
+                  GraphElementPatternFiller [53-54] [c]
+                    Identifier(c) [53-54] [c]
+          SelectList [73-81] [1 AS one]
+            SelectColumn [73-81] [1 AS one]
+              IntLiteral(1) [73-74] [1]
+              Alias [75-81] [AS one]
+                Identifier(one) [78-81] [one]
+--
+SELECT
+  one
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (
+        (a)
+        -[b]->
+        (c)
+      ) { 1, 3 }
+    COLUMNS(
+      1 AS one
+    )
+  )
+==
+
+# Bounded edge quantifier
+SELECT one FROM GRAPH_TABLE(
+  aml
+  MATCH (a)-[b]->{1, 3}->(c)
+  COLUMNS(1 AS one)
+  )
+--
+QueryStatement [0-87] [SELECT one...AS one)   )]
+  Query [0-87] [SELECT one...AS one)   )]
+    Select [0-87] [SELECT one...AS one)   )]
+      SelectList [7-10] [one]
+        SelectColumn [7-10] [one]
+          PathExpression [7-10] [one]
+            Identifier(one) [7-10] [one]
+      FromClause [11-87] [FROM GRAPH_TABLE...AS one)   )]
+        GraphTableQuery [16-87] [GRAPH_TABLE...AS one)   )]
+          PathExpression [31-34] [aml]
+            Identifier(aml) [31-34] [aml]
+          GqlMatch [37-63] [MATCH (a)-[b]->{1, 3}->(c)]
+            GraphPattern [43-63] [(a)-[b]->{1, 3}->(c)]
+              GraphPathPattern [43-63] [(a)-[b]->{1, 3}->(c)]
+                GraphNodePattern [43-46] [(a)]
+                  GraphElementPatternFiller [44-45] [a]
+                    Identifier(a) [44-45] [a]
+                ParenthesizedGraphPathPattern [46-58] [-[b]->{1, 3}]
+                  BoundedQuantifier [52-58] [{1, 3}]
+                    QuantifierBound [53-54] [1]
+                      IntLiteral(1) [53-54] [1]
+                    QuantifierBound [56-57] [3]
+                      IntLiteral(3) [56-57] [3]
+                  GraphEdgePattern [46-52] [-[b]->]
+                    GraphElementPatternFiller [48-49] [b]
+                      Identifier(b) [48-49] [b]
+                GraphEdgePattern [58-60] [->]
+                GraphNodePattern [60-63] [(c)]
+                  GraphElementPatternFiller [61-62] [c]
+                    Identifier(c) [61-62] [c]
+          SelectList [74-82] [1 AS one]
+            SelectColumn [74-82] [1 AS one]
+              IntLiteral(1) [74-75] [1]
+              Alias [76-82] [AS one]
+                Identifier(one) [79-82] [one]
+--
+SELECT
+  one
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+      (
+        -[b]->
+      ) { 1, 3 }
+      ->
+      (c)
+    COLUMNS(
+      1 AS one
+    )
+  )
+==
+
+# Multiple quantifiers in single match
+SELECT one FROM GRAPH_TABLE(
+  aml
+  MATCH(a)-[b]->(c)->{1, 3}->(d)-[e]->(f)->{2, 4}
+  COLUMNS(1 AS one)
+  )
+--
+QueryStatement [0-108] [SELECT one...AS one)   )]
+  Query [0-108] [SELECT one...AS one)   )]
+    Select [0-108] [SELECT one...AS one)   )]
+      SelectList [7-10] [one]
+        SelectColumn [7-10] [one]
+          PathExpression [7-10] [one]
+            Identifier(one) [7-10] [one]
+      FromClause [11-108] [FROM GRAPH_TABLE...AS one)   )]
+        GraphTableQuery [16-108] [GRAPH_TABLE...AS one)   )]
+          PathExpression [31-34] [aml]
+            Identifier(aml) [31-34] [aml]
+          GqlMatch [37-84] [MATCH(a)-[...f)->{2, 4}]
+            GraphPattern [42-84] [(a)-[b]->(...f)->{2, 4}]
+              GraphPathPattern [42-84] [(a)-[b]->(...f)->{2, 4}]
+                GraphNodePattern [42-45] [(a)]
+                  GraphElementPatternFiller [43-44] [a]
+                    Identifier(a) [43-44] [a]
+                GraphEdgePattern [45-51] [-[b]->]
+                  GraphElementPatternFiller [47-48] [b]
+                    Identifier(b) [47-48] [b]
+                GraphNodePattern [51-54] [(c)]
+                  GraphElementPatternFiller [52-53] [c]
+                    Identifier(c) [52-53] [c]
+                ParenthesizedGraphPathPattern [54-62] [->{1, 3}]
+                  BoundedQuantifier [56-62] [{1, 3}]
+                    QuantifierBound [57-58] [1]
+                      IntLiteral(1) [57-58] [1]
+                    QuantifierBound [60-61] [3]
+                      IntLiteral(3) [60-61] [3]
+                  GraphEdgePattern [54-56] [->]
+                GraphEdgePattern [62-64] [->]
+                GraphNodePattern [64-67] [(d)]
+                  GraphElementPatternFiller [65-66] [d]
+                    Identifier(d) [65-66] [d]
+                GraphEdgePattern [67-73] [-[e]->]
+                  GraphElementPatternFiller [69-70] [e]
+                    Identifier(e) [69-70] [e]
+                GraphNodePattern [73-76] [(f)]
+                  GraphElementPatternFiller [74-75] [f]
+                    Identifier(f) [74-75] [f]
+                ParenthesizedGraphPathPattern [76-84] [->{2, 4}]
+                  BoundedQuantifier [78-84] [{2, 4}]
+                    QuantifierBound [79-80] [2]
+                      IntLiteral(2) [79-80] [2]
+                    QuantifierBound [82-83] [4]
+                      IntLiteral(4) [82-83] [4]
+                  GraphEdgePattern [76-78] [->]
+          SelectList [95-103] [1 AS one]
+            SelectColumn [95-103] [1 AS one]
+              IntLiteral(1) [95-96] [1]
+              Alias [97-103] [AS one]
+                Identifier(one) [100-103] [one]
+--
+SELECT
+  one
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+      -[b]->
+      (c)
+      (
+        ->
+      ) { 1, 3 }
+      ->
+      (d)
+      -[e]->
+      (f)
+      (
+        ->
+      ) { 2, 4 }
+    COLUMNS(
+      1 AS one
+    )
+  )
+==
+
+# Fixed bounded quantifier
+SELECT one FROM GRAPH_TABLE(
+  aml
+  MATCH((a)-[b]->(c)){3}
+  COLUMNS(1 AS one)
+  )
+--
+QueryStatement [0-83] [SELECT one...AS one)   )]
+  Query [0-83] [SELECT one...AS one)   )]
+    Select [0-83] [SELECT one...AS one)   )]
+      SelectList [7-10] [one]
+        SelectColumn [7-10] [one]
+          PathExpression [7-10] [one]
+            Identifier(one) [7-10] [one]
+      FromClause [11-83] [FROM GRAPH_TABLE...AS one)   )]
+        GraphTableQuery [16-83] [GRAPH_TABLE...AS one)   )]
+          PathExpression [31-34] [aml]
+            Identifier(aml) [31-34] [aml]
+          GqlMatch [37-59] [MATCH((a)-[b]->(c)){3}]
+            GraphPattern [42-59] [((a)-[b]->(c)){3}]
+              ParenthesizedGraphPathPattern [42-59] [((a)-[b]->(c)){3}]
+                FixedQuantifier [57-58] [3]
+                  IntLiteral(3) [57-58] [3]
+                GraphNodePattern [43-46] [(a)]
+                  GraphElementPatternFiller [44-45] [a]
+                    Identifier(a) [44-45] [a]
+                GraphEdgePattern [46-52] [-[b]->]
+                  GraphElementPatternFiller [48-49] [b]
+                    Identifier(b) [48-49] [b]
+                GraphNodePattern [52-55] [(c)]
+                  GraphElementPatternFiller [53-54] [c]
+                    Identifier(c) [53-54] [c]
+          SelectList [70-78] [1 AS one]
+            SelectColumn [70-78] [1 AS one]
+              IntLiteral(1) [70-71] [1]
+              Alias [72-78] [AS one]
+                Identifier(one) [75-78] [one]
+--
+SELECT
+  one
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (
+        (a)
+        -[b]->
+        (c)
+      ) { 3 }
+    COLUMNS(
+      1 AS one
+    )
+  )
+==
+
+# Bounded quantifier with omitted lower bound.
+SELECT one FROM GRAPH_TABLE(
+  aml
+  MATCH((a)-[b]->(c)){, 3}
+  COLUMNS(1 AS one)
+  )
+--
+QueryStatement [0-85] [SELECT one...AS one)   )]
+  Query [0-85] [SELECT one...AS one)   )]
+    Select [0-85] [SELECT one...AS one)   )]
+      SelectList [7-10] [one]
+        SelectColumn [7-10] [one]
+          PathExpression [7-10] [one]
+            Identifier(one) [7-10] [one]
+      FromClause [11-85] [FROM GRAPH_TABLE...AS one)   )]
+        GraphTableQuery [16-85] [GRAPH_TABLE...AS one)   )]
+          PathExpression [31-34] [aml]
+            Identifier(aml) [31-34] [aml]
+          GqlMatch [37-61] [MATCH((a)-[b]->(c)){, 3}]
+            GraphPattern [42-61] [((a)-[b]->(c)){, 3}]
+              ParenthesizedGraphPathPattern [42-61] [((a)-[b]->(c)){, 3}]
+                BoundedQuantifier [56-61] [{, 3}]
+                  QuantifierBound [57-57] []
+                  QuantifierBound [59-60] [3]
+                    IntLiteral(3) [59-60] [3]
+                GraphNodePattern [43-46] [(a)]
+                  GraphElementPatternFiller [44-45] [a]
+                    Identifier(a) [44-45] [a]
+                GraphEdgePattern [46-52] [-[b]->]
+                  GraphElementPatternFiller [48-49] [b]
+                    Identifier(b) [48-49] [b]
+                GraphNodePattern [52-55] [(c)]
+                  GraphElementPatternFiller [53-54] [c]
+                    Identifier(c) [53-54] [c]
+          SelectList [72-80] [1 AS one]
+            SelectColumn [72-80] [1 AS one]
+              IntLiteral(1) [72-73] [1]
+              Alias [74-80] [AS one]
+                Identifier(one) [77-80] [one]
+--
+SELECT
+  one
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (
+        (a)
+        -[b]->
+        (c)
+      ) {, 3 }
+    COLUMNS(
+      1 AS one
+    )
+  )
+==
+
+# Quantifier with concatenated node
+SELECT one FROM GRAPH_TABLE(
+  aml
+  MATCH((a)-[b]->(c)){1, 3}(d)
+  COLUMNS(1 AS one)
+  )
+--
+QueryStatement [0-89] [SELECT one...AS one)   )]
+  Query [0-89] [SELECT one...AS one)   )]
+    Select [0-89] [SELECT one...AS one)   )]
+      SelectList [7-10] [one]
+        SelectColumn [7-10] [one]
+          PathExpression [7-10] [one]
+            Identifier(one) [7-10] [one]
+      FromClause [11-89] [FROM GRAPH_TABLE...AS one)   )]
+        GraphTableQuery [16-89] [GRAPH_TABLE...AS one)   )]
+          PathExpression [31-34] [aml]
+            Identifier(aml) [31-34] [aml]
+          GqlMatch [37-65] [MATCH((a)-[b]->(c)){1, 3}(d)]
+            GraphPattern [42-65] [((a)-[b]->(c)){1, 3}(d)]
+              GraphPathPattern [42-65] [((a)-[b]->(c)){1, 3}(d)]
+                ParenthesizedGraphPathPattern [42-62] [((a)-[b]->(c)){1, 3}]
+                  BoundedQuantifier [56-62] [{1, 3}]
+                    QuantifierBound [57-58] [1]
+                      IntLiteral(1) [57-58] [1]
+                    QuantifierBound [60-61] [3]
+                      IntLiteral(3) [60-61] [3]
+                  GraphNodePattern [43-46] [(a)]
+                    GraphElementPatternFiller [44-45] [a]
+                      Identifier(a) [44-45] [a]
+                  GraphEdgePattern [46-52] [-[b]->]
+                    GraphElementPatternFiller [48-49] [b]
+                      Identifier(b) [48-49] [b]
+                  GraphNodePattern [52-55] [(c)]
+                    GraphElementPatternFiller [53-54] [c]
+                      Identifier(c) [53-54] [c]
+                GraphNodePattern [62-65] [(d)]
+                  GraphElementPatternFiller [63-64] [d]
+                    Identifier(d) [63-64] [d]
+          SelectList [76-84] [1 AS one]
+            SelectColumn [76-84] [1 AS one]
+              IntLiteral(1) [76-77] [1]
+              Alias [78-84] [AS one]
+                Identifier(one) [81-84] [one]
+--
+SELECT
+  one
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (
+        (a)
+        -[b]->
+        (c)
+      ) { 1, 3 }
+      (d)
+    COLUMNS(
+      1 AS one
+    )
+  )
+==
+
+# Pure quantified edge
+select * from graph_table(
+  my.graph.name
+  MATCH -[b]->{1, 3}
+  COLUMNS(1 AS One)
+)
+--
+QueryStatement [0-85] [select * from...AS One) )]
+  Query [0-85] [select * from...AS One) )]
+    Select [0-85] [select * from...AS One) )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-85] [from graph_table...AS One) )]
+        GraphTableQuery [14-85] [graph_table...AS One) )]
+          PathExpression [29-42] [my.graph.name]
+            Identifier(my) [29-31] [my]
+            Identifier(graph) [32-37] [graph]
+            Identifier(name) [38-42] [name]
+          GqlMatch [45-63] [MATCH -[b]->{1, 3}]
+            GraphPattern [51-63] [-[b]->{1, 3}]
+              ParenthesizedGraphPathPattern [51-63] [-[b]->{1, 3}]
+                BoundedQuantifier [57-63] [{1, 3}]
+                  QuantifierBound [58-59] [1]
+                    IntLiteral(1) [58-59] [1]
+                  QuantifierBound [61-62] [3]
+                    IntLiteral(3) [61-62] [3]
+                GraphEdgePattern [51-57] [-[b]->]
+                  GraphElementPatternFiller [53-54] [b]
+                    Identifier(b) [53-54] [b]
+          SelectList [74-82] [1 AS One]
+            SelectColumn [74-82] [1 AS One]
+              IntLiteral(1) [74-75] [1]
+              Alias [76-82] [AS One]
+                Identifier(One) [79-82] [One]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    my.graph.name
+    MATCH
+      (
+        -[b]->
+      ) { 1, 3 }
+    COLUMNS(
+      1 AS One
+    )
+  )
+==
+
+# Bounds as hex literals
+SELECT one FROM GRAPH_TABLE(
+  aml
+  MATCH((a)->(c)){0x0001, 0x0003}
+  COLUMNS(1 AS one)
+  )
+--
+QueryStatement [0-92] [SELECT one...AS one)   )]
+  Query [0-92] [SELECT one...AS one)   )]
+    Select [0-92] [SELECT one...AS one)   )]
+      SelectList [7-10] [one]
+        SelectColumn [7-10] [one]
+          PathExpression [7-10] [one]
+            Identifier(one) [7-10] [one]
+      FromClause [11-92] [FROM GRAPH_TABLE...AS one)   )]
+        GraphTableQuery [16-92] [GRAPH_TABLE...AS one)   )]
+          PathExpression [31-34] [aml]
+            Identifier(aml) [31-34] [aml]
+          GqlMatch [37-68] [MATCH((a)-...0x0001, 0x0003}]
+            GraphPattern [42-68] [((a)->(c)){0x0001, 0x0003}]
+              ParenthesizedGraphPathPattern [42-68] [((a)->(c)){0x0001, 0x0003}]
+                BoundedQuantifier [52-68] [{0x0001, 0x0003}]
+                  QuantifierBound [53-59] [0x0001]
+                    IntLiteral(0x0001) [53-59] [0x0001]
+                  QuantifierBound [61-67] [0x0003]
+                    IntLiteral(0x0003) [61-67] [0x0003]
+                GraphNodePattern [43-46] [(a)]
+                  GraphElementPatternFiller [44-45] [a]
+                    Identifier(a) [44-45] [a]
+                GraphEdgePattern [46-48] [->]
+                GraphNodePattern [48-51] [(c)]
+                  GraphElementPatternFiller [49-50] [c]
+                    Identifier(c) [49-50] [c]
+          SelectList [79-87] [1 AS one]
+            SelectColumn [79-87] [1 AS one]
+              IntLiteral(1) [79-80] [1]
+              Alias [81-87] [AS one]
+                Identifier(one) [84-87] [one]
+--
+SELECT
+  one
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (
+        (a)
+        ->
+        (c)
+      ) { 0x0001, 0x0003 }
+    COLUMNS(
+      1 AS one
+    )
+  )
+==
+
+# Bounds as parameter expressions
+SELECT one FROM GRAPH_TABLE(
+  aml
+  MATCH((a)->(c)){@lower, @upper}
+  COLUMNS(1 AS one)
+  )
+--
+QueryStatement [0-92] [SELECT one...AS one)   )]
+  Query [0-92] [SELECT one...AS one)   )]
+    Select [0-92] [SELECT one...AS one)   )]
+      SelectList [7-10] [one]
+        SelectColumn [7-10] [one]
+          PathExpression [7-10] [one]
+            Identifier(one) [7-10] [one]
+      FromClause [11-92] [FROM GRAPH_TABLE...AS one)   )]
+        GraphTableQuery [16-92] [GRAPH_TABLE...AS one)   )]
+          PathExpression [31-34] [aml]
+            Identifier(aml) [31-34] [aml]
+          GqlMatch [37-68] [MATCH((a)-...lower, @upper}]
+            GraphPattern [42-68] [((a)->(c)){@lower, @upper}]
+              ParenthesizedGraphPathPattern [42-68] [((a)->(c)){@lower, @upper}]
+                BoundedQuantifier [52-68] [{@lower, @upper}]
+                  QuantifierBound [53-59] [@lower]
+                    ParameterExpr [53-59] [@lower]
+                      Identifier(lower) [54-59] [lower]
+                  QuantifierBound [61-67] [@upper]
+                    ParameterExpr [61-67] [@upper]
+                      Identifier(upper) [62-67] [upper]
+                GraphNodePattern [43-46] [(a)]
+                  GraphElementPatternFiller [44-45] [a]
+                    Identifier(a) [44-45] [a]
+                GraphEdgePattern [46-48] [->]
+                GraphNodePattern [48-51] [(c)]
+                  GraphElementPatternFiller [49-50] [c]
+                    Identifier(c) [49-50] [c]
+          SelectList [79-87] [1 AS one]
+            SelectColumn [79-87] [1 AS one]
+              IntLiteral(1) [79-80] [1]
+              Alias [81-87] [AS one]
+                Identifier(one) [84-87] [one]
+--
+SELECT
+  one
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (
+        (a)
+        ->
+        (c)
+      ) { @lower, @upper }
+    COLUMNS(
+      1 AS one
+    )
+  )
+==
+
+# Validate that the parser doesn't mistakenly allow a hint to be used in place
+# of a parameter.
+SELECT one FROM GRAPH_TABLE(
+  aml
+  MATCH((a)->(c)){@lower, @{hint_not_param}}
+  COLUMNS(1 AS one)
+  )
+--
+ERROR: Syntax error: Expected "@" or "@@" or integer literal but got "@" [at 3:27]
+  MATCH((a)->(c)){@lower, @{hint_not_param}}
+                          ^
+==
+
+# Validate that bounds as float literals fail.
+SELECT one FROM GRAPH_TABLE(
+  aml
+  MATCH((a)->(c)){1.1, 2.3}
+  COLUMNS(1 AS one)
+  )
+--
+ERROR: Syntax error: Expected "," but got floating point literal "1.1" [at 3:19]
+  MATCH((a)->(c)){1.1, 2.3}
+                  ^
+==
+
+# Upper bound must always be provided in a quantifier
+select * from graph_table(
+  my.graph.name
+  MATCH ((a)-[b]->(c)){1,}
+  COLUMNS(1 AS One)
+)
+--
+ERROR: Syntax error: Expected "@" or "@@" or integer literal but got "}" [at 3:26]
+  MATCH ((a)-[b]->(c)){1,}
+                         ^
+==
+
+# Multiple path quantifiers in same MATCH
+SELECT one FROM GRAPH_TABLE(
+  aml
+  MATCH((a)-[b]->(c)){1, 3}((x)-[y]->(z)){2, 4}((p)-[q]->(r)){3, 6}
+  COLUMNS(1 AS one)
+  )
+--
+QueryStatement [0-126] [SELECT one...AS one)   )]
+  Query [0-126] [SELECT one...AS one)   )]
+    Select [0-126] [SELECT one...AS one)   )]
+      SelectList [7-10] [one]
+        SelectColumn [7-10] [one]
+          PathExpression [7-10] [one]
+            Identifier(one) [7-10] [one]
+      FromClause [11-126] [FROM GRAPH_TABLE...AS one)   )]
+        GraphTableQuery [16-126] [GRAPH_TABLE...AS one)   )]
+          PathExpression [31-34] [aml]
+            Identifier(aml) [31-34] [aml]
+          GqlMatch [37-102] [MATCH((a)-...(r)){3, 6}]
+            GraphPattern [42-102] [((a)-[b]->...(r)){3, 6}]
+              GraphPathPattern [42-102] [((a)-[b]->...(r)){3, 6}]
+                ParenthesizedGraphPathPattern [42-62] [((a)-[b]->(c)){1, 3}]
+                  BoundedQuantifier [56-62] [{1, 3}]
+                    QuantifierBound [57-58] [1]
+                      IntLiteral(1) [57-58] [1]
+                    QuantifierBound [60-61] [3]
+                      IntLiteral(3) [60-61] [3]
+                  GraphNodePattern [43-46] [(a)]
+                    GraphElementPatternFiller [44-45] [a]
+                      Identifier(a) [44-45] [a]
+                  GraphEdgePattern [46-52] [-[b]->]
+                    GraphElementPatternFiller [48-49] [b]
+                      Identifier(b) [48-49] [b]
+                  GraphNodePattern [52-55] [(c)]
+                    GraphElementPatternFiller [53-54] [c]
+                      Identifier(c) [53-54] [c]
+                ParenthesizedGraphPathPattern [62-82] [((x)-[y]->(z)){2, 4}]
+                  BoundedQuantifier [76-82] [{2, 4}]
+                    QuantifierBound [77-78] [2]
+                      IntLiteral(2) [77-78] [2]
+                    QuantifierBound [80-81] [4]
+                      IntLiteral(4) [80-81] [4]
+                  GraphNodePattern [63-66] [(x)]
+                    GraphElementPatternFiller [64-65] [x]
+                      Identifier(x) [64-65] [x]
+                  GraphEdgePattern [66-72] [-[y]->]
+                    GraphElementPatternFiller [68-69] [y]
+                      Identifier(y) [68-69] [y]
+                  GraphNodePattern [72-75] [(z)]
+                    GraphElementPatternFiller [73-74] [z]
+                      Identifier(z) [73-74] [z]
+                ParenthesizedGraphPathPattern [82-102] [((p)-[q]->(r)){3, 6}]
+                  BoundedQuantifier [96-102] [{3, 6}]
+                    QuantifierBound [97-98] [3]
+                      IntLiteral(3) [97-98] [3]
+                    QuantifierBound [100-101] [6]
+                      IntLiteral(6) [100-101] [6]
+                  GraphNodePattern [83-86] [(p)]
+                    GraphElementPatternFiller [84-85] [p]
+                      Identifier(p) [84-85] [p]
+                  GraphEdgePattern [86-92] [-[q]->]
+                    GraphElementPatternFiller [88-89] [q]
+                      Identifier(q) [88-89] [q]
+                  GraphNodePattern [92-95] [(r)]
+                    GraphElementPatternFiller [93-94] [r]
+                      Identifier(r) [93-94] [r]
+          SelectList [113-121] [1 AS one]
+            SelectColumn [113-121] [1 AS one]
+              IntLiteral(1) [113-114] [1]
+              Alias [115-121] [AS one]
+                Identifier(one) [118-121] [one]
+--
+SELECT
+  one
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (
+        (a)
+        -[b]->
+        (c)
+      ) { 1, 3 }
+      (
+        (x)
+        -[y]->
+        (z)
+      ) { 2, 4 }
+      (
+        (p)
+        -[q]->
+        (r)
+      ) { 3, 6 }
+    COLUMNS(
+      1 AS one
+    )
+  )
+==
+
+# Fixed bounded edge quantifier
+SELECT one FROM GRAPH_TABLE(
+  aml
+  MATCH (-[b]->){3}
+  COLUMNS(1 AS one)
+  )
+--
+QueryStatement [0-78] [SELECT one...AS one)   )]
+  Query [0-78] [SELECT one...AS one)   )]
+    Select [0-78] [SELECT one...AS one)   )]
+      SelectList [7-10] [one]
+        SelectColumn [7-10] [one]
+          PathExpression [7-10] [one]
+            Identifier(one) [7-10] [one]
+      FromClause [11-78] [FROM GRAPH_TABLE...AS one)   )]
+        GraphTableQuery [16-78] [GRAPH_TABLE...AS one)   )]
+          PathExpression [31-34] [aml]
+            Identifier(aml) [31-34] [aml]
+          GqlMatch [37-54] [MATCH (-[b]->){3}]
+            GraphPattern [43-54] [(-[b]->){3}]
+              ParenthesizedGraphPathPattern [43-54] [(-[b]->){3}]
+                FixedQuantifier [52-53] [3]
+                  IntLiteral(3) [52-53] [3]
+                GraphEdgePattern [44-50] [-[b]->]
+                  GraphElementPatternFiller [46-47] [b]
+                    Identifier(b) [46-47] [b]
+          SelectList [65-73] [1 AS one]
+            SelectColumn [65-73] [1 AS one]
+              IntLiteral(1) [65-66] [1]
+              Alias [67-73] [AS one]
+                Identifier(one) [70-73] [one]
+--
+SELECT
+  one
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (
+        -[b]->
+      ) { 3 }
+    COLUMNS(
+      1 AS one
+    )
+  )
+==
+
+# (b/335209424) Edge quantifier with outer filter
+SELECT one FROM GRAPH_TABLE(
+  aml
+  MATCH (-[b]->{1, 3} WHERE 20 > 10)
+  COLUMNS(1 AS one)
+  )
+--
+QueryStatement [0-95] [SELECT one...AS one)   )]
+  Query [0-95] [SELECT one...AS one)   )]
+    Select [0-95] [SELECT one...AS one)   )]
+      SelectList [7-10] [one]
+        SelectColumn [7-10] [one]
+          PathExpression [7-10] [one]
+            Identifier(one) [7-10] [one]
+      FromClause [11-95] [FROM GRAPH_TABLE...AS one)   )]
+        GraphTableQuery [16-95] [GRAPH_TABLE...AS one)   )]
+          PathExpression [31-34] [aml]
+            Identifier(aml) [31-34] [aml]
+          GqlMatch [37-71] [MATCH (-[b...WHERE 20 > 10)]
+            GraphPattern [43-71] [(-[b]->{1, 3} WHERE 20 > 10)]
+              ParenthesizedGraphPathPattern [43-71] [(-[b]->{1, 3} WHERE 20 > 10)]
+                WhereClause [57-70] [WHERE 20 > 10]
+                  BinaryExpression(>) [63-70] [20 > 10]
+                    IntLiteral(20) [63-65] [20]
+                    IntLiteral(10) [68-70] [10]
+                ParenthesizedGraphPathPattern [44-56] [-[b]->{1, 3}]
+                  BoundedQuantifier [50-56] [{1, 3}]
+                    QuantifierBound [51-52] [1]
+                      IntLiteral(1) [51-52] [1]
+                    QuantifierBound [54-55] [3]
+                      IntLiteral(3) [54-55] [3]
+                  GraphEdgePattern [44-50] [-[b]->]
+                    GraphElementPatternFiller [46-47] [b]
+                      Identifier(b) [46-47] [b]
+          SelectList [82-90] [1 AS one]
+            SelectColumn [82-90] [1 AS one]
+              IntLiteral(1) [82-83] [1]
+              Alias [84-90] [AS one]
+                Identifier(one) [87-90] [one]
+--
+SELECT
+  one
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (
+        (
+          -[b]->
+        ) { 1, 3 }
+        WHERE
+          20 > 10
+      )
+    COLUMNS(
+      1 AS one
+    )
+  )
+==
+
+# (b/335288693) Consecutive unlabeled edge quantifiers
+SELECT one FROM GRAPH_TABLE(
+  aml
+  MATCH ->{2}->{4}
+  COLUMNS(1 AS one)
+  )
+--
+QueryStatement [0-77] [SELECT one...AS one)   )]
+  Query [0-77] [SELECT one...AS one)   )]
+    Select [0-77] [SELECT one...AS one)   )]
+      SelectList [7-10] [one]
+        SelectColumn [7-10] [one]
+          PathExpression [7-10] [one]
+            Identifier(one) [7-10] [one]
+      FromClause [11-77] [FROM GRAPH_TABLE...AS one)   )]
+        GraphTableQuery [16-77] [GRAPH_TABLE...AS one)   )]
+          PathExpression [31-34] [aml]
+            Identifier(aml) [31-34] [aml]
+          GqlMatch [37-53] [MATCH ->{2}->{4}]
+            GraphPattern [43-53] [->{2}->{4}]
+              GraphPathPattern [43-53] [->{2}->{4}]
+                ParenthesizedGraphPathPattern [43-48] [->{2}]
+                  FixedQuantifier [46-47] [2]
+                    IntLiteral(2) [46-47] [2]
+                  GraphEdgePattern [43-45] [->]
+                ParenthesizedGraphPathPattern [48-53] [->{4}]
+                  FixedQuantifier [51-52] [4]
+                    IntLiteral(4) [51-52] [4]
+                  GraphEdgePattern [48-50] [->]
+          SelectList [64-72] [1 AS one]
+            SelectColumn [64-72] [1 AS one]
+              IntLiteral(1) [64-65] [1]
+              Alias [66-72] [AS one]
+                Identifier(one) [69-72] [one]
+--
+SELECT
+  one
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (
+        ->
+      ) { 2 }
+      (
+        ->
+      ) { 4 }
+    COLUMNS(
+      1 AS one
+    )
+  )
+==
+
+# Regression test for b/362819300: positional parameter used in exact quantifier
+#  should be captured as such, not as 2 different instances which means 2
+#  different parameters.
+SELECT * FROM GRAPH_TABLE(
+  aml
+  MATCH ->{?}
+  COLUMNS(1 AS one)
+)
+--
+QueryStatement [0-68] [SELECT * FROM...AS one) )]
+  Query [0-68] [SELECT * FROM...AS one) )]
+    Select [0-68] [SELECT * FROM...AS one) )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-68] [FROM GRAPH_TABLE...AS one) )]
+        GraphTableQuery [14-68] [GRAPH_TABLE...AS one) )]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlMatch [35-46] [MATCH ->{?}]
+            GraphPattern [41-46] [->{?}]
+              ParenthesizedGraphPathPattern [41-46] [->{?}]
+                FixedQuantifier [44-45] [?]
+                  ParameterExpr(1) [44-45] [?]
+                GraphEdgePattern [41-43] [->]
+          SelectList [57-65] [1 AS one]
+            SelectColumn [57-65] [1 AS one]
+              IntLiteral(1) [57-58] [1]
+              Alias [59-65] [AS one]
+                Identifier(one) [62-65] [one]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (
+        ->
+      ) { ? }
+    COLUMNS(
+      1 AS one
+    )
+  )
+==
+
+# b/378689347: Quantified subpath with hint
+GRAPH aml
+MATCH (c)->(d), @{x_key=y_val} ((a)->(b)){1, 3}
+return 1 as result
+--
+QueryStatement [0-76] [GRAPH aml...as result]
+  Query [0-76] [GRAPH aml...as result]
+    GqlQuery [0-76] [GRAPH aml...as result]
+      GraphTableQuery [0-76] [GRAPH aml...as result]
+        PathExpression [6-9] [aml]
+          Identifier(aml) [6-9] [aml]
+        GqlOperatorList [10-76] [MATCH (c)-...as result]
+          GqlOperatorList [10-76] [MATCH (c)-...as result]
+            GqlMatch [10-57] [MATCH (c)-...(b)){1, 3}]
+              GraphPattern [16-57] [(c)->(d),...(b)){1, 3}]
+                GraphPathPattern [16-24] [(c)->(d)]
+                  GraphNodePattern [16-19] [(c)]
+                    GraphElementPatternFiller [17-18] [c]
+                      Identifier(c) [17-18] [c]
+                  GraphEdgePattern [19-21] [->]
+                  GraphNodePattern [21-24] [(d)]
+                    GraphElementPatternFiller [22-23] [d]
+                      Identifier(d) [22-23] [d]
+                ParenthesizedGraphPathPattern [26-57] [@{x_key=y_val...(b)){1, 3}]
+                  Hint [26-40] [@{x_key=y_val}]
+                    HintEntry [28-39] [x_key=y_val]
+                      Identifier(x_key) [28-33] [x_key]
+                      PathExpression [34-39] [y_val]
+                        Identifier(y_val) [34-39] [y_val]
+                  BoundedQuantifier [51-57] [{1, 3}]
+                    QuantifierBound [52-53] [1]
+                      IntLiteral(1) [52-53] [1]
+                    QuantifierBound [55-56] [3]
+                      IntLiteral(3) [55-56] [3]
+                  GraphNodePattern [42-45] [(a)]
+                    GraphElementPatternFiller [43-44] [a]
+                      Identifier(a) [43-44] [a]
+                  GraphEdgePattern [45-47] [->]
+                  GraphNodePattern [47-50] [(b)]
+                    GraphElementPatternFiller [48-49] [b]
+                      Identifier(b) [48-49] [b]
+            GqlReturn [58-76] [return 1 as result]
+              Select [64-76] [1 as result]
+                SelectList [65-76] [1 as result]
+                  SelectColumn [65-76] [1 as result]
+                    IntLiteral(1) [65-66] [1]
+                    Alias [67-76] [as result]
+                      Identifier(result) [70-76] [result]
+--
+GRAPH aml
+MATCH
+  (c)
+  ->
+  (d),
+  @{ x_key = y_val }
+  (
+    (a)
+    ->
+    (b)
+  ) { 1, 3 }
+RETURN
+  1 AS result

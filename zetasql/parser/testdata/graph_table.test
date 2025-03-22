@@ -1,0 +1,1554 @@
+[default reserve_graph_table]
+[default language_features=V_1_4_SQL_GRAPH]
+# Ensure that GRAPH_TABLE is a reserved keyword when the flag is on
+select 1 AS graph_table
+--
+ERROR: Syntax error: Unexpected keyword GRAPH_TABLE [at 2:13]
+select 1 AS graph_table
+            ^
+==
+
+# Ensure that GRAPH_TABLE is not reserved when the flag is off
+[no_reserve_graph_table]
+select 1 AS graph_table
+--
+QueryStatement [0-23] [select 1 AS graph_table]
+  Query [0-23] [select 1 AS graph_table]
+    Select [0-23] [select 1 AS graph_table]
+      SelectList [7-23] [1 AS graph_table]
+        SelectColumn [7-23] [1 AS graph_table]
+          IntLiteral(1) [7-8] [1]
+          Alias [9-23] [AS graph_table]
+            Identifier(`graph_table`) [12-23] [graph_table]
+--
+SELECT
+  1 AS `graph_table`
+==
+
+# Ensure that GRAPH_TABLE is not reserved when the flag is off, can be a TVF
+[no_reserve_graph_table]
+select 1 AS graph_table FROM graph_table(my.graph.name MATCH () COLUMNS( 1 AS one, 1+1 AS two ))
+--
+ERROR: Syntax error: Expected ")" or "," but got keyword MATCH [at 1:56]
+...1 AS graph_table FROM graph_table(my.graph.name MATCH () COLUMNS( 1 AS one...
+                                                   ^
+==
+
+# Ensure that GRAPH_TABLE is not reserved when the flag is off, can be a TVF
+[no_reserve_graph_table]
+select 1 AS one FROM graph_table()
+--
+QueryStatement [0-34] [select 1 AS...graph_table()]
+  Query [0-34] [select 1 AS...graph_table()]
+    Select [0-34] [select 1 AS...graph_table()]
+      SelectList [7-15] [1 AS one]
+        SelectColumn [7-15] [1 AS one]
+          IntLiteral(1) [7-8] [1]
+          Alias [9-15] [AS one]
+            Identifier(one) [12-15] [one]
+      FromClause [16-34] [FROM graph_table()]
+        TVF [21-34] [graph_table()]
+          PathExpression [21-32] [graph_table]
+            Identifier(`graph_table`) [21-32] [graph_table]
+--
+SELECT
+  1 AS one
+FROM
+  `graph_table`()
+==
+
+# Unqualified * and unaliased expressions are errors to be caught in the
+# resolver. Same for non_existing_name.
+select * from
+  graph_table(my.graph.name
+    MATCH ()
+    COLUMNS( 1 AS one, 1+1 AS two, *, non_existing_name.*, 1 + 2)
+  ) g1
+--
+QueryStatement [0-127] [select * from...2)   ) g1]
+  Query [0-127] [select * from...2)   ) g1]
+    Select [0-127] [select * from...2)   ) g1]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-127] [from   graph_tabl...2)   ) g1]
+        GraphTableQuery [16-127] [graph_table...2)   ) g1]
+          PathExpression [28-41] [my.graph.name]
+            Identifier(my) [28-30] [my]
+            Identifier(graph) [31-36] [graph]
+            Identifier(name) [37-41] [name]
+          GqlMatch [46-54] [MATCH ()]
+            GraphPattern [52-54] [()]
+              GraphPathPattern [52-54] [()]
+                GraphNodePattern [52-54] [()]
+                  GraphElementPatternFiller [53-53] []
+          SelectList [68-119] [1 AS one,...ting_name.*, 1 + 2]
+            SelectColumn [68-76] [1 AS one]
+              IntLiteral(1) [68-69] [1]
+              Alias [70-76] [AS one]
+                Identifier(one) [73-76] [one]
+            SelectColumn [78-88] [1+1 AS two]
+              BinaryExpression(+) [78-81] [1+1]
+                IntLiteral(1) [78-79] [1]
+                IntLiteral(1) [80-81] [1]
+              Alias [82-88] [AS two]
+                Identifier(two) [85-88] [two]
+            SelectColumn [90-91] [*]
+              Star(*) [90-91] [*]
+            SelectColumn [93-112] [non_existing_name.*]
+              DotStar [93-112] [non_existing_name.*]
+                PathExpression [93-110] [non_existing_name]
+                  Identifier(non_existing_name) [93-110] [non_existing_name]
+            SelectColumn [114-119] [1 + 2]
+              BinaryExpression(+) [114-119] [1 + 2]
+                IntLiteral(1) [114-115] [1]
+                IntLiteral(2) [118-119] [2]
+          Alias [125-127] [g1]
+            Identifier(g1) [125-127] [g1]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    my.graph.name
+    MATCH
+      ()
+    COLUMNS(
+      1 AS one,
+      1 + 1 AS two,
+      *,
+      non_existing_name.*,
+      1 + 2
+    )
+  ) AS g1
+==
+
+# Optional columns clause. The resolver will handle the error if the
+# feature flag is not enabled.
+select * from
+  graph_table(my.graph
+    MATCH (n IS Label)
+  ) g1
+--
+QueryStatement [0-66] [select * from...Label)   ) g1]
+  Query [0-66] [select * from...Label)   ) g1]
+    Select [0-66] [select * from...Label)   ) g1]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-66] [from   graph_tabl...el)   ) g1]
+        GraphTableQuery [16-66] [graph_table...Label)   ) g1]
+          PathExpression [28-36] [my.graph]
+            Identifier(my) [28-30] [my]
+            Identifier(graph) [31-36] [graph]
+          GqlMatch [41-59] [MATCH (n IS Label)]
+            GraphPattern [47-59] [(n IS Label)]
+              GraphPathPattern [47-59] [(n IS Label)]
+                GraphNodePattern [47-59] [(n IS Label)]
+                  GraphElementPatternFiller [48-58] [n IS Label]
+                    Identifier(n) [48-49] [n]
+                    GraphLabelFilter [50-58] [IS Label]
+                      GraphElementLabel [53-58] [Label]
+                        Identifier(Label) [53-58] [Label]
+          Alias [64-66] [g1]
+            Identifier(g1) [64-66] [g1]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    my.graph
+    MATCH
+      (n
+      IS Label)
+  ) AS g1
+==
+
+# Empty COLUMNS clause is a syntax error
+select * from
+  graph_table(my.graph
+    MATCH (n IS Label)
+    COLUMNS()
+  ) g1
+--
+ERROR: Syntax error: Unexpected ")" [at 4:13]
+    COLUMNS()
+            ^
+==
+
+# Mixed RETURN and COLUMNS clause cause syntax error
+
+select * from
+  graph_table(my.graph.name
+    MATCH ()
+    RETURN 1 AS one, 1+1 AS two
+    COLUMNS 1 AS one, 1+1 AS two
+  ) g1
+--
+ERROR: Syntax error: Expected ")" or keyword NEXT but got keyword COLUMNS [at 5:5]
+    COLUMNS 1 AS one, 1+1 AS two
+    ^
+
+==
+
+# GQL linear composition with RETURN *.
+# RETURN * as the first GQL clause, or as the last clause containing graph columns would be rejected in the resolver, but not in the parser.
+select * from
+  graph_table(my.graph.name
+    RETURN *
+    NEXT
+    MATCH ()
+    RETURN *
+    NEXT
+    RETURN 1 AS one, 1+1 AS two
+    NEXT
+    MATCH ()
+    RETURN *
+  ) g1
+--
+
+QueryStatement [0-172] [select * from...ETURN *   ) g1]
+  Query [0-172] [select * from...ETURN *   ) g1]
+    Select [0-172] [select * from...ETURN *   ) g1]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-172] [from   graph_tabl...N *   ) g1]
+        GraphTableQuery [16-172] [graph_table...RETURN *   ) g1]
+          PathExpression [28-41] [my.graph.name]
+            Identifier(my) [28-30] [my]
+            Identifier(graph) [31-36] [graph]
+            Identifier(name) [37-41] [name]
+          GqlOperatorList [46-165] [RETURN *...RETURN *]
+            GqlOperatorList [46-54] [RETURN *]
+              GqlReturn [46-54] [RETURN *]
+                Select [52-54] [*]
+                  SelectList [53-54] [*]
+                    SelectColumn [53-54] [*]
+                      Star(*) [53-54] [*]
+            GqlOperatorList [68-89] [MATCH ()     RETURN *]
+              GqlMatch [68-76] [MATCH ()]
+                GraphPattern [74-76] [()]
+                  GraphPathPattern [74-76] [()]
+                    GraphNodePattern [74-76] [()]
+                      GraphElementPatternFiller [75-75] []
+              GqlReturn [81-89] [RETURN *]
+                Select [87-89] [*]
+                  SelectList [88-89] [*]
+                    SelectColumn [88-89] [*]
+                      Star(*) [88-89] [*]
+            GqlOperatorList [103-130] [RETURN 1 AS one, 1+1 AS two]
+              GqlReturn [103-130] [RETURN 1 AS one, 1+1 AS two]
+                Select [109-130] [1 AS one, 1+1 AS two]
+                  SelectList [110-130] [1 AS one, 1+1 AS two]
+                    SelectColumn [110-118] [1 AS one]
+                      IntLiteral(1) [110-111] [1]
+                      Alias [112-118] [AS one]
+                        Identifier(one) [115-118] [one]
+                    SelectColumn [120-130] [1+1 AS two]
+                      BinaryExpression(+) [120-123] [1+1]
+                        IntLiteral(1) [120-121] [1]
+                        IntLiteral(1) [122-123] [1]
+                      Alias [124-130] [AS two]
+                        Identifier(two) [127-130] [two]
+            GqlOperatorList [144-165] [MATCH ()     RETURN *]
+              GqlMatch [144-152] [MATCH ()]
+                GraphPattern [150-152] [()]
+                  GraphPathPattern [150-152] [()]
+                    GraphNodePattern [150-152] [()]
+                      GraphElementPatternFiller [151-151] []
+              GqlReturn [157-165] [RETURN *]
+                Select [163-165] [*]
+                  SelectList [164-165] [*]
+                    SelectColumn [164-165] [*]
+                      Star(*) [164-165] [*]
+          Alias [170-172] [g1]
+            Identifier(g1) [170-172] [g1]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    my.graph.name
+    RETURN
+      *
+    NEXT
+    MATCH
+      ()
+    RETURN
+      *
+    NEXT
+    RETURN
+      1 AS one,
+      1 + 1 AS two
+    NEXT
+    MATCH
+      ()
+    RETURN
+      *
+  ) AS g1
+==
+
+# GQL linear composition: correct example.
+select * from
+  graph_table(
+    my.graph.name
+    MATCH (n) -> (m)
+    RETURN *
+    NEXT
+    MATCH (n)
+    RETURN e.id, n.id
+  ) g1
+--
+
+QueryStatement [0-132] [select * from....id   ) g1]
+  Query [0-132] [select * from....id   ) g1]
+    Select [0-132] [select * from....id   ) g1]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-132] [from   graph_tabl....id   ) g1]
+        GraphTableQuery [16-132] [graph_table....id   ) g1]
+          PathExpression [33-46] [my.graph.name]
+            Identifier(my) [33-35] [my]
+            Identifier(graph) [36-41] [graph]
+            Identifier(name) [42-46] [name]
+          GqlOperatorList [51-125] [MATCH (n)...e.id, n.id]
+            GqlOperatorList [51-80] [MATCH (n) -> (m)     RETURN *]
+              GqlMatch [51-67] [MATCH (n) -> (m)]
+                GraphPattern [57-67] [(n) -> (m)]
+                  GraphPathPattern [57-67] [(n) -> (m)]
+                    GraphNodePattern [57-60] [(n)]
+                      GraphElementPatternFiller [58-59] [n]
+                        Identifier(n) [58-59] [n]
+                    GraphEdgePattern [61-63] [->]
+                    GraphNodePattern [64-67] [(m)]
+                      GraphElementPatternFiller [65-66] [m]
+                        Identifier(m) [65-66] [m]
+              GqlReturn [72-80] [RETURN *]
+                Select [78-80] [*]
+                  SelectList [79-80] [*]
+                    SelectColumn [79-80] [*]
+                      Star(*) [79-80] [*]
+            GqlOperatorList [94-125] [MATCH (n)...e.id, n.id]
+              GqlMatch [94-103] [MATCH (n)]
+                GraphPattern [100-103] [(n)]
+                  GraphPathPattern [100-103] [(n)]
+                    GraphNodePattern [100-103] [(n)]
+                      GraphElementPatternFiller [101-102] [n]
+                        Identifier(n) [101-102] [n]
+              GqlReturn [108-125] [RETURN e.id, n.id]
+                Select [114-125] [e.id, n.id]
+                  SelectList [115-125] [e.id, n.id]
+                    SelectColumn [115-119] [e.id]
+                      PathExpression [115-119] [e.id]
+                        Identifier(e) [115-116] [e]
+                        Identifier(id) [117-119] [id]
+                    SelectColumn [121-125] [n.id]
+                      PathExpression [121-125] [n.id]
+                        Identifier(n) [121-122] [n]
+                        Identifier(id) [123-125] [id]
+          Alias [130-132] [g1]
+            Identifier(g1) [130-132] [g1]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    my.graph.name
+    MATCH
+      (n)
+      ->
+      (m)
+    RETURN
+      *
+    NEXT
+    MATCH
+      (n)
+    RETURN
+      e.id,
+      n.id
+  ) AS g1
+==
+
+# GQL linear composition: Without RETURN
+select * from
+  graph_table(my.graph.name
+    MATCH (n) -> (m)
+    MATCH (n), (m)
+  ) g1
+--
+
+ERROR: Syntax error: Unexpected ")" [at 5:3]
+  ) g1
+  ^
+==
+
+# GQL linear composition: multiple matches with RETURN
+select * from graph_table(aml
+  MATCH (a) -> (b)
+  MATCH ((b) -> (c)) Where a.account_id = c.account_id
+  MATCH (c IS Account) -> (a)
+  RETURN a, b, c
+  NEXT
+  MATCH (c) -> (a) WHERE t1.amount + t2.amount = t3.amount
+  MATCH ()
+  RETURN *
+  NEXT
+  RETURN a.account_id as aid, t1.amount as amount1, b.account_id as bid, t2.amount as amount2, c.account_id as cid, t3.amount as amount3, a.account_id as aid2
+)
+
+--
+
+QueryStatement [0-406] [select * from...as aid2 )]
+  Query [0-406] [select * from...as aid2 )]
+    Select [0-406] [select * from...as aid2 )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-406] [from graph_table...as aid2 )]
+        GraphTableQuery [14-406] [graph_table...as aid2 )]
+          PathExpression [26-29] [aml]
+            Identifier(aml) [26-29] [aml]
+          GqlOperatorList [32-404] [MATCH (a)...account_id as aid2]
+            GqlOperatorList [32-150] [MATCH (a)...RETURN a, b, c]
+              GqlMatch [32-48] [MATCH (a) -> (b)]
+                GraphPattern [38-48] [(a) -> (b)]
+                  GraphPathPattern [38-48] [(a) -> (b)]
+                    GraphNodePattern [38-41] [(a)]
+                      GraphElementPatternFiller [39-40] [a]
+                        Identifier(a) [39-40] [a]
+                    GraphEdgePattern [42-44] [->]
+                    GraphNodePattern [45-48] [(b)]
+                      GraphElementPatternFiller [46-47] [b]
+                        Identifier(b) [46-47] [b]
+              GqlMatch [51-103] [MATCH ((b)...account_id]
+                GraphPattern [57-103] [((b) -> (c...account_id]
+                  ParenthesizedGraphPathPattern [57-69] [((b) -> (c))]
+                    GraphNodePattern [58-61] [(b)]
+                      GraphElementPatternFiller [59-60] [b]
+                        Identifier(b) [59-60] [b]
+                    GraphEdgePattern [62-64] [->]
+                    GraphNodePattern [65-68] [(c)]
+                      GraphElementPatternFiller [66-67] [c]
+                        Identifier(c) [66-67] [c]
+                  WhereClause [70-103] [Where a.account_i...account_id]
+                    BinaryExpression(=) [76-103] [a.account_id = c.account_id]
+                      PathExpression [76-88] [a.account_id]
+                        Identifier(a) [76-77] [a]
+                        Identifier(account_id) [78-88] [account_id]
+                      PathExpression [91-103] [c.account_id]
+                        Identifier(c) [91-92] [c]
+                        Identifier(account_id) [93-103] [account_id]
+              GqlMatch [106-133] [MATCH (c IS Account) -> (a)]
+                GraphPattern [112-133] [(c IS Account) -> (a)]
+                  GraphPathPattern [112-133] [(c IS Account) -> (a)]
+                    GraphNodePattern [112-126] [(c IS Account)]
+                      GraphElementPatternFiller [113-125] [c IS Account]
+                        Identifier(c) [113-114] [c]
+                        GraphLabelFilter [115-125] [IS Account]
+                          GraphElementLabel [118-125] [Account]
+                            Identifier(Account) [118-125] [Account]
+                    GraphEdgePattern [127-129] [->]
+                    GraphNodePattern [130-133] [(a)]
+                      GraphElementPatternFiller [131-132] [a]
+                        Identifier(a) [131-132] [a]
+              GqlReturn [136-150] [RETURN a, b, c]
+                Select [142-150] [a, b, c]
+                  SelectList [143-150] [a, b, c]
+                    SelectColumn [143-144] [a]
+                      PathExpression [143-144] [a]
+                        Identifier(a) [143-144] [a]
+                    SelectColumn [146-147] [b]
+                      PathExpression [146-147] [b]
+                        Identifier(b) [146-147] [b]
+                    SelectColumn [149-150] [c]
+                      PathExpression [149-150] [c]
+                        Identifier(c) [149-150] [c]
+            GqlOperatorList [160-238] [MATCH (c)...RETURN *]
+              GqlMatch [160-216] [MATCH (c)...t3.amount]
+                GraphPattern [166-216] [(c) -> (a)...t3.amount]
+                  GraphPathPattern [166-176] [(c) -> (a)]
+                    GraphNodePattern [166-169] [(c)]
+                      GraphElementPatternFiller [167-168] [c]
+                        Identifier(c) [167-168] [c]
+                    GraphEdgePattern [170-172] [->]
+                    GraphNodePattern [173-176] [(a)]
+                      GraphElementPatternFiller [174-175] [a]
+                        Identifier(a) [174-175] [a]
+                  WhereClause [177-216] [WHERE t1.amount...t3.amount]
+                    BinaryExpression(=) [183-216] [t1.amount...t3.amount]
+                      BinaryExpression(+) [183-204] [t1.amount + t2.amount]
+                        PathExpression [183-192] [t1.amount]
+                          Identifier(t1) [183-185] [t1]
+                          Identifier(amount) [186-192] [amount]
+                        PathExpression [195-204] [t2.amount]
+                          Identifier(t2) [195-197] [t2]
+                          Identifier(amount) [198-204] [amount]
+                      PathExpression [207-216] [t3.amount]
+                        Identifier(t3) [207-209] [t3]
+                        Identifier(amount) [210-216] [amount]
+              GqlMatch [219-227] [MATCH ()]
+                GraphPattern [225-227] [()]
+                  GraphPathPattern [225-227] [()]
+                    GraphNodePattern [225-227] [()]
+                      GraphElementPatternFiller [226-226] []
+              GqlReturn [230-238] [RETURN *]
+                Select [236-238] [*]
+                  SelectList [237-238] [*]
+                    SelectColumn [237-238] [*]
+                      Star(*) [237-238] [*]
+            GqlOperatorList [248-404] [RETURN a.account_...id as aid2]
+              GqlReturn [248-404] [RETURN a.account_...id as aid2]
+                Select [254-404] [a.account_id...ount_id as aid2]
+                  SelectList [255-404] [a.account_id...ount_id as aid2]
+                    SelectColumn [255-274] [a.account_id as aid]
+                      PathExpression [255-267] [a.account_id]
+                        Identifier(a) [255-256] [a]
+                        Identifier(account_id) [257-267] [account_id]
+                      Alias [268-274] [as aid]
+                        Identifier(aid) [271-274] [aid]
+                    SelectColumn [276-296] [t1.amount as amount1]
+                      PathExpression [276-285] [t1.amount]
+                        Identifier(t1) [276-278] [t1]
+                        Identifier(amount) [279-285] [amount]
+                      Alias [286-296] [as amount1]
+                        Identifier(amount1) [289-296] [amount1]
+                    SelectColumn [298-317] [b.account_id as bid]
+                      PathExpression [298-310] [b.account_id]
+                        Identifier(b) [298-299] [b]
+                        Identifier(account_id) [300-310] [account_id]
+                      Alias [311-317] [as bid]
+                        Identifier(bid) [314-317] [bid]
+                    SelectColumn [319-339] [t2.amount as amount2]
+                      PathExpression [319-328] [t2.amount]
+                        Identifier(t2) [319-321] [t2]
+                        Identifier(amount) [322-328] [amount]
+                      Alias [329-339] [as amount2]
+                        Identifier(amount2) [332-339] [amount2]
+                    SelectColumn [341-360] [c.account_id as cid]
+                      PathExpression [341-353] [c.account_id]
+                        Identifier(c) [341-342] [c]
+                        Identifier(account_id) [343-353] [account_id]
+                      Alias [354-360] [as cid]
+                        Identifier(cid) [357-360] [cid]
+                    SelectColumn [362-382] [t3.amount as amount3]
+                      PathExpression [362-371] [t3.amount]
+                        Identifier(t3) [362-364] [t3]
+                        Identifier(amount) [365-371] [amount]
+                      Alias [372-382] [as amount3]
+                        Identifier(amount3) [375-382] [amount3]
+                    SelectColumn [384-404] [a.account_id as aid2]
+                      PathExpression [384-396] [a.account_id]
+                        Identifier(a) [384-385] [a]
+                        Identifier(account_id) [386-396] [account_id]
+                      Alias [397-404] [as aid2]
+                        Identifier(aid2) [400-404] [aid2]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+      ->
+      (b)
+    MATCH
+      (
+        (b)
+        ->
+        (c)
+      )
+      WHERE
+        a.account_id = c.account_id
+    MATCH
+      (c
+      IS Account)
+      ->
+      (a)
+    RETURN
+      a,
+      b,
+      c
+    NEXT
+    MATCH
+      (c)
+      ->
+      (a)
+      WHERE
+        t1.amount + t2.amount = t3.amount
+    MATCH
+      ()
+    RETURN
+      *
+    NEXT
+    RETURN
+      a.account_id AS aid,
+      t1.amount AS amount1,
+      b.account_id AS bid,
+      t2.amount AS amount2,
+      c.account_id AS cid,
+      t3.amount AS amount3,
+      a.account_id AS aid2
+  )
+==
+
+# GQL linear composition: RETURN without NEXT
+select * from
+  graph_table(my.graph.name
+    MATCH (n) -> (m)
+    RETURN *
+    MATCH (n)
+    RETURN e.id, n.id
+  ) g1
+--
+
+
+ERROR: Syntax error: Expected ")" or keyword NEXT but got keyword MATCH [at 5:5]
+    MATCH (n)
+    ^
+==
+
+# GQL linear composition: Single RETURN
+select * from
+  graph_table(my.graph.name
+    RETURN 1 AS one, 1+1 AS two
+  ) g1
+
+--
+
+QueryStatement [0-80] [select * from...two   ) g1]
+  Query [0-80] [select * from...two   ) g1]
+    Select [0-80] [select * from...two   ) g1]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-80] [from   graph_tabl...two   ) g1]
+        GraphTableQuery [16-80] [graph_table...two   ) g1]
+          PathExpression [28-41] [my.graph.name]
+            Identifier(my) [28-30] [my]
+            Identifier(graph) [31-36] [graph]
+            Identifier(name) [37-41] [name]
+          GqlOperatorList [46-73] [RETURN 1 AS one, 1+1 AS two]
+            GqlOperatorList [46-73] [RETURN 1 AS one, 1+1 AS two]
+              GqlReturn [46-73] [RETURN 1 AS one, 1+1 AS two]
+                Select [52-73] [1 AS one, 1+1 AS two]
+                  SelectList [53-73] [1 AS one, 1+1 AS two]
+                    SelectColumn [53-61] [1 AS one]
+                      IntLiteral(1) [53-54] [1]
+                      Alias [55-61] [AS one]
+                        Identifier(one) [58-61] [one]
+                    SelectColumn [63-73] [1+1 AS two]
+                      BinaryExpression(+) [63-66] [1+1]
+                        IntLiteral(1) [63-64] [1]
+                        IntLiteral(1) [65-66] [1]
+                      Alias [67-73] [AS two]
+                        Identifier(two) [70-73] [two]
+          Alias [78-80] [g1]
+            Identifier(g1) [78-80] [g1]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    my.graph.name
+    RETURN
+      1 AS one,
+      1 + 1 AS two
+  ) AS g1
+==
+
+# GQL linear composition: Without MATCH
+select * from
+  graph_table(my.graph.name
+    RETURN *
+    NEXT
+    RETURN e.id, n.id
+    NEXT
+    RETURN 1 AS one, 1+1 AS two
+  ) g1
+
+--
+
+QueryStatement [0-133] [select * from...two   ) g1]
+  Query [0-133] [select * from...two   ) g1]
+    Select [0-133] [select * from...two   ) g1]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-133] [from   graph_tabl...two   ) g1]
+        GraphTableQuery [16-133] [graph_table...two   ) g1]
+          PathExpression [28-41] [my.graph.name]
+            Identifier(my) [28-30] [my]
+            Identifier(graph) [31-36] [graph]
+            Identifier(name) [37-41] [name]
+          GqlOperatorList [46-126] [RETURN *...1+1 AS two]
+            GqlOperatorList [46-54] [RETURN *]
+              GqlReturn [46-54] [RETURN *]
+                Select [52-54] [*]
+                  SelectList [53-54] [*]
+                    SelectColumn [53-54] [*]
+                      Star(*) [53-54] [*]
+            GqlOperatorList [68-85] [RETURN e.id, n.id]
+              GqlReturn [68-85] [RETURN e.id, n.id]
+                Select [74-85] [e.id, n.id]
+                  SelectList [75-85] [e.id, n.id]
+                    SelectColumn [75-79] [e.id]
+                      PathExpression [75-79] [e.id]
+                        Identifier(e) [75-76] [e]
+                        Identifier(id) [77-79] [id]
+                    SelectColumn [81-85] [n.id]
+                      PathExpression [81-85] [n.id]
+                        Identifier(n) [81-82] [n]
+                        Identifier(id) [83-85] [id]
+            GqlOperatorList [99-126] [RETURN 1 AS one, 1+1 AS two]
+              GqlReturn [99-126] [RETURN 1 AS one, 1+1 AS two]
+                Select [105-126] [1 AS one, 1+1 AS two]
+                  SelectList [106-126] [1 AS one, 1+1 AS two]
+                    SelectColumn [106-114] [1 AS one]
+                      IntLiteral(1) [106-107] [1]
+                      Alias [108-114] [AS one]
+                        Identifier(one) [111-114] [one]
+                    SelectColumn [116-126] [1+1 AS two]
+                      BinaryExpression(+) [116-119] [1+1]
+                        IntLiteral(1) [116-117] [1]
+                        IntLiteral(1) [118-119] [1]
+                      Alias [120-126] [AS two]
+                        Identifier(two) [123-126] [two]
+          Alias [131-133] [g1]
+            Identifier(g1) [131-133] [g1]
+
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    my.graph.name
+    RETURN
+      *
+    NEXT
+    RETURN
+      e.id,
+      n.id
+    NEXT
+    RETURN
+      1 AS one,
+      1 + 1 AS two
+  ) AS g1
+==
+
+# GQL linear composition: consecutive RETURN without NEXT
+select * from
+  graph_table(my.graph.name
+    RETURN *
+    RETURN e.id, n.id
+    RETURN *
+  ) g1
+--
+
+ERROR: Syntax error: Expected ")" or keyword NEXT but got keyword RETURN [at 4:5]
+    RETURN e.id, n.id
+    ^
+
+==
+
+# Star can appear with other return items.
+select * from
+  graph_table(aml
+    RETURN
+      2 AS one,
+      1 AS two,
+      "string" AS str
+    NEXT
+    RETURN
+      1 AS one,
+      1 + 1 AS two
+    NEXT
+    RETURN one, *, one
+  ) g1
+--
+QueryStatement [0-190] [select * from...one   ) g1]
+  Query [0-190] [select * from...one   ) g1]
+    Select [0-190] [select * from...one   ) g1]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-190] [from   graph_tabl...one   ) g1]
+        GraphTableQuery [16-190] [graph_table...one   ) g1]
+          PathExpression [28-31] [aml]
+            Identifier(aml) [28-31] [aml]
+          GqlOperatorList [36-183] [RETURN...one, *, one]
+            GqlOperatorList [36-96] [RETURN...string" AS str]
+              GqlReturn [36-96] [RETURN...string" AS str]
+                Select [42-96] [2 AS one,...string" AS str]
+                  SelectList [49-96] [2 AS one,...string" AS str]
+                    SelectColumn [49-57] [2 AS one]
+                      IntLiteral(2) [49-50] [2]
+                      Alias [51-57] [AS one]
+                        Identifier(one) [54-57] [one]
+                    SelectColumn [65-73] [1 AS two]
+                      IntLiteral(1) [65-66] [1]
+                      Alias [67-73] [AS two]
+                        Identifier(two) [70-73] [two]
+                    SelectColumn [81-96] ["string" AS str]
+                      StringLiteral [81-89] ["string"]
+                        StringLiteralComponent("string") [81-89] ["string"]
+                      Alias [90-96] [AS str]
+                        Identifier(str) [93-96] [str]
+            GqlOperatorList [110-151] [RETURN...+ 1 AS two]
+              GqlReturn [110-151] [RETURN...+ 1 AS two]
+                Select [116-151] [1 AS one,       1 + 1 AS two]
+                  SelectList [123-151] [1 AS one,       1 + 1 AS two]
+                    SelectColumn [123-131] [1 AS one]
+                      IntLiteral(1) [123-124] [1]
+                      Alias [125-131] [AS one]
+                        Identifier(one) [128-131] [one]
+                    SelectColumn [139-151] [1 + 1 AS two]
+                      BinaryExpression(+) [139-144] [1 + 1]
+                        IntLiteral(1) [139-140] [1]
+                        IntLiteral(1) [143-144] [1]
+                      Alias [145-151] [AS two]
+                        Identifier(two) [148-151] [two]
+            GqlOperatorList [165-183] [RETURN one, *, one]
+              GqlReturn [165-183] [RETURN one, *, one]
+                Select [171-183] [one, *, one]
+                  SelectList [172-183] [one, *, one]
+                    SelectColumn [172-175] [one]
+                      PathExpression [172-175] [one]
+                        Identifier(one) [172-175] [one]
+                    SelectColumn [177-178] [*]
+                      Star(*) [177-178] [*]
+                    SelectColumn [180-183] [one]
+                      PathExpression [180-183] [one]
+                        Identifier(one) [180-183] [one]
+          Alias [188-190] [g1]
+            Identifier(g1) [188-190] [g1]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    RETURN
+      2 AS one,
+      1 AS two,
+      "string" AS str
+    NEXT
+    RETURN
+      1 AS one,
+      1 + 1 AS two
+    NEXT
+    RETURN
+      one,
+      *,
+      one
+  ) AS g1
+==
+
+# Star can appear with other return items.
+select * from
+  graph_table(aml
+    RETURN
+      1 AS one,
+      1 + 1 AS two
+    NEXT
+    RETURN *, one
+  ) g1
+--
+QueryStatement [0-111] [select * from...one   ) g1]
+  Query [0-111] [select * from...one   ) g1]
+    Select [0-111] [select * from...one   ) g1]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-111] [from   graph_tabl...one   ) g1]
+        GraphTableQuery [16-111] [graph_table...one   ) g1]
+          PathExpression [28-31] [aml]
+            Identifier(aml) [28-31] [aml]
+          GqlOperatorList [36-104] [RETURN...RETURN *, one]
+            GqlOperatorList [36-77] [RETURN...+ 1 AS two]
+              GqlReturn [36-77] [RETURN...+ 1 AS two]
+                Select [42-77] [1 AS one,       1 + 1 AS two]
+                  SelectList [49-77] [1 AS one,       1 + 1 AS two]
+                    SelectColumn [49-57] [1 AS one]
+                      IntLiteral(1) [49-50] [1]
+                      Alias [51-57] [AS one]
+                        Identifier(one) [54-57] [one]
+                    SelectColumn [65-77] [1 + 1 AS two]
+                      BinaryExpression(+) [65-70] [1 + 1]
+                        IntLiteral(1) [65-66] [1]
+                        IntLiteral(1) [69-70] [1]
+                      Alias [71-77] [AS two]
+                        Identifier(two) [74-77] [two]
+            GqlOperatorList [91-104] [RETURN *, one]
+              GqlReturn [91-104] [RETURN *, one]
+                Select [97-104] [*, one]
+                  SelectList [98-104] [*, one]
+                    SelectColumn [98-99] [*]
+                      Star(*) [98-99] [*]
+                    SelectColumn [101-104] [one]
+                      PathExpression [101-104] [one]
+                        Identifier(one) [101-104] [one]
+          Alias [109-111] [g1]
+            Identifier(g1) [109-111] [g1]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    RETURN
+      1 AS one,
+      1 + 1 AS two
+    NEXT
+    RETURN
+      *,
+      one
+  ) AS g1
+==
+
+# Multiple *, this will be a resolver error
+select * from
+  graph_table(aml
+    MATCH(n)
+    RETURN *, 1 as id, *
+  ) g1
+--
+QueryStatement [0-76] [select * from..., *   ) g1]
+  Query [0-76] [select * from..., *   ) g1]
+    Select [0-76] [select * from..., *   ) g1]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-76] [from   graph_tabl..., *   ) g1]
+        GraphTableQuery [16-76] [graph_table..., *   ) g1]
+          PathExpression [28-31] [aml]
+            Identifier(aml) [28-31] [aml]
+          GqlOperatorList [36-69] [MATCH(n)...1 as id, *]
+            GqlOperatorList [36-69] [MATCH(n)...1 as id, *]
+              GqlMatch [36-44] [MATCH(n)]
+                GraphPattern [41-44] [(n)]
+                  GraphPathPattern [41-44] [(n)]
+                    GraphNodePattern [41-44] [(n)]
+                      GraphElementPatternFiller [42-43] [n]
+                        Identifier(n) [42-43] [n]
+              GqlReturn [49-69] [RETURN *, 1 as id, *]
+                Select [55-69] [*, 1 as id, *]
+                  SelectList [56-69] [*, 1 as id, *]
+                    SelectColumn [56-57] [*]
+                      Star(*) [56-57] [*]
+                    SelectColumn [59-66] [1 as id]
+                      IntLiteral(1) [59-60] [1]
+                      Alias [61-66] [as id]
+                        Identifier(id) [64-66] [id]
+                    SelectColumn [68-69] [*]
+                      Star(*) [68-69] [*]
+          Alias [74-76] [g1]
+            Identifier(g1) [74-76] [g1]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (n)
+    RETURN
+      *,
+      1 AS id,
+      *
+  ) AS g1
+==
+
+# Star cannot appear with EXCEPT.
+[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+select * from
+  graph_table(aml
+    RETURN
+      1 AS one,
+      1 + 1 AS two
+    NEXT
+    RETURN * EXCEPT (one)
+  ) g1
+--
+ERROR: Syntax error: Expected ")" or keyword NEXT but got keyword EXCEPT [at 7:14]
+    RETURN * EXCEPT (one)
+             ^
+==
+
+# Dotstar is not allowed.
+select * from
+  graph_table(aml
+    RETURN
+      2 AS one,
+      1 AS two,
+      "string" AS str
+    NEXT
+    RETURN
+      1 AS one,
+      1 + 1 AS two
+    NEXT
+    RETURN two, one.*, 3 AS three
+  ) g1
+--
+ERROR: Syntax error: Unexpected "*" [at 12:21]
+    RETURN two, one.*, 3 AS three
+                    ^
+==
+
+# Optional match
+select * from
+  graph_table(my.graph.name
+    OPTIONAL MATCH (n) -> (m)
+  ) g1
+
+--
+
+ERROR: Syntax error: Unexpected ")" [at 4:3]
+  ) g1
+  ^
+
+==
+
+# Optional match doesn't work with COLUMNS clause
+select * from
+  graph_table(my.graph.name
+    MATCH (n)
+    OPTIONAL MATCH (n) -> (m)
+    COLUMNS (n.name)
+  ) g1
+
+--
+
+ERROR: Syntax error: Unexpected keyword COLUMNS [at 5:5]
+    COLUMNS (n.name)
+    ^
+
+==
+
+# Optional match
+select * from
+  graph_table(my.graph.name
+    MATCH (n)
+    OPTIONAL MATCH (n) -> (m)
+    OPTIONAL MATCH (m) -> (o)
+    RETURN *
+  ) g1
+
+--
+
+QueryStatement [0-135] [select * from...ETURN *   ) g1]
+  Query [0-135] [select * from...ETURN *   ) g1]
+    Select [0-135] [select * from...ETURN *   ) g1]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-135] [from   graph_tabl...N *   ) g1]
+        GraphTableQuery [16-135] [graph_table...RETURN *   ) g1]
+          PathExpression [28-41] [my.graph.name]
+            Identifier(my) [28-30] [my]
+            Identifier(graph) [31-36] [graph]
+            Identifier(name) [37-41] [name]
+          GqlOperatorList [46-128] [MATCH (n)...RETURN *]
+            GqlOperatorList [46-128] [MATCH (n)...RETURN *]
+              GqlMatch [46-55] [MATCH (n)]
+                GraphPattern [52-55] [(n)]
+                  GraphPathPattern [52-55] [(n)]
+                    GraphNodePattern [52-55] [(n)]
+                      GraphElementPatternFiller [53-54] [n]
+                        Identifier(n) [53-54] [n]
+              GqlMatch (optional) [60-85] [OPTIONAL MATCH (n) -> (m)]
+                GraphPattern [75-85] [(n) -> (m)]
+                  GraphPathPattern [75-85] [(n) -> (m)]
+                    GraphNodePattern [75-78] [(n)]
+                      GraphElementPatternFiller [76-77] [n]
+                        Identifier(n) [76-77] [n]
+                    GraphEdgePattern [79-81] [->]
+                    GraphNodePattern [82-85] [(m)]
+                      GraphElementPatternFiller [83-84] [m]
+                        Identifier(m) [83-84] [m]
+              GqlMatch (optional) [90-115] [OPTIONAL MATCH (m) -> (o)]
+                GraphPattern [105-115] [(m) -> (o)]
+                  GraphPathPattern [105-115] [(m) -> (o)]
+                    GraphNodePattern [105-108] [(m)]
+                      GraphElementPatternFiller [106-107] [m]
+                        Identifier(m) [106-107] [m]
+                    GraphEdgePattern [109-111] [->]
+                    GraphNodePattern [112-115] [(o)]
+                      GraphElementPatternFiller [113-114] [o]
+                        Identifier(o) [113-114] [o]
+              GqlReturn [120-128] [RETURN *]
+                Select [126-128] [*]
+                  SelectList [127-128] [*]
+                    SelectColumn [127-128] [*]
+                      Star(*) [127-128] [*]
+          Alias [133-135] [g1]
+            Identifier(g1) [133-135] [g1]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    my.graph.name
+    MATCH
+      (n)
+    OPTIONAL MATCH
+      (n)
+      ->
+      (m)
+    OPTIONAL MATCH
+      (m)
+      ->
+      (o)
+    RETURN
+      *
+  ) AS g1
+
+==
+
+# Confusing graph name optional should not be parsed as OPTIONAL MATCH
+select * from
+  graph_table(optional
+    MATCH (n)
+  ) g1
+
+--
+
+QueryStatement [0-57] [select * from...(n)   ) g1]
+  Query [0-57] [select * from...(n)   ) g1]
+    Select [0-57] [select * from...(n)   ) g1]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-57] [from   graph_tabl...(n)   ) g1]
+        GraphTableQuery [16-57] [graph_table...(n)   ) g1]
+          PathExpression [28-36] [optional]
+            Identifier(optional) [28-36] [optional]
+          GqlMatch [41-50] [MATCH (n)]
+            GraphPattern [47-50] [(n)]
+              GraphPathPattern [47-50] [(n)]
+                GraphNodePattern [47-50] [(n)]
+                  GraphElementPatternFiller [48-49] [n]
+                    Identifier(n) [48-49] [n]
+          Alias [55-57] [g1]
+            Identifier(g1) [55-57] [g1]
+
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    optional
+    MATCH
+      (n)
+  ) AS g1
+
+==
+
+select * from
+graph_table(
+  graph
+  match (n)
+) tablesample reservoir (10 rows)
+--
+QueryStatement [0-80] [select * from...(10 rows)]
+  Query [0-80] [select * from...(10 rows)]
+    Select [0-80] [select * from...(10 rows)]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-80] [from graph_table...(10 rows)]
+        GraphTableQuery [14-80] [graph_table...(10 rows)]
+          PathExpression [29-34] [graph]
+            Identifier(graph) [29-34] [graph]
+          GqlMatch [37-46] [match (n)]
+            GraphPattern [43-46] [(n)]
+              GraphPathPattern [43-46] [(n)]
+                GraphNodePattern [43-46] [(n)]
+                  GraphElementPatternFiller [44-45] [n]
+                    Identifier(n) [44-45] [n]
+          SampleClause [49-80] [tablesample...(10 rows)]
+            Identifier(reservoir) [61-70] [reservoir]
+            SampleSize [72-79] [10 rows]
+              IntLiteral(10) [72-74] [10]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    graph
+    MATCH
+      (n)
+  ) TABLESAMPLE reservoir(10 ROWS)
+
+==
+
+select * from
+graph_table(
+  graph
+  match (n)
+  return n.id
+) tablesample reservoir (10 rows)
+--
+QueryStatement [0-94] [select * from...(10 rows)]
+  Query [0-94] [select * from...(10 rows)]
+    Select [0-94] [select * from...(10 rows)]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-94] [from graph_table...(10 rows)]
+        GraphTableQuery [14-94] [graph_table...(10 rows)]
+          PathExpression [29-34] [graph]
+            Identifier(graph) [29-34] [graph]
+          GqlOperatorList [37-60] [match (n)   return n.id]
+            GqlOperatorList [37-60] [match (n)   return n.id]
+              GqlMatch [37-46] [match (n)]
+                GraphPattern [43-46] [(n)]
+                  GraphPathPattern [43-46] [(n)]
+                    GraphNodePattern [43-46] [(n)]
+                      GraphElementPatternFiller [44-45] [n]
+                        Identifier(n) [44-45] [n]
+              GqlReturn [49-60] [return n.id]
+                Select [55-60] [n.id]
+                  SelectList [56-60] [n.id]
+                    SelectColumn [56-60] [n.id]
+                      PathExpression [56-60] [n.id]
+                        Identifier(n) [56-57] [n]
+                        Identifier(id) [58-60] [id]
+          SampleClause [63-94] [tablesample...(10 rows)]
+            Identifier(reservoir) [75-84] [reservoir]
+            SampleSize [86-93] [10 rows]
+              IntLiteral(10) [86-88] [10]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    graph
+    MATCH
+      (n)
+    RETURN
+      n.id
+  ) TABLESAMPLE reservoir(10 ROWS)
+==
+
+SELECT
+  *, n IS LABELED (Person & Accountant)
+FROM
+  GRAPH_TABLE(g
+    MATCH (n IS Person | Building) WHERE n IS NOT LABELED TaxEntity
+    COLUMNS (n IS LABELED Student AS is_student)
+  );
+--
+QueryStatement [0-188] [SELECT   *...is_student)   )]
+  Query [0-188] [SELECT   *...is_student)   )]
+    Select [0-188] [SELECT   *...is_student)   )]
+      SelectList [9-46] [*, n IS LABELED...Accountant)]
+        SelectColumn [9-10] [*]
+          Star(*) [9-10] [*]
+        SelectColumn [12-46] [n IS LABELED...Accountant)]
+          GraphIsLabeledPredicate [12-46] [n IS LABELED...Accountant)]
+            PathExpression [12-13] [n]
+              Identifier(n) [12-13] [n]
+            GraphLabelOperation(AND) [26-45] [Person & Accountant]
+              GraphElementLabel [26-32] [Person]
+                Identifier(Person) [26-32] [Person]
+              GraphElementLabel [35-45] [Accountant]
+                Identifier(Accountant) [35-45] [Accountant]
+      FromClause [47-188] [FROM   GRAPH_TABL...udent)   )]
+        GraphTableQuery [54-188] [GRAPH_TABLE...is_student)   )]
+          PathExpression [66-67] [g]
+            Identifier(g) [66-67] [g]
+          GqlMatch [72-135] [MATCH (n IS...TaxEntity]
+            GraphPattern [78-135] [(n IS Person...TaxEntity]
+              GraphPathPattern [78-102] [(n IS Person | Building)]
+                GraphNodePattern [78-102] [(n IS Person | Building)]
+                  GraphElementPatternFiller [79-101] [n IS Person | Building]
+                    Identifier(n) [79-80] [n]
+                    GraphLabelFilter [81-101] [IS Person | Building]
+                      GraphLabelOperation(OR) [84-101] [Person | Building]
+                        GraphElementLabel [84-90] [Person]
+                          Identifier(Person) [84-90] [Person]
+                        GraphElementLabel [93-101] [Building]
+                          Identifier(Building) [93-101] [Building]
+              WhereClause [103-135] [WHERE n IS...TaxEntity]
+                GraphIsLabeledPredicate [109-135] [n IS NOT LABELED TaxEntity]
+                  PathExpression [109-110] [n]
+                    Identifier(n) [109-110] [n]
+                  GraphElementLabel [126-135] [TaxEntity]
+                    Identifier(TaxEntity) [126-135] [TaxEntity]
+          SelectList [149-183] [n IS LABELED...is_student]
+            SelectColumn [149-183] [n IS LABELED...is_student]
+              GraphIsLabeledPredicate [149-169] [n IS LABELED Student]
+                PathExpression [149-150] [n]
+                  Identifier(n) [149-150] [n]
+                GraphElementLabel [162-169] [Student]
+                  Identifier(Student) [162-169] [Student]
+              Alias [170-183] [AS is_student]
+                Identifier(is_student) [173-183] [is_student]
+--
+SELECT
+  *,
+  n IS LABELED(Person & Accountant)
+FROM
+  GRAPH_TABLE(
+    g
+    MATCH
+      (n
+      IS Person | Building)
+      WHERE
+        n IS NOT LABELED TaxEntity
+    COLUMNS(
+      n IS LABELED Student AS is_student
+    )
+  )
+==
+
+# Labeled used as an identifier in a label-expr, followed by `)`
+SELECT
+  *
+FROM
+  GRAPH_TABLE(g
+    MATCH (n IS LABELED)
+    COLUMNS (n IS LABELED Student AS is_student)
+  );
+--
+QueryStatement [0-109] [SELECT   *...is_student)   )]
+  Query [0-109] [SELECT   *...is_student)   )]
+    Select [0-109] [SELECT   *...is_student)   )]
+      SelectList [9-10] [*]
+        SelectColumn [9-10] [*]
+          Star(*) [9-10] [*]
+      FromClause [11-109] [FROM   GRAPH_TABL...udent)   )]
+        GraphTableQuery [18-109] [GRAPH_TABLE...is_student)   )]
+          PathExpression [30-31] [g]
+            Identifier(g) [30-31] [g]
+          GqlMatch [36-56] [MATCH (n IS LABELED)]
+            GraphPattern [42-56] [(n IS LABELED)]
+              GraphPathPattern [42-56] [(n IS LABELED)]
+                GraphNodePattern [42-56] [(n IS LABELED)]
+                  GraphElementPatternFiller [43-55] [n IS LABELED]
+                    Identifier(n) [43-44] [n]
+                    GraphLabelFilter [45-55] [IS LABELED]
+                      GraphElementLabel [48-55] [LABELED]
+                        Identifier(LABELED) [48-55] [LABELED]
+          SelectList [70-104] [n IS LABELED...is_student]
+            SelectColumn [70-104] [n IS LABELED...is_student]
+              GraphIsLabeledPredicate [70-90] [n IS LABELED Student]
+                PathExpression [70-71] [n]
+                  Identifier(n) [70-71] [n]
+                GraphElementLabel [83-90] [Student]
+                  Identifier(Student) [83-90] [Student]
+              Alias [91-104] [AS is_student]
+                Identifier(is_student) [94-104] [is_student]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    g
+    MATCH
+      (n
+      IS LABELED)
+    COLUMNS(
+      n IS LABELED Student AS is_student
+    )
+  )
+==
+
+# LABELED used as a identifier in label-expr followed by |
+SELECT
+  *
+FROM
+  GRAPH_TABLE(g
+    MATCH (n IS LABELED | LABELED)
+    COLUMNS (n IS LABELED Student AS is_student)
+  );
+--
+QueryStatement [0-119] [SELECT   *...is_student)   )]
+  Query [0-119] [SELECT   *...is_student)   )]
+    Select [0-119] [SELECT   *...is_student)   )]
+      SelectList [9-10] [*]
+        SelectColumn [9-10] [*]
+          Star(*) [9-10] [*]
+      FromClause [11-119] [FROM   GRAPH_TABL...udent)   )]
+        GraphTableQuery [18-119] [GRAPH_TABLE...is_student)   )]
+          PathExpression [30-31] [g]
+            Identifier(g) [30-31] [g]
+          GqlMatch [36-66] [MATCH (n IS LABELED | LABELED)]
+            GraphPattern [42-66] [(n IS LABELED | LABELED)]
+              GraphPathPattern [42-66] [(n IS LABELED | LABELED)]
+                GraphNodePattern [42-66] [(n IS LABELED | LABELED)]
+                  GraphElementPatternFiller [43-65] [n IS LABELED | LABELED]
+                    Identifier(n) [43-44] [n]
+                    GraphLabelFilter [45-65] [IS LABELED | LABELED]
+                      GraphLabelOperation(OR) [48-65] [LABELED | LABELED]
+                        GraphElementLabel [48-55] [LABELED]
+                          Identifier(LABELED) [48-55] [LABELED]
+                        GraphElementLabel [58-65] [LABELED]
+                          Identifier(LABELED) [58-65] [LABELED]
+          SelectList [80-114] [n IS LABELED...is_student]
+            SelectColumn [80-114] [n IS LABELED...is_student]
+              GraphIsLabeledPredicate [80-100] [n IS LABELED Student]
+                PathExpression [80-81] [n]
+                  Identifier(n) [80-81] [n]
+                GraphElementLabel [93-100] [Student]
+                  Identifier(Student) [93-100] [Student]
+              Alias [101-114] [AS is_student]
+                Identifier(is_student) [104-114] [is_student]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    g
+    MATCH
+      (n
+      IS LABELED | LABELED)
+    COLUMNS(
+      n IS LABELED Student AS is_student
+    )
+  )
+==
+
+# LABELED used as a identifier in label-expr followed by &
+SELECT
+  *
+FROM
+  GRAPH_TABLE(g
+    MATCH (n IS LABELED & (% | LABELED))
+    COLUMNS (n IS LABELED Student AS is_student)
+  );
+--
+QueryStatement [0-125] [SELECT   *...is_student)   )]
+  Query [0-125] [SELECT   *...is_student)   )]
+    Select [0-125] [SELECT   *...is_student)   )]
+      SelectList [9-10] [*]
+        SelectColumn [9-10] [*]
+          Star(*) [9-10] [*]
+      FromClause [11-125] [FROM   GRAPH_TABL...udent)   )]
+        GraphTableQuery [18-125] [GRAPH_TABLE...is_student)   )]
+          PathExpression [30-31] [g]
+            Identifier(g) [30-31] [g]
+          GqlMatch [36-72] [MATCH (n IS...LABELED))]
+            GraphPattern [42-72] [(n IS LABELED & (% | LABELED))]
+              GraphPathPattern [42-72] [(n IS LABELED & (% | LABELED))]
+                GraphNodePattern [42-72] [(n IS LABELED & (% | LABELED))]
+                  GraphElementPatternFiller [43-71] [n IS LABELED & (% | LABELED)]
+                    Identifier(n) [43-44] [n]
+                    GraphLabelFilter [45-71] [IS LABELED & (% | LABELED)]
+                      GraphLabelOperation(AND) [48-71] [LABELED & (% | LABELED)]
+                        GraphElementLabel [48-55] [LABELED]
+                          Identifier(LABELED) [48-55] [LABELED]
+                        GraphLabelOperation(OR) [59-70] [% | LABELED]
+                          GraphWildcardLabel [59-60] [%]
+                          GraphElementLabel [63-70] [LABELED]
+                            Identifier(LABELED) [63-70] [LABELED]
+          SelectList [86-120] [n IS LABELED...is_student]
+            SelectColumn [86-120] [n IS LABELED...is_student]
+              GraphIsLabeledPredicate [86-106] [n IS LABELED Student]
+                PathExpression [86-87] [n]
+                  Identifier(n) [86-87] [n]
+                GraphElementLabel [99-106] [Student]
+                  Identifier(Student) [99-106] [Student]
+              Alias [107-120] [AS is_student]
+                Identifier(is_student) [110-120] [is_student]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    g
+    MATCH
+      (n
+      IS LABELED &(% | LABELED))
+    COLUMNS(
+      n IS LABELED Student AS is_student
+    )
+  )
+==
+
+# IS LABELED with expressions on LHS instead of identifiers
+SELECT
+  ARRAY_FIRST(x) IS LABELED y AS col1, EDGES(a)[1] IS LABELED b
+FROM
+  GRAPH_TABLE(g
+    MATCH (n IS LABELED & (% | LABELED))
+    COLUMNS (ARRAY_FIRST(x) IS SOURCE ARRAY_LAST(y) as col2)
+  );
+--
+QueryStatement [0-197] [SELECT   ARRAY_FI...col2)   )]
+  Query [0-197] [SELECT   ARRAY_FI...col2)   )]
+    Select [0-197] [SELECT   ARRAY_FI...col2)   )]
+      SelectList [9-70] [ARRAY_FIRST...LABELED b]
+        SelectColumn [9-44] [ARRAY_FIRST...y AS col1]
+          GraphIsLabeledPredicate [9-36] [ARRAY_FIRST(x) IS LABELED y]
+            FunctionCall [9-23] [ARRAY_FIRST(x)]
+              PathExpression [9-20] [ARRAY_FIRST]
+                Identifier(ARRAY_FIRST) [9-20] [ARRAY_FIRST]
+              PathExpression [21-22] [x]
+                Identifier(x) [21-22] [x]
+            GraphElementLabel [35-36] [y]
+              Identifier(y) [35-36] [y]
+          Alias [37-44] [AS col1]
+            Identifier(col1) [40-44] [col1]
+        SelectColumn [46-70] [EDGES(a)[1] IS LABELED b]
+          GraphIsLabeledPredicate [46-70] [EDGES(a)[1] IS LABELED b]
+            ArrayElement [46-57] [EDGES(a)[1]]
+              FunctionCall [46-54] [EDGES(a)]
+                PathExpression [46-51] [EDGES]
+                  Identifier(EDGES) [46-51] [EDGES]
+                PathExpression [52-53] [a]
+                  Identifier(a) [52-53] [a]
+              Location [54-55] [[]
+              IntLiteral(1) [55-56] [1]
+            GraphElementLabel [69-70] [b]
+              Identifier(b) [69-70] [b]
+      FromClause [71-197] [FROM   GRAPH_TABL...col2)   )]
+        GraphTableQuery [78-197] [GRAPH_TABLE...col2)   )]
+          PathExpression [90-91] [g]
+            Identifier(g) [90-91] [g]
+          GqlMatch [96-132] [MATCH (n IS...LABELED))]
+            GraphPattern [102-132] [(n IS LABELED & (% | LABELED))]
+              GraphPathPattern [102-132] [(n IS LABELED & (% | LABELED))]
+                GraphNodePattern [102-132] [(n IS LABELED & (% | LABELED))]
+                  GraphElementPatternFiller [103-131] [n IS LABELED & (% | LABELED)]
+                    Identifier(n) [103-104] [n]
+                    GraphLabelFilter [105-131] [IS LABELED & (% | LABELED)]
+                      GraphLabelOperation(AND) [108-131] [LABELED & (% | LABELED)]
+                        GraphElementLabel [108-115] [LABELED]
+                          Identifier(LABELED) [108-115] [LABELED]
+                        GraphLabelOperation(OR) [119-130] [% | LABELED]
+                          GraphWildcardLabel [119-120] [%]
+                          GraphElementLabel [123-130] [LABELED]
+                            Identifier(LABELED) [123-130] [LABELED]
+          SelectList [146-192] [ARRAY_FIRST...y) as col2]
+            SelectColumn [146-192] [ARRAY_FIRST...y) as col2]
+              BinaryExpression(IS SOURCE OF) [146-184] [ARRAY_FIRST...ARRAY_LAST(y)]
+                FunctionCall [146-160] [ARRAY_FIRST(x)]
+                  PathExpression [146-157] [ARRAY_FIRST]
+                    Identifier(ARRAY_FIRST) [146-157] [ARRAY_FIRST]
+                  PathExpression [158-159] [x]
+                    Identifier(x) [158-159] [x]
+                FunctionCall [171-184] [ARRAY_LAST(y)]
+                  PathExpression [171-181] [ARRAY_LAST]
+                    Identifier(ARRAY_LAST) [171-181] [ARRAY_LAST]
+                  PathExpression [182-183] [y]
+                    Identifier(y) [182-183] [y]
+              Alias [185-192] [as col2]
+                Identifier(col2) [188-192] [col2]
+--
+SELECT
+  ARRAY_FIRST(x) IS LABELED y AS col1,
+  EDGES(a)[1] IS LABELED b
+FROM
+  GRAPH_TABLE(
+    g
+    MATCH
+      (n
+      IS LABELED &(% | LABELED))
+    COLUMNS(
+      ARRAY_FIRST(x) IS SOURCE OF ARRAY_LAST(y) AS col2
+    )
+  )

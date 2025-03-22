@@ -38,6 +38,9 @@ message TestDatabaseProto {
   // Set of CREATE PROPERTY GRAPH statements.
   reserved 6;  // Used to be SimplePropertyGraphProtos before, not used anymore.
   repeated TestPropertyGraphProto property_graphs = 7;
+
+  // Set of CREATE TABLE FUNCTION statements. Names are required to be unique.
+  repeated TestTVFProto tvfs = 8;
 }
 
 message TestTableOptionsProto {
@@ -82,6 +85,12 @@ message TestTableProto {
 message TypeAndValue {
   optional zetasql.ValueProto value = 1;
   optional zetasql.TypeProto type = 2;
+}
+
+message TestTVFProto {
+  optional string name = 1;  // Local name of the TVF. This is grabbed from the
+                             // CREATE TABLE FUNCTION statement.
+  optional string create_stmt = 2;  // The CREATE TABLE FUNCTION statement.
 }
 
 message TestPropertyGraphProto {

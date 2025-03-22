@@ -1439,10 +1439,10 @@ ERROR: Table-valued function not found: group_rows [at 1:16]
 [allow_aggregate_standalone_expression]
 [in_scope_expression_column_name=value]
 [in_scope_expression_column_type=int64]
-SUM(ANY_VALUE(value) GROUP BY value) / MIN(value + MAX(value) GROUP BY value)
+SUM(ANY_VALUE(value) GROUP BY value) / MIN(AVG(value) + MAX(value) GROUP BY value)
 --
 FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
-+-parse_location=0-77
++-parse_location=0-82
 +-Cast(INT64 -> DOUBLE)
 | +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
 |   +-parse_location=0-36
@@ -1454,17 +1454,37 @@ FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
 |       +-AggregateFunctionCall(ZetaSQL:any_value(INT64) -> INT64)
 |         +-parse_location=4-20
 |         +-ExpressionColumn(parse_location=14-19, type=INT64, name="value")
-+-Cast(INT64 -> DOUBLE)
-  +-AggregateFunctionCall(ZetaSQL:min(INT64) -> INT64)
-    +-parse_location=39-77
-    +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
-      +-parse_location=43-61
-      +-ExpressionColumn(parse_location=43-48, type=INT64, name="value")
-      +-ColumnRef(type=INT64, column=$aggregate.$agg1#4)
-    +-group_by_list=
-    | +-$groupbymod#3 := ExpressionColumn(parse_location=71-76, type=INT64, name="value")
-    +-group_by_aggregate_list=
-      +-$agg1#4 :=
-        +-AggregateFunctionCall(ZetaSQL:max(INT64) -> INT64)
-          +-parse_location=51-61
-          +-ExpressionColumn(parse_location=55-60, type=INT64, name="value")
++-AggregateFunctionCall(ZetaSQL:min(DOUBLE) -> DOUBLE)
+  +-parse_location=39-82
+  +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    +-parse_location=43-66
+    +-ColumnRef(type=DOUBLE, column=$aggregate.$agg1#4)
+    +-Cast(INT64 -> DOUBLE)
+      +-ColumnRef(type=INT64, column=$aggregate.$agg2#5)
+  +-group_by_list=
+  | +-$groupbymod#3 := ExpressionColumn(parse_location=76-81, type=INT64, name="value")
+  +-group_by_aggregate_list=
+    +-$agg1#4 :=
+    | +-AggregateFunctionCall(ZetaSQL:avg(INT64) -> DOUBLE)
+    |   +-parse_location=43-53
+    |   +-ExpressionColumn(parse_location=47-52, type=INT64, name="value")
+    +-$agg2#5 :=
+      +-AggregateFunctionCall(ZetaSQL:max(INT64) -> INT64)
+        +-parse_location=56-66
+        +-ExpressionColumn(parse_location=60-65, type=INT64, name="value")
+==
+
+[language_features=V_1_4_MULTILEVEL_AGGREGATION]
+[allow_aggregate_standalone_expression]
+[in_scope_expression_column_name=value]
+[in_scope_expression_column_type=int64]
+# We do not currently support 'grouping-constness' deduction for
+# ExpressionColumns. This is because ExpressionColumns can be resolved via a
+# callback, so the resolver may not have the names of all ExpressionColumns at
+# the time of resolution, which makes constructing a correct post-grouping
+# namescope impossible.
+SUM(value GROUP BY value)
+--
+ERROR: Expression column value cannot be an argument to a multi-level aggregate function. [at 6:1]
+SUM(value GROUP BY value)
+^

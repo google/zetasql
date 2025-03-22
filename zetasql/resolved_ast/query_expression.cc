@@ -16,8 +16,10 @@
 
 #include "zetasql/resolved_ast/query_expression.h"
 
+#include <cassert>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -27,16 +29,23 @@
 #include "absl/container/flat_hash_set.h"
 #include "zetasql/base/check.h"
 #include "absl/status/status.h"
+#include "absl/strings/ascii.h"
+#include "absl/strings/match.h"
+#include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
+#include "absl/strings/strip.h"
 #include "absl/types/span.h"
 #include "zetasql/base/case.h"
-#include "zetasql/base/map_util.h"
+#include "re2/re2.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
+
+using SQLAliasPairList = QueryExpression::SQLAliasPairList;
+using TargetSyntaxMode = QueryExpression::TargetSyntaxMode;
 
 absl::StatusOr<QueryExpression::QueryType> QueryExpression::GetQueryType()
     const {
@@ -45,6 +54,7 @@ absl::StatusOr<QueryExpression::QueryType> QueryExpression::GetQueryType()
     ZETASQL_RET_CHECK(set_op_type_.empty());
     ZETASQL_RET_CHECK(set_op_column_match_mode_.empty());
     ZETASQL_RET_CHECK(set_op_column_propagation_mode_.empty());
+    ZETASQL_RET_CHECK(with_depth_modifier_.empty());
     ZETASQL_RET_CHECK(corresponding_set_op_output_column_list_.empty());
     return QueryExpression::kDefaultQueryType;
   }
@@ -80,7 +90,7 @@ static std::string JoinListWithAliases(
   return list_str;
 }
 
-std::string QueryExpression::GetSQLQuery() const {
+std::string QueryExpression::GetWithClauseSQL() const {
   std::string sql;
   if (!with_list_.empty()) {
     absl::StrAppend(&sql, "WITH ");
@@ -89,110 +99,270 @@ std::string QueryExpression::GetSQLQuery() const {
     }
     absl::StrAppend(&sql, JoinListWithAliases(with_list_, ", "), " ");
   }
-  if (!select_list_.empty()) {
-    ABSL_DCHECK(set_op_type_.empty() && set_op_modifier_.empty() &&
-           set_op_scan_list_.empty());
-    absl::StrAppend(&sql, "SELECT ",
-                    anonymization_options_.empty()
-                        ? ""
-                        : absl::StrCat(anonymization_options_, " "),
-                    query_hints_.empty() ? "" : absl::StrCat(query_hints_, " "),
-                    select_as_modifier_.empty()
-                        ? ""
-                        : absl::StrCat(select_as_modifier_, " "),
-                    JoinListWithAliases(select_list_, ", "));
+  return sql;
+}
+
+bool QueryExpression::TryAppendSelectClause(std::string& sql) const {
+  if (select_list_.empty()) {
+    return false;
   }
 
-  if (!set_op_scan_list_.empty()) {
-    ABSL_DCHECK(!set_op_type_.empty());
-    ABSL_DCHECK(!set_op_modifier_.empty());
-    ABSL_DCHECK(select_list_.empty());
-    ABSL_DCHECK(from_.empty() && where_.empty() && group_by_list_.empty());
-    for (int i = 0; i < set_op_scan_list_.size(); ++i) {
-      QueryExpression* qe = set_op_scan_list_[i].get();
-      if (!select_as_modifier_.empty()) {
-        if (qe->select_as_modifier_.empty()) {
-          qe->SetSelectAsModifier(select_as_modifier_);
-        } else {
-          ABSL_DCHECK_EQ(qe->select_as_modifier_, select_as_modifier_);
+  ABSL_DCHECK(set_op_type_.empty() && set_op_modifier_.empty() &&
+         set_op_scan_list_.empty());
+  absl::StrAppend(
+      &sql, "SELECT ",
+      anonymization_options_.empty()
+          ? ""
+          : absl::StrCat(anonymization_options_, " "),
+      query_hints_.empty() ? "" : absl::StrCat(query_hints_, " "),
+      select_as_modifier_.empty() ? "" : absl::StrCat(select_as_modifier_, " "),
+      JoinListWithAliases(select_list_, ", "));
+  return true;
+}
+
+bool QueryExpression::TryAppendSetOpClauses(
+    std::string& sql, TargetSyntaxMode target_syntax_mode) const {
+  if (set_op_scan_list_.empty()) {
+    return false;
+  }
+
+  ABSL_DCHECK(!set_op_type_.empty());
+  ABSL_DCHECK(!set_op_modifier_.empty());
+  ABSL_DCHECK(select_list_.empty());
+  ABSL_DCHECK(from_.empty() && where_.empty() && group_by_list_.empty());
+  for (int i = 0; i < set_op_scan_list_.size(); ++i) {
+    QueryExpression* qe = set_op_scan_list_[i].get();
+    if (!select_as_modifier_.empty()) {
+      if (qe->select_as_modifier_.empty()) {
+        qe->SetSelectAsModifier(select_as_modifier_);
+      } else {
+        ABSL_DCHECK_EQ(qe->select_as_modifier_, select_as_modifier_);
+      }
+    }
+    if (i > 0) {
+      if (set_op_column_propagation_mode_ == "FULL" ||
+          set_op_column_propagation_mode_ == "LEFT") {
+        absl::StrAppend(&sql, " ", set_op_column_propagation_mode_);
+      }
+      absl::StrAppend(&sql, " ", set_op_type_);
+      if (i == 1) {
+        absl::StrAppend(&sql, " ", query_hints_);
+      }
+      absl::StrAppend(&sql, " ", set_op_modifier_);
+      if (set_op_column_propagation_mode_ == "STRICT") {
+        absl::StrAppend(&sql, " ", set_op_column_propagation_mode_);
+      }
+      if (!set_op_column_match_mode_.empty()) {
+        absl::StrAppend(&sql, " ", set_op_column_match_mode_);
+        if (set_op_column_match_mode_ == "CORRESPONDING BY") {
+          absl::StrAppend(
+              &sql, " (",
+              absl::StrJoin(
+                  corresponding_set_op_output_column_list_, ", ",
+                  [](std::string* out,
+                     const std::pair</*column path*/ std::string,
+                                     /*column alias*/ std::string>& column) {
+                    absl::StrAppend(out, column.second);
+                  }),
+              ")");
         }
       }
-      if (i > 0) {
-        if (set_op_column_propagation_mode_ == "FULL" ||
-            set_op_column_propagation_mode_ == "LEFT") {
-          absl::StrAppend(&sql, " ", set_op_column_propagation_mode_);
-        }
-        absl::StrAppend(&sql, " ", set_op_type_);
-        if (i == 1) {
-          absl::StrAppend(&sql, " ", query_hints_);
-        }
-        absl::StrAppend(&sql, " ", set_op_modifier_);
-        if (set_op_column_propagation_mode_ == "STRICT") {
-          absl::StrAppend(&sql, " ", set_op_column_propagation_mode_);
-        }
-        if (!set_op_column_match_mode_.empty()) {
-          absl::StrAppend(&sql, " ", set_op_column_match_mode_);
-          if (set_op_column_match_mode_ == "CORRESPONDING BY") {
-            absl::StrAppend(
-                &sql, " (",
-                absl::StrJoin(
-                    corresponding_set_op_output_column_list_, ", ",
-                    [](std::string* out,
-                       const std::pair</*column path*/ std::string,
-                                       /*column alias*/ std::string>& column) {
-                      absl::StrAppend(out, column.second);
-                    }),
-                ")");
-          }
-        }
+      if (!with_depth_modifier_.empty()) {
+        absl::StrAppend(&sql, " ", with_depth_modifier_);
       }
-      absl::StrAppend(&sql, "(", qe->GetSQLQuery(), ")");
+    }
+    absl::StrAppend(&sql, "(", qe->GetSQLQuery(target_syntax_mode), ")");
+  }
+  return true;
+}
+
+std::string QueryExpression::GetFromClauseStandardSQL() const {
+  if (from_.empty()) {
+    return "";
+  }
+  return absl::StrCat(" FROM ", from_);
+}
+
+std::string QueryExpression::GetFromClausePipeSQL() const {
+  if (from_.empty()) {
+    return "";
+  }
+
+  std::string sql;
+  if (absl::StartsWith(from_, "WITH ")) {
+    sql = absl::StrCat("FROM (", from_, ")");
+  } else {
+    sql = absl::StrCat("FROM ", from_);
+  }
+
+  // Remove the leading "FROM " from the FROM clause if the FROM clause is
+  // over a subquery starting with "SELECT" or "FROM".
+  // TODO: Instead of using string manipulation, capture the
+  // information in data structures and use them for manipulation.
+  static const LazyRE2 kFromSelectRegex = {
+      "^FROM\\s+\\(*\\s*(SELECT|FROM)\\s+"};
+  if (RE2::PartialMatch(sql, *kFromSelectRegex)) {
+    sql.erase(0, 5);
+  }
+
+  return sql;
+}
+
+std::string QueryExpression::GetFromClauseMixedSQL() const {
+  if (from_.empty()) {
+    return "";
+  }
+
+  // The FROM clause of this point is in Pipe SQL syntax, and the returned
+  // FROM clause must be useable in the Standard SQL syntax. So we wrap it.
+  // If the FROM clause starts with WITH or SELECT or FROM, we wrap it with
+  // FROM(...).
+  if (StartsWithWithSelectOrFrom(from_)) {
+    return absl::StrCat(" FROM (", from_, ") ");
+  }
+
+  // If the FROM clause is a single word, we prefix it with FROM.
+  if (!absl::StrContains(from_, " ")) {
+    return absl::StrCat(" FROM ", from_);
+  }
+
+  // Else we wrap it with FROM (FROM ...).
+  return absl::StrCat(" FROM (FROM ", from_, ") ");
+}
+
+bool QueryExpression::TryAppendPivotClause(std::string& sql) const {
+  if (pivot_.empty()) {
+    return false;
+  }
+
+  absl::StrAppend(&sql, pivot_);
+  return true;
+}
+
+bool QueryExpression::TryAppendUnpivotClause(std::string& sql) const {
+  if (unpivot_.empty()) {
+    return false;
+  }
+
+  absl::StrAppend(&sql, unpivot_);
+  return true;
+}
+
+bool QueryExpression::TryAppendMatchRecognizeClause(std::string& sql) const {
+  if (match_recognize_.empty()) {
+    return false;
+  }
+
+  absl::StrAppend(&sql, match_recognize_);
+  return true;
+}
+
+bool QueryExpression::TryAppendWhereClause(std::string& sql) const {
+  if (where_.empty()) {
+    return false;
+  }
+
+  absl::StrAppend(&sql, " WHERE ", where_);
+  return true;
+}
+
+static void ReplaceGroupingExpressionsWithAliases(
+    SQLAliasPairList& aggregate_columns,
+    const SQLAliasPairList& group_by_columns) {
+  for (const auto& [group_by_column, group_by_alias] : group_by_columns) {
+    for (auto& aggregate_column : aggregate_columns) {
+      if (aggregate_column.first ==
+          absl::StrCat("GROUPING(", group_by_column, ")")) {
+        aggregate_column.first = absl::StrCat("GROUPING(", group_by_alias, ")");
+      }
+    }
+  }
+}
+
+bool QueryExpression::TryAppendGroupByClause(
+    std::string& sql, TargetSyntaxMode target_syntax_mode) const {
+  // This function generates GROUP BY .. clause in Standard syntax mode
+  // and AGGREGATE .. GROUP BY .. clause in Pipe syntax mode.
+
+  // If there are no GROUP BY columns and no AGGREGATE columns, return.
+  if (!HasGroupByClauseOrOnlyAggregateColumns()) {
+    return false;
+  }
+
+  bool pipe_mode = target_syntax_mode == TargetSyntaxMode::kPipe;
+
+  // In Pipe syntax mode, it is possible to have the AGGREGATE ... clause
+  // without the GROUP BY .. part. This condition calculates if the GROUP BY ...
+  // part is required or not.
+  bool group_by_required =
+      (group_by_all_ && !pipe_mode) || !group_by_list_.empty();
+
+  bool appended = false;
+  if (pipe_mode) {
+    // In Pipe syntax mode, the GROUP BY ... part can refer to columns only by
+    // aliases, not ordinal.
+    // First, we separately get the group-by columns, and aggregate columns
+    // along with their aliases.
+    auto [group_by_columns, aggregate_columns] =
+        GetGroupByAndAggregateColumns();
+
+    // If there are group-by columns, we add them along with their aliases as
+    // EXTEND clauses, so that we can refer to those aliases in the GROUP BY ...
+    // part later.
+    if (!group_by_columns.empty()) {
+      absl::StrAppend(&sql, "EXTEND ",
+                      JoinListWithAliases(group_by_columns, ", "), kPipe);
+      appended = true;
+    }
+
+    // If there are aggregate columns, or the GROUP BY ... part is required, we
+    // add the AGGREGATE ... part, with the aggregate columns and their aliases.
+    if (group_by_required || !aggregate_columns.empty()) {
+      ReplaceGroupingExpressionsWithAliases(aggregate_columns,
+                                            group_by_columns);
+      absl::StrAppend(&sql, "AGGREGATE ",
+                      JoinListWithAliases(aggregate_columns, ", "),
+                      aggregate_columns.empty() ? "" : " ");
+      appended = true;
     }
   }
 
-  if (!from_.empty()) {
-    absl::StrAppend(&sql, " FROM ", from_);
+  // If the GROUP BY ... part is not required, we return at this point. The
+  // return value indicates if we were able to append anything to the input SQL.
+  if (!group_by_required) {
+    return appended;
   }
 
-  if (!pivot_.empty()) {
-    absl::StrAppend(&sql, pivot_);
-  }
-  if (!unpivot_.empty()) {
-    absl::StrAppend(&sql, unpivot_);
-  }
-  if (!match_recognize_.empty()) {
-    absl::StrAppend(&sql, match_recognize_);
-  }
+  absl::StrAppend(
+      &sql, " GROUP ",
+      group_by_hints_.empty() ? "" : absl::StrCat(group_by_hints_, " "), "BY ");
 
-  if (!where_.empty()) {
-    absl::StrAppend(&sql, " WHERE ", where_);
-  }
+  // In Pipe syntax mode, we must use the group-by column aliases, whereas
+  // in Standard syntax mode, we are okay to use the group-by columns directly.
+  auto get_column_or_alias = [this, pipe_mode](int column_id) {
+    return pipe_mode ? GetGroupByColumnAliasOrDie(column_id)
+                     : GetGroupByColumnOrDie(column_id);
+  };
 
-  if (group_by_all_) {
-    absl::StrAppend(
-        &sql, " GROUP ",
-        group_by_hints_.empty() ? "" : absl::StrCat(group_by_hints_, " "),
-        "BY ALL");
+  // The Pipe syntax mode does not support GROUP BY ALL.
+  if (!pipe_mode && group_by_all_) {
+    absl::StrAppend(&sql, "ALL");
   } else if (!group_by_list_.empty()) {
-    absl::StrAppend(
-        &sql, " GROUP ",
-        group_by_hints_.empty() ? "" : absl::StrCat(group_by_hints_, " "),
-        "BY ");
     // Legacy ROLLUP
     if (!rollup_column_id_list_.empty()) {
-      absl::StrAppend(&sql, "ROLLUP(",
-                      absl::StrJoin(rollup_column_id_list_, ", ",
-                                    [this](std::string* out, int column_id) {
-                                      absl::StrAppend(
-                                          out,
-                                          GetGroupByColumnOrDie(column_id));
-                                    }),
-                      ")");
+      absl::StrAppend(
+          &sql, "ROLLUP(",
+          absl::StrJoin(rollup_column_id_list_, ", ",
+                        [get_column_or_alias](std::string* out, int column_id) {
+                          absl::StrAppend(out, get_column_or_alias(column_id));
+                        }),
+          ")");
     } else if (!grouping_set_id_list_.empty()) {
       // There are rollup, cube, or grouping sets in the group by clause.
       // a lambda expression to output a column list
-      auto append_column_list = [this](std::string* output,
-                                       const std::vector<int>& column_id_list) {
+      auto append_column_list = [get_column_or_alias](
+                                    std::string* output,
+                                    const std::vector<int>& column_id_list) {
         if (column_id_list.empty()) {
           absl::StrAppend(output, "()");
           return;
@@ -201,11 +371,11 @@ std::string QueryExpression::GetSQLQuery() const {
           absl::StrAppend(output, "(");
         }
         absl::StrAppend(
-            output, absl::StrJoin(column_id_list, ", ",
-                                  [this](std::string* out, int column_id) {
-                                    absl::StrAppend(
-                                        out, GetGroupByColumnOrDie(column_id));
-                                  }));
+            output, absl::StrJoin(
+                        column_id_list, ", ",
+                        [get_column_or_alias](std::string* out, int column_id) {
+                          absl::StrAppend(out, get_column_or_alias(column_id));
+                        }));
         if (column_id_list.size() > 1) {
           absl::StrAppend(output, ")");
         }
@@ -258,49 +428,271 @@ std::string QueryExpression::GetSQLQuery() const {
       // We assume while iterating the group_by_list_, the entries will be
       // sorted by the column id.
       absl::StrAppend(
-          &sql,
-          absl::StrJoin(
-              group_by_list_, ", ",
-              [](std::string* out,
-                 const std::pair<int, std::string>& column_id_and_string) {
-                absl::StrAppend(out, column_id_and_string.second);
-              }));
+          &sql, absl::StrJoin(
+                    group_by_list_, ", ",
+                    [this, pipe_mode](
+                        std::string* out,
+                        const std::pair<int, std::string>& column_id_and_sql) {
+                      auto column_alias_or_sql =
+                          pipe_mode ? GetGroupByColumnAliasOrDie(
+                                          column_id_and_sql.first)
+                                    : column_id_and_sql.second;
+                      absl::StrAppend(out, column_alias_or_sql);
+                    }));
     }
   }
+  return true;
+}
 
-  if (!order_by_list_.empty()) {
-    absl::StrAppend(
-        &sql, " ORDER ",
-        order_by_hints_.empty() ? "" : absl::StrCat(order_by_hints_, " "),
-        "BY ", absl::StrJoin(order_by_list_, ", "));
+bool QueryExpression::TryAppendOrderByClause(std::string& sql) const {
+  if (order_by_list_.empty()) {
+    return false;
   }
 
-  if (!limit_.empty()) {
-    absl::StrAppend(&sql, " LIMIT ", limit_);
+  absl::StrAppend(
+      &sql, " ORDER ",
+      order_by_hints_.empty() ? "" : absl::StrCat(order_by_hints_, " "), "BY ",
+      absl::StrJoin(order_by_list_, ", "));
+  return true;
+}
+
+bool QueryExpression::TryAppendLimitClause(std::string& sql) const {
+  if (limit_.empty()) {
+    return false;
   }
 
-  if (!offset_.empty()) {
-    absl::StrAppend(&sql, " OFFSET ", offset_);
+  absl::StrAppend(&sql, " LIMIT ", limit_);
+  return true;
+}
+
+bool QueryExpression::TryAppendOffsetClause(std::string& sql) const {
+  if (offset_.empty()) {
+    return false;
   }
 
-  if (!lock_mode_.empty()) {
-    absl::StrAppend(&sql, " FOR ", lock_mode_);
+  absl::StrAppend(&sql, " OFFSET ", offset_);
+  return true;
+}
+
+bool QueryExpression::TryAppendLockModeClause(std::string& sql) const {
+  if (lock_mode_.empty()) {
+    return false;
   }
 
+  absl::StrAppend(&sql, " FOR ", lock_mode_);
+  return true;
+}
+
+std::string QueryExpression::GetSQLQuery(
+    TargetSyntaxMode target_syntax_mode) const {
+  return GetSQLQuery(target_syntax_mode, GetFromClauseStandardSQL());
+}
+
+std::string QueryExpression::GetSQLQuery(
+    TargetSyntaxMode target_syntax_mode,
+    absl::string_view from_clause_sql) const {
+  switch (target_syntax_mode) {
+    case TargetSyntaxMode::kStandard:
+      return GetStandardSQLQuery(from_clause_sql);
+    case TargetSyntaxMode::kPipe:
+      return GetPipeSQLQuery();
+  }
+}
+
+std::string QueryExpression::GetStandardSQLQuery(
+    absl::string_view from_clause_sql) const {
+  // The order of forming the query in Standard SQL syntax is:
+  // WITH
+  // SELECT
+  // UNION/INTERSECT/EXCEPT
+  // FROM
+  // PIVOT/UNPIVOT
+  // MATCH_RECOGNIZE
+  // WHERE
+  // GROUP BY
+  // ORDER BY
+  // LIMIT/OFFSET
+  // FOR
+
+  std::string sql;
+  TryAppendSelectClause(sql);
+  TryAppendSetOpClauses(sql, TargetSyntaxMode::kStandard);
+
+  if (!from_clause_sql.empty()) {
+    absl::StrAppend(&sql, from_clause_sql);
+  }
+
+  TryAppendPivotClause(sql);
+  TryAppendUnpivotClause(sql);
+  TryAppendMatchRecognizeClause(sql);
+  TryAppendWhereClause(sql);
+  TryAppendGroupByClause(sql, TargetSyntaxMode::kStandard);
+  TryAppendOrderByClause(sql);
+  TryAppendLimitClause(sql);
+  TryAppendOffsetClause(sql);
+  TryAppendLockModeClause(sql);
+  absl::StripTrailingAsciiWhitespace(&sql);
+
+  std::string with_clause_sql = GetWithClauseSQL();
+  if (!with_clause_sql.empty()) {
+    sql = absl::StrCat(with_clause_sql, sql);
+  }
   return sql;
 }
 
-void QueryExpression::Wrap(absl::string_view alias) {
-  ABSL_DCHECK(CanFormSQLQuery());
-  ABSL_DCHECK(!alias.empty());
-  const std::string sql = GetSQLQuery();
-  ClearAllClauses();
-  from_ = absl::StrCat("(", sql, ") AS ", alias);
+// Appends <separator> to <sql> if <append> is true.
+static void AppendSeparator(bool append, std::string& sql,
+                            absl::string_view separator) {
+  if (append) {
+    absl::StrAppend(&sql, separator);
+  }
 }
 
-bool QueryExpression::TrySetWithClause(
-    const std::vector<std::pair<std::string, std::string>>& with_list,
-    bool recursive) {
+bool QueryExpression::CanFormPipeSQLQuery() const {
+  // If the query has SELECT hints, we cannot form it in Pipe SQL syntax
+  // because Pipe SQL syntax does not support SELECT hints.
+  if (HasQueryHints()) {
+    return false;
+  }
+
+  // This query has GROUP BY clause.
+  if (HasGroupByClauseOrOnlyAggregateColumns()) {
+    // In Pipe SQL syntax, we must refer to group-by columns using their
+    // aliases. If we have group-by columns without aliases, we cannot form the
+    // query in Pipe SQL syntax.
+    if (!AllGroupByColumnsHaveAliases()) {
+      return false;
+    } else {
+      // If all group-by columns have aliases, we still cannot form the query in
+      // Pipe SQL syntax if there are columns with duplicate aliases.
+      if (!rollup_column_id_list_.empty()) {
+        absl::flat_hash_map<int, std::string> aliases;
+        int i = 0;
+        for (int column_id : rollup_column_id_list_) {
+          aliases[i++] = GetGroupByColumnAliasOrDie(column_id);
+        }
+        if (HasDuplicateAliases(aliases)) {
+          return false;
+        }
+      }
+
+      auto [group_by_columns, _] = GetGroupByAndAggregateColumns();
+      if (!group_by_columns.empty()) {
+        absl::flat_hash_map<int, absl::string_view> aliases;
+        int i = 0;
+        for (auto const& entry : group_by_columns) {
+          aliases[i++] = entry.second;
+        }
+        if (HasDuplicateAliases(aliases)) {
+          return false;
+        }
+      }
+    }
+  }
+
+  return true;
+}
+
+std::string QueryExpression::GetPipeSQLQuery() const {
+  // If the query cannot be formed in the Pipe SQL syntax, we must fall back
+  // to the Standard SQL syntax. However, the FROM clause generated till now
+  // will be in the Pipe SQL syntax. So we create a new FROM clauses from it
+  // such that it works in the Standard SQL syntax.
+  if (!CanFormPipeSQLQuery()) {
+    return GetStandardSQLQuery(GetFromClauseMixedSQL());
+  }
+
+  // The order of forming the query in Pipe SQL syntax is:
+  // WITH
+  // FROM
+  // FOR
+  // |> PIVOT/UNPIVOT
+  // |> MATCH_RECOGNIZE
+  // |> WHERE
+  // |> AGGREGATE GROUP BY
+  // |> UNION/INTERSECT/EXCEPT
+  // |> ORDER BY
+  // |> SELECT
+  // |> LIMIT/OFFSET
+
+  std::string sql;
+
+  std::string from_clause_sql = GetFromClausePipeSQL();
+  if (!from_clause_sql.empty()) {
+    absl::StrAppend(&sql, from_clause_sql);
+    TryAppendLockModeClause(sql);
+    AppendSeparator(true, sql, kPipe);
+  }
+  AppendSeparator(TryAppendPivotClause(sql), sql, kPipe);
+  AppendSeparator(TryAppendUnpivotClause(sql), sql, kPipe);
+  AppendSeparator(TryAppendMatchRecognizeClause(sql), sql, kPipe);
+  AppendSeparator(TryAppendWhereClause(sql), sql, kPipe);
+
+  bool group_by_clause_added =
+      TryAppendGroupByClause(sql, TargetSyntaxMode::kPipe);
+  AppendSeparator(group_by_clause_added, sql, kPipe);
+
+  bool set_op_clause_added =
+      TryAppendSetOpClauses(sql, TargetSyntaxMode::kPipe);
+  AppendSeparator(set_op_clause_added, sql, kPipe);
+
+  AppendSeparator(TryAppendOrderByClause(sql), sql, kPipe);
+
+  // If the GROUP BY clause was added, there is no need to add the SELECT
+  // clause because the aggregate columns are already in the GROUP BY clause.
+  if (!group_by_clause_added) {
+    AppendSeparator(TryAppendSelectClause(sql), sql, kPipe);
+  }
+
+  bool limit_clause_added = TryAppendLimitClause(sql);
+  // There is no pipe between limit and offset clauses.
+  AppendSeparator(limit_clause_added, sql, " ");
+  auto offset_clause_added = TryAppendOffsetClause(sql);
+  if (limit_clause_added || offset_clause_added) {
+    AppendSeparator(true, sql, kPipe);
+  }
+
+  // Remove the trailing pipe if the query ends with a pipe.
+  if (absl::EndsWith(sql, kPipe)) {
+    sql.resize(sql.size() - 4);
+  }
+
+  // Prepend the WITH clause to the query.
+  std::string with_clause_sql = GetWithClauseSQL();
+  if (!with_clause_sql.empty()) {
+    sql = absl::StrCat(with_clause_sql, " ", std::move(sql));
+  }
+  return sql;
+}
+
+void QueryExpression::Wrap(absl::string_view alias,
+                           TargetSyntaxMode target_syntax_mode) {
+  ABSL_DCHECK(CanFormSQLQuery());
+  ABSL_DCHECK(!alias.empty());
+  std::string sql = GetSQLQuery(target_syntax_mode);
+  ClearAllClauses();
+
+  switch (target_syntax_mode) {
+    case TargetSyntaxMode::kStandard:
+      from_ = WrapSubquery(sql, alias);
+      break;
+    case TargetSyntaxMode::kPipe:
+      from_ = PipeSubquery(sql, alias);
+      break;
+  }
+}
+
+void QueryExpression::WrapInMixedSyntaxMode(absl::string_view alias) {
+  ABSL_DCHECK(CanFormSQLQuery());
+  ABSL_DCHECK(!alias.empty());
+  std::string sql = GetStandardSQLQuery(GetFromClauseMixedSQL());
+  ClearAllClauses();
+
+  from_ = PipeSubquery(sql, alias);
+}
+
+bool QueryExpression::TrySetWithClause(const SQLAliasPairList& with_list,
+                                       bool recursive) {
   if (!CanSetWithClause()) {
     return false;
   }
@@ -309,9 +701,8 @@ bool QueryExpression::TrySetWithClause(
   return true;
 }
 
-bool QueryExpression::TrySetSelectClause(
-    const std::vector<std::pair<std::string, std::string>>& select_list,
-    absl::string_view select_hints) {
+bool QueryExpression::TrySetSelectClause(const SQLAliasPairList& select_list,
+                                         absl::string_view select_hints) {
   if (!CanSetSelectClause()) {
     return false;
   }
@@ -342,7 +733,7 @@ bool QueryExpression::TrySetSetOpScanList(
     absl::string_view set_op_type, absl::string_view set_op_modifier,
     absl::string_view set_op_column_match_mode,
     absl::string_view set_op_column_propagation_mode,
-    absl::string_view query_hints) {
+    absl::string_view query_hints, absl::string_view with_depth_modifier) {
   if (!CanSetSetOpScanList()) {
     return false;
   }
@@ -356,6 +747,7 @@ bool QueryExpression::TrySetSetOpScanList(
   set_op_column_match_mode_ = set_op_column_match_mode;
   set_op_column_propagation_mode_ = set_op_column_propagation_mode;
   query_hints_ = query_hints;
+  with_depth_modifier_ = with_depth_modifier;
   return true;
 }
 
@@ -488,8 +880,7 @@ bool QueryExpression::CanSetLockModeClause() const {
   return HasFromClause() && !HasLockModeClause();
 }
 
-const std::vector<std::pair<std::string, std::string>>&
-QueryExpression::SelectList() const {
+const SQLAliasPairList& QueryExpression::SelectList() const {
   if (!set_op_scan_list_.empty()) {
     ABSL_DCHECK(select_list_.empty());
     if (!set_op_column_match_mode_.empty()) {
@@ -501,17 +892,77 @@ QueryExpression::SelectList() const {
   return select_list_;
 }
 
-static bool HasDuplicateAliases(
-    const absl::flat_hash_map<int, absl::string_view>& aliases) {
+template <typename T>
+bool HasDuplicateAliases(const absl::flat_hash_map<int, T>& aliases) {
   absl::flat_hash_set<absl::string_view, zetasql_base::StringViewCaseHash,
                       zetasql_base::StringViewCaseEqual>
       seen_aliases;
-  for (const auto [index, alias] : aliases) {
+  for (const auto& [_, alias] : aliases) {
     if (!seen_aliases.insert(alias).second) {
       return true;
     }
   }
   return false;
+}
+
+static std::optional<int> GetGroupByColumnOrdinal(
+    absl::string_view column_ordinal_or_sql) {
+  int ordinal;
+  if (absl::SimpleAtoi(column_ordinal_or_sql, &ordinal) && ordinal > 0) {
+    return ordinal - 1;
+  }
+  return std::nullopt;
+}
+
+std::string QueryExpression::GetGroupByColumnAliasOrDie(int column_id) const {
+  std::string column_ordinal_or_sql = GetGroupByColumnOrDie(column_id);
+  std::optional<int> ordinal = GetGroupByColumnOrdinal(column_ordinal_or_sql);
+  ABSL_CHECK(ordinal.has_value());  // Crash OK. Follows the same pattern as
+                               // GetGroupByColumnOrDie.
+  return select_list_.at(*ordinal).second;
+}
+
+bool QueryExpression::AllGroupByColumnsHaveAliases() const {
+  for (const auto& [column_id, column_sql] : group_by_list_) {
+    std::optional<int> ordinal = GetGroupByColumnOrdinal(column_sql);
+    if (!ordinal.has_value()) {
+      return false;
+    }
+  }
+  return true;
+}
+
+std::pair<SQLAliasPairList, SQLAliasPairList>
+QueryExpression::GetGroupByAndAggregateColumns() const {
+  absl::flat_hash_set<int> alias_column_indices;
+  for (const auto& [column_id, column_sql] : group_by_list_) {
+    std::optional<int> ordinal = GetGroupByColumnOrdinal(column_sql);
+    if (ordinal.has_value()) {
+      alias_column_indices.insert(*ordinal);
+    }
+  }
+
+  SQLAliasPairList aggregate_columns;
+  aggregate_columns.reserve(select_list_.size());
+
+  SQLAliasPairList group_by_columns;
+  group_by_columns.reserve(select_list_.size());
+
+  for (int i = 0; i < select_list_.size(); ++i) {
+    if (alias_column_indices.contains(i)) {
+      group_by_columns.push_back(select_list_.at(i));
+      continue;
+    }
+
+    // Don't include NULL columns in the aggregate columns.
+    auto [column, alias] = select_list_.at(i);
+    if (column == "NULL") {
+      continue;
+    }
+    aggregate_columns.push_back(select_list_.at(i));
+  }
+
+  return {group_by_columns, aggregate_columns};
 }
 
 absl::Status QueryExpression::SetAliasesForSelectList(
@@ -581,6 +1032,13 @@ absl::Status QueryExpression::SetGroupByAllClause(
   return absl::OkStatus();
 }
 
+absl::Status QueryExpression::SetGroupByOnlyAggregateColumns(
+    bool group_by_only_aggregate_columns) {
+  ZETASQL_RET_CHECK(HasSelectClause());
+  group_by_only_aggregate_columns_ = true;
+  return absl::OkStatus();
+}
+
 void QueryExpression::ClearAllClauses() {
   with_list_.clear();
   select_list_.clear();
@@ -592,9 +1050,11 @@ void QueryExpression::ClearAllClauses() {
   set_op_modifier_.clear();
   set_op_column_match_mode_.clear();
   set_op_column_propagation_mode_.clear();
+  with_depth_modifier_.clear();
   set_op_scan_list_.clear();
   corresponding_set_op_output_column_list_.clear();
   group_by_all_ = false;
+  group_by_only_aggregate_columns_ = false;
   group_by_list_.clear();
   group_by_hints_.clear();
   order_by_list_.clear();
@@ -607,6 +1067,22 @@ void QueryExpression::ClearAllClauses() {
   unpivot_.clear();
   match_recognize_.clear();
   lock_mode_.clear();
+}
+
+std::string QueryExpression::WrapSubquery(absl::string_view sql,
+                                          absl::string_view alias) {
+  return absl::StrCat("(", sql, ") AS ", alias);
+}
+
+std::string QueryExpression::PipeSubquery(absl::string_view sql,
+                                          absl::string_view alias) {
+  absl::ConsumePrefix(&sql, "FROM ");
+  return absl::StrCat(sql, kPipe, "AS ", alias);
+}
+
+bool QueryExpression::StartsWithWithSelectOrFrom(absl::string_view sql) {
+  static const LazyRE2 kRegex = {"^\\s*\\(*\\s*(WITH|SELECT|FROM)"};
+  return RE2::PartialMatch(sql, *kRegex);
 }
 
 }  // namespace zetasql

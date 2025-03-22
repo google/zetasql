@@ -36,6 +36,12 @@
 
 namespace zetasql::functions::match_recognize {
 
+// The maximum supported value for an explicit quantifier bound (e.g. A{n}).
+// This value must be small enough such that simple patterns with quantifiers
+// using this bound can succeed without hitting the kMaxSupportedEdges limit
+// in the NFA.
+constexpr int kMaxSupportedQuantifierBound = kMaxSupportedEdges / 10;
+
 class NFABuilder : public ResolvedASTVisitor {
  public:
   using ParameterEvaluator = std::function<absl::StatusOr<Value>(

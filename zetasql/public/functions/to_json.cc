@@ -39,6 +39,7 @@
 #include "zetasql/public/types/graph_element_type.h"
 #include "zetasql/public/types/proto_type.h"
 #include "zetasql/public/types/struct_type.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/public/uuid_value.h"
 #include "zetasql/public/value.h"
 #include "absl/status/status.h"
@@ -46,6 +47,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
+#include "google/protobuf/dynamic_message.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
@@ -403,17 +405,20 @@ absl::StatusOr<JSONValue> ToJsonFromGraphElement(
   properties_ref.SetToEmptyObject();
   const GraphElementType* type = value.type()->AsGraphElement();
   ZETASQL_RET_CHECK_NE(type, nullptr);
-  for (const PropertyType& property_type : type->property_types()) {
-    if (absl::StatusOr<Value> property_value =
-            value.FindPropertyByName(property_type.name);
-        property_value.ok()) {
-      ZETASQL_RET_CHECK(property_value->type()->Equals(property_type.value_type));
-      ZETASQL_ASSIGN_OR_RETURN(JSONValue v,
-                       ToJsonHelper(*property_value, stringify_wide_numbers,
-                                    language_options, current_nesting_level + 1,
-                                    canonicalize_zero, unsupported_fields));
-      properties_ref.GetMember(property_type.name).Set(std::move(v));
-    }
+  for (const std::string& property_name : value.property_names()) {
+    ZETASQL_ASSIGN_OR_RETURN(const Value property_value,
+                     value.FindValidPropertyValueByName(property_name));
+    const PropertyType* property_type = type->FindPropertyType(property_name);
+    // A static property must be defined in the graph element type.
+    ZETASQL_RET_CHECK(
+        (property_type != nullptr &&
+         property_type->value_type->Equals(property_value.type()))
+    );
+    ZETASQL_ASSIGN_OR_RETURN(JSONValue v,
+                     ToJsonHelper(property_value, stringify_wide_numbers,
+                                  language_options, current_nesting_level + 1,
+                                  canonicalize_zero, unsupported_fields));
+    properties_ref.GetMember(property_name).Set(std::move(v));
   }
 
   if (value.IsNode()) {

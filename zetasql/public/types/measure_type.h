@@ -62,6 +62,8 @@ class MeasureType : public ContainerType {
                                  /*use_external_float32=*/false);
   }
 
+  std::string CapitalizedName() const override;
+
   bool SupportsOrdering(const LanguageOptions& language_options,
                         std::string* type_description) const override;
   bool SupportsEquality() const override;
@@ -90,7 +92,7 @@ class MeasureType : public ContainerType {
 
  private:
   // Types can only be created and destroyed by TypeFactory.
-  MeasureType(const TypeFactory* factory, const Type* result_type)
+  MeasureType(const TypeFactoryBase* factory, const Type* result_type)
       : ContainerType(factory, TYPE_MEASURE), result_type_(result_type) {};
 
   absl::Status SerializeValueContent(const ValueContent& value,

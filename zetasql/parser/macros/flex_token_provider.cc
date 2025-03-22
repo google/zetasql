@@ -43,20 +43,36 @@ static absl::string_view GetTextBetween(absl::string_view input, size_t start,
   return absl::ClippedSubstr(input, start, len);
 }
 
+static ParseLocationRange WithOffset(const ParseLocationRange& location,
+                                     int offset) {
+  return ParseLocationRange(
+      ParseLocationPoint::FromByteOffset(
+          location.start().filename(),
+          location.start().GetByteOffset() + offset),
+      ParseLocationPoint::FromByteOffset(
+          location.end().filename(), location.end().GetByteOffset() + offset));
+}
+
 FlexTokenProvider::FlexTokenProvider(absl::string_view filename,
                                      absl::string_view input, int start_offset,
-                                     std::optional<int> end_offset)
-    : TokenProviderBase(filename, input, start_offset, end_offset),
+                                     std::optional<int> end_offset,
+                                     int offset_in_original_input,
+                                     bool force_flex)
+    : TokenProviderBase(filename, input, start_offset, end_offset,
+                        offset_in_original_input),
       tokenizer_(std::make_unique<ZetaSqlTokenizer>(
-          filename, input.substr(0, this->end_offset()), start_offset)),
+          filename, input.substr(0, this->end_offset()), start_offset,
+          force_flex)),
       location_(ParseLocationPoint::FromByteOffset(filename, -1),
-                ParseLocationPoint::FromByteOffset(filename, -1)) {}
+                ParseLocationPoint::FromByteOffset(filename, -1)),
+      force_flex_(force_flex) {}
 
 std::unique_ptr<TokenProviderBase> FlexTokenProvider::CreateNewInstance(
     absl::string_view filename, absl::string_view input, int start_offset,
-    std::optional<int> end_offset) const {
-  return std::make_unique<FlexTokenProvider>(filename, input, start_offset,
-                                             end_offset);
+    std::optional<int> end_offset, int offset_in_original_input) const {
+  return std::make_unique<FlexTokenProvider>(
+      filename, input, start_offset, end_offset, offset_in_original_input,
+      force_flex_);
 }
 
 absl::StatusOr<TokenWithLocation> FlexTokenProvider::ConsumeNextTokenImpl() {
@@ -82,8 +98,8 @@ absl::StatusOr<TokenWithLocation> FlexTokenProvider::GetFlexToken() {
   prev_whitespaces = GetTextBetween(input(), last_token_end_offset,
                                     location_.start().GetByteOffset());
 
-  return {{token_kind, location_, location_.GetTextFrom(input()),
-           prev_whitespaces}};
+  return {{token_kind, WithOffset(location_, offset_in_original_input()),
+           location_.GetTextFrom(input()), prev_whitespaces}};
 }
 
 }  // namespace macros

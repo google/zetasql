@@ -35,6 +35,7 @@
 #include "zetasql/public/proto/wire_format_annotation.pb.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/internal_proto_utils.h"
 #include "zetasql/public/types/internal_utils.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
@@ -100,6 +101,28 @@ bool ProtoType::SupportsOrdering(const LanguageOptions& language_options,
         TypeKindToString(this->kind(), language_options.product_mode());
   }
   return false;
+}
+
+static bool HasFloatingPointFields(
+    const google::protobuf::Descriptor* d,
+    absl::flat_hash_set<const google::protobuf::Descriptor*>& visited) {
+  for (int i = 0; i < d->field_count(); ++i) {
+    const google::protobuf::FieldDescriptor* f = d->field(i);
+    if (f->type() == google::protobuf::FieldDescriptor::TYPE_FLOAT ||
+        f->type() == google::protobuf::FieldDescriptor::TYPE_DOUBLE) {
+      return true;
+    } else if (f->type() == google::protobuf::FieldDescriptor::TYPE_MESSAGE &&
+               visited.insert(f->message_type()).second &&
+               HasFloatingPointFields(f->message_type(), visited)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool ProtoType::HasFloatingPointFields() const {
+  absl::flat_hash_set<const google::protobuf::Descriptor*> visited;
+  return zetasql::HasFloatingPointFields(descriptor(), visited);
 }
 
 const google::protobuf::Descriptor* ProtoType::descriptor() const {
@@ -202,6 +225,12 @@ std::string ProtoType::ShortTypeName() const {
 
 std::string ProtoType::TypeName(ProductMode mode_unused) const {
   return TypeName();
+}
+
+std::string ProtoType::CapitalizedName() const {
+  ABSL_CHECK_EQ(kind(), TYPE_PROTO);  // Crash OK
+  ABSL_CHECK(AsProto()->descriptor() != nullptr);
+  return absl::StrCat("Proto<", AsProto()->descriptor()->full_name(), ">");
 }
 
 absl::Span<const std::string> ProtoType::CatalogNamePath() const {

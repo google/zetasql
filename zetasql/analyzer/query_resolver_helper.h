@@ -41,12 +41,11 @@
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
+#include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
-#include "zetasql/base/ret_check.h"
-#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
@@ -251,10 +250,18 @@ struct GroupByColumnState {
                       "\n");
     }
     if (pre_group_by_expr != nullptr) {
-      absl::StrAppend(&debug_string, indent, pre_group_by_expr->DebugString(),
-                      "\n");
+      absl::StrAppend(&debug_string, indent, "pre_group_by_expr:\n",
+                      pre_group_by_expr->DebugString(), "\n");
     }
     return debug_string;
+  }
+
+  // Returns the pre-group-by expression for a given group-by column state.
+  const ResolvedExpr* GetPreGroupByResolvedExpr() const {
+    if (pre_group_by_expr != nullptr) {
+      return pre_group_by_expr;
+    }
+    return computed_column->expr();
   }
 };
 
@@ -701,8 +708,7 @@ class QueryResolutionInfo {
   // Returns whether or not the query includes a GROUP BY clause or
   // aggregation functions.
   bool HasGroupByOrAggregation() const {
-    return group_by_info_.has_group_by ||
-           group_by_info_.has_aggregation;
+    return group_by_info_.has_group_by || group_by_info_.has_aggregation;
   }
 
   // Returns whether or not the query includes a GROUP BY ROLLUP, GROUP BY CUBE,
@@ -796,18 +802,51 @@ class QueryResolutionInfo {
   }
 
   const std::vector<std::unique_ptr<const ResolvedComputedColumnBase>>&
-  aggregate_columns_to_compute() const {
-    ABSL_DCHECK(!scoped_aggregation_state_->target_pattern_variable_ref.has_value());
-    return unscoped_aggregate_columns_to_compute();
+  aggregate_columns_to_compute() {
+    // This function is only called from legacy paths, from before
+    // MATCH_RECOGNIZE and didn't know about scoping. There shouldn't be any
+    // aggregations pinned to a different range.
+    ABSL_DCHECK(unscoped_aggregate_columns_to_compute().empty());
+    if (scoped_aggregate_columns_to_compute().empty()) {
+      // If there were no aggregations at all, make an empty list.
+      // Calling "reserve(0)" to avoid a reassignment.
+      group_by_info_.match_recognize_aggregate_columns_to_compute[IdString()]
+          .reserve(0);
+    }
+    ABSL_DCHECK_EQ(scoped_aggregate_columns_to_compute().size(), 1);
+    ABSL_DCHECK(scoped_aggregate_columns_to_compute().begin()->first.empty());
+    return scoped_aggregate_columns_to_compute().at(IdString());
   }
 
   // Transfer ownership of aggregate_columns_to_compute, clearing the
   // internal storage.
   std::vector<std::unique_ptr<const ResolvedComputedColumnBase>>
   release_aggregate_columns_to_compute() {
-    ABSL_DCHECK(!scoped_aggregation_state_->target_pattern_variable_ref.has_value());
-    return release_unscoped_aggregate_columns_to_compute();
+    // This function is only called from legacy paths, from before
+    // MATCH_RECOGNIZE and didn't know about scoping. There shouldn't be any
+    // aggregations pinned to a different range.
+    ABSL_DCHECK(unscoped_aggregate_columns_to_compute().empty());
+    if (scoped_aggregate_columns_to_compute().empty()) {
+      // If there were no aggregations at all, return an empty list.
+      return {};
+    }
+    ABSL_DCHECK_EQ(scoped_aggregate_columns_to_compute().size(), 1);
+    ABSL_DCHECK(scoped_aggregate_columns_to_compute().begin()->first.empty());
+    return std::move(
+        release_scoped_aggregate_columns_to_compute().at(IdString()));
   }
+
+  // Pins this QueryResolutionInfo to the row range as specified by
+  // `pattern_variable`:
+  // - If `pattern_variable` is nullopt, pins to all rows.
+  // - If `pattern_variable` is non-empty, pins to the row range of the
+  //   pattern variable.
+  //
+  // Ideally, this should require `row_range_determined` on the scoping state
+  // to be false, but ResolveSelectDistinct() reuses the QueryResolutionInfo
+  // and there are paths where PinToRowRange() was already called before and
+  // cases where it wasn't.
+  absl::Status PinToRowRange(std::optional<IdString> pattern_variable);
 
   const IdStringHashMapCase<
       std::vector<std::unique_ptr<const ResolvedComputedColumnBase>>>&
@@ -942,12 +981,12 @@ class QueryResolutionInfo {
   }
 
   std::vector<std::pair<const ResolvedColumn, const ASTExpression*>>*
-      dot_star_columns_with_aggregation_for_second_pass_resolution() {
+  dot_star_columns_with_aggregation_for_second_pass_resolution() {
     return &dot_star_columns_with_aggregation_for_second_pass_resolution_;
   }
 
   std::vector<std::pair<const ResolvedColumn, const ASTExpression*>>*
-      dot_star_columns_with_analytic_for_second_pass_resolution() {
+  dot_star_columns_with_analytic_for_second_pass_resolution() {
     return &dot_star_columns_with_analytic_for_second_pass_resolution_;
   }
 

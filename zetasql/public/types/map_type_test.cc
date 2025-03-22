@@ -393,7 +393,7 @@ TEST(MapTest, FormatValueContentSQLExpressionMode) {
       test_values::Map({{Value::String("foo"), Value::Int64(100)}});
   EXPECT_EQ(
       map_value.type()->FormatValueContent(map_value.GetContent(), options),
-      R"(MAP_FROM_ARRAY([("foo", 100)]))");
+      R"(MAP_FROM_ARRAY(ARRAY<STRUCT<STRING, INT64>>[("foo", 100)]))");
 }
 
 INSTANTIATE_TEST_SUITE_P(

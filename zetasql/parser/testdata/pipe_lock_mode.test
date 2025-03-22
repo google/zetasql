@@ -55,7 +55,7 @@ QueryStatement [0-186] [with q1 as...group by key]
     WithClause [0-142] [with q1 as...x*2 as y)]
       AliasedQuery [5-89] [q1 as (from...select key, x)]
         Identifier(q1) [5-7] [q1]
-        Query [12-88] [from t1 for...select key, x]
+        Query [11-89] [(from t1 for...select key, x)]
           FromQuery [12-19] [from t1]
             FromClause [12-19] [from t1]
               TablePathExpression [17-19] [t1]
@@ -79,7 +79,7 @@ QueryStatement [0-186] [with q1 as...group by key]
                     Identifier(x) [87-88] [x]
       AliasedQuery [96-142] [q2 as (from...x*2 as y)]
         Identifier(q2) [96-98] [q2]
-        Query [103-141] [from q1...extend x*2 as y]
+        Query [102-142] [(from q1...x*2 as y)]
           FromQuery [103-110] [from q1]
             FromClause [103-110] [from q1]
               TablePathExpression [108-110] [q1]
@@ -136,4 +136,3 @@ FROM
 |> AGGREGATE
      sum(y)
    GROUP BY key
-==

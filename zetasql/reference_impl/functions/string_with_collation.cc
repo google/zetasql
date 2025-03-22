@@ -16,6 +16,7 @@
 
 #include "zetasql/reference_impl/functions/string_with_collation.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <memory>

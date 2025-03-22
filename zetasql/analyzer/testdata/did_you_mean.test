@@ -274,3 +274,24 @@ select 'testenum0' = cast('TESTENUM1' as zetasql_test__.TestEnum)
 ERROR: Could not cast literal "testenum0" to type zetasql_test__.TestEnum; Did you mean 'TESTENUM0'? (Note: ENUM values are case sensitive) [at 1:8]
 select 'testenum0' = cast('TESTENUM1' as zetasql_test__.TestEnum)
        ^
+==
+
+[language_features=TABLE_VALUED_FUNCTIONS]
+select tvf_exactly_1_bool_arg()
+--
+ERROR: Table-valued function is not expected here: tvf_exactly_1_bool_arg [at 1:8]
+select tvf_exactly_1_bool_arg()
+       ^
+
+==
+
+[language_features=TABLE_VALUED_FUNCTIONS]
+[no_java]
+# Trigger "Did you mean" logic in addition to TVF call error logic.
+# not clear why java doesn't work.
+select NullaryPIT()
+--
+ERROR: Table-valued function is not expected here: NullaryPIT; Did you mean nullarypi? [at 3:8]
+select NullaryPIT()
+       ^
+

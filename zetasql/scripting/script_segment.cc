@@ -17,13 +17,12 @@
 #include "zetasql/scripting/script_segment.h"
 
 #include <algorithm>
-#include <cmath>
-#include <cstdlib>
 #include <ostream>
 #include <stack>
 
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/public/parse_location.h"
+#include "absl/strings/string_view.h"
 
 namespace zetasql {
 namespace {

@@ -96,11 +96,11 @@ ZetaSQL supports the following time functions.
 
 ## `CURRENT_TIME`
 
-```sql
+```zetasql
 CURRENT_TIME([time_zone])
 ```
 
-```sql
+```zetasql
 CURRENT_TIME
 ```
 
@@ -113,9 +113,9 @@ This function supports an optional `time_zone` parameter.
 See [Time zone definitions][time-link-to-timezone-definitions] for information
 on how to specify a time zone.
 
-The current time is recorded at the start of the query
-statement which contains this function, not when this specific function is
-evaluated.
+The current time value is set at the start of the query statement that contains
+this function. All invocations of `CURRENT_TIME()` within a query statement
+yield the same value.
 
 **Return Data Type**
 
@@ -123,7 +123,7 @@ evaluated.
 
 **Example**
 
-```sql
+```zetasql
 SELECT CURRENT_TIME() as now;
 
 /*----------------------------*
@@ -139,7 +139,7 @@ SELECT CURRENT_TIME() as now;
 
 ## `EXTRACT`
 
-```sql
+```zetasql
 EXTRACT(part FROM time_expression)
 ```
 
@@ -170,7 +170,7 @@ seconds, `EXTRACT` truncates the millisecond and microsecond values.
 In the following example, `EXTRACT` returns a value corresponding to the `HOUR`
 time part.
 
-```sql
+```zetasql
 SELECT EXTRACT(HOUR FROM TIME "15:30:00") as hour;
 
 /*------------------*
@@ -182,7 +182,7 @@ SELECT EXTRACT(HOUR FROM TIME "15:30:00") as hour;
 
 ## `FORMAT_TIME`
 
-```sql
+```zetasql
 FORMAT_TIME(format_string, time_expr)
 ```
 
@@ -202,7 +202,7 @@ Formats a `TIME` value according to the specified format string.
 
 **Example**
 
-```sql
+```zetasql
 SELECT FORMAT_TIME("%R", TIME "15:30:00") as formatted_time;
 
 /*----------------*
@@ -216,7 +216,7 @@ SELECT FORMAT_TIME("%R", TIME "15:30:00") as formatted_time;
 
 ## `PARSE_TIME`
 
-```sql
+```zetasql
 PARSE_TIME(format_string, time_string)
 ```
 
@@ -236,7 +236,7 @@ Each element in `time_string` must have a corresponding element in
 `format_string`. The location of each element in `format_string` must match the
 location of each element in `time_string`.
 
-```sql
+```zetasql
 -- This works because elements on both sides match.
 SELECT PARSE_TIME("%I:%M:%S", "07:30:00");
 
@@ -250,7 +250,8 @@ SELECT PARSE_TIME("%I:%M", "07:30:00");
 SELECT PARSE_TIME("%T", "07:30:00");
 ```
 
-When using `PARSE_TIME`, keep the following in mind:
+The following additional considerations apply when using the `PARSE_TIME`
+function:
 
 + Unspecified fields. Any unspecified field is initialized from
   `00:00:00.0`. For instance, if `seconds` is unspecified then it
@@ -258,7 +259,7 @@ When using `PARSE_TIME`, keep the following in mind:
 + Whitespace. One or more consecutive white spaces in the format string
   matches zero or more consecutive white spaces in the `TIME` string. In
   addition, leading and trailing white spaces in the `TIME` string are always
-  allowed, even if they are not in the format string.
+  allowed, even if they aren't in the format string.
 + Format precedence. When two (or more) format elements have overlapping
   information, the last one generally overrides any earlier ones.
 + Format divergence. `%p` can be used with `am`, `AM`, `pm`, and `PM`.
@@ -269,7 +270,7 @@ When using `PARSE_TIME`, keep the following in mind:
 
 **Example**
 
-```sql
+```zetasql
 SELECT PARSE_TIME("%H", "15") as parsed_time;
 
 /*-------------*
@@ -279,7 +280,7 @@ SELECT PARSE_TIME("%H", "15") as parsed_time;
  *-------------*/
 ```
 
-```sql
+```zetasql
 SELECT PARSE_TIME('%I:%M:%S %p', '2:23:38 pm') AS parsed_time;
 
 /*-------------*
@@ -295,7 +296,7 @@ SELECT PARSE_TIME('%I:%M:%S %p', '2:23:38 pm') AS parsed_time;
 
 ## `TIME`
 
-```sql
+```zetasql
 1. TIME(hour, minute, second)
 2. TIME(timestamp, [time_zone])
 3. TIME(datetime)
@@ -319,7 +320,7 @@ SELECT PARSE_TIME('%I:%M:%S %p', '2:23:38 pm') AS parsed_time;
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   TIME(15, 30, 00) as time_hms,
   TIME(TIMESTAMP "2008-12-25 15:30:00+08", "America/Los_Angeles") as time_tstz;
@@ -331,7 +332,7 @@ SELECT
  *----------+-----------*/
 ```
 
-```sql
+```zetasql
 SELECT TIME(DATETIME "2008-12-25 15:30:00.000000") AS time_dt;
 
 /*----------*
@@ -345,7 +346,7 @@ SELECT TIME(DATETIME "2008-12-25 15:30:00.000000") AS time_dt;
 
 ## `TIME_ADD`
 
-```sql
+```zetasql
 TIME_ADD(time_expression, INTERVAL int64_expression part)
 ```
 
@@ -373,7 +374,7 @@ value is `00:30:00`.
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   TIME "15:30:00" as original_time,
   TIME_ADD(TIME "15:30:00", INTERVAL 10 MINUTE) as later;
@@ -387,8 +388,8 @@ SELECT
 
 ## `TIME_DIFF`
 
-```sql
-TIME_DIFF(start_time, end_time, granularity)
+```zetasql
+TIME_DIFF(end_time, start_time, granularity)
 ```
 
 **Description**
@@ -430,7 +431,7 @@ behaves like `TIMESTAMP_DIFF(TIMESTAMP, TIMESTAMP, PART)`.
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   TIME "15:30:00" as first_time,
   TIME "14:35:00" as second_time,
@@ -445,7 +446,7 @@ SELECT
 
 ## `TIME_SUB`
 
-```sql
+```zetasql
 TIME_SUB(time_expression, INTERVAL int64_expression part)
 ```
 
@@ -473,7 +474,7 @@ returned value is `23:30:00`.
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   TIME "15:30:00" as original_date,
   TIME_SUB(TIME "15:30:00", INTERVAL 10 MINUTE) as earlier;
@@ -487,7 +488,7 @@ SELECT
 
 ## `TIME_TRUNC`
 
-```sql
+```zetasql
 TIME_TRUNC(time_value, time_granularity)
 ```
 
@@ -527,7 +528,7 @@ The resulting value is always rounded to the beginning of `granularity`.
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   TIME "15:30:00" as original,
   TIME_TRUNC(TIME "15:30:00", HOUR) as truncated;

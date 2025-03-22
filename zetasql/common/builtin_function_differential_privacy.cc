@@ -560,10 +560,11 @@ static FunctionSignatureOptions DpReportSignatureOptions(
 
 static std::vector<FunctionSignature> MaybeAddEpsilonArgumentToSignatures(
     const LanguageOptions& language_options,
-    const std::vector<FunctionSignature>& function_signatures) {
+    absl::Span<const FunctionSignature> function_signatures) {
   if (!language_options.LanguageFeatureEnabled(
           FEATURE_DIFFERENTIAL_PRIVACY_PER_AGGREGATION_BUDGET)) {
-    return function_signatures;
+    return std::vector<FunctionSignature>(function_signatures.begin(),
+                                          function_signatures.end());
   }
   std::vector<FunctionSignature> result;
   for (const FunctionSignature& signature : function_signatures) {
@@ -1250,9 +1251,9 @@ absl::Status GetDifferentialPrivacyFunctions(
 
   InsertCreatedFunction(
       functions, options,
-      new Function(
+      new AnonFunction(
           kPartialMergeForDpApproxCountDistinct,
-          Function::kZetaSQLFunctionGroupName, Function::AGGREGATE,
+          Function::kZetaSQLFunctionGroupName,
           {{bytes_type,
             {/*expr=*/bytes_type,
              /*contribution_bounding_strategy=*/
@@ -1266,7 +1267,14 @@ absl::Status GetDifferentialPrivacyFunctions(
               .set_get_sql_callback(get_sql_callback_for_function(
                   "MERGE_PARTIAL_FOR_DP_APPROX_COUNT_DISTINCT"))
               .set_signature_text_callback(DpSignatureTextCallback)
-              .set_sql_name("merge_partial_for_dp_approx_count_distinct")));
+              .set_sql_name("merge_partial_for_dp_approx_count_distinct"),
+          // The partial merge function cannot be called directly. It is only
+          // used as part of the approx_count_distinct rewrite. The approx count
+          // distinct rewrite happens always after the inner rewrite into a
+          // per-user aggregation happened. Thus the partial_aggregate_name
+          // provided here has no effect. Function class information might be
+          // used by the engine.
+          ""));
   return absl::OkStatus();
 }  // NOLINT(readability/fn_size)
 

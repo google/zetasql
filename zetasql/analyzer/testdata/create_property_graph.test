@@ -1,5 +1,5 @@
 [default no_test_extract_table_names]
-[default show_unparsed]
+[default show_sqlbuilder_output]
 
 ################################################################################
 # Element Table
@@ -83,7 +83,24 @@ CreatePropertyGraphStmt
   +-GraphPropertyDeclaration(parse_location=813-813, name="age", type=UINT32)
   +-GraphPropertyDeclaration(parse_location=813-813, name="data", type=BYTES)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+CREATE PROPERTY GRAPH catalog.aml
+  NODE TABLES(
+    Person AS person
+      KEY(id)
+      LABEL person PROPERTIES(
+        id,
+        name,
+        gender,
+        birthday,
+        email,
+        age,
+        data)
+  );
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 CREATE PROPERTY GRAPH catalog.aml
   NODE TABLES(
     Person AS person
@@ -167,7 +184,25 @@ CreatePropertyGraphStmt
   +-opt1 := Literal(type=STRING, value="v1")
   +-opt2 := Literal(type=STRING, value="v2")
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+CREATE PROPERTY GRAPH catalog.aml
+OPTIONS(opt1 = "v1", opt2 = "v2")
+  NODE TABLES(
+    Person AS person
+      KEY(id)
+      LABEL person PROPERTIES(
+        id,
+        name,
+        gender,
+        birthday,
+        email,
+        age,
+        data)
+  );
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 CREATE PROPERTY GRAPH catalog.aml
 OPTIONS(opt1 = "v1", opt2 = "v2")
   NODE TABLES(
@@ -250,7 +285,24 @@ CreatePropertyGraphStmt
   +-GraphPropertyDeclaration(parse_location=826-826, name="age", type=UINT32)
   +-GraphPropertyDeclaration(parse_location=826-826, name="data", type=BYTES)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+CREATE PROPERTY GRAPH IF NOT EXISTS catalog.aml
+  NODE TABLES(
+    Person AS person
+      KEY(id)
+      LABEL person PROPERTIES(
+        id,
+        name,
+        gender,
+        birthday,
+        email,
+        age,
+        data)
+  );
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 CREATE PROPERTY GRAPH IF NOT EXISTS catalog.aml
   NODE TABLES(
     Person AS person
@@ -335,7 +387,25 @@ CreatePropertyGraphStmt
   +-opt1 := Literal(type=STRING, value="v1")
   +-opt2 := Literal(type=STRING, value="v2")
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+CREATE PROPERTY GRAPH IF NOT EXISTS catalog.aml
+OPTIONS(opt1 = "v1", opt2 = "v2")
+  NODE TABLES(
+    Person AS person
+      KEY(id)
+      LABEL person PROPERTIES(
+        id,
+        name,
+        gender,
+        birthday,
+        email,
+        age,
+        data)
+  );
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 CREATE PROPERTY GRAPH IF NOT EXISTS catalog.aml
 OPTIONS(opt1 = "v1", opt2 = "v2")
   NODE TABLES(
@@ -418,7 +488,24 @@ CreatePropertyGraphStmt
   +-GraphPropertyDeclaration(parse_location=823-823, name="age", type=UINT32)
   +-GraphPropertyDeclaration(parse_location=823-823, name="data", type=BYTES)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+CREATE OR REPLACE PROPERTY GRAPH catalog.aml
+  NODE TABLES(
+    Person AS person
+      KEY(id)
+      LABEL person PROPERTIES(
+        id,
+        name,
+        gender,
+        birthday,
+        email,
+        age,
+        data)
+  );
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 CREATE OR REPLACE PROPERTY GRAPH catalog.aml
   NODE TABLES(
     Person AS person
@@ -503,7 +590,25 @@ CreatePropertyGraphStmt
   +-opt1 := Literal(type=STRING, value="v1")
   +-opt2 := Literal(type=STRING, value="v2")
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+CREATE OR REPLACE PROPERTY GRAPH catalog.aml
+OPTIONS(opt1 = "v1", opt2 = "v2")
+  NODE TABLES(
+    Person AS person
+      KEY(id)
+      LABEL person PROPERTIES(
+        id,
+        name,
+        gender,
+        birthday,
+        email,
+        age,
+        data)
+  );
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 CREATE OR REPLACE PROPERTY GRAPH catalog.aml
 OPTIONS(opt1 = "v1", opt2 = "v2")
   NODE TABLES(
@@ -624,7 +729,31 @@ CreatePropertyGraphStmt
   +-GraphPropertyDeclaration(parse_location=52-52, name="data", type=BYTES)
   +-GraphPropertyDeclaration(parse_location=61-61, name="balance", type=UINT64)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+CREATE PROPERTY GRAPH catalog.aml
+  NODE TABLES(
+    Person AS person
+      KEY(id)
+      LABEL person PROPERTIES(
+        id,
+        name,
+        gender,
+        birthday,
+        email,
+        age,
+        data),
+
+    Account AS account
+      KEY(id)
+      LABEL account PROPERTIES(
+        id,
+        name,
+        balance)
+  );
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 CREATE PROPERTY GRAPH catalog.aml
   NODE TABLES(
     Person AS person
@@ -744,7 +873,31 @@ CreatePropertyGraphStmt
   +-GraphPropertyDeclaration(parse_location=57-57, name="data", type=BYTES)
   +-GraphPropertyDeclaration(parse_location=73-73, name="balance", type=UINT64)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+CREATE PROPERTY GRAPH catalog.aml
+  NODE TABLES(
+    Person AS p
+      KEY(id)
+      LABEL p PROPERTIES(
+        id,
+        name,
+        gender,
+        birthday,
+        email,
+        age,
+        data),
+
+    Account AS acc
+      KEY(id)
+      LABEL acc PROPERTIES(
+        id,
+        name,
+        balance)
+  );
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 CREATE PROPERTY GRAPH catalog.aml
   NODE TABLES(
     Person AS p
@@ -938,7 +1091,46 @@ CreatePropertyGraphStmt
   +-GraphPropertyDeclaration(parse_location=58-58, name="age", type=UINT32)
   +-GraphPropertyDeclaration(parse_location=58-58, name="data", type=BYTES)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+CREATE PROPERTY GRAPH catalog.aml
+  NODE TABLES(
+    Person AS p1
+      KEY(id)
+      LABEL p1 PROPERTIES(
+        id,
+        name,
+        gender,
+        birthday,
+        email,
+        age,
+        data),
+
+    Person AS p2
+      KEY(id)
+      LABEL p2 PROPERTIES(
+        id,
+        name,
+        gender,
+        birthday,
+        email,
+        age,
+        data),
+
+    Person AS p3
+      KEY(id)
+      LABEL p3 PROPERTIES(
+        id,
+        name,
+        gender,
+        birthday,
+        email,
+        age,
+        data)
+  );
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 CREATE PROPERTY GRAPH catalog.aml
   NODE TABLES(
     Person AS p1
@@ -979,7 +1171,7 @@ CREATE PROPERTY GRAPH catalog.aml
 # Create a property graph with multiple NodeTables and EdgeTables.
 # Some referenced node tables inferred its keys from primary key.
 # Edge's source/destination reference using node table alias
-[show_unparsed]
+[show_sqlbuilder_output]
 create property graph catalog.aml
 node tables(person, account as acc)
 edge tables(
@@ -1186,7 +1378,52 @@ CreatePropertyGraphStmt
   +-GraphPropertyDeclaration(parse_location=343-343, name="accountId", type=INT64)
   +-GraphPropertyDeclaration(parse_location=343-343, name="startDate", type=TIMESTAMP)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+CREATE PROPERTY GRAPH catalog.aml
+  NODE TABLES(
+    Person AS person
+      KEY(id)
+      LABEL person PROPERTIES(
+        id,
+        name,
+        gender,
+        birthday,
+        email,
+        age,
+        data),
+
+    Account AS acc
+      KEY(id)
+      LABEL acc PROPERTIES(
+        id,
+        name,
+        balance)
+  )
+  EDGE TABLES(
+    Transfer AS t
+      KEY(txnId)
+      SOURCE KEY(fromAccountId) REFERENCES acc(id)
+      DESTINATION KEY(toAccountId) REFERENCES acc(id)
+      LABEL t PROPERTIES(
+        txnId,
+        fromAccountId,
+        toAccountId,
+        time,
+        amount),
+
+    PersonOwnAccount AS own
+      KEY(personId, accountId)
+      SOURCE KEY(personId) REFERENCES person(id)
+      DESTINATION KEY(accountId) REFERENCES acc(id)
+      LABEL own PROPERTIES(
+        personId,
+        accountId,
+        startDate)
+  );
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 CREATE PROPERTY GRAPH catalog.aml
   NODE TABLES(
     Person AS person
@@ -1231,7 +1468,7 @@ CREATE PROPERTY GRAPH catalog.aml
 ==
 
 # Schema prefixed node table
-[no_run_unparser]
+[no_run_sqlbuilder]
 create property graph catalog.aml node tables(pg.place key(zip))
 --
 CreatePropertyGraphStmt
@@ -1340,7 +1577,24 @@ CreatePropertyGraphStmt
   +-GraphPropertyDeclaration(parse_location=66-66, name="age", type=UINT32)
   +-GraphPropertyDeclaration(parse_location=66-66, name="data", type=BYTES)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+CREATE PROPERTY GRAPH IF NOT EXISTS aml
+  NODE TABLES(
+    Person AS node
+      KEY(id)
+      LABEL node PROPERTIES(
+        id,
+        name,
+        gender,
+        birthday,
+        email,
+        age,
+        data)
+  );
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 CREATE PROPERTY GRAPH IF NOT EXISTS aml
   NODE TABLES(
     Person AS node
@@ -1424,7 +1678,24 @@ CreatePropertyGraphStmt
   +-GraphPropertyDeclaration(parse_location=63-63, name="age", type=UINT32)
   +-GraphPropertyDeclaration(parse_location=63-63, name="data", type=BYTES)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+CREATE OR REPLACE PROPERTY GRAPH aml
+  NODE TABLES(
+    Person AS node
+      KEY(id)
+      LABEL node PROPERTIES(
+        id,
+        name,
+        gender,
+        birthday,
+        email,
+        age,
+        data)
+  );
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 CREATE OR REPLACE PROPERTY GRAPH aml
   NODE TABLES(
     Person AS node
@@ -1534,7 +1805,34 @@ CreatePropertyGraphStmt
   +-GraphPropertyDeclaration(parse_location=347-355, name="personId", type=INT64)
   +-GraphPropertyDeclaration(parse_location=357-366, name="accountId", type=INT64)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+CREATE PROPERTY GRAPH catalog.aml
+  NODE TABLES(
+    Person AS person
+      KEY(id)
+      LABEL person PROPERTIES(
+        id)
+      LABEL no_properties NO PROPERTIES,
+
+    Account AS account
+      KEY(id)
+      LABEL account PROPERTIES(
+        id)
+  )
+  EDGE TABLES(
+    PersonOwnAccount
+      KEY(personId, accountId)
+      SOURCE KEY(personId) REFERENCES person(id)
+      DESTINATION KEY(accountId) REFERENCES account(id)
+      LABEL PersonOwnAccount PROPERTIES(
+        personId,
+        accountId)
+      LABEL no_properties NO PROPERTIES
+  );
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 CREATE PROPERTY GRAPH catalog.aml
   NODE TABLES(
     Person AS person
@@ -1569,7 +1867,7 @@ CREATE PROPERTY GRAPH catalog.aml
 #  5. property declaration with different property definition in different element table
 ################################################################################
 # Create a property graph with various label and properties
-[show_unparsed]
+[show_sqlbuilder_output]
 create property graph catalog.aml
 node tables(
 person as p
@@ -1726,7 +2024,44 @@ CreatePropertyGraphStmt
   +-GraphPropertyDeclaration(parse_location=296-318, name="accountId", type=INT64)
   +-GraphPropertyDeclaration(parse_location=296-318, name="startDate", type=TIMESTAMP)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+CREATE PROPERTY GRAPH catalog.aml
+  NODE TABLES(
+    Person AS p
+      KEY(id)
+      LABEL x1 PROPERTIES(
+        id,
+        name AS n)
+      LABEL x2 PROPERTIES(
+        id,
+        name,
+        gender,
+        birthday,
+        email,
+        age,
+        data),
+
+    Account AS account
+      KEY(id)
+      LABEL account PROPERTIES(
+        id,
+        balance)
+  )
+  EDGE TABLES(
+    PersonOwnAccount AS own
+      KEY(personId, accountId)
+      SOURCE KEY(personId) REFERENCES p(id)
+      DESTINATION KEY(accountId) REFERENCES account(id)
+      LABEL own NO PROPERTIES
+      LABEL x3 PROPERTIES(
+        personId,
+        accountId,
+        startDate)
+  );
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 CREATE PROPERTY GRAPH catalog.aml
   NODE TABLES(
     Person AS p
@@ -1816,7 +2151,22 @@ CreatePropertyGraphStmt
   +-GraphPropertyDeclaration(parse_location=53-103, name="age", type=UINT32)
   +-GraphPropertyDeclaration(parse_location=53-103, name="data", type=BYTES)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+CREATE PROPERTY GRAPH catalog.aml
+  NODE TABLES(
+    Person AS person
+      KEY(id)
+      LABEL person PROPERTIES(
+        id,
+        name,
+        gender,
+        age,
+        data)
+  );
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 CREATE PROPERTY GRAPH catalog.aml
   NODE TABLES(
     Person AS person
@@ -1894,7 +2244,23 @@ CreatePropertyGraphStmt
   +-GraphPropertyDeclaration(parse_location=152-182, name="sliteral", type=STRING)
   +-GraphPropertyDeclaration(parse_location=212-238, name="asset", type=DOUBLE)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+CREATE PROPERTY GRAPH catalog.aml
+  NODE TABLES(
+    Account AS account
+      KEY(id)
+      LABEL x1 PROPERTIES(
+        balance + balance AS doublemoney)
+      LABEL x2 PROPERTIES(
+        -id AS fakeid,
+        CONCAT("s1", "s2") AS sliteral)
+      LABEL x3 PROPERTIES(
+        POWER(balance, 2) AS asset)
+  );
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 CREATE PROPERTY GRAPH catalog.aml
   NODE TABLES(
     Account AS account
@@ -1939,7 +2305,20 @@ CreatePropertyGraphStmt
 +-property_declaration_list=
   +-GraphPropertyDeclaration(parse_location=73-84, name="uid", type=INT64)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+CREATE PROPERTY GRAPH catalog.aml
+  NODE TABLES(
+    Person AS person
+      KEY(id)
+      LABEL x1 PROPERTIES(
+        id + 1 AS uid)
+      LABEL x2 PROPERTIES(
+        id + 1 AS uid)
+  );
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 CREATE PROPERTY GRAPH catalog.aml
   NODE TABLES(
     Person AS person
@@ -2045,7 +2424,33 @@ CreatePropertyGraphStmt
   +-GraphPropertyDeclaration(parse_location=85-85, name="name", type=STRING)
   +-GraphPropertyDeclaration(parse_location=85-85, name="balance", type=UINT64)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+CREATE PROPERTY GRAPH catalog.aml
+  NODE TABLES(
+    Person AS person
+      KEY(id)
+      LABEL x1 PROPERTIES(
+        id),
+
+    Account AS account
+      KEY(id)
+      LABEL account PROPERTIES(
+        id,
+        name,
+        balance)
+  )
+  EDGE TABLES(
+    PersonOwnAccount AS own
+      KEY(personId, accountId)
+      SOURCE KEY(personId) REFERENCES person(id)
+      DESTINATION KEY(accountId) REFERENCES account(id)
+      LABEL x1 PROPERTIES(
+        personId + accountId AS id)
+  );
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 CREATE PROPERTY GRAPH catalog.aml
   NODE TABLES(
     Person AS person
@@ -2071,7 +2476,7 @@ CREATE PROPERTY GRAPH catalog.aml
 ==
 
 # except list exclude all columns, equivalant to NO PROPERTIES
-[show_unparsed]
+[show_sqlbuilder_output]
 create property graph catalog.aml
 node tables(account label x1 properties all columns except(id, name, balance))
 --
@@ -2088,7 +2493,17 @@ CreatePropertyGraphStmt
 +-label_list=
   +-GraphElementLabel(parse_location=54-111, name="x1")
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+CREATE PROPERTY GRAPH catalog.aml
+  NODE TABLES(
+    Account AS account
+      KEY(id)
+      LABEL x1 NO PROPERTIES
+  );
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 CREATE PROPERTY GRAPH catalog.aml
   NODE TABLES(
     Account AS account
@@ -2392,7 +2807,7 @@ ERROR: Property 'uid' has more than one definition in the element table; use the
 # definition order. basically we'll canonicalize the label representation in
 # ResolvedAST so unparser can result into different order of property
 # definitions.
-[no_run_unparser]
+[no_run_sqlbuilder]
 create property graph catalog.aml
 node tables(
 person label x1 properties(id, name),
@@ -2519,7 +2934,23 @@ CreatePropertyGraphStmt
 +-property_declaration_list=
   +-GraphPropertyDeclaration(parse_location=78-80, name="id", type=INT64)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+CREATE PROPERTY GRAPH catalog.aml
+  NODE TABLES(
+    Person AS p1
+      KEY(id)
+      LABEL x PROPERTIES(
+        id),
+
+    Person AS p2
+      KEY(id)
+      LABEL y PROPERTIES(
+        ID)
+  );
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 CREATE PROPERTY GRAPH catalog.aml
   NODE TABLES(
     Person AS p1
@@ -2538,7 +2969,12 @@ drop property graph catalog.aml
 --
 DropStmt(object_type="PROPERTY GRAPH", is_if_exists=FALSE, name_path=catalog.aml)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+DROP PROPERTY GRAPH catalog.aml;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 DROP PROPERTY GRAPH catalog.aml;
 ==
 
@@ -2546,7 +2982,12 @@ drop property graph if exists catalog.aml
 --
 DropStmt(object_type="PROPERTY GRAPH", is_if_exists=TRUE, name_path=catalog.aml)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+DROP PROPERTY GRAPH IF EXISTS catalog.aml;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 DROP PROPERTY GRAPH IF EXISTS catalog.aml;
 ==
 
@@ -2576,7 +3017,18 @@ CreatePropertyGraphStmt
 +-property_declaration_list=
   +-GraphPropertyDeclaration(parse_location=75-133, name="TestTableWithSameColumnName", type=STRING)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+CREATE PROPERTY GRAPH g
+  NODE TABLES(
+    TestTableWithSameColumnName
+      KEY(id)
+      LABEL TestTableWithSameColumnName PROPERTIES(
+        TestTableWithSameColumnName)
+  );
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 CREATE PROPERTY GRAPH g
   NODE TABLES(
     TestTableWithSameColumnName
@@ -2611,7 +3063,18 @@ CreatePropertyGraphStmt
 +-property_declaration_list=
   +-GraphPropertyDeclaration(parse_location=80-148, name="TestValueTableWithSameColumnName", type=STRING)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+CREATE PROPERTY GRAPH g
+  NODE TABLES(
+    TestValueTableWithSameColumnName
+      KEY(id)
+      LABEL TestValueTableWithSameColumnName PROPERTIES(
+        TestValueTableWithSameColumnName)
+  );
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 CREATE PROPERTY GRAPH g
   NODE TABLES(
     TestValueTableWithSameColumnName
@@ -2873,7 +3336,39 @@ CreatePropertyGraphStmt
   +-GraphPropertyDeclaration(parse_location=112-130, name="group", type=INT64)
   +-GraphPropertyDeclaration(parse_location=132-161, name="group_plus_one", type=INT64)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+CREATE PROPERTY GRAPH catalog.aml
+  NODE TABLES(
+    Person
+      KEY(id)
+      LABEL Person PROPERTIES(
+        id,
+        name,
+        gender,
+        birthday,
+        email,
+        age,
+        data),
+
+    `Group` AS `From`
+      KEY(`group`)
+      LABEL `From` PROPERTIES(
+        `group` AS `group`,
+        `group` + 1 AS group_plus_one)
+  )
+  EDGE TABLES(
+    `Group` AS `Select`
+      KEY(id)
+      SOURCE KEY(`group`) REFERENCES `From`(`group`)
+      DESTINATION KEY(id) REFERENCES Person(id)
+      LABEL `Select` PROPERTIES(
+        id,
+        `group` AS `group`)
+  );
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 CREATE PROPERTY GRAPH catalog.aml
   NODE TABLES(
     Person

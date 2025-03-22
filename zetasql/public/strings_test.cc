@@ -18,7 +18,6 @@
 
 #include <cstring>
 #include <memory>
-#include <set>
 #include <string>
 #include <vector>
 
@@ -26,19 +25,20 @@
 #include "zetasql/common/utf_util.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parser.h"
+#include "zetasql/public/id_string.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/base/macros.h"
 #include "absl/container/btree_set.h"
+#include "absl/container/flat_hash_set.h"
+#include "absl/status/status.h"
 #include "absl/strings/ascii.h"
-#include "absl/strings/escaping.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
-#include "zetasql/base/map_util.h"
 #include "zetasql/base/status.h"
 
 using testing::Eq;

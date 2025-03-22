@@ -16,6 +16,7 @@
 
 #include "zetasql/reference_impl/functions/json.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <memory>
@@ -304,6 +305,16 @@ class JsonArrayInsertAppendFunction : public SimpleBuiltinScalarFunction {
   explicit JsonArrayInsertAppendFunction(FunctionKind kind)
       : SimpleBuiltinScalarFunction(kind, types::JsonType()) {}
 
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
+class JsonContainsFunction : public SimpleBuiltinScalarFunction {
+ public:
+  JsonContainsFunction()
+      : SimpleBuiltinScalarFunction(FunctionKind::kJsonContains,
+                                    types::BoolType()) {}
   absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
                              absl::Span<const Value> args,
                              EvaluationContext* context) const override;

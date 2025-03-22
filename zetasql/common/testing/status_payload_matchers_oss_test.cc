@@ -16,8 +16,6 @@
 
 #include "zetasql/common/testing/status_payload_matchers_oss.h"
 
-#include <string>
-
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/common/testing/status_payload_matchers_test.pb.h"
 #include "gmock/gmock.h"

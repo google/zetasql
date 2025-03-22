@@ -20,11 +20,9 @@
 #include <memory>
 #include <string>
 #include <tuple>
-#include <type_traits>
 #include <vector>
 
 #include "zetasql/base/logging.h"
-#include "google/protobuf/descriptor.h"
 #include "zetasql/analyzer/expr_resolver_helper.h"
 #include "zetasql/analyzer/name_scope.h"
 #include "zetasql/analyzer/query_resolver_helper.h"
@@ -39,11 +37,11 @@
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
+#include "zetasql/public/function_signature.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
-#include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
@@ -61,7 +59,6 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
-#include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -108,6 +105,8 @@ class ResolverTest : public ::testing::Test {
         FEATURE_PARAMETERIZED_TYPES);
     analyzer_options_.mutable_language()->EnableLanguageFeature(
         FEATURE_RANGE_TYPE);
+    analyzer_options_.mutable_language()->EnableLanguageFeature(
+        FEATURE_V_1_4_UUID_TYPE);
     analyzer_options_.CreateDefaultArenasIfNotSet();
     sample_catalog_ = std::make_unique<SampleCatalog>(
         analyzer_options_.language(), &type_factory_);
@@ -345,8 +344,11 @@ class ResolverTest : public ::testing::Test {
     EXPECT_TRUE(parsed_expression->node_kind() == AST_IDENTIFIER ||
                 parsed_expression->node_kind() == AST_PATH_EXPRESSION);
     absl::Span<const ASTIdentifier* const> path_vector;
+    // Separate vector to avoid lifetime issues due to use-after-free.
+    std::vector<const ASTIdentifier*> path_sequence;
     if (parsed_expression->node_kind() == AST_IDENTIFIER) {
-      path_vector = {parsed_expression->GetAsOrDie<ASTIdentifier>()};
+      path_sequence.push_back(parsed_expression->GetAsOrDie<ASTIdentifier>());
+      path_vector = path_sequence;
     } else {
       path_vector = parsed_expression->GetAsOrDie<ASTPathExpression>()->names();
     }
@@ -354,7 +356,8 @@ class ResolverTest : public ::testing::Test {
     ZETASQL_ASSERT_OK(FindFieldDescriptors(path_vector, root_type, &field_descriptors));
 
     // Ensure that the field path is valid by checking field containment.
-    std::string containing_proto_name = root_type->descriptor()->full_name();
+    absl::string_view containing_proto_name =
+        root_type->descriptor()->full_name();
     EXPECT_EQ(path_vector.size(), field_descriptors.size());
     for (int i = 0; i < field_descriptors.size(); ++i) {
       if (!field_descriptors[i]->is_extension()) {
@@ -382,8 +385,11 @@ class ResolverTest : public ::testing::Test {
     EXPECT_TRUE(parsed_expression->node_kind() == AST_IDENTIFIER ||
                 parsed_expression->node_kind() == AST_PATH_EXPRESSION);
     absl::Span<const ASTIdentifier* const> path_vector;
+    // Separate vector to avoid lifetime issues due to use-after-free.
+    std::vector<const ASTIdentifier*> path_sequence;
     if (parsed_expression->node_kind() == AST_IDENTIFIER) {
-      path_vector = {parsed_expression->GetAsOrDie<ASTIdentifier>()};
+      path_sequence.push_back(parsed_expression->GetAsOrDie<ASTIdentifier>());
+      path_vector = path_sequence;
     } else {
       path_vector = parsed_expression->GetAsOrDie<ASTPathExpression>()->names();
     }
@@ -518,6 +524,7 @@ TEST_F(ResolverTest, TestResolveTypeName) {
   ResolveSimpleTypeName("bytes", type_factory_.get_bytes());
   ResolveSimpleTypeName("date", type_factory_.get_date());
   ResolveSimpleTypeName("timestamp", type_factory_.get_timestamp());
+  ResolveSimpleTypeName("uuid", type_factory_.get_uuid());
 
   const Type* type;
   ZETASQL_EXPECT_OK(resolver_->ResolveTypeName("ARRAY<INT32>", &type));
@@ -726,6 +733,10 @@ TEST_F(ResolverTest, TestResolveCastExpression) {
                      types::Uint32Type());
   TestCastExpression("CAST(CAST(1 as `zetasql_test__.TestEnum`) as UINT64)",
                      types::Uint64Type());
+  TestCastExpression("CAST('00000000-0000-4000-8000-000000000000' as UUID)",
+                     types::UuidType());
+  TestCastExpression("CAST('0102030405060708090a0b0c0d0e0f10' as UUID)",
+                     types::UuidType());
 
   // TODO: Add basic CAST resolution tests for ENUM, PROTO, STRUCT,
   // ARRAY (some will be errors - to be added in TestResolverErrors).
@@ -761,6 +772,8 @@ TEST_F(ResolverTest, TestResolveCastExpression) {
                        "Invalid cast from BOOL to FLOAT");
   ResolveFunctionFails("CAST(true as double)",
                        "Invalid cast from BOOL to DOUBLE");
+  ResolveFunctionFails("CAST(true AS UUID)", "Invalid cast from BOOL to UUID");
+  ResolveFunctionFails("CAST(1 AS UUID)", "Invalid cast from INT64 to UUID");
 
   // Invalid type names
   ResolveFunctionFails("CAST(1 as blah)", "Type not found: blah");
@@ -893,8 +906,11 @@ TEST_F(ResolverTest, TestResolveAggregateExpressions) {
 
   ResolveFunctionFails("sum(8)", "Aggregate function SUM not allowed in "
                        "ResolveScalarExpr");
-  ResolveFunctionFails("sum(sum(8))",
-                       "Aggregations of aggregations are not allowed", true);
+  ResolveFunctionFails(
+      "sum(sum(8))",
+      "Multi-level aggregation requires the enclosing aggregate function to "
+      "have one or more GROUP BY modifiers",
+      true);
   ResolveFunctionFails("count(distinct *)",
                        "COUNT(*) cannot be used with DISTINCT", true);
 }

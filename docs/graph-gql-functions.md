@@ -159,13 +159,13 @@ including the following GQL-specific functions:
 
 ## `DESTINATION_NODE_ID`
 
-```sql
+```zetasql
 DESTINATION_NODE_ID(edge_element)
 ```
 
 **Description**
 
-Gets a unique identifier of a graph edge's destination node. The unique identifier is only valid for the scope of the query where it is obtained.
+Gets a unique identifier of a graph edge's destination node. The unique identifier is only valid for the scope of the query where it's obtained.
 
 **Arguments**
 
@@ -181,7 +181,7 @@ Returns `NULL` if `edge_element` is `NULL`.
 
 **Examples**
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (:Person)-[o:Owns]->(a:Account)
 RETURN a.id AS account_id, DESTINATION_NODE_ID(o) AS destination_node_id
@@ -199,7 +199,7 @@ Note that the actual identifiers obtained may be different from what's shown abo
 
 ## `EDGES`
 
-```sql
+```zetasql
 EDGES(graph_path)
 ```
 
@@ -222,36 +222,40 @@ If `graph_path` is `NULL`, returns `NULL`.
 
 **Examples**
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH p=(src:Account)-[t1:Transfers]->(mid:Account)-[t2:Transfers]->(dst:Account)
 LET es = EDGES(p)
-RETURN
-  LABELS(es[0]) AS labels,
-  es[0].to_id AS to_account;
+RETURN ARRAY_CONCAT(ARRAY_TRANSFORM(es, e -> e.Id), [dst.Id]) as ids_in_path
 
-/*----------------------------*
- | labels        | to_account |
- +----------------------------+
- | ["Transfers"] | 7          |
- | ["Transfers"] | 7          |
- | ["Transfers"] | 16         |
- | ["Transfers"] | 16         |
- | ["Transfers"] | 16         |
- | ["Transfers"] | 20         |
- | ["Transfers"] | 20         |
- *----------------------------/*
+/*-------------+
+ | ids_in_path |
+ +-------------+
+ | [16,20,7]   |
+ +-------------+
+ | [20,7,16]   |
+ +-------------+
+ | [20,7,16]   |
+ +-------------+
+ | [16,20,16]  |
+ +-------------+
+ | [7,16,20]   |
+ +-------------+
+ | [7,16,20]   |
+ +-------------+
+ | [20,16,20]  |
+ +-------------*/
 ```
 
 ## `ELEMENT_ID`
 
-```sql
+```zetasql
 ELEMENT_ID(element)
 ```
 
 **Description**
 
-Gets a graph element's unique identifier. The unique identifier is only valid for the scope of the query where it is obtained.
+Gets a graph element's unique identifier. The unique identifier is only valid for the scope of the query where it's obtained.
 
 **Arguments**
 
@@ -267,7 +271,7 @@ Returns `NULL` if `element` is `NULL`.
 
 **Examples**
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (p:Person)-[o:Owns]->(:Account)
 RETURN p.name AS name, ELEMENT_ID(p) AS node_element_id, ELEMENT_ID(o) AS edge_element_id
@@ -285,7 +289,7 @@ Note that the actual identifiers obtained may be different from what's shown abo
 
 ## `IS_ACYCLIC`
 
-```sql
+```zetasql
 IS_ACYCLIC(graph_path)
 ```
 
@@ -310,7 +314,7 @@ Returns `NULL` if `graph_path` is `NULL`.
 
 **Examples**
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH p=(src:Account)-[t1:Transfers]->(mid:Account)-[t2:Transfers]->(dst:Account)
 RETURN src.id AS source_account_id, IS_ACYCLIC(p) AS is_acyclic_path
@@ -330,7 +334,7 @@ RETURN src.id AS source_account_id, IS_ACYCLIC(p) AS is_acyclic_path
 
 ## `IS_TRAIL`
 
-```sql
+```zetasql
 IS_TRAIL(graph_path)
 ```
 
@@ -353,7 +357,7 @@ Returns `NULL` if `graph_path` is `NULL`.
 
 **Examples**
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH
   p=(a1:Account)-[t1:Transfers]->(a2:Account)-[t2:Transfers]->
@@ -373,7 +377,7 @@ RETURN
 
 ## `LABELS`
 
-```sql
+```zetasql
 LABELS(element)
 ```
 
@@ -397,7 +401,7 @@ Returns `NULL` if `element` is `NULL`.
 
 **Examples**
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (n:Person|Account)
 RETURN LABELS(n) AS label, n.id
@@ -416,7 +420,7 @@ RETURN LABELS(n) AS label, n.id
 
 ## `NODES`
 
-```sql
+```zetasql
 NODES(graph_path)
 ```
 
@@ -439,7 +443,7 @@ Returns `NULL` if `graph_path` is `NULL`.
 
 **Examples**
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH p=(src:Account)-[t1:Transfers]->(mid:Account)-[t2:Transfers]->(dst:Account)
 LET ns = NODES(p)
@@ -458,12 +462,12 @@ RETURN
  | ["Account"] | "Vacation Fund"  |
  | ["Account"] | "Vacation Fund"  |
  | ["Account"] | "Rainy Day Fund" |
- *--------------------------------/*
+ *--------------------------------*/
 ```
 
 ## `PATH`
 
-```sql
+```zetasql
 PATH(graph_element[, ...])
 ```
 
@@ -490,7 +494,7 @@ This function produces an error if:
 
 **Examples**
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (src:Account)-[t1:Transfers]->(mid:Account)-[t2:Transfers]->(dst:Account)
 LET p = PATH(src, t1, mid, t2, dst)
@@ -507,7 +511,7 @@ RETURN
  *-------------------------------------------*/
 ```
 
-```sql
+```zetasql
 -- Error: in 'p', a graph element is NULL.
 GRAPH FinGraph
 MATCH (src:Account)-[t1:Transfers]->(mid:Account)-[t2:Transfers]->(dst:Account)
@@ -515,7 +519,7 @@ LET p = PATH(src, NULL, mid, t2, dst)
 RETURN TO_JSON(p) AS results
 ```
 
-```sql
+```zetasql
 -- Error: in 'p', 'src' and 'mid' are nodes that should be interleaved with an
 -- edge.
 GRAPH FinGraph
@@ -524,8 +528,8 @@ LET p = PATH(src, mid, t2, dst)
 RETURN TO_JSON(p) AS results
 ```
 
-```sql
--- Error: in 'p', 't2' is an edge that does not connect to a neighboring node on
+```zetasql
+-- Error: in 'p', 't2' is an edge that doesn't connect to a neighboring node on
 -- the right.
 GRAPH FinGraph
 MATCH (src:Account)-[t1:Transfers]->(mid:Account)-[t2:Transfers]->(dst:Account)
@@ -535,7 +539,7 @@ RETURN TO_JSON(p) AS results
 
 ## `PATH_FIRST`
 
-```sql
+```zetasql
 PATH_FIRST(graph_path)
 ```
 
@@ -558,7 +562,7 @@ Returns `NULL` if `graph_path` is `NULL`.
 
 **Examples**
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH p=(src:Account)-[t1:Transfers]->(mid:Account)-[t2:Transfers]->(dst:Account)
 LET f = PATH_FIRST(p)
@@ -576,12 +580,12 @@ RETURN
  | Account | Vacation Fund  |
  | Account | Vacation Fund  |
  | Account | Rainy Day Fund |
- *--------------------------/*
+ *--------------------------*/
 ```
 
 ## `PATH_LAST`
 
-```sql
+```zetasql
 PATH_LAST(graph_path)
 ```
 
@@ -604,7 +608,7 @@ Returns `NULL` if `graph_path` is `NULL`.
 
 **Examples**
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH p=(src:Account)-[t1:Transfers]->(mid:Account)-[t2:Transfers]->(dst:Account)
 LET f = PATH_LAST(p)
@@ -622,12 +626,12 @@ RETURN
  | Account | Rainy Day Fund |
  | Account | Rainy Day Fund |
  | Account | Rainy Day Fund |
- *--------------------------/*
+ *--------------------------*/
 ```
 
 ## `PATH_LENGTH`
 
-```sql
+```zetasql
 PATH_LENGTH(graph_path)
 ```
 
@@ -650,7 +654,7 @@ Returns `NULL` if `graph_path` is `NULL`.
 
 **Examples**
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH p=(src:Account)-[t1:Transfers]->(mid:Account)-[t2:Transfers]->(dst:Account)
 RETURN PATH_LENGTH(p) AS results
@@ -670,7 +674,7 @@ RETURN PATH_LENGTH(p) AS results
 
 ## `PROPERTY_NAMES`
 
-```sql
+```zetasql
 PROPERTY_NAMES(element)
 ```
 
@@ -693,7 +697,7 @@ Returns `NULL` if `element` is `NULL`.
 
 **Examples**
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (n:Person|Account)
 RETURN PROPERTY_NAMES(n) AS property_names, n.id
@@ -712,13 +716,13 @@ RETURN PROPERTY_NAMES(n) AS property_names, n.id
 
 ## `SOURCE_NODE_ID`
 
-```sql
+```zetasql
 SOURCE_NODE_ID(edge_element)
 ```
 
 **Description**
 
-Gets a unique identifier of a graph edge's source node. The unique identifier is only valid for the scope of the query where it is obtained.
+Gets a unique identifier of a graph edge's source node. The unique identifier is only valid for the scope of the query where it's obtained.
 
 **Arguments**
 
@@ -734,7 +738,7 @@ Returns `NULL` if `edge_element` is `NULL`.
 
 **Examples**
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (p:Person)-[o:Owns]->(:Account)
 RETURN p.name AS name, SOURCE_NODE_ID(o) AS source_node_id
@@ -757,7 +761,7 @@ Note that the actual identifiers obtained may be different from what's shown abo
 
 In GQL, a horizontal aggregate function is an aggregate function that summarizes
 the contents of exactly one array-typed value. Because a horizontal aggregate
-function does not need to aggregate vertically across rows like a traditional
+function doesn't need to aggregate vertically across rows like a traditional
 aggregate function, you can use it like a normal function expression.
 Horizontal aggregates are only allowed in certain syntactic contexts: `LET`,
 `FILTER` statements or `WHERE` clauses.
@@ -772,7 +776,7 @@ quantified path pattern in a linear graph query.
    value.
 +  Can only be used in `LET`, `FILTER` statements or `WHERE`
    clauses.
-+  Nesting horizontal aggregates is not allowed.
++  Nesting horizontal aggregates isn't allowed.
 +  Aggregate functions that support ordering (`ARRAY_AGG`, `STRING_AGG`,
    `ARRAY_CONCAT_AGG`) can't be used as horizontal aggregate functions.
 
@@ -781,7 +785,7 @@ quantified path pattern in a linear graph query.
 In the following query, the `SUM` function horizontally aggregates over an
 array (`arr`), and then produces the sum of the values in `arr`:
 
-```sql {.no-copy}
+```zetasql {.no-copy}
 GRAPH FinGraph
 LET arr = [1, 2, 3]
 LET total = SUM(arr)
@@ -798,7 +802,7 @@ In the following query, the `SUM` function horizontally aggregates over an
 array of structs (`arr`), and then produces the sum of the `x` fields in the
 array:
 
-```sql {.no-copy}
+```zetasql {.no-copy}
 GRAPH FinGraph
 LET arr = [STRUCT(1 as x, 10 as y), STRUCT(2, 9), STRUCT(3, 8)]
 LET total = SUM(arr.x)
@@ -815,7 +819,7 @@ In the following query, the `AVG` function horizontally aggregates over an
 array of structs (`arr`), and then produces the average of the `x` and `y`
 fields in the array:
 
-```sql {.no-copy}
+```zetasql {.no-copy}
 GRAPH FinGraph
 LET arr = [STRUCT(1 as x, 10 as y), STRUCT(2, 9), STRUCT(3, 8)]
 LET avg_sum = AVG(arr.x + arr.y)
@@ -831,9 +835,9 @@ RETURN avg_sum
 The following query produces an error because two arrays were passed into
 the `AVG` aggregate function:
 
-```sql {.bad}
+```zetasql {.bad}
 -- ERROR: Horizontal aggregation on more than one array-typed variable
--- is not allowed
+-- isn't allowed
 GRAPH FinGraph
 LET arr1 = [1, 2, 3]
 LET arr2 = [5, 4, 3]
@@ -848,7 +852,7 @@ array in the aggregate.
 The fix is to lift any expressions that want to use the array as is outside
 the horizontal aggregation.
 
-```sql {.bad}
+```zetasql {.bad}
 -- ERROR: No matching signature for function ARRAY_LENGTH for argument types: INT64
 GRAPH FinGraph
 LET arr1 = [1, 2, 3]
@@ -858,7 +862,7 @@ RETURN bad_avg_val
 
 The fix:
 
-```sql {.no-copy}
+```zetasql {.no-copy}
 GRAPH FinGraph
 LET arr1 = [1, 2, 3]
 LET len = ARRAY_LENGTH(arr1)
@@ -870,7 +874,7 @@ In the following query, the `COUNT` function counts the unique amount
 transfers with one to three hops between a source account (`src`) and a
 destination account (`dst`):
 
-```sql {.no-copy}
+```zetasql {.no-copy}
 GRAPH FinGraph
 MATCH (src:Account)-[e:Transfers]->{1, 3}(dst:Account)
 WHERE src != dst
@@ -891,10 +895,10 @@ RETURN src.id as src_id, num_transfers, unique_amount_transfers, dst.id AS desti
 
 In the following query, the `SUM` function takes a group variable called
 `e` that represents an array of transfers, and then sums the amount
-for each transfer. Note that horizontal aggregation is not allowed in the
+for each transfer. Note that horizontal aggregation isn't allowed in the
 `RETURN` statement: that `ARRAY_AGG` is an aggregate over the result set.
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (src:Account {id: 7})-[e:Transfers]->{1,2}(dst:Account)
 LET total_amount = SUM(e.amount)

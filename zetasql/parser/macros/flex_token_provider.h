@@ -39,14 +39,16 @@ namespace macros {
 class FlexTokenProvider : public TokenProviderBase {
  public:
   FlexTokenProvider(absl::string_view filename, absl::string_view input,
-                    int start_offset, std::optional<int> end_offset);
+                    int start_offset, std::optional<int> end_offset,
+                    int offset_in_original_input, bool force_flex);
 
   FlexTokenProvider(const FlexTokenProvider&) = delete;
   FlexTokenProvider& operator=(const FlexTokenProvider&) = delete;
 
   std::unique_ptr<TokenProviderBase> CreateNewInstance(
       absl::string_view filename, absl::string_view input, int start_offset,
-      std::optional<int> end_offset) const override;
+      std::optional<int> end_offset,
+      int offset_in_original_input) const override;
 
   // Peeks the next token, but does not consume it.
   absl::StatusOr<TokenWithLocation> PeekNextToken() override {
@@ -76,6 +78,8 @@ class FlexTokenProvider : public TokenProviderBase {
 
   // Location into the current input, used by the tokenizer.
   ParseLocationRange location_;
+
+  const bool force_flex_;
 };
 
 }  // namespace macros

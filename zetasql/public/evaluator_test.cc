@@ -2029,10 +2029,12 @@ TEST(EvaluatorTest, ResolvedExprValidatedWithCorrectLanguageOptions) {
   // Now, try to prepare the query again with the same resolved tree, but
   // feature disabled.
   PreparedExpression prepared_expr2(resolved_expr, evaluator_options);
-  EXPECT_THAT(prepared_expr2.Prepare(AnalyzerOptions()),
-              StatusIs(absl::StatusCode::kInternal,
-                       HasSubstr("Found recursive scan, but WITH RECURSIVE is "
-                                 "disabled in language features")));
+  EXPECT_THAT(
+      prepared_expr2.Prepare(AnalyzerOptions()),
+      StatusIs(
+          absl::StatusCode::kInternal,
+          HasSubstr("Found recursive scan, but WITH RECURSIVE and pipe "
+                    "RECURSIVE UNION are both disabled in language features")));
 }
 
 TEST_F(UDFEvalTest, OkUDFEvaluator) {
@@ -3364,10 +3366,12 @@ TEST(PreparedQuery, ResolvedQueryValidatedWithCorrectLanguageOptions) {
   // Now, try to prepare the query again with the same resolved tree, but
   // feature disabled.
   PreparedQuery prepared_query2(query_stmt, evaluator_options);
-  EXPECT_THAT(prepared_query2.Prepare(AnalyzerOptions()),
-              StatusIs(absl::StatusCode::kInternal,
-                       HasSubstr("Found recursive scan, but WITH RECURSIVE is "
-                                 "disabled in language features")));
+  EXPECT_THAT(
+      prepared_query2.Prepare(AnalyzerOptions()),
+      StatusIs(
+          absl::StatusCode::kInternal,
+          HasSubstr("Found recursive scan, but WITH RECURSIVE and pipe "
+                    "RECURSIVE UNION are both disabled in language features")));
 }
 
 class PreparedModifyTest : public ::testing::Test {

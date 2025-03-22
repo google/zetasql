@@ -13,6 +13,7 @@
 [default also_show_signature_mismatch_details]
 [default language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,TABLE_VALUED_FUNCTIONS]
 [default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+
 [parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
 select with differential_privacy count(*, contribution_bounds_per_group => (0, 100))
 from tvf_no_args();

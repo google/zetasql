@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <iterator>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -40,10 +41,12 @@
 #include "zetasql/public/functions/comparison.h"
 #include "zetasql/public/functions/convert_string.h"
 #include "zetasql/public/functions/date_time_util.h"
+#include "zetasql/public/json_value.h"
 #include "zetasql/public/options.pb.h"
-#include "zetasql/public/timestamp_pico_value.h"
+#include "zetasql/public/timestamp_picos_value.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/graph_element_type.h"
 #include "zetasql/public/types/map_type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/types/value_equality_check_options.h"
@@ -52,6 +55,7 @@
 #include "zetasql/base/case.h"
 #include "absl/algorithm/container.h"
 #include "absl/base/optimization.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/flags/flag.h"
 #include "absl/hash/hash.h"
@@ -182,9 +186,9 @@ Value::Value(absl::Time t) {
   metadata_ = Metadata(TypeKind::TYPE_TIMESTAMP, subsecond_nanos);
 }
 
-Value::Value(const TimestampPicoValue& t)
+Value::Value(const TimestampPicosValue& t)
     : metadata_(TypeKind::TYPE_TIMESTAMP_PICOS),
-      timestamp_pico_ptr_(new internal::TimestampPicoRef(t)) {}
+      timestamp_picos_ptr_(new internal::TimestampPicosRef(t)) {}
 
 Value::Value(TimeValue time)
     : metadata_(TypeKind::TYPE_TIME, time.Nanoseconds()),
@@ -259,6 +263,7 @@ absl::StatusOr<Value> Value::MakeArrayInternal(bool already_validated,
                                                OrderPreservationKind order_kind,
                                                std::vector<Value> values) {
   if (!already_validated || kDebugMode) {
+    ZETASQL_RET_CHECK(array_type != nullptr);
     for (const Value& v : values) {
       ZETASQL_RET_CHECK(v.is_valid() && v.type()->Equals(array_type->element_type()))
           << "Array element " << v << " must be of type "
@@ -324,9 +329,13 @@ absl::StatusOr<Value> Value::MakeRangeInternal(bool is_validated,
   return result;
 }
 
+using CaseInsensitiveLabelSet =
+    absl::flat_hash_set<std::string, zetasql_base::StringViewCaseHash,
+                        zetasql_base::StringViewCaseEqual>;
+
 absl::StatusOr<Value> Value::MakeGraphElement(
     const GraphElementType* graph_element_type, std::string identifier,
-    std::vector<Value::Property> properties, std::vector<std::string> labels,
+    const GraphElementLabelsAndProperties& labels_and_properties,
     std::string definition_name, std::string source_node_identifier,
     std::string dest_node_identifier) {
   // Validates the identifiers.
@@ -336,10 +345,11 @@ absl::StatusOr<Value> Value::MakeGraphElement(
   ZETASQL_RET_CHECK_EQ(graph_element_type->IsNode(), dest_node_identifier.empty())
       << "Invalid destination node identifier";
 
+  ValidPropertyNameToIndexMap property_name_to_index;
   std::vector<Value> property_values(
       graph_element_type->property_types().size(), Value::Invalid());
   // Validates the property types based on name.
-  for (const auto& [name, value] : properties) {
+  for (const auto& [name, value] : labels_and_properties.static_properties) {
     int field_index;
     ZETASQL_RET_CHECK(graph_element_type->HasField(name, &field_index) ==
               Type::HAS_FIELD)
@@ -352,21 +362,28 @@ absl::StatusOr<Value> Value::MakeGraphElement(
         << property_type->value_type->DebugString()
         << ", got: " << value.type()->DebugString();
     property_values[field_index] = std::move(value);
+    property_name_to_index.emplace(name, field_index);
   }
 
   // We keep the original case but sort labels case-insensitively.
-  std::sort(labels.begin(), labels.end(), zetasql_base::CaseLess());
+  CaseInsensitiveLabelSet label_name_set(
+      labels_and_properties.static_labels.begin(),
+      labels_and_properties.static_labels.end());
+  std::vector<std::string> sorted_labels(label_name_set.begin(),
+                                         label_name_set.end());
+  absl::c_sort(sorted_labels, zetasql_base::CaseLess());
 
   std::unique_ptr<internal::ValueContentOrderedList> container =
       graph_element_type->IsNode()
           ? std::make_unique<GraphElementValue>(
                 graph_element_type, std::move(identifier),
-                std::move(property_values), std::move(labels),
-                std::move(definition_name))
+                std::move(property_values), std::move(property_name_to_index),
+                std::move(sorted_labels), std::move(definition_name))
           : std::make_unique<GraphElementValue>(
                 graph_element_type, std::move(identifier),
-                std::move(property_values), std::move(labels),
-                std::move(definition_name), std::move(source_node_identifier),
+                std::move(property_values), std::move(property_name_to_index),
+                std::move(sorted_labels), std::move(definition_name),
+                std::move(source_node_identifier),
                 std::move(dest_node_identifier));
   Value result(graph_element_type, /*is_null=*/false,
                /*order_kind=*/kIgnoresOrder);
@@ -872,6 +889,8 @@ static bool TypesSupportSqlEquals(const Type* type1, const Type* type2) {
     case TYPE_KIND_PAIR(TYPE_GRAPH_PATH, TYPE_GRAPH_PATH):
     case TYPE_KIND_PAIR(TYPE_UUID, TYPE_UUID):
       return true;
+    case TYPE_KIND_PAIR(TYPE_EXTENDED, TYPE_EXTENDED):
+      return type1->SupportsEquality() && type1->Equivalent(type2);
     case TYPE_KIND_PAIR(TYPE_STRUCT, TYPE_STRUCT): {
       const StructType* struct_type1 = type1->AsStruct();
       const StructType* struct_type2 = type2->AsStruct();
@@ -923,6 +942,7 @@ Value Value::SqlEquals(const Value& that) const {
     case TYPE_KIND_PAIR(TYPE_NUMERIC, TYPE_NUMERIC):
     case TYPE_KIND_PAIR(TYPE_BIGNUMERIC, TYPE_BIGNUMERIC):
     case TYPE_KIND_PAIR(TYPE_UUID, TYPE_UUID):
+    case TYPE_KIND_PAIR(TYPE_EXTENDED, TYPE_EXTENDED):
       return Value::Bool(Equals(that));
     case TYPE_KIND_PAIR(TYPE_GRAPH_ELEMENT, TYPE_GRAPH_ELEMENT): {
       const auto* this_element = this->graph_element_value();
@@ -1051,6 +1071,8 @@ static bool TypesSupportSqlLessThan(const Type* type1, const Type* type2) {
     case TYPE_KIND_PAIR(TYPE_UINT64, TYPE_INT64):
     case TYPE_KIND_PAIR(TYPE_UUID, TYPE_UUID):
       return true;
+    case TYPE_KIND_PAIR(TYPE_EXTENDED, TYPE_EXTENDED):
+      return type1->SupportsEquality() && type1->Equivalent(type2);
     case TYPE_KIND_PAIR(TYPE_ARRAY, TYPE_ARRAY):
       return TypesSupportSqlLessThan(type1->AsArray()->element_type(),
                                      type2->AsArray()->element_type());
@@ -1085,11 +1107,11 @@ Value Value::SqlLessThan(const Value& that) const {
     case TYPE_KIND_PAIR(TYPE_DATETIME, TYPE_DATETIME):
     case TYPE_KIND_PAIR(TYPE_ENUM, TYPE_ENUM):
     case TYPE_KIND_PAIR(TYPE_NUMERIC, TYPE_NUMERIC):
+    case TYPE_KIND_PAIR(TYPE_BIGNUMERIC, TYPE_BIGNUMERIC):
     case TYPE_KIND_PAIR(TYPE_INTERVAL, TYPE_INTERVAL):
     case TYPE_KIND_PAIR(TYPE_RANGE, TYPE_RANGE):
     case TYPE_KIND_PAIR(TYPE_UUID, TYPE_UUID):
-      return Value::Bool(LessThan(that));
-    case TYPE_KIND_PAIR(TYPE_BIGNUMERIC, TYPE_BIGNUMERIC):
+    case TYPE_KIND_PAIR(TYPE_EXTENDED, TYPE_EXTENDED):
       return Value::Bool(LessThan(that));
     case TYPE_KIND_PAIR(TYPE_FLOAT, TYPE_FLOAT):
       return Value::Bool(float_value() < that.float_value());  // false if NaN
@@ -1725,7 +1747,7 @@ Value TimestampArray(absl::Span<const absl::Time> values) {
   return Value::Array(TimestampArrayType(), value_vector);
 }
 
-Value TimestampPicosArray(absl::Span<const TimestampPicoValue> values) {
+Value TimestampPicosArray(absl::Span<const TimestampPicosValue> values) {
   std::vector<Value> value_vector;
   for (const auto& v : values) {
     value_vector.push_back(Value::TimestampPicos(v));

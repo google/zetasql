@@ -29,10 +29,9 @@
 #include "zetasql/parser/bison_parser.h"
 #include "zetasql/parser/bison_parser_mode.h"
 #include "zetasql/parser/parse_tree.h"
-#include "zetasql/parser/token_codes.h"
+#include "zetasql/parser/tm_token.h"
 #include "zetasql/public/parse_location.h"
 #include "zetasql/public/strings.h"
-#include "absl/base/optimization.h"
 #include "zetasql/base/check.h"
 #include "absl/log/log.h"
 #include "absl/status/status.h"
@@ -40,106 +39,39 @@
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
+#include "zetasql/base/ret_check.h"
+#include "zetasql/base/status_macros.h"
 
 // Shorthand to call parser->CreateASTNode<>(). The "node_type" must be a
 // AST... class from the zetasql namespace. The "..." are the arguments to
 // BisonParser::CreateASTNode<>().
 #define MAKE_NODE(node_type, ...) \
-  parser->CreateASTNode<zetasql::node_type>(__VA_ARGS__);
-
-// Generates a parse error with message 'msg' (which must be a string
-// expression) at bison location 'location', and aborts the parser.
-#define YYERROR_AND_ABORT_AT(location, msg) \
-  do {                                      \
-    error(location, (msg));                 \
-    YYABORT;                                \
-  } while (0)
-
-// Generates a parse error of the form "Unexpected X", where X is a description
-// of the current token, at bison location 'location', and aborts the parser.
-#define YYERROR_UNEXPECTED_AND_ABORT_AT(location) \
-  do {                                            \
-    error(location, "");                          \
-    YYABORT;                                      \
-  } while (0)
-
-#define CHECK_LABEL_SUPPORT(node, location)                                   \
-  if (node != nullptr && (!parser->language_options().LanguageFeatureEnabled( \
-                             zetasql::FEATURE_V_1_3_SCRIPT_LABEL))) {       \
-    YYERROR_AND_ABORT_AT(location, "Script labels are not supported");        \
-  }
-
-// Generates a parse error if there are spaces between location <left> and
-// location <right>.
-// For example, this is used when we composite multiple existing tokens to
-// match a complex symbol without reserving it as a new token.
-#define YYERROR_AND_ABORT_AT_WHITESPACE(left, right)                         \
-  if (parser->HasWhitespace(left, right)) {                                  \
-    YYERROR_AND_ABORT_AT(                                                    \
-        left, absl::StrCat("Syntax error: Unexpected whitespace between \"", \
-                           parser->GetInputText(left), "\" and \"",          \
-                           parser->GetInputText(right), "\""));              \
-  }
-
-// Define the handling of our custom ParseLocationRange.
-// If there are empty productions on the RHS, skip them when including the range
-// If all symbols on the RHS are empty, return the range of the first symbol.
-#define YYLLOC_DEFAULT(Cur, Rhs, N)                                          \
-  do {                                                                       \
-    if ((N) == 0) {                                                          \
-      (Cur).set_start(YYRHSLOC(Rhs, 0).end());                               \
-      (Cur).set_end(YYRHSLOC(Rhs, 0).end());                                 \
-    } else {                                                                 \
-      /* YYRHSLOC must be called with the range [1, N] */                    \
-      int i = 1;                                                             \
-      /* i < N so that we don't run off the end of stack. If all empty we */ \
-      /* grab the last symbol's location (index N) */                        \
-      while (i < (N) && YYRHSLOC(Rhs, i).IsEmpty()) {                        \
-        i++;                                                                 \
-      }                                                                      \
-      (Cur).set_start(YYRHSLOC(Rhs, i).start());                             \
-      /* If any of the RHS is empty, the end location is inherited from */   \
-      /* the top of the stack: they cling to the previous symbol. */         \
-      (Cur).set_end(YYRHSLOC(Rhs, (N)).end());                               \
-    }                                                                        \
-  } while (0)
-
-// Used like a ZETASQL_RET_CHECK inside the parser.
-#define ABORT_CHECK(location, condition, msg)                   \
-  do {                                                          \
-    if (ABSL_PREDICT_FALSE(!(condition))) {                     \
-      error(location, absl::StrCat("Internal Error: ", (msg))); \
-      YYABORT;                                                  \
-    }                                                           \
-  } while (0)
+  parser->CreateASTNode<zetasql::node_type>(__VA_ARGS__)
 
 #define PARSER_LA_IS_EMPTY() next_symbol_.symbol == noToken
 
 // Signals the token disambiguation buffer that a new statement is starting.
 // The second argument indicates whether the parser lookahead buffer is
 // populated or not.
-#define OVERRIDE_NEXT_TOKEN_LOOKBACK(expected_token, lookback_token)      \
-  do {                                                                    \
-    absl::Status s =                                                      \
-        OverrideNextTokenLookback(tokenizer, PARSER_LA_IS_EMPTY(),        \
-                                  zetasql::TokenKinds::expected_token,  \
-                                  zetasql::TokenKinds::lookback_token); \
-    ZETASQL_DCHECK_OK(s);                                                         \
+#define OVERRIDE_NEXT_TOKEN_LOOKBACK(expected_token, lookback_token)           \
+  do {                                                                         \
+    ZETASQL_RETURN_IF_ERROR(OverrideNextTokenLookback(tokenizer, PARSER_LA_IS_EMPTY(), \
+                                              TokenKinds::expected_token,      \
+                                              TokenKinds::lookback_token));    \
   } while (0)
 
 // Overrides the lookback token kind to be `new_token_kind` for the most
 // recently returned token by the lookahead transformer. `location` is the error
 // location to report when the override fails.
-#define OVERRIDE_CURRENT_TOKEN_LOOKBACK(location, new_token_kind)          \
-  ABORT_CHECK(location, PARSER_LA_IS_EMPTY(),                              \
-              "The parser lookahead buffer must be empty to override the " \
-              "current token");                                            \
-  absl::Status s = OverrideCurrentTokenLookback(                           \
-      tokenizer, zetasql::TokenKinds::new_token_kind);                   \
-  ABORT_CHECK(location, s.ok(), s.ToString());
+#define OVERRIDE_CURRENT_TOKEN_LOOKBACK(location, new_token_kind)             \
+  do {                                                                        \
+    ZETASQL_RET_CHECK(PARSER_LA_IS_EMPTY()) << "The parser lookahead buffer must be " \
+                                       "empty to override the current token"; \
+    ZETASQL_RETURN_IF_ERROR(                                                          \
+        OverrideCurrentTokenLookback(tokenizer, TokenKinds::new_token_kind)); \
+  } while (0)
 
 namespace zetasql {
-
 // Forward declarations to avoid an interface and a v-table lookup on every
 // token.
 namespace parser {
@@ -189,6 +121,83 @@ enum class IndexTypeKeywords {
   kNone,
   kSearch,
   kVector,
+};
+
+struct PivotOrUnpivotClause {
+  ASTPivotClause* pivot_clause;
+  ASTUnpivotClause* unpivot_clause;
+  ASTAlias* alias;
+};
+
+struct ClausesFollowingFrom {
+  ASTNode* where;
+  ASTNode* group_by;
+  ASTNode* having;
+  ASTNode* qualify;
+  ASTNode* window;
+};
+
+struct GeneratedOrDefaultColumnInfo {
+  ASTExpression* default_expression;
+  ASTGeneratedColumnInfo* generated_column_info;
+};
+
+struct ExternalTableWithClauses {
+  ASTWithPartitionColumnsClause* with_partition_columns_clause;
+  ASTWithConnectionClause* with_connection_clause;
+};
+
+struct LanguageOrRemoteWithConnection {
+  ASTIdentifier* language;
+  bool is_remote;
+  ASTWithConnectionClause* with_connection_clause;
+};
+
+struct LanguageOptionsSet {
+  ASTIdentifier* language;
+  ASTNode* options;
+};
+
+struct OptionsBodySet {
+  ASTNode* options;
+  ASTNode* body;
+};
+
+struct BeginEndBlockOrLanguageAsCode {
+  ASTScript* body;
+  ASTIdentifier* language;
+  ASTNode* code;
+};
+
+struct PathExpressionWithScope {
+  ASTExpression* maybe_dashed_path_expression;
+  bool is_temp_table;
+};
+
+struct ColumnMatchSuffix {
+  ASTSetOperationColumnMatchMode* column_match_mode;
+  ASTColumnList* column_list;
+};
+
+struct QueryOrReplicaSourceInfo {
+  ASTQuery* query;
+  ASTPathExpression* replica_source;
+};
+
+struct GroupByPreamble {
+  ASTNode* hint;
+  bool and_order_by;
+};
+
+struct GroupByModifier {
+  ASTNode* group_by;
+  ASTNode* having_expr;
+};
+
+struct CreateIndexStatementSuffix {
+  ASTNode* partition_by;
+  ASTNode* options_list;
+  ASTNode* spanner_index_innerleaving_clause;
 };
 
 // This node is used for temporarily aggregating together components of an

@@ -18,7 +18,7 @@ already approximate.
 
 The approximate aggregate functions in this section work directly on the
 input data, rather than an intermediate estimation of the data. These functions
-_do not allow_ users to specify the precision for the estimation with
+_don't allow_ users to specify the precision for the estimation with
 sketches. If you would like to specify precision with sketches, see:
 
 +  [HyperLogLog++ functions][hll-functions] to estimate cardinality.
@@ -76,7 +76,7 @@ sketches. If you would like to specify precision with sketches, see:
 
 ## `APPROX_COUNT_DISTINCT`
 
-```sql
+```zetasql
 APPROX_COUNT_DISTINCT(
   expression
 )
@@ -104,7 +104,7 @@ Any data type **except**:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT APPROX_COUNT_DISTINCT(x) as approx_distinct
 FROM UNNEST([0, 1, 1, 2, 3, 5]) as x;
 
@@ -117,7 +117,7 @@ FROM UNNEST([0, 1, 1, 2, 3, 5]) as x;
 
 ## `APPROX_QUANTILES`
 
-```sql
+```zetasql
 APPROX_QUANTILES(
   [ DISTINCT ]
   expression, number
@@ -162,7 +162,7 @@ into this function, see
 
 **Examples**
 
-```sql
+```zetasql
 SELECT APPROX_QUANTILES(x, 2) AS approx_quantiles
 FROM UNNEST([1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
 
@@ -173,7 +173,7 @@ FROM UNNEST([1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
  *------------------*/
 ```
 
-```sql
+```zetasql
 SELECT APPROX_QUANTILES(x, 100)[OFFSET(90)] AS percentile_90
 FROM UNNEST([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) AS x;
 
@@ -184,7 +184,7 @@ FROM UNNEST([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) AS x;
  *---------------*/
 ```
 
-```sql
+```zetasql
 SELECT APPROX_QUANTILES(DISTINCT x, 2) AS approx_quantiles
 FROM UNNEST([1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
 
@@ -195,7 +195,7 @@ FROM UNNEST([1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
  *------------------*/
 ```
 
-```sql
+```zetasql
 SELECT APPROX_QUANTILES(x, 2 RESPECT NULLS) AS approx_quantiles
 FROM UNNEST([NULL, NULL, 1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
 
@@ -206,7 +206,7 @@ FROM UNNEST([NULL, NULL, 1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
  *------------------*/
 ```
 
-```sql
+```zetasql
 SELECT APPROX_QUANTILES(DISTINCT x, 2 RESPECT NULLS) AS approx_quantiles
 FROM UNNEST([NULL, NULL, 1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
 
@@ -219,7 +219,7 @@ FROM UNNEST([NULL, NULL, 1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
 
 ## `APPROX_TOP_COUNT`
 
-```sql
+```zetasql
 APPROX_TOP_COUNT(
   expression, number
   [ HAVING { MAX | MIN } expression2 ]
@@ -258,7 +258,7 @@ into this function, see
 
 **Examples**
 
-```sql
+```zetasql
 SELECT APPROX_TOP_COUNT(x, 2) as approx_top_count
 FROM UNNEST(["apple", "apple", "pear", "pear", "pear", "banana"]) as x;
 
@@ -271,9 +271,9 @@ FROM UNNEST(["apple", "apple", "pear", "pear", "pear", "banana"]) as x;
 
 **NULL handling**
 
-`APPROX_TOP_COUNT` does not ignore `NULL`s in the input. For example:
+`APPROX_TOP_COUNT` doesn't ignore `NULL`s in the input. For example:
 
-```sql
+```zetasql
 SELECT APPROX_TOP_COUNT(x, 2) as approx_top_count
 FROM UNNEST([NULL, "pear", "pear", "pear", "apple", NULL]) as x;
 
@@ -286,7 +286,7 @@ FROM UNNEST([NULL, "pear", "pear", "pear", "apple", NULL]) as x;
 
 ## `APPROX_TOP_SUM`
 
-```sql
+```zetasql
 APPROX_TOP_SUM(
   expression, weight, number
   [ HAVING { MAX | MIN } expression2 ]
@@ -337,7 +337,7 @@ into this function, see
 
 **Examples**
 
-```sql
+```zetasql
 SELECT APPROX_TOP_SUM(x, weight, 2) AS approx_top_sum FROM
 UNNEST([
   STRUCT("apple" AS x, 3 AS weight),
@@ -356,10 +356,10 @@ UNNEST([
 
 **NULL handling**
 
-`APPROX_TOP_SUM` does not ignore `NULL` values for the `expression` and `weight`
+`APPROX_TOP_SUM` doesn't ignore `NULL` values for the `expression` and `weight`
 parameters.
 
-```sql
+```zetasql
 SELECT APPROX_TOP_SUM(x, weight, 2) AS approx_top_sum FROM
 UNNEST([STRUCT("apple" AS x, NULL AS weight), ("pear", 0), ("pear", NULL)]);
 
@@ -370,7 +370,7 @@ UNNEST([STRUCT("apple" AS x, NULL AS weight), ("pear", 0), ("pear", NULL)]);
  *----------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT APPROX_TOP_SUM(x, weight, 2) AS approx_top_sum FROM
 UNNEST([STRUCT("apple" AS x, 0 AS weight), (NULL, 2)]);
 
@@ -381,7 +381,7 @@ UNNEST([STRUCT("apple" AS x, 0 AS weight), (NULL, 2)]);
  *-------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT APPROX_TOP_SUM(x, weight, 2) AS approx_top_sum FROM
 UNNEST([STRUCT("apple" AS x, 0 AS weight), (NULL, NULL)]);
 
@@ -392,7 +392,7 @@ UNNEST([STRUCT("apple" AS x, 0 AS weight), (NULL, NULL)]);
  *----------------------------*/
 ```
 
-[hll-functions]: https://github.com/google/zetasql/blob/master/docs/hll_functions.md#hyperloglog_functions
+[hll-functions]: https://github.com/google/zetasql/blob/master/docs/hll_functions.md
 
 [kll-functions]: https://github.com/google/zetasql/blob/master/docs/kll_functions.md#kll_quantile_functions
 

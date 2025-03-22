@@ -19,7 +19,6 @@
 #include <memory>
 #include <string>
 #include <utility>
-#include <vector>
 
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output_properties.h"

@@ -61,9 +61,9 @@ bool SmallerThanOrEqualToIntMax(FloatType value) {
 
 // Return true if max value of IntType can be represented precisely in
 // FloatType.
-template<typename FloatType, typename IntType>
-bool CanRepresentMaxPrecisely() {
-  int fraction_bits;
+template <typename FloatType, typename IntType>
+constexpr bool CanRepresentMaxPrecisely() {
+  int fraction_bits = 0;
   if (sizeof(FloatType) == 4) {
     fraction_bits = 24;
   } else if (sizeof(FloatType) == 8) {

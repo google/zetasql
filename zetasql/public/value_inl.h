@@ -42,7 +42,7 @@
 #include "zetasql/public/civil_time.h"
 #include "zetasql/public/json_value.h"
 #include "zetasql/public/numeric_value.h"
-#include "zetasql/public/timestamp_pico_value.h"
+#include "zetasql/public/timestamp_picos_value.h"
 #include "zetasql/public/token_list.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
@@ -57,9 +57,11 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
 #include "absl/types/span.h"
+#include "zetasql/base/map_util.h"
 #include "zetasql/base/compact_reference_counted.h"
 #include "zetasql/base/ret_check.h"
 
@@ -103,6 +105,8 @@ struct ValueComparator {
 };
 
 using ValueMap = absl::btree_map<Value, Value, ValueComparator>;
+using ValidPropertyNameToIndexMap =
+    absl::btree_map<std::string, int, zetasql_base::CaseLess>;
 
 class Value::TypedMap : public internal::ValueContentMap {
  public:
@@ -136,11 +140,13 @@ class Value::GraphElementValue final
   // Node constructor.
   GraphElementValue(const GraphElementType* type, std::string identifier,
                     std::vector<Value> properties,
+                    ValidPropertyNameToIndexMap property_name_to_index,
                     std::vector<std::string> labels,
                     std::string definition_name)
       : type_(type),
         identifier_(std::move(identifier)),
         properties_(std::move(properties)),
+        valid_property_name_to_index_(std::move(property_name_to_index)),
         labels_(std::move(labels)),
         definition_name_(std::move(definition_name)) {
     ABSL_DCHECK(IsNode()) << "Not a node";
@@ -149,6 +155,7 @@ class Value::GraphElementValue final
   // Edge constructor.
   GraphElementValue(const GraphElementType* type, std::string identifier,
                     std::vector<Value> properties,
+                    ValidPropertyNameToIndexMap property_name_to_index,
                     std::vector<std::string> labels,
                     std::string definition_name,
                     std::string source_node_identifier,
@@ -156,6 +163,7 @@ class Value::GraphElementValue final
       : type_(type),
         identifier_(std::move(identifier)),
         properties_(std::move(properties)),
+        valid_property_name_to_index_(std::move(property_name_to_index)),
         labels_(std::move(labels)),
         definition_name_(std::move(definition_name)),
         source_node_identifier_(std::move(source_node_identifier)),
@@ -172,36 +180,58 @@ class Value::GraphElementValue final
   bool IsNode() const { return type_->IsNode(); }
   bool IsEdge() const { return type_->IsEdge(); }
 
-  // Returns value of property with given name; otherwise returns an error
-  // status if no property with such name found.
+  // Returns the value of the property that is valid in the element, with the
+  // given `name`; otherwise, returns an error.
+  absl::StatusOr<Value> FindValidPropertyValueByName(
+      const std::string& name) const {
+    auto it = valid_property_name_to_index_.find(name);
+    if (it != valid_property_name_to_index_.end()) {
+      return properties_.values().at(it->second);
+    }
+    return absl::NotFoundError(absl::StrCat("No such property: ", name));
+  }
+
+  // Returns the value of the property that is part of the union-ed graph
+  // element type, with the given `name`; otherwise, returns an error.
   absl::StatusOr<Value> FindPropertyByName(const std::string& name) const {
-    // <properties_> matches with <type_->property_types()>.
     int index;
     if (type_->HasField(name, &index) == Type::HAS_FIELD) {
       Value property_value = properties_.values().at(index);
       if (property_value.is_valid()) {
         return property_value;
+      } else {
+        return Value::Null(type_->property_types().at(index).value_type);
       }
     }
     return absl::NotFoundError(absl::StrCat("No such property: ", name));
   }
 
-  std::vector<std::string> property_names() const {
-    std::vector<std::string> names;
-    for (const auto& [name, type] : type_->property_types()) {
-      int index;
-      if (type_->HasField(name, &index) == Type::HAS_FIELD) {
-        Value property_value = properties_.values().at(index);
-        if (property_value.is_valid()) {
-          names.push_back(name);
-        }
+  // Returns the value of the static property with given name; returns an error
+  // status if no property with such name found.
+  absl::StatusOr<Value> FindStaticPropertyByName(
+      const std::string& name) const {
+    auto it = valid_property_name_to_index_.find(name);
+    // A static property must have an index in `property_name_to_index_` that is
+    // less than the number of static properties recorded in the
+    // GraphElementType.
+    if (it != valid_property_name_to_index_.end() &&
+        it->second < type_->property_types().size()) {
+      Value property_value = properties_.values().at(it->second);
+      if (property_value.is_valid()) {
+        return property_value;
       }
     }
-    // We keep the original case but sort names case-insensitively.
-    std::sort(names.begin(), names.end(), zetasql_base::CaseLess());
+    return absl::NotFoundError(absl::StrCat("No such static property: ", name));
+  }
+
+  // Returns an ordered list of property names with valid values.
+  std::vector<std::string> property_names() const {
+    std::vector<std::string> names;
+    zetasql_base::AppendKeysFromMap(valid_property_name_to_index_, &names);
     return names;
   }
 
+  // Returns all property values.
   absl::Span<const Value> property_values() const {
     return properties_.values();
   }
@@ -222,7 +252,7 @@ class Value::GraphElementValue final
         sizeof(GraphElementValue) + identifier_.length() +
             definition_name_.length() + source_node_identifier_.length() +
             dest_node_identifier_.length() + properties_.physical_byte_size(),
-        [](uint64_t size, const std::string& label) {
+        [](uint64_t size, absl::string_view label) {
           return size + label.length();
         });
   }
@@ -234,6 +264,11 @@ class Value::GraphElementValue final
 
   absl::string_view GetDefinitionName() const override {
     return definition_name_;
+  }
+
+  const ValidPropertyNameToIndexMap& GetValidPropertyNameToIndexMap()
+      const override {
+    return valid_property_name_to_index_;
   }
 
   // REQUIRES: IsEdge()
@@ -252,6 +287,8 @@ class Value::GraphElementValue final
   const GraphElementType* type_;
   const std::string identifier_;
   const Value::TypedList properties_;
+  // Maps property names to their indices in `properties_`.
+  const ValidPropertyNameToIndexMap valid_property_name_to_index_;
   const std::vector<std::string> labels_;
   const std::string definition_name_;
 
@@ -400,8 +437,7 @@ inline Value::Value(double value)
 inline Value::Value(TypeKind type_kind, std::string value)
     : metadata_(type_kind),
       string_ptr_(new internal::StringRef(std::move(value))) {
-  ABSL_CHECK(type_kind == TYPE_STRING ||
-        type_kind == TYPE_BYTES);
+  ABSL_CHECK(type_kind == TYPE_STRING || type_kind == TYPE_BYTES);  // Crash OK
 }
 
 inline Value::Value(const NumericValue& numeric)
@@ -493,47 +529,23 @@ inline Value Value::EmptyArray(const ArrayType* array_type) {
 
 inline absl::StatusOr<Value> Value::MakeGraphNode(
     const GraphElementType* graph_element_type, absl::string_view identifier,
-    absl::Span<const Value::Property> properties,
-    absl::Span<const std::string> labels, absl::string_view definition_name) {
-  return MakeGraphNode(graph_element_type, std::string(identifier),
-                       {properties.begin(), properties.end()},
-                       {labels.begin(), labels.end()},
-                       std::string(definition_name));
-}
-
-inline absl::StatusOr<Value> Value::MakeGraphNode(
-    const GraphElementType* graph_element_type, std::string identifier,
-    std::vector<Value::Property> properties, std::vector<std::string> labels,
-    std::string definition_name) {
-  return MakeGraphElement(graph_element_type, std::move(identifier),
-                          std::move(properties), std::move(labels),
-                          std::move(definition_name),
+    const GraphElementLabelsAndProperties& labels_and_properties,
+    absl::string_view definition_name) {
+  return MakeGraphElement(graph_element_type, std::string(identifier),
+                          labels_and_properties, std::string(definition_name),
                           /*source_node_identifier=*/"",
                           /*dest_node_identifier=*/"");
 }
 
 inline absl::StatusOr<Value> Value::MakeGraphEdge(
     const GraphElementType* graph_element_type, absl::string_view identifier,
-    absl::Span<const Value::Property> properties,
-    absl::Span<const std::string> labels, absl::string_view definition_name,
-    absl::string_view source_node_identifier,
+    const Value::GraphElementLabelsAndProperties& labels_and_properties,
+    absl::string_view definition_name, absl::string_view source_node_identifier,
     absl::string_view dest_node_identifier) {
-  return MakeGraphEdge(
-      graph_element_type, std::string(identifier),
-      {properties.begin(), properties.end()}, {labels.begin(), labels.end()},
-      std::string(definition_name), std::string(source_node_identifier),
-      std::string(dest_node_identifier));
-}
-
-inline absl::StatusOr<Value> Value::MakeGraphEdge(
-    const GraphElementType* graph_element_type, std::string identifier,
-    std::vector<Value::Property> properties, std::vector<std::string> labels,
-    std::string definition_name, std::string source_node_identifier,
-    std::string dest_node_identifier) {
-  return MakeGraphElement(
-      graph_element_type, std::move(identifier), std::move(properties),
-      std::move(labels), std::move(definition_name),
-      std::move(source_node_identifier), std::move(dest_node_identifier));
+  return MakeGraphElement(graph_element_type, std::string(identifier),
+                          labels_and_properties, std::string(definition_name),
+                          std::string(source_node_identifier),
+                          std::string(dest_node_identifier));
 }
 
 inline absl::StatusOr<Value> Value::MakeMap(
@@ -592,22 +604,12 @@ inline Value Value::Bytes(const char (&str)[N]) {
 
 inline Value Value::Date(int32_t v) { return Value(TYPE_DATE, v); }
 inline Value Value::Timestamp(absl::Time t) { return Value(t); }
-inline Value Value::TimestampPicos(TimestampPicoValue t) { return Value(t); }
-inline Value Value::Time(TimeValue time) {
-  return Value(time);
-}
-inline Value Value::Datetime(DatetimeValue datetime) {
-  return Value(datetime);
-}
-inline Value Value::Interval(IntervalValue interval) {
-  return Value(interval);
-}
-inline Value Value::Numeric(NumericValue v) {
-  return Value(v);
-}
-inline Value Value::BigNumeric(BigNumericValue v) {
-  return Value(v);
-}
+inline Value Value::TimestampPicos(TimestampPicosValue t) { return Value(t); }
+inline Value Value::Time(TimeValue time) { return Value(time); }
+inline Value Value::Datetime(DatetimeValue datetime) { return Value(datetime); }
+inline Value Value::Interval(IntervalValue interval) { return Value(interval); }
+inline Value Value::Numeric(NumericValue v) { return Value(v); }
+inline Value Value::BigNumeric(BigNumericValue v) { return Value(v); }
 inline Value Value::UnvalidatedJsonString(std::string v) {
   return Value(new internal::JSONRef(std::move(v)));
 }
@@ -670,13 +672,9 @@ inline Value Value::UnboundedEndDatetime() { return NullDatetime(); }
 inline Value Value::UnboundedStartTimestamp() { return NullTimestamp(); }
 inline Value Value::UnboundedEndTimestamp() { return NullTimestamp(); }
 
-inline Value Value::Null(const Type* type) {
-  return Value(type);
-}
+inline Value Value::Null(const Type* type) { return Value(type); }
 
-inline Value::~Value() {
-  Clear();
-}
+inline Value::~Value() { Clear(); }
 
 inline TypeKind Value::type_kind() const {
   ABSL_CHECK(is_valid()) << DebugString();
@@ -809,11 +807,11 @@ inline const BigNumericValue& Value::bignumeric_value() const {
   return bignumeric_ptr_->value();
 }
 
-inline const TimestampPicoValue& Value::timestamp_pico_value() const {
+inline const TimestampPicosValue& Value::timestamp_picos_value() const {
   ABSL_CHECK_EQ(TYPE_TIMESTAMP_PICOS, metadata_.type_kind())  // Crash OK
       << "Not a timestamp_picos type";
   ABSL_CHECK(!metadata_.is_null()) << "Null value";
-  return timestamp_pico_ptr_->value();
+  return timestamp_picos_ptr_->value();
 }
 
 inline bool Value::is_validated_json() const {
@@ -857,9 +855,7 @@ inline const tokens::TokenList& Value::tokenlist_value() const {
   return tokenlist_ptr_->value();
 }
 
-inline bool Value::empty() const {
-  return elements().empty();
-}
+inline bool Value::empty() const { return elements().empty(); }
 
 inline int Value::num_elements() const {
   if (type()->IsMap()) {
@@ -868,13 +864,9 @@ inline int Value::num_elements() const {
   return static_cast<int>(elements().size());
 }
 
-inline int Value::num_fields() const {
-  return fields().size();
-}
+inline int Value::num_fields() const { return fields().size(); }
 
-inline const Value& Value::field(int i) const {
-  return fields()[i];
-}
+inline const Value& Value::field(int i) const { return fields()[i]; }
 
 inline const Value& Value::element(int i) const {
   ABSL_CHECK(type()->IsArray());
@@ -950,9 +942,19 @@ inline absl::Span<const Value> Value::property_values() const {
   return graph_element_value()->property_values();
 }
 
+inline absl::StatusOr<Value> Value::FindValidPropertyValueByName(
+    const std::string& name) const {
+  return graph_element_value()->FindValidPropertyValueByName(name);
+}
+
 inline absl::StatusOr<Value> Value::FindPropertyByName(
     const std::string& name) const {
   return graph_element_value()->FindPropertyByName(name);
+}
+
+inline absl::StatusOr<Value> Value::FindStaticPropertyByName(
+    const std::string& name) const {
+  return graph_element_value()->FindStaticPropertyByName(name);
 }
 
 inline const Value::GraphPathValue* Value::graph_path_value() const {
@@ -981,35 +983,28 @@ H AbslHashValue(H h, const Value& v) {
 
 template <typename H>
 H Value::HashValueInternal(H h) const {
-  // This code is picked arbitrarily.
-  static constexpr uint64_t kNullHashCode = 0xCBFD5377B126E80Dull;
-
-  // If we use TypeKind instead of int16_t here,
-  // VerifyTypeImplementsAbslHashCorrectly finds collisions between NULL(INT)
-  // and NULL(ARRAY<INT>). As a result ValueTest.HashCode fails.
-  const int16_t type_kind = metadata_.type_kind();
-
-  // First, hash the type kind. Values are only equal if they have the
-  // same/equivalent types, and we want to avoid hash collisions between values
-  // of different types (e.g. INT32 0 vs. UINT32 0).
-  h = H::combine(std::move(h), type_kind);
-
-  // Second, hash type parameter (e.g. enum's name or array's element type).
+  // Hash type parameter (e.g. enum's name or array's element type).
   // Struct's type parameter can be inferred from the list of its field values,
   // thus from performance considerations we don't hash it separately.
-  if (is_valid() && type_kind != TYPE_STRUCT) {
+  const bool not_struct = is_valid() && metadata_.type_kind() != TYPE_STRUCT;
+  if (not_struct) {
     type()->HashTypeParameter(absl::HashState::Create(&h));
   }
 
-  if (!is_valid() || is_null()) {
-    // Note that invalid Values have their own TypeKind, so hash codes for
-    // invalid Values do not collide with hash codes for NULL values.
-    return H::combine(std::move(h), kNullHashCode);
+  const bool has_value = is_valid() && !is_null();
+  if (has_value) {
+    type()->HashValueContent(GetContent(), absl::HashState::Create(&h));
   }
-
-  // Third, hash the value itself.
-  type()->HashValueContent(GetContent(), absl::HashState::Create(&h));
-  return h;
+  // Hash the type kind. Values are only equal if they have the
+  // same/equivalent types, and we want to avoid hash collisions between values
+  // of different types (e.g. INT32 0 vs. UINT32 0).
+  // Note that invalid Values have their own TypeKind, so hash codes for
+  // invalid Values do not collide with hash codes for NULL values.
+  h = H::combine(std::move(h), metadata_.type_kind());
+  // In order to satisfy the requirement of unequal values having hash
+  // expansions that aren't suffixes of each other, we need to hash these bools
+  // last so that we distinguish the optional parts of the hash expansion.
+  return H::combine(std::move(h), not_struct, has_value);
 }
 
 template <>
@@ -1028,11 +1023,22 @@ template <>
 inline uint64_t Value::Get<uint64_t>() const {
   return uint64_value();
 }
-template <> inline bool Value::Get<bool>() const { return bool_value(); }
-template <> inline float Value::Get<float>() const { return float_value(); }
-template <> inline double Value::Get<double>() const { return double_value(); }
 template <>
-inline NumericValue Value::Get<NumericValue>() const { return numeric_value(); }
+inline bool Value::Get<bool>() const {
+  return bool_value();
+}
+template <>
+inline float Value::Get<float>() const {
+  return float_value();
+}
+template <>
+inline double Value::Get<double>() const {
+  return double_value();
+}
+template <>
+inline NumericValue Value::Get<NumericValue>() const {
+  return numeric_value();
+}
 template <>
 inline BigNumericValue Value::Get<BigNumericValue>() const {
   return bignumeric_value();
@@ -1190,11 +1196,15 @@ inline Value Double(double v) { return Value::Double(v); }
 inline Value String(absl::string_view v) { return Value::String(v); }
 inline Value String(const absl::Cord& v) { return Value::String(v); }
 template <size_t N>
-inline Value String(const char (&str)[N]) { return Value::String(str); }
+inline Value String(const char (&str)[N]) {
+  return Value::String(str);
+}
 inline Value Bytes(absl::string_view v) { return Value::Bytes(v); }
 inline Value Bytes(const absl::Cord& v) { return Value::Bytes(v); }
 template <size_t N>
-inline Value Bytes(const char (&str)[N]) { return Value::Bytes(str); }
+inline Value Bytes(const char (&str)[N]) {
+  return Value::Bytes(str);
+}
 inline Value Date(int32_t v) { return Value::Date(v); }
 inline Value Date(absl::CivilDay day) {
   static constexpr absl::CivilDay kEpochDay = absl::CivilDay(1970, 1, 1);
@@ -1204,6 +1214,11 @@ inline Value Timestamp(absl::Time time) { return Value::Timestamp(time); }
 inline Value TimestampFromUnixMicros(int64_t v) {
   return Value::TimestampFromUnixMicros(v);
 }
+
+inline Value TimestampPicos(TimestampPicosValue t) {
+  return Value::TimestampPicos(t);
+}
+
 inline Value Time(TimeValue time) { return Value::Time(time); }
 inline Value TimeFromPacked64Micros(int64_t v) {
   return Value::TimeFromPacked64Micros(v);
@@ -1261,12 +1276,8 @@ inline Value Array(const ArrayType* type, absl::Span<const Value> values) {
 inline Value UnsafeArray(const ArrayType* type, std::vector<Value>&& values) {
   return Value::UnsafeArray(type, std::move(values));
 }
-inline Value True() {
-  return Value::Bool(true);
-}
-inline Value False() {
-  return Value::Bool(false);
-}
+inline Value True() { return Value::Bool(true); }
+inline Value False() { return Value::Bool(false); }
 inline Value EmptyGeography() { return Value::EmptyGeography(); }
 inline Value Range(Value start, Value end) {
   absl::StatusOr<Value> value = Value::MakeRange(start, end);

@@ -21,7 +21,6 @@
 #include <ostream>
 #include <string>
 
-#include "absl/hash/hash.h"
 #include "absl/strings/string_view.h"
 
 namespace zetasql {

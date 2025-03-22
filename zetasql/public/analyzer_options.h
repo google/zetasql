@@ -490,11 +490,6 @@ class AnalyzerOptions {
   void SetLookupCatalogColumnCallback(
       const LookupCatalogColumnCallback& lookup_catalog_column_callback);
 
-  ABSL_DEPRECATED("This function is going away. Please don't add new uses.")
-  LookupExpressionColumnCallback lookup_expression_column_callback() const {
-    return data_->lookup_expression_column_callback;
-  }
-
   void SetPreRewriteCallback(const PreRewriteCallback& pre_rewrite_callback) {
     data_->pre_rewrite_callback = std::move(pre_rewrite_callback);
   }
@@ -880,9 +875,6 @@ class AnalyzerOptions {
 
     // Maps system variables to their types.
     SystemVariablesMap system_variables;
-
-    // TODO: Clean up the legacy callback once all getters are removed.
-    LookupExpressionColumnCallback lookup_expression_column_callback = nullptr;
 
     // Callback function to resolve columns in standalone expressions.
     LookupExpressionCallback lookup_expression_callback = nullptr;

@@ -1,0 +1,77 @@
+# Parameters don't work as constants in the IF conditions yet.
+[default no_enable_literal_replacement]
+[default enabled_ast_rewrites=DEFAULTS]
+
+[default language_features=PIPES,PIPE_IF,PIPE_STATIC_DESCRIBE,TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS,CREATE_TABLE_FUNCTION,TEMPLATE_FUNCTIONS,FUNCTION_ARGUMENTS_WITH_DEFAULTS]
+
+# The IF doesn't work yet because we don't treat the argument
+# as a constant, and can't without treating the TVF as templated.
+CREATE TABLE FUNCTION key_or_value(mode BOOL) AS
+FROM KeyValue
+|> IF mode THEN ( |> SELECT key )
+   ELSE ( |> SELECT value )
+--
+ERROR: Pipe IF condition expression must be evaluated to a constant value at analysis time; Only literals and constants are currently supported [at 5:7]
+|> IF mode THEN ( |> SELECT key )
+      ^
+==
+
+# Add an extra arg that forces the function to be temlated.
+[prepare_database=db]
+CREATE TABLE FUNCTION key_or_value(mode bool,
+                                   unused ANY TYPE DEFAULT NULL) AS
+FROM KeyValue
+|> IF mode THEN ( |> SELECT key )
+   ELSE ( |> SELECT value )
+--
+CreateTableFunctionStmt(name_path=key_or_value, argument_name_list=[mode, unused], signature=(BOOL mode, optional ANY TYPE {default_value: NULL} unused) -> ANY TABLE, language="SQL", code="FROM KeyValue\n|> IF mode THEN ( |> SELECT key )\n   ELSE ( |> SELECT value )")
+==
+
+[use_database=db]
+FROM key_or_value(5)
+--
+ERROR: No matching signature for key_or_value for argument types: INT64, INT64. Supported signature: KEY_OR_VALUE(BOOL, [ANY]) [at 1:6]
+FROM key_or_value(5)
+     ^
+==
+
+# This doesn't work yet because we don't recognize the TVF argument
+# as a constant with an analysis-time value available.
+[use_database=db]
+FROM key_or_value( {{1=1|1=2|true}} )
+--
+ALTERNATION GROUP: 1=1
+--
+ERROR: Invalid table-valued function key_or_value [at 1:6]
+FROM key_or_value( 1=1 )
+     ^
+Analysis of table-valued function key_or_value failed [at 2:7]
+|> IF mode THEN ( |> SELECT key )
+      ^
+Pipe IF condition expression must be evaluated to a constant value at analysis time; Only literals and constants are currently supported [at 2:7]
+|> IF mode THEN ( |> SELECT key )
+      ^
+--
+ALTERNATION GROUP: 1=2
+--
+ERROR: Invalid table-valued function key_or_value [at 1:6]
+FROM key_or_value( 1=2 )
+     ^
+Analysis of table-valued function key_or_value failed [at 2:7]
+|> IF mode THEN ( |> SELECT key )
+      ^
+Pipe IF condition expression must be evaluated to a constant value at analysis time; Only literals and constants are currently supported [at 2:7]
+|> IF mode THEN ( |> SELECT key )
+      ^
+--
+ALTERNATION GROUP: true
+--
+ERROR: Invalid table-valued function key_or_value [at 1:6]
+FROM key_or_value( true )
+     ^
+Analysis of table-valued function key_or_value failed [at 2:7]
+|> IF mode THEN ( |> SELECT key )
+      ^
+Pipe IF condition expression must be evaluated to a constant value at analysis time; Only literals and constants are currently supported [at 2:7]
+|> IF mode THEN ( |> SELECT key )
+      ^

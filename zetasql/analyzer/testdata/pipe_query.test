@@ -7,6 +7,7 @@ ERROR: Pipe query syntax not supported [at 2:1]
 ==
 
 [default language_features=PIPES,PIPE_STATIC_DESCRIBE]
+
 select 1,2,3
 |> where true;
 --
@@ -455,7 +456,7 @@ QueryStmt
 
 # Test with SELECTs and EXTENDs computing expressions that never get used.
 # This is checking a case where the SQLBuilder was failing to include those.
-[show_unparsed]
+[show_sqlbuilder_output]
 from KeyValue
 |> extend key+1 AS k1, 123 AS k2, sqrt(key) AS k3
 |> extend k3+1 AS k4, 'abc' AS k5
@@ -502,7 +503,8 @@ QueryStmt
                 +-input_scan=
                   +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   projectscan_12.a_3 AS k1
 FROM
@@ -537,6 +539,35 @@ FROM
           ) AS projectscan_6
       ) AS projectscan_9
   ) AS projectscan_12;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  KeyValue
+|> SELECT
+     KeyValue.Key AS a_1
+|> AS keyvalue_2
+|> SELECT
+     keyvalue_2.a_1 AS a_1,
+     (keyvalue_2.a_1) + 1 AS a_3,
+     123 AS a_4,
+     SQRT(CAST(keyvalue_2.a_1 AS DOUBLE)) AS a_5
+|> AS projectscan_6
+|> SELECT
+     projectscan_6.a_1 AS a_1,
+     projectscan_6.a_3 AS a_3,
+     projectscan_6.a_4 AS a_4,
+     projectscan_6.a_5 AS a_5,
+     (projectscan_6.a_5) + 1.0 AS a_7,
+     "abc" AS a_8
+|> AS projectscan_9
+|> SELECT
+     projectscan_9.a_3 AS a_3,
+     "xxx" AS a_10,
+     (projectscan_9.a_7) + 1.0 AS a_11
+|> AS projectscan_12
+|> SELECT
+     projectscan_12.a_3 AS k1;
 ==
 
 select 1 x

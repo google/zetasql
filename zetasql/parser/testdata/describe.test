@@ -262,7 +262,7 @@ DESCRIBE my-project.dataset.table;
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `my-project.dataset.table` [at 1:10]
+ERROR: Syntax error: Table name contains '-' character. The dashed identifier part of the table name needs to be quoted: `my-project` [at 1:10]
 DESCRIBE my-project.dataset.table;
          ^
 --
@@ -282,7 +282,7 @@ DESCRIBE /span/db/my-mdb-grp:my_db.Table
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: Syntax error: Table name contains '/' character. It needs to be quoted: `/span/db/my-mdb-grp:my_db.Table` [at 1:10]
+ERROR: Syntax error: Table name contains '/' character. The slashed identifier part of the table name needs to be quoted: `/span/db/my-mdb-grp:my_db` [at 1:10]
 DESCRIBE /span/db/my-mdb-grp:my_db.Table
          ^
 --

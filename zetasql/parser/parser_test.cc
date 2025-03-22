@@ -19,15 +19,12 @@
 #include <cstdint>
 #include <memory>
 #include <string>
-#include <utility>
 
-#include "zetasql/base/commandlineflags.h"
 #include "zetasql/base/logging.h"
 #include "zetasql/base/helpers.h"
 #include "zetasql/base/options.h"
 #include "parsers/sql/sql_parser_test_helpers.h"
 #include "zetasql/parser/ast_node_kind.h"
-#include "zetasql/parser/keywords.h"
 #include "zetasql/parser/parser_runtime_info.h"
 #include "zetasql/proto/internal_error_location.pb.h"
 #include "zetasql/public/language_options.h"
@@ -44,7 +41,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
-#include "zetasql/base/status_payload.h"
+#include "zetasql/base/status.h"
 
 ABSL_FLAG(std::string, parser_benchmark_query,
           "SELECT Column FROM Table WHERE OtherColumn = 123",
@@ -66,7 +63,6 @@ using ::testing::Eq;
 using ::testing::ExplainMatchResult;
 using ::testing::HasSubstr;
 using ::testing::Not;
-using ::testing::proto::IgnoringProtoDebugStringFormat;
 using ::zetasql_base::testing::StatusIs;
 
 MATCHER_P(StatusHasByteOffset, byte_offset, "") {
@@ -654,6 +650,48 @@ TEST_F(ParseQueryEndingWithCommentTest, StableErrorsForParseScript) {
       StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("SQL ERROR")));
 
   absl::SetFlag(&FLAGS_zetasql_redact_error_messages_for_tests, false);
+}
+
+TEST(ParserTest, ValidQueryReturnsNonZeroCpuTime) {
+  std::unique_ptr<ParserOutput> parser_output;
+  ZETASQL_ASSERT_OK(ParseStatement("select a + f(b) FROM T",
+                           ParserOptions(LanguageOptions()), &parser_output));
+  ASSERT_NE(parser_output->statement(), nullptr);
+  EXPECT_GT(TotalNanos(parser_output->runtime_info()
+                           .parser_timed_value()
+                           .ToExecutionStatsProto()
+                           .cpu_time()),
+            0);
+}
+
+TEST(ParserTest, ValidateErrorStripping) {
+  absl::SetFlag(&FLAGS_zetasql_parser_strip_errors, false);
+  std::unique_ptr<ParserOutput> parser_output;
+
+  absl::Status error = ParseStatement(
+      "select f())", ParserOptions(LanguageOptions()), &parser_output);
+  EXPECT_THAT(error, StatusIs(absl::StatusCode::kInvalidArgument,
+                              Not(Eq("Syntax error"))));
+  EXPECT_THAT(error.ToString(), HasSubstr("Expected end of input but got"));
+
+  absl::SetFlag(&FLAGS_zetasql_parser_strip_errors, true);
+
+  absl::Status stripped_error = ParseStatement(
+      "select f())", ParserOptions(LanguageOptions()), &parser_output);
+  EXPECT_THAT(stripped_error,
+              StatusIs(absl::StatusCode::kInvalidArgument, Eq("Syntax error")));
+  EXPECT_EQ(stripped_error.ToString(), "INVALID_ARGUMENT: Syntax error");
+}
+
+TEST(ParserTest, ValidateStrippedErrorIsSimpleWithTextmapper) {
+  absl::SetFlag(&FLAGS_zetasql_parser_strip_errors, true);
+  std::unique_ptr<ParserOutput> parser_output;
+  LanguageOptions options;
+  absl::Status error =
+      ParseStatement("select f())", ParserOptions(options), &parser_output);
+  EXPECT_THAT(error,
+              StatusIs(absl::StatusCode::kInvalidArgument, Eq("Syntax error")));
+  EXPECT_EQ(error.ToString(), "INVALID_ARGUMENT: Syntax error");
 }
 
 class LanguageOptionsMigrationTest : public ::testing::Test {};

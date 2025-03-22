@@ -109,6 +109,10 @@ class Token : public ParseToken {
     // Marks a {token} in curly braces. These are not part of ZetaSQL, but
     // widely used by various templating frameworks.
     CURLY_BRACES_TEMPLATE,
+    // Marks a token that starts a complex identifier, but otherwise could act
+    // as something else. For example a '/' in table names: /foo/bar should not
+    // be treated as a division operator.
+    COMPLEX_TOKEN_START,
     // Marks a token that should be always treated as the continuation of the
     // previous token without any spaces in between. For instance,
     // `table_$DATE_SUFFIX` consists of two tokens: `table_` and `$DATE_SUFFIX`.
@@ -135,13 +139,21 @@ class Token : public ParseToken {
     // Marks SET keyword that starts a SET statement as opposed to other usages
     // of SET keyword.
     SET_STATEMENT_START,
+    // Marks the first token hat starts a SET operator, e.g., 'FULL' in
+    // "FULL OUTER UNION ALL".
+    SET_OPERATOR_START,
   };
 
   explicit Token(ParseToken t)
       : ParseToken(std::move(t)), keyword_(ParseToken::GetKeyword()) {}
   Token(ParseToken t, absl::string_view keyword)
       : ParseToken(std::move(t)), keyword_(keyword) {}
-
+  // Replaces a ParseToken with the same one with a new keyword and image.
+  Token(ParseToken t, absl::string_view keyword, absl::string_view image)
+      : ParseToken(t.GetLocationRange(), t.IsAdjacentToPreviousToken(),
+                   std::string(image), t.kind()),
+        keyword_(keyword) {}
+  Token(const Token& t) = default;
   // Sets the additional semantic type of the token.
   void SetType(Type type) { type_ = type; }
   // Checks if the current token is of a given type.
@@ -230,7 +242,7 @@ class Token : public ParseToken {
                                int original_column) const;
 
  private:
-  const std::string keyword_;
+  std::string keyword_;  // Marking non-const so default copy constructor works.
   Type type_ = Type::UNKNOWN;
   bool used_as_keyword_ = false;
   int line_breaks_after_ = 0;

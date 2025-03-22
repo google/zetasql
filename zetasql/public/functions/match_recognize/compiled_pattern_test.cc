@@ -39,6 +39,7 @@
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/source_location.h"
+#include "absl/types/span.h"
 
 namespace zetasql::functions::match_recognize {
 namespace {
@@ -48,7 +49,7 @@ using ::testing::ValuesIn;
 using ::zetasql_base::testing::IsOkAndHolds;
 using ::zetasql_base::testing::StatusIs;
 
-std::vector<std::vector<int>> Repeat(const std::vector<std::vector<int>>& input,
+std::vector<std::vector<int>> Repeat(absl::Span<const std::vector<int>> input,
                                      int rep_count) {
   std::vector<std::vector<int>> result;
   for (int i = 0; i < rep_count; ++i) {
@@ -66,7 +67,7 @@ std::vector<std::vector<int>> Concat(
 }
 
 template <typename... Args>
-std::vector<std::vector<int>> Concat(const std::vector<std::vector<int>>& first,
+std::vector<std::vector<int>> Concat(absl::Span<const std::vector<int>> first,
                                      Args... args) {
   std::vector<std::vector<int>> result(first.begin(), first.end());
   std::vector<std::vector<int>> rest = Concat(args...);
@@ -499,97 +500,65 @@ void TestCaseBuilder::AddAllTestCases() {
 }
 
 void TestCaseBuilder::AddBasicTestCases() {
-  AddTestCases(
-      TestCaseTemplate("EmptyPartitionNoMatch")
-          .AddPattern("A B B C")
-          .SetRowData({})
-          .AddResult(R"pb(finalize { total_rows_fully_processed: 0 })pb"));
+  AddTestCases(TestCaseTemplate("EmptyPartitionNoMatch")
+                   .AddPattern("A B B C")
+                   .SetRowData({})
+                   .AddResult(R"pb(finalize {})pb"));
   AddTestCases(TestCaseTemplate("PartitionWithNoMatchingSymbols")
                    .AddPattern("A B B C")
                    .SetRowData({{}, {}, {}, {}})
                    .AddResult(
-                       R"pb(add_row { total_rows_fully_processed: 1 }
-                            add_row { total_rows_fully_processed: 2 }
-                            add_row { total_rows_fully_processed: 3 }
-                            add_row { total_rows_fully_processed: 4 }
-                            finalize { total_rows_fully_processed: 4 })pb"));
-  AddTestCases(
-      TestCaseTemplate("SingleMatchAtStartFoundAtEnd")
-          .AddPattern("A B B C")
-          .SetRowData({{0}, {1}, {1}, {2}, {0}})
-          .AddResult(
-              R"pb(add_row { total_rows_fully_processed: 0 rep_count: 5 }
-                   finalize {
-                     match: "(position 0, length 4): A, B, B, C"
-                     total_rows_fully_processed: 5
-                   })pb"));
+                       R"pb(add_row { rep_count: 4 }
+                            finalize {})pb"));
+  AddTestCases(TestCaseTemplate("SingleMatchAtStartFoundAtEnd")
+                   .AddPattern("A B B C")
+                   .SetRowData({{0}, {1}, {1}, {2}, {0}})
+                   .AddResult(
+                       R"pb(add_row { rep_count: 5 }
+                            finalize {
+                              match: "(position 0, length 4): A, B, B, C"
+
+                            })pb"));
   AddTestCases(
       TestCaseTemplate("SingleMatchAtEnd")
           .AddPattern("A B B C")
           .SetRowData({{}, {0}, {1}, {1}, {2}})
           .AddResult(
-              R"pb(add_row { total_rows_fully_processed: 1 rep_count: 5 }
-                   finalize {
-                     match: "(position 1, length 4): A, B, B, C"
-                     total_rows_fully_processed: 5
-                   }
+              R"pb(add_row { rep_count: 5 }
+                   finalize { match: "(position 1, length 4): A, B, B, C" }
               )pb"));
   AddTestCases(
       TestCaseTemplate("MultipleMatchesWithGap")
           .AddPattern("A B B C")
           .SetRowData({{}, {0}, {1}, {1}, {2}, {2}, {0}, {1}, {1}, {2}})
           .AddResult(
-              R"pb(add_row { total_rows_fully_processed: 1 rep_count: 5 }
-                   add_row {
-                     match: "(position 1, length 4): A, B, B, C"
-                     total_rows_fully_processed: 6
-                   }
-                   add_row { total_rows_fully_processed: 6 rep_count: 4 }
-                   finalize {
-                     match: "(position 6, length 4): A, B, B, C"
-                     total_rows_fully_processed: 10
-                   }
+              R"pb(add_row { rep_count: 5 }
+                   add_row { match: "(position 1, length 4): A, B, B, C" }
+                   add_row { rep_count: 4 }
+                   finalize { match: "(position 6, length 4): A, B, B, C" }
               )pb"));
   AddTestCases(TestCaseTemplate("EmptyMatches")
                    .AddPattern("A | ()")
                    .SetRowData({{}, {}, {}, {}})
-                   .AddResult(R"pb(add_row {
-                                     match: "(position 0, empty)"
-                                     total_rows_fully_processed: 1
-                                   }
-                                   add_row {
-                                     match: "(position 1, empty)"
-                                     total_rows_fully_processed: 2
-                                   }
-                                   add_row {
-                                     match: "(position 2, empty)"
-                                     total_rows_fully_processed: 3
-                                   }
-                                   add_row {
-                                     match: "(position 3, empty)"
-                                     total_rows_fully_processed: 4
-                                   }
-                                   finalize { total_rows_fully_processed: 4 }
+                   .AddResult(R"pb(add_row { match: "(position 0, empty)" }
+                                   add_row { match: "(position 1, empty)" }
+                                   add_row { match: "(position 2, empty)" }
+                                   add_row { match: "(position 3, empty)" }
+                                   finalize {}
                    )pb"));
-  AddTestCases(TestCaseTemplate("EmptyAndNonEmptyMatches")
-                   .AddPattern("A | ()")
-                   .SetRowData({{}, {0}, {}, {0}})
-                   .AddResult(R"pb(add_row {
-                                     match: "(position 0, empty)"
-                                     total_rows_fully_processed: 1
-                                   }
-                                   add_row { total_rows_fully_processed: 1 }
-                                   add_row {
-                                     match: "(position 1, length 1): A"
-                                     match: "(position 2, empty)"
-                                     total_rows_fully_processed: 3
-                                   }
-                                   add_row { total_rows_fully_processed: 3 }
-                                   finalize {
-                                     match: "(position 3, length 1): A"
-                                     total_rows_fully_processed: 4
-                                   }
-                   )pb"));
+  AddTestCases(
+      TestCaseTemplate("EmptyAndNonEmptyMatches")
+          .AddPattern("A | ()")
+          .SetRowData({{}, {0}, {}, {0}})
+          .AddResult(R"pb(add_row { match: "(position 0, empty)" }
+                          add_row {}
+                          add_row {
+                            match: "(position 1, length 1): A"
+                            match: "(position 2, empty)"
+                          }
+                          add_row {}
+                          finalize { match: "(position 3, length 1): A" }
+          )pb"));
 }
 
 void TestCaseBuilder::AddOverlappingMatchesTestCases() {
@@ -598,21 +567,17 @@ void TestCaseBuilder::AddOverlappingMatchesTestCases() {
           .AddPattern("A B B C")
           .SetRowData({{}, {0}, {0, 1}, {1}, {1, 2}, {2}, {2}})
           .AddNonOverlappingResult(
-              R"pb(add_row { total_rows_fully_processed: 1 rep_count: 6 }
-                   add_row {
-                     match: "(position 1, length 4): A, B, B, C"
-                     total_rows_fully_processed: 7
-                   }
-                   finalize { total_rows_fully_processed: 7 }
+              R"pb(add_row { rep_count: 6 }
+                   add_row { match: "(position 1, length 4): A, B, B, C" }
+                   finalize {}
               )pb")
           .AddOverlappingResult(
-              R"pb(add_row { total_rows_fully_processed: 1 rep_count: 6 }
+              R"pb(add_row { rep_count: 6 }
                    add_row {
                      match: "(position 1, length 4): A, B, B, C"
                      match: "(position 2, length 4): A, B, B, C"
-                     total_rows_fully_processed: 7
                    }
-                   finalize { total_rows_fully_processed: 7 })pb"));
+                   finalize {})pb"));
 
   // A long sequence of rows, where every row matches every pattern variable.
   // This creates an overlapping match starting at almost every row.
@@ -625,17 +590,16 @@ void TestCaseBuilder::AddOverlappingMatchesTestCases() {
           .SetRowData(Repeat({{0, 1, 2}}, 18))
           .SetConfig({.show_match_ids = true})
           .AddNonOverlappingResult(
-              R"pb(add_row { total_rows_fully_processed: 0 rep_count: 18 }
+              R"pb(add_row { rep_count: 18 }
                    finalize {
                      match: "(position 0, id 1, length 4): A, B, B, C"
                      match: "(position 4, id 2, length 4): A, B, B, C"
                      match: "(position 8, id 3, length 4): A, B, B, C"
                      match: "(position 12, id 4, length 4): A, B, B, C"
-                     total_rows_fully_processed: 18
                    }
               )pb")
           .AddOverlappingResult(
-              R"pb(add_row { total_rows_fully_processed: 0 rep_count: 18 }
+              R"pb(add_row { rep_count: 18 }
                    finalize {
                      match: "(position 0, id 1, length 4): A, B, B, C"
                      match: "(position 1, id 2, length 4): A, B, B, C"
@@ -652,7 +616,6 @@ void TestCaseBuilder::AddOverlappingMatchesTestCases() {
                      match: "(position 12, id 13, length 4): A, B, B, C"
                      match: "(position 13, id 14, length 4): A, B, B, C"
                      match: "(position 14, id 15, length 4): A, B, B, C"
-                     total_rows_fully_processed: 18
                    })pb"));
 
   AddTestCases(
@@ -660,21 +623,17 @@ void TestCaseBuilder::AddOverlappingMatchesTestCases() {
           .AddPattern("A*")
           .SetRowData(Repeat({{0}}, 5))
           .AddNonOverlappingResult(
-              R"pb(add_row { total_rows_fully_processed: 0 rep_count: 5 }
-                   finalize {
-                     match: "(position 0, length 5): A, A, A, A, A"
-                     total_rows_fully_processed: 5
-                   }
+              R"pb(add_row { rep_count: 5 }
+                   finalize { match: "(position 0, length 5): A, A, A, A, A" }
               )pb")
           .AddOverlappingResult(
-              R"pb(add_row { total_rows_fully_processed: 0 rep_count: 5 }
+              R"pb(add_row { rep_count: 5 }
                    finalize {
                      match: "(position 0, length 5): A, A, A, A, A"
                      match: "(position 1, length 4): A, A, A, A"
                      match: "(position 2, length 3): A, A, A"
                      match: "(position 3, length 2): A, A"
                      match: "(position 4, length 1): A"
-                     total_rows_fully_processed: 5
                    }
               )pb"));
 
@@ -684,14 +643,13 @@ void TestCaseBuilder::AddOverlappingMatchesTestCases() {
           .SetRowData(Repeat({{0}, {1}}, 5))
           .AddNonOverlappingResult(
               R"pb(
-                add_row { total_rows_fully_processed: 0 rep_count: 10 }
+                add_row { rep_count: 10 }
                 finalize {
                   match: "(position 0, length 10): A, B, A, B, A, B, A, B, A, B"
-                  total_rows_fully_processed: 10
                 })pb")
           .AddOverlappingResult(
               R"pb(
-                add_row { total_rows_fully_processed: 0 rep_count: 10 }
+                add_row { rep_count: 10 }
                 finalize {
                   match: "(position 0, length 10): A, B, A, B, A, B, A, B, A, B"
                   match: "(position 1, empty)"
@@ -703,138 +661,117 @@ void TestCaseBuilder::AddOverlappingMatchesTestCases() {
                   match: "(position 7, empty)"
                   match: "(position 8, length 2): A, B"
                   match: "(position 9, empty)"
-                  total_rows_fully_processed: 10
                 })pb"));
 }
 
 void TestCaseBuilder::AddQuestionTestCases() {
   std::vector<std::vector<int>> simple_question_input = {{}, {0}, {0}, {}};
-  AddTestCases(
-      TestCaseTemplate("SimpleQuestionGreedy")
-          .AddPatterns({"A?", "A{0,1}", "(A?)?", "A|", "(A|)?"})
-          .SetRowData(simple_question_input)
-          .AddResult(R"pb(add_row {
-                            match: "(position 0, empty)"
-                            total_rows_fully_processed: 1
-                          }
-                          add_row { total_rows_fully_processed: 1 rep_count: 2 }
-                          add_row {
-                            match: "(position 1, length 1): A"
-                            match: "(position 2, length 1): A"
-                            match: "(position 3, empty)"
-                            total_rows_fully_processed: 4
-                          }
-                          finalize { total_rows_fully_processed: 4 })pb"));
-  AddTestCases(
-      TestCaseTemplate("SimpleQuestionReluctant")
-          .AddPatterns(
-              {"A??", "A{0,1}?", "(A??)??", "|A", "(|A)?", "(|A)??", "(A|)??"})
-          .SetRowData(simple_question_input)
-          .AddResult({.longest_match_mode = false},
-                     R"pb(add_row {
-                            match: "(position 0, empty)"
-                            total_rows_fully_processed: 1
-                          }
-                          add_row { total_rows_fully_processed: 1 rep_count: 2 }
-                          add_row {
-                            match: "(position 1, empty)"
-                            match: "(position 2, empty)"
-                            match: "(position 3, empty)"
-                            total_rows_fully_processed: 4
-                          }
-                          finalize { total_rows_fully_processed: 4 })pb")
-          .AddImportedResults({.longest_match_mode = true},
-                              "SimpleQuestionGreedy"));
+  AddTestCases(TestCaseTemplate("SimpleQuestionGreedy")
+                   .AddPatterns({"A?", "A{0,1}", "(A?)?", "A|", "(A|)?"})
+                   .SetRowData(simple_question_input)
+                   .AddResult(R"pb(add_row { match: "(position 0, empty)" }
+                                   add_row { rep_count: 2 }
+                                   add_row {
+                                     match: "(position 1, length 1): A"
+                                     match: "(position 2, length 1): A"
+                                     match: "(position 3, empty)"
+                                   }
+                                   finalize {})pb"));
+  AddTestCases(TestCaseTemplate("SimpleQuestionReluctant")
+                   .AddPatterns({"A??", "A{0,1}?", "(A??)??", "|A", "(|A)?",
+                                 "(|A)??", "(A|)??"})
+                   .SetRowData(simple_question_input)
+                   .AddResult({.longest_match_mode = false},
+                              R"pb(add_row { match: "(position 0, empty)" }
+                                   add_row { rep_count: 2 }
+                                   add_row {
+                                     match: "(position 1, empty)"
+                                     match: "(position 2, empty)"
+                                     match: "(position 3, empty)"
+                                   }
+                                   finalize {})pb")
+                   .AddImportedResults({.longest_match_mode = true},
+                                       "SimpleQuestionGreedy"));
 
   std::vector<std::vector<int>> complex_question_input = {{0, 1}, {0}, {0, 1},
                                                           {1},    {0}, {0}};
-  AddTestCases(
-      TestCaseTemplate("ComplexQuestionGreedy")
-          .AddPatterns({"(A B)? A", "(A B A) | A", "((A B) | ()) A",
-                        "((A B) | ()) (A | A)"})
-          .SetRowData(complex_question_input)
-          .AddNonOverlappingResult(
-              R"pb(add_row { total_rows_fully_processed: 0 rep_count: 6 }
-                   finalize {
-                     match: "(position 0, length 1): A"
-                     match: "(position 1, length 1): A"
-                     match: "(position 2, length 3): A, B, A"
-                     match: "(position 5, length 1): A"
-                     total_rows_fully_processed: 6
-                   })pb")
-          .AddOverlappingResult(
-              R"pb(add_row { total_rows_fully_processed: 0 rep_count: 6 }
-                   finalize {
-                     match: "(position 0, length 1): A"
-                     match: "(position 1, length 1): A"
-                     match: "(position 2, length 3): A, B, A"
-                     match: "(position 4, length 1): A"
-                     match: "(position 5, length 1): A"
-                     total_rows_fully_processed: 6
-                   })pb"));
-  AddTestCases(
-      TestCaseTemplate("ComplexQuestionReluctant")
-          .AddPatterns(
-              {"(A B)?? A", "(| A B) A", "A | (A B A)", "A () | (A B () A)"})
-          .SetRowData(complex_question_input)
-          .AddResult({.longest_match_mode = false},
-                     R"pb(add_row { total_rows_fully_processed: 0 rep_count: 6 }
-                          finalize {
-                            match: "(position 0, length 1): A"
-                            match: "(position 1, length 1): A"
-                            match: "(position 2, length 1): A"
-                            match: "(position 4, length 1): A"
-                            match: "(position 5, length 1): A"
-                            total_rows_fully_processed: 6
-                          })pb")
-          .AddImportedResults({.longest_match_mode = true},
-                              "ComplexQuestionGreedy"));
+  AddTestCases(TestCaseTemplate("ComplexQuestionGreedy")
+                   .AddPatterns({"(A B)? A", "(A B A) | A", "((A B) | ()) A",
+                                 "((A B) | ()) (A | A)"})
+                   .SetRowData(complex_question_input)
+                   .AddNonOverlappingResult(
+                       R"pb(add_row { rep_count: 6 }
+                            finalize {
+                              match: "(position 0, length 1): A"
+                              match: "(position 1, length 1): A"
+                              match: "(position 2, length 3): A, B, A"
+                              match: "(position 5, length 1): A"
+                            })pb")
+                   .AddOverlappingResult(
+                       R"pb(add_row { rep_count: 6 }
+                            finalize {
+                              match: "(position 0, length 1): A"
+                              match: "(position 1, length 1): A"
+                              match: "(position 2, length 3): A, B, A"
+                              match: "(position 4, length 1): A"
+                              match: "(position 5, length 1): A"
+                            })pb"));
+  AddTestCases(TestCaseTemplate("ComplexQuestionReluctant")
+                   .AddPatterns({"(A B)?? A", "(| A B) A", "A | (A B A)",
+                                 "A () | (A B () A)"})
+                   .SetRowData(complex_question_input)
+                   .AddResult({.longest_match_mode = false},
+                              R"pb(add_row { rep_count: 6 }
+                                   finalize {
+                                     match: "(position 0, length 1): A"
+                                     match: "(position 1, length 1): A"
+                                     match: "(position 2, length 1): A"
+                                     match: "(position 4, length 1): A"
+                                     match: "(position 5, length 1): A"
+                                   })pb")
+                   .AddImportedResults({.longest_match_mode = true},
+                                       "ComplexQuestionGreedy"));
 
   std::vector<std::vector<int>> complex_question2_input = {
       {0, 2}, {1, 2}, {2}, {0}, {1}, {2}, {0}};
-  AddTestCases(
-      TestCaseTemplate("ComplexQuestion2Greedy")
-          .AddPattern("(A B)? C")
-          .SetRowData(complex_question2_input)
-          .AddNonOverlappingResult(
-              R"pb(add_row { total_rows_fully_processed: 0 rep_count: 7 }
-                   finalize {
-                     match: "(position 0, length 3): A, B, C"
-                     match: "(position 3, length 3): A, B, C"
-                     total_rows_fully_processed: 7
-                   })pb")
-          .AddOverlappingResult(R"pb(
-            add_row { total_rows_fully_processed: 0 rep_count: 7 }
-            finalize {
-              match: "(position 0, length 3): A, B, C"
-              match: "(position 1, length 1): C"
-              match: "(position 2, length 1): C"
-              match: "(position 3, length 3): A, B, C"
-              match: "(position 5, length 1): C"
-              total_rows_fully_processed: 7
-            })pb"));
+  AddTestCases(TestCaseTemplate("ComplexQuestion2Greedy")
+                   .AddPattern("(A B)? C")
+                   .SetRowData(complex_question2_input)
+                   .AddNonOverlappingResult(
+                       R"pb(add_row { rep_count: 7 }
+                            finalize {
+                              match: "(position 0, length 3): A, B, C"
+                              match: "(position 3, length 3): A, B, C"
+                            })pb")
+                   .AddOverlappingResult(R"pb(
+                     add_row { rep_count: 7 }
+                     finalize {
+                       match: "(position 0, length 3): A, B, C"
+                       match: "(position 1, length 1): C"
+                       match: "(position 2, length 1): C"
+                       match: "(position 3, length 3): A, B, C"
+                       match: "(position 5, length 1): C"
+                     })pb"));
   AddTestCases(
       TestCaseTemplate("ComplexQuestion2Reluctant")
           .AddPattern("(A B)?? C")
           .SetRowData(complex_question2_input)
           .AddResult({.overlapping_mode = false, .longest_match_mode = false},
-                     R"pb(add_row { total_rows_fully_processed: 0 rep_count: 7 }
+                     R"pb(add_row { rep_count: 7 }
                           finalize {
                             match: "(position 0, length 1): C"
                             match: "(position 1, length 1): C"
                             match: "(position 2, length 1): C"
                             match: "(position 3, length 3): A, B, C"
-                            total_rows_fully_processed: 7
                           })pb")
           .AddResult({.overlapping_mode = true, .longest_match_mode = false},
-                     R"pb(add_row { total_rows_fully_processed: 0 rep_count: 7 }
+                     R"pb(add_row { rep_count: 7 }
                           finalize {
                             match: "(position 0, length 1): C"
                             match: "(position 1, length 1): C"
                             match: "(position 2, length 1): C"
                             match: "(position 3, length 3): A, B, C"
                             match: "(position 5, length 1): C"
-                            total_rows_fully_processed: 7
                           })pb")
           .AddImportedResults({.longest_match_mode = true},
                               "ComplexQuestion2Greedy"));
@@ -843,86 +780,59 @@ void TestCaseBuilder::AddQuestionTestCases() {
 void TestCaseBuilder::AddBoundedQuantifierTestCases() {
   std::vector<std::vector<int>> bound_zero_to_n_input =
       Concat({{}, {}, {0}, {}}, Repeat({{0}}, 10));
-  AddTestCases(
-      TestCaseTemplate("BoundZeroToNGreedy")
-          .AddPatterns({"A{,3}", "A{0,3}", "(A A A)|(A A)|A|",
-                        "(A A A) | A{,2}", "(A A A)|(A A)|A?"})
-          .SetRowData(bound_zero_to_n_input)
-          .AddNonOverlappingResult(
-              R"pb(add_row {
-                     match: "(position 0, empty)"
-                     total_rows_fully_processed: 1
-                   }
-                   add_row {
-                     match: "(position 1, empty)"
-                     total_rows_fully_processed: 2
-                   }
-                   add_row { total_rows_fully_processed: 2 }
-                   add_row {
-                     match: "(position 2, length 1): A"
-                     match: "(position 3, empty)"
-                     total_rows_fully_processed: 4
-                   }
-                   add_row { total_rows_fully_processed: 4 rep_count: 10 }
-                   finalize {
-                     match: "(position 4, length 3): A, A, A"
-                     match: "(position 7, length 3): A, A, A"
-                     match: "(position 10, length 3): A, A, A"
-                     match: "(position 13, length 1): A"
-                     total_rows_fully_processed: 14
-                   })pb")
-          .AddOverlappingResult(
-              R"pb(add_row {
-                     match: "(position 0, empty)"
-                     total_rows_fully_processed: 1
-                   }
-                   add_row {
-                     match: "(position 1, empty)"
-                     total_rows_fully_processed: 2
-                   }
-                   add_row { total_rows_fully_processed: 2 }
-                   add_row {
-                     match: "(position 2, length 1): A"
-                     match: "(position 3, empty)"
-                     total_rows_fully_processed: 4
-                   }
-                   add_row { total_rows_fully_processed: 4 rep_count: 10 }
-                   finalize {
-                     match: "(position 4, length 3): A, A, A"
-                     match: "(position 5, length 3): A, A, A"
-                     match: "(position 6, length 3): A, A, A"
-                     match: "(position 7, length 3): A, A, A"
-                     match: "(position 8, length 3): A, A, A"
-                     match: "(position 9, length 3): A, A, A"
-                     match: "(position 10, length 3): A, A, A"
-                     match: "(position 11, length 3): A, A, A"
-                     match: "(position 12, length 2): A, A"
-                     match: "(position 13, length 1): A"
-                     total_rows_fully_processed: 14
-                   })pb"));
+  AddTestCases(TestCaseTemplate("BoundZeroToNGreedy")
+                   .AddPatterns({"A{,3}", "A{0,3}", "(A A A)|(A A)|A|",
+                                 "(A A A) | A{,2}", "(A A A)|(A A)|A?"})
+                   .SetRowData(bound_zero_to_n_input)
+                   .AddNonOverlappingResult(
+                       R"pb(add_row { match: "(position 0, empty)" }
+                            add_row { match: "(position 1, empty)" }
+                            add_row {}
+                            add_row {
+                              match: "(position 2, length 1): A"
+                              match: "(position 3, empty)"
+                            }
+                            add_row { rep_count: 10 }
+                            finalize {
+                              match: "(position 4, length 3): A, A, A"
+                              match: "(position 7, length 3): A, A, A"
+                              match: "(position 10, length 3): A, A, A"
+                              match: "(position 13, length 1): A"
+                            })pb")
+                   .AddOverlappingResult(
+                       R"pb(add_row { match: "(position 0, empty)" }
+                            add_row { match: "(position 1, empty)" }
+                            add_row {}
+                            add_row {
+                              match: "(position 2, length 1): A"
+                              match: "(position 3, empty)"
+                            }
+                            add_row { rep_count: 10 }
+                            finalize {
+                              match: "(position 4, length 3): A, A, A"
+                              match: "(position 5, length 3): A, A, A"
+                              match: "(position 6, length 3): A, A, A"
+                              match: "(position 7, length 3): A, A, A"
+                              match: "(position 8, length 3): A, A, A"
+                              match: "(position 9, length 3): A, A, A"
+                              match: "(position 10, length 3): A, A, A"
+                              match: "(position 11, length 3): A, A, A"
+                              match: "(position 12, length 2): A, A"
+                              match: "(position 13, length 1): A"
+                            })pb"));
   AddTestCases(TestCaseTemplate("BoundZeroToNReluctant")
                    .AddPatterns({"A{,3}?", "A{0,3}?", "|A|(A A)|(A A A)",
                                  "A{,2}?|(A A A)", "A??|(A A)|(A A A)"})
                    .SetRowData(bound_zero_to_n_input)
                    .AddResult({.longest_match_mode = false},
-                              R"pb(add_row {
-                                     match: "(position 0, empty)"
-                                     total_rows_fully_processed: 1
-                                   }
-                                   add_row {
-                                     match: "(position 1, empty)"
-                                     total_rows_fully_processed: 2
-                                   }
-                                   add_row { total_rows_fully_processed: 2 }
+                              R"pb(add_row { match: "(position 0, empty)" }
+                                   add_row { match: "(position 1, empty)" }
+                                   add_row {}
                                    add_row {
                                      match: "(position 2, empty)"
                                      match: "(position 3, empty)"
-                                     total_rows_fully_processed: 4
                                    }
-                                   add_row {
-                                     total_rows_fully_processed: 4
-                                     rep_count: 10
-                                   }
+                                   add_row { rep_count: 10 }
                                    finalize {
                                      match: "(position 4, empty)"
                                      match: "(position 5, empty)"
@@ -934,7 +844,6 @@ void TestCaseBuilder::AddBoundedQuantifierTestCases() {
                                      match: "(position 11, empty)"
                                      match: "(position 12, empty)"
                                      match: "(position 13, empty)"
-                                     total_rows_fully_processed: 14
                                    })pb")
                    .AddImportedResults({.longest_match_mode = true},
                                        "BoundZeroToNGreedy"));
@@ -946,134 +855,93 @@ void TestCaseBuilder::AddBoundedQuantifierTestCases() {
                                  "(A{0})?"})
                    .SetRowData(Repeat({{0}}, 4))
                    .AddResult(
-                       R"pb(add_row {
-                              match: "(position 0, empty)"
-                              total_rows_fully_processed: 1
-                            }
-                            add_row {
-                              match: "(position 1, empty)"
-                              total_rows_fully_processed: 2
-                            }
-                            add_row {
-                              match: "(position 2, empty)"
-                              total_rows_fully_processed: 3
-                            }
-                            add_row {
-                              match: "(position 3, empty)"
-                              total_rows_fully_processed: 4
-                            }
-                            finalize { total_rows_fully_processed: 4 })pb"));
-
-  std::vector<std::vector<int>> bound_m_to_n_input =
-      Concat(Repeat({{0}}, 4), Repeat({{1}}, 4), Repeat({{0, 1, 2}}, 2));
+                       R"pb(add_row { match: "(position 0, empty)" }
+                            add_row { match: "(position 1, empty)" }
+                            add_row { match: "(position 2, empty)" }
+                            add_row { match: "(position 3, empty)" }
+                            finalize {})pb"));
 
   AddTestCases(
       TestCaseTemplate("BoundMToNGreedy")
           .AddPatterns({"A{2,3}", "A A{1,2}", "A A A?", "A{2} A?",
                         "(A A A)|(A A)", "A{3} | A{2}"})
-          .SetRowData(bound_m_to_n_input)
+          .SetRowData(
+              Concat(Repeat({{0}}, 4), Repeat({{}}, 4), Repeat({{0}}, 2)))
           .AddNonOverlappingResult(
-              R"pb(add_row { total_rows_fully_processed: 0 rep_count: 4 }
-                   add_row {
-                     match: "(position 0, length 3): A, A, A"
-                     total_rows_fully_processed: 5
-                   }
-                   add_row { total_rows_fully_processed: 6 }
-                   add_row { total_rows_fully_processed: 7 }
-                   add_row { total_rows_fully_processed: 8 rep_count: 3 }
-                   finalize {
-                     match: "(position 8, length 2): A, A"
-                     total_rows_fully_processed: 10
-                   })pb")
+              R"pb(add_row { rep_count: 4 }
+                   add_row { match: "(position 0, length 3): A, A, A" }
+                   add_row { rep_count: 5 }
+                   finalize { match: "(position 8, length 2): A, A" })pb")
           .AddOverlappingResult(
-              R"pb(add_row { total_rows_fully_processed: 0 rep_count: 4 }
+              R"pb(add_row { rep_count: 4 }
                    add_row {
                      match: "(position 0, length 3): A, A, A"
                      match: "(position 1, length 3): A, A, A"
                      match: "(position 2, length 2): A, A"
-                     total_rows_fully_processed: 5
                    }
-                   add_row { total_rows_fully_processed: 6 }
-                   add_row { total_rows_fully_processed: 7 }
-                   add_row { total_rows_fully_processed: 8 rep_count: 3 }
-                   finalize {
-                     match: "(position 8, length 2): A, A"
-                     total_rows_fully_processed: 10
-                   })pb"));
+                   add_row { rep_count: 5 }
+                   finalize { match: "(position 8, length 2): A, A" })pb"));
 
   AddTestCases(
       TestCaseTemplate("BoundMToNReluctant")
           .AddPatterns({"A{2,3}?", "A A{1,2}?", "A A A??", "A{2} A??",
                         "(A A)|(A A A)", "A{2} | A{3}"})
-          .SetRowData(bound_m_to_n_input)
-          .AddResult({.overlapping_mode = false, .longest_match_mode = false},
-                     R"pb(add_row { total_rows_fully_processed: 0 rep_count: 4 }
-                          add_row {
-                            match: "(position 0, length 2): A, A"
-                            match: "(position 2, length 2): A, A"
-                            total_rows_fully_processed: 5
-                          }
-                          add_row { total_rows_fully_processed: 6 }
-                          add_row { total_rows_fully_processed: 7 }
-                          add_row { total_rows_fully_processed: 8 rep_count: 3 }
-                          finalize {
-                            match: "(position 8, length 2): A, A"
-                            total_rows_fully_processed: 10
-                          })pb")
-          .AddResult({.overlapping_mode = true, .longest_match_mode = false},
-                     R"pb(add_row { total_rows_fully_processed: 0 rep_count: 4 }
-                          add_row {
-                            match: "(position 0, length 2): A, A"
-                            match: "(position 1, length 2): A, A"
-                            match: "(position 2, length 2): A, A"
-                            total_rows_fully_processed: 5
-                          }
-                          add_row { total_rows_fully_processed: 6 }
-                          add_row { total_rows_fully_processed: 7 }
-                          add_row { total_rows_fully_processed: 8 rep_count: 3 }
-                          finalize {
-                            match: "(position 8, length 2): A, A"
-                            total_rows_fully_processed: 10
-                          })pb")
+          .SetRowData(
+              Concat(Repeat({{0}}, 4), Repeat({{}}, 4), Repeat({{0}}, 2)))
+          .AddResult(
+              {.overlapping_mode = false, .longest_match_mode = false},
+              R"pb(add_row { rep_count: 4 }
+                   add_row {
+                     match: "(position 0, length 2): A, A"
+                     match: "(position 2, length 2): A, A"
+                   }
+                   add_row { rep_count: 5 }
+                   finalize { match: "(position 8, length 2): A, A" })pb")
+          .AddResult(
+              {.overlapping_mode = true, .longest_match_mode = false},
+              R"pb(add_row { rep_count: 4 }
+                   add_row {
+                     match: "(position 0, length 2): A, A"
+                     match: "(position 1, length 2): A, A"
+                     match: "(position 2, length 2): A, A"
+                   }
+                   add_row { rep_count: 5 }
+                   finalize { match: "(position 8, length 2): A, A" })pb")
           .AddImportedResults({.longest_match_mode = true}, "BoundMToNGreedy"));
 
-  AddTestCases(
-      TestCaseTemplate("BoundMToNComplexGreedy")
-          .AddPatterns(
-              {"((A|B){1,2}){1,2}", "(A|B){4}|(A|B){3}|(A|B){2}|(A|B){1}"})
-          .SetRowData(bound_m_to_n_input)
-          .AddNonOverlappingResult(
-              R"pb(add_row { total_rows_fully_processed: 0 rep_count: 10 }
-                   finalize {
-                     match: "(position 0, length 4): A, A, A, A"
-                     match: "(position 4, length 4): B, B, B, B"
-                     match: "(position 8, length 2): A, A"
-                     total_rows_fully_processed: 10
-                   })pb")
-          .AddOverlappingResult(
-              R"pb(add_row { total_rows_fully_processed: 0 rep_count: 10 }
-                   finalize {
-                     match: "(position 0, length 4): A, A, A, A"
-                     match: "(position 1, length 4): A, A, A, B"
-                     match: "(position 2, length 4): A, A, B, B"
-                     match: "(position 3, length 4): A, B, B, B"
-                     match: "(position 4, length 4): B, B, B, B"
-                     match: "(position 5, length 4): B, B, B, A"
-                     match: "(position 6, length 4): B, B, A, A"
-                     match: "(position 7, length 3): B, A, A"
-                     match: "(position 8, length 2): A, A"
-                     match: "(position 9, length 1): A"
-                     total_rows_fully_processed: 10
-                   })pb"));
+  AddTestCases(TestCaseTemplate("BoundMToNComplexGreedy")
+                   .AddPatterns({"((A|B){1,2}){1,2}",
+                                 "(A|B){4}|(A|B){3}|(A|B){2}|(A|B){1}"})
+                   .SetRowData(Concat(Repeat({{0}}, 4), Repeat({{1}}, 4),
+                                      Repeat({{0, 1}}, 2)))
+                   .AddNonOverlappingResult(
+                       R"pb(add_row { rep_count: 10 }
+                            finalize {
+                              match: "(position 0, length 4): A, A, A, A"
+                              match: "(position 4, length 4): B, B, B, B"
+                              match: "(position 8, length 2): A, A"
+                            })pb")
+                   .AddOverlappingResult(
+                       R"pb(add_row { rep_count: 10 }
+                            finalize {
+                              match: "(position 0, length 4): A, A, A, A"
+                              match: "(position 1, length 4): A, A, A, B"
+                              match: "(position 2, length 4): A, A, B, B"
+                              match: "(position 3, length 4): A, B, B, B"
+                              match: "(position 4, length 4): B, B, B, B"
+                              match: "(position 5, length 4): B, B, B, A"
+                              match: "(position 6, length 4): B, B, A, A"
+                              match: "(position 7, length 3): B, A, A"
+                              match: "(position 8, length 2): A, A"
+                              match: "(position 9, length 1): A"
+                            })pb"));
   AddTestCases(TestCaseTemplate("BoundMToNComplexReluctant")
                    .AddPatterns({"((A|B){1,2}?){1,2}?",
                                  "(A|B){1}|(A|B){2}|(A|B){3}|(A|B){4}"})
-                   .SetRowData(bound_m_to_n_input)
+                   .SetRowData(Concat(Repeat({{0}}, 4), Repeat({{1}}, 4),
+                                      Repeat({{0, 1}}, 2)))
                    .AddResult({.longest_match_mode = false},
-                              R"pb(add_row {
-                                     total_rows_fully_processed: 0
-                                     rep_count: 10
-                                   }
+                              R"pb(add_row { rep_count: 10 }
                                    finalize {
                                      match: "(position 0, length 1): A"
                                      match: "(position 1, length 1): A"
@@ -1085,232 +953,167 @@ void TestCaseBuilder::AddBoundedQuantifierTestCases() {
                                      match: "(position 7, length 1): B"
                                      match: "(position 8, length 1): A"
                                      match: "(position 9, length 1): A"
-                                     total_rows_fully_processed: 10
                                    })pb")
                    .AddImportedResults({.longest_match_mode = true},
                                        "BoundMToNComplexGreedy"));
 }
 
 void TestCaseBuilder::AddUnboundedQuantifierTestCases() {
-  std::vector<std::vector<int>> unbounded_quantifier_input =
-      Concat(Repeat({{0}}, 4), Repeat({{1}}, 4), Repeat({{0, 1, 2}}, 2));
   AddTestCases(
       TestCaseTemplate("UnboundedGreedyStar")
           .AddPatterns({"A*", "A* A*", "A* A*?", "A+ | ", "A{2,} | A+ |",
                         "(A*)*", "(A*)+", "(A+)*"})
-          .SetRowData(unbounded_quantifier_input)
+          .SetRowData(
+              Concat(Repeat({{0}}, 4), Repeat({{}}, 4), Repeat({{0}}, 2)))
           .AddNonOverlappingResult(
-              R"pb(add_row { total_rows_fully_processed: 0 rep_count: 4 }
+              R"pb(add_row { rep_count: 4 }
                    add_row {
                      match: "(position 0, length 4): A, A, A, A"
                      match: "(position 4, empty)"
-                     total_rows_fully_processed: 5
                    }
-                   add_row {
-                     match: "(position 5, empty)"
-                     total_rows_fully_processed: 6
-                   }
-                   add_row {
-                     match: "(position 6, empty)"
-                     total_rows_fully_processed: 7
-                   }
-                   add_row {
-                     match: "(position 7, empty)"
-                     total_rows_fully_processed: 8
-                   }
-                   add_row { total_rows_fully_processed: 8 rep_count: 2 }
-                   finalize {
-                     match: "(position 8, length 2): A, A"
-                     total_rows_fully_processed: 10
-                   })pb")
+                   add_row { match: "(position 5, empty)" }
+                   add_row { match: "(position 6, empty)" }
+                   add_row { match: "(position 7, empty)" }
+                   add_row { rep_count: 2 }
+                   finalize { match: "(position 8, length 2): A, A" })pb")
           .AddOverlappingResult(
               R"pb(
-                add_row { total_rows_fully_processed: 0 rep_count: 4 }
+                add_row { rep_count: 4 }
                 add_row {
                   match: "(position 0, length 4): A, A, A, A"
                   match: "(position 1, length 3): A, A, A"
                   match: "(position 2, length 2): A, A"
                   match: "(position 3, length 1): A"
                   match: "(position 4, empty)"
-                  total_rows_fully_processed: 5
                 }
-                add_row {
-                  match: "(position 5, empty)"
-                  total_rows_fully_processed: 6
-                }
-                add_row {
-                  match: "(position 6, empty)"
-                  total_rows_fully_processed: 7
-                }
-                add_row {
-                  match: "(position 7, empty)"
-                  total_rows_fully_processed: 8
-                }
-                add_row { total_rows_fully_processed: 8 rep_count: 2 }
+                add_row { match: "(position 5, empty)" }
+                add_row { match: "(position 6, empty)" }
+                add_row { match: "(position 7, empty)" }
+                add_row { rep_count: 2 }
                 finalize {
                   match: "(position 8, length 2): A, A"
                   match: "(position 9, length 1): A"
-                  total_rows_fully_processed: 10
                 })pb"));
-  AddTestCases(
-      TestCaseTemplate("UnboundedReluctantStar")
-          .AddPatterns({"A*?", "A*? A*?", " | A+?", "A?? | A{2,}?", "(A*?)*?",
-                        "(A*?)+?", "(A+?)*?"})
-          .SetRowData(unbounded_quantifier_input)
-          .AddResult({.longest_match_mode = false},
-                     R"pb(add_row { total_rows_fully_processed: 0 rep_count: 4 }
-                          add_row {
-                            match: "(position 0, empty)"
-                            match: "(position 1, empty)"
-                            match: "(position 2, empty)"
-                            match: "(position 3, empty)"
-                            match: "(position 4, empty)"
-                            total_rows_fully_processed: 5
-                          }
-                          add_row {
-                            match: "(position 5, empty)"
-                            total_rows_fully_processed: 6
-                          }
-                          add_row {
-                            match: "(position 6, empty)"
-                            total_rows_fully_processed: 7
-                          }
-                          add_row {
-                            match: "(position 7, empty)"
-                            total_rows_fully_processed: 8
-                          }
-                          add_row { total_rows_fully_processed: 8 rep_count: 2 }
-                          finalize {
-                            match: "(position 8, empty)"
-                            match: "(position 9, empty)"
-                            total_rows_fully_processed: 10
-                          })pb")
-          .AddImportedResults({.longest_match_mode = true},
-                              "UnboundedGreedyStar"));
+  AddTestCases(TestCaseTemplate("UnboundedReluctantStar")
+                   .AddPatterns({"A*?", "A*? A*?", " | A+?", "A?? | A{2,}?",
+                                 "(A*?)*?", "(A*?)+?", "(A+?)*?"})
+                   .SetRowData(Concat(Repeat({{0}}, 4), Repeat({{}}, 4),
+                                      Repeat({{0}}, 2)))
+                   .AddResult({.longest_match_mode = false},
+                              R"pb(add_row { rep_count: 4 }
+                                   add_row {
+                                     match: "(position 0, empty)"
+                                     match: "(position 1, empty)"
+                                     match: "(position 2, empty)"
+                                     match: "(position 3, empty)"
+                                     match: "(position 4, empty)"
+                                   }
+                                   add_row { match: "(position 5, empty)" }
+                                   add_row { match: "(position 6, empty)" }
+                                   add_row { match: "(position 7, empty)" }
+                                   add_row { rep_count: 2 }
+                                   finalize {
+                                     match: "(position 8, empty)"
+                                     match: "(position 9, empty)"
+                                   })pb")
+                   .AddImportedResults({.longest_match_mode = true},
+                                       "UnboundedGreedyStar"));
   AddTestCases(
       TestCaseTemplate("UnboundedGreedyPlus")
           .AddPatterns({"A+", "A+ A*", "A* A+", "A+ A*?", "A (A*)", "(A+)+",
                         "A{2,} | A+", "A{1,}"})
-          .SetRowData(unbounded_quantifier_input)
+          .SetRowData(
+              Concat(Repeat({{0}}, 4), Repeat({{}}, 4), Repeat({{0}}, 2)))
           .AddNonOverlappingResult(
-              R"pb(add_row { total_rows_fully_processed: 0 rep_count: 4 }
-                   add_row {
-                     match: "(position 0, length 4): A, A, A, A"
-                     total_rows_fully_processed: 5
-                   }
-                   add_row { total_rows_fully_processed: 6 }
-                   add_row { total_rows_fully_processed: 7 }
-                   add_row { total_rows_fully_processed: 8 rep_count: 3 }
-                   finalize {
-                     match: "(position 8, length 2): A, A"
-                     total_rows_fully_processed: 10
-                   })pb")
+              R"pb(add_row { rep_count: 4 }
+                   add_row { match: "(position 0, length 4): A, A, A, A" }
+                   add_row { rep_count: 5 }
+                   finalize { match: "(position 8, length 2): A, A" })pb")
           .AddOverlappingResult(
-              R"pb(add_row { total_rows_fully_processed: 0 rep_count: 4 }
+              R"pb(add_row { rep_count: 4 }
                    add_row {
                      match: "(position 0, length 4): A, A, A, A"
                      match: "(position 1, length 3): A, A, A"
                      match: "(position 2, length 2): A, A"
                      match: "(position 3, length 1): A"
-                     total_rows_fully_processed: 5
                    }
-                   add_row { total_rows_fully_processed: 6 }
-                   add_row { total_rows_fully_processed: 7 }
-                   add_row { total_rows_fully_processed: 8 rep_count: 3 }
+                   add_row { rep_count: 5 }
                    finalize {
                      match: "(position 8, length 2): A, A"
                      match: "(position 9, length 1): A"
-                     total_rows_fully_processed: 10
                    })pb"));
   AddTestCases(
       TestCaseTemplate("UnboundedReluctantPlus")
           .AddPatterns({"A+?", "A+? A*?", "A*? A+?", "A+? A*?", "A (A*?)",
                         "(A+?)+?", "A+? | A{2,}?", "A{1,}?"})
-          .SetRowData(unbounded_quantifier_input)
+          .SetRowData(
+              Concat(Repeat({{0}}, 4), Repeat({{}}, 4), Repeat({{0}}, 2)))
           .AddResult({.longest_match_mode = false},
-                     R"pb(add_row { total_rows_fully_processed: 0 rep_count: 4 }
+                     R"pb(add_row { rep_count: 4 }
                           add_row {
                             match: "(position 0, length 1): A"
                             match: "(position 1, length 1): A"
                             match: "(position 2, length 1): A"
                             match: "(position 3, length 1): A"
-                            total_rows_fully_processed: 5
                           }
-                          add_row { total_rows_fully_processed: 6 }
-                          add_row { total_rows_fully_processed: 7 }
-                          add_row { total_rows_fully_processed: 8 rep_count: 3 }
+                          add_row { rep_count: 5 }
                           finalize {
                             match: "(position 8, length 1): A"
                             match: "(position 9, length 1): A"
-                            total_rows_fully_processed: 10
                           })pb")
           .AddImportedResults({.longest_match_mode = true},
                               "UnboundedGreedyPlus"));
   AddTestCases(
       TestCaseTemplate("UnboundedGreedyThreeOrMore")
           .AddPatterns({"A{3,}", "A A{2,}", "A A A+", "A A A A*"})
-          .SetRowData(unbounded_quantifier_input)
+          .SetRowData(
+              Concat(Repeat({{0}}, 4), Repeat({{}}, 4), Repeat({{0}}, 2)))
           .AddNonOverlappingResult(
-              R"pb(add_row { total_rows_fully_processed: 0 rep_count: 4 }
-                   add_row {
-                     match: "(position 0, length 4): A, A, A, A"
-                     total_rows_fully_processed: 5
-                   }
-                   add_row { total_rows_fully_processed: 6 }
-                   add_row { total_rows_fully_processed: 7 }
-                   add_row { total_rows_fully_processed: 8 rep_count: 3 }
-                   finalize { total_rows_fully_processed: 10 })pb")
+              R"pb(add_row { rep_count: 4 }
+                   add_row { match: "(position 0, length 4): A, A, A, A" }
+                   add_row { rep_count: 5 }
+                   finalize {})pb")
           .AddOverlappingResult(
-              R"pb(add_row { total_rows_fully_processed: 0 rep_count: 4 }
+              R"pb(add_row { rep_count: 4 }
                    add_row {
                      match: "(position 0, length 4): A, A, A, A"
                      match: "(position 1, length 3): A, A, A"
-                     total_rows_fully_processed: 5
                    }
-                   add_row { total_rows_fully_processed: 6 }
-                   add_row { total_rows_fully_processed: 7 }
-                   add_row { total_rows_fully_processed: 8 rep_count: 3 }
-                   finalize { total_rows_fully_processed: 10 })pb"));
+                   add_row { rep_count: 5 }
+                   finalize {})pb"));
   AddTestCases(
       TestCaseTemplate("UnboundedReluctantThreeOrMore")
           .AddPatterns({"A{3,}?", "A A{2,}?", "A A A+?", "A A A A*?"})
-          .SetRowData(unbounded_quantifier_input)
+          .SetRowData(
+              Concat(Repeat({{0}}, 4), Repeat({{}}, 4), Repeat({{0}}, 2)))
           .AddResult({.overlapping_mode = false, .longest_match_mode = false},
-                     R"pb(add_row { total_rows_fully_processed: 0 rep_count: 4 }
-                          add_row {
-                            match: "(position 0, length 3): A, A, A"
-                            total_rows_fully_processed: 5
-                          }
-                          add_row { total_rows_fully_processed: 6 }
-                          add_row { total_rows_fully_processed: 7 }
-                          add_row { total_rows_fully_processed: 8 rep_count: 3 }
-                          finalize { total_rows_fully_processed: 10 })pb")
+                     R"pb(add_row { rep_count: 4 }
+                          add_row { match: "(position 0, length 3): A, A, A" }
+                          add_row { rep_count: 5 }
+                          finalize {})pb")
           .AddResult({.overlapping_mode = true, .longest_match_mode = false},
-                     R"pb(add_row { total_rows_fully_processed: 0 rep_count: 4 }
+                     R"pb(add_row { rep_count: 4 }
                           add_row {
                             match: "(position 0, length 3): A, A, A"
                             match: "(position 1, length 3): A, A, A"
-                            total_rows_fully_processed: 5
                           }
-                          add_row { total_rows_fully_processed: 6 }
-                          add_row { total_rows_fully_processed: 7 }
-                          add_row { total_rows_fully_processed: 8 rep_count: 3 }
-                          finalize { total_rows_fully_processed: 10 })pb")
+                          add_row { rep_count: 5 }
+                          finalize {})pb")
           .AddImportedResults({.longest_match_mode = true},
                               "UnboundedGreedyThreeOrMore"));
 
   AddTestCases(
       TestCaseTemplate("UnboundedComplex")
           .AddPatterns({"A* B{2,} C", "(A*)* B B+ C", "A* B (B+)+ C"})
-          .SetRowData(unbounded_quantifier_input)
+          .SetRowData(Concat(Repeat({{0}}, 4), Repeat({{1}}, 4),
+                             Repeat({{0, 1, 2}}, 2)))
           .AddNonOverlappingResult(
-              R"pb(add_row { total_rows_fully_processed: 0 rep_count: 10 }
+              R"pb(add_row { rep_count: 10 }
                    finalize {
                      match: "(position 0, length 10): A, A, A, A, B, B, B, B, B, C"
-                     total_rows_fully_processed: 10
                    })pb")
           .AddOverlappingResult(
-              R"pb(add_row { total_rows_fully_processed: 0 rep_count: 10 }
+              R"pb(add_row { rep_count: 10 }
                    finalize {
                      match: "(position 0, length 10): A, A, A, A, B, B, B, B, B, C"
                      match: "(position 1, length 9): A, A, A, B, B, B, B, B, C"
@@ -1320,7 +1123,6 @@ void TestCaseBuilder::AddUnboundedQuantifierTestCases() {
                      match: "(position 5, length 5): B, B, B, B, C"
                      match: "(position 6, length 4): B, B, B, C"
                      match: "(position 7, length 3): B, B, C"
-                     total_rows_fully_processed: 10
                    })pb"));
 
   AddTestCases(
@@ -1328,16 +1130,14 @@ void TestCaseBuilder::AddUnboundedQuantifierTestCases() {
           .AddPattern("A B+ (C D)?")
           .SetRowData({{0}, {1}, {1}, {1, 2}, {3}})
           .AddResult({.longest_match_mode = false},
-                     R"pb(add_row { total_rows_fully_processed: 0 rep_count: 5 }
+                     R"pb(add_row { rep_count: 5 }
                           finalize {
                             match: "(position 0, length 4): A, B, B, B"
-                            total_rows_fully_processed: 5
                           })pb")
           .AddResult({.longest_match_mode = true},
-                     R"pb(add_row { total_rows_fully_processed: 0 rep_count: 5 }
+                     R"pb(add_row { rep_count: 5 }
                           finalize {
                             match: "(position 0, length 5): A, B, B, C, D"
-                            total_rows_fully_processed: 5
                           })pb"));
 }
 
@@ -1345,45 +1145,31 @@ void TestCaseBuilder::AddQueryParameterTestCases() {
   std::vector<std::vector<int>> input =
       Concat(Repeat({{0}}, 6), {{}, {0}, {}, {0}, {0}, {0}, {}, {0}, {0}});
   TestResult non_overlapping_expected_result =
-      R"pb(add_row { total_rows_fully_processed: 0 rep_count: 6 }
+      R"pb(add_row { rep_count: 6 }
            add_row {
              match: "(position 0, length 4): A, A, A, A"
              match: "(position 4, length 2): A, A"
-             total_rows_fully_processed: 7
            }
-           add_row { total_rows_fully_processed: 7 }
-           add_row { total_rows_fully_processed: 9 rep_count: 4 }
-           add_row {
-             match: "(position 9, length 3): A, A, A"
-             total_rows_fully_processed: 13
-           }
-           add_row { total_rows_fully_processed: 13 rep_count: 2 }
-           finalize {
-             match: "(position 13, length 2): A, A"
-             total_rows_fully_processed: 15
-           })pb";
+           add_row { rep_count: 5 }
+           add_row { match: "(position 9, length 3): A, A, A" }
+           add_row { rep_count: 2 }
+           finalize { match: "(position 13, length 2): A, A" })pb";
   TestResult overlapping_expected_result =
-      R"pb(add_row { total_rows_fully_processed: 0 rep_count: 6 }
+      R"pb(add_row { rep_count: 6 }
            add_row {
              match: "(position 0, length 4): A, A, A, A"
              match: "(position 1, length 4): A, A, A, A"
              match: "(position 2, length 4): A, A, A, A"
              match: "(position 3, length 3): A, A, A"
              match: "(position 4, length 2): A, A"
-             total_rows_fully_processed: 7
            }
-           add_row { total_rows_fully_processed: 7 }
-           add_row { total_rows_fully_processed: 9 rep_count: 4 }
+           add_row { rep_count: 5 }
            add_row {
              match: "(position 9, length 3): A, A, A"
              match: "(position 10, length 2): A, A"
-             total_rows_fully_processed: 13
            }
-           add_row { total_rows_fully_processed: 13 rep_count: 2 }
-           finalize {
-             match: "(position 13, length 2): A, A"
-             total_rows_fully_processed: 15
-           })pb";
+           add_row { rep_count: 2 }
+           finalize { match: "(position 13, length 2): A, A" })pb";
 
   AddTestCases(TestCaseTemplate("NamedParamsAsQuantifierBounds")
                    .AddPattern("A{@foo, @bar}")
@@ -1436,32 +1222,26 @@ void TestCaseBuilder::AddQueryParameterTestCases() {
   AddTestCases(
       TestCaseTemplate("StarQuantifierNestedInBoundedQuantifier")
           .AddPattern("((A*){,6}){10}")
-          .SetRowData({{0}, {0}, {1}, {0}, {0}})
+          .SetRowData({{0}, {0}, {}, {0}, {0}})
           .AddNonOverlappingResult(
-              R"pb(add_row { total_rows_fully_processed: 0 rep_count: 2 }
+              R"pb(add_row { rep_count: 2 }
                    add_row {
                      match: "(position 0, length 2): A, A"
                      match: "(position 2, empty)"
-                     total_rows_fully_processed: 3
                    }
-                   add_row { total_rows_fully_processed: 3 rep_count: 2 }
-                   finalize {
-                     match: "(position 3, length 2): A, A"
-                     total_rows_fully_processed: 5
-                   })pb")
+                   add_row { rep_count: 2 }
+                   finalize { match: "(position 3, length 2): A, A" })pb")
           .AddOverlappingResult(
-              R"pb(add_row { total_rows_fully_processed: 0 rep_count: 2 }
+              R"pb(add_row { rep_count: 2 }
                    add_row {
                      match: "(position 0, length 2): A, A"
                      match: "(position 1, length 1): A"
                      match: "(position 2, empty)"
-                     total_rows_fully_processed: 3
                    }
-                   add_row { total_rows_fully_processed: 3 rep_count: 2 }
+                   add_row { rep_count: 2 }
                    finalize {
                      match: "(position 3, length 2): A, A"
                      match: "(position 4, length 1): A"
-                     total_rows_fully_processed: 5
                    })pb"));
 }
 
@@ -1470,70 +1250,52 @@ void TestCaseBuilder::AddAnchorTestCases() {
       TestCaseTemplate("HeadAnchorBasic")
           .AddPatterns({"^A A", "^ ^ A A", "^ ^ ^ A A"})
           .SetRowData({{0}, {0}, {0}, {0}})
-          .AddResult(R"pb(add_row { total_rows_fully_processed: 0 rep_count: 2 }
-                          add_row {
-                            match: "(position 0, length 2): A, A"
-                            total_rows_fully_processed: 3
-                          }
-                          add_row { total_rows_fully_processed: 4 }
-                          finalize { total_rows_fully_processed: 4 })pb"));
-  AddTestCases(
-      TestCaseTemplate("TailAnchorBasic")
-          .AddPatterns({"A A$", "A A $ $", "A A $ $ $"})
-          .SetRowData({{0}, {0}, {0}, {0}})
-          .AddResult(R"pb(add_row { total_rows_fully_processed: 0 rep_count: 4 }
-                          finalize {
-                            match: "(position 2, length 2): A, A"
-                            total_rows_fully_processed: 4
-                          })pb"));
+          .AddResult(R"pb(add_row { rep_count: 2 }
+                          add_row { match: "(position 0, length 2): A, A" }
+                          add_row {}
+                          finalize {})pb"));
+  AddTestCases(TestCaseTemplate("TailAnchorBasic")
+                   .AddPatterns({"A A$", "A A $ $", "A A $ $ $"})
+                   .SetRowData({{0}, {0}, {0}, {0}})
+                   .AddResult(R"pb(add_row { rep_count: 4 }
+                                   finalize {
+                                     match: "(position 2, length 2): A, A"
+                                   })pb"));
 
-  AddTestCases(
-      TestCaseTemplate("HeadAnchorEmptyMatch")
-          .AddPatterns({"(A?) ^ (A?)", "(A?) ^ () () (A?)", "(A?) () () ^ (A?)",
-                        "() ^ () ^ (A?)"})
-          .SetRowData({{}, {}, {}, {}})
-          .AddResult(R"pb(add_row {
-                            match: "(position 0, empty)"
-                            total_rows_fully_processed: 1
-                          }
-                          add_row { total_rows_fully_processed: 2 }
-                          add_row { total_rows_fully_processed: 3 }
-                          add_row { total_rows_fully_processed: 4 }
-                          finalize { total_rows_fully_processed: 4 })pb"));
+  AddTestCases(TestCaseTemplate("HeadAnchorEmptyMatch")
+                   .AddPatterns({"(A?) ^ (A?)", "(A?) ^ () () (A?)",
+                                 "(A?) () () ^ (A?)", "() ^ () ^ (A?)"})
+                   .SetRowData({{}, {}, {}, {}})
+                   .AddResult(R"pb(add_row { match: "(position 0, empty)" }
+                                   add_row { rep_count: 3 }
+                                   finalize {})pb"));
 
-  AddTestCases(
-      TestCaseTemplate("TailAnchorNoMatchOnEmpty")
-          .AddPatterns({"(A?) $ (A?)", "(A?) $ () () (A?)", "(A?) () () $ (A?)",
-                        "() $ () $ (A?)"})
-          .SetRowData({{}, {}, {}, {}})
-          // No match is expected because an empty match is not allowed after
-          // the last row.
-          .AddResult(R"pb(add_row { total_rows_fully_processed: 1 }
-                          add_row { total_rows_fully_processed: 2 }
-                          add_row { total_rows_fully_processed: 3 }
-                          add_row { total_rows_fully_processed: 4 }
-                          finalize { total_rows_fully_processed: 4 })pb"));
+  AddTestCases(TestCaseTemplate("TailAnchorNoMatchOnEmpty")
+                   .AddPatterns({"(A?) $ (A?)", "(A?) $ () () (A?)",
+                                 "(A?) () () $ (A?)", "() $ () $ (A?)"})
+                   .SetRowData({{}, {}, {}, {}})
+                   // No match is expected because an empty match is not allowed
+                   // after the last row.
+                   .AddResult(R"pb(add_row { rep_count: 4 }
+                                   finalize {})pb"));
 
-  AddTestCases(
-      TestCaseTemplate("NoEmptyMatchOnEmptyData")
-          .AddPatterns({"A?", "(A?) ^ (A?)", "(A?) ^ () () (A?)",
-                        "(A?) () () ^ (A?)", "() ^ () ^ (A?)", "(A?) $",
-                        "(A?)$$", "^(A?)$"})
-          .SetRowData({})
-          .AddResult(R"pb(finalize { total_rows_fully_processed: 0 })pb"));
+  AddTestCases(TestCaseTemplate("NoEmptyMatchOnEmptyData")
+                   .AddPatterns({"A?", "(A?) ^ (A?)", "(A?) ^ () () (A?)",
+                                 "(A?) () () ^ (A?)", "() ^ () ^ (A?)",
+                                 "(A?) $", "(A?)$$", "^(A?)$"})
+                   .SetRowData({})
+                   .AddResult(R"pb(finalize {})pb"));
 
-  AddTestCases(
-      TestCaseTemplate("AnchorsForceMatchOfEntirePartition")
-          // Normally, the reluctant quantifier would favor the shortest
-          // possible matches (empty), but the anchors force the match to cover
-          // everything.
-          .AddPatterns({"^ A*? $"})
-          .SetRowData({{0}, {0}, {0}})
-          .AddResult(R"pb(add_row { total_rows_fully_processed: 0 rep_count: 3 }
-                          finalize {
-                            match: "(position 0, length 3): A, A, A"
-                            total_rows_fully_processed: 3
-                          })pb"));
+  AddTestCases(TestCaseTemplate("AnchorsForceMatchOfEntirePartition")
+                   // Normally, the reluctant quantifier would favor the
+                   // shortest possible matches (empty), but the anchors force
+                   // the match to cover everything.
+                   .AddPatterns({"^ A*? $"})
+                   .SetRowData({{0}, {0}, {0}})
+                   .AddResult(R"pb(add_row { rep_count: 3 }
+                                   finalize {
+                                     match: "(position 0, length 3): A, A, A"
+                                   })pb"));
 
   AddTestCases(
       TestCaseTemplate("TailAnchorOnStarForcesMatchToEnd")
@@ -1542,32 +1304,26 @@ void TestCaseBuilder::AddAnchorTestCases() {
           .AddPatterns({"A*? $"})
           .SetRowData({{0}, {0}, {0}})
           .AddNonOverlappingResult(
-              R"pb(add_row { total_rows_fully_processed: 0 rep_count: 3 }
-                   finalize {
-                     match: "(position 0, length 3): A, A, A"
-                     total_rows_fully_processed: 3
-                   })pb")
+              R"pb(add_row { rep_count: 3 }
+                   finalize { match: "(position 0, length 3): A, A, A" })pb")
           .AddOverlappingResult(
-              R"pb(add_row { total_rows_fully_processed: 0 rep_count: 3 }
+              R"pb(add_row { rep_count: 3 }
                    finalize {
                      match: "(position 0, length 3): A, A, A"
                      match: "(position 1, length 2): A, A"
                      match: "(position 2, length 1): A"
-                     total_rows_fully_processed: 3
                    })pb"));
 
-  AddTestCases(
-      TestCaseTemplate("AnchorsInAlternation")
-          .AddPatterns({"(^A) | (B$) | C"})
-          .SetRowData(Repeat({{0, 1, 2}}, 4))
-          .AddResult(R"pb(add_row { total_rows_fully_processed: 0 rep_count: 4 }
-                          finalize {
-                            match: "(position 0, length 1): A"
-                            match: "(position 1, length 1): C"
-                            match: "(position 2, length 1): C"
-                            match: "(position 3, length 1): B"
-                            total_rows_fully_processed: 4
-                          })pb"));
+  AddTestCases(TestCaseTemplate("AnchorsInAlternation")
+                   .AddPatterns({"(^A) | (B$) | C"})
+                   .SetRowData(Repeat({{0, 1, 2}}, 4))
+                   .AddResult(R"pb(add_row { rep_count: 4 }
+                                   finalize {
+                                     match: "(position 0, length 1): A"
+                                     match: "(position 1, length 1): C"
+                                     match: "(position 2, length 1): C"
+                                     match: "(position 3, length 1): B"
+                                   })pb"));
 
   AddTestCases(
       TestCaseTemplate("AnchorsInQuantifierOperand")
@@ -1575,55 +1331,46 @@ void TestCaseBuilder::AddAnchorTestCases() {
                         "((^A)+){1,8} B* ((C$)+){1,8}",
                         "(((^A)+){1,8}){1,10} B* (((C$)+){1,8}){1,10}"})
           .SetRowData(Repeat({{0, 1, 2}}, 6))
-          .AddResult(R"pb(add_row { total_rows_fully_processed: 0 rep_count: 6 }
+          .AddResult(R"pb(add_row { rep_count: 6 }
                           finalize {
                             match: "(position 0, length 6): A, B, B, B, B, C"
-                            total_rows_fully_processed: 6
                           })pb"));
 
-  AddTestCases(
-      TestCaseTemplate("OptionalAnchorIsNoAnchor")
-          .AddPatterns({"(^)? A B ($)?", "(^|) A B ($|)"})
-          .SetRowData(Repeat({{0, 1}}, 4))
-          .AddNonOverlappingResult(
-              R"pb(add_row { total_rows_fully_processed: 0 rep_count: 4 }
-                   finalize {
-                     match: "(position 0, length 2): A, B"
-                     match: "(position 2, length 2): A, B"
-                     total_rows_fully_processed: 4
-                   })pb")
-          .AddOverlappingResult(
-              R"pb(add_row { total_rows_fully_processed: 0 rep_count: 4 }
-                   finalize {
-                     match: "(position 0, length 2): A, B"
-                     match: "(position 1, length 2): A, B"
-                     match: "(position 2, length 2): A, B"
-                     total_rows_fully_processed: 4
-                   })pb"));
+  AddTestCases(TestCaseTemplate("OptionalAnchorIsNoAnchor")
+                   .AddPatterns({"(^)? A B ($)?", "(^|) A B ($|)"})
+                   .SetRowData(Repeat({{0, 1}}, 4))
+                   .AddNonOverlappingResult(
+                       R"pb(add_row { rep_count: 4 }
+                            finalize {
+                              match: "(position 0, length 2): A, B"
+                              match: "(position 2, length 2): A, B"
+                            })pb")
+                   .AddOverlappingResult(
+                       R"pb(add_row { rep_count: 4 }
+                            finalize {
+                              match: "(position 0, length 2): A, B"
+                              match: "(position 1, length 2): A, B"
+                              match: "(position 2, length 2): A, B"
+                            })pb"));
 
   // Note: This case leads to an epsilon-removed NFA with an unreachable final
   // state, so is good to test to make sure nothing strange happens. There
   // should not be any matches.
-  AddTestCases(
-      TestCaseTemplate("HeadAndTailAnchorTogetherAreUnsatisfiable")
-          .AddPatterns({"^$ A", "$^ A"})
-          .SetRowData(Repeat({{0}}, 3))
-          .AddResult(R"pb(add_row { total_rows_fully_processed: 1 }
-                          add_row { total_rows_fully_processed: 2 }
-                          add_row { total_rows_fully_processed: 3 }
-                          finalize { total_rows_fully_processed: 3 })pb"));
-  AddTestCases(
-      TestCaseTemplate("HeadAndTailAnchorTogetherAreUnsatisfiable2")
-          .AddPatterns({"A ^$", "A $^"})
-          .SetRowData(Repeat({{0}}, 3))
-          .AddResult(R"pb(add_row { total_rows_fully_processed: 0 rep_count: 3 }
-                          finalize { total_rows_fully_processed: 3 })pb"));
-  AddTestCases(
-      TestCaseTemplate("AnchorsInMiddleOfPattern")
-          .AddPatterns({"A ^ A", "A $ A"})
-          .SetRowData(Repeat({{0}}, 3))
-          .AddResult(R"pb(add_row { total_rows_fully_processed: 0 rep_count: 3 }
-                          finalize { total_rows_fully_processed: 3 })pb"));
+  AddTestCases(TestCaseTemplate("HeadAndTailAnchorTogetherAreUnsatisfiable")
+                   .AddPatterns({"^$ A", "$^ A"})
+                   .SetRowData(Repeat({{0}}, 3))
+                   .AddResult(R"pb(add_row { rep_count: 3 }
+                                   finalize {})pb"));
+  AddTestCases(TestCaseTemplate("HeadAndTailAnchorTogetherAreUnsatisfiable2")
+                   .AddPatterns({"A ^$", "A $^"})
+                   .SetRowData(Repeat({{0}}, 3))
+                   .AddResult(R"pb(add_row { rep_count: 3 }
+                                   finalize {})pb"));
+  AddTestCases(TestCaseTemplate("AnchorsInMiddleOfPattern")
+                   .AddPatterns({"A ^ A", "A $ A"})
+                   .SetRowData(Repeat({{0}}, 3))
+                   .AddResult(R"pb(add_row { rep_count: 3 }
+                                   finalize {})pb"));
 
   AddTestCases(
       TestCaseTemplate("HeadAnchorPrecedingComplexPattern")
@@ -1631,32 +1378,30 @@ void TestCaseBuilder::AddAnchorTestCases() {
           .SetRowData(Concat(Repeat({{0, 1, 2, 3}}, 14), Repeat({{3}}, 2)))
           .AddResult(
               {.longest_match_mode = false},
-              R"pb(add_row { total_rows_fully_processed: 0 rep_count: 15 }
+              R"pb(add_row { rep_count: 15 }
                    add_row {
                      match: "(position 0, length 11): A, B, C, B, C, D, B, C, B, C, D"
-                     total_rows_fully_processed: 16
                    }
-                   finalize { total_rows_fully_processed: 16 })pb")
+                   finalize {})pb")
           .AddResult(
               {.longest_match_mode = true},
-              R"pb(add_row { total_rows_fully_processed: 0 rep_count: 15 }
+              R"pb(add_row { rep_count: 15 }
                    add_row {
                      match: "(position 0, length 15): A, B, C, B, C, D, B, C, B, C, B, C, B, C, D"
-                     total_rows_fully_processed: 16
+
                    }
-                   finalize { total_rows_fully_processed: 16 })pb"));
+                   finalize {})pb"));
   AddTestCases(
       TestCaseTemplate("TailAnchorFollowingComplexPattern")
           .AddPatterns({"A ((B C){2,}? D){,4} $"})
           .SetRowData(Repeat({{0, 1, 2, 3}}, 15))
           .AddNonOverlappingResult(
-              R"pb(add_row { total_rows_fully_processed: 0 rep_count: 15 }
+              R"pb(add_row { rep_count: 15 }
                    finalize {
                      match: "(position 0, length 15): A, B, C, B, C, D, B, C, B, C, B, C, B, C, D"
-                     total_rows_fully_processed: 15
                    })pb")
           .AddOverlappingResult(
-              R"pb(add_row { total_rows_fully_processed: 0 rep_count: 15 }
+              R"pb(add_row { rep_count: 15 }
                    finalize {
                      match: "(position 0, length 15): A, B, C, B, C, D, B, C, B, C, B, C, B, C, D"
                      match: "(position 1, length 14): A, B, C, B, C, B, C, B, C, B, C, B, C, D"
@@ -1667,34 +1412,30 @@ void TestCaseBuilder::AddAnchorTestCases() {
                      match: "(position 7, length 8): A, B, C, B, C, B, C, D"
                      match: "(position 9, length 6): A, B, C, B, C, D"
                      match: "(position 14, length 1): A"
-                     total_rows_fully_processed: 15
                    })pb"));
 
   // This pattern matches a single character in all cases, but the relative
   // precedence between A vs. B vs. empty depends on whether we are at the
   // start or end of the partition.
-  AddTestCases(
-      TestCaseTemplate("AnchorChangesPrecedence")
-          .AddPatterns({"^|B$|(A?)"})
-          .SetRowData(Repeat({{0, 1}}, 4))
-          .AddResult({.longest_match_mode = false},
-                     R"pb(add_row { total_rows_fully_processed: 0 rep_count: 4 }
-                          finalize {
-                            match: "(position 0, empty)"
-                            match: "(position 1, length 1): A"
-                            match: "(position 2, length 1): A"
-                            match: "(position 3, length 1): B"
-                            total_rows_fully_processed: 4
-                          })pb")
-          .AddResult({.longest_match_mode = true},
-                     R"pb(add_row { total_rows_fully_processed: 0 rep_count: 4 }
-                          finalize {
-                            match: "(position 0, length 1): A"
-                            match: "(position 1, length 1): A"
-                            match: "(position 2, length 1): A"
-                            match: "(position 3, length 1): B"
-                            total_rows_fully_processed: 4
-                          })pb"));
+  AddTestCases(TestCaseTemplate("AnchorChangesPrecedence")
+                   .AddPatterns({"^|B$|(A?)"})
+                   .SetRowData(Repeat({{0, 1}}, 4))
+                   .AddResult({.longest_match_mode = false},
+                              R"pb(add_row { rep_count: 4 }
+                                   finalize {
+                                     match: "(position 0, empty)"
+                                     match: "(position 1, length 1): A"
+                                     match: "(position 2, length 1): A"
+                                     match: "(position 3, length 1): B"
+                                   })pb")
+                   .AddResult({.longest_match_mode = true},
+                              R"pb(add_row { rep_count: 4 }
+                                   finalize {
+                                     match: "(position 0, length 1): A"
+                                     match: "(position 1, length 1): A"
+                                     match: "(position 2, length 1): A"
+                                     match: "(position 3, length 1): B"
+                                   })pb"));
 }
 
 class CompiledPatternTest : public ::testing::TestWithParam<TestCase> {};
@@ -1731,6 +1472,15 @@ TEST(CompiledPatternTest, AddRowAfterFinalize) {
   ZETASQL_ASSERT_OK(partition->Finalize());
   EXPECT_THAT(partition->AddRow({false, false, false}),
               StatusIs(absl::StatusCode::kFailedPrecondition));
+}
+
+TEST(CompiledPatternTest, WrongNumberOfPatternVarsPassedToAddRow) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<MatchPartition> partition,
+                       CreateMatchPartition("A B B C"));
+  EXPECT_THAT(partition->AddRow({true, false}),
+              StatusIs(absl::StatusCode::kInternal));
+  EXPECT_THAT(partition->AddRow({true, false, false, true}),
+              StatusIs(absl::StatusCode::kInternal));
 }
 
 class LongestMatchModeAsQueryParamTest
@@ -1770,20 +1520,18 @@ TEST_P(LongestMatchModeAsQueryParamTest, LongestMatchModeQueryParamTest) {
     expected_result = absl::StatusCode::kOutOfRange;
   } else if (ParamValue().bool_value()) {
     expected_result =
-        R"pb(add_row { total_rows_fully_processed: 0 rep_count: 3 }
+        R"pb(add_row { rep_count: 3 }
              finalize {
                match: "(position 0, length 2): B, C"
                match: "(position 2, length 1): A"
-               total_rows_fully_processed: 3
              })pb";
   } else {
     expected_result = R"pb(
-      add_row { total_rows_fully_processed: 0 rep_count: 3 }
+      add_row { rep_count: 3 }
       finalize {
         match: "(position 0, length 1): A"
         match: "(position 1, length 1): A"
         match: "(position 2, length 1): A"
-        total_rows_fully_processed: 3
       })pb";
   }
   if (std::holds_alternative<std::string>(expected_result)) {

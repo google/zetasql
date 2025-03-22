@@ -35,29 +35,30 @@ using ::zetasql_base::testing::StatusIs;
 class CompiledNFATest : public Test {
  public:
   void SetUp() override {
-    start_ = nfa_.NewState();
-    s0_ = nfa_.NewState();
-    s1_ = nfa_.NewState();
-    s2_ = nfa_.NewState();
-    s3_ = nfa_.NewState();
-    end_ = nfa_.NewState();
+    ZETASQL_ASSERT_OK_AND_ASSIGN(nfa_, NFA::Create(2));
+    start_ = nfa_->NewState();
+    s0_ = nfa_->NewState();
+    s1_ = nfa_->NewState();
+    s2_ = nfa_->NewState();
+    s3_ = nfa_->NewState();
+    end_ = nfa_->NewState();
     a_var_ = PatternVariableId(0);
     b_var_ = PatternVariableId(1);
 
-    ZETASQL_ASSERT_OK(nfa_.AddEdge(start_, a_var_, s0_));
-    ZETASQL_ASSERT_OK(nfa_.AddEdge(s0_, NFAEdge(a_var_, s1_).SetHeadAnchored()));
-    ZETASQL_ASSERT_OK(nfa_.AddEdge(s0_, b_var_, s2_));
-    ZETASQL_ASSERT_OK(nfa_.AddEdge(s1_, a_var_, s0_));
-    ZETASQL_ASSERT_OK(nfa_.AddEdge(s2_, a_var_, s0_));
-    ZETASQL_ASSERT_OK(nfa_.AddEdge(s2_, a_var_, s3_));
-    ZETASQL_ASSERT_OK(nfa_.AddEdge(s3_, NFAEdge(end_).SetTailAnchored()));
-    nfa_.SetAsStartState(start_);
-    nfa_.SetAsFinalState(end_);
-    ZETASQL_ASSERT_OK(nfa_.Validate(NFA::ValidationMode::kForMatching));
+    ZETASQL_ASSERT_OK(nfa_->AddEdge(start_, a_var_, s0_));
+    ZETASQL_ASSERT_OK(nfa_->AddEdge(s0_, NFAEdge(a_var_, s1_).SetHeadAnchored()));
+    ZETASQL_ASSERT_OK(nfa_->AddEdge(s0_, b_var_, s2_));
+    ZETASQL_ASSERT_OK(nfa_->AddEdge(s1_, a_var_, s0_));
+    ZETASQL_ASSERT_OK(nfa_->AddEdge(s2_, a_var_, s0_));
+    ZETASQL_ASSERT_OK(nfa_->AddEdge(s2_, a_var_, s3_));
+    ZETASQL_ASSERT_OK(nfa_->AddEdge(s3_, NFAEdge(end_).SetTailAnchored()));
+    nfa_->SetAsStartState(start_);
+    nfa_->SetAsFinalState(end_);
+    ZETASQL_ASSERT_OK(nfa_->Validate(NFA::ValidationMode::kForMatching));
   }
 
  protected:
-  NFA nfa_;
+  std::unique_ptr<NFA> nfa_;
   NFAState start_;
   NFAState s0_;
   NFAState s1_;
@@ -73,7 +74,7 @@ class CompiledNFATest : public Test {
 
 TEST_F(CompiledNFATest, GetEdge) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<CompiledNFA> compiled_nfa,
-                       CompiledNFA::Create(nfa_));
+                       CompiledNFA::Create(*nfa_));
 
   EXPECT_EQ(compiled_nfa->num_edges(), 7);
   EXPECT_THAT(compiled_nfa->GetEdge(0), IsEdge(0, start_, s0_, a_var_));
@@ -88,7 +89,7 @@ TEST_F(CompiledNFATest, GetEdge) {
 
 TEST_F(CompiledNFATest, GetAllEdges) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<CompiledNFA> compiled_nfa,
-                       CompiledNFA::Create(nfa_));
+                       CompiledNFA::Create(*nfa_));
   EXPECT_THAT(
       compiled_nfa->GetAllEdges(),
       ElementsAre(IsEdge(0, start_, s0_, a_var_),
@@ -100,25 +101,25 @@ TEST_F(CompiledNFATest, GetAllEdges) {
 
 TEST_F(CompiledNFATest, StartState) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<CompiledNFA> compiled_nfa,
-                       CompiledNFA::Create(nfa_));
+                       CompiledNFA::Create(*nfa_));
   EXPECT_EQ(compiled_nfa->start_state(), start_);
 }
 
 TEST_F(CompiledNFATest, FinalState) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<CompiledNFA> compiled_nfa,
-                       CompiledNFA::Create(nfa_));
+                       CompiledNFA::Create(*nfa_));
   EXPECT_EQ(compiled_nfa->final_state(), end_);
 }
 
 TEST_F(CompiledNFATest, NumStates) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<CompiledNFA> compiled_nfa,
-                       CompiledNFA::Create(nfa_));
+                       CompiledNFA::Create(*nfa_));
   EXPECT_EQ(compiled_nfa->num_states(), 6);  // start, s0, s1, s2, s3, end.
 }
 
 TEST_F(CompiledNFATest, GetEdgesFrom) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<CompiledNFA> compiled_nfa,
-                       CompiledNFA::Create(nfa_));
+                       CompiledNFA::Create(*nfa_));
 
   EXPECT_THAT(compiled_nfa->GetEdgesFrom(start_),
               ElementsAre(IsEdge(0, start_, s0_, a_var_)));
@@ -137,7 +138,7 @@ TEST_F(CompiledNFATest, GetEdgesFrom) {
 
 TEST_F(CompiledNFATest, SerializeRoundTrip) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<CompiledNFA> compiled_nfa,
-                       CompiledNFA::Create(nfa_));
+                       CompiledNFA::Create(*nfa_));
   StateMachineProto::CompiledNFAProto proto = compiled_nfa->Serialize();
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const CompiledNFA> deserialized,
@@ -171,6 +172,38 @@ TEST_F(CompiledNFATest, DeserializeInvalidProtoTargetStateOfEdge) {
   proto.set_final_state(1);
   EXPECT_THAT(CompiledNFA::Deserialize(proto),
               StatusIs(absl::StatusCode::kInternal));
+}
+
+TEST_F(CompiledNFATest, NumPatternVariablesNonZero) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<CompiledNFA> compiled_nfa,
+                       CompiledNFA::Create(*nfa_));
+  EXPECT_EQ(compiled_nfa->num_pattern_variables(), 2);
+}
+
+TEST_F(CompiledNFATest, NumPatternVariablesAfterDeserializae) {
+  StateMachineProto::CompiledNFAProto proto;
+
+  auto* edge = proto.add_states()->add_edges();
+  edge->set_to_state(1);
+  edge->set_pattern_variable(0);
+
+  edge = proto.add_states()->add_edges();
+  edge->set_to_state(2);
+  edge->set_pattern_variable(1);
+
+  edge = proto.add_states()->add_edges();
+  edge->set_to_state(3);
+
+  proto.add_states();
+
+  proto.set_start_state(0);
+  proto.set_final_state(3);
+  proto.set_num_pattern_variables(4);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const CompiledNFA> deserialized,
+                       CompiledNFA::Deserialize(proto));
+
+  EXPECT_EQ(deserialized->num_pattern_variables(), 4);
 }
 
 }  // namespace

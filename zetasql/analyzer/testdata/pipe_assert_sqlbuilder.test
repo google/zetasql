@@ -1,11 +1,12 @@
-[default show_unparsed]
+[default show_sqlbuilder_output]
 [default no_show_resolved_ast]
 [default language_features=PIPES,PIPE_ASSERT]
 # No payload.
 FROM KeyValue
 |> ASSERT key = 10
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   assertscan_4.a_1 AS Key,
   assertscan_4.a_2 AS Value
@@ -27,13 +28,27 @@ FROM
         |> ASSERT(keyvalue_3.a_1) = 10, "key = 10"
       )
   ) AS assertscan_4;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  KeyValue
+|> SELECT
+     KeyValue.Key AS a_1,
+     KeyValue.Value AS a_2
+|> AS keyvalue_3
+|> ASSERT(keyvalue_3.a_1) = 10, "key = 10"
+|> SELECT
+     keyvalue_3.a_1 AS Key,
+     keyvalue_3.a_2 AS Value;
 ==
 
 # One payload.
 FROM KeyValue
 |> ASSERT key = 10, "payload1"
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   assertscan_4.a_1 AS Key,
   assertscan_4.a_2 AS Value
@@ -55,13 +70,27 @@ FROM
         |> ASSERT(keyvalue_3.a_1) = 10, "payload1"
       )
   ) AS assertscan_4;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  KeyValue
+|> SELECT
+     KeyValue.Key AS a_1,
+     KeyValue.Value AS a_2
+|> AS keyvalue_3
+|> ASSERT(keyvalue_3.a_1) = 10, "payload1"
+|> SELECT
+     keyvalue_3.a_1 AS Key,
+     keyvalue_3.a_2 AS Value;
 ==
 
 # Multiple payloads.
 FROM KeyValue
 |> ASSERT key = 10, key, "payload2"
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   assertscan_4.a_1 AS Key,
   assertscan_4.a_2 AS Value
@@ -83,6 +112,19 @@ FROM
         |> ASSERT(keyvalue_3.a_1) = 10, CONCAT(IFNULL(CAST(keyvalue_3.a_1 AS STRING), "NULL"), " ", "payload2")
       )
   ) AS assertscan_4;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  KeyValue
+|> SELECT
+     KeyValue.Key AS a_1,
+     KeyValue.Value AS a_2
+|> AS keyvalue_3
+|> ASSERT(keyvalue_3.a_1) = 10, CONCAT(IFNULL(CAST(keyvalue_3.a_1 AS STRING), "NULL"), " ", "payload2")
+|> SELECT
+     keyvalue_3.a_1 AS Key,
+     keyvalue_3.a_2 AS Value;
 ==
 
 # Multiple ASSERT operators.
@@ -90,7 +132,8 @@ FROM KeyValue
 |> ASSERT key = 10, "payload1"
 |> ASSERT key = 20, "payload2"
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   assertscan_5.a_1 AS Key,
   assertscan_5.a_2 AS Value
@@ -128,6 +171,24 @@ FROM
         |> ASSERT(assertscan_4.a_1) = 20, "payload2"
       )
   ) AS assertscan_5;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  KeyValue
+|> SELECT
+     KeyValue.Key AS a_1,
+     KeyValue.Value AS a_2
+|> AS keyvalue_3
+|> ASSERT(keyvalue_3.a_1) = 10, "payload1"
+|> SELECT
+     keyvalue_3.a_1 AS a_1,
+     keyvalue_3.a_2 AS a_2
+|> AS assertscan_4
+|> ASSERT(assertscan_4.a_1) = 20, "payload2"
+|> SELECT
+     assertscan_4.a_1 AS Key,
+     assertscan_4.a_2 AS Value;
 ==
 
 # Nested ASSERT operators.
@@ -137,7 +198,8 @@ SELECT * FROM (
 )
 |> ASSERT key = 20, "payload2"
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   assertscan_6.a_1 AS Key,
   assertscan_6.a_2 AS Value
@@ -175,3 +237,21 @@ FROM
         |> ASSERT(projectscan_5.a_1) = 20, "payload2"
       )
   ) AS assertscan_6;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  KeyValue
+|> SELECT
+     KeyValue.Key AS a_1,
+     KeyValue.Value AS a_2
+|> AS keyvalue_3
+|> ASSERT(keyvalue_3.a_1) = 10, "payload1"
+|> SELECT
+     keyvalue_3.a_1 AS a_1,
+     keyvalue_3.a_2 AS a_2
+|> AS projectscan_4
+|> ASSERT(projectscan_4.a_1) = 20, "payload2"
+|> SELECT
+     projectscan_4.a_1 AS Key,
+     projectscan_4.a_2 AS Value;

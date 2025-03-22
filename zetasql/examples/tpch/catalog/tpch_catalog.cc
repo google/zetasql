@@ -18,6 +18,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -261,21 +262,19 @@ MakeIteratorFactoryFromCsvFile(const absl::string_view contents,
       }
     }
 
-    // We need a new columns vector in case it's a new Table, but we can always
-    // reuse the values vectors.
-    std::vector<const Column*> columns;
-    columns.reserve(table.NumColumns());
-    for (int i = 0; i < table.NumColumns(); ++i) {
-      columns.push_back(table.GetColumn(i));
-    }
-
-    ZETASQL_RETURN_IF_ERROR((*data_holder)->status());
     const ParsedTpchTableData* data = (*data_holder)->value().get();
+    std::vector<const Column*> columns;
+    std::vector<std::shared_ptr<const std::vector<Value>>> column_values;
+    column_values.reserve(column_idxs.size());
+    for (const int column_idx : column_idxs) {
+      columns.push_back(table.GetColumn(column_idx));
+      column_values.push_back(data->column_values[column_idx]);
+    }
 
     // Make the iterator to return the table contents.
     std::unique_ptr<EvaluatorTableIterator> iter(
         new SimpleEvaluatorTableIterator(
-            columns, data->column_values, data->num_rows,
+            columns, column_values, data->num_rows,
             /*end_status=*/absl::OkStatus(), /*filter_column_idxs=*/
             absl::flat_hash_set<int>(column_idxs.begin(), column_idxs.end()),
             /*cancel_cb=*/[]() {},

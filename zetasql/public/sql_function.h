@@ -24,9 +24,13 @@
 #include <vector>
 
 #include "zetasql/public/function.h"
+#include "zetasql/public/function_signature.h"
 #include "zetasql/public/parse_resume_location.h"
 #include "absl/base/attributes.h"
 #include "absl/base/macros.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"

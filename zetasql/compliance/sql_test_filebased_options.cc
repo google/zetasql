@@ -67,6 +67,34 @@ constexpr absl::string_view kExtractLabels = "extract_labels";  // boolean flag
 // against the implementations that support the features.
 constexpr absl::string_view kRequiredFeatures = "required_features";
 
+// A comma-separated list of LanguageFeature enums, without the FEATURE_ prefix.
+// If it is set under a [prepare_database] statement, the reference driver will
+// be configured to enable the additional features while maintaining the state
+// of its existing features. Mainly used for in-development features which are
+// not enabled by the reference driver by default.
+constexpr absl::string_view kPrepareDatabaseAdditionalFeatures =
+    "prepare_database_additional_features";
+
+// If set, the test will not attempt to detect falsely required features when
+// zetasql_detect_falsly_required_features is set to true. This is useful for
+// a very limited subset of tests that invoke schema objects such as UDFs or
+// tables that required a feature during the [prepare_database] stage, but where
+// the reference implementation may be successful without that feature when the
+// object is already in the catalog, and thus may incorrectly decide that the
+// feature is falsely required on later tests.
+//
+// Tests that apply this setting should include a comment explaining why the
+// feature is actually required.
+//
+// This option should not be enabled in cases where the falsely required feature
+// doesn't actually relate to the test execution. For example, if a
+// prepare_database statement would fail due to presence of a JSON-type column,
+// but this test doesn't actually use the JSON-type column, then the test should
+// be refactored to not depend on this table, and ensure the test can run
+// successfully without the unnecessary feature.
+constexpr absl::string_view kSkipRequiredFeatureIntegrityCheck =
+    "skip_required_feature_integrity_check";
+
 // Same as kRequiredFeatures, but skip tests that have these features
 // enabled. These must all be features that are annotated with
 // ideally_enabled=false in options.proto.
@@ -245,6 +273,8 @@ FilebasedSQLTestFileOptions::ProcessTestCase(absl::string_view test_case,
       options_->GetBool(kReserveMatchRecognize);
 
   case_opts->extract_labels_ = options_->GetBool(kExtractLabels);
+  case_opts->skip_required_feature_integrity_check_ =
+      options_->GetBool(kSkipRequiredFeatureIntegrityCheck);
 
   // Sometimes the first "...\n==" block in a test file is just setting up
   // option defaults. This is fine, but we want to skip name validation.
@@ -272,6 +302,16 @@ FilebasedSQLTestFileOptions::ProcessTestCase(absl::string_view test_case,
   ZETASQL_RETURN_IF_ERROR(ParseFeatures(options_->GetString(kForbiddenFeatures),
                                 case_opts->forbidden_features_))
       .With(reason("Failed to parse forbidden_features"));
+  ZETASQL_RETURN_IF_ERROR(
+      ParseFeatures(options_->GetString(kPrepareDatabaseAdditionalFeatures),
+                    case_opts->prepare_database_additional_features_))
+      .With(reason("Failed to parse prepare_database_additional_features"));
+  if (!case_opts->prepare_database_ &&
+      !case_opts->prepare_database_additional_features_.empty()) {
+    return absl::InvalidArgumentError(
+        "ERROR: prepare_database_additional_features can only be used with "
+        "[prepare_database] statements");
+  }
 
   ZETASQL_RETURN_IF_ERROR(ParsePrimaryKeyMode(options_->GetString(kPrimaryKeyMode),
                                       &case_opts->primary_key_mode_))
@@ -301,8 +341,10 @@ FilebasedSQLTestFileOptions::FilebasedSQLTestFileOptions(
   options_->RegisterBool(kReserveMatchRecognize, false);
   options_->RegisterBool(kReserveGraphTable, false);
   options_->RegisterBool(kExtractLabels, false);
+  options_->RegisterBool(kSkipRequiredFeatureIntegrityCheck, false);
   options_->RegisterString(kRequiredFeatures, "");
   options_->RegisterString(kForbiddenFeatures, "");
+  options_->RegisterString(kPrepareDatabaseAdditionalFeatures, "");
   options_->RegisterString(kDefaultTimeZone, "");
   options_->RegisterString(kPrimaryKeyMode,
                            PrimaryKeyModeName(PrimaryKeyMode::DEFAULT));

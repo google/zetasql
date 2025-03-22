@@ -21,6 +21,7 @@ import com.google.protobuf.BoolValue;
 import com.google.protobuf.BytesValue;
 import com.google.protobuf.DescriptorProtos.EnumValueDescriptorProto;
 import com.google.protobuf.DoubleValue;
+import com.google.protobuf.Duration;
 import com.google.protobuf.FloatValue;
 import com.google.protobuf.Int32Value;
 import com.google.protobuf.Int64Value;
@@ -30,6 +31,7 @@ import com.google.protobuf.UInt32Value;
 import com.google.protobuf.UInt64Value;
 import com.google.zetasql.functions.ZetaSQLArrayFindMode.ArrayFindEnums.ArrayFindMode;
 import com.google.zetasql.functions.ZetaSQLArrayZipMode.ArrayZipEnums.ArrayZipMode;
+import com.google.zetasql.functions.ZetaSQLBitwiseAggMode.BitwiseAggEnums.BitwiseAggMode;
 import com.google.zetasql.functions.ZetaSQLDateTime.DateTimestampPart;
 import com.google.zetasql.functions.ZetaSQLDifferentialPrivacy;
 import com.google.zetasql.functions.ZetaSQLNormalizeMode.NormalizeMode;
@@ -70,7 +72,9 @@ final class BuiltinDescriptorPool {
           .importFileDescriptor(ZetaSQLDifferentialPrivacy.getDescriptor().getFile())
           .importFileDescriptor(EnumValueDescriptorProto.getDescriptor().getFile())
           .importFileDescriptor(ArrayZipMode.getDescriptor().getFile())
+          .importFileDescriptor(BitwiseAggMode.getDescriptor().getFile())
           .importFileDescriptor(RangeSessionizeMode.getDescriptor().getFile())
+          .importFileDescriptor(Duration.getDescriptor().getFile())
           .build();
 
   public static DescriptorPool getInstance() {

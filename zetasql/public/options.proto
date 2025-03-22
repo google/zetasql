@@ -78,7 +78,6 @@ extend google.protobuf.EnumValueOptions {
 //
 // LanguageOptions::EnableMaximumLanguageFeaturesForDevelopment() enables all
 // features with 'ideally_enabled == true'.
-// Next id: 14072
 message LanguageFeatureOptions {
   // Indicates whether a feature is enabled in the idealized ZetaSQL. (One
   // reason to disable a feature is if it exists only to support backwards
@@ -109,8 +108,8 @@ message LanguageFeatureOptions {
 // All optional features are off by default.  Some features have a negative
 // meaning, so turning them on will remove a feature or enable an error.
 enum LanguageFeature {
-  reserved 36 to 39, 44 to 46, 48, 55, 74, 99, 108, 110, 13046, 14001, 14024,
-      14061, 999003, 999004;
+  reserved 36 to 39, 44 to 46, 48, 55, 74, 99, 108, 110, 124, 13046, 14001,
+      14012, 14024, 14040, 14061, 14085, 999003, 999004, 999005;
 
   // CROSS-VERSION FEATURES
   //
@@ -449,6 +448,10 @@ enum LanguageFeature {
   // See (broken link) for details.
   FEATURE_JSON_QUERY_LAX = 115;
 
+  // Enables JSON_CONTAINS function.
+  // See (broken link) for details.
+  FEATURE_JSON_CONTAINS_FUNCTION = 116;
+
   // Enables JSON_KEYS function.
   // See (broken link) for details.
   FEATURE_JSON_KEYS_FUNCTION = 118;
@@ -461,7 +464,7 @@ enum LanguageFeature {
       [(language_feature_options).in_development = true];
 
   // INTERVAL data type. (broken link)
-  FEATURE_INTERVAL_TYPE = 49 [(language_feature_options).in_development = true];
+  FEATURE_INTERVAL_TYPE = 49;
 
   // Enables support for the ONEOF_CASE pseudo-accessor in the EXTRACT function.
   // This accessor can be used to determine which field in a proto Oneof is set.
@@ -470,10 +473,8 @@ enum LanguageFeature {
   // ((broken link))
   FEATURE_EXTRACT_ONEOF_CASE = 50;
 
-  // Enables tokenized search ((broken link)).
-  // TODO: Remove "in_development" tag.
-  FEATURE_TOKENIZED_SEARCH = 51
-      [(language_feature_options).in_development = true];
+  // Enables the tokenlist type for full-text search.
+  FEATURE_TOKENIZED_SEARCH = 51;
 
   // Enables support for the following parameterized types.
   // - STRING(L) / BYTES(L)
@@ -647,6 +648,11 @@ enum LanguageFeature {
   // (broken link):as-replica-of
   FEATURE_CREATE_MATERIALIZED_VIEW_AS_REPLICA_OF = 97;
 
+  // Enables support for CREATE LOCALITY GROUP ...
+  // (broken link)
+  FEATURE_CREATE_LOCALITY_GROUP = 136
+      [(language_feature_options).in_development = true];
+
   // Enables support for += and -= operators for updating array options.
   // (broken link)
   FEATURE_ENABLE_ALTER_ARRAY_OPTIONS = 102 [
@@ -675,8 +681,10 @@ enum LanguageFeature {
   FEATURE_PIPE_LOG = 120 [(language_feature_options).in_development = true];
 
   // Enables IF pipe operator.
-  // This is experimental.  It only works with literal true/false values so far.
-  FEATURE_PIPE_IF = 125 [(language_feature_options).in_development = true];
+  // The support for conditional expressions is currently limited, pending
+  // imported support for analysis-time constants and constant expressions.
+  // It works for literal true/false, built-in constants, and SQL constants.
+  FEATURE_PIPE_IF = 125;
 
   // Enables FORK pipe operator.
   // FORK is allowed only if SupportedStatementKinds includes
@@ -684,12 +692,26 @@ enum LanguageFeature {
   // This is experimental.
   FEATURE_PIPE_FORK = 128 [(language_feature_options).in_development = true];
 
-  // Enables EXPORT DATA terminal pipe operator.
-  // EXPORT DATA is allowed only if SupportedStatementKinds includes
+  // Enables TEE pipe operator.
+  // TEE is allowed only if SupportedStatementKinds includes
   // ResolvedGeneralizedQueryStmt.
   // This is experimental.
-  FEATURE_PIPE_EXPORT_DATA = 129
-      [(language_feature_options).in_development = true];
+  FEATURE_PIPE_TEE = 131 [(language_feature_options).in_development = true];
+
+  // Enables WITH pipe operator.
+  FEATURE_PIPE_WITH = 135;
+
+  // Enables EXPORT DATA terminal pipe operator.  This operator is allowed only
+  // if SupportedStatementKinds includes ResolvedGeneralizedQueryStmt.
+  FEATURE_PIPE_EXPORT_DATA = 129;
+
+  // Enables CREATE TABLE pipe operator.  This operator is allowed only
+  // if SupportedStatementKinds includes ResolvedGeneralizedQueryStmt.
+  FEATURE_PIPE_CREATE_TABLE = 130;
+
+  // Enables INSERT terminal pipe operator.  This operator is allowed only
+  // if SupportedStatementKinds includes ResolvedGeneralizedQueryStmt.
+  FEATURE_PIPE_INSERT = 133;
 
   // Enables the ability to specify generated columns as populated by default.
   // Example:
@@ -705,17 +727,12 @@ enum LanguageFeature {
   // ALTER TABLE table ALTER COLUMN col DROP GENERATED;
   FEATURE_ALTER_COLUMN_DROP_GENERATED = 106;
 
-  // If true, sets the shadow parser to the other alternative from the primary
-  // (Textmapper or Bison)
-  FEATURE_SHADOW_PARSING = 999005
-      [(language_feature_options).ideally_enabled = false];
-
   // DEPRECATED: Textmapper is the default parser in all engines. This will
   // become a NOOP soon.
   // Prevents the TextMapper-generated parser from being used, and resorts to
   // the Bison-generated parser instead.
   FEATURE_DISABLE_TEXTMAPPER_PARSER = 107
-      [(language_feature_options).ideally_enabled = false];
+      [(language_feature_options).ideally_enabled = false, deprecated = true];
 
   // Enables support for IDENTITY columns in CREATE TABLE.
   // Example:
@@ -756,14 +773,6 @@ enum LanguageFeature {
   FEATURE_PROPERTY_GRAPH_ENFORCE_EXPLICIT_PROPERTIES = 121
       [(language_feature_options).ideally_enabled = false];
 
-  // Enables legacy behavior of `position` args for REGEXP_INSTR, REGEXP_EXTRACT
-  // and REGEXP_SUBSTR. When enabled, `position` is used to left-truncate the
-  // input string before performing the regex search. This is incorrect
-  // behavior, and the feature is intended to be removed.
-  // See b/328210654 for more details.
-  FEATURE_LEGACY_TRUNCATION_FOR_REGEXP_WITH_POSITION_ARGS = 124
-      [(language_feature_options).ideally_enabled = false];
-
   // Enables support for TIMESTAMP_FROM_UNIX_MICROS/MILLIS/SECONDS functions
   // with UINT64 arguments.
   FEATURE_TIMESTAMP_FROM_UNIX_FUNCTIONS_WITH_UINT64 = 126;
@@ -773,13 +782,29 @@ enum LanguageFeature {
   // CTE reference, (2) catalog table, and (3) function argument. Without this
   // feature enabled, `TABLE x` resolves `x` in the order: (1) CTE reference,
   // (2) function argument, and (3) catalog table.
+  //
+  // This feature has no effect for TVFs analyzed within the context of a
+  // module; module TVFs always resolve `TABLE x` with the new (correct) order,
+  // as if this feature is disabled.
+  //
   // This feature should only be enabled temporarily to safely roll out the
   // behavior change.
-  // TODO: b/372326459 - Once engines have enabled this feature, implement the
-  // behavior change when this feature is not enabled.
+  //
   // TODO: b/372326459 - Clean up this feature once the new resolution order is
   // rolled out, and there are no remaining references.
   FEATURE_TABLE_SYNTAX_RESOLVE_ARGUMENT_LAST = 127
+      [(language_feature_options).ideally_enabled = false];
+
+  // Forces the use of the Flex lexer, even if the flag `use_textmapper_lexer`
+  // is true.
+  // TODO: b/322871843: Deprecate this feature once the migration is complete.
+  FEATURE_FORCE_FLEX_LEXER = 132
+      [(language_feature_options).ideally_enabled = false];
+
+  // Disable validation that builtin rewriters refer only to builtin Catalog
+  // objects.
+  // See (broken link).
+  FEATURE_DISABLE_VALIDATE_REWRITERS_REFER_TO_BUILTINS = 134
       [(language_feature_options).ideally_enabled = false];
 
   // -> Add more cross-version features here.
@@ -932,12 +957,21 @@ enum LanguageFeature {
   FEATURE_V_1_3_OMIT_INSERT_COLUMN_LIST = 13005;
 
   // If enabled, the 'use_defaults' and 'use_field_defaults' annotations are
-  // ignored for proto3 scalar fields. This results in the default value always
-  // being returned for proto3 scalar fields that are not explicitly set,
+  // ignored for proto scalar fields with implicit presence. This results in the
+  // default value always being returned for such scalar fields that are unset,
   // including when they are annotated with 'use_defaults=false' or their parent
-  // message is annotated with 'use_field_defaults=false'. This aligns with
-  // proto3 semantics as proto3 does not expose whether scalar fields are set or
-  // not.
+  // message is annotated with 'use_field_defaults=false'.
+  //
+  // This behavior is desirable because proto fields with implicit presence do
+  // not expose whether or not they are set, and so a set-to-default field may
+  // be indistinguishable from an unset field. In such a case, honoring
+  // these annotations would result in the user seeing a NULL instead of the
+  // explicitly-set default value.
+  //
+  // Note that the feature name including "PROTO3" is a misnomer. This feature
+  // applies to any field with implicit presence.
+  //
+  // Reference: https://protobuf.dev/programming-guides/field_presence/
   FEATURE_V_1_3_IGNORE_PROTO3_USE_DEFAULTS = 13006;
 
   // Enables support for the REPLACE_FIELDS() function. REPLACE_FIELDS(p,
@@ -1192,6 +1226,15 @@ enum LanguageFeature {
   // REQUIRES: SQL_GRAPH feature to be enabled.
   FEATURE_V_1_4_SQL_GRAPH_PATH_MODE = 14063;
 
+  // Enables dynamic graph element type in GQL.
+  // See (broken link):dynamic-property-graph-extension
+  // and (broken link):dynamic-graph-element.
+  FEATURE_V_1_4_SQL_GRAPH_DYNAMIC_ELEMENT_TYPE = 14072
+      [(language_feature_options).in_development = true];
+
+  FEATURE_V_1_4_SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL = 14078
+      [(language_feature_options).in_development = true];
+
   // Enable support for remote models (e.g. CREATE MODEL ... REMOTE ...)
   // (broken link)
   FEATURE_V_1_4_REMOTE_MODEL = 14009;
@@ -1204,10 +1247,6 @@ enum LanguageFeature {
   // name as path prefix in FROM clause.
   // See (broken link)
   FEATURE_V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH = 14011;
-
-  // Enable Macros
-  FEATURE_V_1_4_SQL_MACROS = 14012
-      [(language_feature_options).in_development = true];
 
   // Enables collation in WITH RECURSIVE
   // TODO: Remove "in_development" flag.
@@ -1347,13 +1386,6 @@ enum LanguageFeature {
   // (broken link)
   FEATURE_V_1_4_GROUP_BY_ALL = 14039;
 
-  // REQUIRES: FEATURE_V_1_4_SQL_MACROS must be enabled
-  // Enforces strict macro expansions. For example: require exact number of
-  // arguments, always require parentheses on invocations, no implicit splicing.
-  // See (broken link)
-  FEATURE_V_1_4_ENFORCE_STRICT_MACROS = 14040
-      [(language_feature_options).in_development = true];
-
   // Allows general expression arguments to LIMIT and OFFSET.
   FEATURE_V_1_4_LIMIT_OFFSET_EXPRESSIONS = 14042;
 
@@ -1461,7 +1493,10 @@ enum LanguageFeature {
   FEATURE_V_1_4_UUID_TYPE = 14057;
 
   // Enables support for multi-level aggregation.
-  FEATURE_V_1_4_MULTILEVEL_AGGREGATION = 14058
+  FEATURE_V_1_4_MULTILEVEL_AGGREGATION = 14058;
+
+  // Enables individual filtering clauses for aggregate functions.
+  FEATURE_V_1_4_AGGREGATE_FILTERING = 14073
       [(language_feature_options).in_development = true];
 
   // Allow multiple fields of a oneof in REPLACE_FIELDS.
@@ -1490,11 +1525,57 @@ enum LanguageFeature {
 
   // Allow MATCH_RECOGNIZE clause.
   // See (broken link).
-  FEATURE_V_1_4_MATCH_RECOGNIZE = 14068
-      [(language_feature_options).in_development = true];
+  FEATURE_V_1_4_MATCH_RECOGNIZE = 14068;
 
   FEATURE_V_1_4_INSERT_ON_CONFLICT_CLAUSE = 14071
       [(language_feature_options).in_development = true];
+
+  // Enables the following bitwise aggregate function signatures:
+  // - BIT_AND(BYTES[,mode => BitwiseAggMode])
+  // - BIT_OR(BYTES[,mode => BitwiseAggMode])
+  // - BIT_XOR(BYTES[,mode => BitwiseAggMode])
+  FEATURE_V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES = 14074;
+
+  // Enables RECURSIVE UNION pipe operator. (broken link)
+  FEATURE_V_1_4_PIPE_RECURSIVE_UNION = 14075;
+
+  // Enables update constructor for protocol buffers.
+  // See (broken link)
+  FEATURE_V_1_4_UPDATE_CONSTRUCTOR = 14079
+      [(language_feature_options).in_development = true];
+
+  // Enables aliases for the following string and date functions:
+  // * UCASE for UPPER
+  // * LCASE for LOWER
+  // * ADDDATE for DATE_ADD
+  // * SUBDATE for DATE_SUB
+  // *
+  FEATURE_V_1_4_ALIASES_FOR_STRING_AND_DATE_FUNCTIONS = 14080
+      [(language_feature_options).in_development = true];
+
+  // Enable CREATE VIEW statements in modules.
+  // See (broken link).
+  FEATURE_V_1_4_VIEWS_IN_MODULES = 14081
+      [(language_feature_options).in_development = true];
+
+  // Enables multi-level aggregation in the body of user-defined aggregate
+  // functions.
+  FEATURE_V_1_4_MULTILEVEL_AGGREGATION_IN_UDAS = 14082;
+
+  // Enables additional signature for the FROM_PROTO function to convert from a
+  // Duration proto to a ZetaSQL Interval.
+  // Spec: (broken link)=h.6ftd1rcaijux
+  FEATURE_V_1_4_FROM_PROTO_DURATION = 14083;
+
+  // Enables a simplified rewite of PIVOT that produces smaller resolved ASTs
+  // without many subqueries.
+  // TODO: Remove this flag and always generate simplified PIVOT
+  // rewrite.
+  FEATURE_V_1_4_SIMPLIFY_PIVOT_REWRITE = 14084;
+
+  // Enables named windows in pipe SELECT and EXTEND.
+  // This is an incremental feature that should be enabled if PIPES is enabled.
+  FEATURE_V_1_4_PIPE_NAMED_WINDOWS = 14086;
 
   // EXPERIMENTAL FEATURES -
   //    Do not add features in this section. Use the in_development annotation
@@ -1539,7 +1620,7 @@ message ResolvedASTRewriteOptions {
 // We support these rewrites to allow syntactic improvements which generate new
 // node types to be quickly and easily available to engines without needing each
 // engine to implement support for the new node types.
-// Next ID: 31
+// Next ID: 38
 enum ResolvedASTRewrite {
   reserved 13, 15, 21;
 
@@ -1560,7 +1641,7 @@ enum ResolvedASTRewrite {
   REWRITE_PROTO_MAP_FNS = 3 [(rewrite_options).default_enabled = true];
 
   // Rewrites array function calls into equivalent SubqueryExpr.
-  REWRITE_ARRAY_FILTER_TRANSFORM = 4 [(rewrite_options).default_enabled = true];
+  REWRITE_ARRAY_FILTER_TRANSFORM = 4 [deprecated = true];
 
   // Rewrites unpivot ast to equivalent scan.
   REWRITE_UNPIVOT = 5 [(rewrite_options).default_enabled = true];
@@ -1569,7 +1650,7 @@ enum ResolvedASTRewrite {
   REWRITE_PIVOT = 6 [(rewrite_options).default_enabled = true];
 
   // Rewrites ARRAY_INCLUDES function calls into equivalent SubqueryExpr.
-  REWRITE_ARRAY_INCLUDES = 7 [(rewrite_options).default_enabled = true];
+  REWRITE_ARRAY_INCLUDES = 7 [deprecated = true];
 
   // Rewrite typeof function. See (broken link)
   REWRITE_TYPEOF_FUNCTION = 8 [(rewrite_options).default_enabled = true];
@@ -1599,6 +1680,9 @@ enum ResolvedASTRewrite {
   //   TODO Fix this case before removing in_development
   // * Correlated subqueries cannot be used as arguments to TABLE parameters.
   //   TODO Fix this case before removing in_development
+  // * TVFs with SQL bodies that reference a relational arg but does not access
+  //   its columns currently produces an invalid AST post rewrite.
+  //   TODO: b/404355265 Fix this case before removing in_development
   REWRITE_INLINE_SQL_TVFS = 11 [
     (rewrite_options).default_enabled = false,
     (rewrite_options).in_development = true
@@ -1700,8 +1784,58 @@ enum ResolvedASTRewrite {
   REWRITE_ORDER_BY_AND_LIMIT_IN_AGGREGATE = 28
       [(rewrite_options).default_enabled = false];
 
-  // Supports rewriting ResolvedPipeIfScan.
-  REWRITE_PIPE_IF = 29 [
+  // Supports rewriting ResolvedPipeIfScan, replacing it with
+  // the subpipeline for the chosen IF case.
+  REWRITE_PIPE_IF = 29 [(rewrite_options).default_enabled = true];
+
+  // Supports rewriting ResolvedGeneralizedQueryStmt, replacing it
+  // with either a single statement (e.g. a ResolvedExportDataStmt)
+  // or a ResolvedMultiStmt.
+  // This assumes REWRITE_PIPE_IF has been applied first.
+  REWRITE_GENERALIZED_QUERY_STMT = 31
+      [(rewrite_options).default_enabled = true];
+
+  // Rewrites IS_FIRST() and IS_LAST() into ROW_NUMBER() and COUNT(*)
+  REWRITE_IS_FIRST_IS_LAST_FUNCTION = 32 [
+    (rewrite_options).default_enabled = false,
+    (rewrite_options).in_development = true
+  ];
+
+  // Rewrites FIRST() and LAST() in MATCH_RECOGNIZE into
+  //     `ANY_VALUE(HAVING MIN/MAX match_row_number())`
+  REWRITE_MATCH_RECOGNIZE_FUNCTION = 37 [
+    (rewrite_options).default_enabled = false,
+    (rewrite_options).in_development = true
+  ];
+
+  // Rewrite `AGGREGATE` function calls with a measure type argument into
+  // a multi-level aggregation query to avoid overcounting.
+  REWRITE_MEASURE_TYPE = 34 [
+    (rewrite_options).default_enabled = false,
+    (rewrite_options).in_development = true
+  ];
+
+  // If enabled, this rewriter will apply all enabled rewrites to templated
+  // function calls. This feature is useful for engines that wish to use
+  // their own function inlining implementation.
+  //
+  // The preferred approach, when it is possible, is to enable function inlining
+  // via `REWRITE_INLINE_SQL_FUNCTIONS`, `REWRITE_INLINE_SQL_TVFS`, and
+  // `REWRITE_INLINE_SQL_UDAS`. When these rewrites are enabled, the function
+  // calls are inlined in place prior to applying other rewrites.
+  //
+  // The built-in inlining is preferred because it is more likely to be
+  // correct and correctly interact with other provided built-in rewrites.
+  // Engines may prefer this solution to avoid the built-in inliners if
+  // they want to preserve an existing buggy inliner for backward
+  // compatibility or in case they have existing infastructure, such as
+  // optimization, built around an existing solution.
+  REWRITE_APPLY_ENABLED_REWRITES_TO_TEMPLATED_FUNCTION_CALLS = 35
+      [(rewrite_options).default_enabled = false];
+
+  // Rewrites update constructor nodes to use REPLACE_FIELDS and
+  // ARRAY_TRANSFORM.
+  REWRITE_UPDATE_CONSTRUCTOR = 36 [
     (rewrite_options).default_enabled = true,
     (rewrite_options).in_development = true
   ];

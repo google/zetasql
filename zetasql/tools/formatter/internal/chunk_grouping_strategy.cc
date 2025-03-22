@@ -17,7 +17,6 @@
 #include "zetasql/tools/formatter/internal/chunk_grouping_strategy.h"
 
 #include <iterator>
-#include <type_traits>
 #include <vector>
 
 #include "zetasql/tools/formatter/internal/chunk.h"
@@ -52,8 +51,9 @@ void AddBlockForTopLevelClause(ChunkBlock* const chunk_block,
         t->AddChildChunk(top_level_chunk);
         return;
       } else if (chunk->FirstKeyword() == "|>") {
-        // Pipe operator introduces indent of 3.
-        (*i)->AddIndentedChunk(top_level_chunk, /*offset=*/3);
+        ChunkBlock* new_block = (*i)->AddIndentedChunk(top_level_chunk);
+        // Pipe token |> introduces indent of 3 for all top level clauses.
+        new_block->SetMinOffset(3);
         return;
       }
     }

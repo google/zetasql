@@ -1,0 +1,742 @@
+[default reserve_graph_table]
+[default language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+
+# Top level graph query statement
+GRAPH my.graph.name
+MATCH (n:Person) -[e1]-> (m:Person)
+WHERE n.id = 1
+LET score = e.val
+RETURN m, score
+NEXT
+MATCH (m) -[e2]-> (k:Person)
+LET score2 = score + e2.val
+FILTER score2 > 100
+RETURN k.id, score2
+--
+QueryStatement [34-240] [GRAPH my.graph...id, score2]
+  Query [34-240] [GRAPH my.graph...id, score2]
+    GqlQuery [34-240] [GRAPH my.graph...id, score2]
+      GraphTableQuery [34-240] [GRAPH my.graph...id, score2]
+        PathExpression [40-53] [my.graph.name]
+          Identifier(my) [40-42] [my]
+          Identifier(graph) [43-48] [graph]
+          Identifier(name) [49-53] [name]
+        GqlOperatorList [54-240] [MATCH (n:Person...id, score2]
+          GqlOperatorList [54-138] [MATCH (n:Person...URN m, score]
+            GqlMatch [54-104] [MATCH (n:Person...ERE n.id = 1]
+              GraphPattern [60-104] [(n:Person)...WHERE n.id = 1]
+                GraphPathPattern [60-89] [(n:Person) -[e1]-> (m:Person)]
+                  GraphNodePattern [60-70] [(n:Person)]
+                    GraphElementPatternFiller [61-69] [n:Person]
+                      Identifier(n) [61-62] [n]
+                      GraphLabelFilter [62-69] [:Person]
+                        GraphElementLabel [63-69] [Person]
+                          Identifier(Person) [63-69] [Person]
+                  GraphEdgePattern [71-78] [-[e1]->]
+                    GraphElementPatternFiller [73-75] [e1]
+                      Identifier(e1) [73-75] [e1]
+                  GraphNodePattern [79-89] [(m:Person)]
+                    GraphElementPatternFiller [80-88] [m:Person]
+                      Identifier(m) [80-81] [m]
+                      GraphLabelFilter [81-88] [:Person]
+                        GraphElementLabel [82-88] [Person]
+                          Identifier(Person) [82-88] [Person]
+                WhereClause [90-104] [WHERE n.id = 1]
+                  BinaryExpression(=) [96-104] [n.id = 1]
+                    PathExpression [96-100] [n.id]
+                      Identifier(n) [96-97] [n]
+                      Identifier(id) [98-100] [id]
+                    IntLiteral(1) [103-104] [1]
+            GqlLet [105-122] [LET score = e.val]
+              GqlLetVariableDefinitionList [109-122] [score = e.val]
+                GqlLetVariableDefinition [109-122] [score = e.val]
+                  Identifier(score) [109-114] [score]
+                  PathExpression [117-122] [e.val]
+                    Identifier(e) [117-118] [e]
+                    Identifier(val) [119-122] [val]
+            GqlReturn [123-138] [RETURN m, score]
+              Select [129-138] [m, score]
+                SelectList [130-138] [m, score]
+                  SelectColumn [130-131] [m]
+                    PathExpression [130-131] [m]
+                      Identifier(m) [130-131] [m]
+                  SelectColumn [133-138] [score]
+                    PathExpression [133-138] [score]
+                      Identifier(score) [133-138] [score]
+          GqlOperatorList [144-240] [MATCH (m)...id, score2]
+            GqlMatch [144-172] [MATCH (m) -[e2]-> (k:Person)]
+              GraphPattern [150-172] [(m) -[e2]-> (k:Person)]
+                GraphPathPattern [150-172] [(m) -[e2]-> (k:Person)]
+                  GraphNodePattern [150-153] [(m)]
+                    GraphElementPatternFiller [151-152] [m]
+                      Identifier(m) [151-152] [m]
+                  GraphEdgePattern [154-161] [-[e2]->]
+                    GraphElementPatternFiller [156-158] [e2]
+                      Identifier(e2) [156-158] [e2]
+                  GraphNodePattern [162-172] [(k:Person)]
+                    GraphElementPatternFiller [163-171] [k:Person]
+                      Identifier(k) [163-164] [k]
+                      GraphLabelFilter [164-171] [:Person]
+                        GraphElementLabel [165-171] [Person]
+                          Identifier(Person) [165-171] [Person]
+            GqlLet [173-200] [LET score2 = score + e2.val]
+              GqlLetVariableDefinitionList [177-200] [score2 = score + e2.val]
+                GqlLetVariableDefinition [177-200] [score2 = score + e2.val]
+                  Identifier(score2) [177-183] [score2]
+                  BinaryExpression(+) [186-200] [score + e2.val]
+                    PathExpression [186-191] [score]
+                      Identifier(score) [186-191] [score]
+                    PathExpression [194-200] [e2.val]
+                      Identifier(e2) [194-196] [e2]
+                      Identifier(val) [197-200] [val]
+            GqlFilter [201-220] [FILTER score2 > 100]
+              WhereClause [201-220] [FILTER score2 > 100]
+                BinaryExpression(>) [208-220] [score2 > 100]
+                  PathExpression [208-214] [score2]
+                    Identifier(score2) [208-214] [score2]
+                  IntLiteral(100) [217-220] [100]
+            GqlReturn [221-240] [RETURN k.id, score2]
+              Select [227-240] [k.id, score2]
+                SelectList [228-240] [k.id, score2]
+                  SelectColumn [228-232] [k.id]
+                    PathExpression [228-232] [k.id]
+                      Identifier(k) [228-229] [k]
+                      Identifier(id) [230-232] [id]
+                  SelectColumn [234-240] [score2]
+                    PathExpression [234-240] [score2]
+                      Identifier(score2) [234-240] [score2]
+--
+GRAPH my.graph.name
+MATCH
+  (n
+  IS Person)
+  -[e1]->
+  (m
+  IS Person)
+  WHERE
+    n.id = 1
+LET
+  score = e.val
+RETURN
+  m,
+  score
+NEXT
+MATCH
+  (m)
+  -[e2]->
+  (k
+  IS Person)
+LET
+  score2 = score + e2.val
+FILTER
+  WHERE
+    score2 > 100
+RETURN
+  k.id,
+  score2
+
+==
+
+# missing final return
+
+GRAPH my.graph.name
+MATCH (n:Person) -[e1]-> (m:Person)
+WHERE n.id = 1
+LET score = e.val
+RETURN m, score
+NEXT
+MATCH (m) -[e2]-> (k:Person)
+LET score2 = score + e2.val
+FILTER score2 > 100
+--
+ERROR: Syntax error: Unexpected end of statement [at 9:20]
+FILTER score2 > 100
+                   ^
+
+==
+
+# missing NEXT keyword after intermediate RETURN
+
+GRAPH my.graph.name
+MATCH (n:Person) -[e1]-> (m:Person)
+WHERE n.id = 1
+LET score = e.val
+RETURN m, score
+MATCH (m) -[e2]-> (k:Person)
+LET score2 = score + e2.val
+FILTER score2 > 100
+RETURN k.id, score2
+--
+
+ERROR: Syntax error: Expected end of input but got keyword MATCH [at 6:1]
+MATCH (m) -[e2]-> (k:Person)
+^
+
+==
+
+# subquery with graph query statement is not supported
+
+SELECT * FROM GRAPH_TABLE(
+  graph1
+  MATCH (n:Person) -[e]-> (m:Person)
+  WHERE EXISTS (
+    GRAPH graph1
+    MATCH (k)
+    RETURN K.id
+  )
+) gt1
+--
+
+ERROR: Syntax error: Unexpected keyword GRAPH [at 5:5]
+    GRAPH graph1
+    ^
+==
+
+# set operation between select and graph query statement is not supported
+
+SELECT * FROM GRAPH_TABLE(
+  graph1
+  MATCH (n:Person) -[e]-> (m:Person)
+  RETURN n.id
+) gt1
+UNION ALL
+GRAPH graph1
+MATCH (n:Person) -[e]-> (m:Person)
+RETURN n.id
+
+--
+
+ERROR: Syntax error: Expected "(" or keyword SELECT or keyword TABLE but got keyword GRAPH [at 7:1]
+GRAPH graph1
+^
+==
+
+# set operation between two graph query statements is not supported
+
+GRAPH graph1
+MATCH (n:Person) -[e]-> (m:Person)
+RETURN n.id
+UNION ALL
+GRAPH graph2
+MATCH (n:Person) -[e]-> (m:Person)
+RETURN n.id
+--
+ERROR: Syntax error: Unexpected keyword GRAPH [at 5:1]
+GRAPH graph2
+^
+==
+
+# explain graph query statement
+
+EXPLAIN
+GRAPH my.graph.name
+MATCH (n:Person) -[e1]-> (m:Person) WHERE n.id = 1
+LET score = e.val
+RETURN m, score
+--
+
+ExplainStatement [0-112] [EXPLAIN GRAPH...ETURN m, score]
+  QueryStatement [8-112] [GRAPH my.graph...TURN m, score]
+    Query [8-112] [GRAPH my.graph...TURN m, score]
+      GqlQuery [8-112] [GRAPH my.graph...TURN m, score]
+        GraphTableQuery [8-112] [GRAPH my.graph...TURN m, score]
+          PathExpression [14-27] [my.graph.name]
+            Identifier(my) [14-16] [my]
+            Identifier(graph) [17-22] [graph]
+            Identifier(name) [23-27] [name]
+          GqlOperatorList [28-112] [MATCH (n:Person...URN m, score]
+            GqlOperatorList [28-112] [MATCH (n:Person...URN m, score]
+              GqlMatch [28-78] [MATCH (n:Person...ERE n.id = 1]
+                GraphPattern [34-78] [(n:Person)...WHERE n.id = 1]
+                  GraphPathPattern [34-63] [(n:Person) -[e1]-> (m:Person)]
+                    GraphNodePattern [34-44] [(n:Person)]
+                      GraphElementPatternFiller [35-43] [n:Person]
+                        Identifier(n) [35-36] [n]
+                        GraphLabelFilter [36-43] [:Person]
+                          GraphElementLabel [37-43] [Person]
+                            Identifier(Person) [37-43] [Person]
+                    GraphEdgePattern [45-52] [-[e1]->]
+                      GraphElementPatternFiller [47-49] [e1]
+                        Identifier(e1) [47-49] [e1]
+                    GraphNodePattern [53-63] [(m:Person)]
+                      GraphElementPatternFiller [54-62] [m:Person]
+                        Identifier(m) [54-55] [m]
+                        GraphLabelFilter [55-62] [:Person]
+                          GraphElementLabel [56-62] [Person]
+                            Identifier(Person) [56-62] [Person]
+                  WhereClause [64-78] [WHERE n.id = 1]
+                    BinaryExpression(=) [70-78] [n.id = 1]
+                      PathExpression [70-74] [n.id]
+                        Identifier(n) [70-71] [n]
+                        Identifier(id) [72-74] [id]
+                      IntLiteral(1) [77-78] [1]
+              GqlLet [79-96] [LET score = e.val]
+                GqlLetVariableDefinitionList [83-96] [score = e.val]
+                  GqlLetVariableDefinition [83-96] [score = e.val]
+                    Identifier(score) [83-88] [score]
+                    PathExpression [91-96] [e.val]
+                      Identifier(e) [91-92] [e]
+                      Identifier(val) [93-96] [val]
+              GqlReturn [97-112] [RETURN m, score]
+                Select [103-112] [m, score]
+                  SelectList [104-112] [m, score]
+                    SelectColumn [104-105] [m]
+                      PathExpression [104-105] [m]
+                        Identifier(m) [104-105] [m]
+                    SelectColumn [107-112] [score]
+                      PathExpression [107-112] [score]
+                        Identifier(score) [107-112] [score]
+--
+EXPLAIN
+GRAPH my.graph.name
+MATCH
+  (n
+  IS Person)
+  -[e1]->
+  (m
+  IS Person)
+  WHERE
+    n.id = 1
+LET
+  score = e.val
+RETURN
+  m,
+  score
+==
+
+# hinted graph query statement
+
+@{ hint1 = value1 }
+GRAPH my.graph.name
+MATCH (n:Person) -[e1]-> (m:Person) WHERE n.id = 1
+LET score = e.val
+RETURN m, score
+
+--
+HintedStatement [0-124] [@{ hint1 =...RETURN m, score]
+  Hint [0-19] [@{ hint1 = value1 }]
+    HintEntry [3-17] [hint1 = value1]
+      Identifier(hint1) [3-8] [hint1]
+      PathExpression [11-17] [value1]
+        Identifier(value1) [11-17] [value1]
+  QueryStatement [20-124] [GRAPH my.graph...TURN m, score]
+    Query [20-124] [GRAPH my.graph...TURN m, score]
+      GqlQuery [20-124] [GRAPH my.graph...TURN m, score]
+        GraphTableQuery [20-124] [GRAPH my.graph...TURN m, score]
+          PathExpression [26-39] [my.graph.name]
+            Identifier(my) [26-28] [my]
+            Identifier(graph) [29-34] [graph]
+            Identifier(name) [35-39] [name]
+          GqlOperatorList [40-124] [MATCH (n:Person...URN m, score]
+            GqlOperatorList [40-124] [MATCH (n:Person...URN m, score]
+              GqlMatch [40-90] [MATCH (n:Person...ERE n.id = 1]
+                GraphPattern [46-90] [(n:Person)...WHERE n.id = 1]
+                  GraphPathPattern [46-75] [(n:Person) -[e1]-> (m:Person)]
+                    GraphNodePattern [46-56] [(n:Person)]
+                      GraphElementPatternFiller [47-55] [n:Person]
+                        Identifier(n) [47-48] [n]
+                        GraphLabelFilter [48-55] [:Person]
+                          GraphElementLabel [49-55] [Person]
+                            Identifier(Person) [49-55] [Person]
+                    GraphEdgePattern [57-64] [-[e1]->]
+                      GraphElementPatternFiller [59-61] [e1]
+                        Identifier(e1) [59-61] [e1]
+                    GraphNodePattern [65-75] [(m:Person)]
+                      GraphElementPatternFiller [66-74] [m:Person]
+                        Identifier(m) [66-67] [m]
+                        GraphLabelFilter [67-74] [:Person]
+                          GraphElementLabel [68-74] [Person]
+                            Identifier(Person) [68-74] [Person]
+                  WhereClause [76-90] [WHERE n.id = 1]
+                    BinaryExpression(=) [82-90] [n.id = 1]
+                      PathExpression [82-86] [n.id]
+                        Identifier(n) [82-83] [n]
+                        Identifier(id) [84-86] [id]
+                      IntLiteral(1) [89-90] [1]
+              GqlLet [91-108] [LET score = e.val]
+                GqlLetVariableDefinitionList [95-108] [score = e.val]
+                  GqlLetVariableDefinition [95-108] [score = e.val]
+                    Identifier(score) [95-100] [score]
+                    PathExpression [103-108] [e.val]
+                      Identifier(e) [103-104] [e]
+                      Identifier(val) [105-108] [val]
+              GqlReturn [109-124] [RETURN m, score]
+                Select [115-124] [m, score]
+                  SelectList [116-124] [m, score]
+                    SelectColumn [116-117] [m]
+                      PathExpression [116-117] [m]
+                        Identifier(m) [116-117] [m]
+                    SelectColumn [119-124] [score]
+                      PathExpression [119-124] [score]
+                        Identifier(score) [119-124] [score]
+
+--
+@{ hint1 = value1 }
+GRAPH my.graph.name
+MATCH
+  (n
+  IS Person)
+  -[e1]->
+  (m
+  IS Person)
+  WHERE
+    n.id = 1
+LET
+  score = e.val
+RETURN
+  m,
+  score
+==
+
+# multiple graph query statements, seperated by semicolon
+
+[default parse_multiple]
+
+GRAPH graph1
+MATCH (n:Person) -[e]-> (m:Person)
+WHERE n.id = 1
+LET score = e.val
+RETURN m.id, score;
+GRAPH graph2
+MATCH (n:Account) -[e]-> (m:Account)
+WHERE e.val > 100
+RETURN e.id AS eid, m.id AS mid
+--
+QueryStatement [0-99] [GRAPH graph1....id, score]
+  Query [0-99] [GRAPH graph1....id, score]
+    GqlQuery [0-99] [GRAPH graph1....id, score]
+      GraphTableQuery [0-99] [GRAPH graph1....id, score]
+        PathExpression [6-12] [graph1]
+          Identifier(graph1) [6-12] [graph1]
+        GqlOperatorList [13-99] [MATCH (n:Person....id, score]
+          GqlOperatorList [13-99] [MATCH (n:Person....id, score]
+            GqlMatch [13-62] [MATCH (n:Person...ERE n.id = 1]
+              GraphPattern [19-62] [(n:Person)...WHERE n.id = 1]
+                GraphPathPattern [19-47] [(n:Person) -[e]-> (m:Person)]
+                  GraphNodePattern [19-29] [(n:Person)]
+                    GraphElementPatternFiller [20-28] [n:Person]
+                      Identifier(n) [20-21] [n]
+                      GraphLabelFilter [21-28] [:Person]
+                        GraphElementLabel [22-28] [Person]
+                          Identifier(Person) [22-28] [Person]
+                  GraphEdgePattern [30-36] [-[e]->]
+                    GraphElementPatternFiller [32-33] [e]
+                      Identifier(e) [32-33] [e]
+                  GraphNodePattern [37-47] [(m:Person)]
+                    GraphElementPatternFiller [38-46] [m:Person]
+                      Identifier(m) [38-39] [m]
+                      GraphLabelFilter [39-46] [:Person]
+                        GraphElementLabel [40-46] [Person]
+                          Identifier(Person) [40-46] [Person]
+                WhereClause [48-62] [WHERE n.id = 1]
+                  BinaryExpression(=) [54-62] [n.id = 1]
+                    PathExpression [54-58] [n.id]
+                      Identifier(n) [54-55] [n]
+                      Identifier(id) [56-58] [id]
+                    IntLiteral(1) [61-62] [1]
+            GqlLet [63-80] [LET score = e.val]
+              GqlLetVariableDefinitionList [67-80] [score = e.val]
+                GqlLetVariableDefinition [67-80] [score = e.val]
+                  Identifier(score) [67-72] [score]
+                  PathExpression [75-80] [e.val]
+                    Identifier(e) [75-76] [e]
+                    Identifier(val) [77-80] [val]
+            GqlReturn [81-99] [RETURN m.id, score]
+              Select [87-99] [m.id, score]
+                SelectList [88-99] [m.id, score]
+                  SelectColumn [88-92] [m.id]
+                    PathExpression [88-92] [m.id]
+                      Identifier(m) [88-89] [m]
+                      Identifier(id) [90-92] [id]
+                  SelectColumn [94-99] [score]
+                    PathExpression [94-99] [score]
+                      Identifier(score) [94-99] [score]
+--
+QueryStatement [101-200] [GRAPH graph2....id AS mid]
+  Query [101-200] [GRAPH graph2....id AS mid]
+    GqlQuery [101-200] [GRAPH graph2....id AS mid]
+      GraphTableQuery [101-200] [GRAPH graph2....id AS mid]
+        PathExpression [107-113] [graph2]
+          Identifier(graph2) [107-113] [graph2]
+        GqlOperatorList [114-200] [MATCH (n:Account....id AS mid]
+          GqlOperatorList [114-200] [MATCH (n:Account....id AS mid]
+            GqlMatch [114-168] [MATCH (n:Account....val > 100]
+              GraphPattern [120-168] [(n:Account....val > 100]
+                GraphPathPattern [120-150] [(n:Account) -[e]-> (m:Account)]
+                  GraphNodePattern [120-131] [(n:Account)]
+                    GraphElementPatternFiller [121-130] [n:Account]
+                      Identifier(n) [121-122] [n]
+                      GraphLabelFilter [122-130] [:Account]
+                        GraphElementLabel [123-130] [Account]
+                          Identifier(Account) [123-130] [Account]
+                  GraphEdgePattern [132-138] [-[e]->]
+                    GraphElementPatternFiller [134-135] [e]
+                      Identifier(e) [134-135] [e]
+                  GraphNodePattern [139-150] [(m:Account)]
+                    GraphElementPatternFiller [140-149] [m:Account]
+                      Identifier(m) [140-141] [m]
+                      GraphLabelFilter [141-149] [:Account]
+                        GraphElementLabel [142-149] [Account]
+                          Identifier(Account) [142-149] [Account]
+                WhereClause [151-168] [WHERE e.val > 100]
+                  BinaryExpression(>) [157-168] [e.val > 100]
+                    PathExpression [157-162] [e.val]
+                      Identifier(e) [157-158] [e]
+                      Identifier(val) [159-162] [val]
+                    IntLiteral(100) [165-168] [100]
+            GqlReturn [169-200] [RETURN e.id....id AS mid]
+              Select [175-200] [e.id AS eid, m.id AS mid]
+                SelectList [176-200] [e.id AS eid, m.id AS mid]
+                  SelectColumn [176-187] [e.id AS eid]
+                    PathExpression [176-180] [e.id]
+                      Identifier(e) [176-177] [e]
+                      Identifier(id) [178-180] [id]
+                    Alias [181-187] [AS eid]
+                      Identifier(eid) [184-187] [eid]
+                  SelectColumn [189-200] [m.id AS mid]
+                    PathExpression [189-193] [m.id]
+                      Identifier(m) [189-190] [m]
+                      Identifier(id) [191-193] [id]
+                    Alias [194-200] [AS mid]
+                      Identifier(mid) [197-200] [mid]
+
+==
+
+# mixed select and graph statement, seperated by semicolon
+
+GRAPH graph1 
+MATCH (n:Person) -[e]-> (m:Person)
+WHERE n.id = 1
+LET score = e.val
+RETURN m.id, score;
+
+SELECT gt.* FROM GRAPH_TABLE(
+  graph1
+  MATCH (n:Person) -[e]-> (m:Person)
+  WHERE n.id = 1
+  LET score = e.val
+  RETURN m.id, score
+) gt
+--
+
+QueryStatement [0-100] [GRAPH graph1....id, score]
+  Query [0-100] [GRAPH graph1....id, score]
+    GqlQuery [0-100] [GRAPH graph1....id, score]
+      GraphTableQuery [0-100] [GRAPH graph1....id, score]
+        PathExpression [6-12] [graph1]
+          Identifier(graph1) [6-12] [graph1]
+        GqlOperatorList [14-100] [MATCH (n:Person....id, score]
+          GqlOperatorList [14-100] [MATCH (n:Person....id, score]
+            GqlMatch [14-63] [MATCH (n:Person...ERE n.id = 1]
+              GraphPattern [20-63] [(n:Person)...WHERE n.id = 1]
+                GraphPathPattern [20-48] [(n:Person) -[e]-> (m:Person)]
+                  GraphNodePattern [20-30] [(n:Person)]
+                    GraphElementPatternFiller [21-29] [n:Person]
+                      Identifier(n) [21-22] [n]
+                      GraphLabelFilter [22-29] [:Person]
+                        GraphElementLabel [23-29] [Person]
+                          Identifier(Person) [23-29] [Person]
+                  GraphEdgePattern [31-37] [-[e]->]
+                    GraphElementPatternFiller [33-34] [e]
+                      Identifier(e) [33-34] [e]
+                  GraphNodePattern [38-48] [(m:Person)]
+                    GraphElementPatternFiller [39-47] [m:Person]
+                      Identifier(m) [39-40] [m]
+                      GraphLabelFilter [40-47] [:Person]
+                        GraphElementLabel [41-47] [Person]
+                          Identifier(Person) [41-47] [Person]
+                WhereClause [49-63] [WHERE n.id = 1]
+                  BinaryExpression(=) [55-63] [n.id = 1]
+                    PathExpression [55-59] [n.id]
+                      Identifier(n) [55-56] [n]
+                      Identifier(id) [57-59] [id]
+                    IntLiteral(1) [62-63] [1]
+            GqlLet [64-81] [LET score = e.val]
+              GqlLetVariableDefinitionList [68-81] [score = e.val]
+                GqlLetVariableDefinition [68-81] [score = e.val]
+                  Identifier(score) [68-73] [score]
+                  PathExpression [76-81] [e.val]
+                    Identifier(e) [76-77] [e]
+                    Identifier(val) [78-81] [val]
+            GqlReturn [82-100] [RETURN m.id, score]
+              Select [88-100] [m.id, score]
+                SelectList [89-100] [m.id, score]
+                  SelectColumn [89-93] [m.id]
+                    PathExpression [89-93] [m.id]
+                      Identifier(m) [89-90] [m]
+                      Identifier(id) [91-93] [id]
+                  SelectColumn [95-100] [score]
+                    PathExpression [95-100] [score]
+                      Identifier(score) [95-100] [score]
+--
+QueryStatement [103-241] [SELECT gt....score ) gt]
+  Query [103-241] [SELECT gt....score ) gt]
+    Select [103-241] [SELECT gt....score ) gt]
+      SelectList [110-114] [gt.*]
+        SelectColumn [110-114] [gt.*]
+          DotStar [110-114] [gt.*]
+            PathExpression [110-112] [gt]
+              Identifier(gt) [110-112] [gt]
+      FromClause [115-241] [FROM GRAPH_TABLE...score ) gt]
+        GraphTableQuery [120-241] [GRAPH_TABLE...score ) gt]
+          PathExpression [135-141] [graph1]
+            Identifier(graph1) [135-141] [graph1]
+          GqlOperatorList [144-236] [MATCH (n:Person....id, score]
+            GqlOperatorList [144-236] [MATCH (n:Person....id, score]
+              GqlMatch [144-195] [MATCH (n:Person...ERE n.id = 1]
+                GraphPattern [150-195] [(n:Person)...WHERE n.id = 1]
+                  GraphPathPattern [150-178] [(n:Person) -[e]-> (m:Person)]
+                    GraphNodePattern [150-160] [(n:Person)]
+                      GraphElementPatternFiller [151-159] [n:Person]
+                        Identifier(n) [151-152] [n]
+                        GraphLabelFilter [152-159] [:Person]
+                          GraphElementLabel [153-159] [Person]
+                            Identifier(Person) [153-159] [Person]
+                    GraphEdgePattern [161-167] [-[e]->]
+                      GraphElementPatternFiller [163-164] [e]
+                        Identifier(e) [163-164] [e]
+                    GraphNodePattern [168-178] [(m:Person)]
+                      GraphElementPatternFiller [169-177] [m:Person]
+                        Identifier(m) [169-170] [m]
+                        GraphLabelFilter [170-177] [:Person]
+                          GraphElementLabel [171-177] [Person]
+                            Identifier(Person) [171-177] [Person]
+                  WhereClause [181-195] [WHERE n.id = 1]
+                    BinaryExpression(=) [187-195] [n.id = 1]
+                      PathExpression [187-191] [n.id]
+                        Identifier(n) [187-188] [n]
+                        Identifier(id) [189-191] [id]
+                      IntLiteral(1) [194-195] [1]
+              GqlLet [198-215] [LET score = e.val]
+                GqlLetVariableDefinitionList [202-215] [score = e.val]
+                  GqlLetVariableDefinition [202-215] [score = e.val]
+                    Identifier(score) [202-207] [score]
+                    PathExpression [210-215] [e.val]
+                      Identifier(e) [210-211] [e]
+                      Identifier(val) [212-215] [val]
+              GqlReturn [218-236] [RETURN m.id, score]
+                Select [224-236] [m.id, score]
+                  SelectList [225-236] [m.id, score]
+                    SelectColumn [225-229] [m.id]
+                      PathExpression [225-229] [m.id]
+                        Identifier(m) [225-226] [m]
+                        Identifier(id) [227-229] [id]
+                    SelectColumn [231-236] [score]
+                      PathExpression [231-236] [score]
+                        Identifier(score) [231-236] [score]
+          Alias [239-241] [gt]
+            Identifier(gt) [239-241] [gt]
+
+==
+
+# script mode with graph query statement
+
+[default no_parse_multiple]
+[default mode=script]
+GRAPH my.graph.name
+MATCH (n:Person)
+LET score = n.val
+RETURN n.id, score;
+
+SELECT gt.id FROM GRAPH_TABLE(
+  my.graph.name
+  MATCH (n:Person)
+  RETURN n.id
+) gt;
+
+--
+Script [0-161] [GRAPH my.graph...n.id ) gt;]
+  StatementList [0-161] [GRAPH my.graph...n.id ) gt;]
+    QueryStatement [0-73] [GRAPH my.graph....id, score]
+      Query [0-73] [GRAPH my.graph....id, score]
+        GqlQuery [0-73] [GRAPH my.graph....id, score]
+          GraphTableQuery [0-73] [GRAPH my.graph....id, score]
+            PathExpression [6-19] [my.graph.name]
+              Identifier(my) [6-8] [my]
+              Identifier(graph) [9-14] [graph]
+              Identifier(name) [15-19] [name]
+            GqlOperatorList [20-73] [MATCH (n:Person....id, score]
+              GqlOperatorList [20-73] [MATCH (n:Person....id, score]
+                GqlMatch [20-36] [MATCH (n:Person)]
+                  GraphPattern [26-36] [(n:Person)]
+                    GraphPathPattern [26-36] [(n:Person)]
+                      GraphNodePattern [26-36] [(n:Person)]
+                        GraphElementPatternFiller [27-35] [n:Person]
+                          Identifier(n) [27-28] [n]
+                          GraphLabelFilter [28-35] [:Person]
+                            GraphElementLabel [29-35] [Person]
+                              Identifier(Person) [29-35] [Person]
+                GqlLet [37-54] [LET score = n.val]
+                  GqlLetVariableDefinitionList [41-54] [score = n.val]
+                    GqlLetVariableDefinition [41-54] [score = n.val]
+                      Identifier(score) [41-46] [score]
+                      PathExpression [49-54] [n.val]
+                        Identifier(n) [49-50] [n]
+                        Identifier(val) [51-54] [val]
+                GqlReturn [55-73] [RETURN n.id, score]
+                  Select [61-73] [n.id, score]
+                    SelectList [62-73] [n.id, score]
+                      SelectColumn [62-66] [n.id]
+                        PathExpression [62-66] [n.id]
+                          Identifier(n) [62-63] [n]
+                          Identifier(id) [64-66] [id]
+                      SelectColumn [68-73] [score]
+                        PathExpression [68-73] [score]
+                          Identifier(score) [68-73] [score]
+    QueryStatement [76-160] [SELECT gt....n.id ) gt]
+      Query [76-160] [SELECT gt....n.id ) gt]
+        Select [76-160] [SELECT gt....n.id ) gt]
+          SelectList [83-88] [gt.id]
+            SelectColumn [83-88] [gt.id]
+              PathExpression [83-88] [gt.id]
+                Identifier(gt) [83-85] [gt]
+                Identifier(id) [86-88] [id]
+          FromClause [89-160] [FROM GRAPH_TABLE...n.id ) gt]
+            GraphTableQuery [94-160] [GRAPH_TABLE...n.id ) gt]
+              PathExpression [109-122] [my.graph.name]
+                Identifier(my) [109-111] [my]
+                Identifier(graph) [112-117] [graph]
+                Identifier(name) [118-122] [name]
+              GqlOperatorList [125-155] [MATCH (n:Person)   RETURN n.id]
+                GqlOperatorList [125-155] [MATCH (n:Person)   RETURN n.id]
+                  GqlMatch [125-141] [MATCH (n:Person)]
+                    GraphPattern [131-141] [(n:Person)]
+                      GraphPathPattern [131-141] [(n:Person)]
+                        GraphNodePattern [131-141] [(n:Person)]
+                          GraphElementPatternFiller [132-140] [n:Person]
+                            Identifier(n) [132-133] [n]
+                            GraphLabelFilter [133-140] [:Person]
+                              GraphElementLabel [134-140] [Person]
+                                Identifier(Person) [134-140] [Person]
+                  GqlReturn [144-155] [RETURN n.id]
+                    Select [150-155] [n.id]
+                      SelectList [151-155] [n.id]
+                        SelectColumn [151-155] [n.id]
+                          PathExpression [151-155] [n.id]
+                            Identifier(n) [151-152] [n]
+                            Identifier(id) [153-155] [id]
+              Alias [158-160] [gt]
+                Identifier(gt) [158-160] [gt]
+--
+GRAPH my.graph.name
+MATCH
+  (n
+  IS Person)
+LET
+  score = n.val
+RETURN
+  n.id,
+  score
+;
+SELECT
+  gt.id
+FROM
+  GRAPH_TABLE(
+    my.graph.name
+    MATCH
+      (n
+      IS Person)
+    RETURN
+      n.id
+  ) AS gt
+;

@@ -1134,6 +1134,16 @@ void Unparser::visitASTDefineTableStatement(const ASTDefineTableStatement* node,
   node->options_list()->Accept(this, data);
 }
 
+void Unparser::visitASTCreateLocalityGroupStatement(
+    const ASTCreateLocalityGroupStatement* node, void* data) {
+  print("CREATE LOCALITY GROUP");
+  node->name()->Accept(this, data);
+  if (node->options_list() != nullptr) {
+    print("OPTIONS");
+    node->options_list()->Accept(this, data);
+  }
+}
+
 void Unparser::visitASTDescribeStatement(const ASTDescribeStatement* node,
                                          void* data) {
   print("DESCRIBE");
@@ -1615,6 +1625,12 @@ void Unparser::visitASTPipeTablesample(const ASTPipeTablesample* node,
   visitASTChildren(node, data);
 }
 
+void Unparser::visitASTPipeMatchRecognize(const ASTPipeMatchRecognize* node,
+                                          void* data) {
+  Formatter::PipeAndIndent pipe_and_indent(&formatter_);
+  visitASTChildren(node, data);
+}
+
 void Unparser::visitASTPipeAs(const ASTPipeAs* node, void* data) {
   Formatter::PipeAndIndent pipe_and_indent(&formatter_);
   visitASTChildren(node, data);
@@ -1724,8 +1740,36 @@ void Unparser::visitASTPipeFork(const ASTPipeFork* node, void* data) {
   UnparseVectorWithSeparator(node->subpipeline_list(), data, ",");
 }
 
+void Unparser::visitASTPipeTee(const ASTPipeTee* node, void* data) {
+  Formatter::PipeAndIndent pipe_and_indent(&formatter_);
+  // Add a space after TEE so it doesn't look like a function call. This ends
+  // up printing a double space before the "(" because of details somewhere
+  // else. One space would be preferred.
+  print("TEE ");
+  if (node->hint() != nullptr) {
+    node->hint()->Accept(this, data);
+  }
+  UnparseVectorWithSeparator(node->subpipeline_list(), data, ",");
+}
+
+void Unparser::visitASTPipeWith(const ASTPipeWith* node, void* data) {
+  Formatter::PipeAndIndent pipe_and_indent(&formatter_);
+  node->with_clause()->Accept(this, data);
+}
+
 void Unparser::visitASTPipeExportData(const ASTPipeExportData* node,
                                       void* data) {
+  Formatter::PipeAndIndent pipe_and_indent(&formatter_);
+  visitASTChildren(node, data);
+}
+
+void Unparser::visitASTPipeCreateTable(const ASTPipeCreateTable* node,
+                                       void* data) {
+  Formatter::PipeAndIndent pipe_and_indent(&formatter_);
+  visitASTChildren(node, data);
+}
+
+void Unparser::visitASTPipeInsert(const ASTPipeInsert* node, void* data) {
   Formatter::PipeAndIndent pipe_and_indent(&formatter_);
   visitASTChildren(node, data);
 }
@@ -2276,7 +2320,12 @@ void Unparser::visitASTBracedConstructor(const ASTBracedConstructor* node,
     if (field->comma_separated()) {
       print(",");
     }
+    println();
+    Formatter::Indenter indenter(&formatter_);
     field->Accept(this, data);
+  }
+  if (!node->fields().empty()) {
+    println();
   }
   print("}");
 }
@@ -2298,9 +2347,32 @@ void Unparser::visitASTStructBracedConstructor(
   node->braced_constructor()->Accept(this, data);
 }
 
+void Unparser::visitASTExtendedPathExpression(
+    const ASTExtendedPathExpression* node, void* data) {
+  node->parenthesized_path()->Accept(this, data);
+  print(".");
+  node->generalized_path_expression()->Accept(this, data);
+}
+
 void Unparser::visitASTBracedConstructorLhs(const ASTBracedConstructorLhs* node,
                                             void* data) {
   node->extended_path_expr()->Accept(this, data);
+  switch (node->operation()) {
+    case zetasql::ASTBracedConstructorLhs::UPDATE_SINGLE:
+      break;
+    case zetasql::ASTBracedConstructorLhs::UPDATE_MANY:
+      print("*");
+      break;
+    case zetasql::ASTBracedConstructorLhs::UPDATE_SINGLE_NO_CREATION:
+      print("?");
+      break;
+  }
+}
+
+void Unparser::visitASTUpdateConstructor(const ASTUpdateConstructor* node,
+                                         void* data) {
+  node->function()->Accept(this, data);
+  node->braced_constructor()->Accept(this, data);
 }
 
 void Unparser::visitASTInferredTypeColumnSchema(
@@ -2831,11 +2903,17 @@ void Unparser::visitASTFunctionCall(const ASTFunctionCall* node, void* data) {
         // No "default:". Let the compilation fail in case an entry is added to
         // the enum without being handled here.
     }
+    if (node->where_expr() != nullptr) {
+      node->where_expr()->Accept(this, data);
+    }
     if (node->having_modifier() != nullptr) {
       node->having_modifier()->Accept(this, data);
     }
     if (node->group_by() != nullptr) {
       node->group_by()->Accept(this, data);
+    }
+    if (node->having_expr() != nullptr) {
+      node->having_expr()->Accept(this, data);
     }
     if (node->clamped_between_modifier() != nullptr) {
       node->clamped_between_modifier()->Accept(this, data);
@@ -4113,6 +4191,34 @@ void Unparser::visitASTAlterViewStatement(const ASTAlterViewStatement* node,
   VisitAlterStatementBase(node, data);
 }
 
+void Unparser::visitASTAlterIndexStatement(const ASTAlterIndexStatement* node,
+                                           void* data) {
+  switch (node->index_type()) {
+    case ASTAlterIndexStatement::IndexType::INDEX_SEARCH:
+      print("ALTER SEARCH INDEX");
+      break;
+    case ASTAlterIndexStatement::IndexType::INDEX_VECTOR:
+      print("ALTER VECTOR INDEX");
+      break;
+    default:
+      ABSL_LOG(FATAL) << "Index type is missing or not supported";  // Crash OK
+      break;
+  }
+  if (node->is_if_exists()) {
+    print("IF EXISTS");
+  }
+  node->path()->Accept(this, data);
+  if (node->table_name() != nullptr) {
+    print("ON");
+    node->table_name()->Accept(this, data);
+  }
+  node->action_list()->Accept(this, data);
+}
+
+void Unparser::visitASTRebuildAction(const ASTRebuildAction* node, void* data) {
+  print("REBUILD");
+}
+
 void Unparser::visitASTSetOptionsAction(const ASTSetOptionsAction* node,
                                         void* data) {
   print("SET OPTIONS");
@@ -4213,6 +4319,19 @@ void Unparser::visitASTAddColumnAction(const ASTAddColumnAction* node,
   if (node->fill_expression()) {
     print("FILL USING");
     node->fill_expression()->Accept(this, data);
+  }
+}
+
+void Unparser::visitASTAddColumnIdentifierAction(
+    const ASTAddColumnIdentifierAction* node, void* data) {
+  print("ADD COLUMN");
+  if (node->is_if_not_exists()) {
+    print("IF NOT EXISTS");
+  }
+  node->column_name()->Accept(this, data);
+  if (node->options_list()) {
+    print("OPTIONS");
+    node->options_list()->Accept(this, data);
   }
 }
 
@@ -5554,11 +5673,23 @@ void Unparser::visitASTGraphPathSearchPrefix(
     const ASTGraphPathSearchPrefix* node, void* data) {
   switch (node->type()) {
     case ASTGraphPathSearchPrefix::PathSearchPrefixType::SHORTEST: {
-      print("ANY SHORTEST ");
+      if (node->path_count() == nullptr) {
+        print("ANY SHORTEST ");
+      } else {
+        print("SHORTEST ");
+        node->path_count()->Accept(this, data);
+        print(" ");
+      }
       break;
     }
     case ASTGraphPathSearchPrefix::PathSearchPrefixType::ANY: {
-      print("ANY ");
+      if (node->path_count() == nullptr) {
+        print("ANY ");
+      } else {
+        print("ANY ");
+        node->path_count()->Accept(this, data);
+        print(" ");
+      }
       break;
     }
     case ASTGraphPathSearchPrefix::PathSearchPrefixType::ALL: {
@@ -5575,6 +5706,11 @@ void Unparser::visitASTGraphPathSearchPrefix(
       break;
     }
   }
+}
+
+void Unparser::visitASTGraphPathSearchPrefixCount(
+    const ASTGraphPathSearchPrefixCount* node, void* data) {
+  node->path_count()->Accept(this, data);
 }
 
 void Unparser::visitASTGraphPattern(const ASTGraphPattern* node, void* data) {

@@ -250,8 +250,8 @@ OrderByAndLimitInAggregateRewriterVisitor::PostVisitResolvedAggregateScan(
           "ORDER_BY_AND_LIMIT_IN_AGGREGATE rewriter");
     }
     ResolvedComputedColumnBuilder computed_column_builder =
-        ToBuilder(absl::WrapUnique(aggregate_computed_column.release()
-                                       ->GetAs<ResolvedComputedColumn>()));
+        ToBuilder(GetAsResolvedNode<ResolvedComputedColumn>(
+            std::move(aggregate_computed_column)));
     ZETASQL_ASSIGN_OR_RETURN(AggregateFunctionCallRewriteResult result,
                      HandleAggregateFunctionCall(absl::WrapUnique(
                          const_cast<ResolvedExpr*>(
@@ -675,7 +675,13 @@ OrderByAndLimitInAggregateRewriterVisitor::HandleAggregateFunctionCall(
   if (aggregate_function_call->function()->IsZetaSQLBuiltin(FN_ARRAY_AGG)) {
     agg_function = AggFunction::kArrayAgg;
   } else if (aggregate_function_call->function()->IsZetaSQLBuiltin(
-                 FN_STRING_AGG_STRING)) {
+                 FN_STRING_AGG_STRING) ||
+             aggregate_function_call->function()->IsZetaSQLBuiltin(
+                 FN_STRING_AGG_DELIM_STRING) ||
+             aggregate_function_call->function()->IsZetaSQLBuiltin(
+                 FN_STRING_AGG_BYTES) ||
+             aggregate_function_call->function()->IsZetaSQLBuiltin(
+                 FN_STRING_AGG_DELIM_BYTES)) {
     agg_function = AggFunction::kStringAgg;
   } else if (aggregate_function_call->function()->IsZetaSQLBuiltin(
                  FN_ARRAY_CONCAT_AGG)) {

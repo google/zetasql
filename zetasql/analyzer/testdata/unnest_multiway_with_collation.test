@@ -1,6 +1,6 @@
 [default language_features=V_1_4_MULTIWAY_UNNEST,V_1_4_WITH_EXPRESSION,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
 [default enabled_ast_rewrites=DEFAULTS,-WITH_EXPR,+MULTIWAY_UNNEST]
-[default no_run_unparser]
+[default no_run_sqlbuilder]
 
 # Zipping 2 literal arrays, with only one collated array
 SELECT *

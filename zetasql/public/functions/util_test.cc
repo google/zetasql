@@ -18,6 +18,7 @@
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "gtest/gtest.h"
+#include "absl/status/status.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {

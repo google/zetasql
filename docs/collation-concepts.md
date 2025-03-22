@@ -58,7 +58,7 @@ that can propagate collation.
 In the following example, the `'und:ci'` collation specification is propagated
 from the `character` column to the `ORDER BY` operation.
 
-```sql
+```zetasql
 -- With collation
 SELECT *
 FROM UNNEST([
@@ -77,7 +77,7 @@ ORDER BY character
  *-----------*/
 ```
 
-```sql
+```zetasql
 -- Without collation
 SELECT *
 FROM UNNEST([
@@ -211,14 +211,14 @@ In summary:
 
 You can define a default collation specification for a schema. For example:
 
-```sql
+```zetasql
 CREATE SCHEMA (...)
 DEFAULT COLLATE 'und:ci'
 ```
 
 You can define a default collation specification for a table. For example:
 
-```sql
+```zetasql
 CREATE TABLE (...)
 DEFAULT COLLATE 'und:ci'
 ```
@@ -226,7 +226,7 @@ DEFAULT COLLATE 'und:ci'
 You can define a collation specification for a collation-supported column.
 For example:
 
-```sql
+```zetasql
 CREATE TABLE (
   case_insensitive_column STRING COLLATE 'und:ci'
 )
@@ -235,7 +235,7 @@ CREATE TABLE (
 You can specify a collation specification for a collation-supported expression
 with the `COLLATE` function. For example:
 
-```sql
+```zetasql
 SELECT COLLATE('a', 'und:ci') AS character
 ```
 
@@ -245,7 +245,7 @@ collation specifications set previously.
 
 For example:
 
-```sql
+```zetasql
 SELECT Place
 FROM Locations
 ORDER BY Place COLLATE "und:ci"
@@ -375,7 +375,7 @@ collation-supported types. In a collation-supported operation:
 
 For example:
 
-```sql
+```zetasql
 -- Assume there's a table with this column declaration:
 CREATE TABLE table_a
 (
@@ -448,7 +448,7 @@ collation:
 ### Binary collation specification 
 <a id="binary_collation"></a>
 
-```sql
+```zetasql
 collation_specification:
   'language_tag'
 ```
@@ -463,7 +463,7 @@ The allowed value for the `language_tag` is `binary`.
 This is what the `binary` language tag looks like when used with the `ORDER BY`
 clause:
 
-```sql
+```zetasql
 SELECT Place
 FROM Locations
 ORDER BY Place COLLATE 'binary'
@@ -472,7 +472,7 @@ ORDER BY Place COLLATE 'binary'
 ### Unicode collation specification 
 <a id="unicode_collation"></a>
 
-```sql
+```zetasql
 collation_specification:
   'language_tag[:collation_attribute]'
 ```
@@ -527,14 +527,14 @@ caveats apply:
 This is what the `ci` collation attribute looks like when used with the
 `und` language tag in the `COLLATE` function:
 
-```sql
+```zetasql
 COLLATE('orange1', 'und:ci')
 ```
 
 This is what the `ci` collation attribute looks like when used with the
 `und` language tag in the `ORDER BY` clause:
 
-```sql
+```zetasql
 SELECT Place
 FROM Locations
 ORDER BY Place COLLATE 'und:ci'
@@ -553,7 +553,7 @@ This is what the `kn-true` extension looks like when used with the
 
 For example:
 
-```sql
+```zetasql
 SELECT *
 FROM UNNEST([
   'a12b',
@@ -569,7 +569,7 @@ ORDER BY ids COLLATE 'en-us-u-kn-true'
  *-------*/
 ```
 
-```sql
+```zetasql
 SELECT *
 FROM UNNEST([
   'a12b',
@@ -637,7 +637,7 @@ For a complete list and in depth technical details, consult
   and without them are sorted identically. For example, the format control
   code point `U+2060` is ignored when the following strings are sorted:
 
-  ```sql
+  ```zetasql
   SELECT *
   FROM UNNEST([
     COLLATE('oran\u2060ge1', 'und:ci'),
@@ -666,7 +666,7 @@ sections, but here are a few general limitations to keep in mind:
 
 + Table functions can't take table arguments with collated columns.
 
-  ```sql
+  ```zetasql
   CREATE TABLE FUNCTION my_dataset.my_tvf(x TABLE<col_str STRING>) AS (
     SELECT col_str FROM x
   );
@@ -676,7 +676,7 @@ sections, but here are a few general limitations to keep in mind:
   );
 
   -- User error:
-  -- "Collation 'und:ci' on column col_str of argument of TVF call is not allowed"
+  -- "Collation 'und:ci' on column col_str of argument of TVF call isn't allowed"
   ```
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
@@ -748,7 +748,7 @@ sections, but here are a few general limitations to keep in mind:
 
 [unnest-operator]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#unnest_operator
 
-[aead_decrypt_string]: https://github.com/google/zetasql/blob/master/docs/aead_encryption_functions.md.md#aeaddecrypt-string
+[aead_decrypt_string]: https://github.com/google/zetasql/blob/master/docs/aead_encryption_functions.md.md#aeaddecrypt_string
 
 [any-value]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#any_value
 

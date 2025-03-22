@@ -19,9 +19,14 @@
 #include <string>
 #include <vector>
 
+#include "zetasql/common/errors.h"
 #include "zetasql/public/types/annotation.h"
+#include "zetasql/public/types/simple_value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
+#include "zetasql/base/ret_check.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 

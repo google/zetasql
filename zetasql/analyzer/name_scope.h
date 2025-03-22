@@ -17,6 +17,7 @@
 #ifndef ZETASQL_ANALYZER_NAME_SCOPE_H_
 #define ZETASQL_ANALYZER_NAME_SCOPE_H_
 
+#include <cstddef>
 #include <functional>
 #include <map>
 #include <memory>
@@ -30,6 +31,7 @@
 #include "zetasql/public/type.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "gtest/gtest_prod.h"
+#include "absl/base/macros.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -258,6 +260,8 @@ class NamedColumn {
 //      target, and may have a non-empty ValidNamePathList that
 //      identifies (sub)fields that are valid to access even though this
 //      target is not.
+//      `is_terminal_error_` prevents accessing these valid paths from the
+//      current ACCESS_ERROR target.
 //
 // Name collisions are resolved as follows:
 //   - range variables always take precedence over column names
@@ -341,8 +345,13 @@ class NameTarget {
   // 'name_target' Kind is stored for later use during error messaging.
   // If non-empty, 'access_error_message' indicates the error message
   // associated with this NameTarget.
+  // 'is_terminal_error' indicates whether all lookups for this target and any
+  // child/descendent fields is an error, or whether lookups for
+  // child/descendent fields might be valid.  This affects how LookupNamePath()
+  // behaves once it looks up an access error NameTarget.
   void SetAccessError(Kind original_kind,
-                      absl::string_view access_error_message = "");
+                      absl::string_view access_error_message = "",
+                      bool is_terminal_error = false);
 
   // Marks this NameTarget as a pattern variable.
   absl::Status SetIsPatternVariable(bool is_pattern_variable) {
@@ -364,6 +373,8 @@ class NameTarget {
   const std::string& access_error_message() const {
     return access_error_message_;
   }
+
+  bool is_terminal_error() const { return is_terminal_error_; }
 
   static bool IsColumnKind(Kind kind) {
     return kind == IMPLICIT_COLUMN || kind == EXPLICIT_COLUMN;
@@ -483,6 +494,12 @@ class NameTarget {
   // when the NameTarget is referenced.
   std::string access_error_message_;
 
+  // Used with ACCESS_ERROR, to indicate whether all lookups for this target and
+  // any child/descendent fields is an error, or whether lookups for
+  // child/descendent fields might be valid.  This affects how LookupNamePath
+  // behaves once it looks up an access error NameTarget.
+  bool is_terminal_error_ = false;
+
   // Can only be populated if kind_ == ACCESS_ERROR.
   // Requires original_kind_ to be RANGE_VARIABLE, EXPLICIT_COLUMN,
   // IMPLICIT_COLUMN, or FIELD_OF.
@@ -557,7 +574,7 @@ class NameScope {
   // Make a NameScope with names from <name_list>.
   explicit NameScope(const NameList& name_list);
 
-  ~NameScope();
+  ~NameScope() = default;
 
   // Creates a new NameScope copied from the current NameScope, where
   // locally defined names are updated with new NameTargets.  The entries
@@ -659,14 +676,21 @@ class NameScope {
   // up as a column, then a column NameTarget would be returned and
   // 'num_names_consumed' would be set to 4.
   //
+  // If the lookup results in an ACCESS_ERROR target:
+  //  1. If `is_terminal_error` is true, LookupNamePath terminates and returns
+  //     the ACCESS_ERROR target.
+  //  2. Otherwise, LookupNamePath continues to look up valid field paths to see
+  //     if accessing the full path is valid, even if the current target is not
+  //     itself valid to access.
+  //  For example, when grouping by `a.b`, and looking up `a.b.c`:
+  //     Accessing `a` returns an ACCESS_ERROR:
+  //     - If `is_terminal_error` is true, LookupNamePath terminates and returns
+  //       the ACCESS_ERROR target.
+  //     - Otherwise, LookupNamePath will find `a.b.c` and return that target.
+  //
   // `out_referenced_pattern_variable` is set to the pattern variable from which
   // the column was resolved, if the column was resolved from a pattern
   // variable, and std::nullopt otherwise.
-  //
-  // Note: The current implementation usually only looks up one name and
-  // returns the associated NameTarget, but sometimes looks up two names.
-  // The current implementation never looks up more than two names.
-  // This limitation will be removed in a subsequent CL.
   //
   // 'in_strict_mode' identifies whether unqualified names are valid
   // to access.  'clause_name' and 'problem_string' are only used for
@@ -705,6 +729,42 @@ class NameScope {
 
   const NameScope* previous_scope() const { return previous_scope_; }
 
+  // Disallows correlated access from this scope.
+  // This is used to prevent correlated access from a child scope, like in
+  // MATCH_RECOGNIZE where we do not want subqueries to access columns from
+  // the main table, as column access should define row ranges but subqueries
+  // do not have that info.
+  // See b/394128431 for more details.
+  //
+  // Here is an example to illustrate why MATCH_RECOGNIZE needs to disallow
+  // correlated access in some situations:
+  //      MEASURES SUM(b.key - (SELECT key))
+  //
+  // The access to `b.key` pins the row range to those assigned to `b`.
+  // However, when resolving (SELECT key), because it's a subquery, the resolver
+  // creates a completely new QueryResolutionInfo and resolves against the inner
+  // row range of the subquery. The access to `key` here is correlated, and
+  // the subquery doesn't have the means to pin the row range at the appropriate
+  // QueryResolutionInfo, or to detect the conflict with the earlier `b.key`
+  // access.
+  void DisallowCorrelatedAccess(absl::string_view reason) {
+    allows_correlated_access_ = false;
+    reason_to_disallow_correlated_access_ = reason;
+  }
+
+  void EnableMatchNumberFunction() { allows_match_number_function_ = true; }
+  void EnableAllMatchFunctions() {
+    allows_match_number_function_ = true;
+    allows_match_row_functions_ = true;
+  }
+
+  bool allows_match_number_function() const {
+    return allows_match_number_function_;
+  }
+  bool allows_match_row_functions() const {
+    return allows_match_row_functions_;
+  }
+
  private:
   const NameScope* const previous_scope_ = nullptr;  // may be NULL
 
@@ -713,6 +773,14 @@ class NameScope {
   // If this is non-NULL, this set pointer is returned from LookupName, and
   // any referenced columns should be added to it by the caller.
   CorrelatedColumnsSet* correlated_columns_set_ = nullptr;  // Not owned.
+
+  // Indicates whether or this NameScope allows correlated access. When false,
+  // LookupNamePath() will return an error if a column from *this scope* is
+  // accessed via some child scope.
+  bool allows_correlated_access_ = true;
+  // Explanation to provide as the access error message when correlated access
+  // is disallowed and a lookup results in finding a correlated name target.
+  absl::string_view reason_to_disallow_correlated_access_;
 
   // Value table column information, including a ResolvedColumn and a list of
   // field names that are excluded/ignored from a lookup in the containing
@@ -854,6 +922,17 @@ class NameScope {
       value_table_columns = other.value_table_columns;
     }
   };
+
+  // Indicates whether or not this NameScope allows the MATCH_NUMBER() function,
+  // Which is available anywhere in the MEASURES clause, even outside
+  // aggregates,since it's the same for all rows of the match.
+  bool allows_match_number_function_ = false;
+  // Indicates whether or not this NameScope allows the MATCH_ROW_NUMBER() &
+  // CLASSIFIER() functions, which are only available inside aggregate args of
+  // measures in the MEASURES clause, as they vary per row.
+  // If this is true, `allows_match_number_function_` must also be true.
+  bool allows_match_row_functions_ = false;
+
   State state_;
 
   // Accessors for fields inside the CopyOnWrite state_.
@@ -954,10 +1033,10 @@ class NameScope {
 // for returned error messages (usually, name collisions).
 class NameList {
  public:
-  NameList();
+  NameList() = default;
   NameList(const NameList&) = delete;
   NameList& operator=(const NameList&) = delete;
-  ~NameList();
+  ~NameList() = default;
 
   // Prepare this NameList for 'size' new columns. This is for efficiency
   // purposes only.

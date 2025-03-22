@@ -24,11 +24,13 @@
 
 #include "zetasql/public/functions/string.h"
 #include "zetasql/public/strings.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/reference_impl/type_helpers.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_split.h"
 #include "absl/types/span.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
@@ -149,6 +151,29 @@ absl::Status GetOutputColumnInfo(const ResolvedStatement* resolved_stmt,
       }
       break;
     }
+
+    case RESOLVED_CREATE_CONSTANT_STMT:
+    case RESOLVED_CREATE_FUNCTION_STMT:
+    case RESOLVED_CREATE_TABLE_FUNCTION_STMT: {
+      ZETASQL_RET_CHECK(result.type()->IsStruct());
+      const StructType* result_type = result.type()->AsStruct();
+
+      ZETASQL_RET_CHECK_EQ(2, result_type->num_fields());
+      ZETASQL_RET_CHECK_EQ(kCreatedObjectType, result_type->field(0).name);
+      ZETASQL_RET_CHECK_EQ(kCreatedObjectName, result_type->field(1).name);
+
+      TypeFactory type_factory;
+      const ArrayType* array_type;
+      ZETASQL_RETURN_IF_ERROR(type_factory.MakeArrayType(result_type, &array_type));
+      ZETASQL_ASSIGN_OR_RETURN(*result_table, Value::MakeArray(array_type, {result}));
+      *is_value_table = false;
+
+      for (const StructField& field : result_type->fields()) {
+        column_names->push_back(field.name);
+      }
+      break;
+    }
+
     default:
       ZETASQL_RET_CHECK_FAIL()
           << "GetOutputColumnInfo() does not support resolved node kind "

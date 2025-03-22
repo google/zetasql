@@ -1,6 +1,7 @@
 # Table with UID in the WITH clause, differential privacy in the outer SELECT
 [default also_show_signature_mismatch_details]
 [default language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,V_1_1_WITH_ON_SUBQUERY,V_1_3_WITH_RECURSIVE]
+
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 WITH t as (select *
            from SimpleTypesWithAnonymizationUid)
@@ -96,7 +97,7 @@ QueryStmt
     |   +-with_query_name="with_scan"
     |   +-with_subquery=
     |     +-ProjectScan
-    |       +-parse_location=19-27
+    |       +-parse_location=18-28
     |       +-column_list=[with_scan.$col1#1]
     |       +-expr_list=
     |       | +-$col1#1 := Literal(parse_location=26-27, type=INT64, value=1)
@@ -143,7 +144,7 @@ QueryStmt
     |   +-with_query_name="t1"
     |   +-with_subquery=
     |     +-ProjectScan
-    |       +-parse_location=12-57
+    |       +-parse_location=11-58
     |       +-column_list=[t1.$col1#13]
     |       +-expr_list=
     |       | +-$col1#13 := Literal(parse_location=19-20, type=INT64, value=1)
@@ -171,9 +172,9 @@ with t1 as (select @_p0_INT64 from SimpleTypesWithAnonymizationUid)
 select with differential_privacy count(*, contribution_bounds_per_group => @_p1_STRUCT)
 from (select * from t1);
 
-Rewrite ERROR: Subqueries of differential_privacy queries must explicitly SELECT the userid column 'uid' [at 1:13]
+Rewrite ERROR: Subqueries of differential_privacy queries must explicitly SELECT the userid column 'uid' [at 1:12]
 with t1 as (select 1 from SimpleTypesWithAnonymizationUid)
-            ^
+           ^
 ==
 
 # Require explicit uid projection
@@ -677,7 +678,7 @@ QueryStmt
     |   +-with_query_name="t"
     |   +-with_subquery=
     |     +-ProjectScan
-    |       +-parse_location=11-143
+    |       +-parse_location=10-144
     |       +-column_list=[$groupby.uid#14, $aggregate.$agg1#13]
     |       +-input_scan=
     |         +-DifferentialPrivacyAggregateScan
@@ -711,9 +712,9 @@ with t as (select with differential_privacy uid, count(*)
 select with differential_privacy count(*)
 from t;
 
-Rewrite ERROR: Subqueries of differential_privacy queries must explicitly SELECT the userid column 'uid' [at 1:12]
+Rewrite ERROR: Subqueries of differential_privacy queries must explicitly SELECT the userid column 'uid' [at 1:11]
 with t as (select with differential_privacy uid, count(*)
-           ^
+          ^
 ==
 
 # Extraneous with clauses
@@ -1191,7 +1192,7 @@ QueryStmt
     |   +-with_query_name="t1"
     |   +-with_subquery=
     |     +-ProjectScan
-    |       +-parse_location=12-57
+    |       +-parse_location=11-58
     |       +-column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12]
     |       +-input_scan=
     |         +-TableScan(parse_location=26-57, column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
@@ -1535,7 +1536,7 @@ QueryStmt
     | | +-with_query_name="t1"
     | | +-with_subquery=
     | |   +-ProjectScan
-    | |     +-parse_location=12-57
+    | |     +-parse_location=11-58
     | |     +-column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12]
     | |     +-input_scan=
     | |       +-TableScan(parse_location=26-57, column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
@@ -1543,7 +1544,7 @@ QueryStmt
     |   +-with_query_name="t2"
     |   +-with_subquery=
     |     +-ProjectScan
-    |       +-parse_location=72-117
+    |       +-parse_location=71-118
     |       +-column_list=SimpleTypesWithAnonymizationUid.[int32#13, int64#14, uint32#15, uint64#16, string#17, bytes#18, bool#19, float#20, double#21, date#22, uid#23, numeric#24]
     |       +-input_scan=
     |         +-TableScan(parse_location=86-117, column_list=SimpleTypesWithAnonymizationUid.[int32#13, int64#14, uint32#15, uint64#16, string#17, bytes#18, bool#19, float#20, double#21, date#22, uid#23, numeric#24], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
@@ -2335,7 +2336,7 @@ QueryStmt
         |   | | +-with_query_name="t1"
         |   | | +-with_subquery=
         |   | |   +-ProjectScan
-        |   | |     +-parse_location=106-151
+        |   | |     +-parse_location=105-152
         |   | |     +-column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12]
         |   | |     +-input_scan=
         |   | |       +-TableScan(parse_location=120-151, column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
@@ -2343,7 +2344,7 @@ QueryStmt
         |   |   +-with_query_name="t2"
         |   |   +-with_subquery=
         |   |     +-ProjectScan
-        |   |       +-parse_location=168-213
+        |   |       +-parse_location=167-214
         |   |       +-column_list=[t2.$col1#25]
         |   |       +-expr_list=
         |   |       | +-$col1#25 := Literal(parse_location=175-176, type=INT64, value=1)
@@ -2366,9 +2367,9 @@ from (
        t2 as (select @_p1_INT64 from SimpleTypesWithAnonymizationUid)
   select * from t1);
 
-Rewrite ERROR: Subqueries of differential_privacy queries must explicitly SELECT the userid column 'uid' [at 4:15]
+Rewrite ERROR: Subqueries of differential_privacy queries must explicitly SELECT the userid column 'uid' [at 4:14]
        t2 as (select 1 from SimpleTypesWithAnonymizationUid)
-              ^
+             ^
 ==
 
 # WITH clause was crashed, see b/413760889.
@@ -2395,7 +2396,7 @@ QueryStmt
     |   +-with_query_name="t"
     |   +-with_subquery=
     |     +-OrderByScan
-    |       +-parse_location=14-87
+    |       +-parse_location=10-89
     |       +-column_list=[SimpleTypesWithAnonymizationUid.int64#2]
     |       +-is_ordered=TRUE
     |       +-input_scan=
@@ -2464,7 +2465,7 @@ QueryStmt
     |   +-with_query_name="t"
     |   +-with_subquery=
     |     +-ProjectScan
-    |       +-parse_location=11-67
+    |       +-parse_location=10-68
     |       +-column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12]
     |       +-input_scan=
     |         +-TableScan(parse_location=36-67, column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
@@ -2499,7 +2500,7 @@ QueryStmt
     |   +-with_query_name="t"
     |   +-with_subquery=
     |     +-ProjectScan
-    |       +-parse_location=11-67
+    |       +-parse_location=10-68
     |       +-column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12]
     |       +-input_scan=
     |         +-TableScan(parse_location=36-67, column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
@@ -2525,4 +2526,121 @@ QueryStmt
             |     +-Literal(parse_location=144-150, type=STRUCT<INT64, INT64>, value={0, 1})
             +-group_selection_threshold_expr=
               +-ColumnRef(type=INT64, column=$aggregate.anon_count#25)
+==
 
+[parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
+# Test SELECT WITH DIFFERENTIAL_PRIVACY in a CTE.
+WITH
+  first AS (
+    SELECT *
+    FROM SimpleTypesWithAnonymizationUid
+  ),
+  second AS (
+    SELECT WITH DIFFERENTIAL_PRIVACY COUNT(*)
+    FROM first
+  )
+SELECT *
+FROM second;
+--
+QueryStmt
++-output_column_list=
+| +-second.$col1#26 AS `$col1` [INT64]
++-query=
+  +-WithScan
+    +-parse_location=50-226
+    +-column_list=[second.$col1#26]
+    +-with_entry_list=
+    | +-WithEntry
+    | | +-with_query_name="first"
+    | | +-with_subquery=
+    | |   +-ProjectScan
+    | |     +-parse_location=66-125
+    | |     +-column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12]
+    | |     +-input_scan=
+    | |       +-TableScan(parse_location=90-121, column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
+    | +-WithEntry
+    |   +-with_query_name="second"
+    |   +-with_subquery=
+    |     +-ProjectScan
+    |       +-parse_location=139-205
+    |       +-column_list=[$aggregate.$agg1#25]
+    |       +-input_scan=
+    |         +-DifferentialPrivacyAggregateScan
+    |           +-column_list=[$aggregate.$agg1#25]
+    |           +-input_scan=
+    |           | +-WithRefScan(column_list=first.[int32#13, int64#14, uint32#15, uint64#16, string#17, bytes#18, bool#19, float#20, double#21, date#22, uid#23, numeric#24], with_query_name="first")
+    |           +-aggregate_list=
+    |             +-$agg1#25 :=
+    |               +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
+    |                 +-parse_location=178-183
+    |                 +-Literal(type=STRUCT<INT64, INT64>, value=NULL)
+    +-query=
+      +-ProjectScan
+        +-column_list=[second.$col1#26]
+        +-input_scan=
+          +-WithRefScan(column_list=[second.$col1#26], with_query_name="second")
+[REPLACED_LITERALS]
+\# Test SELECT WITH DIFFERENTIAL_PRIVACY in a CTE.
+WITH
+  first AS (
+    SELECT *
+    FROM SimpleTypesWithAnonymizationUid
+  ),
+  second AS (
+    SELECT WITH DIFFERENTIAL_PRIVACY COUNT(*)
+    FROM first
+  )
+SELECT *
+FROM second;
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-second.$col1#26 AS `$col1` [INT64]
++-query=
+  +-WithScan
+    +-parse_location=50-226
+    +-column_list=[second.$col1#26]
+    +-with_entry_list=
+    | +-WithEntry
+    | | +-with_query_name="first"
+    | | +-with_subquery=
+    | |   +-ProjectScan
+    | |     +-parse_location=66-125
+    | |     +-column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12]
+    | |     +-input_scan=
+    | |       +-TableScan(parse_location=90-121, column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
+    | +-WithEntry
+    |   +-with_query_name="second"
+    |   +-with_subquery=
+    |     +-ProjectScan
+    |       +-parse_location=139-205
+    |       +-column_list=[$aggregate.$agg1#25]
+    |       +-input_scan=
+    |         +-DifferentialPrivacyAggregateScan
+    |           +-column_list=[$aggregate.$agg1#25]
+    |           +-input_scan=
+    |           | +-AggregateScan
+    |           |   +-column_list=[$aggregate.$agg1_partial#28, $group_by.$uid#29]
+    |           |   +-input_scan=
+    |           |   | +-WithRefScan(column_list=first.[int32#13, int64#14, uint32#15, uint64#16, string#17, bytes#18, bool#19, float#20, double#21, date#22, uid#23, numeric#24], with_query_name="first")
+    |           |   +-group_by_list=
+    |           |   | +-$uid#29 := ColumnRef(type=INT64, column=first.uid#23)
+    |           |   +-aggregate_list=
+    |           |     +-$agg1_partial#28 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+    |           +-aggregate_list=
+    |           | +-$agg1#25 :=
+    |           | | +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
+    |           | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#28)
+    |           | |   +-Literal(type=STRUCT<INT64, INT64>, value=NULL)
+    |           | +-$group_selection_threshold_col#32 :=
+    |           |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
+    |           |     +-Literal(type=INT64, value=1)
+    |           |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
+    |           +-group_selection_threshold_expr=
+    |             +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#32)
+    +-query=
+      +-ProjectScan
+        +-column_list=[second.$col1#26]
+        +-input_scan=
+          +-WithRefScan(column_list=[second.$col1#26], with_query_name="second")

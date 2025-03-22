@@ -16,7 +16,6 @@
 
 #include "zetasql/analyzer/rewriters/sql_function_inliner.h"
 
-#include <algorithm>
 #include <cstdint>
 #include <functional>
 #include <memory>

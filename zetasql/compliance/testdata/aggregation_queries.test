@@ -2900,6 +2900,85 @@ GROUP BY id
 --
 ARRAY<STRUCT<id STRING, INT64>>[unknown order:{"a", 1}, {"b", 4}]
 ==
+[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES]
+[name=bit_and_aggregation_bytes_arg_1]
+SELECT bit_and(x) FROM
+(SELECT NULL x UNION ALL SELECT b"" UNION ALL SELECT b"");
+--
+ARRAY<STRUCT<BYTES>>[{b""}]
+==
+[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES]
+[name=bit_and_aggregation_bytes_arg_2]
+SELECT bit_and(x) FROM
+(SELECT NULL x UNION ALL SELECT b"\x00" UNION ALL SELECT b"\xFF");
+--
+ARRAY<STRUCT<BYTES>>[{b"\x00"}]
+==
+[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES]
+[name=bit_and_aggregation_bytes_arg_3]
+SELECT bit_and(x) FROM
+(SELECT NULL x UNION ALL SELECT b"\x00\xFF" UNION ALL SELECT b"\xFF\x00");
+--
+ARRAY<STRUCT<BYTES>>[{b"\x00\x00"}]
+==
+[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES]
+[name=bit_and_aggregation_bytes_arg_4]
+SELECT bit_and(x) FROM
+(SELECT NULL x UNION ALL SELECT b"\xAA\xAA\xAA\xAA\xAA" UNION ALL
+ SELECT b"\x55\x55\x55\x55\x55");
+--
+ARRAY<STRUCT<BYTES>>[{b"\x00\x00\x00\x00\x00"}]
+==
+[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES]
+[name=bit_and_aggregation_bytes_arg_5]
+SELECT bit_and(x) FROM
+(SELECT NULL x UNION ALL
+ SELECT b"\x01\x23\x45\x67\x89\xAB\xCD\xEF\xFE\xDC\xBA" UNION ALL
+ SELECT b"\x12\x34\x56\x78\x9A\xBC\xDE\xF0\x0F\xED\xCB");
+--
+ARRAY<STRUCT<BYTES>>[{b"\x00 D`\x88\xa8\xcc\xe0\x0e\xcc\x8a"}]
+==
+# BIT_AND with BYTES argument should work with GROUP BY.
+[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES]
+[name=bit_and_aggregation_bytes_arg_6]
+SELECT id, bit_and(x) FROM
+(SELECT "a" id, b"\xFF" x UNION ALL SELECT "a", b"\x00" UNION ALL
+ SELECT "b" id, b"\xFF" x UNION ALL SELECT "b", b"\xFF")
+GROUP BY id;
+--
+ARRAY<STRUCT<id STRING, BYTES>>[unknown order:{"a", b"\x00"}, {"b", b"\xff"}]
+==
+[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES]
+[name=bit_and_aggregation_bytes_arg_7]
+# BIT_AND with BYTES argument should verify input is the same length.
+SELECT bit_and(x) FROM
+(SELECT NULL x UNION ALL
+ SELECT b"\x01\x02" UNION ALL
+ SELECT b"\x01");
+--
+ERROR: generic::out_of_range: Bitwise binary operator for BYTES requires equal length of the inputs. Got 2 bytes on the left hand side and 1 bytes on the right hand side.
+==
+[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES,NAMED_ARGUMENTS]
+[name=bit_and_aggregation_bytes_arg_with_pad_mode_1]
+# BIT_AND with BYTES and PAD mode should pad the shorter input.
+SELECT bit_and(x, mode => 'PAD') FROM
+(SELECT NULL x UNION ALL
+ SELECT b"\x01\x02" UNION ALL
+ SELECT b"\x01");
+--
+ARRAY<STRUCT<BYTES>>[{b"\x01\x00"}]
+==
+[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES,NAMED_ARGUMENTS]
+[name=bit_and_aggregation_bytes_arg_with_pad_mode_2]
+# BIT_AND with BYTES and PAD mode should pad the shorter input.
+SELECT bit_and(x, mode => 'PAD') FROM
+(SELECT NULL x UNION ALL
+ SELECT b"\x01\x02" UNION ALL
+ SELECT b"\x01" UNION ALL
+ SELECT b"\x01\x02\x03");
+--
+ARRAY<STRUCT<BYTES>>[{b"\x01\x00\x00"}]
+==
 
 # ----------------------------------------------------------------------------
 # BIT_OR
@@ -2997,6 +3076,85 @@ GROUP BY id
 --
 ARRAY<STRUCT<id STRING, INT64>>[unknown order:{"a", 7}, {"b", 7}]
 ==
+[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES]
+[name=bit_or_aggregation_bytes_arg_1]
+SELECT bit_or(x) FROM
+(SELECT NULL x UNION ALL SELECT b"" UNION ALL SELECT b"");
+--
+ARRAY<STRUCT<BYTES>>[{b""}]
+==
+[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES]
+[name=bit_or_aggregation_bytes_arg_2]
+SELECT bit_or(x) FROM
+(SELECT NULL x UNION ALL SELECT b"\x00" UNION ALL SELECT b"\xFF");
+--
+ARRAY<STRUCT<BYTES>>[{b"\xff"}]
+==
+[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES]
+[name=bit_or_aggregation_bytes_arg_3]
+SELECT bit_or(x) FROM
+(SELECT NULL x UNION ALL SELECT b"\x00\xFF" UNION ALL SELECT b"\xFF\x00");
+--
+ARRAY<STRUCT<BYTES>>[{b"\xff\xff"}]
+==
+[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES]
+[name=bit_or_aggregation_bytes_arg_4]
+SELECT bit_or(x) FROM
+(SELECT NULL x UNION ALL SELECT b"\xAA\xAA\xAA\xAA\xAA" UNION ALL
+ SELECT b"\x55\x55\x55\x55\x55");
+--
+ARRAY<STRUCT<BYTES>>[{b"\xff\xff\xff\xff\xff"}]
+==
+[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES]
+[name=bit_or_aggregation_bytes_arg_5]
+SELECT bit_or(x) FROM
+(SELECT NULL x UNION ALL
+ SELECT b"\x01\x23\x45\x67\x89\xAB\xCD\xEF\xFE\xDC\xBA" UNION ALL
+ SELECT b"\x12\x34\x56\x78\x9A\xBC\xDE\xF0\x0F\xED\xCB");
+--
+ARRAY<STRUCT<BYTES>>[{b"\x137W\x7f\x9b\xbf\xdf\xff\xff\xfd\xfb"}]
+==
+# BIT_OR with BYTES argument should work with GROUP BY.
+[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES]
+[name=bit_or_aggregation_bytes_arg_6]
+SELECT id, bit_or(x) FROM
+(SELECT "a" id, b"\xFF" x UNION ALL SELECT "a", b"\x00" UNION ALL
+ SELECT "b" id, b"\x00" x UNION ALL SELECT "b", b"\x00")
+GROUP BY id
+--
+ARRAY<STRUCT<id STRING, BYTES>>[unknown order:{"a", b"\xff"}, {"b", b"\x00"}]
+==
+[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES]
+[name=bit_or_aggregation_bytes_arg_7]
+# BIT_OR with BYTES argument should verify input is the same length.
+SELECT bit_or(x) FROM
+(SELECT NULL x UNION ALL
+ SELECT b"\x01\x02" UNION ALL
+ SELECT b"\x01");
+--
+ERROR: generic::out_of_range: Bitwise binary operator for BYTES requires equal length of the inputs. Got 2 bytes on the left hand side and 1 bytes on the right hand side.
+==
+[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES,NAMED_ARGUMENTS]
+[name=bit_or_aggregation_bytes_arg_with_pad_mode_1]
+# BIT_OR with BYTES and PAD mode should pad the shorter input.
+SELECT bit_or(x, mode => 'PAD') FROM
+(SELECT NULL x UNION ALL
+ SELECT b"\x01\x02" UNION ALL
+ SELECT b"\x01");
+--
+ARRAY<STRUCT<BYTES>>[{b"\x01\x02"}]
+==
+[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES,NAMED_ARGUMENTS]
+[name=bit_or_aggregation_bytes_arg_with_pad_mode_2]
+# BIT_OR with BYTES and PAD mode should pad the shorter input.
+SELECT bit_or(x, mode => 'PAD') FROM
+(SELECT NULL x UNION ALL
+ SELECT b"\x01\x02" UNION ALL
+ SELECT b"\x01" UNION ALL
+ SELECT b"\x01\x02\x03");
+--
+ARRAY<STRUCT<BYTES>>[{b"\x01\x02\x03"}]
+==
 
 # ----------------------------------------------------------------------------
 # BIT_XOR
@@ -3093,6 +3251,85 @@ SELECT id, bit_xor(x) FROM
 GROUP BY id
 --
 ARRAY<STRUCT<id STRING, INT64>>[unknown order:{"a", 6}, {"b", 3}]
+==
+[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES]
+[name=bit_xor_aggregation_bytes_arg_1]
+SELECT bit_xor(x) FROM
+(SELECT NULL x UNION ALL SELECT b"" UNION ALL SELECT b"");
+--
+ARRAY<STRUCT<BYTES>>[{b""}]
+==
+[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES]
+[name=bit_xor_aggregation_bytes_arg_2]
+SELECT bit_xor(x) FROM
+(SELECT NULL x UNION ALL SELECT b"\x00" UNION ALL SELECT b"\xFF");
+--
+ARRAY<STRUCT<BYTES>>[{b"\xff"}]
+==
+[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES]
+[name=bit_xor_aggregation_bytes_arg_3]
+SELECT bit_xor(x) FROM
+(SELECT NULL x UNION ALL SELECT b"\x00\xFF" UNION ALL SELECT b"\xFF\x00");
+--
+ARRAY<STRUCT<BYTES>>[{b"\xff\xff"}]
+==
+[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES]
+[name=bit_xor_aggregation_bytes_arg_4]
+SELECT bit_xor(x) FROM
+(SELECT NULL x UNION ALL SELECT b"\xAA\xAA\xAA\xAA\xAA" UNION ALL
+ SELECT b"\x55\x55\x55\x55\x55");
+--
+ARRAY<STRUCT<BYTES>>[{b"\xff\xff\xff\xff\xff"}]
+==
+[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES]
+[name=bit_xor_aggregation_bytes_arg_5]
+SELECT bit_xor(x) FROM
+(SELECT NULL x UNION ALL
+ SELECT b"\x01\x23\x45\x67\x89\xAB\xCD\xEF\xFE\xDC\xBA" UNION ALL
+ SELECT b"\x12\x34\x56\x78\x9A\xBC\xDE\xF0\x0F\xED\xCB");
+--
+ARRAY<STRUCT<BYTES>>[{b"\x13\x17\x13\x1f\x13\x17\x13\x1f\xf11q"}]
+==
+# BIT_XOR with BYTES argument should work with GROUP BY.
+[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES]
+[name=bit_xor_aggregation_bytes_arg_6]
+SELECT id, bit_xor(x) FROM
+(SELECT "a" id, b"\xFF" x UNION ALL SELECT "a", b"\x00" UNION ALL
+ SELECT "b" id, b"\xFF" x UNION ALL SELECT "b", b"\xFF")
+GROUP BY id
+--
+ARRAY<STRUCT<id STRING, BYTES>>[unknown order:{"a", b"\xff"}, {"b", b"\x00"}]
+==
+[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES]
+[name=bit_xor_aggregation_bytes_arg_7]
+# BIT_XOR with BYTES argument should verify input is the same length.
+SELECT bit_xor(x) FROM
+(SELECT NULL x UNION ALL
+ SELECT b"\x01\x02" UNION ALL
+ SELECT b"\x01");
+--
+ERROR: generic::out_of_range: Bitwise binary operator for BYTES requires equal length of the inputs. Got 2 bytes on the left hand side and 1 bytes on the right hand side.
+==
+[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES,NAMED_ARGUMENTS]
+[name=bit_xor_aggregation_bytes_arg_with_pad_mode_1]
+# BIT_XOR with BYTES and PAD mode should pad the shorter input.
+SELECT bit_xor(x, mode => 'PAD') FROM
+(SELECT NULL x UNION ALL
+ SELECT b"\x01\x02" UNION ALL
+ SELECT b"\x01");
+--
+ARRAY<STRUCT<BYTES>>[{b"\x00\x02"}]
+==
+[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES,NAMED_ARGUMENTS]
+[name=bit_xor_aggregation_bytes_arg_with_pad_mode_2]
+# BIT_XOR with BYTES and PAD mode should pad the shorter input.
+SELECT bit_xor(x, mode => 'PAD') FROM
+(SELECT NULL x UNION ALL
+ SELECT b"\x01\x02" UNION ALL
+ SELECT b"\x01" UNION ALL
+ SELECT b"\x01\x02\x03");
+--
+ARRAY<STRUCT<BYTES>>[{b"\x01\x00\x03"}]
 ==
 
 # ----------------------------------------------------------------------------

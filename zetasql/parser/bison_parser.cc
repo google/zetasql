@@ -18,7 +18,6 @@
 
 #include <cctype>
 #include <cstdint>
-#include <functional>
 #include <memory>
 #include <set>
 #include <string>
@@ -39,7 +38,7 @@
 #include "zetasql/parser/textmapper_lexer_adapter.h"
 #include "zetasql/parser/tm_parser.h"
 #include "zetasql/parser/tm_token.h"
-#include "zetasql/parser/token_codes.h"
+#include "zetasql/parser/token_with_location.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
@@ -181,6 +180,7 @@ static absl::StatusOr<std::string> GenerateImprovedBisonSyntaxError(
     const LanguageOptions& language_options, ParseLocationPoint& error_location,
     absl::string_view bison_error_message, BisonParserMode mode,
     absl::string_view input, int start_offset,
+    MacroExpansionMode macro_expansion_mode,
     const macros::MacroCatalog* macro_catalog, zetasql_base::UnsafeArena* arena) {
   // Bison error messages are always of the form "syntax error, unexpected X,
   // expecting Y", where Y may be of the form "A" or "A or B" or "A or B or C".
@@ -295,11 +295,13 @@ static absl::StatusOr<std::string> GenerateImprovedBisonSyntaxError(
   // start the tokenizer in kTokenizer mode because we don't need to get a bogus
   // token at the start to indicate the statement type. That token interferes
   // with errors at offset 0.
-  ZETASQL_ASSIGN_OR_RETURN(auto tokenizer,
-                   LookaheadTransformer::Create(
-                       BisonParserMode::kTokenizerPreserveComments,
-                       error_location.filename(), input, start_offset,
-                       language_options, macro_catalog, arena));
+  std::vector<std::unique_ptr<StackFrame>> stack_frames;
+  ZETASQL_ASSIGN_OR_RETURN(
+      auto tokenizer,
+      LookaheadTransformer::Create(
+          BisonParserMode::kTokenizerPreserveComments,
+          error_location.filename(), input, start_offset, language_options,
+          macro_expansion_mode, macro_catalog, arena, stack_frames));
   ParseLocationRange token_location;
   Token token = Token::UNAVAILABLE;
   while (token != Token::EOI) {
@@ -397,6 +399,7 @@ static absl::Status ParseWithTextMapper(
     BisonParser* parser, absl::string_view filename, absl::string_view input,
     BisonParserMode mode, int start_byte_offset,
     const LanguageOptions& language_options,
+    MacroExpansionMode macro_expansion_mode,
     const macros::MacroCatalog* macro_catalog, zetasql_base::UnsafeArena* arena,
     ASTNode*& output_node, std::string& error_message,
     ParseLocationPoint& error_location,
@@ -404,7 +407,8 @@ static absl::Status ParseWithTextMapper(
     int* statement_end_byte_offset, bool& format_error,
     int64_t& out_num_lexical_tokens) {
   Lexer textmapper_lexer(mode, filename, input, start_byte_offset,
-                         language_options, macro_catalog, arena);
+                         language_options, macro_expansion_mode, macro_catalog,
+                         arena);
 
   Parser textmapper_parser(&textmapper_lexer.tokenizer(), parser, &output_node,
                            ast_statement_properties, &error_message,
@@ -420,21 +424,6 @@ static absl::Status ParseWithTextMapper(
   }
   format_error = true;
   return parse_status;
-}
-
-using ParseFn = std::function<absl::Status(
-    BisonParser* parser, absl::string_view filename, absl::string_view input,
-    BisonParserMode mode, int start_byte_offset,
-    const LanguageOptions& language_options,
-    const macros::MacroCatalog* macro_catalog, zetasql_base::UnsafeArena* arena,
-    ASTNode*& output_node, std::string& error_message,
-    ParseLocationPoint& error_location,
-    ASTStatementProperties* ast_statement_properties,
-    int* statement_end_byte_offset, bool& format_error,
-    int64_t& out_num_lexical_tokens)>;
-
-static ParseFn ChooseParseFn(ExecutionStats::ParserVariant parser_variant) {
-  return &ParseWithTextMapper;
 }
 
 // Initializes fields on the nodes out of 'allocated_ast_nodes' and moves them
@@ -472,14 +461,16 @@ absl::Status BisonParser::Parse(
     BisonParserMode mode, absl::string_view filename, absl::string_view input,
     int start_byte_offset, IdStringPool* id_string_pool, zetasql_base::UnsafeArena* arena,
     const LanguageOptions& language_options,
+    MacroExpansionMode macro_expansion_mode,
     const macros::MacroCatalog* macro_catalog, std::unique_ptr<ASTNode>* output,
     std::vector<std::unique_ptr<ASTNode>>* other_allocated_ast_nodes,
     ASTStatementProperties* ast_statement_properties,
     int* statement_end_byte_offset) {
-  absl::Status status = ParseInternal(
-      mode, filename, input, start_byte_offset, id_string_pool, arena,
-      language_options, macro_catalog, output, other_allocated_ast_nodes,
-      ast_statement_properties, statement_end_byte_offset);
+  absl::Status status =
+      ParseInternal(mode, filename, input, start_byte_offset, id_string_pool,
+                    arena, language_options, macro_expansion_mode,
+                    macro_catalog, output, other_allocated_ast_nodes,
+                    ast_statement_properties, statement_end_byte_offset);
   if (!status.ok()) {
     if (absl::StartsWith(status.message(), "Internal Error: ")) {
       status = zetasql_base::StatusBuilder(status).SetCode(absl::StatusCode::kInternal);
@@ -494,6 +485,7 @@ absl::Status BisonParser::ParseInternal(
     BisonParserMode mode, absl::string_view filename, absl::string_view input,
     int start_byte_offset, IdStringPool* id_string_pool, zetasql_base::UnsafeArena* arena,
     const LanguageOptions& language_options,
+    MacroExpansionMode macro_expansion_mode,
     const macros::MacroCatalog* macro_catalog, std::unique_ptr<ASTNode>* output,
     std::vector<std::unique_ptr<ASTNode>>* other_allocated_ast_nodes,
     ASTStatementProperties* ast_statement_properties,
@@ -503,11 +495,11 @@ absl::Status BisonParser::ParseInternal(
   language_options_ = &language_options;
   allocated_ast_nodes_ =
       std::make_unique<std::vector<std::unique_ptr<ASTNode>>>();
+  macro_expansion_mode_ = macro_expansion_mode;
   auto clean_up_allocated_ast_nodes =
       absl::MakeCleanup([&] { allocated_ast_nodes_.reset(); });
   if (parser_runtime_info_ == nullptr) {
-    parser_runtime_info_ =
-        std::make_unique<ParserRuntimeInfo>(language_options);
+    parser_runtime_info_ = std::make_unique<ParserRuntimeInfo>();
   }
 
   // We must have the filename outlive the <resume_location>, since the
@@ -528,14 +520,16 @@ absl::Status BisonParser::ParseInternal(
       &parser_runtime_info_->parser_timed_value());
 
   int64_t num_lexical_tokens;
-  ExecutionStats::ParserVariant primary_parser =
-      GetPrimaryParser(language_options);
-  auto parse_fn = ChooseParseFn(primary_parser);
-  absl::Status parse_status = parse_fn(
+  absl::Status parse_status = ParseWithTextMapper(
       this, filename, input, mode, start_byte_offset, language_options,
-      macro_catalog, arena, output_node, error_message, error_location,
-      ast_statement_properties, statement_end_byte_offset, format_error,
-      num_lexical_tokens);
+      macro_expansion_mode, macro_catalog, arena, output_node, error_message,
+      error_location, ast_statement_properties, statement_end_byte_offset,
+      format_error, num_lexical_tokens);
+  // Internal errors are not expected and require no additional processing.
+  if (absl::IsInternal(parse_status)) {
+    return parse_status;
+  }
+
   parser_runtime_info_->add_lexical_tokens(num_lexical_tokens);
 
   if (parse_status.ok()) {
@@ -559,10 +553,11 @@ absl::Status BisonParser::ParseInternal(
       error_message.empty()) {
     // This was a Bison-generated syntax error. Generate a message that is to
     // our own liking.
-    ZETASQL_ASSIGN_OR_RETURN(error_message,
-                     GenerateImprovedBisonSyntaxError(
-                         language_options, error_location, error_message, mode,
-                         input_, start_byte_offset, macro_catalog, arena));
+    ZETASQL_ASSIGN_OR_RETURN(
+        error_message,
+        GenerateImprovedBisonSyntaxError(
+            language_options, error_location, error_message, mode, input_,
+            start_byte_offset, macro_expansion_mode, macro_catalog, arena));
   }
   return MakeSqlErrorAtPoint(error_location) << error_message;
 }

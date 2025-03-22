@@ -501,6 +501,65 @@ AllDepthLimitDetectorTestCases() {
                   },
           },
           {
+              .depth_limit_test_case_name = "pipe_extends",
+              .depth_limit_template = {"FROM (SELECT 1 c)",
+                                       R({"|> EXTEND c+1 AS c", N()})},
+              .depth_limit_required_features =
+                  {
+                      LanguageFeature::FEATURE_PIPES,
+                  },
+          },
+          {
+              .depth_limit_test_case_name = "pipe_set",
+              .depth_limit_template = {"FROM (SELECT 1 c)",
+                                       R({"|> SET c = ", N()})},
+              .depth_limit_required_features =
+                  {
+                      LanguageFeature::FEATURE_PIPES,
+                  },
+              // TODO: b/384695779 - Remove below limit after n^3 memory fixed.
+              .depth_limit_max_depth = 100,
+          },
+          {
+              .depth_limit_test_case_name = "pipe_limit",
+              .depth_limit_template = {"FROM (SELECT 1 c)",
+                                       R({"|> LIMIT ", N(), " OFFSET ", N()})},
+              .depth_limit_required_features =
+                  {
+                      LanguageFeature::FEATURE_PIPES,
+                  },
+          },
+          {
+              .depth_limit_test_case_name = "pipe_drop",
+              .depth_limit_template = {"FROM (SELECT 1 AS c",
+                                       R({", ", N(), " AS c", N()}), ")",
+                                       R({"|> DROP c", N()})},
+              .depth_limit_required_features =
+                  {
+                      LanguageFeature::FEATURE_PIPES,
+                  },
+          },
+          {
+              .depth_limit_test_case_name = "pipe_order_by",
+              .depth_limit_template = {"FROM (SELECT 1 c)",
+                                       R({"|> ORDER BY c+", N()})},
+              .depth_limit_required_features =
+                  {
+                      LanguageFeature::FEATURE_PIPES,
+                  },
+          },
+          {
+              .depth_limit_test_case_name = "pipe_assert",
+              .depth_limit_template = {"FROM (SELECT 1 c)",
+                                       R({"|> ASSERT ( SELECT TRUE "}),
+                                       R({")"})},
+              .depth_limit_required_features =
+                  {
+                      LanguageFeature::FEATURE_PIPES,
+                      LanguageFeature::FEATURE_PIPE_ASSERT,
+                  },
+          },
+          {
               .depth_limit_test_case_name = "with_joins",
               .depth_limit_template = {"WITH ",
                                        R({"t", N(), " AS (SELECT 1 AS c),"}),

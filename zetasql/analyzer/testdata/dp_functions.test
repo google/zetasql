@@ -1,5 +1,6 @@
 # Valid function calls
 [default also_show_signature_mismatch_details]
+
 [language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS]
 select with differential_privacy COUNT(string, contribution_bounds_per_group => (0, 1)), COUNT(*, contribution_bounds_per_group => (0, 1)) from SimpleTypes
 --

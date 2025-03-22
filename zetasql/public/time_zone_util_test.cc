@@ -20,6 +20,8 @@
 #include "zetasql/public/functions/date_time_util.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/time/civil_time.h"
+#include "absl/time/time.h"
 
 namespace zetasql {
 

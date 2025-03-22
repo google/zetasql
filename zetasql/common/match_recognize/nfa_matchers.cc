@@ -16,6 +16,7 @@
 
 #include "zetasql/common/match_recognize/nfa_matchers.h"
 
+#include <memory>
 #include <ostream>
 #include <stack>
 #include <string>
@@ -97,9 +98,9 @@ std::string GetTestOutputForNfa(const NFA& nfa) {
 }
 
 void PrintTo(const NFA& nfa, std::ostream* os) {
-  NFA renumbered = RenumberStates(nfa);
+  std::unique_ptr<NFA> renumbered = RenumberStates(nfa);
 
-  *os << GetTestOutputForNfa(renumbered) << "\nBefore renumbering:\n"
+  *os << GetTestOutputForNfa(*renumbered) << "\nBefore renumbering:\n"
       << GetTestOutputForNfa(nfa);
 }
 
@@ -133,17 +134,17 @@ std::string TestGraph::GetCodeSyntax() const {
   return result;
 }
 
-NFA RenumberStates(const NFA& nfa) {
+std::unique_ptr<NFA> RenumberStates(const NFA& nfa) {
   std::vector<NFAState> state_order = GetStateOrdering(nfa);
 
   // Create new NFA states and build a map to associate each original state
   // with its new state.
-  NFA new_nfa;
+  std::unique_ptr<NFA> new_nfa = nfa.CreateEmptyNFA();
 
   // Index = state number in original NFA; value = state in new NFA.
   std::vector<NFAState> state_map(nfa.num_states());
   for (int i = 0; i < state_order.size(); ++i) {
-    state_map[state_order[i].value()] = new_nfa.NewState();
+    state_map[state_order[i].value()] = new_nfa->NewState();
   }
 
   for (NFAState old_nfa_state : state_order) {
@@ -151,12 +152,12 @@ NFA RenumberStates(const NFA& nfa) {
       NFAEdge new_edge(edge);
       new_edge.target = state_map[edge.target.value()];
       ABSL_CHECK(new_nfa  // Crash OK
-                .AddEdge(state_map[old_nfa_state.value()], new_edge)
+                ->AddEdge(state_map[old_nfa_state.value()], new_edge)
                 .ok());
     }
   }
-  new_nfa.SetAsStartState(state_map[nfa.start_state().value()]);
-  new_nfa.SetAsFinalState(state_map[nfa.final_state().value()]);
+  new_nfa->SetAsStartState(state_map[nfa.start_state().value()]);
+  new_nfa->SetAsFinalState(state_map[nfa.final_state().value()]);
 
   return new_nfa;
 }

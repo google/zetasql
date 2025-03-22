@@ -16,6 +16,7 @@
 
 #include "zetasql/public/table_valued_function.h"
 
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <string>
@@ -24,13 +25,18 @@
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/proto/function.pb.h"
+#include "zetasql/public/catalog.h"
+#include "zetasql/public/function.pb.h"
 #include "zetasql/public/function_signature.h"
 #include "zetasql/public/language_options.h"
+#include "zetasql/public/options.pb.h"
+#include "zetasql/public/parse_location.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/simple_value.h"
+#include "zetasql/public/types/type_deserializer.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "absl/status/statusor.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {

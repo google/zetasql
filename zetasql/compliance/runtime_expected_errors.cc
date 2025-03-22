@@ -180,6 +180,12 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange,
       "Limit requires (non-negative|non-null) count and offset"));
+  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "The argument to the function IS_FIRST() cannot be null or negative"));
+  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "The argument to the function IS_LAST() cannot be null or negative"));
 
   // REPLACE_FIELDS() specific
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
@@ -224,6 +230,11 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
   //
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange, "MATCH_RECOGNIZE pattern is too complex"));
+  // TODO: b/396162793 - Investigate and remove this entry.
+  // Revert this change once the bug is fixed.
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "Correlated access to MATCH_RECOGNIZE columns"));
 
   // CASTing errors for un-castable values.
   //
@@ -249,6 +260,9 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       absl::StatusCode::kOutOfRange, "Invalid BIGNUMERIC value"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange, "Invalid INTERVAL value"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "Out of range cast (.|\\n)*. to enum type .*"));
   // Casting strings to proto.
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange,
@@ -259,6 +273,11 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange,
       "Protocol buffer missing required field.*"));
+  // Some parts of our code also use a different parsing API, leading to a
+  // different error message.
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "Error parsing proto: Message missing required fields.*"));
 
   // Regex/Like Errors
   //
@@ -404,12 +423,18 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
       absl::StatusCode::kOutOfRange,
       "Interval overflow during multiplication"));
-  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange,
       "Unsupported date part ("
       "DAYOFWEEK|DAYOFYEAR|QUARTER|DATE|WEEK|DATETIME|TIME|ISOYEAR|ISOWEEK|"
       "WEEK_MONDAY|WEEK_TUESDAY|WEEK_WEDNESDAY|WEEK_THURSDAY|WEEK_FRIDAY|"
       "WEEK_SATURDAY) in EXTRACT FROM INTERVAL"));
+
+  // RANGE errors
+  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "Failed to parse range: range must be formatted exactly as [START, "
+      "END)"));
 
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
       absl::StatusCode::kOutOfRange, "Illegal non-space trailing data"));
@@ -465,7 +490,7 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       absl::StatusCode::kInvalidArgument,
       "Could not cast (.+) to type (UINT32|INT32|UINT64|INT64|FLOAT|DOUBLE|"
       "TIMESTAMP|DATE|DATETIME|TIME|STRING|BOOL|NUMERIC|BIGNUMERIC|JSON|"
-      "INTERVAL)"));
+      "INTERVAL|UUID)"));
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
       absl::StatusCode::kOutOfRange, "Bad BOOL value:"));
   // TODO: Remove these lowercase options once engines have all moved
@@ -699,11 +724,6 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       "LIKE pattern has '_' which is not allowed when its operands have "
       "collation:(.+)"));
 
-  // TODO Remove this after code is updated to kOutOfRange
-  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
-      absl::StatusCode::kInvalidArgument,
-      "syntax error while parsing (value|array|object|object key|object "
-      "separator)"));
 
   // JSON related errors
   // TO_JSON will return OUT_OF_RANGE error if the input type is
@@ -759,6 +779,40 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange,
       "The provided JSON input is not an array"));
+
+  // UUID out of range errors.
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "Invalid bytes value size for UUID, expected 16 bytes, but got .* "
+      "bytes."));
+  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kOutOfRange, "UUID cannot have"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "Invalid input: (.|\\n)*. UUID must be at least 32 characters long."));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "Invalid input: (.|\\n)*. (.|\\n)* extra characters found after parsing "
+      "UUID."));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "Invalid input: (.|\\n)*. Mismatched curly braces in UUID, missing "
+      "closing "
+      "'}'."));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "Invalid input: (.|\\n)*. UUID cannot start with a hyphen .*."));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "Invalid input: (.|\\n)*. UUID cannot have multiple consecutive hyphens "
+      ".*."));
+  // TODO: Remove error message once this error message is
+  // updated in other engines.
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "Invalid bytes value size, expected 16 bytes, but got .* "
+      "bytes."));
+
   // Multi-level aggregation expected errors. These are analyzer errors, which
   // we accept since configuring RQG to avoid generating these ResolvedASTs is
   // difficult.
@@ -827,18 +881,16 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeDMLExpectedErrorMatcher(
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
       absl::StatusCode::kUnimplemented,
       "does not yet implement use_spheroid=true"));
-
-  // TODO Remove this after code is updated to kOutOfRange
-  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
-      absl::StatusCode::kInvalidArgument,
-      "syntax error while parsing (value|array|object|object key|object "
-      "separator) - "));
   // TODO PARSE_JSON sometimes is generated with invalid string
   // inputs.
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
       absl::StatusCode::kOutOfRange,
       "syntax error while parsing (value|array|object|object key|object "
       "separator) - "));
+  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "attempting to parse an empty input; check that your input string or "
+      "stream contains the expected JSON"));
 
   error_matchers.emplace_back(RuntimeExpectedErrorMatcher("RuntimeErrors"));
   return std::make_unique<MatcherCollection<absl::Status>>(

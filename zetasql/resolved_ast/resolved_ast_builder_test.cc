@@ -18,8 +18,11 @@
 
 #include <memory>
 #include <utility>
+#include <vector>
 
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/public/function.h"
+#include "zetasql/public/function_signature.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
@@ -27,6 +30,7 @@
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 

@@ -90,6 +90,12 @@ absl::Status SerializeTestDatabase(const TestDatabase& database,
     }
   }
 
+  for (const auto& [name, create_stmt] : database.tvfs) {
+    TestTVFProto* tvf = proto->add_tvfs();
+    tvf->set_name(name);
+    tvf->set_create_stmt(create_stmt);
+  }
+
   for (const auto& [name, create_stmt] : database.property_graph_defs) {
     TestPropertyGraphProto* graph = proto->add_property_graphs();
     graph->set_name(name);
@@ -162,6 +168,15 @@ absl::StatusOr<TestDatabase> DeserializeTestDatabase(
       annotation_maps.push_back(std::move(annotation_map));
     }
     table.options.set_column_annotations(std::move(column_annotations));
+  }
+
+  for (const TestTVFProto& tvf : proto.tvfs()) {
+    const std::string& name = tvf.name();
+    auto [_, is_new] = db.tvfs.emplace(name, tvf.create_stmt());
+    if (!is_new) {
+      return zetasql_base::InvalidArgumentErrorBuilder()
+             << "Duplicate TVF name: " << name;
+    }
   }
 
   for (const TestPropertyGraphProto& graph : proto.property_graphs()) {

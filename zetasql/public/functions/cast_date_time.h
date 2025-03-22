@@ -24,6 +24,7 @@
 
 #include "zetasql/public/civil_time.h"
 #include "zetasql/public/functions/date_time_util.h"
+#include "zetasql/public/pico_time.h"
 #include "zetasql/public/type.pb.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -78,6 +79,15 @@ absl::Status CastStringToTimestamp(absl::string_view format_string,
                                    absl::string_view default_timezone_string,
                                    absl::Time current_timestamp,
                                    absl::Time* timestamp);
+
+// Similar to the above functions but supports PicoTime.
+absl::StatusOr<PicoTime> CastStringToTimestamp(
+    absl::string_view format_string, absl::string_view timestamp_string,
+    absl::string_view default_timezone_string, absl::Time current_timestamp);
+
+absl::StatusOr<PicoTime> CastStringToTimestamp(
+    absl::string_view format_string, absl::string_view timestamp_string,
+    absl::TimeZone default_timezone, absl::Time current_timestamp);
 
 // CastStringToDate function is used for CAST(input AS Date FORMAT '...')
 // syntax.
@@ -194,6 +204,14 @@ absl::Status CastFormatTimestampToString(absl::string_view format_string,
                                          absl::Time timestamp,
                                          absl::string_view timezone_string,
                                          std::string* out);
+
+absl::StatusOr<std::string> CastFormatTimestampToString(
+    absl::string_view format_string, PicoTime timestamp,
+    absl::string_view timezone_string);
+
+absl::StatusOr<std::string> CastFormatTimestampToString(
+    absl::string_view format_string, PicoTime timestamp,
+    absl::TimeZone timezone);
 
 // Populates <out> using the <format_str> following the formatting rules from
 // (broken link).
@@ -479,6 +497,8 @@ class TimestampToStringCaster {
                     std::string* out) const;
   absl::Status Cast(absl::Time timestamp, absl::TimeZone timezone,
                     std::string* out) const;
+  absl::StatusOr<std::string> Cast(PicoTime timestamp,
+                                   absl::TimeZone timezone) const;
 
  private:
   explicit TimestampToStringCaster(

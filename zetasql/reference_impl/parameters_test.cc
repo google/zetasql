@@ -16,9 +16,9 @@
 
 #include "zetasql/reference_impl/parameters.h"
 
+#include "zetasql/reference_impl/variable_id.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "absl/memory/memory.h"
 
 using ::testing::ElementsAreArray;
 using ::testing::IsEmpty;

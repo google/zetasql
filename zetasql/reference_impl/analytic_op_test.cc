@@ -18,18 +18,17 @@
 
 #include <algorithm>
 #include <cstdint>
-#include <iterator>
 #include <limits>
 #include <memory>
 #include <numeric>
 #include <ostream>
-#include <set>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/public/numeric_value.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/value.h"
@@ -46,17 +45,12 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/container/btree_set.h"
-#include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
-#include "absl/types/optional.h"
 #include "absl/types/span.h"
-#include "google/protobuf/wire_format_lite.h"
-#include "zetasql/base/source_location.h"
 #include "zetasql/base/stl_util.h"
-#include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 
 using ::testing::_;
@@ -253,6 +247,10 @@ AnalyticFunctionBody* GenerateAnalyticFunction(
       return new RankFunction();
     case FunctionKind::kRowNumber:
       return new RowNumberFunction();
+    case FunctionKind::kIsFirst:
+      return new IsFirstFunction();
+    case FunctionKind::kIsLast:
+      return new IsLastFunction();
     case FunctionKind::kPercentRank:
       return new PercentRankFunction();
     case FunctionKind::kCumeDist:
@@ -444,10 +442,34 @@ std::vector<AnalyticFunctionTestCase> GetNumberingFunctionTestCases() {
        input_tuples,
        empty_arguments,
        empty_windows,
-       nullptr /* comparator */,
+       comparator_info_by_x_y,
        {Int64(1), Int64(2), Int64(3), Int64(4), Int64(5), Int64(6), Int64(7),
         Int64(8), Int64(9), Int64(10), Int64(11)},
-       AnalyticOutputDeterminism::kNonDeterministic},
+       AnalyticOutputDeterminism::kDeterministic},
+
+      // IS_FIRST(4) OVER (ORDER BY x ASC, y DESC).
+      {FunctionKind::kIsFirst,
+       input_variables,
+       input_tuples,
+       {std::vector<Value>(input_tuples.size(), Int64(4))},
+       empty_windows,
+       comparator_info_by_x_y,
+       {Bool(true), Bool(true), Bool(true), Bool(true), Bool(false),
+        Bool(false), Bool(false), Bool(false), Bool(false), Bool(false),
+        Bool(false)},
+       AnalyticOutputDeterminism::kDeterministic},
+
+      // IS_LAST(4) OVER (ORDER BY x ASC, y DESC).
+      {FunctionKind::kIsLast,
+       input_variables,
+       input_tuples,
+       {std::vector<Value>(input_tuples.size(), Int64(4))},
+       empty_windows,
+       comparator_info_by_x_y,
+       {Bool(false), Bool(false), Bool(false), Bool(false), Bool(false),
+        Bool(false), Bool(false), Bool(true), Bool(true), Bool(true),
+        Bool(true)},
+       AnalyticOutputDeterminism::kDeterministic},
 
       // PERCENT_RANK() OVER (ORDER BY x ASC, y DESC).
       {FunctionKind::kPercentRank,

@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <iostream>
@@ -30,7 +31,7 @@
 #include <vector>
 
 #include "zetasql/common/options_utils.h"
-#include "zetasql/parser/macros/macro_expander.h"
+#include "zetasql/parser/bison_parser_mode.h"
 #include "zetasql/parser/macros/standalone_macro_expansion.h"
 #include "zetasql/parser/macros/standalone_macro_expansion_impl.h"
 #include "zetasql/parser/parse_tree.h"
@@ -157,6 +158,9 @@ ABSL_FLAG(bool, evaluator_scramble_undefined_orderings, false,
           "When true, shuffle the order of rows in intermediate results that "
           "are unordered.");
 
+ABSL_FLAG(bool, prune_unused_columns, true,
+          "Sets AnalyzerOptions::prune_unused_columns.");
+
 ABSL_FLAG(std::string, table_spec, "",
           "The table spec to use for building the ZetaSQL Catalog. This is a "
           "comma-delimited list of strings of the form <table_name>=<spec>, "
@@ -190,6 +194,12 @@ ABSL_FLAG(std::string, sql_mode, "query",
           "\nexpression"
           "\nscript");
 
+ABSL_FLAG(std::string, target_syntax, "standard",
+          "The syntax to use when generating SQL from the resolved AST. "
+          "Available choices:"
+          "\nstandard - The standard syntax with nested subqueries"
+          "\npipe - The pipe syntax with flattened subqueries");
+
 ABSL_FLAG(
     int64_t, evaluator_max_value_byte_size, -1 /* sentinel for unset*/,
     R"(Limit on the maximum number of in-memory bytes used by an individual Value
@@ -214,8 +224,6 @@ namespace zetasql {
 namespace {
 using ToolMode = ExecuteQueryConfig::ToolMode;
 using SqlMode = ExecuteQueryConfig::SqlMode;
-using parser::macros::DiagnosticOptions;
-using parser::macros::ExpansionOutput;
 
 struct SqlModeMap {
   constexpr SqlModeMap(absl::string_view mode_name, SqlMode mode_enum)
@@ -231,6 +239,9 @@ constexpr auto kSqlModeMap = std::array<SqlModeMap, 3>({{
     SqlModeMap("script", SqlMode::kScript),
 }});
 
+constexpr parser::MacroExpansionMode kMacroExpansionMode =
+    parser::MacroExpansionMode::kStrict;
+
 // This callback is used to store the results of the statements executed.
 // Current implementation stores the vector of all the results.
 // Mapping of query/statement to result shall be done when needed.
@@ -239,11 +250,10 @@ constexpr auto kSqlModeMap = std::array<SqlModeMap, 3>({{
 class EvaluatorCallback : public StatementEvaluatorCallback {
  public:
   explicit EvaluatorCallback(ExecuteQueryWriter& writer,
-                             const absl::flat_hash_set<ToolMode>& tool_modes)
+                             ExecuteQueryConfig& config)
       : StatementEvaluatorCallback(/*bytes_per_iterator=*/100),
         writer_(writer),
-        tool_modes_(tool_modes),
-        executed_statement_count_(0) {}
+        config_(config) {}
 
   // Result is ignored if status is not ok.
   // Caller is expected to stop the execution after an error is encountered.
@@ -273,28 +283,29 @@ class EvaluatorCallback : public StatementEvaluatorCallback {
     // call StartStatement() with is_first as false.
     ZETASQL_RETURN_IF_ERROR(writer_.StartStatement(/*is_first=*/false));
     (void)writer_.statement_text(segment_text);
-    if (tool_modes_.contains(ToolMode::kResolve)) {
+    if (config_.tool_modes().contains(ToolMode::kResolve)) {
       ZETASQL_RETURN_IF_ERROR(writer_.resolved(*resolved_stmt));
     }
+
     if (result.ok()) {
       const Value& value = result.value();
+      // DDL statements don't return a value.
+      if (!value.has_content()) {
+        return absl::OkStatus();
+      }
       ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueAsTableAdapter> adapter,
                        ValueAsTableAdapter::Create(value));
       ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<EvaluatorTableIterator> iter,
                        adapter->CreateEvaluatorTableIterator());
       ZETASQL_RETURN_IF_ERROR(writer_.executed(*resolved_stmt, std::move(iter)));
-    } else {
-      ZETASQL_RETURN_IF_ERROR(writer_.executed(result.status().ToString()));
     }
 
-    executed_statement_count_++;
     return absl::OkStatus();
   }
 
  private:
   ExecuteQueryWriter& writer_;
-  const absl::flat_hash_set<ToolMode>& tool_modes_;
-  int executed_statement_count_;
+  ExecuteQueryConfig& config_;
 };
 
 }  // namespace
@@ -402,6 +413,46 @@ absl::Status SetSqlModeFromFlags(ExecuteQueryConfig& config) {
   }
   return zetasql_base::InvalidArgumentErrorBuilder()
          << "Invalid --sql_mode: '" << sql_mode_str << "'";
+}
+
+absl::Status SetTargetSyntaxModeFromFlags(ExecuteQueryConfig& config) {
+  return config.SetTargetSyntaxModeFromString(
+      absl::GetFlag(FLAGS_target_syntax));
+}
+
+std::optional<SQLBuilder::TargetSyntaxMode>
+ExecuteQueryConfig::parse_target_syntax_mode(absl::string_view mode) {
+  if (mode == "standard") {
+    return SQLBuilder::TargetSyntaxMode::kStandard;
+  } else if (mode == "pipe") {
+    return SQLBuilder::TargetSyntaxMode::kPipe;
+  }
+  return std::nullopt;
+}
+
+absl::string_view ExecuteQueryConfig::target_syntax_mode_name(
+    SQLBuilder::TargetSyntaxMode target_syntax_mode) {
+  switch (target_syntax_mode) {
+    case SQLBuilder::TargetSyntaxMode::kStandard:
+      return "standard";
+    case SQLBuilder::TargetSyntaxMode::kPipe:
+      return "pipe";
+  }
+  ABSL_LOG(FATAL) << "Unknown target syntax mode: "
+             << static_cast<int>(target_syntax_mode);
+}
+
+absl::Status ExecuteQueryConfig::SetTargetSyntaxModeFromString(
+    absl::string_view target_syntax_mode_str) {
+  std::optional<SQLBuilder::TargetSyntaxMode> target_syntax_mode =
+      parse_target_syntax_mode(target_syntax_mode_str);
+  if (target_syntax_mode.has_value()) {
+    set_target_syntax_mode(*target_syntax_mode);
+    return absl::OkStatus();
+  }
+
+  return zetasql_base::InvalidArgumentErrorBuilder()
+         << "Invalid --target_syntax_mode: '" << target_syntax_mode_str << "'";
 }
 
 static absl::Status SetFoldLiteralCastFromFlags(ExecuteQueryConfig& config) {
@@ -543,7 +594,8 @@ absl::Status ExecuteQueryConfig::SetCatalogFromString(absl::string_view value) {
   ZETASQL_ASSIGN_OR_RETURN(SelectableCatalog * selectable_catalog,
                    FindSelectableCatalog(value));
 
-  ZETASQL_ASSIGN_OR_RETURN(Catalog * catalog, selectable_catalog->GetCatalog());
+  ZETASQL_ASSIGN_OR_RETURN(Catalog * catalog, selectable_catalog->GetCatalog(
+                                          analyzer_options().language()));
   SetBaseCatalog(catalog);
 
   return absl::OkStatus();
@@ -658,10 +710,13 @@ absl::Status InitializeExecuteQueryConfig(ExecuteQueryConfig& config) {
 
   config.mutable_analyzer_options()
       .set_show_function_signature_mismatch_details(true);
+  config.mutable_analyzer_options().set_prune_unused_columns(
+      absl::GetFlag(FLAGS_prune_unused_columns));
 
   ZETASQL_RETURN_IF_ERROR(SetDescriptorPoolFromFlags(config));
   ZETASQL_RETURN_IF_ERROR(SetToolModeFromFlags(config));
   ZETASQL_RETURN_IF_ERROR(SetSqlModeFromFlags(config));
+  ZETASQL_RETURN_IF_ERROR(SetTargetSyntaxModeFromFlags(config));
   ZETASQL_RETURN_IF_ERROR(config.SetCatalogFromString(absl::GetFlag(FLAGS_catalog)));
   ZETASQL_RETURN_IF_ERROR(SetLanguageOptionsFromFlags(config));
   ZETASQL_RETURN_IF_ERROR(SetAnalyzerOptionsFromFlags(config));
@@ -676,19 +731,32 @@ absl::Status InitializeExecuteQueryConfig(ExecuteQueryConfig& config) {
 }
 
 ExecuteQueryConfig::ExecuteQueryConfig()
-    : builtins_catalog_(""), wrapper_catalog_("") {
+    : builtins_catalog_(std::make_unique<SimpleCatalog>("")),
+      wrapper_catalog_("") {
   SetBaseCatalog(nullptr);  // This also sets up the MultiCatalog.
 }
 
 void ExecuteQueryConfig::SetBaseCatalog(Catalog* catalog) {
   base_catalog_ = catalog;
+  RebuildMultiCatalog();
+}
 
+void ExecuteQueryConfig::SetBuiltinsCatalogFromLanguageOptions(
+    const LanguageOptions& language_options) {
+  builtins_catalog_ = std::make_unique<SimpleCatalog>("");
+  ZETASQL_CHECK_OK(builtins_catalog_->AddBuiltinFunctionsAndTypes(
+      BuiltinFunctionOptions(language_options)));
+  RebuildMultiCatalog();
+}
+
+void ExecuteQueryConfig::RebuildMultiCatalog() {
   std::vector<Catalog*> catalogs;
   catalogs.push_back(&wrapper_catalog_);
   if (base_catalog_ != nullptr) {
     catalogs.push_back(base_catalog_);
   }
-  catalogs.push_back(&builtins_catalog_);
+  ABSL_CHECK_NE(builtins_catalog_.get(), nullptr);
+  catalogs.push_back(builtins_catalog_.get());
 
   // The only case where this fails is if one of the catalogs is nullptr,
   // which can't happen here.
@@ -729,7 +797,10 @@ static absl::StatusOr<bool> RegisterMacro(absl::string_view sql,
   // updating the macro catalog.
   std::unique_ptr<ParserOutput> parser_output;
   absl::Status parse_stmt = ParseStatement(
-      sql, ParserOptions(config.analyzer_options().language()), &parser_output);
+      sql,
+      ParserOptions(config.analyzer_options().language(), kMacroExpansionMode,
+                    &config.macro_catalog()),
+      &parser_output);
   if (parse_stmt.ok() &&
       parser_output->statement()->Is<ASTDefineMacroStatement>()) {
     config.mutable_macro_sources().push_back(std::string(sql));
@@ -752,39 +823,15 @@ static absl::StatusOr<bool> RegisterMacro(absl::string_view sql,
   return false;
 }
 
-static absl::StatusOr<std::string> ExpandMacros(
-    absl::string_view sql, const ExecuteQueryConfig& config,
-    ExecuteQueryWriter& writer) {
-  ZETASQL_ASSIGN_OR_RETURN(
-      ExpansionOutput expansion_output,
-      parser::macros::ExpandMacros(
-          "<filename>", sql, config.macro_catalog(),
-          config.analyzer_options().language(),
-          DiagnosticOptions{
-              .error_message_options =
-                  config.analyzer_options().error_message_options()}));
-  std::string expanded_sql =
-      parser::macros::TokensToString(expansion_output.expanded_tokens);
-  for (const absl::Status& warning : expansion_output.warnings) {
-    ZETASQL_RETURN_IF_ERROR(writer.log(absl::StrCat("Warning: ", warning.message())));
-  }
-  if (sql != expanded_sql) {
-    ZETASQL_RETURN_IF_ERROR(writer.log("Expanded SQL:"));
-    ZETASQL_RETURN_IF_ERROR(writer.log(expanded_sql));
-  }
-  return expanded_sql;
-}
-
 static absl::StatusOr<const ASTNode*> ParseSql(
     absl::string_view sql, const ExecuteQueryConfig& config,
     ParseResumeLocation* parse_resume_location, bool* at_end_of_input,
     std::unique_ptr<ParserOutput>* parser_output) {
-  ParserOptions parser_options;
-
+  ParserOptions parser_options(config.analyzer_options().language(),
+                               kMacroExpansionMode, &config.macro_catalog());
   const ASTNode* root = nullptr;
   switch (config.sql_mode()) {
     case SqlMode::kQuery: {
-      parser_options.set_language_options(config.analyzer_options().language());
       std::string input(sql);
       ZETASQL_RETURN_IF_ERROR(ParseNextStatement(parse_resume_location, parser_options,
                                          parser_output, at_end_of_input));
@@ -793,7 +840,6 @@ static absl::StatusOr<const ASTNode*> ParseSql(
       break;
     }
     case SqlMode::kExpression: {
-      parser_options.set_language_options(config.analyzer_options().language());
       ZETASQL_RETURN_IF_ERROR(ParseExpression(sql, parser_options, parser_output));
       root = (*parser_output)->expression();
       // Expressions are always just a single parsable item.
@@ -802,7 +848,6 @@ static absl::StatusOr<const ASTNode*> ParseSql(
     }
     case SqlMode::kScript: {
       ZETASQL_RET_CHECK(at_end_of_input == nullptr);
-      parser_options.set_language_options(config.analyzer_options().language());
       ZETASQL_RETURN_IF_ERROR(ParseScript(
           sql, parser_options,
           config.analyzer_options().error_message_options(), parser_output));
@@ -866,6 +911,13 @@ static absl::StatusOr<const ResolvedNode*> AnalyzeSql(
   if (config.has_tool_mode(ToolMode::kResolve)) {
     ZETASQL_RET_CHECK_NE(resolved_node, nullptr);
     ZETASQL_RETURN_IF_ERROR(writer.resolved(*resolved_node));
+
+    if (!(*analyzer_output)->deprecation_warnings().empty()) {
+      ZETASQL_RETURN_IF_ERROR(writer.log("Deprecation warnings:"));
+      for (const auto& warning : (*analyzer_output)->deprecation_warnings()) {
+        ZETASQL_RETURN_IF_ERROR(writer.log(warning.message()));
+      }
+    }
   }
 
   return resolved_node;
@@ -877,6 +929,7 @@ static absl::Status UnanalyzeQuery(const ResolvedNode* resolved_node,
   SQLBuilder::SQLBuilderOptions sql_builder_options;
   sql_builder_options.language_options = config.analyzer_options().language();
   sql_builder_options.catalog = config.catalog();
+  sql_builder_options.target_syntax_mode = config.target_syntax_mode();
   SQLBuilder builder(sql_builder_options);
   ZETASQL_RETURN_IF_ERROR(builder.Process(*resolved_node));
 
@@ -1058,10 +1111,13 @@ static absl::Status ExplainAndOrExecuteSql(const ResolvedNode* resolved_node,
       EvaluatorOptions evaluator_options;
       ParameterValueList positional_parameters;
       TypeFactory type_factory;
-      EvaluatorCallback callback(writer, config.tool_modes());
+      EvaluatorCallback callback(writer, config);
+
       auto evaluator = std::make_unique<StatementEvaluatorImpl>(
           config.analyzer_options(), evaluator_options, positional_parameters,
           &type_factory, config.catalog(), &callback);
+      evaluator->EnableCreationOfTempObjects(config.wrapper_catalog());
+
       absl::StatusOr<std::unique_ptr<ScriptExecutor>> script_executor =
           ScriptExecutor::Create(sql, script_executor_options, evaluator.get());
       if (!script_executor.ok()) {
@@ -1490,6 +1546,21 @@ static absl::Status ExecuteOneQuery(absl::string_view script,
     ZETASQL_RETURN_IF_ERROR(WriteParsedAndOrUnparsedAst(*ast, config, writer));
   }
 
+  // Macro support is enabled by intercepting `DEFINE MACRO` statements in the
+  // parsing phase to update a persistent macro catalog, that is supplied as a
+  // ParserOption and reused by subsequent calls to this method.
+  //
+  // TODO: Macro registration should ideally be performed in the
+  // analysis phase by intercepting ResolvedDefineMacroStmt nodes instead, but
+  // we don't have analyzer support yet.
+  if (kMacroExpansionMode != parser::MacroExpansionMode::kNone) {
+    ZETASQL_ASSIGN_OR_RETURN(bool macro_registered,
+                     RegisterMacro(statement_text, config, writer));
+    if (macro_registered) {
+      return absl::OkStatus();
+    }
+  }
+
   if (!IsAnalysisRequired(config)) {
     return absl::OkStatus();
   }
@@ -1547,31 +1618,6 @@ static absl::Status ExecuteOneQuery(absl::string_view script,
 absl::Status ExecuteQuery(absl::string_view sql, ExecuteQueryConfig& config,
                           ExecuteQueryWriter& writer) {
   std::string script(sql);
-
-  // Expand macros.  This currently happens for the whole script at once,
-  // handling the script if it is just one DEFINE MACRO statement.
-  // Otherwise, it applies expansion on the whole script, failing execution if
-  // macro expansion fails.
-  // We don't have statement-at-a-time macro definition and expansion
-  // implemented.
-  bool enable_macros =
-      config.sql_mode() == SqlMode::kQuery &&
-      config.analyzer_options().language().LanguageFeatureEnabled(
-          FEATURE_V_1_4_SQL_MACROS);
-
-  if (enable_macros) {
-    // macro registration
-    if (config.has_tool_mode(ToolMode::kExecute)) {
-      ZETASQL_ASSIGN_OR_RETURN(bool macro_registered,
-                       RegisterMacro(script, config, writer));
-      if (macro_registered) {
-        return absl::OkStatus();
-      }
-    }
-
-    // macro expansion
-    ZETASQL_ASSIGN_OR_RETURN(script, ExpandMacros(script, config, writer));
-  }
   if (config.sql_mode() == SqlMode::kScript) {
     ZETASQL_RETURN_IF_ERROR(ExecuteScript(script, config, writer));
     return absl::OkStatus();

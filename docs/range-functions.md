@@ -95,11 +95,11 @@ ZetaSQL supports the following range functions.
 
 ## `GENERATE_RANGE_ARRAY`
 
-```sql
+```zetasql
 GENERATE_RANGE_ARRAY(range_to_split, step_interval)
 ```
 
-```sql
+```zetasql
 GENERATE_RANGE_ARRAY(range_to_split, step_interval, include_last_partial_range)
 ```
 
@@ -113,7 +113,7 @@ Splits a range into an array of subranges.
 +   `step_interval`: The `INTERVAL` value, which determines the maximum size of
     each subrange in the resulting array. An
     [interval single date and time part][interval-single]
-    is supported, but an interval range of date and time parts is not.
+    is supported, but an interval range of date and time parts isn't.
 
     +   If `range_to_split` is `RANGE<DATE>`, these interval
         date parts are supported: `YEAR` to `DAY`.
@@ -125,7 +125,7 @@ Splits a range into an array of subranges.
         date and time parts are supported: `DAY` to `SECOND`.
 +   `include_last_partial_range`: A `BOOL` value, which determines whether or
     not to include the last subrange if it's a partial subrange.
-    If this argument is not specified, the default value is `TRUE`.
+    If this argument isn't specified, the default value is `TRUE`.
 
     +   `TRUE` (default): The last subrange is included, even if it's
         smaller than `step_interval`.
@@ -147,7 +147,7 @@ In the following example, a date range between `2020-01-01` and `2020-01-06`
 is split into an array of subranges that are one day long. There are
 no partial ranges.
 
-```sql
+```zetasql
 SELECT GENERATE_RANGE_ARRAY(
   RANGE(DATE '2020-01-01', DATE '2020-01-06'),
   INTERVAL 1 DAY) AS results;
@@ -169,7 +169,7 @@ In the following examples, a date range between `2020-01-01` and `2020-01-06`
 is split into an array of subranges that are two days long. The final subrange
 is smaller than two days:
 
-```sql
+```zetasql
 SELECT GENERATE_RANGE_ARRAY(
   RANGE(DATE '2020-01-01', DATE '2020-01-06'),
   INTERVAL 2 DAY) AS results;
@@ -185,7 +185,7 @@ SELECT GENERATE_RANGE_ARRAY(
  +----------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT GENERATE_RANGE_ARRAY(
   RANGE(DATE '2020-01-01', DATE '2020-01-06'),
   INTERVAL 2 DAY,
@@ -206,7 +206,7 @@ In the following example, a date range between `2020-01-01` and `2020-01-06`
 is split into an array of subranges that are two days long, but the final
 subrange is excluded because it's smaller than two days:
 
-```sql
+```zetasql
 SELECT GENERATE_RANGE_ARRAY(
   RANGE(DATE '2020-01-01', DATE '2020-01-06'),
   INTERVAL 2 DAY,
@@ -226,7 +226,7 @@ SELECT GENERATE_RANGE_ARRAY(
 
 ## `RANGE`
 
-```sql
+```zetasql
 RANGE(lower_bound, upper_bound)
 ```
 
@@ -259,7 +259,7 @@ To return `NULL` instead, add the `SAFE.` prefix to the function name.
 
 The following query constructs a date range:
 
-```sql
+```zetasql
 SELECT RANGE(DATE '2022-12-01', DATE '2022-12-31') AS results;
 
 /*--------------------------+
@@ -271,7 +271,7 @@ SELECT RANGE(DATE '2022-12-01', DATE '2022-12-31') AS results;
 
 The following query constructs a datetime range:
 
-```sql
+```zetasql
 SELECT RANGE(DATETIME '2022-10-01 14:53:27',
              DATETIME '2022-10-01 16:00:00') AS results;
 
@@ -284,7 +284,7 @@ SELECT RANGE(DATETIME '2022-10-01 14:53:27',
 
 The following query constructs a timestamp range:
 
-```sql
+```zetasql
 SELECT RANGE(TIMESTAMP '2022-10-01 14:53:27 America/Los_Angeles',
              TIMESTAMP '2022-10-01 16:00:00 America/Los_Angeles') AS results;
 
@@ -298,7 +298,7 @@ SELECT RANGE(TIMESTAMP '2022-10-01 14:53:27 America/Los_Angeles',
 
 The following query constructs a date range with no lower bound:
 
-```sql
+```zetasql
 SELECT RANGE(NULL, DATE '2022-12-31') AS results;
 
 /*-------------------------+
@@ -310,7 +310,7 @@ SELECT RANGE(NULL, DATE '2022-12-31') AS results;
 
 The following query constructs a date range with no upper bound:
 
-```sql
+```zetasql
 SELECT RANGE(DATE '2022-10-01', NULL) AS results;
 
 /*--------------------------+
@@ -334,7 +334,7 @@ SELECT RANGE(DATE '2022-10-01', NULL) AS results;
 
 #### Signature 1
 
-```sql
+```zetasql
 RANGE_CONTAINS(outer_range, inner_range)
 ```
 
@@ -362,7 +362,7 @@ Otherwise, returns `FALSE`.
 
 In the following query, the inner range is in the outer range:
 
-```sql
+```zetasql
 SELECT RANGE_CONTAINS(
   RANGE<DATE> '[2022-01-01, 2023-01-01)',
   RANGE<DATE> '[2022-04-01, 2022-07-01)') AS results;
@@ -374,9 +374,9 @@ SELECT RANGE_CONTAINS(
  +---------*/
 ```
 
-In the following query, the inner range is not in the outer range:
+In the following query, the inner range isn't in the outer range:
 
-```sql
+```zetasql
 SELECT RANGE_CONTAINS(
   RANGE<DATE> '[2022-01-01, 2023-01-01)',
   RANGE<DATE> '[2023-01-01, 2023-04-01)') AS results;
@@ -390,7 +390,7 @@ SELECT RANGE_CONTAINS(
 
 #### Signature 2
 
-```sql
+```zetasql
 RANGE_CONTAINS(range_to_search, value_to_find)
 ```
 
@@ -420,7 +420,7 @@ The data type for `value_to_find` must be the same data type as `T`in
 In the following query, the value `2022-04-01` is found in the range
 `[2022-01-01, 2023-01-01)`:
 
-```sql
+```zetasql
 SELECT RANGE_CONTAINS(
   RANGE<DATE> '[2022-01-01, 2023-01-01)',
   DATE '2022-04-01') AS results;
@@ -432,10 +432,10 @@ SELECT RANGE_CONTAINS(
  +---------*/
 ```
 
-In the following query, the value `2023-04-01` is not found in the range
+In the following query, the value `2023-04-01` isn't found in the range
 `[2022-01-01, 2023-01-01)`:
 
-```sql
+```zetasql
 SELECT RANGE_CONTAINS(
   RANGE<DATE> '[2022-01-01, 2023-01-01)',
   DATE '2023-04-01') AS results;
@@ -453,7 +453,7 @@ SELECT RANGE_CONTAINS(
 
 ## `RANGE_END`
 
-```sql
+```zetasql
 RANGE_END(range_to_check)
 ```
 
@@ -479,7 +479,7 @@ Returns `NULL` if `range_to_check` is `NULL`.
 
 In the following query, the upper bound of the range is retrieved:
 
-```sql
+```zetasql
 SELECT RANGE_END(RANGE<DATE> '[2022-12-01, 2022-12-31)') AS results;
 
 /*------------+
@@ -492,7 +492,7 @@ SELECT RANGE_END(RANGE<DATE> '[2022-12-01, 2022-12-31)') AS results;
 In the following query, the upper bound of the range is unbounded, so
 `NULL` is returned:
 
-```sql
+```zetasql
 SELECT RANGE_END(RANGE<DATE> '[2022-12-01, UNBOUNDED)') AS results;
 
 /*------------+
@@ -504,7 +504,7 @@ SELECT RANGE_END(RANGE<DATE> '[2022-12-01, UNBOUNDED)') AS results;
 
 ## `RANGE_INTERSECT`
 
-```sql
+```zetasql
 RANGE_INTERSECT(range_a, range_b)
 ```
 
@@ -532,7 +532,7 @@ Produces an error if `range_a` and `range_b` don't overlap. To return
 
 **Examples**
 
-```sql
+```zetasql
 SELECT RANGE_INTERSECT(
   RANGE<DATE> '[2022-02-01, 2022-09-01)',
   RANGE<DATE> '[2021-06-15, 2022-04-15)') AS results;
@@ -544,7 +544,7 @@ SELECT RANGE_INTERSECT(
  +--------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT RANGE_INTERSECT(
   RANGE<DATE> '[2022-02-01, UNBOUNDED)',
   RANGE<DATE> '[2021-06-15, 2022-04-15)') AS results;
@@ -556,7 +556,7 @@ SELECT RANGE_INTERSECT(
  +--------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT RANGE_INTERSECT(
   RANGE<DATE> '[2022-02-01, UNBOUNDED)',
   RANGE<DATE> '[2021-06-15, UNBOUNDED)') AS results;
@@ -570,7 +570,7 @@ SELECT RANGE_INTERSECT(
 
 ## `RANGE_OVERLAPS`
 
-```sql
+```zetasql
 RANGE_OVERLAPS(range_a, range_b)
 ```
 
@@ -602,7 +602,7 @@ To get the part of the range that overlaps, use the
 In the following query, the first and second ranges overlap between
 `2022-02-01` and `2022-04-15`:
 
-```sql
+```zetasql
 SELECT RANGE_OVERLAPS(
   RANGE<DATE> '[2022-02-01, 2022-09-01)',
   RANGE<DATE> '[2021-06-15, 2022-04-15)') AS results;
@@ -616,7 +616,7 @@ SELECT RANGE_OVERLAPS(
 
 In the following query, the first and second ranges don't overlap:
 
-```sql
+```zetasql
 SELECT RANGE_OVERLAPS(
   RANGE<DATE> '[2020-02-01, 2020-09-01)',
   RANGE<DATE> '[2021-06-15, 2022-04-15)') AS results;
@@ -631,7 +631,7 @@ SELECT RANGE_OVERLAPS(
 In the following query, the first and second ranges overlap between
 `2022-02-01` and `UNBOUNDED`:
 
-```sql
+```zetasql
 SELECT RANGE_OVERLAPS(
   RANGE<DATE> '[2022-02-01, UNBOUNDED)',
   RANGE<DATE> '[2021-06-15, UNBOUNDED)') AS results;
@@ -647,7 +647,7 @@ SELECT RANGE_OVERLAPS(
 
 ## `RANGE_SESSIONIZE`
 
-```sql
+```zetasql
 RANGE_SESSIONIZE(
   TABLE table_name,
   range_column,
@@ -655,7 +655,7 @@ RANGE_SESSIONIZE(
 )
 ```
 
-```sql
+```zetasql
 RANGE_SESSIONIZE(
   TABLE table_name,
   range_column,
@@ -681,10 +681,10 @@ Produces a table of sessionized ranges.
 
     +   `MEETS` (default): Ranges that meet or overlap are sessionized.
 
-    +   `OVERLAPS`: Only a range that is overlapped by another range is
+    +   `OVERLAPS`: Only a range that's overlapped by another range is
         sessionized.
 
-    If this argument is not provided, `MEETS` is used by default.
+    If this argument isn't provided, `MEETS` is used by default.
 
 **Details**
 
@@ -703,7 +703,7 @@ argument.
 The examples in this section reference the following table called
 `my_sessionized_range_table` in a dataset called `mydataset`:
 
-```sql
+```zetasql
 INSERT mydataset.my_sessionized_range_table (emp_id, dept_id, duration)
 VALUES(10, 1000, RANGE<DATE> '[2010-01-10, 2010-03-10)'),
       (10, 2000, RANGE<DATE> '[2010-03-10, 2010-07-15)'),
@@ -728,7 +728,7 @@ In the following query, a table of sessionized data is produced for
 `my_sessionized_range_table`, and only ranges that meet or overlap are
 sessionized:
 
-```sql
+```zetasql
 SELECT
   emp_id, duration, session_range
 FROM
@@ -750,10 +750,10 @@ ORDER BY emp_id;
 ```
 
 In the following query, a table of sessionized data is produced for
-`my_sessionized_range_table`, and only a range that is overlapped by another
+`my_sessionized_range_table`, and only a range that's overlapped by another
 range is sessionized:
 
-```sql
+```zetasql
 SELECT
   emp_id, duration, session_range
 FROM
@@ -778,7 +778,7 @@ ORDER BY emp_id;
 If you need to normalize sessionized data, you can use a query similar to the
 following:
 
-```sql
+```zetasql
 SELECT emp_id, session_range AS normalized FROM (
   SELECT emp_id, session_range
   FROM RANGE_SESSIONIZE(
@@ -800,7 +800,7 @@ GROUP BY emp_id, normalized;
 
 ## `RANGE_START`
 
-```sql
+```zetasql
 RANGE_START(range_to_check)
 ```
 
@@ -826,7 +826,7 @@ Returns `NULL` if `range_to_check` is `NULL`.
 
 In the following query, the lower bound of the range is retrieved:
 
-```sql
+```zetasql
 SELECT RANGE_START(RANGE<DATE> '[2022-12-01, 2022-12-31)') AS results;
 
 /*------------+
@@ -839,7 +839,7 @@ SELECT RANGE_START(RANGE<DATE> '[2022-12-01, 2022-12-31)') AS results;
 In the following query, the lower bound of the range is unbounded, so
 `NULL` is returned:
 
-```sql
+```zetasql
 SELECT RANGE_START(RANGE<DATE> '[UNBOUNDED, 2022-12-31)') AS results;
 
 /*------------+

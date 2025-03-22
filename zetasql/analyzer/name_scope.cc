@@ -23,7 +23,6 @@
 #include <memory>
 #include <optional>
 #include <string>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -172,9 +171,6 @@ NameScope::NameScope(const NameList& name_list)
     : state_(name_list.name_scope_.state_) {
 }
 
-NameScope::~NameScope() {
-}
-
 bool NameScope::IsEmpty() const {
   return names().empty() && value_table_columns().empty();
 }
@@ -275,17 +271,27 @@ bool NameScope::LookupName(
     if (tmp != nullptr) {
       *found = *tmp;
 
-      // If we are collecting correlated_columns_sets and this was a correlated
-      // lookup, traverse from <this> to <current> again, collecting all
-      // non-NULL correlated_columns_set_ pointers we pass.
-      if (!tmp->IsAmbiguous() && correlated_columns_sets != nullptr
-          && current != this) {
-        const NameScope* scope = this;
-        while (scope != current) {
-          if (scope->correlated_columns_set_ != nullptr) {
-            correlated_columns_sets->push_back(scope->correlated_columns_set_);
+      if (!tmp->IsAmbiguous() && current != this) {
+        // This is a correlated lookup.
+        if (!current->allows_correlated_access_) {
+          found->SetAccessError(tmp->kind(),
+                                current->reason_to_disallow_correlated_access_,
+                                /*is_terminal_error=*/true);
+          return true;
+        }
+
+        // If we are collecting correlated_columns_sets, traverse from
+        // <this> to <current> again, collecting all non-NULL
+        // correlated_columns_set_ pointers we pass.
+        if (correlated_columns_sets != nullptr) {
+          const NameScope* scope = this;
+          while (scope != current) {
+            if (scope->correlated_columns_set_ != nullptr) {
+              correlated_columns_sets->push_back(
+                  scope->correlated_columns_set_);
+            }
+            scope = scope->previous_scope_;
           }
-          scope = scope->previous_scope_;
         }
       }
 
@@ -449,6 +455,16 @@ absl::Status NameScope::LookupNamePath(
       }
 
       case NameTarget::ACCESS_ERROR: {
+        if (target.is_terminal_error()) {
+          // Currently we only hit this path when doing a correlated access on
+          // a parent namescope that disallows correlated lookups, the message
+          // is set in all such situations so far.
+          ZETASQL_RET_CHECK(!target.access_error_message().empty());
+
+          return MakeSqlErrorAt(path_expr.first_name())
+                 << target.access_error_message();
+        }
+
         // The name exists but accessing it is an error.  However,
         // if we are accessing fields from this name then check to
         // see if the field access is valid.
@@ -695,7 +711,7 @@ absl::Status NameScope::CloneRangeVariablesMapped(
     }
 
     // Note that this can add a range variable containing an empty column list.
-    this->AddRangeVariable(name, range_var);
+    this->AddRangeVariable(name, range_var, /*is_pattern_variable=*/false);
   }
 
   return absl::OkStatus();
@@ -783,6 +799,10 @@ std::string NameScope::DebugString(
     absl::StrAppend(&out, indent, "Parent scope:\n",
                     previous_scope_->DebugString(absl::StrCat(indent, "  ")));
   }
+
+  if (!allows_correlated_access_) {
+    absl::StrAppend(&out, "\n", indent, "NOTE: Disallows correlated access!\n");
+  }
   return out;
 }
 
@@ -831,7 +851,7 @@ absl::Status NameScope::CopyNameScopeWithOverridingNames(
   // Note that some of the names in 'namelist_with_overriding_names' can
   // themselves be ambiguous.
   *scope_with_new_names = std::make_unique<NameScope>(
-      previous_scope_, namelist_with_overriding_names);
+      previous_scope_, namelist_with_overriding_names, correlated_columns_set_);
   (*scope_with_new_names)->InsertNameTargetsIfNotPresent(names());
 
   // Add the existing value table entries into the new NameScope.  Note that
@@ -863,9 +883,9 @@ absl::Status NameScope::CopyNameScopeWithOverridingNameTargets(
   //
   // Note that some of the NameTargets in 'overriding_name_targets' can
   // themselves be error targets or ambiguous.
-  scope_with_new_names->reset(new NameScope(
-      previous_scope_, overriding_name_targets, /*value_table_columns=*/{},
-      /*correlated_columns_set=*/nullptr));
+  scope_with_new_names->reset(
+      new NameScope(previous_scope_, overriding_name_targets,
+                    /*value_table_columns=*/{}, correlated_columns_set_));
   (*scope_with_new_names)->InsertNameTargetsIfNotPresent(names());
 
   // Add the existing value table entries into the new NameScope.
@@ -1192,14 +1212,24 @@ absl::Status NameScope::CreateNameScopeGivenValidNamePaths(
       previous_scope_, new_name_targets,
       new_value_table_columns, correlated_columns_set_));
 
+  // If this NameScope does not allow correlated access, grouping paths are not
+  // allowed to be accessed from a child scope, whether before or after
+  // grouping.
+  if (!allows_correlated_access_) {
+    new_name_scope->get()->DisallowCorrelatedAccess(
+        reason_to_disallow_correlated_access_);
+  }
+
   return absl::OkStatus();
 }
 
 void NameTarget::SetAccessError(const Kind original_kind,
-                                absl::string_view access_error_message) {
+                                absl::string_view access_error_message,
+                                bool is_terminal_error) {
   // Initialize fields.
   kind_ = ACCESS_ERROR;
   access_error_message_ = access_error_message;
+  is_terminal_error_ = is_terminal_error;
   original_kind_ = original_kind;
   // Clear irrelevant fields.
   scan_columns_.reset();
@@ -1250,8 +1280,10 @@ std::string NameTarget::DebugString() const {
     case IMPLICIT_COLUMN:
     case EXPLICIT_COLUMN:
       return absl::StrCat(
-          column_.type()->ShortTypeName(ProductMode::PRODUCT_INTERNAL), " (",
-          column_.DebugString(), ")",
+          (column_.type() != nullptr
+               ? column_.type()->ShortTypeName(ProductMode::PRODUCT_INTERNAL)
+               : "nullptr"),
+          " (", column_.DebugString(), ")",
           (kind_ == IMPLICIT_COLUMN ? " (implicit)" : ""));
     case FIELD_OF:
       return absl::StrCat("FIELD_OF<", column_.DebugString(),
@@ -1298,12 +1330,6 @@ std::string NameTarget::DebugString() const {
     absl::StrAppend(&debug_string, ")");
   }
   return debug_string;
-}
-
-NameList::NameList() {
-}
-
-NameList::~NameList() {
 }
 
 absl::Status NameList::AddColumn(
@@ -1372,7 +1398,8 @@ absl::Status NameList::AddValueTableColumn(
     // Add the value table column as a range variable in the NameScope.
     // We don't need to add a column because the column would always be
     // hidden by the range variable.
-    name_scope_.AddRangeVariable(range_variable_name, value_table_name_list);
+    name_scope_.AddRangeVariable(range_variable_name, value_table_name_list,
+                                 /*is_pattern_variable=*/false);
   }
   // We need to also add it as a value table in the NameScope so we can find
   // implicit fields underneath it.
@@ -1438,7 +1465,8 @@ absl::Status NameList::AddRangeVariable(
   }
 
   // Range variables are stored inside the NameScope only.
-  name_scope_.AddRangeVariable(name, scan_columns);
+  name_scope_.AddRangeVariable(name, scan_columns,
+                               /*is_pattern_variable=*/false);
 
   return absl::OkStatus();
 }

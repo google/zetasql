@@ -17,25 +17,37 @@
 #ifndef ZETASQL_REFERENCE_IMPL_STATEMENT_EVALUATOR_H_
 #define ZETASQL_REFERENCE_IMPL_STATEMENT_EVALUATOR_H_
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <utility>
 #include <variant>
 #include <vector>
 
+#include "google/protobuf/any.pb.h"
 #include "zetasql/public/analyzer.h"
+#include "zetasql/public/analyzer_options.h"
+#include "zetasql/public/analyzer_output.h"
+#include "zetasql/public/catalog.h"
 #include "zetasql/public/evaluator.h"
 #include "zetasql/public/evaluator_table_iterator.h"
-#include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
-#include "zetasql/public/parse_resume_location.h"
 #include "zetasql/public/simple_catalog.h"
+#include "zetasql/public/types/type.h"
+#include "zetasql/public/types/type_factory.h"
+#include "zetasql/public/types/type_parameters.h"
+#include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/scripting/parsed_script.h"
 #include "zetasql/scripting/script_executor.h"
+#include "zetasql/scripting/script_segment.h"
+#include "zetasql/scripting/type_aliases.h"
+#include "absl/base/nullability.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
-#include "absl/types/optional.h"
+#include "absl/strings/string_view.h"
+#include "absl/types/span.h"
+#include "zetasql/base/status_builder.h"
 
 namespace zetasql {
 
@@ -88,9 +100,7 @@ class StatementEvaluatorCallback {
     return absl::NotFoundError("");
   }
 
-  int64_t get_bytes_per_iterator() {
-    return bytes_per_iterator_;
-  }
+  int64_t get_bytes_per_iterator() { return bytes_per_iterator_; }
 
  private:
   // Fake memory bytes that an iterator takes up, to be returned by
@@ -124,7 +134,17 @@ class StatementEvaluatorImpl : public StatementEvaluator {
         parameters_(parameters),
         type_factory_(type_factory),
         catalog_(catalog),
-        callback_(callback) {}
+        callback_(callback),
+        catalog_for_temp_objects_(nullptr) {}
+
+  // If support for DDL statements like CREATE FUNCTION is needed, this function
+  // must be called with a catalog that will be used to store temp objects (such
+  // as those created within a script need to persist for the duration of the
+  // script execution. If not set, statements that create temp objects will
+  // fail.
+  void EnableCreationOfTempObjects(SimpleCatalog* catalog_for_temp_objects) {
+    catalog_for_temp_objects_ = catalog_for_temp_objects;
+  }
 
   absl::Status ExecuteStatement(const ScriptExecutor& executor,
                                 const ScriptSegment& segment) override;
@@ -133,15 +153,12 @@ class StatementEvaluatorImpl : public StatementEvaluator {
   ExecuteQueryWithResult(const ScriptExecutor& executor,
                          const ScriptSegment& segment) override;
 
-  absl::Status SerializeIterator(
-      const EvaluatorTableIterator& iterator,
-      google::protobuf::Any& out) override;
+  absl::Status SerializeIterator(const EvaluatorTableIterator& iterator,
+                                 google::protobuf::Any& out) override;
 
-  absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
-  DeserializeToIterator(
-    const google::protobuf::Any& msg,
-    const ScriptExecutor& executor,
-    const ParsedScript& parsed_script) override;
+  absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>> DeserializeToIterator(
+      const google::protobuf::Any& msg, const ScriptExecutor& executor,
+      const ParsedScript& parsed_script) override;
 
   absl::StatusOr<int64_t> GetIteratorMemoryUsage(
       const EvaluatorTableIterator& iterator) override;
@@ -161,8 +178,8 @@ class StatementEvaluatorImpl : public StatementEvaluator {
   bool IsSupportedVariableType(
       const TypeWithParameters& type_with_params) override;
 
-  absl::Status ApplyTypeParameterConstraints(
-      const TypeParameters& type_params, Value* value) override;
+  absl::Status ApplyTypeParameterConstraints(const TypeParameters& type_params,
+                                             Value* value) override;
 
   absl::StatusOr<std::unique_ptr<ProcedureDefinition>> LoadProcedure(
       const ScriptExecutor& executor, const absl::Span<const std::string>& path,
@@ -217,6 +234,8 @@ class StatementEvaluatorImpl : public StatementEvaluator {
       return evaluator_->callback_->SetTableContents(table, rows);
     }
 
+    StatementEvaluatorImpl* evaluator() const { return evaluator_; }
+
    private:
     absl::Status EvaluateInternal(const ScriptExecutor& script_executor,
                                   StatementEvaluatorImpl* evaluator,
@@ -262,6 +281,11 @@ class StatementEvaluatorImpl : public StatementEvaluator {
     absl::StatusOr<int> DoDmlSideEffects(
         EvaluatorTableModifyIterator* iterator);
 
+    // Invoked for handling a DDL statement. Creates temp objects and adds them
+    // to the catalog for temp objects.
+    absl::Status ProcessDdlStatement(const ResolvedStatement* statement,
+                                     const EvaluatorOptions& evaluator_options);
+
     // Set from Execute().
     Value result_;
 
@@ -272,7 +296,12 @@ class StatementEvaluatorImpl : public StatementEvaluator {
     // Set from Execute().
     std::unique_ptr<EvaluatorTableIterator> table_iterator_;
 
+    // Stores the analyzer output for the statement.
     std::unique_ptr<const AnalyzerOutput> analyzer_output_;
+
+    // This is stored separately from analyzer_output_ because analyzer_output_
+    // is moved when creating temp objects.
+    const ResolvedStatement* resolved_statement_ = nullptr;
   };
 
   class ExpressionEvaluation : public Evaluation {
@@ -300,6 +329,20 @@ class StatementEvaluatorImpl : public StatementEvaluator {
     Value result_;
   };
 
+ private:
+  // Analyzer artifacts for temp objects created within a script need to be kept
+  // alive for the duration of the script execution. This function is called by
+  // StatementEvaluation whenever a new temp object is created. It takes over
+  // ownership of the AnalyzerOutput and keeps it alive in the scope of the
+  // evaluator.
+  void TakeOwnership(std::unique_ptr<const AnalyzerOutput> analyzer_output) {
+    analyzer_artifacts_.push_back(std::move(analyzer_output));
+  }
+
+  absl::Nullable<SimpleCatalog*> catalog_for_temp_objects() const {
+    return catalog_for_temp_objects_;
+  }
+
   // AnalyzerOptions, excluding those, such as system variables, that are set by
   // the execution of the script.
   const AnalyzerOptions initial_analyzer_options_;
@@ -309,6 +352,14 @@ class StatementEvaluatorImpl : public StatementEvaluator {
   TypeFactory* type_factory_;
   Catalog* catalog_;
   StatementEvaluatorCallback* callback_;
+
+  // Stores temporary objects created within a SQL script that need to persist
+  // for the duration of the script execution.
+  absl::Nullable<SimpleCatalog*> catalog_for_temp_objects_;
+
+  // These are used to keep analysis artifacts alive for temp objects created
+  // within a script.
+  std::vector<std::unique_ptr<const AnalyzerOutput>> analyzer_artifacts_;
 };
 
 }  // namespace zetasql

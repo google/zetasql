@@ -32,11 +32,13 @@
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_helper.h"
+#include "zetasql/resolved_ast/resolved_collation.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/hash/hash.h"
+#include "zetasql/base/check.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/types/span.h"
@@ -180,12 +182,15 @@ TestIsSameExpressionForGroupBy(const ResolvedExpr* expr1,
       RETURN_IF_EXPR_NOT_EQUAL(cast1->expr(), cast2->expr());
       RETURN_IF_PRIMITIVE_NOT_EQUAL(cast1->return_null_on_error(),
                                     cast2->return_null_on_error());
+      if ((cast1->format() == nullptr) != (cast2->format() == nullptr)) {
+        return TestIsSameExpressionForGroupByResult::kNotEqual;
+      }
+      if (cast1->format() != nullptr) {
+        RETURN_IF_EXPR_NOT_EQUAL(cast1->format(), cast2->format());
+      }
       break;
     }
     case RESOLVED_FUNCTION_CALL: {
-      // TODO: Fix holes in ResolvedFunctionCall node comparison.
-      // We need to compare generic_argument_list, hints and function signatures
-      // as well.
       const ResolvedFunctionCall* func1 = expr1->GetAs<ResolvedFunctionCall>();
       const ResolvedFunctionCall* func2 = expr2->GetAs<ResolvedFunctionCall>();
       RETURN_IF_PRIMITIVE_NOT_EQUAL(func1->function(), func2->function());
@@ -193,6 +198,12 @@ TestIsSameExpressionForGroupBy(const ResolvedExpr* expr1,
       if (func1->function()->function_options().volatility ==
           FunctionEnums::VOLATILE) {
         return TestIsSameExpressionForGroupByResult::kNotEqual;
+      }
+      // We currently don't support checking expression equality for generic
+      // arguments.
+      if (!func1->generic_argument_list().empty() ||
+          !func2->generic_argument_list().empty()) {
+        return TestIsSameExpressionForGroupByResult::kUnknown;
       }
       const std::vector<std::unique_ptr<const ResolvedExpr>>& arg1_list =
           func1->argument_list();
@@ -215,6 +226,36 @@ TestIsSameExpressionForGroupBy(const ResolvedExpr* expr1,
         RETURN_IF_OBJECT_NOT_EQUAL(func1->collation_list(idx),
                                    func2->collation_list(idx));
       }
+      RETURN_IF_PRIMITIVE_NOT_EQUAL(func1->generic_argument_list_size(),
+                                    func2->generic_argument_list_size());
+      for (int idx = 0; idx < func1->generic_argument_list_size(); ++idx) {
+        const ResolvedFunctionArgument* arg1 =
+            func1->generic_argument_list(idx);
+        const ResolvedFunctionArgument* arg2 =
+            func2->generic_argument_list(idx);
+        if (arg1->expr() != nullptr && arg2->expr() != nullptr) {
+          RETURN_IF_EXPR_NOT_EQUAL(arg1->expr(), arg2->expr());
+        } else if (arg1->inline_lambda() != nullptr &&
+                   arg2->inline_lambda() != nullptr) {
+          // Technically, `e1 -> f(e1)` is the same as `e2 -> f(e2)`, if f()
+          // is not volatile, but we don't support that yet.
+          RETURN_IF_EXPR_NOT_EQUAL(arg1->inline_lambda()->body(),
+                                   arg2->inline_lambda()->body());
+
+          RETURN_IF_PRIMITIVE_NOT_EQUAL(
+              arg1->inline_lambda()->parameter_list_size(),
+              arg2->inline_lambda()->parameter_list_size());
+          for (int idx = 0; idx < arg1->inline_lambda()->parameter_list_size();
+               ++idx) {
+            RETURN_IF_EXPR_NOT_EQUAL(
+                arg1->inline_lambda()->parameter_list(idx),
+                arg2->inline_lambda()->parameter_list(idx));
+          }
+        } else {
+          // TODO: Support Scans, Models, Subqueries, Descriptors, etc.
+          return TestIsSameExpressionForGroupByResult::kNotEqual;
+        }
+      }
       break;
     }
     case RESOLVED_GET_JSON_FIELD: {
@@ -236,13 +277,12 @@ TestIsSameExpressionForGroupBy(const ResolvedExpr* expr1,
   return TestIsSameExpressionForGroupByResult::kEqual;
 }
 
-bool GetSourceColumnAndNamePath(const ResolvedExpr* resolved_expr,
-                                ResolvedColumn target_column,
-                                ResolvedColumn* source_column,
-                                bool* is_correlated, ValidNamePath* name_path,
-                                IdStringPool* id_string_pool) {
-  *source_column = ResolvedColumn();
-  *is_correlated = false;
+// If `resolved_expr` is a series of one or more field accesses, unwind the
+// field accesses to return the underlying expression and populate the
+// `name_path` with the field names.
+static const ResolvedExpr* UnwindFieldAccesses(
+    const ResolvedExpr* resolved_expr, ValidNamePath* name_path,
+    IdStringPool* id_string_pool) {
   while (resolved_expr->node_kind() == RESOLVED_GET_PROTO_FIELD) {
     const ResolvedGetProtoField* get_proto_field =
         resolved_expr->GetAs<ResolvedGetProtoField>();
@@ -278,6 +318,17 @@ bool GetSourceColumnAndNamePath(const ResolvedExpr* resolved_expr,
   }
   std::reverse(name_path->mutable_name_path()->begin(),
                name_path->mutable_name_path()->end());
+  return resolved_expr;
+}
+
+bool GetSourceColumnAndNamePath(const ResolvedExpr* resolved_expr,
+                                ResolvedColumn target_column,
+                                ResolvedColumn* source_column,
+                                bool* is_correlated, ValidNamePath* name_path,
+                                IdStringPool* id_string_pool) {
+  *source_column = ResolvedColumn();
+  *is_correlated = false;
+  resolved_expr = UnwindFieldAccesses(resolved_expr, name_path, id_string_pool);
   if (resolved_expr->node_kind() == RESOLVED_COLUMN_REF) {
     *source_column = resolved_expr->GetAs<ResolvedColumnRef>()->column();
     *is_correlated = resolved_expr->GetAs<ResolvedColumnRef>()->is_correlated();
@@ -285,6 +336,17 @@ bool GetSourceColumnAndNamePath(const ResolvedExpr* resolved_expr,
     return true;
   }
   return false;
+}
+
+const ResolvedArgumentRef* GetSourceArgumentRefAndNamePath(
+    const ResolvedExpr* resolved_expr, ResolvedColumn target_column,
+    ValidNamePath* name_path, IdStringPool* id_string_pool) {
+  resolved_expr = UnwindFieldAccesses(resolved_expr, name_path, id_string_pool);
+  if (resolved_expr->Is<ResolvedArgumentRef>()) {
+    name_path->set_target_column(target_column);
+    return resolved_expr->GetAs<ResolvedArgumentRef>();
+  }
+  return nullptr;
 }
 
 size_t FieldPathHash(const ResolvedExpr* expr) {
@@ -595,6 +657,15 @@ bool IsSameFieldPath(const ResolvedExpr* field_path1,
       // the same ResolvedColumn, then the expressions must be equivalent.
       return field_path1->GetAs<ResolvedColumnRef>()->column() ==
              field_path2->GetAs<ResolvedColumnRef>()->column();
+    }
+    case RESOLVED_ARGUMENT_REF: {
+      const ResolvedArgumentRef* argument_ref1 =
+          field_path1->GetAs<ResolvedArgumentRef>();
+      const ResolvedArgumentRef* argument_ref2 =
+          field_path2->GetAs<ResolvedArgumentRef>();
+      return argument_ref1->name() == argument_ref2->name() &&
+             argument_ref1->argument_kind() == argument_ref2->argument_kind() &&
+             argument_ref1->type()->Equals(argument_ref2->type());
     }
     default:
       return false;

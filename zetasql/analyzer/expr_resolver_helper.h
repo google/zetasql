@@ -25,14 +25,13 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/analyzer/name_scope.h"
+#include "zetasql/analyzer/query_resolver_helper.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/select_with_mode.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
-#include "absl/status/status.h"
+#include "zetasql/resolved_ast/resolved_column.h"
 #include "absl/status/statusor.h"
-#include "absl/types/optional.h"
-#include "absl/types/span.h"
 #include "zetasql/base/ret_check.h"
 
 namespace zetasql {
@@ -130,6 +129,7 @@ class FlattenState {
       can_flatten_ = can_flatten;
       original_can_flatten_ = *can_flatten;
     }
+
    private:
     bool* can_flatten_ = nullptr;
     bool original_can_flatten_;

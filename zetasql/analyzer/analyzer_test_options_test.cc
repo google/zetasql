@@ -16,9 +16,13 @@
 
 #include "zetasql/analyzer/analyzer_test_options.h"
 
+#include <cstddef>
+
 #include "zetasql/base/testing/status_matchers.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/status/status.h"
+#include "file_based_test_driver/test_case_options.h"
 
 namespace zetasql {
 

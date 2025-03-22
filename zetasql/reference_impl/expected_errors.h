@@ -21,7 +21,7 @@
 #include <string>
 
 #include "zetasql/compliance/matchers.h"
-#include "zetasql/base/status.h"
+#include "absl/status/status.h"
 
 namespace zetasql {
 

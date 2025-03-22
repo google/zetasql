@@ -17,24 +17,28 @@
 #include "zetasql/public/parse_helpers.h"
 
 #include <memory>
+#include <optional>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/parser/ast_node_kind.h"
+#include "zetasql/parser/flex_tokenizer.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parser.h"
 #include "zetasql/parser/statement_properties.h"
+#include "zetasql/parser/tm_token.h"
 #include "zetasql/public/error_helpers.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/parse_location.h"
 #include "zetasql/public/parse_resume_location.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
+#include "zetasql/base/check.h"
 #include "absl/status/status.h"
-#include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/ret_check.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
@@ -202,6 +206,8 @@ ResolvedNodeKind GetStatementKind(ASTNodeKind node_kind) {
       return RESOLVED_ALTER_MODEL_STMT;
     case AST_ALTER_ROW_ACCESS_POLICY_STATEMENT:
       return RESOLVED_ALTER_ROW_ACCESS_POLICY_STMT;
+    case AST_ALTER_INDEX_STATEMENT:
+      return RESOLVED_ALTER_INDEX_STMT;
     case AST_RENAME_STATEMENT:
       return RESOLVED_RENAME_STMT;
     case AST_IMPORT_STATEMENT:
@@ -297,6 +303,7 @@ absl::Status GetNextStatementProperties(
     case AST_ALTER_TABLE_STATEMENT:
     case AST_ALTER_VIEW_STATEMENT:
     case AST_ALTER_MODEL_STATEMENT:
+    case AST_ALTER_INDEX_STATEMENT:
     case AST_CREATE_CONSTANT_STATEMENT:
     case AST_CREATE_DATABASE_STATEMENT:
     case AST_CREATE_ENTITY_STATEMENT:
@@ -397,6 +404,53 @@ absl::Status GetNextStatementProperties(
   ast_statement_properties.statement_level_hints.swap(
       statement_properties->statement_level_hints);
 
+  return absl::OkStatus();
+}
+
+absl::Status SkipNextStatement(ParseResumeLocation* resume_location,
+                               bool* at_end_of_input) {
+  ZETASQL_RETURN_IF_ERROR(resume_location->Validate());
+
+  auto tokenizer = std::make_unique<parser::ZetaSqlTokenizer>(
+      resume_location->filename(), resume_location->input(),
+      resume_location->byte_position(), /*force_flex=*/false);
+
+  ParseLocationRange range;
+  std::optional<int> semicolon_byte_offset;
+  *at_end_of_input = false;
+  while (true) {
+    ZETASQL_ASSIGN_OR_RETURN(parser::Token next_token, tokenizer->GetNextToken(&range));
+    if (next_token == parser::Token::EOI) {
+      *at_end_of_input = true;
+      break;
+    }
+    if (next_token == parser::Token::COMMENT) {
+      continue;
+    }
+    if (semicolon_byte_offset.has_value()) {
+      // We've seen a semicolon, and after continuing to process, we've hit
+      // something other than EOI or COMMENT.  We are not at the end of the
+      // input.
+      break;
+    }
+    if (next_token == parser::Token::SEMICOLON) {
+      // We've hit a semicolon.  We're at the end of the statement, but continue
+      // consuming additional comments, breaking once we get to EOI or another
+      // non-comment token.
+      semicolon_byte_offset = range.end().GetByteOffset();
+      continue;
+    }
+  }
+
+  // If we've reached EOI, the byte position should be the size of the input,
+  // regardless of where the semicolon was.
+  if (*at_end_of_input) {
+    resume_location->set_byte_position(
+        static_cast<int>(resume_location->input().size()));
+  } else {
+    ZETASQL_RET_CHECK(semicolon_byte_offset.has_value());
+    resume_location->set_byte_position(*semicolon_byte_offset);
+  }
   return absl::OkStatus();
 }
 

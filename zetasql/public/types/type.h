@@ -17,6 +17,7 @@
 #ifndef ZETASQL_PUBLIC_TYPES_TYPE_H_
 #define ZETASQL_PUBLIC_TYPES_TYPE_H_
 
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -33,24 +34,29 @@
 #include "google/protobuf/descriptor.h"
 #include "zetasql/common/float_margin.h"
 #include "zetasql/public/options.pb.h"
-#include "zetasql/public/token_list.h"
+#include "zetasql/public/token_list.h"  
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/timestamp_util.h"
 #include "zetasql/public/types/value_equality_check_options.h"
 #include "zetasql/public/types/value_representations.h"
 #include "absl/base/attributes.h"
+#include "absl/base/thread_annotations.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/hash/hash.h"
+#include "zetasql/base/check.h"
+#include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
+#include "absl/synchronization/mutex.h"
 #include "absl/types/optional.h"
 #include "absl/types/span.h"
 
 namespace zetasql {
 
 class ArrayType;
+class AnnotationMap;
 class EnumType;
 class ExtendedType;
 class GraphElementType;
@@ -63,15 +69,20 @@ class RangeType;
 class StructType;
 class Type;
 class TypeFactory;
+class TypeFactoryBase;
 class TypeModifiers;
 class TypeParameterValue;
 class TypeParameters;
 class Value;
 class ValueContent;
 class ValueProto;
+class ValueTest;
 
 namespace internal {
+
 class TypeStore;
+class TypeStoreHelper;
+
 }  // namespace internal
 
 typedef std::vector<Type*> TypeList;
@@ -532,13 +543,6 @@ class Type {
   virtual bool IsSupportedType(
       const LanguageOptions& language_options) const = 0;
 
-  // Returns true if this type is enabled given 'language_options'.
-  // Checks for ProductMode, TimestampMode, and supported LanguageFeatures.
-  // Only works with simple types, because complex types need full Type object,
-  // just TypeKind is usually not enough.
-  static bool IsSupportedSimpleTypeKind(
-      TypeKind kind, const LanguageOptions& language_options);
-
   static bool IsSimpleType(TypeKind kind);
 
   static std::string TypeKindToString(TypeKind kind, ProductMode mode,
@@ -635,7 +639,7 @@ class Type {
 
  protected:
   // Types can only be created and destroyed by TypeFactory.
-  Type(const TypeFactory* factory, TypeKind kind);
+  Type(const TypeFactoryBase* factory, TypeKind kind);
   virtual ~Type() = default;
 
   bool EqualsImpl(const Type* other_type, bool equivalent) const {
@@ -655,6 +659,15 @@ class Type {
   // Hashes the type's parameter of non-simple (parameterized) types. Simple
   // built-in types should not update the hash state.
   virtual absl::HashState HashTypeParameter(absl::HashState state) const = 0;
+
+  // Applicable to proto types only, used from ArrayType::EqualElementMultiSet.
+  // Returns true if the proto type has any floating point fields.
+  virtual bool HasFloatingPointFields() const {
+    ABSL_CHECK_EQ(kind(), TYPE_PROTO);  // Crash OK
+    // This should only be called for proto types, and is implemented there.
+    ABSL_LOG(FATAL)
+        << "HasFloatingPointFields() should only be called for proto types";
+  }
 
   // Internal implementation for Serialize methods.  This will append
   // Type information to <type_proto>, so the caller should make sure
@@ -738,6 +751,11 @@ class Type {
 
     bool collapse_identical_tokens = false;
 
+    // If set, TokenList attributes are formatted according to this function.
+    // If not set, TokenList attributes are printed as decimal integers.
+    std::function<void(std::string&, tokens::TextAttribute)>
+        format_token_attribute;
+
     FormatValueContentOptions IncreaseIndent();
 
     // Number of columns per indentation.
@@ -757,8 +775,7 @@ class Type {
   absl::Status TypeMismatchError(const ValueProto& value_proto) const;
 
   // Returns type printed as capitalized string.
-  // TODO Remove this method and use DebugString instead.
-  std::string CapitalizedName() const;
+  virtual std::string CapitalizedName() const = 0;
 
  private:
   // Recursive implementation of SupportsGrouping, which returns in
@@ -943,6 +960,83 @@ typedef std::pair<TypeKind, TypeKind> TypeKindPair;
 // provided TypeKind_IsValid(), as it also returns false for the dummy
 // __TypeKind__switch_must_have_a_default__ value.
 bool IsValidTypeKind(int kind);
+
+namespace internal {
+
+// Class is used by TypeFactory to store created types.
+// TODO: should we consider doing refcounting for Type objects
+// instead of refcounting for TypeStores? This requires to add a counter and a
+// flag per each non-simple type, but on the other hand, will allow us to have
+// more granular memory management and avoid checks for cycles between
+// TypeStores.
+// TODO: Should TypeStore have a DescriptorPool?
+class TypeStore final {
+ public:
+#ifndef SWIG
+  TypeStore(const TypeStore&) = delete;
+  TypeStore& operator=(const TypeStore&) = delete;
+#endif
+
+ private:
+  friend class ::zetasql::TypeFactory;
+  friend class ::zetasql::internal::TypeStoreHelper;
+
+  explicit TypeStore(bool keep_alive_while_referenced_from_value);
+  ~TypeStore();
+
+  void Ref() const;
+  void Unref() const;
+
+  // Use our own ref counter because SimpleReferenceCounted uses int32_t for its
+  // counter, which could be not enough to count references from all values.
+  // Ref count is 1 for type factory that creates it.
+  mutable std::atomic<int64_t> ref_count_{1};
+
+  const bool keep_alive_while_referenced_from_value_;
+
+  mutable absl::Mutex mutex_;
+
+  std::vector<const Type*> owned_types_ ABSL_GUARDED_BY(mutex_);
+
+  std::vector<const AnnotationMap*> owned_annotation_maps_
+      ABSL_GUARDED_BY(mutex_);
+
+  // Store links to and from TypeStores that this TypeStores depends on.
+  // This is used as a sanity check to catch incorrect destruction order.
+  mutable absl::flat_hash_set<const TypeStore*> depends_on_factories_
+      ABSL_GUARDED_BY(mutex_);
+  mutable absl::flat_hash_set<const TypeStore*> factories_depending_on_this_
+      ABSL_GUARDED_BY(mutex_);
+};
+
+// Helper class to work with TypeStore. These internal helpers are usable only
+// in the friend classes.
+class TypeStoreHelper {
+ private:
+  friend class ::zetasql::Type;
+  friend class ::zetasql::Value;
+  friend class ::zetasql::ValueTest;
+
+  static void RefFromValue(const TypeStore* store);
+  static void UnrefFromValue(const TypeStore* store);
+  static const TypeStore* GetTypeStore(const TypeFactoryBase* factory);
+  static int64_t Test_GetRefCount(const TypeStore* store);
+};
+
+}  // namespace internal
+
+// Interface for TypeFactory.
+class TypeFactoryBase {
+ public:
+  explicit TypeFactoryBase(internal::TypeStore* store) : store_(store) {}
+
+  virtual ~TypeFactoryBase() = default;
+
+ private:
+  friend class ::zetasql::TypeFactory;
+  friend class ::zetasql::internal::TypeStoreHelper;
+  internal::TypeStore* store_;
+};
 
 }  // namespace zetasql
 

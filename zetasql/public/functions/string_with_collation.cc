@@ -29,6 +29,7 @@
 #include "zetasql/public/functions/like.h"
 #include "zetasql/public/functions/string.h"
 #include "zetasql/public/functions/util.h"
+#include "zetasql/public/type.pb.h"
 #include "absl/base/optimization.h"
 #include "zetasql/base/check.h"
 #include "absl/memory/memory.h"

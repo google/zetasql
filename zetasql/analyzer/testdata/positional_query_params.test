@@ -365,7 +365,7 @@ INT64
 ==
 
 [positional_parameter_types=int64,string,timestamp,bool]
-
+[sql_builder_target_syntax_mode=standard]
 select a, any_value(b), c
 from (select ? as a, ? as b, ? as c from (select 1) where ?)
 group by a, b = "foo", c;
@@ -413,8 +413,66 @@ QueryStmt
               +-ColumnRef(type=STRING, column=$subquery1.b#3)
 ==
 
-[positional_parameter_types=int64,string,timestamp,bool]
+[positional_parameter_types=bool,int64,string,timestamp]
+[sql_builder_target_syntax_mode=pipe]
+[language_features=PIPES]
+select 1
+|> where ?
+|> select ? as a, ? as b, ? as c
+|> extend b = "foo" as d
+|> aggregate any_value(b) as e group BY a, d, c
+|> select a, e, c;
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.a#7 AS a [INT64]
+| +-$aggregate.e#6 AS e [STRING]
+| +-$groupby.c#9 AS c [TIMESTAMP]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.a#7, $aggregate.e#6, $groupby.c#9]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$groupby.a#7, $groupby.d#8, $groupby.c#9, $aggregate.e#6]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=[$pipe_select.a#2, $pipe_select.b#3, $pipe_select.c#4, $pipe_extend.d#5]
+        |   +-expr_list=
+        |   | +-d#5 :=
+        |   |   +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+        |   |     +-ColumnRef(type=STRING, column=$pipe_select.b#3)
+        |   |     +-Literal(type=STRING, value="foo")
+        |   +-input_scan=
+        |     +-ProjectScan
+        |       +-column_list=$pipe_select.[a#2, b#3, c#4]
+        |       +-expr_list=
+        |       | +-a#2 := Parameter(type=INT64, position=2)
+        |       | +-b#3 := Parameter(type=STRING, position=3)
+        |       | +-c#4 := Parameter(type=TIMESTAMP, position=4)
+        |       +-input_scan=
+        |         +-FilterScan
+        |           +-column_list=[$query.$col1#1]
+        |           +-input_scan=
+        |           | +-ProjectScan
+        |           |   +-column_list=[$query.$col1#1]
+        |           |   +-expr_list=
+        |           |   | +-$col1#1 := Literal(type=INT64, value=1)
+        |           |   +-input_scan=
+        |           |     +-SingleRowScan
+        |           +-filter_expr=
+        |             +-Parameter(type=BOOL, position=1)
+        +-group_by_list=
+        | +-a#7 := ColumnRef(type=INT64, column=$pipe_select.a#2)
+        | +-d#8 := ColumnRef(type=BOOL, column=$pipe_extend.d#5)
+        | +-c#9 := ColumnRef(type=TIMESTAMP, column=$pipe_select.c#4)
+        +-aggregate_list=
+          +-e#6 :=
+            +-AggregateFunctionCall(ZetaSQL:any_value(STRING) -> STRING)
+              +-ColumnRef(type=STRING, column=$pipe_select.b#3)
+==
 
+[positional_parameter_types=int64,string,timestamp,bool]
+[sql_builder_target_syntax_mode=standard]
 with T as (select ? as a, ? as b, ? as c from (select 1) where ?)
 select a, any_value(b), c
 from T
@@ -467,6 +525,72 @@ QueryStmt
             | +-c#11 := ColumnRef(type=TIMESTAMP, column=T.c#7)
             +-aggregate_list=
               +-$agg1#8 :=
+                +-AggregateFunctionCall(ZetaSQL:any_value(STRING) -> STRING)
+                  +-ColumnRef(type=STRING, column=T.b#6)
+==
+
+
+[positional_parameter_types=bool,int64,string,timestamp]
+[sql_builder_target_syntax_mode=pipe]
+[language_features=PIPES]
+with T as (select 1 |> where ? |> select ? as a, ? as b, ? as c)
+from T
+|> extend b = "foo" as d
+|> aggregate any_value(b) as e group BY a, d, c
+|> select a, e, c;
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.a#10 AS a [INT64]
+| +-$aggregate.e#9 AS e [STRING]
+| +-$groupby.c#12 AS c [TIMESTAMP]
++-query=
+  +-WithScan
+    +-column_list=[$groupby.a#10, $aggregate.e#9, $groupby.c#12]
+    +-with_entry_list=
+    | +-WithEntry
+    |   +-with_query_name="T"
+    |   +-with_subquery=
+    |     +-ProjectScan
+    |       +-column_list=$pipe_select.[a#2, b#3, c#4]
+    |       +-expr_list=
+    |       | +-a#2 := Parameter(type=INT64, position=2)
+    |       | +-b#3 := Parameter(type=STRING, position=3)
+    |       | +-c#4 := Parameter(type=TIMESTAMP, position=4)
+    |       +-input_scan=
+    |         +-FilterScan
+    |           +-column_list=[T.$col1#1]
+    |           +-input_scan=
+    |           | +-ProjectScan
+    |           |   +-column_list=[T.$col1#1]
+    |           |   +-expr_list=
+    |           |   | +-$col1#1 := Literal(type=INT64, value=1)
+    |           |   +-input_scan=
+    |           |     +-SingleRowScan
+    |           +-filter_expr=
+    |             +-Parameter(type=BOOL, position=1)
+    +-query=
+      +-ProjectScan
+        +-column_list=[$groupby.a#10, $aggregate.e#9, $groupby.c#12]
+        +-input_scan=
+          +-AggregateScan
+            +-column_list=[$groupby.a#10, $groupby.d#11, $groupby.c#12, $aggregate.e#9]
+            +-input_scan=
+            | +-ProjectScan
+            |   +-column_list=[T.a#5, T.b#6, T.c#7, $pipe_extend.d#8]
+            |   +-expr_list=
+            |   | +-d#8 :=
+            |   |   +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+            |   |     +-ColumnRef(type=STRING, column=T.b#6)
+            |   |     +-Literal(type=STRING, value="foo")
+            |   +-input_scan=
+            |     +-WithRefScan(column_list=T.[a#5, b#6, c#7], with_query_name="T")
+            +-group_by_list=
+            | +-a#10 := ColumnRef(type=INT64, column=T.a#5)
+            | +-d#11 := ColumnRef(type=BOOL, column=$pipe_extend.d#8)
+            | +-c#12 := ColumnRef(type=TIMESTAMP, column=T.c#7)
+            +-aggregate_list=
+              +-e#9 :=
                 +-AggregateFunctionCall(ZetaSQL:any_value(STRING) -> STRING)
                   +-ColumnRef(type=STRING, column=T.b#6)
 ==

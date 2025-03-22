@@ -37,6 +37,7 @@ namespace zetasql {
 // This traverses left-most children of a node and updates <location> with
 // the earliest position it finds.
 static void FindMinimalErrorLocation(const ASTNode* parent_node,
+                                     bool use_end_location,
                                      ParseLocationPoint* error_location) {
   // TODO This still won't find the real start character for
   // a parenthesized expression like (1+2).  It will point at the '1'.
@@ -45,20 +46,29 @@ static void FindMinimalErrorLocation(const ASTNode* parent_node,
     node = node->child(0);
     ABSL_DCHECK(node != nullptr);
     if (node->GetParseLocationRange().start() < *error_location) {
-      *error_location = node->GetParseLocationRange().start();
+      if (use_end_location) {
+        *error_location = node->GetParseLocationRange().end();
+      } else {
+        *error_location = node->GetParseLocationRange().start();
+      }
     }
   }
 }
 
 ParseLocationPoint GetErrorLocationPoint(const ASTNode* ast_node,
-                                         bool include_leftmost_child) {
+                                         bool include_leftmost_child,
+                                         bool use_end_location) {
   // For extra safety, try not to crash while constructing errors.
   ABSL_DCHECK(ast_node != nullptr);
   if (ast_node != nullptr) {
-    ParseLocationPoint error_location =
-        ast_node->GetParseLocationRange().start();
+    ParseLocationPoint error_location;
+    if (use_end_location) {
+      error_location = ast_node->GetParseLocationRange().end();
+    } else {
+      error_location = ast_node->GetParseLocationRange().start();
+    }
     if (include_leftmost_child) {
-      FindMinimalErrorLocation(ast_node, &error_location);
+      FindMinimalErrorLocation(ast_node, use_end_location, &error_location);
     }
     return error_location;
   }

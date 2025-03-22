@@ -17,6 +17,9 @@
 #include "zetasql/public/time_zone_util.h"
 
 #include "zetasql/common/errors.h"
+#include "absl/status/status.h"
+#include "absl/strings/string_view.h"
+#include "absl/time/time.h"
 
 namespace zetasql {
 

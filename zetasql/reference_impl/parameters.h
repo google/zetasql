@@ -24,7 +24,6 @@
 #include <vector>
 
 #include "zetasql/reference_impl/variable_id.h"
-#include "absl/types/variant.h"
 
 namespace zetasql {
 

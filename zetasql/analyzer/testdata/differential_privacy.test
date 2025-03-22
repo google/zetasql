@@ -1,6 +1,7 @@
 # Specify WITH DIFFERENTIAL_PRIVACY but no FROM clause
 [default also_show_signature_mismatch_details]
 [default language_features=DIFFERENTIAL_PRIVACY,V_1_3_QUALIFY,ANALYTIC_FUNCTIONS,DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS,NAMED_ARGUMENTS,NUMERIC_TYPE,JSON_TYPE]
+
 select with differential_privacy sum();
 --
 ERROR: SELECT without FROM clause cannot specify WITH DIFFERENTIAL_PRIVACY [at 1:1]
@@ -5792,7 +5793,7 @@ QueryStmt
 
 # We can't run the unparser because the rewrite generates ORDER BY in an
 # aggregate function and the appropriate language feature is not enabled.
-[no_run_unparser]
+[no_run_sqlbuilder]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with differential_privacy VAR_POP(int64)
 from SimpleTypesWithAnonymizationUid;
@@ -5865,7 +5866,7 @@ QueryStmt
 
 # We can't run the unparser because the rewrite generates ORDER BY in an
 # aggregate function and the appropriate language feature is not enabled.
-[no_run_unparser]
+[no_run_sqlbuilder]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with differential_privacy VAR_POP(double), SUM(double)
 from SimpleTypesWithAnonymizationUid;
@@ -5949,7 +5950,7 @@ QueryStmt
 
 # We can't run the unparser because the rewrite generates ORDER BY in an
 # aggregate function and the appropriate language feature is not enabled.
-[no_run_unparser]
+[no_run_sqlbuilder]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with differential_privacy VAR_POP(int64), VAR_POP(double)
 from SimpleTypesWithAnonymizationUid;
@@ -6042,7 +6043,7 @@ QueryStmt
 
 # We can't run the unparser because the rewrite generates ORDER BY in an
 # aggregate function and the appropriate language feature is not enabled.
-[no_run_unparser]
+[no_run_sqlbuilder]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with differential_privacy STDDEV_POP(int64, contribution_bounds_per_row => (2,3.5))
 from SimpleTypesWithAnonymizationUid;
@@ -6115,7 +6116,7 @@ QueryStmt
 
 # We can't run the unparser because the rewrite generates ORDER BY in an
 # aggregate function and the appropriate language feature is not enabled.
-[no_run_unparser]
+[no_run_sqlbuilder]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with differential_privacy STDDEV_POP(int64)
 from SimpleTypesWithAnonymizationUid;
@@ -6188,7 +6189,7 @@ QueryStmt
 
 # We can't run the unparser because the rewrite generates ORDER BY in an
 # aggregate function and the appropriate language feature is not enabled.
-[no_run_unparser]
+[no_run_sqlbuilder]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with differential_privacy STDDEV_POP(int64), STDDEV_POP(double)
 from SimpleTypesWithAnonymizationUid;
@@ -6281,7 +6282,7 @@ QueryStmt
 
 # We can't run the unparser because the rewrite generates ORDER BY in an
 # aggregate function and the appropriate language feature is not enabled.
-[no_run_unparser]
+[no_run_sqlbuilder]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with differential_privacy STDDEV_POP(double), SUM(double)
 from SimpleTypesWithAnonymizationUid;
@@ -6365,7 +6366,7 @@ QueryStmt
 
 # We can't run the unparser because the rewrite generates ORDER BY in an
 # aggregate function and the appropriate language feature is not enabled.
-[no_run_unparser]
+[no_run_sqlbuilder]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with differential_privacy STDDEV_POP(double), VAR_POP(double)
 from SimpleTypesWithAnonymizationUid;
@@ -6456,7 +6457,7 @@ QueryStmt
 
 # We can't run the unparser because the rewrite generates ORDER BY in an
 # aggregate function and the appropriate language feature is not enabled.
-[no_run_unparser]
+[no_run_sqlbuilder]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with differential_privacy
     PERCENTILE_CONT(int64, 0.4),
@@ -6555,7 +6556,7 @@ QueryStmt
 
 # We can't run the unparser because the rewrite generates ORDER BY in an
 # aggregate function and the appropriate language feature is not enabled.
-[no_run_unparser]
+[no_run_sqlbuilder]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with differential_privacy
     PERCENTILE_CONT(int64, 0.4, contribution_bounds_per_row => (2,3)),
@@ -6654,7 +6655,7 @@ QueryStmt
 
 # We can't run the unparser because the rewrite generates ORDER BY in an
 # aggregate function and the appropriate language feature is not enabled.
-[no_run_unparser]
+[no_run_sqlbuilder]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with differential_privacy
     PERCENTILE_CONT(int64, 0.4, contribution_bounds_per_row => STRUCT(2 AS val, 3 AS val2)),
@@ -6732,7 +6733,7 @@ QueryStmt
 
 # We can't run the unparser because the rewrite generates ORDER BY in an
 # aggregate function and the appropriate language feature is not enabled.
-[no_run_unparser]
+[no_run_sqlbuilder]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with differential_privacy
     APPROX_QUANTILES(int64, 4, contribution_bounds_per_row => (2,3)),
@@ -7967,7 +7968,7 @@ select with differential_privacy APPROX_QUANTILES(double, contribution_bounds...
 
 # We can't run the unparser because the rewrite generates ORDER BY in an
 # aggregate function and the appropriate language feature is not enabled.
-[no_run_unparser]
+[no_run_sqlbuilder]
 [no_enable_literal_replacement]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with differential_privacy
@@ -9613,7 +9614,7 @@ QueryStmt
 
 [language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,TABLESAMPLE,STRATIFIED_RESERVOIR_TABLESAMPLE{{|,V_1_4_ENFORCE_CONDITIONAL_EVALUATION}}]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
-[no_run_unparser]
+[no_run_sqlbuilder]
 # The anonymization rewrite combined conditional evaluation leads to a
 # ResolvedAST that is inexpressible in SQL due to the extra AggScan.
 SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS({{|max_groups_contributed = 1}})

@@ -39,6 +39,8 @@ struct NFAMatchPartitionOptions {
 
   // TODO: Add more fields for additional knobs, for example,
   // OMIT EMPTY MATCH, etc.
+
+  std::string DebugString() const;
 };
 
 class NFAMatchPartition : public MatchPartition {

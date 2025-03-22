@@ -73,6 +73,8 @@ class GraphPathType : public ListBackedType {
                                  /*use_external_float32=*/false);
   }
 
+  std::string CapitalizedName() const override;
+
   int nesting_depth() const override { return nesting_depth_; }
 
   bool IsSupportedType(const LanguageOptions& language_options) const override;

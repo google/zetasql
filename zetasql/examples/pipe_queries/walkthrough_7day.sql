@@ -259,9 +259,7 @@ FROM input
 |> JOIN UNNEST(generate_array(0, num_days - 1)) diff_days
 |> SET date = date_add(date, INTERVAL diff_days DAY)
 |> WHERE date <= max_date
--- Temporarily use SELECT * EXCEPT instead because of a bug with TVF inlining.
--- |> DROP max_date, diff_days;
-|> SELECT * EXCEPT (max_date, diff_days);
+|> DROP max_date, diff_days;
 
 -- Look at that, the date replication is nicely encapsulated in a reusable
 -- function!  And calling it as a pipe operator fits cleanly into the query flow.

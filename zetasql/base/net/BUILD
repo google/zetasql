@@ -44,8 +44,6 @@ cc_library(
 py_binary(
     name = "simple_embedder",
     srcs = ["simple_embedder.py"],
-    python_version = "PY3",
-    srcs_version = "PY3",
     deps = [
         "@io_abseil_py//absl:app",
     ],

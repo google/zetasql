@@ -34,7 +34,7 @@ ZetaSQL reference documentation.
 To create a recursive CTE in ZetaSQL, use the
 [`WITH RECURSIVE` clause][with-clause] as shown in the following example:
 
-```sql
+```zetasql
 WITH RECURSIVE
   CTE_1 AS (
     (SELECT 1 AS iteration UNION ALL SELECT 1 AS iteration)
@@ -47,7 +47,7 @@ ORDER BY 1 ASC
 
 The preceding example produces the following results:
 
-```sql
+```zetasql
 /*-----------*
  | iteration |
  +-----------+
@@ -63,7 +63,7 @@ The preceding example produces the following results:
 To avoid duplicate rows so that only distinct rows become part of the final CTE
 result, use `UNION DISTINCT` instead of `UNION ALL`:
 
-```sql
+```zetasql
 WITH RECURSIVE
   CTE_1 AS (
     (SELECT 1 AS iteration UNION ALL SELECT 1 AS iteration)
@@ -76,7 +76,7 @@ ORDER BY 1 ASC
 
 The preceding example produces the following results:
 
-```sql
+```zetasql
 /*-----------*
  | iteration |
  +-----------+
@@ -110,7 +110,7 @@ You can use a recursive query to explore reachability in a
 directed acyclic graph (DAG). The following query finds all nodes that can be
 reached from node `5` in a graph called `GraphData`:
 
-```sql
+```zetasql
 WITH RECURSIVE
   GraphData AS (
     --    1          5
@@ -142,7 +142,7 @@ SELECT DISTINCT node FROM R ORDER BY node;
 
 The preceding example produces the following results:
 
-```sql
+```zetasql
 /*------*
  | node |
  +------+
@@ -180,8 +180,9 @@ this section.
 To prevent infinite recursion, make sure the recursive term is
 able to produce an empty result after executing a certain number of iterations.
 
-One way to check for infinite recursion is to convert your recursive CTE to a
-`TEMP TABLE` with a `REPEAT` loop for the first `100` iterations, as follows:
+One way to check for infinite recursion is to
+convert your recursive CTE to a `TEMP TABLE` with a `REPEAT` loop for the
+first `100` iterations, as follows:
 
 <pre class="lang-sql prettyprint notranslate">
 DECLARE current_iteration INT64 DEFAULT 0;
@@ -211,7 +212,7 @@ Replace the following values:
 
 For example, consider the following recursive CTE called `TestCTE`:
 
-```sql
+```zetasql
 WITH RECURSIVE
   TestCTE AS (
     SELECT 1 AS n
@@ -265,7 +266,7 @@ SELECT * FROM TestCTE WHERE iteration = 2;
 The preceding example produces the following results that include the
 iteration ID and the number of rows that were produced during that iteration:
 
-```sql
+```zetasql
 /*-----------+----------*
  | iteration | num_rows |
  +-----------+----------+
@@ -285,7 +286,7 @@ iteration ID and the number of rows that were produced during that iteration:
 
 These are the actual results produced during iteration `2`:
 
-```sql
+```zetasql
 /*----------+-----------*
  | n        | iteration |
  +----------+-----------+
@@ -345,7 +346,7 @@ Replace the following values:
 
 For example, the following code splits a CTE into three distinct CTEs:
 
-```sql
+```zetasql
 WITH RECURSIVE
   CTE_1 AS (
     SELECT 1 AS iteration
@@ -375,7 +376,7 @@ so that it's faster to see the results of the query. The query produces 30 rows,
 but each recursive CTE only iterates 10 times. The output looks like the
 following:
 
-```sql
+```zetasql
 /*-----------*
  | iteration |
  +-----------+

@@ -18,6 +18,7 @@
 #include <memory>
 
 #include "zetasql/public/language_options.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/reference_impl/evaluation.h"
 #include "gtest/gtest.h"
 #include "absl/time/clock.h"

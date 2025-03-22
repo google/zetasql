@@ -27,12 +27,10 @@
 #include "zetasql/analyzer/query_resolver_helper.h"
 #include "zetasql/analyzer/resolver.h"
 #include "zetasql/common/thread_stack.h"
-#include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_errors.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/annotation/collation.h"
-#include "zetasql/public/coercer.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/language_options.h"
@@ -42,9 +40,9 @@
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
+#include "zetasql/resolved_ast/resolved_collation.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
-#include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/str_cat.h"
@@ -190,6 +188,13 @@ absl::Status AnalyticFunctionResolver::ResolveOverClauseAndCreateAnalyticColumn(
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
+  ZETASQL_RET_CHECK(resolved_function_call->function() != nullptr);
+
+  // WHERE clause resolution
+  std::unique_ptr<const ResolvedExpr> resolved_where_expr;
+  ZETASQL_RETURN_IF_ERROR(resolver_->ResolveWhereModifier(
+      ast_analytic_function_call->function(), resolved_function_call,
+      expr_resolution_info->analytic_name_scope, &resolved_where_expr));
 
   const ASTWindowSpecification* over_clause_window_spec =
       ast_analytic_function_call->window_spec();
@@ -322,7 +327,8 @@ absl::Status AnalyticFunctionResolver::ResolveOverClauseAndCreateAnalyticColumn(
       resolved_function_call->release_argument_list(),
       resolved_function_call->release_generic_argument_list(),
       resolved_function_call->error_mode(), is_distinct,
-      resolved_null_handling_modifier_kind, std::move(resolved_window_frame));
+      resolved_null_handling_modifier_kind, std::move(resolved_where_expr),
+      std::move(resolved_window_frame));
   resolver_->MaybeRecordParseLocation(ast_analytic_function_call,
                                       resolved_analytic_function_call.get());
   ZETASQL_RETURN_IF_ERROR(resolver_->MaybeResolveCollationForFunctionCallBase(

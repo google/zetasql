@@ -393,6 +393,13 @@ TEST(EnumTypeTest, EnumTypeIsSupported) {
       types::UnsupportedFieldsEnumType()->IsSupportedType(product_internal));
   EXPECT_TRUE(
       types::UnsupportedFieldsEnumType()->IsSupportedType(proto_base_enabled));
+
+  EXPECT_TRUE(
+      types::BitwiseAggModeEnumType()->IsSupportedType(product_external));
+  EXPECT_TRUE(
+      types::BitwiseAggModeEnumType()->IsSupportedType(product_internal));
+  EXPECT_TRUE(
+      types::BitwiseAggModeEnumType()->IsSupportedType(proto_base_enabled));
 }
 
 }  // namespace zetasql

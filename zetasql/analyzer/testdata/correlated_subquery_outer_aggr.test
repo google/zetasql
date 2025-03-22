@@ -2466,7 +2466,7 @@ QueryStmt
 #
 # The unparsed query for this is so large that re-analysis overflows stack
 # (in debug mode only), so we skip testing the unparser here.
-[no_run_unparser]
+[no_run_sqlbuilder]
 SELECT IFNULL(CAST(__table0.TestEnum AS INT64), 0) AS field,
        IFNULL(SUM((SELECT IFNULL(SUM(IFNULL(CAST(__for2 AS DOUBLE), 0.0)),
                                  0.0)

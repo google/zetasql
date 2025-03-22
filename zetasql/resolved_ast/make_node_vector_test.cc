@@ -21,10 +21,17 @@
 #include <utility>
 #include <vector>
 
+#include "zetasql/public/function.h"
+#include "zetasql/public/function_signature.h"
+#include "zetasql/public/id_string.h"
+#include "zetasql/public/types/type.h"
+#include "zetasql/public/types/type_factory.h"
+#include "zetasql/public/types/type_parameters.h"
+#include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
-#include "gmock/gmock.h"
+#include "zetasql/resolved_ast/resolved_column.h"
+#include "zetasql/resolved_ast/resolved_node.h"
 #include "gtest/gtest.h"
-#include "absl/memory/memory.h"
 
 namespace zetasql {
 namespace {

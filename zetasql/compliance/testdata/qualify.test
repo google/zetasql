@@ -29,8 +29,6 @@ ARRAY<STRUCT<i INT64, p STRING, o INT64>>[unknown order:
   {4, "B", 1},
   {1, "A", 1}
 ]
-
-NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=qualify_analytic_function_in_select_list]
@@ -42,8 +40,6 @@ ARRAY<STRUCT<i INT64, p STRING, o INT64, row_num INT64>>[unknown order:
   {4, "B", 1, 1},
   {1, "A", 1, 1}
 ]
-
-NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=qualify_with_analytic_and_column_filter]
@@ -52,8 +48,6 @@ SELECT i, p, o, ROW_NUMBER() OVER (PARTITION BY p ORDER BY o) as row_num FROM t1
   QUALIFY p NOT LIKE 'B' and row_num = 1;
 --
 ARRAY<STRUCT<i INT64, p STRING, o INT64, row_num INT64>>[{1, "A", 1, 1}]
-
-NOTE: Reference implementation reports non-determinism.
 ==
 
 # Regression test for b/189237442
@@ -63,8 +57,6 @@ SELECT i, p, o, (ROW_NUMBER() OVER (PARTITION BY p ORDER BY o) + 100) as row_num
   QUALIFY p NOT LIKE 'B' and row_num = 101;
 --
 ARRAY<STRUCT<i INT64, p STRING, o INT64, row_num INT64>>[{1, "A", 1, 101}]
-
-NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=qualify_aggregate_with_analytic_filter]
@@ -73,8 +65,6 @@ GROUP BY o
 QUALIFY row_num = 2;
 --
 ARRAY<STRUCT<sum_i INT64, row_num INT64>>[{7, 2}]
-
-NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=qualify_aggregate_with_aggregate_filter]
@@ -83,8 +73,6 @@ GROUP BY o
 QUALIFY sum_i < 6
 --
 ARRAY<STRUCT<sum_i INT64, row_num INT64>>[{5, 1}]
-
-NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=qualify_sum_over_unbounded_preceding]
@@ -103,8 +91,6 @@ GROUP BY o
 QUALIFY x > 1;
 --
 ARRAY<STRUCT<o INT64, INT64, x INT64>>[unknown order:{2, 7, 2}, {3, 9, 3}]
-
-NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=qualify_group_by]
@@ -123,9 +109,6 @@ GROUP BY o
 QUALIFY MAX(i) > 4 AND SUM(SUM(i)) OVER (ORDER BY o ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) > 12
 --
 ARRAY<STRUCT<o INT64, INT64, INT64>>[{3, 3, 3}]
-
-NOTE: Reference implementation reports non-determinism.
-
 ==
 
 [name=qualify_reference_pre_grouped_column]
@@ -136,9 +119,6 @@ QUALIFY COUNT(o) > 1
 ORDER BY o
 --
 ARRAY<STRUCT<o INT64, INT64>>[known order:{1, 1}, {2, 2}, {3, 3}]
-
-NOTE: Reference implementation reports non-determinism.
-
 ==
 
 [name=qualify_reference_post_grouped_column]
@@ -149,5 +129,3 @@ QUALIFY o > 1
 ORDER BY o
 --
 ARRAY<STRUCT<o INT64, INT64>>[known order:{2, 2}, {3, 3}]
-
-NOTE: Reference implementation reports non-determinism.

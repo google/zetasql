@@ -17,11 +17,17 @@
 #ifndef ZETASQL_RESOLVED_AST_RESOLVED_COLLATION_H_
 #define ZETASQL_RESOLVED_AST_RESOLVED_COLLATION_H_
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
 #include "zetasql/public/types/annotation.h"
+#include "zetasql/public/types/simple_value.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/resolved_ast/serialization.pb.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 
 namespace zetasql {
 

@@ -25,27 +25,33 @@
 #include <vector>
 
 #include "zetasql/base/logging.h"
-#include "google/protobuf/descriptor.h"
 #include "zetasql/common/thread_stack.h"
 #include "zetasql/public/constant.h"
 #include "zetasql/public/function.h"
+#include "zetasql/public/function.pb.h"
 #include "zetasql/public/parse_location.h"
 #include "zetasql/public/parse_location_range.pb.h"
 #include "zetasql/public/proto/type_annotation.pb.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/type_parameters.h"
-#include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
 #include "zetasql/resolved_ast/resolved_collation.h"
 #include "zetasql/resolved_ast/resolved_column.h"
+#include "zetasql/resolved_ast/resolved_node_kind.pb.h"
+#include "zetasql/resolved_ast/serialization.pb.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
+#include "zetasql/base/ret_check.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
@@ -733,6 +739,22 @@ std::string ResolvedDropIndexStmt::IndexTypeToString(IndexType index_type) {
 
 std::string ResolvedDropIndexStmt::GetIndexTypeString() const {
   return IndexTypeToString(index_type_);
+}
+
+std::string ResolvedAlterIndexStmt::AlterIndexTypeToString(
+    ResolvedAlterIndexStmt::AlterIndexType index_type) {
+  switch (index_type) {
+    case INDEX_SEARCH:
+      return "INDEX_SEARCH";
+    case INDEX_VECTOR:
+      return "INDEX_VECTOR";
+    case INDEX_DEFAULT:
+      return "INDEX_DEFAULT";
+  }
+}
+
+std::string ResolvedAlterIndexStmt::GetAlterIndexTypeString() const {
+  return AlterIndexTypeToString(index_type_);
 }
 
 absl::StatusOr<TypeParameters> ResolvedColumnAnnotations::GetFullTypeParameters(

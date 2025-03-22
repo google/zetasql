@@ -29,18 +29,16 @@
 #include <ostream>
 #include <set>
 #include <string>
-#include <unordered_map>
-#include <unordered_set>
-#include <vector>
 
 #include "zetasql/base/arena.h"
 #include "zetasql/common/unicode_utils.h"
+#include "gtest/gtest_prod.h"
 #include "absl/algorithm/container.h"
 #include "absl/base/attributes.h"
 #include "absl/base/const_init.h"
 #include "absl/base/thread_annotations.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
-#include "absl/container/node_hash_set.h"
 #include "absl/flags/flag.h"
 #include "absl/hash/hash.h"
 #include "absl/strings/ascii.h"
@@ -271,6 +269,8 @@ class IdString {
     mutable std::atomic<size_t> hash_case_ = 0;
   };
 
+  FRIEND_TEST(IdString, SharedSizeAlignment);
+
   // Returns true if the first num_words values pointed to by 'lhs' and 'rhs'
   // are equal.
   static bool WordsEqual(const int64_t* lhs, const int64_t* rhs,
@@ -403,8 +403,8 @@ using IdStringHashSetCase =
 // IdString -> VALUE.
 template <class VALUE>
 using IdStringHashMapCase =
-    std::unordered_map<IdString, VALUE,
-                       IdStringCaseHash, IdStringCaseEqualFunc>;
+    absl::flat_hash_map<IdString, VALUE, IdStringCaseHash,
+                        IdStringCaseEqualFunc>;
 
 #endif  // SWIG
 
@@ -551,7 +551,7 @@ class IdStringPool {
   // Set of IdStringPools that are currently alive.  This is used so we
   // can store a pool_id in each IdString in debug mode and check that
   // we never access an IdString after its IdStringPool is gone.
-  static std::unordered_set<int64_t>* live_pool_ids_
+  static absl::flat_hash_set<int64_t>* live_pool_ids_
       ABSL_GUARDED_BY(global_mutex_) ABSL_PT_GUARDED_BY(global_mutex_);
 
   static int64_t max_pool_id_ ABSL_GUARDED_BY(global_mutex_);

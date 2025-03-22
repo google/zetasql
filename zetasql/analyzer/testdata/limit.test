@@ -1,3 +1,4 @@
+
 # LIMIT and OFFSET tests.
 SELECT 1 LIMIT 1;
 --
@@ -907,5 +908,88 @@ QueryStmt
         |     | +-FlattenedArg(type=STRUCT<quantity INT64>)
         |     +-field_idx=0
         +-Literal(type=INT64, value=0)
+==
+
+# SimpleConstant can be referenced in the LIMIT and OFFSET clause with language feature.
+[language_features={{V_1_4_LIMIT_OFFSET_EXPRESSIONS|}}]
+SELECT 1 FROM KeyValue limit TestConstantInt64 OFFSET TestConstantInt64;
+--
+ALTERNATION GROUP: V_1_4_LIMIT_OFFSET_EXPRESSIONS
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#3 AS `$col1` [INT64]
++-query=
+  +-LimitOffsetScan
+    +-column_list=[$query.$col1#3]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=[$query.$col1#3]
+    |   +-expr_list=
+    |   | +-$col1#3 := Literal(type=INT64, value=1)
+    |   +-input_scan=
+    |     +-TableScan(table=KeyValue)
+    +-limit=
+    | +-Constant(TestConstantInt64, type=INT64, value=1)
+    +-offset=
+      +-Constant(TestConstantInt64, type=INT64, value=1)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: LIMIT expects an integer literal or parameter [at 1:30]
+SELECT 1 FROM KeyValue limit TestConstantInt64 OFFSET TestConstantInt64;
+                             ^
+==
+
+[prepare_database=db]
+create constant local_constant_int64 = 1 + 2 * 3;
+--
+CreateConstantStmt
++-name_path=local_constant_int64
++-expr=
+  +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    +-Literal(type=INT64, value=1)
+    +-FunctionCall(ZetaSQL:$multiply(INT64, INT64) -> INT64)
+      +-Literal(type=INT64, value=2)
+      +-Literal(type=INT64, value=3)
+==
+
+[prepare_database=db]
+create constant local_constant_int32 = CAST(1 + 2 * 3 AS INT32);
+--
+CreateConstantStmt
++-name_path=local_constant_int32
++-expr=
+  +-Cast(INT64 -> INT32)
+    +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+      +-Literal(type=INT64, value=1)
+      +-FunctionCall(ZetaSQL:$multiply(INT64, INT64) -> INT64)
+        +-Literal(type=INT64, value=2)
+        +-Literal(type=INT64, value=3)
+==
+
+# SQLConstant can be referenced in the LIMIT and OFFSET clause with language feature.
+[language_features=V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+[use_database=db]
+select * from KeyValue kv1
+LIMIT local_constant_int64 OFFSET local_constant_int32
+--
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS Key [INT64]
+| +-KeyValue.Value#2 AS Value [STRING]
++-query=
+  +-LimitOffsetScan
+    +-column_list=KeyValue.[Key#1, Value#2]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=KeyValue.[Key#1, Value#2]
+    |   +-input_scan=
+    |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1], alias="kv1")
+    +-limit=
+    | +-Constant(local_constant_int64, type=INT64, value=Uninitialized value)
+    +-offset=
+      +-Cast(INT32 -> INT64)
+        +-Constant(local_constant_int32, type=INT32, value=Uninitialized value)
 ==
 

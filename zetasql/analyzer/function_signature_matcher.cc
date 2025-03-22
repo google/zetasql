@@ -42,6 +42,7 @@
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/array_type.h"
+#include "zetasql/public/types/measure_type.h"
 #include "zetasql/public/types/proto_type.h"
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
@@ -422,7 +423,7 @@ absl::StatusOr<bool> FunctionSignatureMatcher::GetConcreteArgument(
     ZETASQL_RET_CHECK_NE(*found_type, nullptr);
 
     *output_argument = std::make_unique<FunctionArgumentType>(
-        *found_type, options, num_occurrences);
+        *found_type, std::move(options), num_occurrences);
   } else if (argument.IsRelation()) {
     // Table-valued functions should return ARG_TYPE_RELATION. There is no Type
     // object in this case, so return a new FunctionArgumentType with
@@ -470,7 +471,7 @@ absl::StatusOr<bool> FunctionSignatureMatcher::GetConcreteArgument(
             concrete_arg_types, *concrete_expr_arg, argument.options()));
   } else {
     *output_argument = std::make_unique<FunctionArgumentType>(
-        argument.type(), options, num_occurrences);
+        argument.type(), std::move(options), num_occurrences);
   }
   return true;
 }
@@ -1129,6 +1130,16 @@ bool FunctionSignatureMatcher::
       // TODO: Investigate if this is necessary/correct.
       (*templated_argument_map)[ARG_RANGE_TYPE_ANY_1];
     }
+    if (kind == ARG_MEASURE_TYPE_ANY_1) {
+      // Measure type is based on a specific definition and expression, it
+      // cannot coerce, so it doesn't make sense to infer the type of a measure
+      // from an untyped argument.
+      SET_MISMATCH_ERROR_WITH_INDEX(
+          absl::StrFormat("Measure cannot be inferred from untyped "
+                          "argument: %s",
+                          UserFacingName(input_argument)));
+      return false;
+    }
     // ARG_MAP_TYPE_ANY_1_2 is intentionally not handled here, because we return
     // an error when the key or value type can't be inferred.
   } else {
@@ -1247,6 +1258,19 @@ bool FunctionSignatureMatcher::
       (*templated_argument_map)[ARG_TYPE_ANY_2].InsertTypedArgument(
           MakeConcreteArgument(map_type->value_type()), set_dominant);
     }
+
+    if (signature_argument_kind == ARG_MEASURE_TYPE_ANY_1) {
+      if (!input_argument.type()->IsMeasureType()) {
+        SET_ARG_KIND_MISMATCH_ERROR();
+        return false;
+      }
+      // For MEASURE<T1>, store T in argument map for ARG_TYPE_ANY_1. This is
+      // used to resolve function signatures like MEASURE<T1> -> T1.
+      (*templated_argument_map)[ARG_TYPE_ANY_1].InsertTypedArgument(
+          MakeConcreteArgument(
+              input_argument.type()->AsMeasure()->result_type()),
+          /*set_dominant=*/true);
+    }
   }
 
   const Type* input_type = input_argument.type();
@@ -1280,11 +1304,16 @@ bool FunctionSignatureMatcher::
       }
       break;
     default:
-      // Disallow graph types when the signature does not *explicitly* take
-      // graph element types: even if the signature type is ANY.
-      if (!language_.LanguageFeatureEnabled(
-              FEATURE_V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT) &&
-          input_type != nullptr && input_type->IsGraphElement()) {
+      if (
+          // Disallow graph types when the signature does not *explicitly* take
+          // graph element types: even if the signature type is ANY.
+          (!language_.LanguageFeatureEnabled(
+               FEATURE_V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT) &&
+           input_type != nullptr && input_type->IsGraphElement()) ||
+          // Disallow measure types for templated arguments except
+          // ARG_MEASURE_TYPE_ANY_1.
+          (signature_argument.kind() != ARG_MEASURE_TYPE_ANY_1 &&
+           input_type != nullptr && input_type->IsMeasureType())) {
         SET_MISMATCH_ERROR_WITH_INDEX(absl::StrFormat(
             "expected %s, found %s: which is not allowed for %s arguments",
             signature_argument.UserFacingName(language_.product_mode(),
@@ -1376,11 +1405,14 @@ absl::Status FunctionSignatureMatcher::CheckRelationArgumentTypes(
         // The required value table was not found in the provided input
         // relation. Generate a descriptive error message.
         ZETASQL_RET_CHECK_EQ(1, required_schema.num_columns());
-        signature_match_result->set_mismatch_message(
-            absl::StrCat("Expected value table of type ",
-                         required_schema.column(0).type->ShortTypeName(
-                             language_.product_mode()),
-                         " for argument ", arg_idx + 1));
+        signature_match_result->set_mismatch_message(absl::StrCat(
+            "Expected value table of type ",
+            required_schema.column(0).type->ShortTypeName(
+                language_.product_mode()),
+            " for argument ", arg_idx + 1, "; got ",
+            provided_schema.num_columns() == 0
+                ? "no columns"
+                : provided_schema.GetSQLDeclaration(language_.product_mode())));
         signature_match_result->set_bad_argument_index(arg_idx);
         *signature_matches = false;
         return absl::OkStatus();
@@ -1541,6 +1573,22 @@ bool FunctionSignatureMatcher::DetermineResolvedTypesForTemplatedArguments(
       }
       zetasql_base::InsertOrDie(resolved_templated_arguments, kind,
                        map_type_or_status.value());
+
+    } else if (kind == ARG_MEASURE_TYPE_ANY_1) {
+      if (type_set.typed_arguments().arguments().size() != 1) {
+        // As measure types are not coercible, there should be exactly one
+        // argument which determines the type of ARG_MEASURE_TYPE_ANY_1.
+        ABSL_DLOG(FATAL) << "Expected function to have exactly one argument "
+                       "determining the type of ARG_MEASURE_TYPE_ANY_1";
+        SET_MISMATCH_ERROR(absl::StrCat(
+            "Unable to determine type for ",
+            FunctionArgumentType::SignatureArgumentKindToString(kind)));
+        return false;
+      }
+
+      const InputArgumentType* measure_argument_type =
+          &type_set.typed_arguments().arguments().front();
+      (*resolved_templated_arguments)[kind] = measure_argument_type->type();
 
     } else if (!IsArgKind_ARRAY_ANY_K(kind)) {
       switch (type_set.kind()) {

@@ -1,0 +1,620 @@
+[default reserve_graph_table]
+[default language_features=V_1_4_SQL_GRAPH]
+# General node pattern query with a complex WHERE clause
+select * from
+  graph_table(my.graph.name
+    MATCH (x IS A | !B & C WHERE x.salary + (SELECT * FROM some_subquery()) > non_existent_outer_table.y + 6)
+    COLUMNS( 1 AS one, 1+1 AS two, *, non_existing_name.*, 1 + 2)
+  ) g1
+--
+
+QueryStatement [57-281] [select * from...2)   ) g1]
+  Query [57-281] [select * from...2)   ) g1]
+    Select [57-281] [select * from...2)   ) g1]
+      SelectList [64-65] [*]
+        SelectColumn [64-65] [*]
+          Star(*) [64-65] [*]
+      FromClause [66-281] [from   graph_tabl...2)   ) g1]
+        GraphTableQuery [73-281] [graph_table...2)   ) g1]
+          PathExpression [85-98] [my.graph.name]
+            Identifier(my) [85-87] [my]
+            Identifier(graph) [88-93] [graph]
+            Identifier(name) [94-98] [name]
+          GqlMatch [103-208] [MATCH (x IS...ter_table.y + 6)]
+            GraphPattern [109-208] [(x IS A |...outer_table.y + 6)]
+              GraphPathPattern [109-208] [(x IS A |...outer_table.y + 6)]
+                GraphNodePattern [109-208] [(x IS A |...outer_table.y + 6)]
+                  GraphElementPatternFiller [110-207] [x IS A | !...outer_table.y + 6]
+                    Identifier(x) [110-111] [x]
+                    GraphLabelFilter [112-125] [IS A | !B & C]
+                      GraphLabelOperation(OR) [115-125] [A | !B & C]
+                        GraphElementLabel [115-116] [A]
+                          Identifier(A) [115-116] [A]
+                        GraphLabelOperation(AND) [119-125] [!B & C]
+                          GraphLabelOperation(NOT) [119-121] [!B]
+                            GraphElementLabel [120-121] [B]
+                              Identifier(B) [120-121] [B]
+                          GraphElementLabel [124-125] [C]
+                            Identifier(C) [124-125] [C]
+                    WhereClause [126-207] [WHERE x.salary...r_table.y + 6]
+                      BinaryExpression(>) [132-207] [x.salary +...outer_table.y + 6]
+                        BinaryExpression(+) [132-174] [x.salary +...some_subquery())]
+                          PathExpression [132-140] [x.salary]
+                            Identifier(x) [132-133] [x]
+                            Identifier(salary) [134-140] [salary]
+                          ExpressionSubquery [143-174] [(SELECT *...some_subquery())]
+                            Query [144-173] [SELECT * FROM some_subquery()]
+                              Select [144-173] [SELECT * FROM some_subquery()]
+                                SelectList [151-152] [*]
+                                  SelectColumn [151-152] [*]
+                                    Star(*) [151-152] [*]
+                                FromClause [153-173] [FROM some_subquery()]
+                                  TVF [158-173] [some_subquery()]
+                                    PathExpression [158-171] [some_subquery]
+                                      Identifier(some_subquery) [158-171] [some_subquery]
+                        BinaryExpression(+) [177-207] [non_existent_outer_table.y + 6]
+                          PathExpression [177-203] [non_existent_outer_table.y]
+                            Identifier(non_existent_outer_table) [177-201] [non_existent_outer_table]
+                            Identifier(y) [202-203] [y]
+                          IntLiteral(6) [206-207] [6]
+          SelectList [222-273] [1 AS one,...ting_name.*, 1 + 2]
+            SelectColumn [222-230] [1 AS one]
+              IntLiteral(1) [222-223] [1]
+              Alias [224-230] [AS one]
+                Identifier(one) [227-230] [one]
+            SelectColumn [232-242] [1+1 AS two]
+              BinaryExpression(+) [232-235] [1+1]
+                IntLiteral(1) [232-233] [1]
+                IntLiteral(1) [234-235] [1]
+              Alias [236-242] [AS two]
+                Identifier(two) [239-242] [two]
+            SelectColumn [244-245] [*]
+              Star(*) [244-245] [*]
+            SelectColumn [247-266] [non_existing_name.*]
+              DotStar [247-266] [non_existing_name.*]
+                PathExpression [247-264] [non_existing_name]
+                  Identifier(non_existing_name) [247-264] [non_existing_name]
+            SelectColumn [268-273] [1 + 2]
+              BinaryExpression(+) [268-273] [1 + 2]
+                IntLiteral(1) [268-269] [1]
+                IntLiteral(2) [272-273] [2]
+          Alias [279-281] [g1]
+            Identifier(g1) [279-281] [g1]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    my.graph.name
+    MATCH
+      (x
+      IS A | ! B & C
+      WHERE
+        x.salary + (
+          SELECT
+            *
+          FROM
+            some_subquery()
+        ) > non_existent_outer_table.y + 6)
+    COLUMNS(
+      1 AS one,
+      1 + 1 AS two,
+      *,
+      non_existing_name.*,
+      1 + 2
+    )
+  ) AS g1
+
+==
+
+# General node pattern query with quoted identifiers
+select * from
+  graph_table(my.graph.name
+    MATCH (`quoted name` IS A | !B & C WHERE `quoted name` BETWEEN 6 AND 10)
+    COLUMNS( 1 AS one, 1+1 AS two, *, `quoted wrong name`.*, 1 + 2)
+  ) g1
+--
+
+QueryStatement [0-193] [select * from...2)   ) g1]
+  Query [0-193] [select * from...2)   ) g1]
+    Select [0-193] [select * from...2)   ) g1]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-193] [from   graph_tabl...2)   ) g1]
+        GraphTableQuery [16-193] [graph_table...2)   ) g1]
+          PathExpression [28-41] [my.graph.name]
+            Identifier(my) [28-30] [my]
+            Identifier(graph) [31-36] [graph]
+            Identifier(name) [37-41] [name]
+          GqlMatch [46-118] [MATCH (`quoted...6 AND 10)]
+            GraphPattern [52-118] [(`quoted name...6 AND 10)]
+              GraphPathPattern [52-118] [(`quoted name...6 AND 10)]
+                GraphNodePattern [52-118] [(`quoted name...6 AND 10)]
+                  GraphElementPatternFiller [53-117] [`quoted name...ETWEEN 6 AND 10]
+                    Identifier(`quoted name`) [53-66] [`quoted name`]
+                    GraphLabelFilter [67-80] [IS A | !B & C]
+                      GraphLabelOperation(OR) [70-80] [A | !B & C]
+                        GraphElementLabel [70-71] [A]
+                          Identifier(A) [70-71] [A]
+                        GraphLabelOperation(AND) [74-80] [!B & C]
+                          GraphLabelOperation(NOT) [74-76] [!B]
+                            GraphElementLabel [75-76] [B]
+                              Identifier(B) [75-76] [B]
+                          GraphElementLabel [79-80] [C]
+                            Identifier(C) [79-80] [C]
+                    WhereClause [81-117] [WHERE `quoted...TWEEN 6 AND 10]
+                      BetweenExpression(BETWEEN) [87-117] [`quoted name` BETWEEN 6 AND 10]
+                        PathExpression [87-100] [`quoted name`]
+                          Identifier(`quoted name`) [87-100] [`quoted name`]
+                        Location [101-108] [BETWEEN]
+                        IntLiteral(6) [109-110] [6]
+                        IntLiteral(10) [115-117] [10]
+          SelectList [132-185] [1 AS one,...`.*, 1 + 2]
+            SelectColumn [132-140] [1 AS one]
+              IntLiteral(1) [132-133] [1]
+              Alias [134-140] [AS one]
+                Identifier(one) [137-140] [one]
+            SelectColumn [142-152] [1+1 AS two]
+              BinaryExpression(+) [142-145] [1+1]
+                IntLiteral(1) [142-143] [1]
+                IntLiteral(1) [144-145] [1]
+              Alias [146-152] [AS two]
+                Identifier(two) [149-152] [two]
+            SelectColumn [154-155] [*]
+              Star(*) [154-155] [*]
+            SelectColumn [157-178] [`quoted wrong name`.*]
+              DotStar [157-178] [`quoted wrong name`.*]
+                PathExpression [157-176] [`quoted wrong name`]
+                  Identifier(`quoted wrong name`) [157-176] [`quoted wrong name`]
+            SelectColumn [180-185] [1 + 2]
+              BinaryExpression(+) [180-185] [1 + 2]
+                IntLiteral(1) [180-181] [1]
+                IntLiteral(2) [184-185] [2]
+          Alias [191-193] [g1]
+            Identifier(g1) [191-193] [g1]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    my.graph.name
+    MATCH
+      (`quoted name`
+      IS A | ! B & C
+      WHERE
+        `quoted name` BETWEEN 6 AND 10)
+    COLUMNS(
+      1 AS one,
+      1 + 1 AS two,
+      *,
+      `quoted wrong name`.*,
+      1 + 2
+    )
+  ) AS g1
+==
+
+# Note pattern with only a name
+select * from
+  graph_table(my.graph.name
+    MATCH (x)
+    COLUMNS( 1 AS one, 1+1 AS two, *, `quoted wrong name`.*, 1 + 2)
+  ) g1
+--
+
+QueryStatement [0-130] [select * from...2)   ) g1]
+  Query [0-130] [select * from...2)   ) g1]
+    Select [0-130] [select * from...2)   ) g1]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-130] [from   graph_tabl...2)   ) g1]
+        GraphTableQuery [16-130] [graph_table...2)   ) g1]
+          PathExpression [28-41] [my.graph.name]
+            Identifier(my) [28-30] [my]
+            Identifier(graph) [31-36] [graph]
+            Identifier(name) [37-41] [name]
+          GqlMatch [46-55] [MATCH (x)]
+            GraphPattern [52-55] [(x)]
+              GraphPathPattern [52-55] [(x)]
+                GraphNodePattern [52-55] [(x)]
+                  GraphElementPatternFiller [53-54] [x]
+                    Identifier(x) [53-54] [x]
+          SelectList [69-122] [1 AS one,...`.*, 1 + 2]
+            SelectColumn [69-77] [1 AS one]
+              IntLiteral(1) [69-70] [1]
+              Alias [71-77] [AS one]
+                Identifier(one) [74-77] [one]
+            SelectColumn [79-89] [1+1 AS two]
+              BinaryExpression(+) [79-82] [1+1]
+                IntLiteral(1) [79-80] [1]
+                IntLiteral(1) [81-82] [1]
+              Alias [83-89] [AS two]
+                Identifier(two) [86-89] [two]
+            SelectColumn [91-92] [*]
+              Star(*) [91-92] [*]
+            SelectColumn [94-115] [`quoted wrong name`.*]
+              DotStar [94-115] [`quoted wrong name`.*]
+                PathExpression [94-113] [`quoted wrong name`]
+                  Identifier(`quoted wrong name`) [94-113] [`quoted wrong name`]
+            SelectColumn [117-122] [1 + 2]
+              BinaryExpression(+) [117-122] [1 + 2]
+                IntLiteral(1) [117-118] [1]
+                IntLiteral(2) [121-122] [2]
+          Alias [128-130] [g1]
+            Identifier(g1) [128-130] [g1]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    my.graph.name
+    MATCH
+      (x)
+    COLUMNS(
+      1 AS one,
+      1 + 1 AS two,
+      *,
+      `quoted wrong name`.*,
+      1 + 2
+    )
+  ) AS g1
+==
+
+# Node pattern with only a quoted name
+select * from
+  graph_table(my.graph.name
+    MATCH (`quoted name`)
+    COLUMNS( 1 AS one, 1+1 AS two, *, `quoted wrong name`.*, 1 + 2)
+  ) g1
+--
+
+QueryStatement [0-142] [select * from...2)   ) g1]
+  Query [0-142] [select * from...2)   ) g1]
+    Select [0-142] [select * from...2)   ) g1]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-142] [from   graph_tabl...2)   ) g1]
+        GraphTableQuery [16-142] [graph_table...2)   ) g1]
+          PathExpression [28-41] [my.graph.name]
+            Identifier(my) [28-30] [my]
+            Identifier(graph) [31-36] [graph]
+            Identifier(name) [37-41] [name]
+          GqlMatch [46-67] [MATCH (`quoted name`)]
+            GraphPattern [52-67] [(`quoted name`)]
+              GraphPathPattern [52-67] [(`quoted name`)]
+                GraphNodePattern [52-67] [(`quoted name`)]
+                  GraphElementPatternFiller [53-66] [`quoted name`]
+                    Identifier(`quoted name`) [53-66] [`quoted name`]
+          SelectList [81-134] [1 AS one,...`.*, 1 + 2]
+            SelectColumn [81-89] [1 AS one]
+              IntLiteral(1) [81-82] [1]
+              Alias [83-89] [AS one]
+                Identifier(one) [86-89] [one]
+            SelectColumn [91-101] [1+1 AS two]
+              BinaryExpression(+) [91-94] [1+1]
+                IntLiteral(1) [91-92] [1]
+                IntLiteral(1) [93-94] [1]
+              Alias [95-101] [AS two]
+                Identifier(two) [98-101] [two]
+            SelectColumn [103-104] [*]
+              Star(*) [103-104] [*]
+            SelectColumn [106-127] [`quoted wrong name`.*]
+              DotStar [106-127] [`quoted wrong name`.*]
+                PathExpression [106-125] [`quoted wrong name`]
+                  Identifier(`quoted wrong name`) [106-125] [`quoted wrong name`]
+            SelectColumn [129-134] [1 + 2]
+              BinaryExpression(+) [129-134] [1 + 2]
+                IntLiteral(1) [129-130] [1]
+                IntLiteral(2) [133-134] [2]
+          Alias [140-142] [g1]
+            Identifier(g1) [140-142] [g1]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    my.graph.name
+    MATCH
+      (`quoted name`)
+    COLUMNS(
+      1 AS one,
+      1 + 1 AS two,
+      *,
+      `quoted wrong name`.*,
+      1 + 2
+    )
+  ) AS g1
+==
+
+# Node pattern with only a label
+select * from
+  graph_table(my.graph.name
+    MATCH (`quoted name` IS !A & B)
+    COLUMNS( 1 AS one, 1+1 AS two, *, `quoted wrong name`.*, 1 + 2)
+  ) g1
+--
+QueryStatement [0-152] [select * from...2)   ) g1]
+  Query [0-152] [select * from...2)   ) g1]
+    Select [0-152] [select * from...2)   ) g1]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-152] [from   graph_tabl...2)   ) g1]
+        GraphTableQuery [16-152] [graph_table...2)   ) g1]
+          PathExpression [28-41] [my.graph.name]
+            Identifier(my) [28-30] [my]
+            Identifier(graph) [31-36] [graph]
+            Identifier(name) [37-41] [name]
+          GqlMatch [46-77] [MATCH (`quoted...IS !A & B)]
+            GraphPattern [52-77] [(`quoted name` IS !A & B)]
+              GraphPathPattern [52-77] [(`quoted name` IS !A & B)]
+                GraphNodePattern [52-77] [(`quoted name` IS !A & B)]
+                  GraphElementPatternFiller [53-76] [`quoted name` IS !A & B]
+                    Identifier(`quoted name`) [53-66] [`quoted name`]
+                    GraphLabelFilter [67-76] [IS !A & B]
+                      GraphLabelOperation(AND) [70-76] [!A & B]
+                        GraphLabelOperation(NOT) [70-72] [!A]
+                          GraphElementLabel [71-72] [A]
+                            Identifier(A) [71-72] [A]
+                        GraphElementLabel [75-76] [B]
+                          Identifier(B) [75-76] [B]
+          SelectList [91-144] [1 AS one,...`.*, 1 + 2]
+            SelectColumn [91-99] [1 AS one]
+              IntLiteral(1) [91-92] [1]
+              Alias [93-99] [AS one]
+                Identifier(one) [96-99] [one]
+            SelectColumn [101-111] [1+1 AS two]
+              BinaryExpression(+) [101-104] [1+1]
+                IntLiteral(1) [101-102] [1]
+                IntLiteral(1) [103-104] [1]
+              Alias [105-111] [AS two]
+                Identifier(two) [108-111] [two]
+            SelectColumn [113-114] [*]
+              Star(*) [113-114] [*]
+            SelectColumn [116-137] [`quoted wrong name`.*]
+              DotStar [116-137] [`quoted wrong name`.*]
+                PathExpression [116-135] [`quoted wrong name`]
+                  Identifier(`quoted wrong name`) [116-135] [`quoted wrong name`]
+            SelectColumn [139-144] [1 + 2]
+              BinaryExpression(+) [139-144] [1 + 2]
+                IntLiteral(1) [139-140] [1]
+                IntLiteral(2) [143-144] [2]
+          Alias [150-152] [g1]
+            Identifier(g1) [150-152] [g1]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    my.graph.name
+    MATCH
+      (`quoted name`
+      IS ! A & B)
+    COLUMNS(
+      1 AS one,
+      1 + 1 AS two,
+      *,
+      `quoted wrong name`.*,
+      1 + 2
+    )
+  ) AS g1
+==
+
+# Node pattern with only a WHERE clause
+select * from
+  graph_table(my.graph.name
+    MATCH (WHERE outer_table.x > 6)
+    COLUMNS( 1 AS one, 1+1 AS two, *, `quoted wrong name`.*, 1 + 2)
+  ) g1
+--
+
+QueryStatement [0-152] [select * from...2)   ) g1]
+  Query [0-152] [select * from...2)   ) g1]
+    Select [0-152] [select * from...2)   ) g1]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-152] [from   graph_tabl...2)   ) g1]
+        GraphTableQuery [16-152] [graph_table...2)   ) g1]
+          PathExpression [28-41] [my.graph.name]
+            Identifier(my) [28-30] [my]
+            Identifier(graph) [31-36] [graph]
+            Identifier(name) [37-41] [name]
+          GqlMatch [46-77] [MATCH (WHERE...er_table.x > 6)]
+            GraphPattern [52-77] [(WHERE outer_table.x > 6)]
+              GraphPathPattern [52-77] [(WHERE outer_table.x > 6)]
+                GraphNodePattern [52-77] [(WHERE outer_table.x > 6)]
+                  GraphElementPatternFiller [53-76] [WHERE outer_table.x > 6]
+                    WhereClause [53-76] [WHERE outer_table.x > 6]
+                      BinaryExpression(>) [59-76] [outer_table.x > 6]
+                        PathExpression [59-72] [outer_table.x]
+                          Identifier(outer_table) [59-70] [outer_table]
+                          Identifier(x) [71-72] [x]
+                        IntLiteral(6) [75-76] [6]
+          SelectList [91-144] [1 AS one,...`.*, 1 + 2]
+            SelectColumn [91-99] [1 AS one]
+              IntLiteral(1) [91-92] [1]
+              Alias [93-99] [AS one]
+                Identifier(one) [96-99] [one]
+            SelectColumn [101-111] [1+1 AS two]
+              BinaryExpression(+) [101-104] [1+1]
+                IntLiteral(1) [101-102] [1]
+                IntLiteral(1) [103-104] [1]
+              Alias [105-111] [AS two]
+                Identifier(two) [108-111] [two]
+            SelectColumn [113-114] [*]
+              Star(*) [113-114] [*]
+            SelectColumn [116-137] [`quoted wrong name`.*]
+              DotStar [116-137] [`quoted wrong name`.*]
+                PathExpression [116-135] [`quoted wrong name`]
+                  Identifier(`quoted wrong name`) [116-135] [`quoted wrong name`]
+            SelectColumn [139-144] [1 + 2]
+              BinaryExpression(+) [139-144] [1 + 2]
+                IntLiteral(1) [139-140] [1]
+                IntLiteral(2) [143-144] [2]
+          Alias [150-152] [g1]
+            Identifier(g1) [150-152] [g1]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    my.graph.name
+    MATCH
+      (
+      WHERE
+        outer_table.x > 6)
+    COLUMNS(
+      1 AS one,
+      1 + 1 AS two,
+      *,
+      `quoted wrong name`.*,
+      1 + 2
+    )
+  ) AS g1
+==
+
+# The variable name cannot be a path expression
+select * from
+  graph_table(my.graph.name
+    MATCH (a.b)
+    COLUMNS( 1 AS one)
+  ) g1
+--
+ERROR: Syntax error: Expected ")" but got "." [at 3:13]
+    MATCH (a.b)
+            ^
+==
+
+select * from graph_table(
+  graph
+  MATCH (a:Person)
+  COLUMNS (a.id)
+)
+--
+QueryStatement [0-72] [select * from...LUMNS (a.id) )]
+  Query [0-72] [select * from...LUMNS (a.id) )]
+    Select [0-72] [select * from...LUMNS (a.id) )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-72] [from graph_table...NS (a.id) )]
+        GraphTableQuery [14-72] [graph_table...COLUMNS (a.id) )]
+          PathExpression [29-34] [graph]
+            Identifier(graph) [29-34] [graph]
+          GqlMatch [37-53] [MATCH (a:Person)]
+            GraphPattern [43-53] [(a:Person)]
+              GraphPathPattern [43-53] [(a:Person)]
+                GraphNodePattern [43-53] [(a:Person)]
+                  GraphElementPatternFiller [44-52] [a:Person]
+                    Identifier(a) [44-45] [a]
+                    GraphLabelFilter [45-52] [:Person]
+                      GraphElementLabel [46-52] [Person]
+                        Identifier(Person) [46-52] [Person]
+          SelectList [65-69] [a.id]
+            SelectColumn [65-69] [a.id]
+              PathExpression [65-69] [a.id]
+                Identifier(a) [65-66] [a]
+                Identifier(id) [67-69] [id]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    graph
+    MATCH
+      (a
+      IS Person)
+    COLUMNS(
+      a.id
+    )
+  )
+
+==
+
+SELECT gt.*
+FROM GRAPH_TABLE(
+  graph
+  MATCH (a:begin),(a:forum),(a:while),(a:loop),(a:repeat)
+  COLUMNS(1 as one)
+) gt
+--
+QueryStatement [0-120] [SELECT gt....one) ) gt]
+  Query [0-120] [SELECT gt....one) ) gt]
+    Select [0-120] [SELECT gt....one) ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-120] [FROM GRAPH_TABLE...one) ) gt]
+        GraphTableQuery [17-120] [GRAPH_TABLE...one) ) gt]
+          PathExpression [32-37] [graph]
+            Identifier(graph) [32-37] [graph]
+          GqlMatch [40-95] [MATCH (a:begin...(a:repeat)]
+            GraphPattern [46-95] [(a:begin),...(a:repeat)]
+              GraphPathPattern [46-55] [(a:begin)]
+                GraphNodePattern [46-55] [(a:begin)]
+                  GraphElementPatternFiller [47-54] [a:begin]
+                    Identifier(a) [47-48] [a]
+                    GraphLabelFilter [48-54] [:begin]
+                      GraphElementLabel [49-54] [begin]
+                        Identifier(begin) [49-54] [begin]
+              GraphPathPattern [56-65] [(a:forum)]
+                GraphNodePattern [56-65] [(a:forum)]
+                  GraphElementPatternFiller [57-64] [a:forum]
+                    Identifier(a) [57-58] [a]
+                    GraphLabelFilter [58-64] [:forum]
+                      GraphElementLabel [59-64] [forum]
+                        Identifier(forum) [59-64] [forum]
+              GraphPathPattern [66-75] [(a:while)]
+                GraphNodePattern [66-75] [(a:while)]
+                  GraphElementPatternFiller [67-74] [a:while]
+                    Identifier(a) [67-68] [a]
+                    GraphLabelFilter [68-74] [:while]
+                      GraphElementLabel [69-74] [while]
+                        Identifier(while) [69-74] [while]
+              GraphPathPattern [76-84] [(a:loop)]
+                GraphNodePattern [76-84] [(a:loop)]
+                  GraphElementPatternFiller [77-83] [a:loop]
+                    Identifier(a) [77-78] [a]
+                    GraphLabelFilter [78-83] [:loop]
+                      GraphElementLabel [79-83] [loop]
+                        Identifier(loop) [79-83] [loop]
+              GraphPathPattern [85-95] [(a:repeat)]
+                GraphNodePattern [85-95] [(a:repeat)]
+                  GraphElementPatternFiller [86-94] [a:repeat]
+                    Identifier(a) [86-87] [a]
+                    GraphLabelFilter [87-94] [:repeat]
+                      GraphElementLabel [88-94] [repeat]
+                        Identifier(repeat) [88-94] [repeat]
+          SelectList [106-114] [1 as one]
+            SelectColumn [106-114] [1 as one]
+              IntLiteral(1) [106-107] [1]
+              Alias [108-114] [as one]
+                Identifier(one) [111-114] [one]
+          Alias [118-120] [gt]
+            Identifier(gt) [118-120] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    graph
+    MATCH
+      (a
+      IS begin),
+      (a
+      IS forum),
+      (a
+      IS while),
+      (a
+      IS loop),
+      (a
+      IS repeat)
+    COLUMNS(
+      1 AS one
+    )
+  ) AS gt

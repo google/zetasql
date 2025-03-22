@@ -16,7 +16,6 @@
 
 #include "zetasql/public/functions/string_format.h"
 
-#include <math.h>
 #include <stddef.h>
 
 #include <algorithm>
@@ -25,28 +24,39 @@
 #include <limits>
 #include <memory>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
 #include "zetasql/base/logging.h"
-#include "zetasql/common/canonicalize_signed_zero_to_string.h"
 #include "zetasql/common/utf_util.h"
 #include "zetasql/public/functions/convert_proto.h"
 #include "zetasql/public/functions/format_max_output_width.h"
+#include "zetasql/public/json_value.h"
 #include "zetasql/public/numeric_value.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/strings.h"
+#include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/proto_type.h"
+#include "zetasql/public/types/struct_type.h"
+#include "zetasql/public/types/type.h"
+#include "zetasql/public/types/type_factory.h"
+#include "zetasql/public/value.h"
 #include "absl/base/optimization.h"
 #include "absl/flags/flag.h"
-#include "absl/memory/memory.h"
+#include "absl/status/status.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/match.h"
 #include "absl/strings/numbers.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
-#include "absl/time/time.h"
 #include "absl/types/span.h"
 #include "unicode/utf8.h"
+#include "google/protobuf/descriptor.h"
+#include "google/protobuf/dynamic_message.h"
+#include "google/protobuf/message.h"
 #include "re2/re2.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"

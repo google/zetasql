@@ -15,6 +15,8 @@
 #
 
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+load("@com_google_protobuf//bazel:java_proto_library.bzl", "java_proto_library")
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
 
 package(
     default_visibility = ["//zetasql/base:zetasql_implementation"],
@@ -26,9 +28,12 @@ cc_library(
     hdrs = ["control_flow_graph.h"],
     deps = [
         ":script_segment",
+        "//zetasql/base:check",
         "//zetasql/base:map_util",
+        "//zetasql/base:ret_check",
         "//zetasql/base:status",
         "//zetasql/parser",
+        "//zetasql/public:id_string",
         "//zetasql/public:parse_location",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
@@ -84,6 +89,7 @@ cc_test(
         "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/parser",
         "//zetasql/public:id_string",
+        "//zetasql/public:options_cc_proto",
         "//zetasql/public:parse_location",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",

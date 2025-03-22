@@ -57,7 +57,7 @@ import java.util.Map;
 /**
  * A factory for {@link Type} objects.
  *
- * A {@code TypeFactory} can be obtained via {@link #uniqueNames()} or {@link #nonUniqueNames()}
+ * <p>A {@code TypeFactory} can be obtained via {@link #uniqueNames()} or {@link #nonUniqueNames()}
  * static factory methods, depending if you want to guarantee uniqueness of descriptor full names
  * for non-simple types or not, respectively.
  */
@@ -222,7 +222,10 @@ public abstract class TypeFactory implements Serializable {
             String.format("Incompatible property type with name: %s", propertyTypeName));
       }
     }
-    return new GraphElementType(graphReference, kind, ImmutableSet.copyOf(propertyTypes));
+    return new GraphElementType(
+        graphReference,
+        kind,
+        ImmutableSet.copyOf(propertyTypes));
   }
 
   public static GraphPathType createGraphPathType(

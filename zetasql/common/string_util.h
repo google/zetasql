@@ -60,17 +60,6 @@ inline std::string RoundTripDoubleToString(double d) {
   return "nan";
 }
 
-// Replace the first instance of `oldsub` with `newsub` inside `s`.  If
-// `oldsub` doesn't exist in `s`, just returns `s`.
-inline std::string ReplaceFirst(absl::string_view s, absl::string_view oldsub,
-                                absl::string_view newsub) {
-  absl::string_view::size_type pos = s.find(oldsub);
-  if (pos == absl::string_view::npos) {
-    return std::string(s);
-  }
-  return absl::StrCat(s.substr(0, pos), newsub,
-                      s.substr(pos + newsub.length()));
-}
 }  // namespace zetasql
 
 #endif  // ZETASQL_COMMON_STRING_UTIL_H_

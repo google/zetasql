@@ -54,7 +54,7 @@ In this example, a correlated scalar subquery returns the mascots for a list of
 players, using the [`Players`][example-tables] and [`Mascots`][example-tables]
 tables:
 
-```sql
+```zetasql
 SELECT
   username,
   (SELECT mascot FROM Mascots WHERE Players.team = Mascots.team) AS player_mascot
@@ -74,7 +74,7 @@ In this example, an aggregate scalar
 subquery calculates `avg_level`, the average level of a user in the
 [`Players`][example-tables] table.
 
-```sql {highlight="lines:1:24-1:55"}
+```zetasql {highlight="lines:1:24-1:55"}
 SELECT
   username,
   level,
@@ -126,7 +126,7 @@ See [Array functions][array-function] for full semantics.
 In this example, an ARRAY subquery returns an array of usernames assigned to the
 red team in the [`NPCs`][example-tables] table:
 
-```sql {highlight="range:ARRAY,)"}
+```zetasql {highlight="range:ARRAY,)"}
 SELECT
   ARRAY(SELECT username FROM NPCs WHERE team = 'red') AS red;
 
@@ -156,7 +156,7 @@ returned. For full semantics, including `NULL` handling, see the
 
 If you need to use an `IN` subquery with an array, these are equivalent:
 
-```sql
+```zetasql
 value [ NOT ] IN ( subquery )
 value [ NOT ] IN UNNEST( ARRAY( subquery ) )
 ```
@@ -166,7 +166,7 @@ value [ NOT ] IN UNNEST( ARRAY( subquery ) )
 In this example, the `IN` operator that checks to see if a username called
 `corba` exists within the [`Players`][example-tables] table:
 
-```sql {highlight="lines:1:8-1:47"}
+```zetasql {highlight="lines:1:8-1:47"}
 SELECT
   'corba' IN (SELECT username FROM Players) AS result;
 
@@ -180,7 +180,7 @@ SELECT
 ### Quantified `LIKE` subqueries 
 <a id="quantified_like_subquery_concepts"></a>
 
-```sql
+```zetasql
 value [ NOT ] LIKE { ANY | SOME | ALL } ( subquery )
 ```
 
@@ -197,7 +197,7 @@ for `value`. If not, an error is returned. For full semantics, including
 In the example, the quantified `LIKE` operator checks to see if `corba` matches
 at least one pattern in the set of rows returned by the `LIKE ANY` subquery:
 
-```sql {highlight="lines:1:8-1:53"}
+```zetasql {highlight="lines:1:8-1:53"}
 WITH Words AS (
   SELECT '%orb%' as chars UNION ALL
   SELECT 'xyg'
@@ -230,7 +230,7 @@ Any number of columns may be selected and it will not affect the query result.
 In this example, the `EXISTS` operator that checks to see if any rows are
 produced, using the [`Players`][example-tables] table:
 
-```sql {highlight="range:EXISTS,)"}
+```zetasql {highlight="range:EXISTS,)"}
 SELECT
   EXISTS(SELECT username FROM Players WHERE team = 'yellow') AS result;
 
@@ -258,7 +258,7 @@ table. You can only use these in the `FROM` clause.
 In this example, a subquery returns a table of usernames from the
 [`Players`][example-tables] table:
 
-```sql {highlight="range:(,)"}
+```zetasql {highlight="range:(,)"}
 SELECT results.username
 FROM (SELECT * FROM Players) AS results;
 
@@ -274,7 +274,7 @@ FROM (SELECT * FROM Players) AS results;
 In this example, a list of [`NPCs`][example-tables]
 assigned to the red team are returned.
 
-```sql
+```zetasql
 SELECT
   username
 FROM (
@@ -303,7 +303,7 @@ In this example, a list of mascots that don't have any players assigned to them
 are returned. The [`Mascots`][example-tables] and [`Players`][example-tables]
 tables are referenced.
 
-```sql
+```zetasql
 SELECT mascot
 FROM Mascots
 WHERE
@@ -320,7 +320,7 @@ In this example, a correlated scalar subquery returns the mascots for a list of
 players, using the [`Players`][example-tables] and [`Mascots`][example-tables]
 tables:
 
-```sql
+```zetasql
 SELECT
   username,
   (SELECT mascot FROM Mascots WHERE Players.team = Mascots.team) AS player_mascot
@@ -337,23 +337,23 @@ FROM Players;
 
 ## Volatile subqueries
 
-A volatile subquery is a subquery that does not always produce the same result
+A volatile subquery is a subquery that doesn't always produce the same result
 over the same inputs. For example, if a subquery includes a function
 that returns a random number, the subquery is volatile because the result
-is not always the same.
+isn't always the same.
 
 **Examples**
 
 In this example, a random number of usernames are returned from the
 [`Players`][example-tables] table.
 
-```sql
+```zetasql
 SELECT
   results.username
 FROM
   (SELECT * FROM Players WHERE RAND() < 0.5) AS results;
 
--- The results are not always the same when you execute
+-- The results aren't always the same when you execute
 -- the preceding query, but will look similar to this:
 /*----------*
  | username |
@@ -379,14 +379,14 @@ Some subqueries are evaluated once, others more often.
    rows have the same parameter values.
 *  A subquery assigned to a temporary table by `WITH` is evaluated "as-if" once.
    A query plan may only re-evaluate the subquery if re-evaluating
-   it is guaranteed to produce the same table each time.
+   it's guaranteed to produce the same table each time.
 
 ## Common tables used in examples 
 <a id="example_tables"></a>
 
 Some examples reference a table called `Players`:
 
-```sql
+```zetasql
 /*-----------------------------*
  | username  | level   | team  |
  +-----------------------------+
@@ -398,7 +398,7 @@ Some examples reference a table called `Players`:
 
 Some examples reference a table called `NPCs`:
 
-```sql
+```zetasql
 /*-------------------*
  | username  | team  |
  +-------------------+
@@ -410,7 +410,7 @@ Some examples reference a table called `NPCs`:
 
 Some examples reference a table called `Mascots`:
 
-```sql
+```zetasql
 /*-------------------*
  | mascot   | team   |
  +-------------------+
@@ -425,7 +425,7 @@ You can use this `WITH` clause to emulate temporary table names for
 `Players` and `NPCs`
 in subqueries that support the `WITH` clause.:
 
-```sql
+```zetasql
 WITH
   Players AS (
     SELECT 'gorbie' AS username, 29 AS level, 'red' AS team UNION ALL

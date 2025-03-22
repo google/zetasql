@@ -18,6 +18,7 @@
 #define ZETASQL_TESTING_TEST_VALUE_H_
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -28,7 +29,9 @@
 #include "zetasql/common/float_margin.h"
 #include "zetasql/common/internal_value.h"
 #include "zetasql/compliance/test_driver.h"
+#include "zetasql/public/json_value.h"
 #include "zetasql/public/numeric_value.h"
+#include "zetasql/public/timestamp_picos_value.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/graph_element_type.h"
 #include "zetasql/public/types/value_equality_check_options.h"
@@ -89,6 +92,10 @@ class ValueConstructor {
       : v_(Value::Numeric(v)) {}
   ValueConstructor(BigNumericValue v)  // NOLINT(google-explicit-constructor)
       : v_(Value::BigNumeric(v)) {}
+  ValueConstructor(  // NOLINT(google-explicit-constructor)
+      TimestampPicosValue v)
+      : v_(Value::TimestampPicos(v)) {}
+
   // Forward all other types to Value::String.
   // This is necessary for handling const char* and const char (str&)[N]
   // correctly, where str might contain '\0' in the middle.
@@ -219,8 +226,7 @@ namespace test_values {
 typedef InternalValue::OrderPreservationKind OrderPreservationKind;
 static const OrderPreservationKind kPreservesOrder =
     InternalValue::kPreservesOrder;
-static const OrderPreservationKind kIgnoresOrder =
-    InternalValue::kIgnoresOrder;
+static const OrderPreservationKind kIgnoresOrder = InternalValue::kIgnoresOrder;
 
 // Default static type factory. It accumulates types throughout the lifetime of
 // a test.
@@ -272,26 +278,24 @@ Value StructArray(absl::Span<const std::string> names,
 // Creates a range with values 'start' and 'end'.
 Value Range(ValueConstructor start, ValueConstructor end);
 
-// Creates a graph node with identifier, definition name, properties and labels
-// for graph identified by graph_reference.
-Value GraphNode(absl::Span<const std::string> graph_reference,
-                absl::string_view identifier,
-                absl::Span<const std::pair<std::string, Value>> properties,
-                absl::Span<const std::string> labels,
-                absl::string_view definition_name,
-                TypeFactory* type_factory = nullptr);
+// Creates a static graph node with identifier, definition name, static
+// properties and static labels for graph identified by graph_reference.
+Value GraphNode(
+    absl::Span<const std::string> graph_reference, absl::string_view identifier,
+    absl::Span<const std::pair<std::string, Value>> static_properties,
+    absl::Span<const std::string> static_labels,
+    absl::string_view definition_name, TypeFactory* type_factory = nullptr);
 
-// Creates a graph edge with identifier, definition name, properties, labels,
-// source and destination node identifiers for graph identified by
-// graph_reference.
-Value GraphEdge(absl::Span<const std::string> graph_reference,
-                absl::string_view identifier,
-                absl::Span<const std::pair<std::string, Value>> properties,
-                absl::Span<const std::string> labels,
-                absl::string_view definition_name,
-                absl::string_view source_node_identifier,
-                absl::string_view dest_node_identifier,
-                TypeFactory* type_factory = nullptr);
+// Creates a static graph edge with identifier, definition name, static
+// properties, static labels, source and destination node identifiers for graph
+// identified by graph_reference.
+Value GraphEdge(
+    absl::Span<const std::string> graph_reference, absl::string_view identifier,
+    absl::Span<const std::pair<std::string, Value>> static_properties,
+    absl::Span<const std::string> static_labels,
+    absl::string_view definition_name, absl::string_view source_node_identifier,
+    absl::string_view dest_node_identifier,
+    TypeFactory* type_factory = nullptr);
 
 // Creates a map with key/value pairs from 'elements'.
 Value Map(
@@ -324,6 +328,7 @@ const EnumType* MakeEnumType(const google::protobuf::EnumDescriptor* descriptor,
 const RangeType* MakeRangeType(const Type* element_type,
                                TypeFactory* type_factory = nullptr);
 
+// Creates a static graph element type.
 // If type_factory is not provided the function will use the default static type
 // factory (see: static_type_factory())
 const GraphElementType* MakeGraphElementType(

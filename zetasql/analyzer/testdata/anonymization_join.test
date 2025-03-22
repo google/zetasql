@@ -1,6 +1,7 @@
 # Reject cross joins on two tables containing private data, there's no ON clause
 [default language_features=ANONYMIZATION]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
 from SimpleTypesWithAnonymizationUid a,
      SimpleTypesWithAnonymizationUid b;

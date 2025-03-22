@@ -73,8 +73,8 @@ inline constexpr const char {variable}[] =""".format(
         srcs = [src],
         outs = [src + ".h"],
         cmd = ("cat > '$@' <<END\n" + preamble + "\nEND\n" +
-               "echo -n 'R\"(' >> '$@'; " +
+               "echo -n 'R\"embed(' >> '$@'; " +
                "cat '$<' >> '$@'; " +
-               "echo ')\";' >> '$@'; " +
+               "echo ')embed\";' >> '$@'; " +
                "cat >> '$@' <<END\n" + finale + "\nEND"),
     )

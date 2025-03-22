@@ -1,3 +1,4 @@
+
 create function myfunc() as (count(*));
 --
 ERROR: Aggregate function COUNT(*) not allowed in SQL function body [at 1:30]
@@ -216,7 +217,7 @@ create aggregate function f(x int64) as (sum(x) + x)
 
 # When we call the same aggregate twice, we don't uniquify it in the
 # aggregate_expression_list.
-[show_unparsed]
+[show_sqlbuilder_output]
 create aggregate function sum_squared(x int64, y double) as
 (
   sqrt(sum(x)*sum(X) + sum(y)*sum(y))
@@ -254,7 +255,15 @@ CreateFunctionStmt
         +-ColumnRef(type=DOUBLE, column=$aggregate.$agg3#3)
         +-ColumnRef(type=DOUBLE, column=$aggregate.$agg4#4)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+CREATE AGGREGATE FUNCTION sum_squared(x INT64, y DOUBLE)
+RETURNS DOUBLE AS (
+  SQRT(CAST((SUM(x)) * (SUM(x)) AS DOUBLE) + ((SUM(y)) * (SUM(y))))
+);
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 CREATE AGGREGATE FUNCTION sum_squared(x INT64, y DOUBLE)
 RETURNS DOUBLE AS (
   SQRT(CAST((SUM(x)) * (SUM(x)) AS DOUBLE) + ((SUM(y)) * (SUM(y))))
@@ -638,7 +647,7 @@ ERROR: Query parameter is not allowed in the body of SQL function 'myfunc': @tes
 ==
 
 # Mixed aggregate and non-aggregate arguments.
-[show_unparsed]
+[show_sqlbuilder_output]
 create aggregate function if not exists myfunc
      (x int64, y int64 NOT AGGREGATE, z int64 NOT AGGREGATE) as (
   sum(x*y) + z
@@ -664,7 +673,15 @@ CreateFunctionStmt
     +-ColumnRef(type=INT64, column=$aggregate.$agg1#1)
     +-ArgumentRef(type=INT64, name="z", argument_kind=NOT_AGGREGATE)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+CREATE AGGREGATE FUNCTION IF NOT EXISTS myfunc(x INT64, y INT64 NOT AGGREGATE, z INT64 NOT AGGREGATE)
+RETURNS INT64 AS (
+  (SUM(x * y)) + z
+);
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 CREATE AGGREGATE FUNCTION IF NOT EXISTS myfunc(x INT64, y INT64 NOT AGGREGATE, z INT64 NOT AGGREGATE)
 RETURNS INT64 AS (
   (SUM(x * y)) + z

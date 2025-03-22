@@ -18,7 +18,9 @@
 #include <utility>
 #include <vector>
 
+#include "zetasql/common/graph_element_utils.h"
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/public/json_value.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/graph_element_type.h"
 #include "zetasql/public/types/type_factory.h"
@@ -26,6 +28,11 @@
 #include "zetasql/testing/test_value.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
+#include "absl/types/span.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
@@ -51,18 +58,23 @@ class GraphElementValueTest
   bool IsNode() const { return GetParam() == GraphElementType::kNode; }
   bool IsEdge() const { return GetParam() == GraphElementType::kEdge; }
 
-  absl::StatusOr<Value> MakeElementByType(
+  absl::StatusOr<Value> MakeStaticGraphElementByType(
       const GraphElementType* type, std::string identifier,
       std::vector<Value::Property> properties, std::vector<std::string> labels,
       std::string definition_name) {
     return IsNode()
-               ? Value::MakeGraphNode(type, std::move(identifier),
-                                      std::move(properties), std::move(labels),
-                                      std::move(definition_name))
-               : Value::MakeGraphEdge(type, std::move(identifier),
-                                      std::move(properties), std::move(labels),
-                                      std::move(definition_name), "src_node_id",
-                                      "dst_node_id");
+               ? Value::MakeGraphNode(
+                     type, std::move(identifier),
+                     Value::GraphElementLabelsAndProperties{
+                         .static_labels = std::move(labels),
+                         .static_properties = std::move(properties)},
+                     std::move(definition_name))
+               : Value::MakeGraphEdge(
+                     type, std::move(identifier),
+                     Value::GraphElementLabelsAndProperties{
+                         .static_labels = std::move(labels),
+                         .static_properties = std::move(properties)},
+                     std::move(definition_name), "src_node_id", "dst_node_id");
   }
 
   Value MakeElement(absl::Span<const std::string> graph_reference,
@@ -75,6 +87,8 @@ class GraphElementValueTest
                     : GraphEdge(graph_reference, identifier, properties, labels,
                                 definition_name, "src_node_id", "dst_node_id");
   }
+
+  const LanguageOptions language_options_ = LanguageOptions::MaximumFeatures();
 };
 
 INSTANTIATE_TEST_SUITE_P(Common, GraphElementValueTest,
@@ -90,32 +104,36 @@ TEST_P(GraphElementValueTest, GraphElementNull) {
 
 TEST_P(GraphElementValueTest, InvalidConstructionDifferentPropertyNames) {
   const Value property_value = Value::String("v0");
-  const GraphElementType* type =
+  const GraphElementType* static_type =
       MakeGraphElementType({"graph_name"}, GetParam(), {{"p0", StringType()}});
   const std::vector<Value::Property> properties = {{"p1", property_value}};
 
   EXPECT_THAT(
-      MakeElementByType(type, "id", properties, {"label"}, "ElementTable"),
+      MakeStaticGraphElementByType(static_type, "id", properties, {"label"},
+                                   "ElementTable"),
       StatusIs(absl::StatusCode::kInternal, HasSubstr("Unknown property: p1")));
 }
 
-TEST_P(GraphElementValueTest, NonExistentProperties) {
+TEST_P(GraphElementValueTest,
+       StaticGraphElementNonExistentPropertiesThrowsError) {
   const Value property_value = Value::Int32(1);
   const GraphElementType* type = MakeGraphElementType(
       {"graph_name"}, GetParam(), {{"p0", StringType()}, {"p1", Int32Type()}});
   const std::vector<Value::Property> properties = {{"p1", property_value}};
 
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      const Value graph_value,
-      MakeElementByType(type, "id", properties, {"label"}, "ElementTable"));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Value graph_value,
+                       MakeStaticGraphElementByType(type, "id", properties,
+                                                    {"label"}, "ElementTable"));
 
   // p0 does not exist in graph_value and cannot be found with name.
-  EXPECT_THAT(graph_value.FindPropertyByName("p0"),
+  EXPECT_THAT(graph_value.FindValidPropertyValueByName("p0"),
               StatusIs(absl::StatusCode::kNotFound));
+  EXPECT_THAT(graph_value.FindPropertyByName("p0"),
+              IsOkAndHolds(Eq(Value::Null(StringType()))));
 
   // p1 exists in graph_value and can be found with name.
   ZETASQL_ASSERT_OK_AND_ASSIGN(const Value p1_value,
-                       graph_value.FindPropertyByName("p1"));
+                       graph_value.FindValidPropertyValueByName("p1"));
   EXPECT_EQ(p1_value, property_value);
   EXPECT_EQ(graph_value.DebugString(), "{p0:NULL, p1:1}");
 }
@@ -127,7 +145,8 @@ TEST_P(GraphElementValueTest, InvalidConstructionDifferentPropertyTypes) {
   const std::vector<Value::Property> properties = {{"p0", p0_value},
                                                    {"p1", p0_value}};
   EXPECT_THAT(
-      MakeElementByType(type, "id", properties, {"label"}, "ElementTable"),
+      MakeStaticGraphElementByType(type, "id", properties, {"label"},
+                                   "ElementTable"),
       StatusIs(absl::StatusCode::kInternal,
                HasSubstr("Expected property value type: INT32, got: STRING")));
 }
@@ -137,11 +156,12 @@ TEST_P(GraphElementValueTest, EmptyIdentifierCausesConstructionToFail) {
       MakeGraphElementType({"graph_name"}, GetParam(), {});
   const std::vector<Value::Property> properties;
   EXPECT_THAT(
-      MakeElementByType(type, "", properties, {"label"}, "ElementTable"),
+      MakeStaticGraphElementByType(type, "", properties, {"label"},
+                                   "ElementTable"),
       StatusIs(absl::StatusCode::kInternal, HasSubstr("Empty identifier")));
 }
 
-TEST_P(GraphElementValueTest, GraphElementCommonTest) {
+TEST_P(GraphElementValueTest, StaticGraphElementCommonTest) {
   const Value p0_value = Value::String("v0");
   const Value p1_value = Value::Int32(1);
   const Value element =
@@ -153,9 +173,11 @@ TEST_P(GraphElementValueTest, GraphElementCommonTest) {
   EXPECT_EQ(element.GetIdentifier(), "id");
   EXPECT_THAT(element.property_values(),
               ElementsAre(Eq(p0_value), Eq(p1_value)));
-  EXPECT_THAT(element.FindPropertyByName("p0"), IsOkAndHolds(Eq(p0_value)));
-  EXPECT_THAT(element.FindPropertyByName("p1"), IsOkAndHolds(Eq(p1_value)));
-  EXPECT_THAT(element.FindPropertyByName("unknown"),
+  EXPECT_THAT(element.FindValidPropertyValueByName("p0"),
+              IsOkAndHolds(Eq(p0_value)));
+  EXPECT_THAT(element.FindValidPropertyValueByName("p1"),
+              IsOkAndHolds(Eq(p1_value)));
+  EXPECT_THAT(element.FindValidPropertyValueByName("unknown"),
               StatusIs(absl::StatusCode::kNotFound));
   EXPECT_THAT(element.GetLabels(), ElementsAre("label1", "label2"));
   EXPECT_EQ(element.GetDefinitionName(), "ElementTable");
@@ -202,16 +224,30 @@ TEST_P(GraphElementValueTest, GraphElementCommonTest) {
             element_with_different_graph_same_id.HashCode());
 }
 
+TEST_P(GraphElementValueTest, GetLabels) {
+  // GetLabels sorts labels in alphabet order case-insensitively and preserves
+  // the original case.
+  const Value element = MakeElement(
+      {"graph_name"}, "id", {}, {"label2", "laBel3", "Label1"}, "ElementTable");
+  EXPECT_THAT(element.GetLabels(), ElementsAre("Label1", "label2", "laBel3"));
+}
+
 TEST(GraphElementValueTest,
      EmptyIdentifierForSourceOrDestNodeFailsEdgeConstruction) {
   const GraphElementType* type =
       MakeGraphElementType({"graph_name"}, GraphElementType::kEdge, {});
   const std::vector<Value::Property> properties;
-  EXPECT_THAT(Value::MakeGraphEdge(type, "id", properties, {"label"},
+  EXPECT_THAT(Value::MakeGraphEdge(type, "id",
+                                   Value::GraphElementLabelsAndProperties{
+                                       .static_labels = {"label"},
+                                       .static_properties = properties},
                                    "ElementTable", "", "dst_node_id"),
               StatusIs(absl::StatusCode::kInternal,
                        HasSubstr("Invalid source node identifier")));
-  EXPECT_THAT(Value::MakeGraphEdge(type, "id", properties, {"label"},
+  EXPECT_THAT(Value::MakeGraphEdge(type, "id",
+                                   Value::GraphElementLabelsAndProperties{
+                                       .static_labels = {"label"},
+                                       .static_properties = properties},
                                    "ElementTable", "src_node_id", ""),
               StatusIs(absl::StatusCode::kInternal,
                        HasSubstr("Invalid destination node identifier")));
@@ -228,11 +264,6 @@ TEST(GraphElementValueTest, GraphNodeSpecificTest) {
   EXPECT_DEBUG_DEATH(node.GetSourceNodeIdentifier(), "Not an edge");
   EXPECT_DEBUG_DEATH(node.GetDestNodeIdentifier(), "Not an edge");
   EXPECT_EQ(node.ShortDebugString(), "{p0:\"v0\", p1:1}");
-  EXPECT_EQ(node.FullDebugString(),
-            "GraphNode{$name:\"ElementTable\", $id:b\"id\", "
-            "$labels:[\"label1\", \"label2\"], "
-            "p0:String(\"v0\"), "
-            "p1:Int32(1)}");
 }
 
 TEST(GraphElementValueTest, GraphEdgeSpecificTest) {
@@ -246,11 +277,6 @@ TEST(GraphElementValueTest, GraphEdgeSpecificTest) {
   EXPECT_EQ(edge.GetSourceNodeIdentifier(), "src_node_id");
   EXPECT_EQ(edge.GetDestNodeIdentifier(), "dst_node_id");
   EXPECT_EQ(edge.ShortDebugString(), "{p0:\"v0\", p1:1}");
-  EXPECT_EQ(edge.FullDebugString(),
-            "GraphEdge{$name:\"ElementTable\", $id:b\"id\", "
-            "$labels:[\"label1\", \"label2\"], "
-            "$source_node_id:b\"src_node_id\", $dest_node_id:b\"dst_node_id\", "
-            "p0:String(\"v0\"), p1:Int32(1)}");
 
   const Value copied_edge = edge;
   EXPECT_EQ(copied_edge.GetIdentifier(), "id");
@@ -269,7 +295,7 @@ TEST(GraphElementValueTest, NestedGraphElementTest) {
                 {"label"}, "ElementTable");
   const Value nested_node = GraphNode({"graph_name"}, "id2", {{"p", node}},
                                       {"label"}, "ElementTable");
-  ZETASQL_EXPECT_OK(nested_node.FindPropertyByName("p"));
+  ZETASQL_EXPECT_OK(nested_node.FindValidPropertyValueByName("p"));
 }
 
 TEST(GraphElementValueTest, ValueContentEqualsTestSameValue) {
@@ -296,16 +322,16 @@ TEST(GraphElementValueTest, ValueContentEqualsTestSameValueWithNulls) {
   EXPECT_TRUE(node1.Equals(node2));
 }
 
-TEST(GraphElementValueTest, ValueContentEqualsTestDifferentValue) {
-  const Value node1 =
-      GraphNode({"graph_name"}, "id1",
-                {{"p0", Value::String("v0")}, {"p1", Value::Int32(1)}},
-                {"label"}, "ElementTable");
-  const Value node2 =
-      GraphNode({"graph_name"}, "id2",
-                {{"p0", Value::String("v0")}, {"p1", Value::Int32(2)}},
-                {"label"}, "ElementTable");
-  EXPECT_FALSE(node1.Equals(node2));
+TEST_P(GraphElementValueTest, ValueContentEqualsTestDifferentValue) {
+  const Value static_element1 =
+      MakeElement({"graph_name"}, "id1",
+                  {{"p0", Value::String("v0")}, {"p1", Value::Int32(1)}},
+                  {"label1", "label2"}, "ElementTable");
+  const Value static_element2 =
+      MakeElement({"graph_name"}, "id2",
+                  {{"p0", Value::String("v0")}, {"p1", Value::Int32(2)}},
+                  {"label1", "label2"}, "ElementTable");
+  EXPECT_FALSE(static_element1.Equals(static_element2));
 }
 
 TEST(GraphElementValueTest, ValueContentEqualsTestDifferentValueWithNulls) {
@@ -320,16 +346,16 @@ TEST(GraphElementValueTest, ValueContentEqualsTestDifferentValueWithNulls) {
   EXPECT_FALSE(node1.Equals(node2));
 }
 
-TEST(GraphElementValueTest, ValueContentEqualsTestDifferentIdentifier) {
-  const Value node1 =
-      GraphNode({"graph_name"}, "id1",
-                {{"p0", Value::String("v0")}, {"p1", Value::Int32(1)}},
-                {"label"}, "ElementTable");
-  const Value node2 =
-      GraphNode({"graph_name"}, "id2",
-                {{"p0", Value::String("v0")}, {"p1", Value::Int32(1)}},
-                {"label"}, "ElementTable");
-  EXPECT_FALSE(node1.Equals(node2));
+TEST_P(GraphElementValueTest, ValueContentEqualsTestDifferentIdentifier) {
+  const Value static_element1 =
+      MakeElement({"graph_name"}, "id1",
+                  {{"p0", Value::String("v0")}, {"p1", Value::Int32(1)}},
+                  {"label1", "label2"}, "ElementTable");
+  const Value static_element2 =
+      MakeElement({"graph_name"}, "id2",
+                  {{"p0", Value::String("v0")}, {"p1", Value::Int32(1)}},
+                  {"label1", "label2"}, "ElementTable");
+  EXPECT_FALSE(static_element1.Equals(static_element2));
 }
 
 TEST(GraphElementValueTest, ValueContentEqualsTestDifferentColumns) {
@@ -343,14 +369,6 @@ TEST(GraphElementValueTest, ValueContentEqualsTestDifferentColumns) {
                                  {"p2", Value::Bool(true)}},
                                 {"label"}, "ElementTable");
   EXPECT_FALSE(node1.Equals(node2));
-}
-
-TEST_P(GraphElementValueTest, GetLabels) {
-  // GetLabels sorts labels in alphabet order case-insensitively and preserves
-  // the original case.
-  const Value element = MakeElement(
-      {"graph_name"}, "id", {}, {"label2", "laBel3", "Label1"}, "ElementTable");
-  EXPECT_THAT(element.GetLabels(), ElementsAre("Label1", "label2", "laBel3"));
 }
 
 }  // namespace

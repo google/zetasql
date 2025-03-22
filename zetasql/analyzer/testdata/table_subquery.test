@@ -117,9 +117,6 @@ QueryStmt
           +-SingleRowScan
 ==
 
-# TODO: Tricky case *for unparsing*. May need an extra project on
-# the named struct so as to extract the fields with unambiguous aliases.
-[no_run_unparser]
 select * from (select as struct 1 key, "abc" key)
 --
 QueryStmt

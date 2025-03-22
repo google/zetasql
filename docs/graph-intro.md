@@ -34,7 +34,7 @@ linear query statement comes from the final `RETURN` statement.
 
 #### Examples
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (p:Person)-[o:Owns]->(a:Account)
 FILTER p.birthday < '1990-01-10'
@@ -58,7 +58,7 @@ For more information, see the syntax for the [GQL set operation][set-op].
 A set operator between two linear query statements with the same set of output
 column names and types but with different column orders is supported. For example:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (p:Person)
 RETURN p.name, 1 AS group_id
@@ -88,7 +88,7 @@ into one.
 The following is an example of a graph query chaining multiple linear query statements
 using `NEXT`.
 
-```sql
+```zetasql
 GRAPH FinGraph
 
 MATCH (a:Account {is_blocked: TRUE})

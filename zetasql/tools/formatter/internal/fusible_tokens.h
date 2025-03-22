@@ -46,19 +46,27 @@ struct FusibleTokens {
   // Represents a match for a single keyword or identifier token, which is a
   // word (punctuation characters like (,.) are considered by tokenizer as
   // keywords).
-  static constexpr char kAnyWord[] = "";
+  static constexpr char kAnyWord[] = "<W>";
   // kIdentifier can match multi-token identifiers, e.g. 'namespace.Foo'.
   // To be used only if an identifier is in the middle of a fusible group. If
   // the token is in the end, it is OK to use any token match (""). Further
   // parts of the identifier will be appended later by the default logic in
   // IsPartOfSameChunk.
-  static constexpr char kIdentifier[] = "<id>";
+  static constexpr char kIdentifier[] = "<ID>";
   // kString matches any string literal, e.g. 'a string'.
-  static constexpr char kString[] = "<string>";
+  static constexpr char kString[] = "'S'";
 
-  // Contains the list of tokens. The name is short to make initialization list
-  // less verbose.
-  std::vector<absl::string_view> t;
+  // Contains the list of tokens separated by spaces. The name is short to make
+  // initialization list less verbose. The sequence may contain optional tokens
+  // (end with '?') and one-of groups ( several tokens in square brackets,
+  // separated by '|'). For example:
+  // "CREATE [PUBLIC|PRIVATE] FUNCTION" is the same as two sequences:
+  // "CREATE PUBLIC FUNCTION" and "CREATE PRIVATE FUNCTION"
+  // "CREATE TEMP? TABLE" == "CREATE TABLE" and "CREATE TEMP TABLE"
+  // One-off group can be also optional:
+  // "CREATE [TEMP|TEMPORARY]? TABLE" == "CREATE TABLE", "CREATE TEMP TABLE",
+  // "CREATE TEMPORARY TABLE".
+  absl::string_view t;
   // If set to anything but UNKNOWN, tells that these tokens can be fused only
   // if the first token is of the specified type.
   Token::Type start_with = Token::Type::UNKNOWN;
@@ -154,6 +162,14 @@ class FusibleMatchVector : std::vector<FusibleMatch> {
 const std::vector<FusibleTokens>* GetFusibleTokens();
 // Wrapper for a static tree of fusible groups.
 const FusibleGroup* GetFusibleGroups();
+
+// Parses a token pattern string into vector of all possible token sequences.
+// For instance, the pattern "CREATE [PUBLIC|PRIVATE] FUNCTION" results in two
+// sequences:
+// {"CREATE", "PUBLIC", "FUNCTION"} and
+// {"CREATE", "PRIVATE", "FUNCTION"}.
+std::vector<std::vector<absl::string_view>> ParseFusibleTokens(
+    absl::string_view pattern);
 
 // Converts a list of token groups into a tree.
 const FusibleGroup* FusibleGroupsFromTokens(

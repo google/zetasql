@@ -128,6 +128,8 @@ class StructType : public ListBackedType {
                                  /*use_external_float32=*/false);
   }
 
+  std::string CapitalizedName() const override;
+
   int nesting_depth() const override { return nesting_depth_; }
 
   bool IsSupportedType(const LanguageOptions& language_options) const override;
@@ -156,7 +158,7 @@ class StructType : public ListBackedType {
  private:
   // Caller must enforce that <nesting_depth> is accurate. No verification is
   // done.
-  StructType(const TypeFactory* factory, std::vector<StructField> fields,
+  StructType(const TypeFactoryBase* factory, std::vector<StructField> fields,
              int nesting_depth);
   ~StructType() override;
 

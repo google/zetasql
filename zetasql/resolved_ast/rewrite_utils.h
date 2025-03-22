@@ -34,6 +34,7 @@
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/column_factory.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_ast_visitor.h"
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "absl/base/nullability.h"
 #include "absl/container/flat_hash_map.h"
@@ -451,6 +452,9 @@ class FunctionCallBuilder {
   absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> Less(
       std::unique_ptr<const ResolvedExpr> left_expr,
       std::unique_ptr<const ResolvedExpr> right_expr);
+  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> LessOrEqual(
+      std::unique_ptr<const ResolvedExpr> left_expr,
+      std::unique_ptr<const ResolvedExpr> right_expr);
 
   // Construct a ResolvedFunctionCall for <left_expr> >= <right_expr>.
   //
@@ -461,6 +465,9 @@ class FunctionCallBuilder {
   // The signature for the built-in function "$greater_or_equal" must be
   // available in `catalog` or an error status is returned.
   absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> GreaterOrEqual(
+      std::unique_ptr<const ResolvedExpr> left_expr,
+      std::unique_ptr<const ResolvedExpr> right_expr);
+  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> Greater(
       std::unique_ptr<const ResolvedExpr> left_expr,
       std::unique_ptr<const ResolvedExpr> right_expr);
 
@@ -534,6 +541,10 @@ class FunctionCallBuilder {
   absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>>
   NestedBinaryInt64Add(
       std::vector<std::unique_ptr<const ResolvedExpr>> expressions);
+
+  // Construct a ResolvedAnalyticFunctionCall for ROW_NUMBER()
+  absl::StatusOr<std::unique_ptr<const ResolvedAnalyticFunctionCall>>
+  RowNumber();
 
   // Construct a ResolvedFunctionCall for
   //  <node_expr> IS SOURCE|DESTINATION OF <edge_expr>
@@ -625,14 +636,20 @@ class FunctionCallBuilder {
       std::unique_ptr<const ResolvedExpr> dividend_expr,
       std::unique_ptr<const ResolvedExpr> divisor_expr);
 
-  // Construct a ResolvedAggregateFunctionCall for COUNT(column_ref) which has
+  // Construct a ResolvedAggregateFunctionCall for COUNT(expression) which has
   // the option to be a distinct count.
   //
   // The signature for the built-in function "count" must be available in
   // <catalog> or an error status is returned.
   absl::StatusOr<std::unique_ptr<const ResolvedAggregateFunctionCall>> Count(
-      std::unique_ptr<const ResolvedColumnRef> column_ref,
-      bool is_distinct = false);
+      std::unique_ptr<const ResolvedExpr> expr, bool is_distinct = false);
+
+  // Constructs a ResolvedAggregateFunctionCall or ResolvedAnalyticFunctionCall
+  // for COUNT(*), and has the option to be COUNT(DISTINCT).
+  // The analytic option sets the frame to be UNBOUNDED PRECEDING and
+  // UNBOUNDED FOLLOWING. The caller can modify the frame as needed.
+  absl::StatusOr<std::unique_ptr<const ResolvedExpr>> CountStar(
+      bool is_distinct = false, bool is_analytic = false);
 
   // Constructs a ResolvedFunctionCall for $with_side_effects(expr, payload).
   //
@@ -645,14 +662,15 @@ class FunctionCallBuilder {
       std::unique_ptr<const ResolvedExpr> payload);
 
   // Constructs a ResolvedFunctionCall for `any_value(input_expr [,
-  // having_min_modifier(MIN, having_min_expr)])`. `having_min_modifier` is
-  // optional, created only when `having_min_expr` is not nullptr.
+  // having_min_modifier(MIN, having_min_max_expr)])`. `having_min_modifier` is
+  // optional, created only when `having_min_max_expr` is not nullptr.
   //
   // The signature for the built-in function "any_value" must be
   // available in <catalog> or an error status is returned.
   absl::StatusOr<std::unique_ptr<const ResolvedAggregateFunctionCall>> AnyValue(
       std::unique_ptr<const ResolvedExpr> input_expr,
-      std::unique_ptr<const ResolvedExpr> having_min_expr);
+      std::unique_ptr<const ResolvedExpr> having_min_max_expr,
+      bool is_max = false);
 
   // Constructs a ResolvedAggregateFunctionCall for
   // `ARRAY_AGG(input_expr [HAVING having_kind having_expr])`.
@@ -775,6 +793,28 @@ class FunctionCallBuilder {
       std::optional<functions::DifferentialPrivacyEnums::ReportFormat>
           report_format);
 
+  // Constructs a ResolvedAnalyticFunctionCall that applies the window function
+  // IS_FIRST(k) to the input expression.
+  //
+  // Requires:
+  // - `arg_k` is a literal or parameter of type INT64.
+  //
+  // The signature for the built-in function `IS_FIRST` must be
+  // available in `catalog` or an error status is returned.
+  absl::StatusOr<std::unique_ptr<const ResolvedAnalyticFunctionCall>> IsFirstK(
+      absl::Nonnull<std::unique_ptr<const ResolvedExpr>> arg_k);
+
+  // Constructs a ResolvedFunctionCall for
+  // `<left_expr> IS NOT DISTINCT FROM <right_expr>`.
+  //
+  // Requires: Both `left_expr` and `right_expr` must have the same type.
+  //
+  // The signature for the built-in function "$is_not_distinct_from" must be
+  // available in `catalog` or an error status is returned.
+  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> IsNotDistinctFrom(
+      std::unique_ptr<const ResolvedExpr> left_expr,
+      std::unique_ptr<const ResolvedExpr> right_expr);
+
  private:
   static AnnotationPropagator BuildAnnotationPropagator(
       const AnalyzerOptions& analyzer_options, TypeFactory& type_factory) {
@@ -822,6 +862,16 @@ class FunctionCallBuilder {
   // found in the catalog.
   absl::Status GetBuiltinFunctionFromCatalog(absl::string_view function_name,
                                              const Function** fn_out);
+
+  // Shared logic for Less and LessOrEqual.
+  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> Less(
+      std::unique_ptr<const ResolvedExpr> left_expr,
+      std::unique_ptr<const ResolvedExpr> right_expr, bool or_equal);
+
+  // Shared logic for Greater and GreaterOrEqual.
+  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> Greater(
+      std::unique_ptr<const ResolvedExpr> left_expr,
+      std::unique_ptr<const ResolvedExpr> right_expr, bool or_equal);
 
   const AnalyzerOptions& analyzer_options_;
   Catalog& catalog_;
@@ -878,7 +928,7 @@ class LikeAnyAllSubqueryScanBuilder {
   ColumnFactory* column_factory_;
 };
 
-bool IsBuiltInFunctionIdEq(const ResolvedFunctionCall* function_call,
+bool IsBuiltInFunctionIdEq(const ResolvedFunctionCallBase* function_call,
                            FunctionSignatureId function_signature_id);
 
 // Generate an Unimplemented error message - if possible, attach a location.
@@ -906,5 +956,25 @@ std::unique_ptr<ResolvedColumnRef> BuildResolvedColumnRef(
 std::unique_ptr<ResolvedColumnRef> BuildResolvedColumnRef(
     const Type* type, const ResolvedColumn& column, bool is_correlated = false);
 }  // namespace zetasql
+
+// Visitor to detect if a node contains WithScan.
+class WithScanVisitor : public zetasql::ResolvedASTVisitor {
+ public:
+  static absl::StatusOr<bool> ContainsWithScan(
+      const zetasql::ResolvedNode& node) {
+    WithScanVisitor visitor;
+    ZETASQL_RETURN_IF_ERROR(node.Accept(&visitor));
+    return visitor.contains_with_scan_;
+  }
+
+ private:
+  absl::Status VisitResolvedWithScan(
+      const zetasql::ResolvedWithScan* node) override {
+    contains_with_scan_ = true;
+    return absl::OkStatus();
+  }
+
+  bool contains_with_scan_ = false;
+};
 
 #endif  // ZETASQL_RESOLVED_AST_REWRITE_UTILS_H_

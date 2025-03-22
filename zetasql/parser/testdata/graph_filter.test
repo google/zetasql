@@ -1,0 +1,403 @@
+[default reserve_graph_table]
+[default language_features=V_1_4_SQL_GRAPH]
+
+[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+select gt.* from
+graph_table(aml
+  match (n)
+  let age = DATE_DIFF(CURRENT_DATE, n.birthday, YEAR)
+  filter where age > 25
+  return n.name, 1 AS number
+) gt
+
+--
+
+QueryStatement [0-156] [select gt....number ) gt]
+  Query [0-156] [select gt....number ) gt]
+    Select [0-156] [select gt....number ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-156] [from graph_table...number ) gt]
+        GraphTableQuery [17-156] [graph_table...number ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-151] [match (n)...AS number]
+            GqlOperatorList [35-151] [match (n)...AS number]
+              GqlMatch [35-44] [match (n)]
+                GraphPattern [41-44] [(n)]
+                  GraphPathPattern [41-44] [(n)]
+                    GraphNodePattern [41-44] [(n)]
+                      GraphElementPatternFiller [42-43] [n]
+                        Identifier(n) [42-43] [n]
+              GqlLet [47-98] [let age =...birthday, YEAR)]
+                GqlLetVariableDefinitionList [51-98] [age = DATE_DIFF...thday, YEAR)]
+                  GqlLetVariableDefinition [51-98] [age = DATE_DIFF...thday, YEAR)]
+                    Identifier(age) [51-54] [age]
+                    FunctionCall [57-98] [DATE_DIFF(...birthday, YEAR)]
+                      PathExpression [57-66] [DATE_DIFF]
+                        Identifier(DATE_DIFF) [57-66] [DATE_DIFF]
+                      FunctionCall [67-79] [CURRENT_DATE]
+                        PathExpression [67-79] [CURRENT_DATE]
+                          Identifier(`CURRENT_DATE`) [67-79] [CURRENT_DATE]
+                      PathExpression [81-91] [n.birthday]
+                        Identifier(n) [81-82] [n]
+                        Identifier(birthday) [83-91] [birthday]
+                      PathExpression [93-97] [YEAR]
+                        Identifier(YEAR) [93-97] [YEAR]
+              GqlFilter [101-122] [filter where age > 25]
+                WhereClause [108-122] [where age > 25]
+                  BinaryExpression(>) [114-122] [age > 25]
+                    PathExpression [114-117] [age]
+                      Identifier(age) [114-117] [age]
+                    IntLiteral(25) [120-122] [25]
+              GqlReturn [125-151] [return n.name, 1 AS number]
+                Select [131-151] [n.name, 1 AS number]
+                  SelectList [132-151] [n.name, 1 AS number]
+                    SelectColumn [132-138] [n.name]
+                      PathExpression [132-138] [n.name]
+                        Identifier(n) [132-133] [n]
+                        Identifier(name) [134-138] [name]
+                    SelectColumn [140-151] [1 AS number]
+                      IntLiteral(1) [140-141] [1]
+                      Alias [142-151] [AS number]
+                        Identifier(number) [145-151] [number]
+          Alias [154-156] [gt]
+            Identifier(gt) [154-156] [gt]
+
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (n)
+    LET
+      age = DATE_DIFF(`CURRENT_DATE`(), n.birthday, YEAR)
+    FILTER
+      WHERE
+        age > 25
+    RETURN
+      n.name,
+      1 AS number
+  ) AS gt
+
+==
+
+# FILTER without WHERE keyword
+
+select gt.* from
+graph_table(aml
+  match (n)
+  let age = DATE_DIFF(CURRENT_DATE, n.birthday, YEAR)
+  filter age > 25
+  return n.name, 1 AS number
+) gt
+
+--
+
+QueryStatement [0-150] [select gt....number ) gt]
+  Query [0-150] [select gt....number ) gt]
+    Select [0-150] [select gt....number ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-150] [from graph_table...number ) gt]
+        GraphTableQuery [17-150] [graph_table...number ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-145] [match (n)...AS number]
+            GqlOperatorList [35-145] [match (n)...AS number]
+              GqlMatch [35-44] [match (n)]
+                GraphPattern [41-44] [(n)]
+                  GraphPathPattern [41-44] [(n)]
+                    GraphNodePattern [41-44] [(n)]
+                      GraphElementPatternFiller [42-43] [n]
+                        Identifier(n) [42-43] [n]
+              GqlLet [47-98] [let age =...birthday, YEAR)]
+                GqlLetVariableDefinitionList [51-98] [age = DATE_DIFF...thday, YEAR)]
+                  GqlLetVariableDefinition [51-98] [age = DATE_DIFF...thday, YEAR)]
+                    Identifier(age) [51-54] [age]
+                    FunctionCall [57-98] [DATE_DIFF(...birthday, YEAR)]
+                      PathExpression [57-66] [DATE_DIFF]
+                        Identifier(DATE_DIFF) [57-66] [DATE_DIFF]
+                      FunctionCall [67-79] [CURRENT_DATE]
+                        PathExpression [67-79] [CURRENT_DATE]
+                          Identifier(`CURRENT_DATE`) [67-79] [CURRENT_DATE]
+                      PathExpression [81-91] [n.birthday]
+                        Identifier(n) [81-82] [n]
+                        Identifier(birthday) [83-91] [birthday]
+                      PathExpression [93-97] [YEAR]
+                        Identifier(YEAR) [93-97] [YEAR]
+              GqlFilter [101-116] [filter age > 25]
+                WhereClause [101-116] [filter age > 25]
+                  BinaryExpression(>) [108-116] [age > 25]
+                    PathExpression [108-111] [age]
+                      Identifier(age) [108-111] [age]
+                    IntLiteral(25) [114-116] [25]
+              GqlReturn [119-145] [return n.name, 1 AS number]
+                Select [125-145] [n.name, 1 AS number]
+                  SelectList [126-145] [n.name, 1 AS number]
+                    SelectColumn [126-132] [n.name]
+                      PathExpression [126-132] [n.name]
+                        Identifier(n) [126-127] [n]
+                        Identifier(name) [128-132] [name]
+                    SelectColumn [134-145] [1 AS number]
+                      IntLiteral(1) [134-135] [1]
+                      Alias [136-145] [AS number]
+                        Identifier(number) [139-145] [number]
+          Alias [148-150] [gt]
+            Identifier(gt) [148-150] [gt]
+
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (n)
+    LET
+      age = DATE_DIFF(`CURRENT_DATE`(), n.birthday, YEAR)
+    FILTER
+      WHERE
+        age > 25
+    RETURN
+      n.name,
+      1 AS number
+  ) AS gt
+
+==
+
+select gt.* from
+graph_table(aml
+  match (n)
+  let age = DATE_DIFF(CURRENT_DATE, n.birthday, YEAR)
+  return n.name, age, 1 AS number
+  next
+  filter where age > 25
+  return name, age
+) gt
+
+--
+
+QueryStatement [0-187] [select gt...., age ) gt]
+  Query [0-187] [select gt...., age ) gt]
+    Select [0-187] [select gt...., age ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-187] [from graph_table..., age ) gt]
+        GraphTableQuery [17-187] [graph_table..., age ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-182] [match (n)...name, age]
+            GqlOperatorList [35-132] [match (n)...AS number]
+              GqlMatch [35-44] [match (n)]
+                GraphPattern [41-44] [(n)]
+                  GraphPathPattern [41-44] [(n)]
+                    GraphNodePattern [41-44] [(n)]
+                      GraphElementPatternFiller [42-43] [n]
+                        Identifier(n) [42-43] [n]
+              GqlLet [47-98] [let age =...birthday, YEAR)]
+                GqlLetVariableDefinitionList [51-98] [age = DATE_DIFF...thday, YEAR)]
+                  GqlLetVariableDefinition [51-98] [age = DATE_DIFF...thday, YEAR)]
+                    Identifier(age) [51-54] [age]
+                    FunctionCall [57-98] [DATE_DIFF(...birthday, YEAR)]
+                      PathExpression [57-66] [DATE_DIFF]
+                        Identifier(DATE_DIFF) [57-66] [DATE_DIFF]
+                      FunctionCall [67-79] [CURRENT_DATE]
+                        PathExpression [67-79] [CURRENT_DATE]
+                          Identifier(`CURRENT_DATE`) [67-79] [CURRENT_DATE]
+                      PathExpression [81-91] [n.birthday]
+                        Identifier(n) [81-82] [n]
+                        Identifier(birthday) [83-91] [birthday]
+                      PathExpression [93-97] [YEAR]
+                        Identifier(YEAR) [93-97] [YEAR]
+              GqlReturn [101-132] [return n.name...AS number]
+                Select [107-132] [n.name, age, 1 AS number]
+                  SelectList [108-132] [n.name, age, 1 AS number]
+                    SelectColumn [108-114] [n.name]
+                      PathExpression [108-114] [n.name]
+                        Identifier(n) [108-109] [n]
+                        Identifier(name) [110-114] [name]
+                    SelectColumn [116-119] [age]
+                      PathExpression [116-119] [age]
+                        Identifier(age) [116-119] [age]
+                    SelectColumn [121-132] [1 AS number]
+                      IntLiteral(1) [121-122] [1]
+                      Alias [123-132] [AS number]
+                        Identifier(number) [126-132] [number]
+            GqlOperatorList [142-182] [filter where...name, age]
+              GqlFilter [142-163] [filter where age > 25]
+                WhereClause [149-163] [where age > 25]
+                  BinaryExpression(>) [155-163] [age > 25]
+                    PathExpression [155-158] [age]
+                      Identifier(age) [155-158] [age]
+                    IntLiteral(25) [161-163] [25]
+              GqlReturn [166-182] [return name, age]
+                Select [172-182] [name, age]
+                  SelectList [173-182] [name, age]
+                    SelectColumn [173-177] [name]
+                      PathExpression [173-177] [name]
+                        Identifier(name) [173-177] [name]
+                    SelectColumn [179-182] [age]
+                      PathExpression [179-182] [age]
+                        Identifier(age) [179-182] [age]
+          Alias [185-187] [gt]
+            Identifier(gt) [185-187] [gt]
+--
+
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (n)
+    LET
+      age = DATE_DIFF(`CURRENT_DATE`(), n.birthday, YEAR)
+    RETURN
+      n.name,
+      age,
+      1 AS number
+    NEXT
+    FILTER
+      WHERE
+        age > 25
+    RETURN
+      name,
+      age
+  ) AS gt
+
+==
+
+# filter as first statement
+
+select gt.* from
+graph_table(aml
+  filter where n.age > 25
+  return n.name
+) gt
+
+--
+
+QueryStatement [0-79] [select gt.....name ) gt]
+  Query [0-79] [select gt.....name ) gt]
+    Select [0-79] [select gt.....name ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-79] [from graph_table....name ) gt]
+        GraphTableQuery [17-79] [graph_table....name ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-74] [filter where...return n.name]
+            GqlOperatorList [35-74] [filter where...return n.name]
+              GqlFilter [35-58] [filter where n.age > 25]
+                WhereClause [42-58] [where n.age > 25]
+                  BinaryExpression(>) [48-58] [n.age > 25]
+                    PathExpression [48-53] [n.age]
+                      Identifier(n) [48-49] [n]
+                      Identifier(age) [50-53] [age]
+                    IntLiteral(25) [56-58] [25]
+              GqlReturn [61-74] [return n.name]
+                Select [67-74] [n.name]
+                  SelectList [68-74] [n.name]
+                    SelectColumn [68-74] [n.name]
+                      PathExpression [68-74] [n.name]
+                        Identifier(n) [68-69] [n]
+                        Identifier(name) [70-74] [name]
+          Alias [77-79] [gt]
+            Identifier(gt) [77-79] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    FILTER
+      WHERE
+        n.age > 25
+    RETURN
+      n.name
+  ) AS gt
+
+==
+
+# filter with return *
+
+select gt.* from
+graph_table(aml
+  filter where n.age > 25
+  return *
+) gt
+
+--
+
+QueryStatement [0-74] [select gt....return * ) gt]
+  Query [0-74] [select gt....return * ) gt]
+    Select [0-74] [select gt....return * ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-74] [from graph_table...turn * ) gt]
+        GraphTableQuery [17-74] [graph_table...return * ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-69] [filter where...return *]
+            GqlOperatorList [35-69] [filter where...return *]
+              GqlFilter [35-58] [filter where n.age > 25]
+                WhereClause [42-58] [where n.age > 25]
+                  BinaryExpression(>) [48-58] [n.age > 25]
+                    PathExpression [48-53] [n.age]
+                      Identifier(n) [48-49] [n]
+                      Identifier(age) [50-53] [age]
+                    IntLiteral(25) [56-58] [25]
+              GqlReturn [61-69] [return *]
+                Select [67-69] [*]
+                  SelectList [68-69] [*]
+                    SelectColumn [68-69] [*]
+                      Star(*) [68-69] [*]
+          Alias [72-74] [gt]
+            Identifier(gt) [72-74] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    FILTER
+      WHERE
+        n.age > 25
+    RETURN
+      *
+  ) AS gt
+
+==
+
+# Test that FILTER fails when it is written after a return (and before a next)
+select gt.* from
+graph_table(aml
+  match (n)
+  let age = DATE_DIFF(CURRENT_DATE, n.birthday, YEAR)
+  return n.name, age
+  filter where age > 1
+) gt
+
+--
+
+ERROR: Syntax error: Expected ")" or keyword NEXT but got keyword FILTER [at 6:3]
+  filter where age > 1
+  ^

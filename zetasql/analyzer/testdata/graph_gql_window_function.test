@@ -1,6 +1,6 @@
 [default language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,ANALYTIC_FUNCTIONS,V_1_4_SQL_GRAPH_RETURN_EXTENSIONS,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_4_SQL_GRAPH_RETURN_EXTENSIONS,V_1_4_SQL_GRAPH_PATH_TYPE,V_1_4_GROUP_BY_GRAPH_PATH,V_1_4_SQL_GRAPH_PATH_MODE]
 [default no_test_extract_table_names]
-[default show_unparsed]
+[default show_sqlbuilder_output]
 
 # Not allowed on element pattern WHERE clause
 select gt.* from
@@ -48,7 +48,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=[$graph_table.id#7]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
           +-GraphLinearScan
             +-column_list=[$graph_table.id#7]
@@ -73,7 +73,7 @@ QueryStmt
                   | |   | | |       +-op=NOT
                   | |   | | |       +-operand_list=
                   | |   | | |         +-GraphWildCardLabel
-                  | |   | | +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   | | +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   | +-GraphEdgeScan
                   | |   | | +-column_list=[$element_table.e#2]
                   | |   | | +-label_expr=
@@ -85,7 +85,7 @@ QueryStmt
                   | |   | | |       +-op=NOT
                   | |   | | |       +-operand_list=
                   | |   | | |         +-GraphWildCardLabel
-                  | |   | | +-target_element_table_list=[sample_catalog.aml.PersonOwnAccount,sample_catalog.aml.Transfer]
+                  | |   | | +-target_element_table_list=[aml.PersonOwnAccount,aml.Transfer]
                   | |   | | +-orientation=RIGHT
                   | |   | +-GraphNodeScan
                   | |   |   +-column_list=[$element_table.$element1#3]
@@ -98,60 +98,61 @@ QueryStmt
                   | |   |   |       +-op=NOT
                   | |   |   |       +-operand_list=
                   | |   |   |         +-GraphWildCardLabel
-                  | |   |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   +-head=$element_table.n#1
                   | |   +-tail=$element_table.$element1#3
                   | +-input_scan=
                   |   +-SingleRowScan
+                  +-AnalyticScan
+                  | +-column_list=[$element_table.n#1, $element_table.e#2, $element_table.$element1#3, $analytic.$analytic1#4]
+                  | +-input_scan=
+                  | | +-ProjectScan
+                  | |   +-column_list=[$element_table.n#1, $element_table.e#2, $element_table.$element1#3, $partitionby.name#5, $orderby.id#6]
+                  | |   +-expr_list=
+                  | |   | +-name#5 :=
+                  | |   | | +-GraphGetElementProperty
+                  | |   | |   +-type=STRING
+                  | |   | |   +-expr=
+                  | |   | |   | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.n#1)
+                  | |   | |   +-property=name(STRING)
+                  | |   | +-id#6 :=
+                  | |   |   +-GraphGetElementProperty
+                  | |   |     +-type=INT64
+                  | |   |     +-expr=
+                  | |   |     | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.n#1)
+                  | |   |     +-property=id(INT64)
+                  | |   +-input_scan=
+                  | |     +-GraphRefScan(column_list=$element_table.[n#1, e#2, $element1#3])
+                  | +-function_group_list=
+                  |   +-AnalyticFunctionGroup
+                  |     +-partition_by=
+                  |     | +-WindowPartitioning
+                  |     |   +-partition_by_list=
+                  |     |     +-ColumnRef(type=STRING, column=$partitionby.name#5)
+                  |     +-order_by=
+                  |     | +-WindowOrdering
+                  |     |   +-order_by_item_list=
+                  |     |     +-OrderByItem
+                  |     |       +-column_ref=
+                  |     |         +-ColumnRef(type=INT64, column=$orderby.id#6)
+                  |     +-analytic_function_list=
+                  |       +-$analytic1#4 :=
+                  |         +-AnalyticFunctionCall(sample_functions:afn_agg(UINT32) -> INT64)
+                  |           +-GraphGetElementProperty
+                  |             +-type=UINT32
+                  |             +-expr=
+                  |             | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.n#1)
+                  |             +-property=age(UINT32)
+                  |           +-window_frame=
+                  |             +-WindowFrame(frame_unit=RANGE)
+                  |               +-start_expr=
+                  |               | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+                  |               +-end_expr=
+                  |                 +-WindowFrameExpr(boundary_type=CURRENT ROW)
                   +-FilterScan
                   | +-column_list=[$element_table.n#1, $element_table.e#2, $element_table.$element1#3, $analytic.$analytic1#4]
                   | +-input_scan=
-                  | | +-AnalyticScan
-                  | |   +-column_list=[$element_table.n#1, $element_table.e#2, $element_table.$element1#3, $analytic.$analytic1#4]
-                  | |   +-input_scan=
-                  | |   | +-ProjectScan
-                  | |   |   +-column_list=[$element_table.n#1, $element_table.e#2, $element_table.$element1#3, $partitionby.name#5, $orderby.id#6]
-                  | |   |   +-expr_list=
-                  | |   |   | +-name#5 :=
-                  | |   |   | | +-GraphGetElementProperty
-                  | |   |   | |   +-type=STRING
-                  | |   |   | |   +-expr=
-                  | |   |   | |   | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.n#1)
-                  | |   |   | |   +-property=name(STRING)
-                  | |   |   | +-id#6 :=
-                  | |   |   |   +-GraphGetElementProperty
-                  | |   |   |     +-type=INT64
-                  | |   |   |     +-expr=
-                  | |   |   |     | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.n#1)
-                  | |   |   |     +-property=id(INT64)
-                  | |   |   +-input_scan=
-                  | |   |     +-GraphRefScan(column_list=$element_table.[n#1, e#2, $element1#3])
-                  | |   +-function_group_list=
-                  | |     +-AnalyticFunctionGroup
-                  | |       +-partition_by=
-                  | |       | +-WindowPartitioning
-                  | |       |   +-partition_by_list=
-                  | |       |     +-ColumnRef(type=STRING, column=$partitionby.name#5)
-                  | |       +-order_by=
-                  | |       | +-WindowOrdering
-                  | |       |   +-order_by_item_list=
-                  | |       |     +-OrderByItem
-                  | |       |       +-column_ref=
-                  | |       |         +-ColumnRef(type=INT64, column=$orderby.id#6)
-                  | |       +-analytic_function_list=
-                  | |         +-$analytic1#4 :=
-                  | |           +-AnalyticFunctionCall(sample_functions:afn_agg(UINT32) -> INT64)
-                  | |             +-GraphGetElementProperty
-                  | |               +-type=UINT32
-                  | |               +-expr=
-                  | |               | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.n#1)
-                  | |               +-property=age(UINT32)
-                  | |             +-window_frame=
-                  | |               +-WindowFrame(frame_unit=RANGE)
-                  | |                 +-start_expr=
-                  | |                 | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
-                  | |                 +-end_expr=
-                  | |                   +-WindowFrameExpr(boundary_type=CURRENT ROW)
+                  | | +-GraphRefScan(column_list=[$element_table.n#1, $element_table.e#2, $element_table.$element1#3, $analytic.$analytic1#4])
                   | +-filter_expr=
                   |   +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
                   |     +-ColumnRef(type=INT64, column=$analytic.$analytic1#4)
@@ -168,9 +169,10 @@ QueryStmt
                     +-input_scan=
                       +-GraphRefScan(column_list=$element_table.[n#1, e#2, $element1#3])
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
-  aml_1.a_5 AS id
+  aml_1.a_6 AS id
 FROM
   GRAPH_TABLE(
     aml
@@ -181,13 +183,39 @@ FROM
       IS (% | ! %)]->
       (a_4
       IS (% | ! %))
+    LET
+      a_5 = AFN_AGG(a_2.age) OVER (PARTITION BY a_2.name
+        ORDER BY a_2.id RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
     FILTER
       WHERE
-        (AFN_AGG(a_2.age) OVER (PARTITION BY a_2.name
-          ORDER BY a_2.id RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)) > 5
+        a_5 > 5
     RETURN
-      a_2.id AS a_5
+      a_2.id AS a_6
   ) AS aml_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a_2
+      IS (% | ! %))
+      -[a_3
+      IS (% | ! %)]->
+      (a_4
+      IS (% | ! %))
+    LET
+      a_5 = AFN_AGG(a_2.age) OVER (PARTITION BY a_2.name
+        ORDER BY a_2.id RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+    FILTER
+      WHERE
+        a_5 > 5
+    RETURN
+      a_2.id AS a_6
+  ) AS aml_1
+|> SELECT
+     aml_1.a_6 AS id;
 ==
 
 # Analytic functions in FILTER with horizontal agg
@@ -207,7 +235,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=[$graph_table.id#15]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
           +-GraphLinearScan
             +-column_list=[$graph_table.id#15]
@@ -232,7 +260,7 @@ QueryStmt
                   | |   | | |       +-op=NOT
                   | |   | | |       +-operand_list=
                   | |   | | |         +-GraphWildCardLabel
-                  | |   | | +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   | | +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   | +-GraphPathScan
                   | |   | | +-column_list=[$path_scan.$head#8, $element_table.e#6, $path_scan.$tail#9]
                   | |   | | +-input_scan_list=
@@ -247,7 +275,7 @@ QueryStmt
                   | |   | | | | |       +-op=NOT
                   | |   | | | | |       +-operand_list=
                   | |   | | | | |         +-GraphWildCardLabel
-                  | |   | | | | +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   | | | | +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   | | | +-GraphEdgeScan
                   | |   | | | | +-column_list=[$element_table.e#3]
                   | |   | | | | +-label_expr=
@@ -259,7 +287,7 @@ QueryStmt
                   | |   | | | | |       +-op=NOT
                   | |   | | | | |       +-operand_list=
                   | |   | | | | |         +-GraphWildCardLabel
-                  | |   | | | | +-target_element_table_list=[sample_catalog.aml.PersonOwnAccount,sample_catalog.aml.Transfer]
+                  | |   | | | | +-target_element_table_list=[aml.PersonOwnAccount,aml.Transfer]
                   | |   | | | | +-orientation=RIGHT
                   | |   | | | +-GraphNodeScan
                   | |   | | |   +-column_list=[$element_table.$element2#4]
@@ -272,7 +300,7 @@ QueryStmt
                   | |   | | |   |       +-op=NOT
                   | |   | | |   |       +-operand_list=
                   | |   | | |   |         +-GraphWildCardLabel
-                  | |   | | |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   | | |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   | | +-head=$path_scan.$head#8
                   | |   | | +-tail=$path_scan.$tail#9
                   | |   | | +-quantifier=
@@ -296,67 +324,68 @@ QueryStmt
                   | |   |   |       +-op=NOT
                   | |   |   |       +-operand_list=
                   | |   |   |         +-GraphWildCardLabel
-                  | |   |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   +-head=$element_table.n#1
                   | |   +-tail=$element_table.$element3#10
                   | +-input_scan=
                   |   +-SingleRowScan
+                  +-AnalyticScan
+                  | +-column_list=[$element_table.n#1, $element_table.e#6, $element_table.$element3#10, $analytic.$analytic1#12]
+                  | +-input_scan=
+                  | | +-ProjectScan
+                  | |   +-column_list=[$element_table.n#1, $element_table.e#6, $element_table.$element3#10, $partitionby.name#13, $orderby.id#14]
+                  | |   +-expr_list=
+                  | |   | +-name#13 :=
+                  | |   | | +-GraphGetElementProperty
+                  | |   | |   +-type=STRING
+                  | |   | |   +-expr=
+                  | |   | |   | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.n#1)
+                  | |   | |   +-property=name(STRING)
+                  | |   | +-id#14 :=
+                  | |   |   +-GraphGetElementProperty
+                  | |   |     +-type=INT64
+                  | |   |     +-expr=
+                  | |   |     | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.n#1)
+                  | |   |     +-property=id(INT64)
+                  | |   +-input_scan=
+                  | |     +-GraphRefScan(column_list=$element_table.[n#1, e#6, $element3#10])
+                  | +-function_group_list=
+                  |   +-AnalyticFunctionGroup
+                  |     +-partition_by=
+                  |     | +-WindowPartitioning
+                  |     |   +-partition_by_list=
+                  |     |     +-ColumnRef(type=STRING, column=$partitionby.name#13)
+                  |     +-order_by=
+                  |     | +-WindowOrdering
+                  |     |   +-order_by_item_list=
+                  |     |     +-OrderByItem
+                  |     |       +-column_ref=
+                  |     |         +-ColumnRef(type=INT64, column=$orderby.id#14)
+                  |     +-analytic_function_list=
+                  |       +-$analytic1#12 :=
+                  |         +-AnalyticFunctionCall(sample_functions:afn_agg(UINT64) -> INT64)
+                  |           +-ArrayAggregate
+                  |             +-type=UINT64
+                  |             +-array=
+                  |             | +-ColumnRef(type=ARRAY<GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, targetAccountId INT64>>, column=$element_table.e#6)
+                  |             +-element_column=$horizontal_aggregate.e#11
+                  |             +-aggregate=
+                  |               +-AggregateFunctionCall(ZetaSQL:sum(UINT64) -> UINT64)
+                  |                 +-GraphGetElementProperty
+                  |                   +-type=UINT64
+                  |                   +-expr=
+                  |                   | +-ColumnRef(type=GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, targetAccountId INT64>, column=$horizontal_aggregate.e#11)
+                  |                   +-property=amount(UINT64)
+                  |           +-window_frame=
+                  |             +-WindowFrame(frame_unit=RANGE)
+                  |               +-start_expr=
+                  |               | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+                  |               +-end_expr=
+                  |                 +-WindowFrameExpr(boundary_type=CURRENT ROW)
                   +-FilterScan
                   | +-column_list=[$element_table.n#1, $element_table.e#6, $element_table.$element3#10, $analytic.$analytic1#12]
                   | +-input_scan=
-                  | | +-AnalyticScan
-                  | |   +-column_list=[$element_table.n#1, $element_table.e#6, $element_table.$element3#10, $analytic.$analytic1#12]
-                  | |   +-input_scan=
-                  | |   | +-ProjectScan
-                  | |   |   +-column_list=[$element_table.n#1, $element_table.e#6, $element_table.$element3#10, $partitionby.name#13, $orderby.id#14]
-                  | |   |   +-expr_list=
-                  | |   |   | +-name#13 :=
-                  | |   |   | | +-GraphGetElementProperty
-                  | |   |   | |   +-type=STRING
-                  | |   |   | |   +-expr=
-                  | |   |   | |   | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.n#1)
-                  | |   |   | |   +-property=name(STRING)
-                  | |   |   | +-id#14 :=
-                  | |   |   |   +-GraphGetElementProperty
-                  | |   |   |     +-type=INT64
-                  | |   |   |     +-expr=
-                  | |   |   |     | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.n#1)
-                  | |   |   |     +-property=id(INT64)
-                  | |   |   +-input_scan=
-                  | |   |     +-GraphRefScan(column_list=$element_table.[n#1, e#6, $element3#10])
-                  | |   +-function_group_list=
-                  | |     +-AnalyticFunctionGroup
-                  | |       +-partition_by=
-                  | |       | +-WindowPartitioning
-                  | |       |   +-partition_by_list=
-                  | |       |     +-ColumnRef(type=STRING, column=$partitionby.name#13)
-                  | |       +-order_by=
-                  | |       | +-WindowOrdering
-                  | |       |   +-order_by_item_list=
-                  | |       |     +-OrderByItem
-                  | |       |       +-column_ref=
-                  | |       |         +-ColumnRef(type=INT64, column=$orderby.id#14)
-                  | |       +-analytic_function_list=
-                  | |         +-$analytic1#12 :=
-                  | |           +-AnalyticFunctionCall(sample_functions:afn_agg(UINT64) -> INT64)
-                  | |             +-ArrayAggregate
-                  | |               +-type=UINT64
-                  | |               +-array=
-                  | |               | +-ColumnRef(type=ARRAY<GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, targetAccountId INT64>>, column=$element_table.e#6)
-                  | |               +-element_column=$horizontal_aggregate.e#11
-                  | |               +-aggregate=
-                  | |                 +-AggregateFunctionCall(ZetaSQL:sum(UINT64) -> UINT64)
-                  | |                   +-GraphGetElementProperty
-                  | |                     +-type=UINT64
-                  | |                     +-expr=
-                  | |                     | +-ColumnRef(type=GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, targetAccountId INT64>, column=$horizontal_aggregate.e#11)
-                  | |                     +-property=amount(UINT64)
-                  | |             +-window_frame=
-                  | |               +-WindowFrame(frame_unit=RANGE)
-                  | |                 +-start_expr=
-                  | |                 | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
-                  | |                 +-end_expr=
-                  | |                   +-WindowFrameExpr(boundary_type=CURRENT ROW)
+                  | | +-GraphRefScan(column_list=[$element_table.n#1, $element_table.e#6, $element_table.$element3#10, $analytic.$analytic1#12])
                   | +-filter_expr=
                   |   +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
                   |     +-ColumnRef(type=INT64, column=$analytic.$analytic1#12)
@@ -373,9 +402,10 @@ QueryStmt
                     +-input_scan=
                       +-GraphRefScan(column_list=$element_table.[n#1, e#6, $element3#10])
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
-  aml_1.a_7 AS id
+  aml_1.a_8 AS id
 FROM
   GRAPH_TABLE(
     aml
@@ -392,13 +422,45 @@ FROM
       ) { 3, 5 }
       (a_6
       IS (% | ! %))
+    LET
+      a_7 = AFN_AGG(SUM(a_4.amount)) OVER (PARTITION BY a_2.name
+        ORDER BY a_2.id RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
     FILTER
       WHERE
-        (AFN_AGG(SUM(a_4.amount)) OVER (PARTITION BY a_2.name
-          ORDER BY a_2.id RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)) > 5
+        a_7 > 5
     RETURN
-      a_2.id AS a_7
+      a_2.id AS a_8
   ) AS aml_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a_2
+      IS (% | ! %))
+      (
+        (a_3
+        IS (% | ! %))
+        -[a_4
+        IS (% | ! %)]->
+        (a_5
+        IS (% | ! %))
+      ) { 3, 5 }
+      (a_6
+      IS (% | ! %))
+    LET
+      a_7 = AFN_AGG(SUM(a_4.amount)) OVER (PARTITION BY a_2.name
+        ORDER BY a_2.id RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+    FILTER
+      WHERE
+        a_7 > 5
+    RETURN
+      a_2.id AS a_8
+  ) AS aml_1
+|> SELECT
+     aml_1.a_8 AS id;
 ==
 
 
@@ -434,7 +496,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=$graph_table.[id#8, w#9]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
           +-GraphLinearScan
             +-column_list=$graph_table.[id#8, w#9]
@@ -459,7 +521,7 @@ QueryStmt
                   | |   | | |       +-op=NOT
                   | |   | | |       +-operand_list=
                   | |   | | |         +-GraphWildCardLabel
-                  | |   | | +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   | | +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   | +-GraphEdgeScan
                   | |   | | +-column_list=[$element_table.e#2]
                   | |   | | +-label_expr=
@@ -471,7 +533,7 @@ QueryStmt
                   | |   | | |       +-op=NOT
                   | |   | | |       +-operand_list=
                   | |   | | |         +-GraphWildCardLabel
-                  | |   | | +-target_element_table_list=[sample_catalog.aml.PersonOwnAccount,sample_catalog.aml.Transfer]
+                  | |   | | +-target_element_table_list=[aml.PersonOwnAccount,aml.Transfer]
                   | |   | | +-orientation=RIGHT
                   | |   | +-GraphNodeScan
                   | |   |   +-column_list=[$element_table.$element1#3]
@@ -484,7 +546,7 @@ QueryStmt
                   | |   |   |       +-op=NOT
                   | |   |   |       +-operand_list=
                   | |   |   |         +-GraphWildCardLabel
-                  | |   |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   +-head=$element_table.n#1
                   | |   +-tail=$element_table.$element1#3
                   | +-input_scan=
@@ -550,7 +612,8 @@ QueryStmt
                     +-input_scan=
                       +-GraphRefScan(column_list=[$element_table.n#1, $element_table.e#2, $element_table.$element1#3, $graph_table.w#5])
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   aml_1.a_6 AS id,
   aml_1.a_7 AS w
@@ -571,6 +634,29 @@ FROM
       a_2.id AS a_6,
       a_5 AS a_7
   ) AS aml_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a_2
+      IS (% | ! %))
+      -[a_3
+      IS (% | ! %)]->
+      (a_4
+      IS (% | ! %))
+    LET
+      a_5 = AFN_AGG(a_2.age) OVER (PARTITION BY SOURCE_NODE_ID(a_3)
+        ORDER BY a_2.age RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+    RETURN
+      a_2.id AS a_6,
+      a_5 AS a_7
+  ) AS aml_1
+|> SELECT
+     aml_1.a_6 AS id,
+     aml_1.a_7 AS w;
 ==
 
 # Analytic functions are allowed in LET with horizontal agg
@@ -592,7 +678,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=$graph_table.[id#16, w#17]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
           +-GraphLinearScan
             +-column_list=$graph_table.[id#16, w#17]
@@ -617,7 +703,7 @@ QueryStmt
                   | |   | | |       +-op=NOT
                   | |   | | |       +-operand_list=
                   | |   | | |         +-GraphWildCardLabel
-                  | |   | | +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   | | +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   | +-GraphPathScan
                   | |   | | +-column_list=[$path_scan.$head#8, $element_table.e#6, $path_scan.$tail#9]
                   | |   | | +-input_scan_list=
@@ -632,7 +718,7 @@ QueryStmt
                   | |   | | | | |       +-op=NOT
                   | |   | | | | |       +-operand_list=
                   | |   | | | | |         +-GraphWildCardLabel
-                  | |   | | | | +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   | | | | +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   | | | +-GraphEdgeScan
                   | |   | | | | +-column_list=[$element_table.e#3]
                   | |   | | | | +-label_expr=
@@ -644,7 +730,7 @@ QueryStmt
                   | |   | | | | |       +-op=NOT
                   | |   | | | | |       +-operand_list=
                   | |   | | | | |         +-GraphWildCardLabel
-                  | |   | | | | +-target_element_table_list=[sample_catalog.aml.PersonOwnAccount,sample_catalog.aml.Transfer]
+                  | |   | | | | +-target_element_table_list=[aml.PersonOwnAccount,aml.Transfer]
                   | |   | | | | +-orientation=RIGHT
                   | |   | | | +-GraphNodeScan
                   | |   | | |   +-column_list=[$element_table.$element2#4]
@@ -657,7 +743,7 @@ QueryStmt
                   | |   | | |   |       +-op=NOT
                   | |   | | |   |       +-operand_list=
                   | |   | | |   |         +-GraphWildCardLabel
-                  | |   | | |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   | | |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   | | +-head=$path_scan.$head#8
                   | |   | | +-tail=$path_scan.$tail#9
                   | |   | | +-quantifier=
@@ -681,7 +767,7 @@ QueryStmt
                   | |   |   |       +-op=NOT
                   | |   |   |       +-operand_list=
                   | |   |   |         +-GraphWildCardLabel
-                  | |   |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   +-head=$element_table.n#1
                   | |   +-tail=$element_table.$element3#10
                   | +-input_scan=
@@ -755,7 +841,8 @@ QueryStmt
                     +-input_scan=
                       +-GraphRefScan(column_list=[$element_table.n#1, $element_table.e#6, $element_table.$element3#10, $graph_table.w#13])
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   aml_1.a_8 AS id,
   aml_1.a_9 AS w
@@ -782,6 +869,35 @@ FROM
       a_2.id AS a_8,
       a_7 AS a_9
   ) AS aml_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a_2
+      IS (% | ! %))
+      (
+        (a_3
+        IS (% | ! %))
+        -[a_4
+        IS (% | ! %)]->
+        (a_5
+        IS (% | ! %))
+      ) { 3, 5 }
+      (a_6
+      IS (% | ! %))
+    LET
+      a_7 = AFN_AGG(SUM(a_4.amount)) OVER (PARTITION BY SOURCE_NODE_ID(ARRAY_FIRST(a_4))
+        ORDER BY a_2.age RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+    RETURN
+      a_2.id AS a_8,
+      a_7 AS a_9
+  ) AS aml_1
+|> SELECT
+     aml_1.a_8 AS id,
+     aml_1.a_9 AS w;
 ==
 
 # Analytic functions are in LET still disallow vertical agg
@@ -830,7 +946,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=[$analytic.w1#9]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
           +-GraphLinearScan
             +-column_list=[$analytic.w1#9]
@@ -855,7 +971,7 @@ QueryStmt
                   | |   | | |       +-op=NOT
                   | |   | | |       +-operand_list=
                   | |   | | |         +-GraphWildCardLabel
-                  | |   | | +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   | | +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   | +-GraphEdgeScan
                   | |   | | +-column_list=[$element_table.e#2]
                   | |   | | +-label_expr=
@@ -867,7 +983,7 @@ QueryStmt
                   | |   | | |       +-op=NOT
                   | |   | | |       +-operand_list=
                   | |   | | |         +-GraphWildCardLabel
-                  | |   | | +-target_element_table_list=[sample_catalog.aml.PersonOwnAccount,sample_catalog.aml.Transfer]
+                  | |   | | +-target_element_table_list=[aml.PersonOwnAccount,aml.Transfer]
                   | |   | | +-orientation=RIGHT
                   | |   | +-GraphNodeScan
                   | |   |   +-column_list=[$element_table.$element1#3]
@@ -880,7 +996,7 @@ QueryStmt
                   | |   |   |       +-op=NOT
                   | |   |   |       +-operand_list=
                   | |   |   |         +-GraphWildCardLabel
-                  | |   |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   +-head=$element_table.n#1
                   | |   +-tail=$element_table.$element1#3
                   | +-input_scan=
@@ -945,7 +1061,8 @@ QueryStmt
                                       +-end_expr=
                                         +-WindowFrameExpr(boundary_type=CURRENT ROW)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   aml_1.a_5 AS w1
 FROM
@@ -963,6 +1080,223 @@ FROM
         ORDER BY MIN(a_2.id) RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS a_5
     GROUP BY a_2.name
   ) AS aml_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a_2
+      IS (% | ! %))
+      -[a_3
+      IS (% | ! %)]->
+      (a_4
+      IS (% | ! %))
+    RETURN
+      AFN_AGG(SUM(CAST(a_2.age AS UINT64))) OVER (PARTITION BY ANY_VALUE(SOURCE_NODE_ID(a_3))
+        ORDER BY MIN(a_2.id) RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS a_5
+    GROUP BY a_2.name
+  ) AS aml_1
+|> SELECT
+     aml_1.a_5 AS w1;
+==
+
+# Regression test where analytic columns referenced on RETURN's ORDER BY  clause
+# were not properly handled in SqlBuilder.
+select gt.* from
+graph_table(aml
+  match (n)-[e]->()
+  return afn_agg(n.age) OVER (PARTITION BY n.id ORDER BY n.id) AS w1,
+         n.id, n.age
+         order by w1
+) gt
+--
+
+QueryStmt
++-output_column_list=
+| +-$analytic.w1#5 AS w1 [INT64]
+| +-$graph_table.id#6 AS id [INT64]
+| +-$graph_table.age#7 AS age [UINT32]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.w1#5, $graph_table.id#6, $graph_table.age#7]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$analytic.w1#5, $graph_table.id#6, $graph_table.age#7]
+        +-property_graph=aml
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$analytic.w1#5, $graph_table.id#6, $graph_table.age#7]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$analytic.w1#5, $graph_table.id#6, $graph_table.age#7]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=$element_table.[n#1, e#2, $element1#3]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=$element_table.[n#1, e#2, $element1#3]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   | | +-column_list=[$element_table.n#1]
+                  | |   | | +-label_expr=
+                  | |   | | | +-GraphLabelNaryExpr
+                  | |   | | |   +-op=OR
+                  | |   | | |   +-operand_list=
+                  | |   | | |     +-GraphWildCardLabel
+                  | |   | | |     +-GraphLabelNaryExpr
+                  | |   | | |       +-op=NOT
+                  | |   | | |       +-operand_list=
+                  | |   | | |         +-GraphWildCardLabel
+                  | |   | | +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
+                  | |   | +-GraphEdgeScan
+                  | |   | | +-column_list=[$element_table.e#2]
+                  | |   | | +-label_expr=
+                  | |   | | | +-GraphLabelNaryExpr
+                  | |   | | |   +-op=OR
+                  | |   | | |   +-operand_list=
+                  | |   | | |     +-GraphWildCardLabel
+                  | |   | | |     +-GraphLabelNaryExpr
+                  | |   | | |       +-op=NOT
+                  | |   | | |       +-operand_list=
+                  | |   | | |         +-GraphWildCardLabel
+                  | |   | | +-target_element_table_list=[aml.PersonOwnAccount,aml.Transfer]
+                  | |   | | +-orientation=RIGHT
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.$element1#3]
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabelNaryExpr
+                  | |   |   |   +-op=OR
+                  | |   |   |   +-operand_list=
+                  | |   |   |     +-GraphWildCardLabel
+                  | |   |   |     +-GraphLabelNaryExpr
+                  | |   |   |       +-op=NOT
+                  | |   |   |       +-operand_list=
+                  | |   |   |         +-GraphWildCardLabel
+                  | |   |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
+                  | |   +-head=$element_table.n#1
+                  | |   +-tail=$element_table.$element1#3
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-OrderByScan
+                    +-column_list=[$analytic.w1#5, $graph_table.id#6, $graph_table.age#7]
+                    +-is_ordered=TRUE
+                    +-input_scan=
+                    | +-AnalyticScan
+                    |   +-column_list=[$element_table.n#1, $element_table.e#2, $element_table.$element1#3, $graph_table.id#6, $graph_table.age#7, $analytic.w1#5]
+                    |   +-input_scan=
+                    |   | +-ProjectScan
+                    |   |   +-column_list=[$element_table.n#1, $element_table.e#2, $element_table.$element1#3, $graph_table.id#6, $graph_table.age#7, $partitionby.id#8, $orderby.id#9]
+                    |   |   +-expr_list=
+                    |   |   | +-id#8 :=
+                    |   |   | | +-GraphGetElementProperty
+                    |   |   | |   +-type=INT64
+                    |   |   | |   +-expr=
+                    |   |   | |   | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.n#1)
+                    |   |   | |   +-property=id(INT64)
+                    |   |   | +-id#9 :=
+                    |   |   |   +-GraphGetElementProperty
+                    |   |   |     +-type=INT64
+                    |   |   |     +-expr=
+                    |   |   |     | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.n#1)
+                    |   |   |     +-property=id(INT64)
+                    |   |   +-input_scan=
+                    |   |     +-ProjectScan
+                    |   |       +-column_list=[$element_table.n#1, $element_table.e#2, $element_table.$element1#3, $graph_table.id#6, $graph_table.age#7]
+                    |   |       +-expr_list=
+                    |   |       | +-id#6 :=
+                    |   |       | | +-GraphGetElementProperty
+                    |   |       | |   +-type=INT64
+                    |   |       | |   +-expr=
+                    |   |       | |   | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.n#1)
+                    |   |       | |   +-property=id(INT64)
+                    |   |       | +-age#7 :=
+                    |   |       |   +-GraphGetElementProperty
+                    |   |       |     +-type=UINT32
+                    |   |       |     +-expr=
+                    |   |       |     | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.n#1)
+                    |   |       |     +-property=age(UINT32)
+                    |   |       +-input_scan=
+                    |   |         +-GraphRefScan(column_list=$element_table.[n#1, e#2, $element1#3])
+                    |   +-function_group_list=
+                    |     +-AnalyticFunctionGroup
+                    |       +-partition_by=
+                    |       | +-WindowPartitioning
+                    |       |   +-partition_by_list=
+                    |       |     +-ColumnRef(type=INT64, column=$partitionby.id#8)
+                    |       +-order_by=
+                    |       | +-WindowOrdering
+                    |       |   +-order_by_item_list=
+                    |       |     +-OrderByItem
+                    |       |       +-column_ref=
+                    |       |         +-ColumnRef(type=INT64, column=$orderby.id#9)
+                    |       +-analytic_function_list=
+                    |         +-w1#5 :=
+                    |           +-AnalyticFunctionCall(sample_functions:afn_agg(UINT32) -> INT64)
+                    |             +-GraphGetElementProperty
+                    |               +-type=UINT32
+                    |               +-expr=
+                    |               | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.n#1)
+                    |               +-property=age(UINT32)
+                    |             +-window_frame=
+                    |               +-WindowFrame(frame_unit=RANGE)
+                    |                 +-start_expr=
+                    |                 | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+                    |                 +-end_expr=
+                    |                   +-WindowFrameExpr(boundary_type=CURRENT ROW)
+                    +-order_by_item_list=
+                      +-OrderByItem
+                        +-column_ref=
+                          +-ColumnRef(type=INT64, column=$analytic.w1#5)
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_1.a_5 AS w1,
+  aml_1.a_6 AS id,
+  aml_1.a_7 AS age
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a_2
+      IS (% | ! %))
+      -[a_3
+      IS (% | ! %)]->
+      (a_4
+      IS (% | ! %))
+    RETURN
+      AFN_AGG(a_2.age) OVER (PARTITION BY a_2.id
+        ORDER BY a_2.id RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS a_5,
+      a_2.id AS a_6,
+      a_2.age AS a_7
+    ORDER BY a_5
+  ) AS aml_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a_2
+      IS (% | ! %))
+      -[a_3
+      IS (% | ! %)]->
+      (a_4
+      IS (% | ! %))
+    RETURN
+      AFN_AGG(a_2.age) OVER (PARTITION BY a_2.id
+        ORDER BY a_2.id RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS a_5,
+      a_2.id AS a_6,
+      a_2.age AS a_7
+    ORDER BY a_5
+  ) AS aml_1
+|> SELECT
+     aml_1.a_5 AS w1,
+     aml_1.a_6 AS id,
+     aml_1.a_7 AS age;
 ==
 
 # Analytic function in RETURN still disallows horizontal aggregation
@@ -998,7 +1332,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=$graph_table.[id#8, w#9]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
           +-GraphLinearScan
             +-column_list=$graph_table.[id#8, w#9]
@@ -1023,7 +1357,7 @@ QueryStmt
                   | |   | | |       +-op=NOT
                   | |   | | |       +-operand_list=
                   | |   | | |         +-GraphWildCardLabel
-                  | |   | | +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   | | +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   | +-GraphEdgeScan
                   | |   | | +-column_list=[$element_table.e#2]
                   | |   | | +-label_expr=
@@ -1035,7 +1369,7 @@ QueryStmt
                   | |   | | |       +-op=NOT
                   | |   | | |       +-operand_list=
                   | |   | | |         +-GraphWildCardLabel
-                  | |   | | +-target_element_table_list=[sample_catalog.aml.PersonOwnAccount,sample_catalog.aml.Transfer]
+                  | |   | | +-target_element_table_list=[aml.PersonOwnAccount,aml.Transfer]
                   | |   | | +-orientation=RIGHT
                   | |   | +-GraphNodeScan
                   | |   |   +-column_list=[$element_table.$element1#3]
@@ -1048,7 +1382,7 @@ QueryStmt
                   | |   |   |       +-op=NOT
                   | |   |   |       +-operand_list=
                   | |   |   |         +-GraphWildCardLabel
-                  | |   |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   +-head=$element_table.n#1
                   | |   +-tail=$element_table.$element1#3
                   | +-input_scan=
@@ -1112,7 +1446,8 @@ QueryStmt
                     +-input_scan=
                       +-GraphRefScan(column_list=[$element_table.n#1, $analytic.w#5])
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   aml_1.a_8 AS id,
   aml_1.a_9 AS w
@@ -1145,6 +1480,41 @@ FROM
       a_2.id AS a_8,
       a_7 AS a_9
   ) AS aml_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a_2
+      IS (% | ! %))
+      -[a_3
+      IS (% | ! %)]->
+      (a_4
+      IS (% | ! %))
+    WITH
+      a_2,
+      a_3,
+      a_4,
+      SOURCE_NODE_ID(a_3) AS a_5,
+      a_2.age AS a_6
+    WITH
+      a_2,
+      a_3,
+      a_4,
+      AFN_AGG(a_2.age) OVER (PARTITION BY a_5
+        ORDER BY a_6 RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS a_7
+    WITH
+      a_2,
+      a_7
+    RETURN
+      a_2.id AS a_8,
+      a_7 AS a_9
+  ) AS aml_1
+|> SELECT
+     aml_1.a_8 AS id,
+     aml_1.a_9 AS w;
 ==
 
 # Analytic function in WITH with vertical aggregation
@@ -1167,7 +1537,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=$graph_table.[amount#10, w1#11]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
           +-GraphLinearScan
             +-column_list=$graph_table.[amount#10, w1#11]
@@ -1192,7 +1562,7 @@ QueryStmt
                   | |   | | |       +-op=NOT
                   | |   | | |       +-operand_list=
                   | |   | | |         +-GraphWildCardLabel
-                  | |   | | +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   | | +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   | +-GraphEdgeScan
                   | |   | | +-column_list=[$element_table.e#2]
                   | |   | | +-label_expr=
@@ -1204,7 +1574,7 @@ QueryStmt
                   | |   | | |       +-op=NOT
                   | |   | | |       +-operand_list=
                   | |   | | |         +-GraphWildCardLabel
-                  | |   | | +-target_element_table_list=[sample_catalog.aml.PersonOwnAccount,sample_catalog.aml.Transfer]
+                  | |   | | +-target_element_table_list=[aml.PersonOwnAccount,aml.Transfer]
                   | |   | | +-orientation=RIGHT
                   | |   | +-GraphNodeScan
                   | |   |   +-column_list=[$element_table.$element1#3]
@@ -1217,7 +1587,7 @@ QueryStmt
                   | |   |   |       +-op=NOT
                   | |   |   |       +-operand_list=
                   | |   |   |         +-GraphWildCardLabel
-                  | |   |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   +-head=$element_table.n#1
                   | |   +-tail=$element_table.$element1#3
                   | +-input_scan=
@@ -1296,7 +1666,8 @@ QueryStmt
                     +-input_scan=
                       +-GraphRefScan(column_list=[$graph_table.e#8, $analytic.w1#9])
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   aml_1.a_10 AS amount,
   aml_1.a_11 AS w1
@@ -1332,6 +1703,44 @@ FROM
       a_8.amount AS a_10,
       a_9 AS a_11
   ) AS aml_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a_2
+      IS (% | ! %))
+      -[a_3
+      IS (% | ! %)]->
+      (a_4
+      IS (% | ! %))
+    WITH
+      a_3 AS a_8,
+      ANY_VALUE(a_2.age) AS a_5,
+      ANY_VALUE(SOURCE_NODE_ID(a_3)) AS a_6,
+      MAX(a_2.age) AS a_7
+    WITH
+      a_8,
+      a_5,
+      a_6,
+      a_7,
+      AFN_AGG(a_5) OVER (PARTITION BY a_6
+        ORDER BY a_7 RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS a_9
+    WITH
+      a_8,
+      a_9
+    FILTER
+      WHERE
+        a_9 < 5
+    RETURN
+      a_8.amount AS a_10,
+      a_9 AS a_11
+  ) AS aml_1
+|> SELECT
+     aml_1.a_10 AS amount,
+     aml_1.a_11 AS w1;
 ==
 
 # Analytic function in WITH still disallows horizontal aggregation
@@ -1363,7 +1772,7 @@ ERROR: Analytic function not allowed in FOR [at 4:13]
 ==
 
 # Analytic functions in FILTER with horizontal agg
-[no_run_unparser]
+[no_run_sqlbuilder]
 select gt.* from
 graph_table(aml
   match (n)-[e]->{3, 5}()
@@ -1382,7 +1791,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=[$graph_table.id#21]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
           +-GraphLinearScan
             +-column_list=[$graph_table.id#21]
@@ -1407,7 +1816,7 @@ QueryStmt
                   | |   | | |       +-op=NOT
                   | |   | | |       +-operand_list=
                   | |   | | |         +-GraphWildCardLabel
-                  | |   | | +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   | | +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   | +-GraphPathScan
                   | |   | | +-column_list=[$path_scan.$head#8, $element_table.e#6, $path_scan.$tail#9]
                   | |   | | +-input_scan_list=
@@ -1422,7 +1831,7 @@ QueryStmt
                   | |   | | | | |       +-op=NOT
                   | |   | | | | |       +-operand_list=
                   | |   | | | | |         +-GraphWildCardLabel
-                  | |   | | | | +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   | | | | +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   | | | +-GraphEdgeScan
                   | |   | | | | +-column_list=[$element_table.e#3]
                   | |   | | | | +-label_expr=
@@ -1434,7 +1843,7 @@ QueryStmt
                   | |   | | | | |       +-op=NOT
                   | |   | | | | |       +-operand_list=
                   | |   | | | | |         +-GraphWildCardLabel
-                  | |   | | | | +-target_element_table_list=[sample_catalog.aml.PersonOwnAccount,sample_catalog.aml.Transfer]
+                  | |   | | | | +-target_element_table_list=[aml.PersonOwnAccount,aml.Transfer]
                   | |   | | | | +-orientation=RIGHT
                   | |   | | | +-GraphNodeScan
                   | |   | | |   +-column_list=[$element_table.$element2#4]
@@ -1447,7 +1856,7 @@ QueryStmt
                   | |   | | |   |       +-op=NOT
                   | |   | | |   |       +-operand_list=
                   | |   | | |   |         +-GraphWildCardLabel
-                  | |   | | |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   | | |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   | | +-head=$path_scan.$head#8
                   | |   | | +-tail=$path_scan.$tail#9
                   | |   | | +-quantifier=
@@ -1471,7 +1880,7 @@ QueryStmt
                   | |   |   |       +-op=NOT
                   | |   |   |       +-operand_list=
                   | |   |   |         +-GraphWildCardLabel
-                  | |   |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   +-head=$element_table.n#1
                   | |   +-tail=$element_table.$element3#10
                   | +-input_scan=
@@ -1538,62 +1947,63 @@ QueryStmt
                   |                   | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
                   |                   +-end_expr=
                   |                     +-WindowFrameExpr(boundary_type=CURRENT ROW)
+                  +-AnalyticScan
+                  | +-column_list=[$element_table.n#1, $element_table.e#6, $element_table.$element3#10, $analytic.$analytic1#18]
+                  | +-input_scan=
+                  | | +-ProjectScan
+                  | |   +-column_list=[$element_table.n#1, $element_table.e#6, $element_table.$element3#10, $partitionby.name#19, $orderby.id#20]
+                  | |   +-expr_list=
+                  | |   | +-name#19 :=
+                  | |   | | +-GraphGetElementProperty
+                  | |   | |   +-type=STRING
+                  | |   | |   +-expr=
+                  | |   | |   | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.n#1)
+                  | |   | |   +-property=name(STRING)
+                  | |   | +-id#20 :=
+                  | |   |   +-GraphGetElementProperty
+                  | |   |     +-type=INT64
+                  | |   |     +-expr=
+                  | |   |     | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.n#1)
+                  | |   |     +-property=id(INT64)
+                  | |   +-input_scan=
+                  | |     +-GraphRefScan(column_list=$element_table.[n#1, e#6, $element3#10])
+                  | +-function_group_list=
+                  |   +-AnalyticFunctionGroup
+                  |     +-partition_by=
+                  |     | +-WindowPartitioning
+                  |     |   +-partition_by_list=
+                  |     |     +-ColumnRef(type=STRING, column=$partitionby.name#19)
+                  |     +-order_by=
+                  |     | +-WindowOrdering
+                  |     |   +-order_by_item_list=
+                  |     |     +-OrderByItem
+                  |     |       +-column_ref=
+                  |     |         +-ColumnRef(type=INT64, column=$orderby.id#20)
+                  |     +-analytic_function_list=
+                  |       +-$analytic1#18 :=
+                  |         +-AnalyticFunctionCall(sample_functions:afn_agg(UINT64) -> INT64)
+                  |           +-ArrayAggregate
+                  |             +-type=UINT64
+                  |             +-array=
+                  |             | +-ColumnRef(type=ARRAY<GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, targetAccountId INT64>>, column=$element_table.e#6)
+                  |             +-element_column=$horizontal_aggregate.e#17
+                  |             +-aggregate=
+                  |               +-AggregateFunctionCall(ZetaSQL:sum(UINT64) -> UINT64)
+                  |                 +-GraphGetElementProperty
+                  |                   +-type=UINT64
+                  |                   +-expr=
+                  |                   | +-ColumnRef(type=GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, targetAccountId INT64>, column=$horizontal_aggregate.e#17)
+                  |                   +-property=amount(UINT64)
+                  |           +-window_frame=
+                  |             +-WindowFrame(frame_unit=RANGE)
+                  |               +-start_expr=
+                  |               | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+                  |               +-end_expr=
+                  |                 +-WindowFrameExpr(boundary_type=CURRENT ROW)
                   +-FilterScan
                   | +-column_list=[$element_table.n#1, $element_table.e#6, $element_table.$element3#10, $analytic.$analytic1#18]
                   | +-input_scan=
-                  | | +-AnalyticScan
-                  | |   +-column_list=[$element_table.n#1, $element_table.e#6, $element_table.$element3#10, $analytic.$analytic1#18]
-                  | |   +-input_scan=
-                  | |   | +-ProjectScan
-                  | |   |   +-column_list=[$element_table.n#1, $element_table.e#6, $element_table.$element3#10, $partitionby.name#19, $orderby.id#20]
-                  | |   |   +-expr_list=
-                  | |   |   | +-name#19 :=
-                  | |   |   | | +-GraphGetElementProperty
-                  | |   |   | |   +-type=STRING
-                  | |   |   | |   +-expr=
-                  | |   |   | |   | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.n#1)
-                  | |   |   | |   +-property=name(STRING)
-                  | |   |   | +-id#20 :=
-                  | |   |   |   +-GraphGetElementProperty
-                  | |   |   |     +-type=INT64
-                  | |   |   |     +-expr=
-                  | |   |   |     | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.n#1)
-                  | |   |   |     +-property=id(INT64)
-                  | |   |   +-input_scan=
-                  | |   |     +-GraphRefScan(column_list=$element_table.[n#1, e#6, $element3#10])
-                  | |   +-function_group_list=
-                  | |     +-AnalyticFunctionGroup
-                  | |       +-partition_by=
-                  | |       | +-WindowPartitioning
-                  | |       |   +-partition_by_list=
-                  | |       |     +-ColumnRef(type=STRING, column=$partitionby.name#19)
-                  | |       +-order_by=
-                  | |       | +-WindowOrdering
-                  | |       |   +-order_by_item_list=
-                  | |       |     +-OrderByItem
-                  | |       |       +-column_ref=
-                  | |       |         +-ColumnRef(type=INT64, column=$orderby.id#20)
-                  | |       +-analytic_function_list=
-                  | |         +-$analytic1#18 :=
-                  | |           +-AnalyticFunctionCall(sample_functions:afn_agg(UINT64) -> INT64)
-                  | |             +-ArrayAggregate
-                  | |               +-type=UINT64
-                  | |               +-array=
-                  | |               | +-ColumnRef(type=ARRAY<GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, targetAccountId INT64>>, column=$element_table.e#6)
-                  | |               +-element_column=$horizontal_aggregate.e#17
-                  | |               +-aggregate=
-                  | |                 +-AggregateFunctionCall(ZetaSQL:sum(UINT64) -> UINT64)
-                  | |                   +-GraphGetElementProperty
-                  | |                     +-type=UINT64
-                  | |                     +-expr=
-                  | |                     | +-ColumnRef(type=GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, targetAccountId INT64>, column=$horizontal_aggregate.e#17)
-                  | |                     +-property=amount(UINT64)
-                  | |             +-window_frame=
-                  | |               +-WindowFrame(frame_unit=RANGE)
-                  | |                 +-start_expr=
-                  | |                 | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
-                  | |                 +-end_expr=
-                  | |                   +-WindowFrameExpr(boundary_type=CURRENT ROW)
+                  | | +-GraphRefScan(column_list=[$element_table.n#1, $element_table.e#6, $element_table.$element3#10, $analytic.$analytic1#18])
                   | +-filter_expr=
                   |   +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
                   |     +-ColumnRef(type=INT64, column=$analytic.$analytic1#18)
@@ -1611,7 +2021,7 @@ QueryStmt
                       +-GraphRefScan(column_list=$element_table.[n#1, e#6, $element3#10])
 ==
 
-[no_run_unparser]
+[no_run_sqlbuilder]
 select gt.* from
 graph_table(aml
   match (n)-[e]->()
@@ -1630,7 +2040,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=[$analytic.w1#9]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
           +-GraphLinearScan
             +-column_list=[$analytic.w1#9]
@@ -1655,7 +2065,7 @@ QueryStmt
                   | |   | | |       +-op=NOT
                   | |   | | |       +-operand_list=
                   | |   | | |         +-GraphWildCardLabel
-                  | |   | | +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   | | +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   | +-GraphEdgeScan
                   | |   | | +-column_list=[$element_table.e#2]
                   | |   | | +-label_expr=
@@ -1667,7 +2077,7 @@ QueryStmt
                   | |   | | |       +-op=NOT
                   | |   | | |       +-operand_list=
                   | |   | | |         +-GraphWildCardLabel
-                  | |   | | +-target_element_table_list=[sample_catalog.aml.PersonOwnAccount,sample_catalog.aml.Transfer]
+                  | |   | | +-target_element_table_list=[aml.PersonOwnAccount,aml.Transfer]
                   | |   | | +-orientation=RIGHT
                   | |   | +-GraphNodeScan
                   | |   |   +-column_list=[$element_table.$element1#3]
@@ -1680,7 +2090,7 @@ QueryStmt
                   | |   |   |       +-op=NOT
                   | |   |   |       +-operand_list=
                   | |   |   |         +-GraphWildCardLabel
-                  | |   |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   +-head=$element_table.n#1
                   | |   +-tail=$element_table.$element1#3
                   | +-input_scan=
@@ -1746,7 +2156,7 @@ QueryStmt
                                         +-WindowFrameExpr(boundary_type=CURRENT ROW)
 ==
 
-[no_run_unparser]
+[no_run_sqlbuilder]
 select gt.* from
 graph_table(aml
   match (n)-[e]->()
@@ -1766,7 +2176,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=$graph_table.[amount#10, w1#11]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
           +-GraphLinearScan
             +-column_list=$graph_table.[amount#10, w1#11]
@@ -1791,7 +2201,7 @@ QueryStmt
                   | |   | | |       +-op=NOT
                   | |   | | |       +-operand_list=
                   | |   | | |         +-GraphWildCardLabel
-                  | |   | | +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   | | +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   | +-GraphEdgeScan
                   | |   | | +-column_list=[$element_table.e#2]
                   | |   | | +-label_expr=
@@ -1803,7 +2213,7 @@ QueryStmt
                   | |   | | |       +-op=NOT
                   | |   | | |       +-operand_list=
                   | |   | | |         +-GraphWildCardLabel
-                  | |   | | +-target_element_table_list=[sample_catalog.aml.PersonOwnAccount,sample_catalog.aml.Transfer]
+                  | |   | | +-target_element_table_list=[aml.PersonOwnAccount,aml.Transfer]
                   | |   | | +-orientation=RIGHT
                   | |   | +-GraphNodeScan
                   | |   |   +-column_list=[$element_table.$element1#3]
@@ -1816,7 +2226,7 @@ QueryStmt
                   | |   |   |       +-op=NOT
                   | |   |   |       +-operand_list=
                   | |   |   |         +-GraphWildCardLabel
-                  | |   |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   +-head=$element_table.n#1
                   | |   +-tail=$element_table.$element1#3
                   | +-input_scan=
@@ -1914,7 +2324,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=[$graph_table.id#6]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
           +-GraphLinearScan
             +-column_list=[$graph_table.id#6]
@@ -1939,7 +2349,7 @@ QueryStmt
                   | |   | | |       +-op=NOT
                   | |   | | |       +-operand_list=
                   | |   | | |         +-GraphWildCardLabel
-                  | |   | | +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   | | +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   | +-GraphEdgeScan
                   | |   | | +-column_list=[$element_table.e#2]
                   | |   | | +-label_expr=
@@ -1951,7 +2361,7 @@ QueryStmt
                   | |   | | |       +-op=NOT
                   | |   | | |       +-operand_list=
                   | |   | | |         +-GraphWildCardLabel
-                  | |   | | +-target_element_table_list=[sample_catalog.aml.PersonOwnAccount,sample_catalog.aml.Transfer]
+                  | |   | | +-target_element_table_list=[aml.PersonOwnAccount,aml.Transfer]
                   | |   | | +-orientation=RIGHT
                   | |   | +-GraphNodeScan
                   | |   |   +-column_list=[$element_table.$element1#3]
@@ -1964,54 +2374,55 @@ QueryStmt
                   | |   |   |       +-op=NOT
                   | |   |   |       +-operand_list=
                   | |   |   |         +-GraphWildCardLabel
-                  | |   |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   +-head=$element_table.n#1
                   | |   +-tail=$element_table.$element1#3
                   | +-input_scan=
                   |   +-SingleRowScan
+                  +-AnalyticScan
+                  | +-column_list=[$element_table.n#1, $element_table.e#2, $element_table.$element1#3, $analytic.$analytic1#4]
+                  | +-input_scan=
+                  | | +-ProjectScan
+                  | |   +-column_list=[$element_table.n#1, $element_table.e#2, $element_table.$element1#3, $orderby.id#5]
+                  | |   +-expr_list=
+                  | |   | +-id#5 :=
+                  | |   |   +-GraphGetElementProperty
+                  | |   |     +-type=INT64
+                  | |   |     +-expr=
+                  | |   |     | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.n#1)
+                  | |   |     +-property=id(INT64)
+                  | |   +-input_scan=
+                  | |     +-GraphRefScan(column_list=$element_table.[n#1, e#2, $element1#3])
+                  | +-function_group_list=
+                  |   +-AnalyticFunctionGroup
+                  |     +-partition_by=
+                  |     | +-WindowPartitioning
+                  |     |   +-partition_by_list=
+                  |     |     +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.n#1)
+                  |     +-order_by=
+                  |     | +-WindowOrdering
+                  |     |   +-order_by_item_list=
+                  |     |     +-OrderByItem
+                  |     |       +-column_ref=
+                  |     |         +-ColumnRef(type=INT64, column=$orderby.id#5)
+                  |     +-analytic_function_list=
+                  |       +-$analytic1#4 :=
+                  |         +-AnalyticFunctionCall(sample_functions:afn_agg(UINT32) -> INT64)
+                  |           +-GraphGetElementProperty
+                  |             +-type=UINT32
+                  |             +-expr=
+                  |             | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.n#1)
+                  |             +-property=age(UINT32)
+                  |           +-window_frame=
+                  |             +-WindowFrame(frame_unit=RANGE)
+                  |               +-start_expr=
+                  |               | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+                  |               +-end_expr=
+                  |                 +-WindowFrameExpr(boundary_type=CURRENT ROW)
                   +-FilterScan
                   | +-column_list=[$element_table.n#1, $element_table.e#2, $element_table.$element1#3, $analytic.$analytic1#4]
                   | +-input_scan=
-                  | | +-AnalyticScan
-                  | |   +-column_list=[$element_table.n#1, $element_table.e#2, $element_table.$element1#3, $analytic.$analytic1#4]
-                  | |   +-input_scan=
-                  | |   | +-ProjectScan
-                  | |   |   +-column_list=[$element_table.n#1, $element_table.e#2, $element_table.$element1#3, $orderby.id#5]
-                  | |   |   +-expr_list=
-                  | |   |   | +-id#5 :=
-                  | |   |   |   +-GraphGetElementProperty
-                  | |   |   |     +-type=INT64
-                  | |   |   |     +-expr=
-                  | |   |   |     | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.n#1)
-                  | |   |   |     +-property=id(INT64)
-                  | |   |   +-input_scan=
-                  | |   |     +-GraphRefScan(column_list=$element_table.[n#1, e#2, $element1#3])
-                  | |   +-function_group_list=
-                  | |     +-AnalyticFunctionGroup
-                  | |       +-partition_by=
-                  | |       | +-WindowPartitioning
-                  | |       |   +-partition_by_list=
-                  | |       |     +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.n#1)
-                  | |       +-order_by=
-                  | |       | +-WindowOrdering
-                  | |       |   +-order_by_item_list=
-                  | |       |     +-OrderByItem
-                  | |       |       +-column_ref=
-                  | |       |         +-ColumnRef(type=INT64, column=$orderby.id#5)
-                  | |       +-analytic_function_list=
-                  | |         +-$analytic1#4 :=
-                  | |           +-AnalyticFunctionCall(sample_functions:afn_agg(UINT32) -> INT64)
-                  | |             +-GraphGetElementProperty
-                  | |               +-type=UINT32
-                  | |               +-expr=
-                  | |               | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.n#1)
-                  | |               +-property=age(UINT32)
-                  | |             +-window_frame=
-                  | |               +-WindowFrame(frame_unit=RANGE)
-                  | |                 +-start_expr=
-                  | |                 | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
-                  | |                 +-end_expr=
-                  | |                   +-WindowFrameExpr(boundary_type=CURRENT ROW)
+                  | | +-GraphRefScan(column_list=[$element_table.n#1, $element_table.e#2, $element_table.$element1#3, $analytic.$analytic1#4])
                   | +-filter_expr=
                   |   +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
                   |     +-ColumnRef(type=INT64, column=$analytic.$analytic1#4)
@@ -2028,9 +2439,10 @@ QueryStmt
                     +-input_scan=
                       +-GraphRefScan(column_list=$element_table.[n#1, e#2, $element1#3])
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
-  aml_1.a_5 AS id
+  aml_1.a_6 AS id
 FROM
   GRAPH_TABLE(
     aml
@@ -2041,13 +2453,39 @@ FROM
       IS (% | ! %)]->
       (a_4
       IS (% | ! %))
+    LET
+      a_5 = AFN_AGG(a_2.age) OVER (PARTITION BY a_2
+        ORDER BY a_2.id RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
     FILTER
       WHERE
-        (AFN_AGG(a_2.age) OVER (PARTITION BY a_2
-          ORDER BY a_2.id RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)) > 5
+        a_5 > 5
     RETURN
-      a_2.id AS a_5
+      a_2.id AS a_6
   ) AS aml_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a_2
+      IS (% | ! %))
+      -[a_3
+      IS (% | ! %)]->
+      (a_4
+      IS (% | ! %))
+    LET
+      a_5 = AFN_AGG(a_2.age) OVER (PARTITION BY a_2
+        ORDER BY a_2.id RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+    FILTER
+      WHERE
+        a_5 > 5
+    RETURN
+      a_2.id AS a_6
+  ) AS aml_1
+|> SELECT
+     aml_1.a_6 AS id;
 ==
 
 # PARTITION BY graph path
@@ -2068,7 +2506,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=[$graph_table.id#7]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
           +-GraphLinearScan
             +-column_list=[$graph_table.id#7]
@@ -2093,7 +2531,7 @@ QueryStmt
                   | |   | | |       +-op=NOT
                   | |   | | |       +-operand_list=
                   | |   | | |         +-GraphWildCardLabel
-                  | |   | | +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   | | +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   | +-GraphEdgeScan
                   | |   | | +-column_list=[$element_table.e#2]
                   | |   | | +-label_expr=
@@ -2105,7 +2543,7 @@ QueryStmt
                   | |   | | |       +-op=NOT
                   | |   | | |       +-operand_list=
                   | |   | | |         +-GraphWildCardLabel
-                  | |   | | +-target_element_table_list=[sample_catalog.aml.PersonOwnAccount,sample_catalog.aml.Transfer]
+                  | |   | | +-target_element_table_list=[aml.PersonOwnAccount,aml.Transfer]
                   | |   | | +-orientation=RIGHT
                   | |   | +-GraphNodeScan
                   | |   |   +-column_list=[$element_table.$element1#3]
@@ -2118,56 +2556,57 @@ QueryStmt
                   | |   |   |       +-op=NOT
                   | |   |   |       +-operand_list=
                   | |   |   |         +-GraphWildCardLabel
-                  | |   |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                  | |   |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                   | |   +-path=
                   | |   | +-ColumnHolder(column=$graph_table.p#4)
                   | |   +-head=$element_table.n#1
                   | |   +-tail=$element_table.$element1#3
                   | +-input_scan=
                   |   +-SingleRowScan
+                  +-AnalyticScan
+                  | +-column_list=[$element_table.n#1, $element_table.e#2, $element_table.$element1#3, $graph_table.p#4, $analytic.$analytic1#5]
+                  | +-input_scan=
+                  | | +-ProjectScan
+                  | |   +-column_list=[$element_table.n#1, $element_table.e#2, $element_table.$element1#3, $graph_table.p#4, $orderby.id#6]
+                  | |   +-expr_list=
+                  | |   | +-id#6 :=
+                  | |   |   +-GraphGetElementProperty
+                  | |   |     +-type=INT64
+                  | |   |     +-expr=
+                  | |   |     | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.n#1)
+                  | |   |     +-property=id(INT64)
+                  | |   +-input_scan=
+                  | |     +-GraphRefScan(column_list=[$element_table.n#1, $element_table.e#2, $element_table.$element1#3, $graph_table.p#4])
+                  | +-function_group_list=
+                  |   +-AnalyticFunctionGroup
+                  |     +-partition_by=
+                  |     | +-WindowPartitioning
+                  |     |   +-partition_by_list=
+                  |     |     +-ColumnRef(type=PATH<node: GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, edge: GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, targetAccountId INT64>>, column=$graph_table.p#4)
+                  |     +-order_by=
+                  |     | +-WindowOrdering
+                  |     |   +-order_by_item_list=
+                  |     |     +-OrderByItem
+                  |     |       +-column_ref=
+                  |     |         +-ColumnRef(type=INT64, column=$orderby.id#6)
+                  |     +-analytic_function_list=
+                  |       +-$analytic1#5 :=
+                  |         +-AnalyticFunctionCall(sample_functions:afn_agg(UINT32) -> INT64)
+                  |           +-GraphGetElementProperty
+                  |             +-type=UINT32
+                  |             +-expr=
+                  |             | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.n#1)
+                  |             +-property=age(UINT32)
+                  |           +-window_frame=
+                  |             +-WindowFrame(frame_unit=RANGE)
+                  |               +-start_expr=
+                  |               | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+                  |               +-end_expr=
+                  |                 +-WindowFrameExpr(boundary_type=CURRENT ROW)
                   +-FilterScan
                   | +-column_list=[$element_table.n#1, $element_table.e#2, $element_table.$element1#3, $graph_table.p#4, $analytic.$analytic1#5]
                   | +-input_scan=
-                  | | +-AnalyticScan
-                  | |   +-column_list=[$element_table.n#1, $element_table.e#2, $element_table.$element1#3, $graph_table.p#4, $analytic.$analytic1#5]
-                  | |   +-input_scan=
-                  | |   | +-ProjectScan
-                  | |   |   +-column_list=[$element_table.n#1, $element_table.e#2, $element_table.$element1#3, $graph_table.p#4, $orderby.id#6]
-                  | |   |   +-expr_list=
-                  | |   |   | +-id#6 :=
-                  | |   |   |   +-GraphGetElementProperty
-                  | |   |   |     +-type=INT64
-                  | |   |   |     +-expr=
-                  | |   |   |     | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.n#1)
-                  | |   |   |     +-property=id(INT64)
-                  | |   |   +-input_scan=
-                  | |   |     +-GraphRefScan(column_list=[$element_table.n#1, $element_table.e#2, $element_table.$element1#3, $graph_table.p#4])
-                  | |   +-function_group_list=
-                  | |     +-AnalyticFunctionGroup
-                  | |       +-partition_by=
-                  | |       | +-WindowPartitioning
-                  | |       |   +-partition_by_list=
-                  | |       |     +-ColumnRef(type=PATH<node: GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, edge: GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, targetAccountId INT64>>, column=$graph_table.p#4)
-                  | |       +-order_by=
-                  | |       | +-WindowOrdering
-                  | |       |   +-order_by_item_list=
-                  | |       |     +-OrderByItem
-                  | |       |       +-column_ref=
-                  | |       |         +-ColumnRef(type=INT64, column=$orderby.id#6)
-                  | |       +-analytic_function_list=
-                  | |         +-$analytic1#5 :=
-                  | |           +-AnalyticFunctionCall(sample_functions:afn_agg(UINT32) -> INT64)
-                  | |             +-GraphGetElementProperty
-                  | |               +-type=UINT32
-                  | |               +-expr=
-                  | |               | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.n#1)
-                  | |               +-property=age(UINT32)
-                  | |             +-window_frame=
-                  | |               +-WindowFrame(frame_unit=RANGE)
-                  | |                 +-start_expr=
-                  | |                 | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
-                  | |                 +-end_expr=
-                  | |                   +-WindowFrameExpr(boundary_type=CURRENT ROW)
+                  | | +-GraphRefScan(column_list=[$element_table.n#1, $element_table.e#2, $element_table.$element1#3, $graph_table.p#4, $analytic.$analytic1#5])
                   | +-filter_expr=
                   |   +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
                   |     +-ColumnRef(type=INT64, column=$analytic.$analytic1#5)
@@ -2184,9 +2623,10 @@ QueryStmt
                     +-input_scan=
                       +-GraphRefScan(column_list=[$element_table.n#1, $element_table.e#2, $element_table.$element1#3, $graph_table.p#4])
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
-  aml_1.a_6 AS id
+  aml_1.a_7 AS id
 FROM
   GRAPH_TABLE(
     aml
@@ -2197,10 +2637,234 @@ FROM
       IS (% | ! %)]->
       (a_5
       IS (% | ! %))
+    LET
+      a_6 = AFN_AGG(a_3.age) OVER (PARTITION BY a_2
+        ORDER BY a_3.id RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
     FILTER
       WHERE
-        (AFN_AGG(a_3.age) OVER (PARTITION BY a_2
-          ORDER BY a_3.id RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)) > 5
+        a_6 > 5
     RETURN
-      a_3.id AS a_6
+      a_3.id AS a_7
   ) AS aml_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      a_2 = (a_3
+      IS (% | ! %))
+      -[a_4
+      IS (% | ! %)]->
+      (a_5
+      IS (% | ! %))
+    LET
+      a_6 = AFN_AGG(a_3.age) OVER (PARTITION BY a_2
+        ORDER BY a_3.id RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+    FILTER
+      WHERE
+        a_6 > 5
+    RETURN
+      a_3.id AS a_7
+  ) AS aml_1
+|> SELECT
+     aml_1.a_7 AS id;
+==
+
+# Regression test for b/382069429
+# ORDER BY can reference the input columns if there's no DISTINCT nor GROUP BY.
+select gt.* from
+graph_table(aml
+  let x = 1, y = 2
+  return x+y AS z ORDER BY x
+) gt
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.z#3 AS z [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.z#3]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.z#3]
+        +-property_graph=aml
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.z#3]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$graph_table.z#3]
+                +-scan_list=
+                  +-ProjectScan
+                  | +-column_list=$graph_table.[x#1, y#2]
+                  | +-expr_list=
+                  | | +-x#1 := Literal(type=INT64, value=1)
+                  | | +-y#2 := Literal(type=INT64, value=2)
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-OrderByScan
+                    +-column_list=[$graph_table.z#3]
+                    +-is_ordered=TRUE
+                    +-input_scan=
+                    | +-ProjectScan
+                    |   +-column_list=$graph_table.[x#1, y#2, z#3]
+                    |   +-expr_list=
+                    |   | +-z#3 :=
+                    |   |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+                    |   |     +-ColumnRef(type=INT64, column=$graph_table.x#1)
+                    |   |     +-ColumnRef(type=INT64, column=$graph_table.y#2)
+                    |   +-input_scan=
+                    |     +-GraphRefScan(column_list=$graph_table.[x#1, y#2])
+                    +-order_by_item_list=
+                      +-OrderByItem
+                        +-column_ref=
+                          +-ColumnRef(type=INT64, column=$graph_table.x#1)
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_1.a_4 AS z
+FROM
+  GRAPH_TABLE(
+    aml
+    LET
+      a_2 = 1,
+      a_3 = 2
+    RETURN
+      a_2 + a_3 AS a_4
+    ORDER BY a_2
+  ) AS aml_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml
+    LET
+      a_2 = 1,
+      a_3 = 2
+    RETURN
+      a_2 + a_3 AS a_4
+    ORDER BY a_2
+  ) AS aml_1
+|> SELECT
+     aml_1.a_4 AS z;
+==
+
+# Regression test for b/382069429
+# Same as above, but with a windowing function.
+select gt.* from
+graph_table(aml
+  let x = 1, y = 2
+  return sum(x+y) OVER (PARTITION BY x ORDER BY x) AS z ORDER BY x
+) gt
+--
+
+QueryStmt
++-output_column_list=
+| +-$analytic.z#4 AS z [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.z#4]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$analytic.z#4]
+        +-property_graph=aml
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$analytic.z#4]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$analytic.z#4]
+                +-scan_list=
+                  +-ProjectScan
+                  | +-column_list=$graph_table.[x#1, y#2]
+                  | +-expr_list=
+                  | | +-x#1 := Literal(type=INT64, value=1)
+                  | | +-y#2 := Literal(type=INT64, value=2)
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-OrderByScan
+                    +-column_list=[$analytic.z#4]
+                    +-is_ordered=TRUE
+                    +-input_scan=
+                    | +-AnalyticScan
+                    |   +-column_list=[$graph_table.x#1, $graph_table.y#2, $analytic.z#4]
+                    |   +-input_scan=
+                    |   | +-GraphRefScan(column_list=$graph_table.[x#1, y#2])
+                    |   +-function_group_list=
+                    |     +-AnalyticFunctionGroup
+                    |       +-partition_by=
+                    |       | +-WindowPartitioning
+                    |       |   +-partition_by_list=
+                    |       |     +-ColumnRef(type=INT64, column=$graph_table.x#1)
+                    |       +-order_by=
+                    |       | +-WindowOrdering
+                    |       |   +-order_by_item_list=
+                    |       |     +-OrderByItem
+                    |       |       +-column_ref=
+                    |       |         +-ColumnRef(type=INT64, column=$graph_table.x#1)
+                    |       +-analytic_function_list=
+                    |         +-z#4 :=
+                    |           +-AnalyticFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+                    |             +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+                    |               +-ColumnRef(type=INT64, column=$graph_table.x#1)
+                    |               +-ColumnRef(type=INT64, column=$graph_table.y#2)
+                    |             +-window_frame=
+                    |               +-WindowFrame(frame_unit=RANGE)
+                    |                 +-start_expr=
+                    |                 | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+                    |                 +-end_expr=
+                    |                   +-WindowFrameExpr(boundary_type=CURRENT ROW)
+                    +-order_by_item_list=
+                      +-OrderByItem
+                        +-column_ref=
+                          +-ColumnRef(type=INT64, column=$graph_table.x#1)
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_1.a_4 AS z
+FROM
+  GRAPH_TABLE(
+    aml
+    LET
+      a_2 = 1,
+      a_3 = 2
+    RETURN
+      SUM(a_2 + a_3) OVER (PARTITION BY a_2
+        ORDER BY a_2 RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS a_4
+    ORDER BY a_2
+  ) AS aml_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml
+    LET
+      a_2 = 1,
+      a_3 = 2
+    RETURN
+      SUM(a_2 + a_3) OVER (PARTITION BY a_2
+        ORDER BY a_2 RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS a_4
+    ORDER BY a_2
+  ) AS aml_1
+|> SELECT
+     aml_1.a_4 AS z;
+==
+
+# Regression test for b/382069429
+# Correct error when ORDER BY is attempting to reference an input column but
+# the RETURN is DISTINCT.
+select gt.* from
+graph_table(aml
+  let x = 1, y = 2
+  return distinct x+y AS z ORDER BY x
+) gt
+--
+ERROR: ORDER BY clause expression references column x which is not visible after SELECT DISTINCT [at 4:37]
+  return distinct x+y AS z ORDER BY x
+                                    ^

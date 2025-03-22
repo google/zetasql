@@ -294,18 +294,17 @@ class StmtLayout : public Layout {
   // Returns position of a chunk with the matching closing bracket, which is
   // expected to be on the same `line` with `break_point`.
   // Returns -1 if no matching bracket found in the current `line`.
-  int FindMatchingClosingBracket(const Line& line, const int break_point) const;
+  int FindMatchingClosingBracket(const Line& line, int break_point) const;
 
   // Returns true if given `break_point` requires looking for siblings. For
   // instance, if a breakpoint points to "FROM" in the query
   // "SELECT * FROM Foo WHERE bar", another breakpoint should be added before
   // "WHERE".
-  bool ShouldIncludeSiblings(const Line& line, const int break_point) const;
+  bool ShouldIncludeSiblings(const Line& line, int break_point) const;
 
   // Returns true, if the given `break_point` may be moved to be as close to the
   // line length as possible.
-  bool ShouldBreakCloseToLineLength(const Line& line,
-                                    const int break_point) const;
+  bool ShouldBreakCloseToLineLength(const Line& line, int break_point) const;
 
   // Returns true if in the original input the current layout contained blank
   // line(s) around comments before the actual statement.
@@ -331,7 +330,7 @@ class StmtLayout : public Layout {
   void PruneLineBreaks();
 
   const std::vector<Chunk>& chunks_;
-  FormatterOptions options_;
+  const FormatterOptions options_;
 
   LinesT lines_;
 };
@@ -342,10 +341,10 @@ class FileLayout : public Layout {
  public:
   // Creates layout for the given parsed `file`.
   static absl::StatusOr<std::unique_ptr<FileLayout>> FromParsedFile(
-      const ParsedFile& file, const FormatterOptions& options);
+      const ParsedFile& file);
 
   // Creates a new empty layout. Use the factory function above instead.
-  explicit FileLayout(absl::string_view sql, const FormatterOptions& options);
+  explicit FileLayout(const FormatterOptions& options) : options_(options) {};
 
   // Returns parts of the current layout.
   const std::vector<std::unique_ptr<Layout>>& Parts() const {

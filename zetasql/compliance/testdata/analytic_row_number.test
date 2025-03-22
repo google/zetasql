@@ -72,8 +72,6 @@ ARRAY<STRUCT<bool_val BOOL, row_id INT64, INT64>>[unknown order:
   {true, 8, 4},
   {true, 10, 5}
 ]
-
-NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=row_number_3]
@@ -124,3 +122,21 @@ ARRAY<STRUCT<int64_val INT64, INT64>>[unknown order:
 ]
 
 NOTE: Reference implementation reports non-determinism.
+==
+
+# In this test, we don't even have an ORDER BY, but the tuples are identical in
+# each partition, leading to a unique output. We make sure that the ref_impl
+# doesn't flag it as non-deterministic.
+[name=row_number_flags_nondeterminism_precisely]
+WITH t AS (
+  SELECT 1 AS id, 1 AS value UNION ALL
+  SELECT 1 AS id, 1 AS value UNION ALL
+  SELECT 1 AS id, 1 AS value UNION ALL
+  SELECT 2 AS id, 2 AS value UNION ALL
+  SELECT 2 AS id, 2 AS value UNION ALL
+  SELECT 2 AS id, 2 AS value
+)
+SELECT ROW_NUMBER() OVER(PARTITION BY id)
+FROM t
+--
+ARRAY<STRUCT<INT64>>[unknown order:{1}, {2}, {3}, {1}, {2}, {3}]

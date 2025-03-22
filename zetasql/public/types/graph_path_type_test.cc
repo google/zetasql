@@ -434,7 +434,10 @@ TEST(GraphPathTypeTest, TypeDeserializerGraphPath) {
       R"pb(
         type_kind: TYPE_GRAPH_PATH
         graph_path_type {
-          node_type { graph_reference: "graph" kind: KIND_NODE }
+          node_type {
+            graph_reference: "graph"
+            kind: KIND_NODE
+          }
           edge_type {
             graph_reference: "graph"
             kind: KIND_EDGE
@@ -446,6 +449,7 @@ TEST(GraphPathTypeTest, TypeDeserializerGraphPath) {
         }
       )pb",
       &type_proto));
+
   ZETASQL_ASSERT_OK_AND_ASSIGN(const Type* deserialized_path_type,
                        type_deserializer.Deserialize(type_proto));
   const GraphElementType* node_type;

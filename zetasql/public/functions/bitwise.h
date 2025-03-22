@@ -47,12 +47,16 @@
 #ifndef ZETASQL_PUBLIC_FUNCTIONS_BITWISE_H_
 #define ZETASQL_PUBLIC_FUNCTIONS_BITWISE_H_
 
+#include <algorithm>
 #include <cstdint>
+#include <cstring>
 #include <limits>
 #include <string>
 #include <type_traits>
 
+#include "zetasql/public/functions/bitwise_agg_mode.pb.h"
 #include "zetasql/public/functions/util.h"
+#include "absl/base/attributes.h"
 #include "absl/base/casts.h"
 #include "absl/base/optimization.h"
 #include "absl/strings/str_cat.h"
@@ -73,7 +77,15 @@ template <typename T>
 bool BitwiseXor(T in1, T in2, T* out, absl::Status* error);
 template <typename T>
 bool BitwiseAnd(T in1, T in2, T* out, absl::Status* error);
+
 // Op can be std::bit_and, std::bit_or, or std::bit_xor.
+template <template <typename T> class Op>
+bool BitwiseBinaryOpBytesWithMode(absl::string_view in1, absl::string_view in2,
+                                  BitwiseAggEnums::BitwiseAggMode mode,
+                                  std::string* out, absl::Status* error);
+
+// Op can be std::bit_and, std::bit_or, or std::bit_xor. This signature always
+// uses BitwiseAggEnums::STRICT mode.
 template <template <typename T> class Op>
 bool BitwiseBinaryOpBytes(absl::string_view in1, absl::string_view in2,
                           std::string* out, absl::Status* error);
@@ -115,21 +127,45 @@ bool BitwiseAnd(T in1, T in2, T* out, absl::Status* error) {
 }
 
 template <template <typename T> class Op>
-bool BitwiseBinaryOpBytes(absl::string_view in1, absl::string_view in2,
-                          std::string* out, absl::Status* error) {
-  if (in1.size() != in2.size()) {
-    internal::UpdateError(
-        error,
-        absl::StrCat(
-            "Bitwise binary operator for BYTES requires equal length of the "
-            "inputs. Got ",
-            in1.size(), " bytes on the left hand side and ", in2.size(),
-            " bytes on the right hand side."));
-    return false;
+bool BitwiseBinaryOpBytesWithMode(absl::string_view in1, absl::string_view in2,
+                                  BitwiseAggEnums::BitwiseAggMode mode,
+                                  std::string* out, absl::Status* error) {
+  std::string in1_str(in1);
+  std::string in2_str(in2);
+
+  size_t max_size = std::max(in1.size(), in2.size());
+
+  switch (mode) {
+    case BitwiseAggEnums::BITWISE_AGG_MODE_INVALID:
+      internal::UpdateError(error, "Invalid bitwise aggregation mode.");
+      return false;
+    case BitwiseAggEnums::STRICT:
+      if (in1_str.size() != in2_str.size()) {
+        internal::UpdateError(
+            error, absl::StrCat("Bitwise binary operator for BYTES requires "
+                                "equal length of the "
+                                "inputs. Got ",
+                                in1.size(), " bytes on the left hand side and ",
+                                in2.size(), " bytes on the right hand side."));
+        return false;
+      }
+      break;
+    case BitwiseAggEnums::PAD:
+      // Pad the inputs to the same length if PAD mode is used.
+      if (mode == BitwiseAggEnums::PAD) {
+        std::string padded_in1(max_size, '\0');  // Pad with 0s
+        std::string padded_in2(max_size, '\0');  // Pad with 0s
+        std::memcpy(&padded_in1[0], in1_str.data(), in1_str.size());
+        std::memcpy(&padded_in2[0], in2_str.data(), in2_str.size());
+        in1_str = padded_in1;
+        in2_str = padded_in2;
+      }
+      break;
   }
-  out->resize(in1.size());
-  const char* in1_data = in1.data();
-  const char* in2_data = in2.data();
+
+  out->resize(max_size);
+  const char* in1_data = in1_str.data();
+  const char* in2_data = in2_str.data();
   Op<char> op;
   for (char& c : *out) {
     c = op(*in1_data, *in2_data);
@@ -137,6 +173,13 @@ bool BitwiseBinaryOpBytes(absl::string_view in1, absl::string_view in2,
     ++in2_data;
   }
   return true;
+}
+
+template <template <typename T> class Op>
+bool BitwiseBinaryOpBytes(absl::string_view in1, absl::string_view in2,
+                          std::string* out, absl::Status* error) {
+  return BitwiseBinaryOpBytesWithMode<Op>(in1, in2, BitwiseAggEnums::STRICT,
+                                          out, error);
 }
 
 template <typename T>

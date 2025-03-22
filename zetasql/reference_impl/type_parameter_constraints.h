@@ -17,6 +17,7 @@
 #ifndef ZETASQL_REFERENCE_IMPL_TYPE_PARAMETER_CONSTRAINTS_H_
 #define ZETASQL_REFERENCE_IMPL_TYPE_PARAMETER_CONSTRAINTS_H_
 
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/types/type_parameters.h"
 #include "zetasql/public/value.h"
 #include "absl/status/status.h"

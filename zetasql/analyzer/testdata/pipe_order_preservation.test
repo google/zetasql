@@ -287,6 +287,13 @@ QueryStmt
                   | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
                   +-end_expr=
                     +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
+
+
+DEPRECATION WARNING:
+The pipe WINDOW operator is deprecated; Use EXTEND instead [at 3:1]
+|> WINDOW count(*) OVER ()
+^
+[zetasql.DeprecationWarning] { kind: PIPE_WINDOW }
 ==
 
 # Pipe AS preserves order of the input table.

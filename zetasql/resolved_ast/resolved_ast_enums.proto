@@ -386,3 +386,36 @@ message ResolvedLockModeEnums {
     UPDATE = 0;
   }
 }
+
+message ResolvedAlterIndexStmtEnums {
+  enum AlterIndexType {
+    INDEX_DEFAULT = 0;
+    INDEX_SEARCH = 1;
+    INDEX_VECTOR = 2;
+  }
+}
+
+message ResolvedUpdateFieldItemEnums {
+  // These enums represent the operation to apply on each
+  // field in the UPDATE constructor ((broken link)).
+  enum Operation {
+    // Represents the default ":" operation. There must not be any repeated
+    // fields in the proto_field_path (except the final element) being updated.
+    // If optional parent objects are not present, this creates them, so it
+    // can set this field.
+    UPDATE_SINGLE = 0;
+    // Represents the "*:" operation. There must be be at least one repeated
+    // field in the proto_field_path being updated. The update will be applied
+    // once for each item found by traversing the path, with nested loops over
+    // repeated fields:
+    //   * If the path ends with a non-array, the update applies
+    //     to that field value.
+    //   * If the path ends with an array, the update
+    //     applies to elements of that array value.
+    UPDATE_MANY = 1;
+    // Represents the "?:" operation. Similar to UPDATE_SINGLE but is a no-op
+    // if the leaf field does not exist because an optional parent object is
+    // not present.
+    UPDATE_SINGLE_NO_CREATION = 2;
+  }
+}

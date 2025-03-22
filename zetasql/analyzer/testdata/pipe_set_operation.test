@@ -1921,12 +1921,12 @@ QueryStmt
     |       | +-SetOperationItem
     |       |   +-scan=
     |       |   | +-ProjectScan
-    |       |   |   +-column_list=[non_recursive_term.n#1]
+    |       |   |   +-column_list=[$union_all1.n#1]
     |       |   |   +-expr_list=
     |       |   |   | +-n#1 := Literal(type=INT64, value=1)
     |       |   |   +-input_scan=
     |       |   |     +-SingleRowScan
-    |       |   +-output_column_list=[non_recursive_term.n#1]
+    |       |   +-output_column_list=[$union_all1.n#1]
     |       +-recursive_term=
     |         +-SetOperationItem
     |           +-scan=
@@ -1973,12 +1973,12 @@ QueryStmt
     |       | +-SetOperationItem
     |       |   +-scan=
     |       |   | +-ProjectScan
-    |       |   |   +-column_list=[non_recursive_term.n#1]
+    |       |   |   +-column_list=[$union_distinct1.n#1]
     |       |   |   +-expr_list=
     |       |   |   | +-n#1 := Literal(type=INT64, value=1)
     |       |   |   +-input_scan=
     |       |   |     +-SingleRowScan
-    |       |   +-output_column_list=[non_recursive_term.n#1]
+    |       |   +-output_column_list=[$union_distinct1.n#1]
     |       +-recursive_term=
     |         +-SetOperationItem
     |           +-scan=
@@ -2015,9 +2015,9 @@ with recursive T as (
 )
 select * from T
 --
-ERROR: Recursive query does not have the form <non-recursive-term> UNION [ALL|DISTINCT] <recursive-term> or the pipe form <non-recursive-term> |> UNION [ALL|DISTINCT] <recursive-term> [at 3:3]
-  select 1 as n
-  ^
+ERROR: Recursive query does not have the form <non-recursive-term> UNION [ALL|DISTINCT] <recursive-term> or the pipe form <non-recursive-term> |> UNION [ALL|DISTINCT] <recursive-term> [at 2:21]
+with recursive T as (
+                    ^
 ==
 
 # The 2nd pipe argument query has error.
@@ -2450,3 +2450,94 @@ QueryStmt
         |       +-input_scan=
         |         +-SingleRowScan
         +-output_column_list=[$except_distinct2_cast.$col1#5]
+==
+
+# Pipe set operations do not have access to the names of the previous scope.
+from unnest([1, 2, 3]) as number
+|> union all (select number)
+--
+ERROR: Unrecognized name: number [at 2:22]
+|> union all (select number)
+                     ^
+==
+
+# Range variables defined in the previous arg input is not visible in the next
+# arg input.
+from unnest([1, 2]) as number1
+|> union all (from unnest([1, 2, 3]) as number2), (select number2)
+--
+ERROR: Unrecognized name: number2 [at 2:59]
+|> union all (from unnest([1, 2, 3]) as number2), (select number2)
+                                                          ^
+==
+
+select * from unnest([1, 2, 3]) as number
+|> intersect distinct (select number)
+--
+ERROR: Unrecognized name: number [at 2:31]
+|> intersect distinct (select number)
+                              ^
+==
+
+from keyvalue
+|> as alias
+|> except all (select * from alias)
+--
+ERROR: Table not found: alias [at 3:30]
+|> except all (select * from alias)
+                             ^
+==
+
+# Correlated columns are allowed inside the pipe union. The `number` column
+# inside the pipe union is the correlated column introduced by
+# "|> select key as number", not by "unnest([1, 2, 3]) as key".
+from keyvalue
+|> select key as number
+|> select (
+  select * from unnest([1, 2, 3]) as number
+  |> union distinct (select number)
+)
+--
+QueryStmt
++-output_column_list=
+| +-$pipe_select.$col1#6 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$pipe_select.$col1#6]
+    +-expr_list=
+    | +-$col1#6 :=
+    |   +-SubqueryExpr
+    |     +-type=INT64
+    |     +-subquery_type=SCALAR
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    |     +-subquery=
+    |       +-SetOperationScan
+    |         +-column_list=[$union_distinct.number#5]
+    |         +-op_type=UNION_DISTINCT
+    |         +-input_item_list=
+    |           +-SetOperationItem
+    |           | +-scan=
+    |           | | +-ProjectScan
+    |           | |   +-column_list=[$array.number#3]
+    |           | |   +-input_scan=
+    |           | |     +-ArrayScan
+    |           | |       +-column_list=[$array.number#3]
+    |           | |       +-array_expr_list=
+    |           | |       | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
+    |           | |       +-element_column_list=[$array.number#3]
+    |           | +-output_column_list=[$array.number#3]
+    |           +-SetOperationItem
+    |             +-scan=
+    |             | +-ProjectScan
+    |             |   +-column_list=[$union_distinct1.number#4]
+    |             |   +-expr_list=
+    |             |   | +-number#4 := ColumnRef(type=INT64, column=KeyValue.Key#1, is_correlated=TRUE)
+    |             |   +-input_scan=
+    |             |     +-SingleRowScan
+    |             +-output_column_list=[$union_distinct1.number#4]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[KeyValue.Key#1]
+        +-input_scan=
+          +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])

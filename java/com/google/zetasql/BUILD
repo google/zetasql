@@ -18,6 +18,7 @@
 
 load("@google_bazel_common//tools/jarjar:jarjar.bzl", "jarjar_library")
 load("@google_bazel_common//tools/javadoc:javadoc.bzl", "javadoc_library")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_java//java:defs.bzl", "java_library")
 load("//tools:maven.bzl", "pom_file")
 
@@ -62,6 +63,7 @@ BUILTIN_PROTO_DEPS = [
     "//zetasql/proto:anon_output_with_report_java_proto",
     "//zetasql/public/functions:array_find_mode_java_proto",
     "//zetasql/public/functions:array_zip_mode_java_proto",
+    "//zetasql/public/functions:bitwise_agg_mode_java_proto",
     "//zetasql/public/functions:datetime_java_proto",
     "//zetasql/public/functions:differential_privacy_java_proto",
     "//zetasql/public/functions:normalize_mode_java_proto",

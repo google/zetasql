@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 package(
     default_visibility = ["//zetasql/base:zetasql_implementation"],
     features = ["parse_headers"],
@@ -41,6 +43,38 @@ cc_test(
         "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/common/testing:proto_matchers",
         "//zetasql/testdata:test_schema_cc_proto",
+    ],
+)
+
+cc_library(
+    name = "constant_utils",
+    srcs = ["constant_utils.cc"],
+    hdrs = ["constant_utils.h"],
+    deps = [
+        "//zetasql/base:ret_check",
+        "//zetasql/base:status",
+        "//zetasql/public/types:type",
+        "//zetasql/resolved_ast",
+        "@com_google_absl//absl/status:statusor",
+    ],
+)
+
+cc_test(
+    name = "constant_utils_test",
+    srcs = ["constant_utils_test.cc"],
+    deps = [
+        ":constant_utils",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/public:analyzer",
+        "//zetasql/public:analyzer_options",
+        "//zetasql/public:analyzer_output",
+        "//zetasql/public:language_options",
+        "//zetasql/public/types",
+        "//zetasql/resolved_ast",
+        "//zetasql/testdata:sample_catalog",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings:string_view",
     ],
 )
 
@@ -219,6 +253,7 @@ cc_library(
         "@com_google_absl//absl/debugging:stacktrace",
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/log",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/synchronization",
@@ -407,6 +442,8 @@ cc_library(
         "builtin_function_internal_2.cc",
         "builtin_function_internal_3.cc",
         "builtin_function_map.cc",
+        "builtin_function_match_recognize.cc",
+        "builtin_function_measure.cc",
         "builtin_function_range.cc",
         "builtin_function_sketches.cc",
     ],
@@ -416,6 +453,7 @@ cc_library(
         ":errors",
         "//zetasql/base",
         "//zetasql/base:check",
+        "//zetasql/base:flat_set",
         "//zetasql/base:map_util",
         "//zetasql/base:no_destructor",
         "//zetasql/base:ret_check",
@@ -439,12 +477,14 @@ cc_library(
         "//zetasql/public:value",
         "//zetasql/public/annotation:collation",
         "//zetasql/public/functions:array_zip_mode_cc_proto",
+        "//zetasql/public/functions:bitwise_agg_mode_cc_proto",
         "//zetasql/public/functions:date_time_util",
         "//zetasql/public/functions:datetime_cc_proto",
         "//zetasql/public/functions:differential_privacy_cc_proto",
         "//zetasql/public/functions:string_format",
         "//zetasql/public/functions:unsupported_fields_cc_proto",
         "//zetasql/public/types",
+        "@com_google_absl//absl/base:nullability",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/functional:bind_front",
@@ -524,6 +564,7 @@ cc_library(
     deps = [
         "//zetasql/base",
         "@com_google_absl//absl/algorithm:container",
+        "@com_google_absl//absl/base:nullability",
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/log",
         "@com_google_absl//absl/strings",
@@ -604,6 +645,7 @@ cc_library(
         "//zetasql/public:collator",
         "//zetasql/reference_impl/functions:register_all",
         "@com_google_absl//absl/base",
+        "@com_google_absl//absl/strings:string_view",
     ],
 )
 
@@ -690,6 +732,15 @@ cc_library(
 )
 
 cc_library(
+    name = "internal_property_graph",
+    hdrs = ["internal_property_graph.h"],
+    deps = [
+        "//zetasql/base:check",
+        "//zetasql/resolved_ast",
+    ],
+)
+
+cc_library(
     name = "internal_analyzer_output_properties",
     hdrs = ["internal_analyzer_output_properties.h"],
     deps = [
@@ -713,7 +764,18 @@ cc_library(
     name = "graph_element_utils",
     srcs = ["graph_element_utils.cc"],
     hdrs = ["graph_element_utils.h"],
-    deps = ["//zetasql/public/types"],
+    deps = [
+        "//zetasql/base:ret_check",
+        "//zetasql/base:status",
+        "//zetasql/public:json_value",
+        "//zetasql/public:value",
+        "//zetasql/public/functions:json",
+        "//zetasql/public/types",
+        "//zetasql/resolved_ast",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings:string_view",
+        "@com_google_absl//absl/types:span",
+    ],
 )
 
 cc_test(
@@ -723,7 +785,10 @@ cc_test(
         ":graph_element_utils",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/public:json_value",
+        "//zetasql/public/functions:json",
         "//zetasql/public/types",
+        "@com_google_absl//absl/types:span",
     ],
 )
 

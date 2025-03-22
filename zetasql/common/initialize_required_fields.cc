@@ -75,9 +75,8 @@ bool InitializeRequiredField(const google::protobuf::Reflection* reflection,
         reflection->SetEnum(message, field, field->default_value_enum());
         break;
       case google::protobuf::FieldDescriptor::CPPTYPE_STRING:
-        reflection->SetString(
-            message, field,
-            std::string(field->default_value_string()));  // NOLINT: b/362251803
+        reflection->SetString(message, field,
+                              std::string(field->default_value_string()));
         break;
       case google::protobuf::FieldDescriptor::CPPTYPE_MESSAGE:
         has_cycle |= !InitializeMissingRequiredFields(

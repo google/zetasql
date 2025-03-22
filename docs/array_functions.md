@@ -340,7 +340,7 @@ ZetaSQL supports the following array functions.
 
 ## `ARRAY`
 
-```sql
+```zetasql
 ARRAY(subquery)
 ```
 
@@ -361,14 +361,14 @@ value table.
 
 **Constraints**
 
-+ Subqueries are unordered, so the elements of the output `ARRAY` are not
++ Subqueries are unordered, so the elements of the output `ARRAY` aren't
 guaranteed to preserve any order in the source table for the subquery. However,
 if the subquery includes an `ORDER BY` clause, the `ARRAY` function will return
 an `ARRAY` that honors that clause.
 + If the subquery returns more than one column, the `ARRAY` function returns an
 error.
 + If the subquery returns an `ARRAY` typed column or `ARRAY` typed rows, the
-  `ARRAY` function returns an error that ZetaSQL does not support
+  `ARRAY` function returns an error that ZetaSQL doesn't support
   `ARRAY`s with elements of type
   [`ARRAY`][array-data-type].
 + If the subquery returns zero rows, the `ARRAY` function returns an empty
@@ -380,7 +380,7 @@ error.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT ARRAY
   (SELECT 1 UNION ALL
    SELECT 2 UNION ALL
@@ -399,7 +399,7 @@ the `ARRAY` function will return an `ARRAY` of `STRUCT`s. The `ARRAY` will
 contain one `STRUCT` for each row in the subquery, and each of these `STRUCT`s
 will contain a field for each column in that row.
 
-```sql
+```zetasql
 SELECT
   ARRAY
     (SELECT AS STRUCT 1, 2, 3
@@ -415,7 +415,7 @@ SELECT
 Similarly, to construct an `ARRAY` from a subquery that contains
 one or more `ARRAY`s, change the subquery to use `SELECT AS STRUCT`.
 
-```sql
+```zetasql
 SELECT ARRAY
   (SELECT AS STRUCT [1, 2, 3] UNION ALL
    SELECT AS STRUCT [4, 5, 6]) AS new_array;
@@ -427,7 +427,7 @@ SELECT ARRAY
  *----------------------------*/
 ```
 
-[subqueries]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#subqueries
+[subqueries]: https://github.com/google/zetasql/blob/master/docs/subqueries.md
 
 [datamodel-sql-tables]: https://github.com/google/zetasql/blob/master/docs/data-model.md#standard_sql_tables
 
@@ -437,7 +437,7 @@ SELECT ARRAY
 
 ## `ARRAY_AVG`
 
-```sql
+```zetasql
 ARRAY_AVG(input_array)
 ```
 
@@ -459,7 +459,7 @@ Caveats:
 
 [floating-point-types]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_types
 
-[non-deterministic]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating-point-semantics
+[non-deterministic]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Supported Argument Types**
 
@@ -488,7 +488,7 @@ The return type depends upon `T` in the input array:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT ARRAY_AVG([0, 2, NULL, 4, 4, 5]) as avg
 
 /*-----*
@@ -500,7 +500,7 @@ SELECT ARRAY_AVG([0, 2, NULL, 4, 4, 5]) as avg
 
 ## `ARRAY_CONCAT`
 
-```sql
+```zetasql
 ARRAY_CONCAT(array_expression[, ...])
 ```
 
@@ -519,7 +519,7 @@ to concatenate arrays.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT ARRAY_CONCAT([1, 2], [3, 4], [5, 6]) as count_to_six;
 
 /*--------------------------------------------------*
@@ -533,7 +533,7 @@ SELECT ARRAY_CONCAT([1, 2], [3, 4], [5, 6]) as count_to_six;
 
 ## `ARRAY_FILTER`
 
-```sql
+```zetasql
 ARRAY_FILTER(array_expression, lambda_expression)
 
 lambda_expression:
@@ -565,7 +565,7 @@ ARRAY
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   ARRAY_FILTER([1 ,2, 3], e -> e > 1) AS a1,
   ARRAY_FILTER([0, 2, 3], (e, i) -> e > i) AS a2;
@@ -581,7 +581,7 @@ SELECT
 
 ## `ARRAY_FIRST`
 
-```sql
+```zetasql
 ARRAY_FIRST(array_expression)
 ```
 
@@ -601,7 +601,7 @@ Matches the data type of elements in `array_expression`.
 
 **Example**
 
-```sql
+```zetasql
 SELECT ARRAY_FIRST(['a','b','c','d']) as first_element
 
 /*---------------*
@@ -623,7 +623,7 @@ SELECT ARRAY_FIRST(['a','b','c','d']) as first_element
 #### Signature 1 
 <a id="array_includes_signature1"></a>
 
-```sql
+```zetasql
 ARRAY_INCLUDES(array_to_search, search_value)
 ```
 
@@ -646,7 +646,7 @@ Returns `NULL` if `array_to_search` or `search_value` is `NULL`.
 In the following example, the query first checks to see if `0` exists in an
 array. Then the query checks to see if `1` exists in an array.
 
-```sql
+```zetasql
 SELECT
   ARRAY_INCLUDES([1, 2, 3], 0) AS a1,
   ARRAY_INCLUDES([1, 2, 3], 1) AS a2;
@@ -661,7 +661,7 @@ SELECT
 #### Signature 2 
 <a id="array_includes_signature2"></a>
 
-```sql
+```zetasql
 ARRAY_INCLUDES(array_to_search, lambda_expression)
 
 lambda_expression: element_alias -> boolean_expression
@@ -690,7 +690,7 @@ In the following example, the query first checks to see if any elements that are
 greater than 3 exist in an array (`e > 3`). Then the query checks to see if any
 any elements that are greater than 0 exist in an array (`e > 0`).
 
-```sql
+```zetasql
 SELECT
   ARRAY_INCLUDES([1, 2, 3], e -> e > 3) AS a1,
   ARRAY_INCLUDES([1, 2, 3], e -> e > 0) AS a2;
@@ -706,7 +706,7 @@ SELECT
 
 ## `ARRAY_INCLUDES_ALL`
 
-```sql
+```zetasql
 ARRAY_INCLUDES_ALL(array_to_search, search_values)
 ```
 
@@ -731,7 +731,7 @@ In the following example, the query first checks to see if `3`, `4`, and `5`
 exists in an array. Then the query checks to see if `4`, `5`, and `6` exists in
 an array.
 
-```sql
+```zetasql
 SELECT
   ARRAY_INCLUDES_ALL([1,2,3,4,5], [3,4,5]) AS a1,
   ARRAY_INCLUDES_ALL([1,2,3,4,5], [4,5,6]) AS a2;
@@ -745,7 +745,7 @@ SELECT
 
 ## `ARRAY_INCLUDES_ANY`
 
-```sql
+```zetasql
 ARRAY_INCLUDES_ANY(array_to_search, search_values)
 ```
 
@@ -770,7 +770,7 @@ In the following example, the query first checks to see if `3`, `4`, or `5`
 exists in an array. Then the query checks to see if `4`, `5`, or `6` exists in
 an array.
 
-```sql
+```zetasql
 SELECT
   ARRAY_INCLUDES_ANY([1,2,3], [3,4,5]) AS a1,
   ARRAY_INCLUDES_ANY([1,2,3], [4,5,6]) AS a2;
@@ -784,7 +784,7 @@ SELECT
 
 ## `ARRAY_IS_DISTINCT`
 
-```sql
+```zetasql
 ARRAY_IS_DISTINCT(value)
 ```
 
@@ -799,7 +799,7 @@ equality comparison logic as `SELECT DISTINCT`.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT ARRAY_IS_DISTINCT([1, 2, 3]) AS is_distinct
 
 /*-------------*
@@ -809,7 +809,7 @@ SELECT ARRAY_IS_DISTINCT([1, 2, 3]) AS is_distinct
  *-------------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_IS_DISTINCT([1, 1, 1]) AS is_distinct
 
 /*-------------*
@@ -819,7 +819,7 @@ SELECT ARRAY_IS_DISTINCT([1, 1, 1]) AS is_distinct
  *-------------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_IS_DISTINCT([1, 2, NULL]) AS is_distinct
 
 /*-------------*
@@ -829,7 +829,7 @@ SELECT ARRAY_IS_DISTINCT([1, 2, NULL]) AS is_distinct
  *-------------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_IS_DISTINCT([1, 1, NULL]) AS is_distinct
 
 /*-------------*
@@ -839,7 +839,7 @@ SELECT ARRAY_IS_DISTINCT([1, 1, NULL]) AS is_distinct
  *-------------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_IS_DISTINCT([1, NULL, NULL]) AS is_distinct
 
 /*-------------*
@@ -848,7 +848,7 @@ SELECT ARRAY_IS_DISTINCT([1, NULL, NULL]) AS is_distinct
  | false       |
  *-------------*/
 ```
-```sql
+```zetasql
 SELECT ARRAY_IS_DISTINCT([]) AS is_distinct
 
 /*-------------*
@@ -858,7 +858,7 @@ SELECT ARRAY_IS_DISTINCT([]) AS is_distinct
  *-------------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_IS_DISTINCT(NULL) AS is_distinct
 
 /*-------------*
@@ -870,7 +870,7 @@ SELECT ARRAY_IS_DISTINCT(NULL) AS is_distinct
 
 ## `ARRAY_LAST`
 
-```sql
+```zetasql
 ARRAY_LAST(array_expression)
 ```
 
@@ -890,7 +890,7 @@ Matches the data type of elements in `array_expression`.
 
 **Example**
 
-```sql
+```zetasql
 SELECT ARRAY_LAST(['a','b','c','d']) as last_element
 
 /*---------------*
@@ -904,7 +904,7 @@ SELECT ARRAY_LAST(['a','b','c','d']) as last_element
 
 ## `ARRAY_LENGTH`
 
-```sql
+```zetasql
 ARRAY_LENGTH(array_expression)
 ```
 
@@ -919,7 +919,7 @@ the `array_expression` is `NULL`.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT
   ARRAY_LENGTH(["coffee", NULL, "milk" ]) AS size_a,
   ARRAY_LENGTH(["cake", "pie"]) AS size_b;
@@ -933,7 +933,7 @@ SELECT
 
 ## `ARRAY_MAX`
 
-```sql
+```zetasql
 ARRAY_MAX(input_array)
 ```
 
@@ -958,7 +958,7 @@ The same data type as `T` in the input array.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT ARRAY_MAX([8, 37, NULL, 55, 4]) as max
 
 /*-----*
@@ -972,7 +972,7 @@ SELECT ARRAY_MAX([8, 37, NULL, 55, 4]) as max
 
 ## `ARRAY_MIN`
 
-```sql
+```zetasql
 ARRAY_MIN(input_array)
 ```
 
@@ -997,7 +997,7 @@ The same data type as `T` in the input array.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT ARRAY_MIN([8, 37, NULL, 4, 55]) as min
 
 /*-----*
@@ -1011,7 +1011,7 @@ SELECT ARRAY_MIN([8, 37, NULL, 4, 55]) as min
 
 ## `ARRAY_REVERSE`
 
-```sql
+```zetasql
 ARRAY_REVERSE(value)
 ```
 
@@ -1025,7 +1025,7 @@ Returns the input `ARRAY` with elements in reverse order.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT ARRAY_REVERSE([1, 2, 3]) AS reverse_arr
 
 /*-------------*
@@ -1037,7 +1037,7 @@ SELECT ARRAY_REVERSE([1, 2, 3]) AS reverse_arr
 
 ## `ARRAY_SLICE`
 
-```sql
+```zetasql
 ARRAY_SLICE(array_to_slice, start_offset, end_offset)
 ```
 
@@ -1136,7 +1136,7 @@ Additional details:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 1, 3) AS result
 
 /*-----------*
@@ -1146,7 +1146,7 @@ SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 1, 3) AS result
  *-----------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], -1, 3) AS result
 
 /*-----------*
@@ -1156,7 +1156,7 @@ SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], -1, 3) AS result
  *-----------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 1, -3) AS result
 
 /*--------*
@@ -1166,7 +1166,7 @@ SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 1, -3) AS result
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], -1, -3) AS result
 
 /*-----------*
@@ -1176,7 +1176,7 @@ SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], -1, -3) AS result
  *-----------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], -3, -1) AS result
 
 /*-----------*
@@ -1186,7 +1186,7 @@ SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], -3, -1) AS result
  *-----------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 3, 3) AS result
 
 /*--------*
@@ -1196,7 +1196,7 @@ SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 3, 3) AS result
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], -3, -3) AS result
 
 /*--------*
@@ -1206,7 +1206,7 @@ SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], -3, -3) AS result
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 1, 30) AS result
 
 /*--------------*
@@ -1216,7 +1216,7 @@ SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 1, 30) AS result
  *--------------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 1, -30) AS result
 
 /*-----------*
@@ -1226,7 +1226,7 @@ SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 1, -30) AS result
  *-----------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], -30, 30) AS result
 
 /*-----------------*
@@ -1236,7 +1236,7 @@ SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], -30, 30) AS result
  *-----------------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], -30, -5) AS result
 
 /*--------*
@@ -1246,7 +1246,7 @@ SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], -30, -5) AS result
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 5, 30) AS result
 
 /*--------*
@@ -1256,7 +1256,7 @@ SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 5, 30) AS result
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 1, NULL) AS result
 
 /*-----------*
@@ -1266,7 +1266,7 @@ SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 1, NULL) AS result
  *-----------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_SLICE(['a', 'b', NULL, 'd', 'e'], 1, 3) AS result
 
 /*--------------*
@@ -1278,7 +1278,7 @@ SELECT ARRAY_SLICE(['a', 'b', NULL, 'd', 'e'], 1, 3) AS result
 
 ## `ARRAY_SUM`
 
-```sql
+```zetasql
 ARRAY_SUM(input_array)
 ```
 
@@ -1300,7 +1300,7 @@ Caveats:
 
 [floating-point-types]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_types
 
-[non-deterministic]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating-point-semantics
+[non-deterministic]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Supported Argument Types**
 
@@ -1328,7 +1328,7 @@ The return type depends upon `T` in the input array:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT ARRAY_SUM([1, 2, 3, 4, 5, NULL, 4, 3, 2, 1]) as sum
 
 /*-----*
@@ -1340,7 +1340,7 @@ SELECT ARRAY_SUM([1, 2, 3, 4, 5, NULL, 4, 3, 2, 1]) as sum
 
 ## `ARRAY_TO_STRING`
 
-```sql
+```zetasql
 ARRAY_TO_STRING(array_expression, delimiter[, null_text])
 ```
 
@@ -1354,7 +1354,7 @@ can either be an array of `STRING` or
 If the `null_text` parameter is used, the function replaces any `NULL` values in
 the array with the value of `null_text`.
 
-If the `null_text` parameter is not used, the function omits the `NULL` value
+If the `null_text` parameter isn't used, the function omits the `NULL` value
 and its preceding delimiter.
 
 **Return type**
@@ -1363,7 +1363,7 @@ and its preceding delimiter.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT ARRAY_TO_STRING(['coffee', 'tea', 'milk', NULL], '--', 'MISSING') AS text
 
 /*--------------------------------*
@@ -1373,7 +1373,7 @@ SELECT ARRAY_TO_STRING(['coffee', 'tea', 'milk', NULL], '--', 'MISSING') AS text
  *--------------------------------*/
 ```
 
-```sql
+```zetasql
 
 SELECT ARRAY_TO_STRING(['cake', 'pie', NULL], '--', 'MISSING') AS text
 
@@ -1386,7 +1386,7 @@ SELECT ARRAY_TO_STRING(['cake', 'pie', NULL], '--', 'MISSING') AS text
 
 ## `ARRAY_TRANSFORM`
 
-```sql
+```zetasql
 ARRAY_TRANSFORM(array_expression, lambda_expression)
 
 lambda_expression:
@@ -1418,15 +1418,15 @@ Returns `NULL` if the `array_expression` is `NULL`.
 
 **Example**
 
-```sql
+```zetasql
 SELECT
-  ARRAY_TRANSFORM([1, 2, 3], e -> e + 1) AS a1,
-  ARRAY_TRANSFORM([1, 2, 3], (e, i) -> e + i) AS a2;
+  ARRAY_TRANSFORM([1, 4, 3], e -> e + 1) AS a1,
+  ARRAY_TRANSFORM([1, 4, 3], (e, i) -> e + i) AS a2;
 
 /*---------+---------*
  | a1      | a2      |
  +---------+---------+
- | [2,3,4] | [1,3,5] |
+ | [2,5,4] | [1,5,5] |
  *---------+---------*/
 ```
 
@@ -1434,7 +1434,7 @@ SELECT
 
 ## `ARRAY_ZIP`
 
-```sql
+```zetasql
 ARRAY_ZIP(
   array_input [ AS alias ],
   array_input [ AS alias ][, ... ]
@@ -1490,7 +1490,7 @@ Combines the elements from two to four arrays into one array.
 
 The following query zips two arrays into one:
 
-```sql
+```zetasql
 SELECT ARRAY_ZIP([1, 2], ['a', 'b']) AS results
 
 /*----------------------*
@@ -1507,7 +1507,7 @@ where:
 +   `A1` is the alias provided for array `[1, 2]`.
 +   `alias_inferred` is the inferred alias provided for array `['a', 'b']`.
 
-```sql
+```zetasql
 WITH T AS (
   SELECT ['a', 'b'] AS alias_inferred
 )
@@ -1524,7 +1524,7 @@ FROM T
 To provide a custom transformation of the input arrays, use the `transformation`
 argument:
 
-```sql
+```zetasql
 SELECT ARRAY_ZIP([1, 2], [3, 4], transformation => (e1, e2) -> (e1 + e2))
 
 /*---------+
@@ -1534,9 +1534,9 @@ SELECT ARRAY_ZIP([1, 2], [3, 4], transformation => (e1, e2) -> (e1 + e2))
  +---------*/
 ```
 
-The argument name `transformation` is not required. For example:
+The argument name `transformation` isn't required. For example:
 
-```sql
+```zetasql
 SELECT ARRAY_ZIP([1, 2], [3, 4], (e1, e2) -> (e1 + e2))
 
 /*---------+
@@ -1546,11 +1546,11 @@ SELECT ARRAY_ZIP([1, 2], [3, 4], (e1, e2) -> (e1 + e2))
  +---------*/
 ```
 
-When `transformation` is provided, the input arrays are not allowed to have
+When `transformation` is provided, the input arrays aren't allowed to have
 aliases. For example, the following query is invalid:
 
-```sql {.bad}
--- Error: ARRAY_ZIP function with lambda argument does not allow providing
+```zetasql {.bad}
+-- Error: ARRAY_ZIP function with lambda argument doesn't allow providing
 -- argument aliases
 SELECT ARRAY_ZIP([1, 2], [3, 4] AS alias_not_allowed, (e1, e2) -> (e1 + e2))
 ```
@@ -1558,12 +1558,12 @@ SELECT ARRAY_ZIP([1, 2], [3, 4] AS alias_not_allowed, (e1, e2) -> (e1 + e2))
 To produce an error when arrays with different lengths are zipped, don't
 add `mode`, or if you do, set it as `STRICT`. For example:
 
-```sql {.bad}
+```zetasql {.bad}
 -- Error: Unequal array length
 SELECT ARRAY_ZIP([1, 2], ['a', 'b', 'c', 'd']) AS results
 ```
 
-```sql {.bad}
+```zetasql {.bad}
 -- Error: Unequal array length
 SELECT ARRAY_ZIP([1, 2], ['a', 'b', 'c', 'd'], mode => 'STRICT') AS results
 ```
@@ -1571,7 +1571,7 @@ SELECT ARRAY_ZIP([1, 2], ['a', 'b', 'c', 'd'], mode => 'STRICT') AS results
 Use the `PAD` mode to pad missing values with `NULL` when input arrays have
 different lengths. For example:
 
-```sql
+```zetasql
 SELECT ARRAY_ZIP([1, 2], ['a', 'b', 'c', 'd'], [], mode => 'PAD') AS results
 
 /*------------------------------------------------------------------------+
@@ -1584,7 +1584,7 @@ SELECT ARRAY_ZIP([1, 2], ['a', 'b', 'c', 'd'], [], mode => 'PAD') AS results
 Use the `TRUNCATE` mode to truncate all arrays that are longer than the shortest
 array. For example:
 
-```sql
+```zetasql
 SELECT ARRAY_ZIP([1, 2], ['a', 'b', 'c', 'd'], mode => 'TRUNCATE') AS results
 
 /*----------------------*
@@ -1602,7 +1602,7 @@ SELECT ARRAY_ZIP([1, 2], ['a', 'b', 'c', 'd'], mode => 'TRUNCATE') AS results
 
 ## `FLATTEN`
 
-```sql
+```zetasql
 FLATTEN(array_elements_field_access_expression)
 ```
 
@@ -1627,7 +1627,7 @@ There are several ways to flatten nested data into arrays. To learn more, see
 In the following example, all of the arrays for `v.sales.quantity` are
 concatenated in a flattened array.
 
-```sql
+```zetasql
 WITH t AS (
   SELECT
   [
@@ -1648,7 +1648,7 @@ FROM t;
 In the following example, `OFFSET` gets the second value in each array and
 concatenates them.
 
-```sql
+```zetasql
 WITH t AS (
   SELECT
   [
@@ -1669,7 +1669,7 @@ FROM t;
 In the following example, all values for `v.price` are returned in a
 flattened array.
 
-```sql
+```zetasql
 WITH t AS (
   SELECT
   [
@@ -1696,7 +1696,7 @@ For more examples, including how to use protocol buffers with `FLATTEN`, see the
 
 ## `GENERATE_ARRAY`
 
-```sql
+```zetasql
 GENERATE_ARRAY(start_expression, end_expression[, step_expression])
 ```
 
@@ -1729,7 +1729,7 @@ If any argument is `NULL`, the function will return a `NULL` array.
 
 The following returns an array of integers, with a default step of 1.
 
-```sql
+```zetasql
 SELECT GENERATE_ARRAY(1, 5) AS example_array;
 
 /*-----------------*
@@ -1741,7 +1741,7 @@ SELECT GENERATE_ARRAY(1, 5) AS example_array;
 
 The following returns an array using a user-specified step size.
 
-```sql
+```zetasql
 SELECT GENERATE_ARRAY(0, 10, 3) AS example_array;
 
 /*---------------*
@@ -1753,7 +1753,7 @@ SELECT GENERATE_ARRAY(0, 10, 3) AS example_array;
 
 The following returns an array using a negative value, `-3` for its step size.
 
-```sql
+```zetasql
 SELECT GENERATE_ARRAY(10, 0, -3) AS example_array;
 
 /*---------------*
@@ -1766,7 +1766,7 @@ SELECT GENERATE_ARRAY(10, 0, -3) AS example_array;
 The following returns an array using the same value for the `start_expression`
 and `end_expression`.
 
-```sql
+```zetasql
 SELECT GENERATE_ARRAY(4, 4, 10) AS example_array;
 
 /*---------------*
@@ -1779,7 +1779,7 @@ SELECT GENERATE_ARRAY(4, 4, 10) AS example_array;
 The following returns an empty array, because the `start_expression` is greater
 than the `end_expression`, and the `step_expression` value is positive.
 
-```sql
+```zetasql
 SELECT GENERATE_ARRAY(10, 0, 3) AS example_array;
 
 /*---------------*
@@ -1791,7 +1791,7 @@ SELECT GENERATE_ARRAY(10, 0, 3) AS example_array;
 
 The following returns a `NULL` array because `end_expression` is `NULL`.
 
-```sql
+```zetasql
 SELECT GENERATE_ARRAY(5, NULL, 1) AS example_array;
 
 /*---------------*
@@ -1803,7 +1803,7 @@ SELECT GENERATE_ARRAY(5, NULL, 1) AS example_array;
 
 The following returns multiple arrays.
 
-```sql
+```zetasql
 SELECT GENERATE_ARRAY(start, 5) AS example_array
 FROM UNNEST([3, 4, 5]) AS start;
 
@@ -1818,7 +1818,7 @@ FROM UNNEST([3, 4, 5]) AS start;
 
 ## `GENERATE_DATE_ARRAY`
 
-```sql
+```zetasql
 GENERATE_DATE_ARRAY(start_date, end_date[, INTERVAL INT64_expr date_part])
 ```
 
@@ -1847,7 +1847,7 @@ This function returns an error if `INT64_expr` is set to 0.
 
 The following returns an array of dates, with a default step of 1.
 
-```sql
+```zetasql
 SELECT GENERATE_DATE_ARRAY('2016-10-05', '2016-10-08') AS example;
 
 /*--------------------------------------------------*
@@ -1859,7 +1859,7 @@ SELECT GENERATE_DATE_ARRAY('2016-10-05', '2016-10-08') AS example;
 
 The following returns an array using a user-specified step size.
 
-```sql
+```zetasql
 SELECT GENERATE_DATE_ARRAY(
  '2016-10-05', '2016-10-09', INTERVAL 2 DAY) AS example;
 
@@ -1872,7 +1872,7 @@ SELECT GENERATE_DATE_ARRAY(
 
 The following returns an array using a negative value, `-3` for its step size.
 
-```sql
+```zetasql
 SELECT GENERATE_DATE_ARRAY('2016-10-05',
   '2016-10-01', INTERVAL -3 DAY) AS example;
 
@@ -1886,7 +1886,7 @@ SELECT GENERATE_DATE_ARRAY('2016-10-05',
 The following returns an array using the same value for the `start_date`and
 `end_date`.
 
-```sql
+```zetasql
 SELECT GENERATE_DATE_ARRAY('2016-10-05',
   '2016-10-05', INTERVAL 8 DAY) AS example;
 
@@ -1900,7 +1900,7 @@ SELECT GENERATE_DATE_ARRAY('2016-10-05',
 The following returns an empty array, because the `start_date` is greater
 than the `end_date`, and the `step` value is positive.
 
-```sql
+```zetasql
 SELECT GENERATE_DATE_ARRAY('2016-10-05',
   '2016-10-01', INTERVAL 1 DAY) AS example;
 
@@ -1914,7 +1914,7 @@ SELECT GENERATE_DATE_ARRAY('2016-10-05',
 The following returns a `NULL` array, because one of its inputs is
 `NULL`.
 
-```sql
+```zetasql
 SELECT GENERATE_DATE_ARRAY('2016-10-05', NULL) AS example;
 
 /*---------*
@@ -1927,7 +1927,7 @@ SELECT GENERATE_DATE_ARRAY('2016-10-05', NULL) AS example;
 The following returns an array of dates, using MONTH as the `date_part`
 interval:
 
-```sql
+```zetasql
 SELECT GENERATE_DATE_ARRAY('2016-01-01',
   '2016-12-31', INTERVAL 2 MONTH) AS example;
 
@@ -1940,7 +1940,7 @@ SELECT GENERATE_DATE_ARRAY('2016-01-01',
 
 The following uses non-constant dates to generate an array.
 
-```sql
+```zetasql
 SELECT GENERATE_DATE_ARRAY(date_start, date_end, INTERVAL 1 WEEK) AS date_range
 FROM (
   SELECT DATE '2016-01-01' AS date_start, DATE '2016-01-31' AS date_end
@@ -1961,7 +1961,7 @@ FROM (
 
 ## `GENERATE_TIMESTAMP_ARRAY`
 
-```sql
+```zetasql
 GENERATE_TIMESTAMP_ARRAY(start_timestamp, end_timestamp,
                          INTERVAL step_expression date_part)
 ```
@@ -1994,7 +1994,7 @@ An `ARRAY` containing 0 or more `TIMESTAMP` values.
 
 The following example returns an `ARRAY` of `TIMESTAMP`s at intervals of 1 day.
 
-```sql
+```zetasql
 SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-05 00:00:00', '2016-10-07 00:00:00',
                                 INTERVAL 1 DAY) AS timestamp_array;
 
@@ -2008,7 +2008,7 @@ SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-05 00:00:00', '2016-10-07 00:00:00',
 The following example returns an `ARRAY` of `TIMESTAMP`s at intervals of 1
 second.
 
-```sql
+```zetasql
 SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-05 00:00:00', '2016-10-05 00:00:02',
                                 INTERVAL 1 SECOND) AS timestamp_array;
 
@@ -2022,7 +2022,7 @@ SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-05 00:00:00', '2016-10-05 00:00:02',
 The following example returns an `ARRAY` of `TIMESTAMPS` with a negative
 interval.
 
-```sql
+```zetasql
 SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-06 00:00:00', '2016-10-01 00:00:00',
                                 INTERVAL -2 DAY) AS timestamp_array;
 
@@ -2036,7 +2036,7 @@ SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-06 00:00:00', '2016-10-01 00:00:00',
 The following example returns an `ARRAY` with a single element, because
 `start_timestamp` and `end_timestamp` have the same value.
 
-```sql
+```zetasql
 SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-05 00:00:00', '2016-10-05 00:00:00',
                                 INTERVAL 1 HOUR) AS timestamp_array;
 
@@ -2050,7 +2050,7 @@ SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-05 00:00:00', '2016-10-05 00:00:00',
 The following example returns an empty `ARRAY`, because `start_timestamp` is
 later than `end_timestamp`.
 
-```sql
+```zetasql
 SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-06 00:00:00', '2016-10-05 00:00:00',
                                 INTERVAL 1 HOUR) AS timestamp_array;
 
@@ -2064,7 +2064,7 @@ SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-06 00:00:00', '2016-10-05 00:00:00',
 The following example returns a null `ARRAY`, because one of the inputs is
 `NULL`.
 
-```sql
+```zetasql
 SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-05 00:00:00', NULL, INTERVAL 1 HOUR)
   AS timestamp_array;
 
@@ -2078,7 +2078,7 @@ SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-05 00:00:00', NULL, INTERVAL 1 HOUR)
 The following example generates `ARRAY`s of `TIMESTAMP`s from columns containing
 values for `start_timestamp` and `end_timestamp`.
 
-```sql
+```zetasql
 SELECT GENERATE_TIMESTAMP_ARRAY(start_timestamp, end_timestamp, INTERVAL 1 HOUR)
   AS timestamp_array
 FROM

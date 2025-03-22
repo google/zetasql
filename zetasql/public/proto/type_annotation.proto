@@ -121,10 +121,7 @@ message FieldFormat {
     // default.
     DATETIME_MICROS = 8;
 
-    // A ZetaSQL GEOGRAPHY encoded using either C++'s
-    // STGeographyEncoder::Encode (util/geometry/st_lib/stgeography_coder.h) or
-    // Java's STGeographyCoder.encode
-    // (java/com/google/common/geometry/stlib/STGeographyCoder.java).
+    // A ZetaSQL GEOGRAPHY binary encoding.
     //
     // Can be applied to bytes fields.
     ST_GEOGRAPHY_ENCODED = 9;

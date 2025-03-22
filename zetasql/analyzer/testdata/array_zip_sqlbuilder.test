@@ -1,10 +1,16 @@
-[default show_unparsed]
+[default show_sqlbuilder_output]
 [default no_show_resolved_ast]
 [default language_features=V_1_4_ARRAY_ZIP,V_1_3_INLINE_LAMBDA_ARGUMENT,NAMED_ARGUMENTS]
 # Two-array no arrays have argument alias
 SELECT ARRAY_ZIP([1, 2], ['s', 't'])
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  ARRAY_ZIP(ARRAY< INT64 >[1, 2], ARRAY< STRING >["s", "t"], mode  => CAST("STRICT" AS ARRAY_ZIP_MODE)) AS a_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 SELECT
   ARRAY_ZIP(ARRAY< INT64 >[1, 2], ARRAY< STRING >["s", "t"], mode  => CAST("STRICT" AS ARRAY_ZIP_MODE)) AS a_1;
 ==
@@ -13,7 +19,13 @@ SELECT
 # Due to b/308019972, the argument name `mode` is not restored.
 SELECT ARRAY_ZIP([1, 2], ['s', 't'] AS alias, mode => 'PAD')
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  ARRAY_ZIP(ARRAY< INT64 >[1, 2], ARRAY< STRING >["s", "t"] AS alias, mode  => CAST("PAD" AS ARRAY_ZIP_MODE)) AS a_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 SELECT
   ARRAY_ZIP(ARRAY< INT64 >[1, 2], ARRAY< STRING >["s", "t"] AS alias, mode  => CAST("PAD" AS ARRAY_ZIP_MODE)) AS a_1;
 ==
@@ -21,7 +33,13 @@ SELECT
 # Two-array all arrays have aliases
 SELECT ARRAY_ZIP([1, 2] AS alias_0, ['s', 't'] AS alias_1, mode => 'TRUNCATE')
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  ARRAY_ZIP(ARRAY< INT64 >[1, 2] AS alias_0, ARRAY< STRING >["s", "t"] AS alias_1, mode  => CAST("TRUNCATE" AS ARRAY_ZIP_MODE)) AS a_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 SELECT
   ARRAY_ZIP(ARRAY< INT64 >[1, 2] AS alias_0, ARRAY< STRING >["s", "t"] AS alias_1, mode  => CAST("TRUNCATE" AS ARRAY_ZIP_MODE)) AS a_1;
 ==
@@ -30,7 +48,13 @@ SELECT
 # Due to b/308019972, the argument names are not restored.
 SELECT ARRAY_ZIP([1, 2], ['s', 't'], transformation => (e0, e1) -> 1, mode => 'STRICT')
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  ARRAY_ZIP(ARRAY< INT64 >[1, 2], ARRAY< STRING >["s", "t"], (a_2, a_3) -> 1, mode  => CAST("STRICT" AS ARRAY_ZIP_MODE)) AS a_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 SELECT
   ARRAY_ZIP(ARRAY< INT64 >[1, 2], ARRAY< STRING >["s", "t"], (a_2, a_3) -> 1, mode  => CAST("STRICT" AS ARRAY_ZIP_MODE)) AS a_1;
 ==
@@ -38,7 +62,13 @@ SELECT
 # Two-array lambda signature lambda name is not provided.
 SELECT ARRAY_ZIP([1, 2], ['s', 't'], (e0, e1) -> 1, mode => 'PAD')
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  ARRAY_ZIP(ARRAY< INT64 >[1, 2], ARRAY< STRING >["s", "t"], (a_2, a_3) -> 1, mode  => CAST("PAD" AS ARRAY_ZIP_MODE)) AS a_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 SELECT
   ARRAY_ZIP(ARRAY< INT64 >[1, 2], ARRAY< STRING >["s", "t"], (a_2, a_3) -> 1, mode  => CAST("PAD" AS ARRAY_ZIP_MODE)) AS a_1;
 ==
@@ -46,7 +76,13 @@ SELECT
 # Three-array no arrays have argument alias
 SELECT ARRAY_ZIP([1, 2], ['s', 't'], [TRUE], mode => 'PAD')
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  ARRAY_ZIP(ARRAY< INT64 >[1, 2], ARRAY< STRING >["s", "t"], ARRAY< BOOL >[true], mode  => CAST("PAD" AS ARRAY_ZIP_MODE)) AS a_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 SELECT
   ARRAY_ZIP(ARRAY< INT64 >[1, 2], ARRAY< STRING >["s", "t"], ARRAY< BOOL >[true], mode  => CAST("PAD" AS ARRAY_ZIP_MODE)) AS a_1;
 ==
@@ -54,7 +90,13 @@ SELECT
 # Three-array some arrays have aliases
 SELECT ARRAY_ZIP([1, 2], ['s', 't'] AS alias, [TRUE], mode => 'TRUNCATE')
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  ARRAY_ZIP(ARRAY< INT64 >[1, 2], ARRAY< STRING >["s", "t"] AS alias, ARRAY< BOOL >[true], mode  => CAST("TRUNCATE" AS ARRAY_ZIP_MODE)) AS a_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 SELECT
   ARRAY_ZIP(ARRAY< INT64 >[1, 2], ARRAY< STRING >["s", "t"] AS alias, ARRAY< BOOL >[true], mode  => CAST("TRUNCATE" AS ARRAY_ZIP_MODE)) AS a_1;
 ==
@@ -62,7 +104,14 @@ SELECT
 # Three-array all arrays have aliases
 SELECT ARRAY_ZIP([1, 2] AS alias_0, ['s', 't'] AS alias_1, [TRUE] AS alias_2, mode => 'STRICT')
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  ARRAY_ZIP(ARRAY< INT64 >[1, 2] AS alias_0, ARRAY< STRING >["s", "t"] AS alias_1, ARRAY< BOOL >[true] AS alias_2,
+    mode  => CAST("STRICT" AS ARRAY_ZIP_MODE)) AS a_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 SELECT
   ARRAY_ZIP(ARRAY< INT64 >[1, 2] AS alias_0, ARRAY< STRING >["s", "t"] AS alias_1, ARRAY< BOOL >[true] AS alias_2,
     mode  => CAST("STRICT" AS ARRAY_ZIP_MODE)) AS a_1;
@@ -71,7 +120,14 @@ SELECT
 # Three-array lambda signature, lambda argument name is provided
 SELECT ARRAY_ZIP([1, 2], ['s', 't'], [TRUE], transformation => (e0, e1, e2) -> 1)
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  ARRAY_ZIP(ARRAY< INT64 >[1, 2], ARRAY< STRING >["s", "t"], ARRAY< BOOL >[true], (a_2, a_3, a_4) -> 1,
+    mode  => CAST("STRICT" AS ARRAY_ZIP_MODE)) AS a_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 SELECT
   ARRAY_ZIP(ARRAY< INT64 >[1, 2], ARRAY< STRING >["s", "t"], ARRAY< BOOL >[true], (a_2, a_3, a_4) -> 1,
     mode  => CAST("STRICT" AS ARRAY_ZIP_MODE)) AS a_1;
@@ -80,7 +136,14 @@ SELECT
 # Three-array lambda signature lambda name is not provided.
 SELECT ARRAY_ZIP([1, 2], ['s', 't'], [TRUE], (e0, e1, e2) -> 1, mode => 'PAD')
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  ARRAY_ZIP(ARRAY< INT64 >[1, 2], ARRAY< STRING >["s", "t"], ARRAY< BOOL >[true], (a_2, a_3, a_4) -> 1,
+    mode  => CAST("PAD" AS ARRAY_ZIP_MODE)) AS a_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 SELECT
   ARRAY_ZIP(ARRAY< INT64 >[1, 2], ARRAY< STRING >["s", "t"], ARRAY< BOOL >[true], (a_2, a_3, a_4) -> 1,
     mode  => CAST("PAD" AS ARRAY_ZIP_MODE)) AS a_1;
@@ -89,7 +152,14 @@ SELECT
 # Four-array no arrays have argument alias
 SELECT ARRAY_ZIP([1, 2], ['s', 't'], [TRUE], [b''], mode => 'TRUNCATE')
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  ARRAY_ZIP(ARRAY< INT64 >[1, 2], ARRAY< STRING >["s", "t"], ARRAY< BOOL >[true], ARRAY< BYTES >[b""],
+    mode  => CAST("TRUNCATE" AS ARRAY_ZIP_MODE)) AS a_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 SELECT
   ARRAY_ZIP(ARRAY< INT64 >[1, 2], ARRAY< STRING >["s", "t"], ARRAY< BOOL >[true], ARRAY< BYTES >[b""],
     mode  => CAST("TRUNCATE" AS ARRAY_ZIP_MODE)) AS a_1;
@@ -98,7 +168,14 @@ SELECT
 # Four-array some arrays have aliases
 SELECT ARRAY_ZIP([1, 2], ['s', 't'] AS alias, [TRUE], [b''], mode => 'STRICT')
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  ARRAY_ZIP(ARRAY< INT64 >[1, 2], ARRAY< STRING >["s", "t"] AS alias, ARRAY< BOOL >[true], ARRAY< BYTES >
+    [b""], mode  => CAST("STRICT" AS ARRAY_ZIP_MODE)) AS a_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 SELECT
   ARRAY_ZIP(ARRAY< INT64 >[1, 2], ARRAY< STRING >["s", "t"] AS alias, ARRAY< BOOL >[true], ARRAY< BYTES >
     [b""], mode  => CAST("STRICT" AS ARRAY_ZIP_MODE)) AS a_1;
@@ -107,7 +184,14 @@ SELECT
 # Four-array all arrays have aliases
 SELECT ARRAY_ZIP([1, 2] AS alias_0, ['s', 't'] AS alias_1, [TRUE] AS alias_2, [b''] AS alias_3)
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  ARRAY_ZIP(ARRAY< INT64 >[1, 2] AS alias_0, ARRAY< STRING >["s", "t"] AS alias_1, ARRAY< BOOL >[true] AS alias_2,
+    ARRAY< BYTES >[b""] AS alias_3, mode  => CAST("STRICT" AS ARRAY_ZIP_MODE)) AS a_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 SELECT
   ARRAY_ZIP(ARRAY< INT64 >[1, 2] AS alias_0, ARRAY< STRING >["s", "t"] AS alias_1, ARRAY< BOOL >[true] AS alias_2,
     ARRAY< BYTES >[b""] AS alias_3, mode  => CAST("STRICT" AS ARRAY_ZIP_MODE)) AS a_1;
@@ -116,7 +200,14 @@ SELECT
 # Four-array lambda signature, lambda argument name is provided and named argument order is swapped
 SELECT ARRAY_ZIP([1, 2], ['s', 't'], [TRUE], [b''], transformation => (e0, e1, e2, e3) -> 1, mode => 'PAD')
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  ARRAY_ZIP(ARRAY< INT64 >[1, 2], ARRAY< STRING >["s", "t"], ARRAY< BOOL >[true], ARRAY< BYTES >[b""],
+    (a_2, a_3, a_4, a_5) -> 1, mode  => CAST("PAD" AS ARRAY_ZIP_MODE)) AS a_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 SELECT
   ARRAY_ZIP(ARRAY< INT64 >[1, 2], ARRAY< STRING >["s", "t"], ARRAY< BOOL >[true], ARRAY< BYTES >[b""],
     (a_2, a_3, a_4, a_5) -> 1, mode  => CAST("PAD" AS ARRAY_ZIP_MODE)) AS a_1;
@@ -125,7 +216,14 @@ SELECT
 # Four-array lambda signature lambda name is not provided.
 SELECT ARRAY_ZIP([1, 2], ['s', 't'], [TRUE], [b''], (e0, e1, e2, e3) -> 1, mode => 'PAD')
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  ARRAY_ZIP(ARRAY< INT64 >[1, 2], ARRAY< STRING >["s", "t"], ARRAY< BOOL >[true], ARRAY< BYTES >[b""],
+    (a_2, a_3, a_4, a_5) -> 1, mode  => CAST("PAD" AS ARRAY_ZIP_MODE)) AS a_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 SELECT
   ARRAY_ZIP(ARRAY< INT64 >[1, 2], ARRAY< STRING >["s", "t"], ARRAY< BOOL >[true], ARRAY< BYTES >[b""],
     (a_2, a_3, a_4, a_5) -> 1, mode  => CAST("PAD" AS ARRAY_ZIP_MODE)) AS a_1;

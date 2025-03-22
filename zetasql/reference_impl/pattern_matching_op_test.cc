@@ -18,12 +18,14 @@
 
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <utility>
 #include <vector>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/match_recognize/test_pattern_resolver.h"
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/functions/match_recognize/compiled_pattern.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
@@ -57,10 +59,6 @@ using zetasql::values::String;
 namespace zetasql {
 namespace {
 
-// For readability.
-std::vector<const TupleSchema*> EmptyParamsSchemas() { return {}; }
-std::vector<const TupleData*> EmptyParams() { return {}; }
-
 EvaluationOptions GetScramblingEvaluationOptions() {
   EvaluationOptions options;
   options.scramble_undefined_orderings = true;
@@ -93,9 +91,20 @@ class PatternMatchingOpTest : public ::testing::Test {
     partition_keys.emplace_back(
         std::make_unique<KeyArg>(a, std::move(deref_a), KeyArg::kAscending));
 
+    std::vector<std::unique_ptr<KeyArg>> order_keys;
+    order_keys.emplace_back(
+        std::make_unique<KeyArg>(b, std::move(deref_b), KeyArg::kAscending));
+
     functions::match_recognize::TestPatternResolver pattern_resolver;
-    ZETASQL_ASSIGN_OR_RETURN(auto resolved_pattern,
-                     pattern_resolver.ResolvePattern("p q"));
+
+    // Intentionally choosing a pattern with a query parameter so we can test
+    // code paths in PatternMatchingOp that plumb the param value to the
+    // CompiledPattern library.
+    ZETASQL_ASSIGN_OR_RETURN(
+        auto resolved_pattern,
+        pattern_resolver.ResolvePattern(
+            "p q{@n}",
+            {.parameters = QueryParametersMap{{"n", types::Int64Type()}}}));
     ZETASQL_ASSIGN_OR_RETURN(
         auto pattern,
         functions::match_recognize::CompiledPattern::Create(
@@ -118,15 +127,41 @@ class PatternMatchingOpTest : public ::testing::Test {
     predicates.emplace_back(std::move(c_is_null));
     predicates.emplace_back(std::move(always_true));
 
+    std::vector<std::string> param_keys = {"n"};
+    std::vector<std::unique_ptr<ValueExpr>> param_values;
+    ZETASQL_ASSIGN_OR_RETURN(auto deref_n,
+                     DerefExpr::Create(VariableId("n"), types::Int64Type()));
+    std::vector<std::unique_ptr<ValueExpr>> n_arg;
+    n_arg.push_back(std::move(deref_n));
+
     return PatternMatchingOp::Create(
-        std::move(partition_keys),
+        std::move(partition_keys), std::move(order_keys),
         /*match_result_variables=*/
         {match_id, row_number, assigned_label, is_sentinel},
         /*pattern_variable_names=*/{"p", "q"}, std::move(predicates),
-        std::move(pattern), std::move(input_op));
+        std::move(pattern), param_keys,
+        /*query_parameter_values=*/std::move(n_arg), std::move(input_op));
   }
 
+  void SetUp() override {
+    params_variables_ = std::make_unique<std::vector<VariableId>>();
+    params_variables_->push_back(VariableId("n"));
+    params_schema_ = std::make_unique<TupleSchema>(*params_variables_);
+  }
+
+  // For readability.
+  std::vector<const TupleSchema*> ParamsSchemas() {
+    return {params_schema_.get()};
+  }
+  std::vector<const TupleData*> ParamsData() { return {&params_data_[0]}; }
+
   functions::match_recognize::TestPatternResolver pattern_resolver_;
+
+  std::unique_ptr<std::vector<VariableId>> params_variables_;
+  std::unique_ptr<TupleSchema> params_schema_;
+  const std::vector<TupleData> params_data_ =
+      CreateTestTupleDatas({{Int64(1)}});
+
   const std::vector<VariableId> input_variables_ = {
       VariableId("a"), VariableId("b"), VariableId("c")};
   const std::vector<TupleData> input_tuples_ =
@@ -144,7 +179,7 @@ TEST_F(PatternMatchingOpTest, CorrectlyReturnsMatches) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<PatternMatchingOp> pattern_matching_op,
                        CreatePatternMatchingOp());
 
-  ZETASQL_ASSERT_OK(pattern_matching_op->SetSchemasForEvaluation(EmptyParamsSchemas()));
+  ZETASQL_ASSERT_OK(pattern_matching_op->SetSchemasForEvaluation(ParamsSchemas()));
 
   std::unique_ptr<TupleSchema> output_schema =
       pattern_matching_op->CreateOutputSchema();
@@ -159,7 +194,7 @@ TEST_F(PatternMatchingOpTest, CorrectlyReturnsMatches) {
   // Create an iterator and test it.
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<TupleIterator> iter,
-      pattern_matching_op->CreateIterator(EmptyParams(),
+      pattern_matching_op->CreateIterator(ParamsData(),
                                           /*num_extra_slots=*/1, &context));
   EXPECT_EQ(iter->DebugString(),
             "PatternMatchingTupleIterator(TestTupleIterator)");
@@ -167,25 +202,24 @@ TEST_F(PatternMatchingOpTest, CorrectlyReturnsMatches) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(std::vector<TupleData> data,
                        ReadFromTupleIterator(iter.get()));
 
-  Value invalid = Value::Invalid();
   const std::vector<TupleData> expected_tuples = CreateTestTupleDatas({
       // 1st match is from the 1st partition, with a sentinel row.
-      {Int64(0), NullInt64(), NullInt64(), Int64(1), Int64(1), String("p"),
+      {Int64(0), NullInt64(), NullInt64(), Int64(1), Int64(2), String("p"),
        Bool(false)},
-      {Int64(0), Int64(1), Int64(1), Int64(1), Int64(2), String("q"),
+      {Int64(0), Int64(1), Int64(1), Int64(1), Int64(3), String("q"),
        Bool(false)},
       // Sentinel row. Partition keys must be set, as well as `match_id` and
       // `is_sentinel`.
-      {Int64(0), NullInt64(), Int64(1), Int64(1), invalid, NullString(),
+      {Int64(0), NullInt64(), Int64(1), Int64(1), NullInt64(), NullString(),
        Bool(true)},
       // 2nd match is from the 2nd partition, with a sentinel row
-      {Int64(1), Int64(1), NullInt64(), Int64(1), Int64(0), String("p"),
+      {Int64(1), Int64(1), NullInt64(), Int64(1), Int64(1), String("p"),
        Bool(false)},
-      {Int64(1), Int64(2), Int64(1), Int64(1), Int64(1), String("q"),
+      {Int64(1), Int64(2), Int64(1), Int64(1), Int64(2), String("q"),
        Bool(false)},
       // Sentinel row. Partition keys must be set, as well as `match_id` and
       // `is_sentinel`.
-      {Int64(1), Int64(1), NullInt64(), Int64(1), invalid, NullString(),
+      {Int64(1), Int64(1), NullInt64(), Int64(1), NullInt64(), NullString(),
        Bool(true)},
   });
 
@@ -200,7 +234,7 @@ TEST_F(PatternMatchingOpTest, CorrectlyReturnsMatches) {
   // Check that scrambling works
   EvaluationContext scramble_context(GetScramblingEvaluationOptions());
   ZETASQL_ASSERT_OK_AND_ASSIGN(iter, pattern_matching_op->CreateIterator(
-                                 EmptyParams(),
+                                 ParamsData(),
                                  /*num_extra_slots=*/1, &scramble_context));
   EXPECT_EQ(iter->DebugString(),
             "ReorderingTupleIterator(PatternMatchingTupleIterator("
@@ -215,7 +249,7 @@ TEST_F(PatternMatchingOpTest, Cancellation) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<PatternMatchingOp> pattern_matching_op,
                        CreatePatternMatchingOp());
 
-  ZETASQL_ASSERT_OK(pattern_matching_op->SetSchemasForEvaluation(EmptyParamsSchemas()));
+  ZETASQL_ASSERT_OK(pattern_matching_op->SetSchemasForEvaluation(ParamsSchemas()));
 
   std::unique_ptr<TupleSchema> output_schema =
       pattern_matching_op->CreateOutputSchema();
@@ -230,7 +264,7 @@ TEST_F(PatternMatchingOpTest, Cancellation) {
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<TupleIterator> iter,
-      pattern_matching_op->CreateIterator(EmptyParams(),
+      pattern_matching_op->CreateIterator(ParamsData(),
                                           /*num_extra_slots=*/1, &context));
 
   ZETASQL_ASSERT_OK(context.CancelStatement());
@@ -244,13 +278,13 @@ TEST_F(PatternMatchingOpTest, ReturnsErrorIfMemorIsTooLow) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<PatternMatchingOp> pattern_matching_op,
                        CreatePatternMatchingOp());
 
-  ZETASQL_ASSERT_OK(pattern_matching_op->SetSchemasForEvaluation(EmptyParamsSchemas()));
+  ZETASQL_ASSERT_OK(pattern_matching_op->SetSchemasForEvaluation(ParamsSchemas()));
 
   EvaluationContext memory_context(GetIntermediateMemoryEvaluationOptions(
       /*total_bytes=*/1000));
   ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<TupleIterator> memory_iter,
                        pattern_matching_op->CreateIterator(
-                           EmptyParams(),
+                           ParamsData(),
                            /*num_extra_slots=*/1, &memory_context));
   EXPECT_THAT(ReadFromTupleIterator(memory_iter.get()),
               StatusIs(absl::StatusCode::kResourceExhausted,

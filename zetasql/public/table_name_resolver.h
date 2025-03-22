@@ -19,6 +19,7 @@
 
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/public/analyzer.h"
+#include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/type.h"
 #include "absl/status/status.h"

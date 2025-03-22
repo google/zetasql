@@ -467,7 +467,7 @@ WHERE S.int128 = 1
 
 # Delete from a value table using only a pseudo-column in the WHERE.
 # This fails unparsing because of http://b/37291554.
-[no_run_unparser]
+[no_run_sqlbuilder]
 DELETE TestExtraValueTable
 WHERE rowid = b'123'
 --

@@ -44,6 +44,10 @@ struct MacroInfo {
   // Location of the start of the macro body.
   ParseLocationRange body_location;
 
+  // The offset of the macro definition in its file. This is important to
+  // to decide whether tokens were originally adjacent or not. See b/389149112.
+  int definition_start_offset = 0;
+
   // Optional line and column where the macro definition starts. Useful when
   // the full original input source is unavailable, and `source_text` contains
   // only the definition source, to report accurate locations.

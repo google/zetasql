@@ -29,7 +29,6 @@
 #include "absl/strings/str_join.h"
 #include "absl/strings/substitute.h"
 #include "zetasql/base/status.h"
-#include "zetasql/base/status_payload.h"
 
 namespace zetasql {
 

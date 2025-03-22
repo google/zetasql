@@ -147,6 +147,9 @@ static std::string AnonFunctionBadArgumentErrorPrefix(
 
 static const FunctionOptions AddDefaultFunctionOptions(
     absl::string_view name, FunctionOptions options) {
+  // Anon functions do not support multi-level aggregation (i.e. no GROUP BY
+  // modifiers).
+  options.set_supports_group_by_modifier(false);
   if (!options.supports_clamped_between_modifier) {
     // Only apply the anon_* callbacks to functions that support CLAMPED BETWEEN
     return options;

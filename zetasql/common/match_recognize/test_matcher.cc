@@ -32,6 +32,7 @@
 #include "zetasql/public/types/type.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "absl/container/flat_hash_map.h"
+#include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
@@ -48,6 +49,8 @@ static std::vector<bool> GetPatternVarBooleans(
   std::vector<bool> result;
   result.resize(num_pattern_vars);
   for (int id : pattern_vars_for_row) {
+    ABSL_CHECK_GE(id, 0);
+    ABSL_CHECK_LT(id, num_pattern_vars);
     result[id] = true;
   }
   return result;
@@ -90,8 +93,6 @@ static MatchResultProto ToProto(const MatchResult& match_result,
     *match_result_proto.add_match() =
         GetMatchTestOutput(new_match, scan, options);
   }
-  match_result_proto.set_total_rows_fully_processed(
-      match_result.total_rows_fully_processed);
   return match_result_proto;
 }
 
@@ -221,9 +222,7 @@ absl::StatusOr<MatchPartitionResultProto> Match(
     // Collapse consecutive rows with no results into one proto entry.
     if (last_match_result.has_value() &&
         last_match_result->new_matches.empty() &&
-        match_result.new_matches.empty() &&
-        last_match_result->total_rows_fully_processed ==
-            match_result.total_rows_fully_processed) {
+        match_result.new_matches.empty()) {
       MatchResultProto& last_match_result_proto =
           *partition_result.mutable_add_row(partition_result.add_row_size() -
                                             1);

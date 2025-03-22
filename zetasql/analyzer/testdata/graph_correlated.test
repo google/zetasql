@@ -1,6 +1,6 @@
 [default language_features=V_1_4_SQL_GRAPH]
 [default no_test_extract_table_names]
-[default show_unparsed]
+[default show_sqlbuilder_output]
 
 # Deep nested subquery with multiple possible table chains or no possible table
 # chain.
@@ -41,7 +41,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=$graph_table.[sub_query#15, n_has_name#17, same_n_n#19, same_n_n_2#20]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
         | +-GraphScan
         |   +-column_list=[$element_table.n#1]
@@ -91,7 +91,7 @@ QueryStmt
           |       |   |         |   +-input_scan=
           |       |   |         |     +-GraphTableScan
           |       |   |         |       +-column_list=$graph_table.[key#5, n_has_name#6, m_has_name#8, same_m_m#10, same_m_m_2#11, same_n_n#12]
-          |       |   |         |       +-property_graph=sample_catalog.aml
+          |       |   |         |       +-property_graph=aml
           |       |   |         |       +-input_scan=
           |       |   |         |       | +-GraphScan
           |       |   |         |       |   +-column_list=[$element_table.m#4]
@@ -198,7 +198,8 @@ QueryStmt
               +-ColumnRef(type=GRAPH_NODE(aml)<>, column=$element_table.n#1)
               +-ColumnRef(type=GRAPH_NODE(aml)<>, column=$element_table.n#1)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   1 AS a_25
 FROM
@@ -272,6 +273,76 @@ FROM
         )
       ) AS aml_1
   ) AS graphtablescan_24;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a_2
+      IS ! %)
+    COLUMNS(
+      (
+        FROM
+          KeyValue
+        |> SELECT
+             KeyValue.Key AS a_4
+        |> AS keyvalue_5
+        |> SELECT
+             (
+               FROM
+                 GRAPH_TABLE(
+                   aml
+                   MATCH
+                     (a_8
+                     IS ! %)
+                   COLUMNS(
+                     keyvalue_5.a_4 AS a_9,
+                     PROPERTY_EXISTS(a_2, name) AS a_10,
+                     (
+                       SELECT
+                         PROPERTY_EXISTS(a_8, name) AS a_12
+                     ) AS a_11,
+                     (
+                       SELECT
+                         SAME(a_8, a_8) AS a_14
+                     ) AS a_13,
+                     SAME(a_8, a_8) AS a_15,
+                     SAME(a_2, a_2) AS a_16
+                   )
+                 ) AS aml_7
+               |> SELECT
+                    aml_7.a_9 AS a_9,
+                    aml_7.a_10 AS a_10,
+                    aml_7.a_11 AS a_11,
+                    aml_7.a_13 AS a_13,
+                    aml_7.a_15 AS a_15,
+                    aml_7.a_16 AS a_16
+               |> AS graphtablescan_17
+               |> SELECT
+                    1 AS a_18
+               |> LIMIT 1) AS a_6
+        |> LIMIT 1) AS a_3,
+      (
+        SELECT
+          PROPERTY_EXISTS(a_2, name) AS a_20
+      ) AS a_19,
+      (
+        SELECT
+          SAME(a_2, a_2) AS a_22
+      ) AS a_21,
+      SAME(a_2, a_2) AS a_23
+    )
+  ) AS aml_1
+|> SELECT
+     aml_1.a_3 AS a_3,
+     aml_1.a_19 AS a_19,
+     aml_1.a_21 AS a_21,
+     aml_1.a_23 AS a_23
+|> AS graphtablescan_24
+|> SELECT
+     1 AS a_25;
 --
 # Nested subquery: outer layer has no matching table chain but inner layer has
 # multiple matching table chains.
@@ -288,7 +359,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=$graph_table.[sub_query#15, n_has_name#17, same_n_n#19, same_n_n_2#20]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
         | +-GraphScan
         |   +-column_list=[$element_table.n#1]
@@ -338,7 +409,7 @@ QueryStmt
           |       |   |         |   +-input_scan=
           |       |   |         |     +-GraphTableScan
           |       |   |         |       +-column_list=$graph_table.[key#5, n_has_name#6, m_has_name#8, same_m_m#10, same_m_m_2#11, same_n_n#12]
-          |       |   |         |       +-property_graph=sample_catalog.aml
+          |       |   |         |       +-property_graph=aml
           |       |   |         |       +-input_scan=
           |       |   |         |       | +-GraphScan
           |       |   |         |       |   +-column_list=[$element_table.m#4]
@@ -350,7 +421,7 @@ QueryStmt
           |       |   |         |       |       |   +-column_list=[$element_table.m#4]
           |       |   |         |       |       |   +-label_expr=
           |       |   |         |       |       |   | +-GraphWildCardLabel
-          |       |   |         |       |       |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+          |       |   |         |       |       |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
           |       |   |         |       |       +-head=$element_table.m#4
           |       |   |         |       |       +-tail=$element_table.m#4
           |       |   |         |       +-shape_expr_list=
@@ -442,7 +513,8 @@ QueryStmt
               +-ColumnRef(type=GRAPH_NODE(aml)<>, column=$element_table.n#1)
               +-ColumnRef(type=GRAPH_NODE(aml)<>, column=$element_table.n#1)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   1 AS a_25
 FROM
@@ -516,6 +588,76 @@ FROM
         )
       ) AS aml_1
   ) AS graphtablescan_24;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a_2
+      IS ! %)
+    COLUMNS(
+      (
+        FROM
+          KeyValue
+        |> SELECT
+             KeyValue.Key AS a_4
+        |> AS keyvalue_5
+        |> SELECT
+             (
+               FROM
+                 GRAPH_TABLE(
+                   aml
+                   MATCH
+                     (a_8
+                     IS %)
+                   COLUMNS(
+                     keyvalue_5.a_4 AS a_9,
+                     PROPERTY_EXISTS(a_2, name) AS a_10,
+                     (
+                       SELECT
+                         PROPERTY_EXISTS(a_8, name) AS a_12
+                     ) AS a_11,
+                     (
+                       SELECT
+                         SAME(a_8, a_8) AS a_14
+                     ) AS a_13,
+                     SAME(a_8, a_8) AS a_15,
+                     SAME(a_2, a_2) AS a_16
+                   )
+                 ) AS aml_7
+               |> SELECT
+                    aml_7.a_9 AS a_9,
+                    aml_7.a_10 AS a_10,
+                    aml_7.a_11 AS a_11,
+                    aml_7.a_13 AS a_13,
+                    aml_7.a_15 AS a_15,
+                    aml_7.a_16 AS a_16
+               |> AS graphtablescan_17
+               |> SELECT
+                    1 AS a_18
+               |> LIMIT 1) AS a_6
+        |> LIMIT 1) AS a_3,
+      (
+        SELECT
+          PROPERTY_EXISTS(a_2, name) AS a_20
+      ) AS a_19,
+      (
+        SELECT
+          SAME(a_2, a_2) AS a_22
+      ) AS a_21,
+      SAME(a_2, a_2) AS a_23
+    )
+  ) AS aml_1
+|> SELECT
+     aml_1.a_3 AS a_3,
+     aml_1.a_19 AS a_19,
+     aml_1.a_21 AS a_21,
+     aml_1.a_23 AS a_23
+|> AS graphtablescan_24
+|> SELECT
+     1 AS a_25;
 --
 # Nested subquery: outer layer has multiple matching table chains but inner
 # layer has no matching table chain.
@@ -532,7 +674,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=$graph_table.[sub_query#15, n_has_name#17, same_n_n#19, same_n_n_2#20]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
         | +-GraphScan
         |   +-column_list=[$element_table.n#1]
@@ -544,7 +686,7 @@ QueryStmt
         |       |   +-column_list=[$element_table.n#1]
         |       |   +-label_expr=
         |       |   | +-GraphWildCardLabel
-        |       |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+        |       |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
         |       +-head=$element_table.n#1
         |       +-tail=$element_table.n#1
         +-shape_expr_list=
@@ -579,7 +721,7 @@ QueryStmt
           |       |   |         |   +-input_scan=
           |       |   |         |     +-GraphTableScan
           |       |   |         |       +-column_list=$graph_table.[key#5, n_has_name#6, m_has_name#8, same_m_m#10, same_m_m_2#11, same_n_n#12]
-          |       |   |         |       +-property_graph=sample_catalog.aml
+          |       |   |         |       +-property_graph=aml
           |       |   |         |       +-input_scan=
           |       |   |         |       | +-GraphScan
           |       |   |         |       |   +-column_list=[$element_table.m#4]
@@ -686,7 +828,8 @@ QueryStmt
               +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.n#1)
               +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.n#1)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   1 AS a_25
 FROM
@@ -760,6 +903,76 @@ FROM
         )
       ) AS aml_1
   ) AS graphtablescan_24;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a_2
+      IS %)
+    COLUMNS(
+      (
+        FROM
+          KeyValue
+        |> SELECT
+             KeyValue.Key AS a_4
+        |> AS keyvalue_5
+        |> SELECT
+             (
+               FROM
+                 GRAPH_TABLE(
+                   aml
+                   MATCH
+                     (a_8
+                     IS ! %)
+                   COLUMNS(
+                     keyvalue_5.a_4 AS a_9,
+                     PROPERTY_EXISTS(a_2, name) AS a_10,
+                     (
+                       SELECT
+                         PROPERTY_EXISTS(a_8, name) AS a_12
+                     ) AS a_11,
+                     (
+                       SELECT
+                         SAME(a_8, a_8) AS a_14
+                     ) AS a_13,
+                     SAME(a_8, a_8) AS a_15,
+                     SAME(a_2, a_2) AS a_16
+                   )
+                 ) AS aml_7
+               |> SELECT
+                    aml_7.a_9 AS a_9,
+                    aml_7.a_10 AS a_10,
+                    aml_7.a_11 AS a_11,
+                    aml_7.a_13 AS a_13,
+                    aml_7.a_15 AS a_15,
+                    aml_7.a_16 AS a_16
+               |> AS graphtablescan_17
+               |> SELECT
+                    1 AS a_18
+               |> LIMIT 1) AS a_6
+        |> LIMIT 1) AS a_3,
+      (
+        SELECT
+          PROPERTY_EXISTS(a_2, name) AS a_20
+      ) AS a_19,
+      (
+        SELECT
+          SAME(a_2, a_2) AS a_22
+      ) AS a_21,
+      SAME(a_2, a_2) AS a_23
+    )
+  ) AS aml_1
+|> SELECT
+     aml_1.a_3 AS a_3,
+     aml_1.a_19 AS a_19,
+     aml_1.a_21 AS a_21,
+     aml_1.a_23 AS a_23
+|> AS graphtablescan_24
+|> SELECT
+     1 AS a_25;
 --
 # Nested subquery: both outer layer and inner layer has multiple matching table
 # chains.
@@ -776,7 +989,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=$graph_table.[sub_query#15, n_has_name#17, same_n_n#19, same_n_n_2#20]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
         | +-GraphScan
         |   +-column_list=[$element_table.n#1]
@@ -788,7 +1001,7 @@ QueryStmt
         |       |   +-column_list=[$element_table.n#1]
         |       |   +-label_expr=
         |       |   | +-GraphWildCardLabel
-        |       |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+        |       |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
         |       +-head=$element_table.n#1
         |       +-tail=$element_table.n#1
         +-shape_expr_list=
@@ -823,7 +1036,7 @@ QueryStmt
           |       |   |         |   +-input_scan=
           |       |   |         |     +-GraphTableScan
           |       |   |         |       +-column_list=$graph_table.[key#5, n_has_name#6, m_has_name#8, same_m_m#10, same_m_m_2#11, same_n_n#12]
-          |       |   |         |       +-property_graph=sample_catalog.aml
+          |       |   |         |       +-property_graph=aml
           |       |   |         |       +-input_scan=
           |       |   |         |       | +-GraphScan
           |       |   |         |       |   +-column_list=[$element_table.m#4]
@@ -835,7 +1048,7 @@ QueryStmt
           |       |   |         |       |       |   +-column_list=[$element_table.m#4]
           |       |   |         |       |       |   +-label_expr=
           |       |   |         |       |       |   | +-GraphWildCardLabel
-          |       |   |         |       |       |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+          |       |   |         |       |       |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
           |       |   |         |       |       +-head=$element_table.m#4
           |       |   |         |       |       +-tail=$element_table.m#4
           |       |   |         |       +-shape_expr_list=
@@ -927,7 +1140,8 @@ QueryStmt
               +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.n#1)
               +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.n#1)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   1 AS a_25
 FROM
@@ -1001,3 +1215,73 @@ FROM
         )
       ) AS aml_1
   ) AS graphtablescan_24;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a_2
+      IS %)
+    COLUMNS(
+      (
+        FROM
+          KeyValue
+        |> SELECT
+             KeyValue.Key AS a_4
+        |> AS keyvalue_5
+        |> SELECT
+             (
+               FROM
+                 GRAPH_TABLE(
+                   aml
+                   MATCH
+                     (a_8
+                     IS %)
+                   COLUMNS(
+                     keyvalue_5.a_4 AS a_9,
+                     PROPERTY_EXISTS(a_2, name) AS a_10,
+                     (
+                       SELECT
+                         PROPERTY_EXISTS(a_8, name) AS a_12
+                     ) AS a_11,
+                     (
+                       SELECT
+                         SAME(a_8, a_8) AS a_14
+                     ) AS a_13,
+                     SAME(a_8, a_8) AS a_15,
+                     SAME(a_2, a_2) AS a_16
+                   )
+                 ) AS aml_7
+               |> SELECT
+                    aml_7.a_9 AS a_9,
+                    aml_7.a_10 AS a_10,
+                    aml_7.a_11 AS a_11,
+                    aml_7.a_13 AS a_13,
+                    aml_7.a_15 AS a_15,
+                    aml_7.a_16 AS a_16
+               |> AS graphtablescan_17
+               |> SELECT
+                    1 AS a_18
+               |> LIMIT 1) AS a_6
+        |> LIMIT 1) AS a_3,
+      (
+        SELECT
+          PROPERTY_EXISTS(a_2, name) AS a_20
+      ) AS a_19,
+      (
+        SELECT
+          SAME(a_2, a_2) AS a_22
+      ) AS a_21,
+      SAME(a_2, a_2) AS a_23
+    )
+  ) AS aml_1
+|> SELECT
+     aml_1.a_3 AS a_3,
+     aml_1.a_19 AS a_19,
+     aml_1.a_21 AS a_21,
+     aml_1.a_23 AS a_23
+|> AS graphtablescan_24
+|> SELECT
+     1 AS a_25;

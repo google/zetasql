@@ -205,7 +205,7 @@ SHOW TABLES FROM my-project.dataset.table;
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `my-project.dataset.table` [at 1:18]
+ERROR: Syntax error: Table name contains '-' character. The dashed identifier part of the table name needs to be quoted: `my-project` [at 1:18]
 SHOW TABLES FROM my-project.dataset.table;
                  ^
 --

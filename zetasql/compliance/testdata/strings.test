@@ -490,6 +490,20 @@ SELECT UPPER("aBcDe")
 ARRAY<STRUCT<STRING>>[{"ABCDE"}]
 ==
 
+[required_features=V_1_4_ALIASES_FOR_STRING_AND_DATE_FUNCTIONS]
+[name=strings_function_lcase]
+SELECT lcase("AbCdE")
+--
+ARRAY<STRUCT<STRING>>[{"abcde"}]
+==
+
+[required_features=V_1_4_ALIASES_FOR_STRING_AND_DATE_FUNCTIONS]
+[name=strings_function_ucase]
+SELECT ucase("aBcDe")
+--
+ARRAY<STRUCT<STRING>>[{"ABCDE"}]
+==
+
 [required_features=V_1_3_ADDITIONAL_STRING_FUNCTIONS]
 [name=strings_function_initcap]
 SELECT INITCAP("abcd e", " c")

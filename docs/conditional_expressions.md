@@ -102,7 +102,7 @@ tuning.
 ### `CASE expr` 
 <a id="case_expr"></a>
 
-```sql
+```zetasql
 CASE expr
   WHEN expr_to_match THEN result
   [ ... ]
@@ -140,7 +140,7 @@ This expression supports specifying [collation][collation].
 
 **Example**
 
-```sql
+```zetasql
 WITH Numbers AS (
   SELECT 90 as A, 2 as B UNION ALL
   SELECT 50, 8 UNION ALL
@@ -177,7 +177,7 @@ FROM Numbers
 ### `CASE` 
 <a id="case"></a>
 
-```sql
+```zetasql
 CASE
   WHEN condition THEN result
   [ ... ]
@@ -211,7 +211,7 @@ This expression supports specifying [collation][collation].
 
 **Example**
 
-```sql
+```zetasql
 WITH Numbers AS (
   SELECT 90 as A, 2 as B UNION ALL
   SELECT 50, 6 UNION ALL
@@ -244,7 +244,7 @@ FROM Numbers
 ### `COALESCE` 
 <a id="coalesce"></a>
 
-```sql
+```zetasql
 COALESCE(expr[, ...])
 ```
 
@@ -262,7 +262,7 @@ All input expressions must be implicitly coercible to a common
 
 **Examples**
 
-```sql
+```zetasql
 SELECT COALESCE('A', 'B', 'C') as result
 
 /*--------*
@@ -272,7 +272,7 @@ SELECT COALESCE('A', 'B', 'C') as result
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT COALESCE(NULL, 'B', 'C') as result
 
 /*--------*
@@ -287,7 +287,7 @@ SELECT COALESCE(NULL, 'B', 'C') as result
 ### `IF` 
 <a id="if"></a>
 
-```sql
+```zetasql
 IF(expr, true_result, else_result)
 ```
 
@@ -307,7 +307,7 @@ must be coercible to a common [supertype][cond-exp-supertype].
 
 **Examples**
 
-```sql
+```zetasql
 SELECT
   10 AS A,
   20 AS B,
@@ -320,7 +320,7 @@ SELECT
  *------------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   30 AS A,
   20 AS B,
@@ -338,7 +338,7 @@ SELECT
 ### `IFNULL` 
 <a id="ifnull"></a>
 
-```sql
+```zetasql
 IFNULL(expr, null_result)
 ```
 
@@ -357,7 +357,7 @@ a common [supertype][cond-exp-supertype]. Synonym for
 
 **Examples**
 
-```sql
+```zetasql
 SELECT IFNULL(NULL, 0) as result
 
 /*--------*
@@ -367,7 +367,7 @@ SELECT IFNULL(NULL, 0) as result
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT IFNULL(10, 0) as result
 
 /*--------*
@@ -382,7 +382,7 @@ SELECT IFNULL(10, 0) as result
 ### `NULLIF` 
 <a id="nullif"></a>
 
-```sql
+```zetasql
 NULLIF(expr, expr_to_match)
 ```
 
@@ -404,7 +404,7 @@ This expression supports specifying [collation][collation].
 
 **Example**
 
-```sql
+```zetasql
 SELECT NULLIF(0, 0) as result
 
 /*--------*
@@ -414,7 +414,7 @@ SELECT NULLIF(0, 0) as result
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT NULLIF(10, 0) as result
 
 /*--------*
@@ -429,7 +429,7 @@ SELECT NULLIF(10, 0) as result
 ### `NULLIFZERO` 
 <a id="nullifzero"></a>
 
-```sql
+```zetasql
 NULLIFZERO(expr)
 ```
 
@@ -444,7 +444,7 @@ Type of `expr`.
 
 **Example**
 
-```sql
+```zetasql
 SELECT NULLIFZERO(0) AS result
 
 /*--------*
@@ -457,7 +457,7 @@ SELECT NULLIFZERO(0) AS result
 ### `ZEROIFNULL` 
 <a id="zeroifnull"></a>
 
-```sql
+```zetasql
 ZEROIFNULL(expr)
 ```
 
@@ -472,7 +472,7 @@ Type of `expr`.
 
 **Example**
 
-```sql
+```zetasql
 SELECT ZEROIFNULL(NULL) AS result
 
 /*--------*

@@ -18,6 +18,7 @@
 
 #include <map>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <string_view>
@@ -305,7 +306,8 @@ class ElementTableCommonInternal {
       const Table* input_table, const std::vector<int>& key_cols,
       const absl::flat_hash_set<const GraphElementLabel*>& labels,
       std::vector<std::unique_ptr<const GraphPropertyDefinition>>
-          property_definitions);
+          property_definitions
+  );
 
   std::string Name() const { return name_; }
 
@@ -346,7 +348,8 @@ class ElementTableCommonInternal {
       const Table*& input_table,
       absl::flat_hash_set<const GraphElementLabel*>& labels,
       std::vector<std::unique_ptr<const GraphPropertyDefinition>>&
-          property_definitions);
+          property_definitions
+  );
 
  private:
   const std::string name_;
@@ -366,7 +369,8 @@ ElementTableCommonInternal::ElementTableCommonInternal(
     const Table* input_table, const std::vector<int>& key_cols,
     const absl::flat_hash_set<const GraphElementLabel*>& labels,
     std::vector<std::unique_ptr<const GraphPropertyDefinition>>
-        property_definitions)
+        property_definitions
+    )
     : name_(std::move(name)),
       property_graph_name_path_(property_graph_name_path.begin(),
                                 property_graph_name_path.end()),
@@ -484,7 +488,6 @@ absl::Status SerializeElementTable(
         property_def.second->GetAs<SimpleGraphPropertyDefinition>()->Serialize(
             file_descriptor_set_map, proto->add_property_definitions()));
   }
-
   return absl::OkStatus();
 }
 
@@ -494,10 +497,13 @@ SimpleGraphNodeTable::SimpleGraphNodeTable(
     const Table* input_table, const std::vector<int>& key_cols,
     const absl::flat_hash_set<const GraphElementLabel*>& labels,
     std::vector<std::unique_ptr<const GraphPropertyDefinition>>
-        property_definitions)
+        property_definitions
+    )
     : element_internal_(std::make_unique<ElementTableCommonInternal>(
           std::move(name), property_graph_name_path, input_table, key_cols,
-          labels, std::move(property_definitions))) {}
+          labels,
+          std::move(property_definitions)
+          )) {}
 
 SimpleGraphNodeTable::~SimpleGraphNodeTable() = default;
 
@@ -560,7 +566,8 @@ absl::Status ElementTableCommonInternal::Deserialize(
     const Table*& input_table,
     absl::flat_hash_set<const GraphElementLabel*>& labels,
     std::vector<std::unique_ptr<const GraphPropertyDefinition>>&
-        property_definitions) {
+        property_definitions
+) {
   // for labels in property graph with same name as the labels in
   // element table proto, use these labels instead of creating new ones
   for (const auto& label_name : proto.label_names()) {
@@ -606,12 +613,16 @@ SimpleGraphNodeTable::Deserialize(
 
   ZETASQL_RET_CHECK_OK(ElementTableCommonInternal::Deserialize(
       proto, catalog, type_deserializer, unowned_labels,
-      unowned_property_declarations, input_table, labels, property_defs));
+      unowned_property_declarations, input_table, labels,
+      property_defs
+      ));
 
   return std::make_unique<SimpleGraphNodeTable>(
       proto.name(), ToVector(proto.property_graph_name_path()), input_table,
       std::vector<int>(proto.key_columns().begin(), proto.key_columns().end()),
-      labels, std::move(property_defs));
+      labels,
+      std::move(property_defs)
+  );
 }
 
 SimpleGraphEdgeTable::SimpleGraphEdgeTable(
@@ -622,10 +633,13 @@ SimpleGraphEdgeTable::SimpleGraphEdgeTable(
     std::vector<std::unique_ptr<const GraphPropertyDefinition>>
         property_definitions,
     std::unique_ptr<const GraphNodeTableReference> source_node,
-    std::unique_ptr<const GraphNodeTableReference> destination_node)
+    std::unique_ptr<const GraphNodeTableReference> destination_node
+    )
     : element_internal_(std::make_unique<const ElementTableCommonInternal>(
           std::move(name), property_graph_name_path, input_table, key_cols,
-          labels, std::move(property_definitions))),
+          labels,
+          std::move(property_definitions)
+          )),
       source_node_(std::move(source_node)),
       destination_node_(std::move(destination_node)) {}
 
@@ -715,7 +729,8 @@ SimpleGraphEdgeTable::Deserialize(
   ZETASQL_RET_CHECK(ElementTableCommonInternal::Deserialize(
                 proto, catalog, type_deserializer, unowned_labels,
                 unowned_property_declarations, input_table, labels,
-                property_defs)
+                property_defs
+                )
                 .ok());
 
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const SimpleGraphNodeTableReference> source,
@@ -728,7 +743,9 @@ SimpleGraphEdgeTable::Deserialize(
   return std::make_unique<SimpleGraphEdgeTable>(
       proto.name(), ToVector(proto.property_graph_name_path()), input_table,
       std::vector<int>(proto.key_columns().begin(), proto.key_columns().end()),
-      labels, std::move(property_defs), std::move(source), std::move(dest));
+      labels, std::move(property_defs), std::move(source),
+      std::move(dest)
+  );
 }
 
 std::string SimpleGraphElementLabel::Name() const { return name_; }

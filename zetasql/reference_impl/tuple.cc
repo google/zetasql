@@ -25,14 +25,16 @@
 #include <vector>
 
 #include "zetasql/base/logging.h"
+#include "zetasql/public/proto_util.h"
 #include "zetasql/public/value.h"
-#include "absl/memory/memory.h"
+#include "zetasql/reference_impl/tuple_comparator.h"
+#include "zetasql/reference_impl/variable_id.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/types/span.h"
-#include "zetasql/base/map_util.h"
+#include "zetasql/base/ret_check.h"
 
 namespace zetasql {
 

@@ -1,0 +1,582 @@
+[default reserve_graph_table]
+[default language_features=V_1_4_SQL_GRAPH]
+
+select * from graph_table(
+  my.graph.name
+  MATCH ((a)-[b]->(c))
+  COLUMNS (1 AS one)
+)
+
+--
+QueryStatement [0-88] [select * from...AS one) )]
+  Query [0-88] [select * from...AS one) )]
+    Select [0-88] [select * from...AS one) )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-88] [from graph_table...AS one) )]
+        GraphTableQuery [14-88] [graph_table...AS one) )]
+          PathExpression [29-42] [my.graph.name]
+            Identifier(my) [29-31] [my]
+            Identifier(graph) [32-37] [graph]
+            Identifier(name) [38-42] [name]
+          GqlMatch [45-65] [MATCH ((a)-[b]->(c))]
+            GraphPattern [51-65] [((a)-[b]->(c))]
+              ParenthesizedGraphPathPattern [51-65] [((a)-[b]->(c))]
+                GraphNodePattern [52-55] [(a)]
+                  GraphElementPatternFiller [53-54] [a]
+                    Identifier(a) [53-54] [a]
+                GraphEdgePattern [55-61] [-[b]->]
+                  GraphElementPatternFiller [57-58] [b]
+                    Identifier(b) [57-58] [b]
+                GraphNodePattern [61-64] [(c)]
+                  GraphElementPatternFiller [62-63] [c]
+                    Identifier(c) [62-63] [c]
+          SelectList [77-85] [1 AS one]
+            SelectColumn [77-85] [1 AS one]
+              IntLiteral(1) [77-78] [1]
+              Alias [79-85] [AS one]
+                Identifier(one) [82-85] [one]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    my.graph.name
+    MATCH
+      (
+        (a)
+        -[b]->
+        (c)
+      )
+    COLUMNS(
+      1 AS one
+    )
+  )
+
+==
+
+select * from graph_table(
+  my.graph.name
+  MATCH (a) (-[e]-> -[f]-> WHERE e.id = f.id) -[g]->
+  COLUMNS (a.x, e.y, f.z)
+)
+
+--
+QueryStatement [0-123] [select * from....y, f.z) )]
+  Query [0-123] [select * from....y, f.z) )]
+    Select [0-123] [select * from....y, f.z) )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-123] [from graph_table....y, f.z) )]
+        GraphTableQuery [14-123] [graph_table....y, f.z) )]
+          PathExpression [29-42] [my.graph.name]
+            Identifier(my) [29-31] [my]
+            Identifier(graph) [32-37] [graph]
+            Identifier(name) [38-42] [name]
+          GqlMatch [45-95] [MATCH (a)...id) -[g]->]
+            GraphPattern [51-95] [(a) (-[e]-...id) -[g]->]
+              GraphPathPattern [51-95] [(a) (-[e]-...id) -[g]->]
+                GraphNodePattern [51-54] [(a)]
+                  GraphElementPatternFiller [52-53] [a]
+                    Identifier(a) [52-53] [a]
+                ParenthesizedGraphPathPattern [55-88] [(-[e]-> -[...id = f.id)]
+                  WhereClause [70-87] [WHERE e.id = f.id]
+                    BinaryExpression(=) [76-87] [e.id = f.id]
+                      PathExpression [76-80] [e.id]
+                        Identifier(e) [76-77] [e]
+                        Identifier(id) [78-80] [id]
+                      PathExpression [83-87] [f.id]
+                        Identifier(f) [83-84] [f]
+                        Identifier(id) [85-87] [id]
+                  GraphEdgePattern [56-62] [-[e]->]
+                    GraphElementPatternFiller [58-59] [e]
+                      Identifier(e) [58-59] [e]
+                  GraphEdgePattern [63-69] [-[f]->]
+                    GraphElementPatternFiller [65-66] [f]
+                      Identifier(f) [65-66] [f]
+                GraphEdgePattern [89-95] [-[g]->]
+                  GraphElementPatternFiller [91-92] [g]
+                    Identifier(g) [91-92] [g]
+          SelectList [107-120] [a.x, e.y, f.z]
+            SelectColumn [107-110] [a.x]
+              PathExpression [107-110] [a.x]
+                Identifier(a) [107-108] [a]
+                Identifier(x) [109-110] [x]
+            SelectColumn [112-115] [e.y]
+              PathExpression [112-115] [e.y]
+                Identifier(e) [112-113] [e]
+                Identifier(y) [114-115] [y]
+            SelectColumn [117-120] [f.z]
+              PathExpression [117-120] [f.z]
+                Identifier(f) [117-118] [f]
+                Identifier(z) [119-120] [z]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    my.graph.name
+    MATCH
+      (a)
+      (
+        -[e]->
+        -[f]->
+        WHERE
+          e.id = f.id
+      )
+      -[g]->
+    COLUMNS(
+      a.x,
+      e.y,
+      f.z
+    )
+  )
+
+==
+
+select * from graph_table(
+  my.graph.name
+  MATCH (a) ((-[e]-> -[f]-> WHERE e.id = f.id) () -[g]-> WHERE g.id = e.id) (h), ((()) -> ())
+  COLUMNS (a.x, e.y, g.z)
+)
+
+--
+QueryStatement [0-164] [select * from....y, g.z) )]
+  Query [0-164] [select * from....y, g.z) )]
+    Select [0-164] [select * from....y, g.z) )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-164] [from graph_table....y, g.z) )]
+        GraphTableQuery [14-164] [graph_table....y, g.z) )]
+          PathExpression [29-42] [my.graph.name]
+            Identifier(my) [29-31] [my]
+            Identifier(graph) [32-37] [graph]
+            Identifier(name) [38-42] [name]
+          GqlMatch [45-136] [MATCH (a)...()) -> ())]
+            GraphPattern [51-136] [(a) ((-[e]...()) -> ())]
+              GraphPathPattern [51-122] [(a) ((-[e]...e.id) (h)]
+                GraphNodePattern [51-54] [(a)]
+                  GraphElementPatternFiller [52-53] [a]
+                    Identifier(a) [52-53] [a]
+                ParenthesizedGraphPathPattern [55-118] [((-[e]-> -...id = e.id)]
+                  WhereClause [100-117] [WHERE g.id = e.id]
+                    BinaryExpression(=) [106-117] [g.id = e.id]
+                      PathExpression [106-110] [g.id]
+                        Identifier(g) [106-107] [g]
+                        Identifier(id) [108-110] [id]
+                      PathExpression [113-117] [e.id]
+                        Identifier(e) [113-114] [e]
+                        Identifier(id) [115-117] [id]
+                  ParenthesizedGraphPathPattern [56-89] [(-[e]-> -[...id = f.id)]
+                    WhereClause [71-88] [WHERE e.id = f.id]
+                      BinaryExpression(=) [77-88] [e.id = f.id]
+                        PathExpression [77-81] [e.id]
+                          Identifier(e) [77-78] [e]
+                          Identifier(id) [79-81] [id]
+                        PathExpression [84-88] [f.id]
+                          Identifier(f) [84-85] [f]
+                          Identifier(id) [86-88] [id]
+                    GraphEdgePattern [57-63] [-[e]->]
+                      GraphElementPatternFiller [59-60] [e]
+                        Identifier(e) [59-60] [e]
+                    GraphEdgePattern [64-70] [-[f]->]
+                      GraphElementPatternFiller [66-67] [f]
+                        Identifier(f) [66-67] [f]
+                  GraphNodePattern [90-92] [()]
+                    GraphElementPatternFiller [91-91] []
+                  GraphEdgePattern [93-99] [-[g]->]
+                    GraphElementPatternFiller [95-96] [g]
+                      Identifier(g) [95-96] [g]
+                GraphNodePattern [119-122] [(h)]
+                  GraphElementPatternFiller [120-121] [h]
+                    Identifier(h) [120-121] [h]
+              ParenthesizedGraphPathPattern [124-136] [((()) -> ())]
+                ParenthesizedGraphPathPattern [125-129] [(())]
+                  GraphNodePattern [126-128] [()]
+                    GraphElementPatternFiller [127-127] []
+                GraphEdgePattern [130-132] [->]
+                GraphNodePattern [133-135] [()]
+                  GraphElementPatternFiller [134-134] []
+          SelectList [148-161] [a.x, e.y, g.z]
+            SelectColumn [148-151] [a.x]
+              PathExpression [148-151] [a.x]
+                Identifier(a) [148-149] [a]
+                Identifier(x) [150-151] [x]
+            SelectColumn [153-156] [e.y]
+              PathExpression [153-156] [e.y]
+                Identifier(e) [153-154] [e]
+                Identifier(y) [155-156] [y]
+            SelectColumn [158-161] [g.z]
+              PathExpression [158-161] [g.z]
+                Identifier(g) [158-159] [g]
+                Identifier(z) [160-161] [z]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    my.graph.name
+    MATCH
+      (a)
+      (
+        (
+          -[e]->
+          -[f]->
+          WHERE
+            e.id = f.id
+        )
+        ()
+        -[g]->
+        WHERE
+          g.id = e.id
+      )
+      (h),
+      (
+        (
+          ()
+        )
+        ->
+        ()
+      )
+    COLUMNS(
+      a.x,
+      e.y,
+      g.z
+    )
+  )
+
+==
+
+select * from graph_table(
+  my.graph.name
+  MATCH (() WHERE true) -> ((-[e]->)) ((()) -> ())
+  COLUMNS (a.x, e.y, g.z)
+)
+
+--
+QueryStatement [0-121] [select * from....y, g.z) )]
+  Query [0-121] [select * from....y, g.z) )]
+    Select [0-121] [select * from....y, g.z) )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-121] [from graph_table....y, g.z) )]
+        GraphTableQuery [14-121] [graph_table....y, g.z) )]
+          PathExpression [29-42] [my.graph.name]
+            Identifier(my) [29-31] [my]
+            Identifier(graph) [32-37] [graph]
+            Identifier(name) [38-42] [name]
+          GqlMatch [45-93] [MATCH (()...()) -> ())]
+            GraphPattern [51-93] [(() WHERE...()) -> ())]
+              GraphPathPattern [51-93] [(() WHERE...()) -> ())]
+                ParenthesizedGraphPathPattern [51-66] [(() WHERE true)]
+                  WhereClause [55-65] [WHERE true]
+                    BooleanLiteral(true) [61-65] [true]
+                  GraphNodePattern [52-54] [()]
+                    GraphElementPatternFiller [53-53] []
+                GraphEdgePattern [67-69] [->]
+                ParenthesizedGraphPathPattern [70-80] [((-[e]->))]
+                  GraphEdgePattern [72-78] [-[e]->]
+                    GraphElementPatternFiller [74-75] [e]
+                      Identifier(e) [74-75] [e]
+                ParenthesizedGraphPathPattern [81-93] [((()) -> ())]
+                  ParenthesizedGraphPathPattern [82-86] [(())]
+                    GraphNodePattern [83-85] [()]
+                      GraphElementPatternFiller [84-84] []
+                  GraphEdgePattern [87-89] [->]
+                  GraphNodePattern [90-92] [()]
+                    GraphElementPatternFiller [91-91] []
+          SelectList [105-118] [a.x, e.y, g.z]
+            SelectColumn [105-108] [a.x]
+              PathExpression [105-108] [a.x]
+                Identifier(a) [105-106] [a]
+                Identifier(x) [107-108] [x]
+            SelectColumn [110-113] [e.y]
+              PathExpression [110-113] [e.y]
+                Identifier(e) [110-111] [e]
+                Identifier(y) [112-113] [y]
+            SelectColumn [115-118] [g.z]
+              PathExpression [115-118] [g.z]
+                Identifier(g) [115-116] [g]
+                Identifier(z) [117-118] [z]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    my.graph.name
+    MATCH
+      (
+        ()
+        WHERE
+          true
+      )
+      ->
+      (
+        -[e]->
+      )
+      (
+        (
+          ()
+        )
+        ->
+        ()
+      )
+    COLUMNS(
+      a.x,
+      e.y,
+      g.z
+    )
+  )
+
+==
+
+select * from graph_table(
+  my.graph.name
+  MATCH (a) -[b]->
+               (((c) -[d]-> (e) WHERE c.id > e.id))
+               -[f]-> (g)
+  COLUMNS (a.x, e.y, g.z)
+)
+
+--
+QueryStatement [0-167] [select * from....y, g.z) )]
+  Query [0-167] [select * from....y, g.z) )]
+    Select [0-167] [select * from....y, g.z) )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-167] [from graph_table....y, g.z) )]
+        GraphTableQuery [14-167] [graph_table....y, g.z) )]
+          PathExpression [29-42] [my.graph.name]
+            Identifier(my) [29-31] [my]
+            Identifier(graph) [32-37] [graph]
+            Identifier(name) [38-42] [name]
+          GqlMatch [45-139] [MATCH (a)...-[f]-> (g)]
+            GraphPattern [51-139] [(a) -[b]->...-[f]-> (g)]
+              GraphPathPattern [51-139] [(a) -[b]->...-[f]-> (g)]
+                GraphNodePattern [51-54] [(a)]
+                  GraphElementPatternFiller [52-53] [a]
+                    Identifier(a) [52-53] [a]
+                GraphEdgePattern [55-61] [-[b]->]
+                  GraphElementPatternFiller [57-58] [b]
+                    Identifier(b) [57-58] [b]
+                ParenthesizedGraphPathPattern [77-113] [(((c) -[d]...id > e.id))]
+                  WhereClause [94-111] [WHERE c.id > e.id]
+                    BinaryExpression(>) [100-111] [c.id > e.id]
+                      PathExpression [100-104] [c.id]
+                        Identifier(c) [100-101] [c]
+                        Identifier(id) [102-104] [id]
+                      PathExpression [107-111] [e.id]
+                        Identifier(e) [107-108] [e]
+                        Identifier(id) [109-111] [id]
+                  GraphNodePattern [79-82] [(c)]
+                    GraphElementPatternFiller [80-81] [c]
+                      Identifier(c) [80-81] [c]
+                  GraphEdgePattern [83-89] [-[d]->]
+                    GraphElementPatternFiller [85-86] [d]
+                      Identifier(d) [85-86] [d]
+                  GraphNodePattern [90-93] [(e)]
+                    GraphElementPatternFiller [91-92] [e]
+                      Identifier(e) [91-92] [e]
+                GraphEdgePattern [129-135] [-[f]->]
+                  GraphElementPatternFiller [131-132] [f]
+                    Identifier(f) [131-132] [f]
+                GraphNodePattern [136-139] [(g)]
+                  GraphElementPatternFiller [137-138] [g]
+                    Identifier(g) [137-138] [g]
+          SelectList [151-164] [a.x, e.y, g.z]
+            SelectColumn [151-154] [a.x]
+              PathExpression [151-154] [a.x]
+                Identifier(a) [151-152] [a]
+                Identifier(x) [153-154] [x]
+            SelectColumn [156-159] [e.y]
+              PathExpression [156-159] [e.y]
+                Identifier(e) [156-157] [e]
+                Identifier(y) [158-159] [y]
+            SelectColumn [161-164] [g.z]
+              PathExpression [161-164] [g.z]
+                Identifier(g) [161-162] [g]
+                Identifier(z) [163-164] [z]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    my.graph.name
+    MATCH
+      (a)
+      -[b]->
+      (
+        (c)
+        -[d]->
+        (e)
+        WHERE
+          c.id > e.id
+      )
+      -[f]->
+      (g)
+    COLUMNS(
+      a.x,
+      e.y,
+      g.z
+    )
+  )
+
+==
+
+select * from graph_table(
+  my.graph.name
+  MATCH ((a) -[b]-> (c)) (d)
+  COLUMNS (a.x)
+)
+
+--
+QueryStatement [0-89] [select * from...OLUMNS (a.x) )]
+  Query [0-89] [select * from...OLUMNS (a.x) )]
+    Select [0-89] [select * from...OLUMNS (a.x) )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-89] [from graph_table...MNS (a.x) )]
+        GraphTableQuery [14-89] [graph_table...COLUMNS (a.x) )]
+          PathExpression [29-42] [my.graph.name]
+            Identifier(my) [29-31] [my]
+            Identifier(graph) [32-37] [graph]
+            Identifier(name) [38-42] [name]
+          GqlMatch [45-71] [MATCH ((a) -[b]-> (c)) (d)]
+            GraphPattern [51-71] [((a) -[b]-> (c)) (d)]
+              GraphPathPattern [51-71] [((a) -[b]-> (c)) (d)]
+                ParenthesizedGraphPathPattern [51-67] [((a) -[b]-> (c))]
+                  GraphNodePattern [52-55] [(a)]
+                    GraphElementPatternFiller [53-54] [a]
+                      Identifier(a) [53-54] [a]
+                  GraphEdgePattern [56-62] [-[b]->]
+                    GraphElementPatternFiller [58-59] [b]
+                      Identifier(b) [58-59] [b]
+                  GraphNodePattern [63-66] [(c)]
+                    GraphElementPatternFiller [64-65] [c]
+                      Identifier(c) [64-65] [c]
+                GraphNodePattern [68-71] [(d)]
+                  GraphElementPatternFiller [69-70] [d]
+                    Identifier(d) [69-70] [d]
+          SelectList [83-86] [a.x]
+            SelectColumn [83-86] [a.x]
+              PathExpression [83-86] [a.x]
+                Identifier(a) [83-84] [a]
+                Identifier(x) [85-86] [x]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    my.graph.name
+    MATCH
+      (
+        (a)
+        -[b]->
+        (c)
+      )
+      (d)
+    COLUMNS(
+      a.x
+    )
+  )
+
+==
+
+select * from graph_table(
+  my.graph.name
+  MATCH ((-[b]-> WHERE true)), ((((-[b]->))) WHERE true), (((((-[b]-> WHERE true))) WHERE false)), (((-[b]->))), ((()))
+  COLUMNS (b.x)
+)
+--
+QueryStatement [0-180] [select * from...OLUMNS (b.x) )]
+  Query [0-180] [select * from...OLUMNS (b.x) )]
+    Select [0-180] [select * from...OLUMNS (b.x) )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-180] [from graph_table...MNS (b.x) )]
+        GraphTableQuery [14-180] [graph_table...COLUMNS (b.x) )]
+          PathExpression [29-42] [my.graph.name]
+            Identifier(my) [29-31] [my]
+            Identifier(graph) [32-37] [graph]
+            Identifier(name) [38-42] [name]
+          GqlMatch [45-162] [MATCH ((-[...)), ((()))]
+            GraphPattern [51-162] [((-[b]-> WHERE...)), ((()))]
+              ParenthesizedGraphPathPattern [51-72] [((-[b]-> WHERE true))]
+                WhereClause [60-70] [WHERE true]
+                  BooleanLiteral(true) [66-70] [true]
+                GraphEdgePattern [53-59] [-[b]->]
+                  GraphElementPatternFiller [55-56] [b]
+                    Identifier(b) [55-56] [b]
+              ParenthesizedGraphPathPattern [74-99] [((((-[b]->))) WHERE true)]
+                WhereClause [88-98] [WHERE true]
+                  BooleanLiteral(true) [94-98] [true]
+                ParenthesizedGraphPathPattern [75-87] [(((-[b]->)))]
+                  GraphEdgePattern [78-84] [-[b]->]
+                    GraphElementPatternFiller [80-81] [b]
+                      Identifier(b) [80-81] [b]
+              ParenthesizedGraphPathPattern [101-140] [(((((-[b]-...WHERE false))]
+                WhereClause [127-138] [WHERE false]
+                  BooleanLiteral(false) [133-138] [false]
+                ParenthesizedGraphPathPattern [103-126] [(((-[b]-> WHERE true)))]
+                  WhereClause [113-123] [WHERE true]
+                    BooleanLiteral(true) [119-123] [true]
+                  GraphEdgePattern [106-112] [-[b]->]
+                    GraphElementPatternFiller [108-109] [b]
+                      Identifier(b) [108-109] [b]
+              ParenthesizedGraphPathPattern [142-154] [(((-[b]->)))]
+                GraphEdgePattern [145-151] [-[b]->]
+                  GraphElementPatternFiller [147-148] [b]
+                    Identifier(b) [147-148] [b]
+              ParenthesizedGraphPathPattern [156-162] [((()))]
+                GraphNodePattern [158-160] [()]
+                  GraphElementPatternFiller [159-159] []
+          SelectList [174-177] [b.x]
+            SelectColumn [174-177] [b.x]
+              PathExpression [174-177] [b.x]
+                Identifier(b) [174-175] [b]
+                Identifier(x) [176-177] [x]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    my.graph.name
+    MATCH
+      (
+        -[b]->
+        WHERE
+          true
+      ),
+      (
+        (
+          -[b]->
+        )
+        WHERE
+          true
+      ),
+      (
+        (
+          -[b]->
+          WHERE
+            true
+        )
+        WHERE
+          false
+      ),
+      (
+        -[b]->
+      ),
+      (
+        ()
+      )
+    COLUMNS(
+      b.x
+    )
+  )

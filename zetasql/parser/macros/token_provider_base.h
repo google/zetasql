@@ -34,11 +34,13 @@ namespace macros {
 class TokenProviderBase {
  public:
   TokenProviderBase(absl::string_view filename, absl::string_view input,
-                    int start_offset, std::optional<int> end_offset)
+                    int start_offset, std::optional<int> end_offset,
+                    int offset_in_original_input)
       : filename_(filename),
         input_(input),
         start_offset_(start_offset),
-        end_offset_(end_offset.value_or(input.length())) {}
+        end_offset_(end_offset.value_or(input.length())),
+        offset_in_original_input_(offset_in_original_input) {}
 
   virtual ~TokenProviderBase() = default;
 
@@ -68,11 +70,22 @@ class TokenProviderBase {
   // The offset where to stop tokenizing in the input.
   int end_offset() const { return end_offset_; }
 
+  // The start offset of `input()` in the original file.
+  int offset_in_original_input() const { return offset_in_original_input_; }
+
   // Creates a new instance of this token provider, with the same settings but
   // different inputs.
   virtual std::unique_ptr<TokenProviderBase> CreateNewInstance(
       absl::string_view filename, absl::string_view input, int start_offset,
-      std::optional<int> end_offset) const = 0;
+      std::optional<int> end_offset, int offset_in_original_input) const = 0;
+
+  // Convenience overload which uses the same input but simply tokenizes
+  // different offsets in `input`.
+  std::unique_ptr<TokenProviderBase> CreateNewInstance(
+      int start_offset, std::optional<int> end_offset) const {
+    return CreateNewInstance(filename_, input_, start_offset, end_offset,
+                             offset_in_original_input_);
+  }
 
  protected:
   // Implements the logic for consuming the next token.
@@ -94,6 +107,12 @@ class TokenProviderBase {
 
   // The offset where to stop tokenizing in the input.
   int end_offset_;
+
+  // If the input text itself is still only a part of a larger file, this is
+  // the start offset of `input_` in that larger content.
+  // The token provider adds this offset to all output tokens.
+  // Note that `start_offset_` is only relative to the start of `input_`.
+  int offset_in_original_input_ = 0;
 };
 
 }  // namespace macros

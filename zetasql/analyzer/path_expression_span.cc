@@ -17,10 +17,19 @@
 #include "zetasql/analyzer/path_expression_span.h"
 
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <limits>
 #include <string>
 #include <vector>
 
+#include "zetasql/parser/parse_tree.h"
+#include "zetasql/public/id_string.h"
+#include "zetasql/public/parse_location.h"
 #include "zetasql/public/strings.h"
+#include "absl/base/casts.h"
+#include "zetasql/base/check.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "zetasql/base/ret_check.h"
 

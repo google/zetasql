@@ -720,7 +720,7 @@ void SimpleCatalog::AddOwnedFunction(const Function* function) {
 }
 
 bool SimpleCatalog::AddOwnedFunctionIfNotPresent(
-    const std::string& name, std::unique_ptr<Function>* function) {
+    absl::string_view name, std::unique_ptr<Function>* function) {
   absl::MutexLock l(&mutex_);
   // If the function name exists, return false.
   if (functions_.contains(absl::AsciiStrToLower(name))) {
@@ -1693,6 +1693,13 @@ absl::Status SimpleTable::SetAnonymizationInfo(
     absl::Span<const std::string> userid_column_name_path) {
   ZETASQL_ASSIGN_OR_RETURN(anonymization_info_,
                    AnonymizationInfo::Create(this, userid_column_name_path));
+  return absl::OkStatus();
+}
+
+absl::Status SimpleTable::SetAnonymizationInfo(
+    std::unique_ptr<AnonymizationInfo> anonymization_info) {
+  anonymization_info_.reset();
+  anonymization_info_ = std::move(anonymization_info);
   return absl::OkStatus();
 }
 

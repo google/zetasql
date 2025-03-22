@@ -2974,7 +2974,7 @@ select * from tvf_exactly_1_int64_arg(keyvalue)
 # subquery.
 select * from tvf_exactly_1_int64_arg(tvf_no_args())
 --
-ERROR: Function not found: tvf_no_args [at 1:39]
+ERROR: Table-valued function is not expected here: tvf_no_args [at 1:39]
 select * from tvf_exactly_1_int64_arg(tvf_no_args())
                                       ^
 ==

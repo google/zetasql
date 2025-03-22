@@ -1,7 +1,7 @@
 [default also_show_signature_mismatch_details]
 [default language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,V_1_1_WITH_ON_SUBQUERY]
 [default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
-[default no_run_unparser]
+[default no_run_sqlbuilder]
 # When no group_selection_strategy is set, default to laplace thresholding.
 select with differential_privacy
 {{|options(group_selection_strategy=LAPLACE_THRESHOLD)}}
@@ -5583,30 +5583,30 @@ QueryStmt
     | |         +-column_list=[$groupby.int64#13]
     | |         +-input_scan=
     | |         | +-SampleScan
-    | |         |   +-column_list=[$groupby.int64_partial#71, $group_by.$uid#72]
+    | |         |   +-column_list=[$groupby.int64_partial#76, $group_by.$uid#77]
     | |         |   +-input_scan=
     | |         |   | +-AggregateScan
-    | |         |   |   +-column_list=[$groupby.int64_partial#71, $group_by.$uid#72]
+    | |         |   |   +-column_list=[$groupby.int64_partial#76, $group_by.$uid#77]
     | |         |   |   +-input_scan=
-    | |         |   |   | +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#70], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
+    | |         |   |   | +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#75], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
     | |         |   |   +-group_by_list=
-    | |         |   |     +-int64_partial#71 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
-    | |         |   |     +-$uid#72 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#70)
+    | |         |   |     +-int64_partial#76 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+    | |         |   |     +-$uid#77 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#75)
     | |         |   +-method="RESERVOIR"
     | |         |   +-size=
     | |         |   | +-Literal(type=INT64, value=3)
     | |         |   +-unit=ROWS
     | |         |   +-partition_by_list=
-    | |         |     +-ColumnRef(type=INT64, column=$group_by.$uid#72)
+    | |         |     +-ColumnRef(type=INT64, column=$group_by.$uid#77)
     | |         +-group_by_list=
-    | |         | +-int64#13 := ColumnRef(type=INT64, column=$groupby.int64_partial#71)
+    | |         | +-int64#13 := ColumnRef(type=INT64, column=$groupby.int64_partial#76)
     | |         +-aggregate_list=
-    | |         | +-$group_selection_threshold_col#74 :=
+    | |         | +-$group_selection_threshold_col#79 :=
     | |         |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
     | |         |     +-Literal(type=INT64, value=1)
     | |         |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
     | |         +-group_selection_threshold_expr=
-    | |         | +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#74)
+    | |         | +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#79)
     | |         +-option_list=
     | |           +-max_groups_contributed := Literal(type=INT64, value=3)
     | |           +-group_selection_strategy := Literal(type=ENUM<DIFFERENTIAL_PRIVACY_GROUP_SELECTION_STRATEGY>, value=LAPLACE_THRESHOLD)
@@ -5620,21 +5620,21 @@ QueryStmt
     |           +-column_list=[$groupby.int64#26]
     |           +-input_scan=
     |           | +-AggregateScan
-    |           |   +-column_list=[$groupby.int64_partial#76, $group_by.$uid#77]
+    |           |   +-column_list=[$groupby.int64_partial#71, $group_by.$uid#72]
     |           |   +-input_scan=
-    |           |   | +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#15, uid#75], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
+    |           |   | +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#15, uid#70], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
     |           |   +-group_by_list=
-    |           |     +-int64_partial#76 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#15)
-    |           |     +-$uid#77 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#75)
+    |           |     +-int64_partial#71 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#15)
+    |           |     +-$uid#72 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#70)
     |           +-group_by_list=
-    |           | +-int64#26 := ColumnRef(type=INT64, column=$groupby.int64_partial#76)
+    |           | +-int64#26 := ColumnRef(type=INT64, column=$groupby.int64_partial#71)
     |           +-aggregate_list=
-    |           | +-$group_selection_threshold_col#79 :=
+    |           | +-$group_selection_threshold_col#74 :=
     |           |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
     |           |     +-Literal(type=INT64, value=1)
     |           |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
     |           +-group_selection_threshold_expr=
-    |           | +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#79)
+    |           | +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#74)
     |           +-option_list=
     |             +-group_selection_strategy := Literal(type=ENUM<DIFFERENTIAL_PRIVACY_GROUP_SELECTION_STRATEGY>, value=LAPLACE_THRESHOLD)
     +-query=
@@ -5849,30 +5849,30 @@ QueryStmt
     | |         +-column_list=[$groupby.int64#13]
     | |         +-input_scan=
     | |         | +-SampleScan
-    | |         |   +-column_list=[$groupby.int64_partial#84, $group_by.$uid#85]
+    | |         |   +-column_list=[$groupby.int64_partial#98, $group_by.$uid#99]
     | |         |   +-input_scan=
     | |         |   | +-AggregateScan
-    | |         |   |   +-column_list=[$groupby.int64_partial#84, $group_by.$uid#85]
+    | |         |   |   +-column_list=[$groupby.int64_partial#98, $group_by.$uid#99]
     | |         |   |   +-input_scan=
-    | |         |   |   | +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#83], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
+    | |         |   |   | +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#97], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
     | |         |   |   +-group_by_list=
-    | |         |   |     +-int64_partial#84 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
-    | |         |   |     +-$uid#85 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#83)
+    | |         |   |     +-int64_partial#98 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+    | |         |   |     +-$uid#99 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#97)
     | |         |   +-method="RESERVOIR"
     | |         |   +-size=
     | |         |   | +-Literal(type=INT64, value=3)
     | |         |   +-unit=ROWS
     | |         |   +-partition_by_list=
-    | |         |     +-ColumnRef(type=INT64, column=$group_by.$uid#85)
+    | |         |     +-ColumnRef(type=INT64, column=$group_by.$uid#99)
     | |         +-group_by_list=
-    | |         | +-int64#13 := ColumnRef(type=INT64, column=$groupby.int64_partial#84)
+    | |         | +-int64#13 := ColumnRef(type=INT64, column=$groupby.int64_partial#98)
     | |         +-aggregate_list=
-    | |         | +-$group_selection_threshold_col#87 :=
+    | |         | +-$group_selection_threshold_col#101 :=
     | |         |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
     | |         |     +-Literal(type=INT64, value=1)
     | |         |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
     | |         +-group_selection_threshold_expr=
-    | |         | +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#87)
+    | |         | +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#101)
     | |         +-option_list=
     | |           +-max_groups_contributed := Literal(type=INT64, value=3)
     | |           +-group_selection_strategy := Literal(type=ENUM<DIFFERENTIAL_PRIVACY_GROUP_SELECTION_STRATEGY>, value=LAPLACE_THRESHOLD)
@@ -5960,21 +5960,21 @@ QueryStmt
     |           +-column_list=[$groupby.int64#60]
     |           +-input_scan=
     |           | +-AggregateScan
-    |           |   +-column_list=[$groupby.int64_partial#98, $group_by.$uid#99]
+    |           |   +-column_list=[$groupby.int64_partial#84, $group_by.$uid#85]
     |           |   +-input_scan=
-    |           |   | +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#49, uid#97], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
+    |           |   | +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#49, uid#83], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
     |           |   +-group_by_list=
-    |           |     +-int64_partial#98 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#49)
-    |           |     +-$uid#99 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#97)
+    |           |     +-int64_partial#84 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#49)
+    |           |     +-$uid#85 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#83)
     |           +-group_by_list=
-    |           | +-int64#60 := ColumnRef(type=INT64, column=$groupby.int64_partial#98)
+    |           | +-int64#60 := ColumnRef(type=INT64, column=$groupby.int64_partial#84)
     |           +-aggregate_list=
-    |           | +-$group_selection_threshold_col#101 :=
+    |           | +-$group_selection_threshold_col#87 :=
     |           |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
     |           |     +-Literal(type=INT64, value=1)
     |           |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
     |           +-group_selection_threshold_expr=
-    |           | +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#101)
+    |           | +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#87)
     |           +-option_list=
     |             +-group_selection_strategy := Literal(type=ENUM<DIFFERENTIAL_PRIVACY_GROUP_SELECTION_STRATEGY>, value=LAPLACE_THRESHOLD)
     +-query=
@@ -6187,66 +6187,66 @@ QueryStmt
     | |         +-column_list=[$groupby.string#34, $aggregate.$agg1#33]
     | |         +-with_entry_list=
     | |         | +-WithEntry
-    | |         |   +-with_query_name="$public_groups1"
+    | |         |   +-with_query_name="$public_groups2"
     | |         |   +-with_subquery=
     | |         |     +-AggregateScan
-    | |         |       +-column_list=[$distinct.string#119]
+    | |         |       +-column_list=[$distinct.string#128]
     | |         |       +-input_scan=
-    | |         |       | +-TableScan(column_list=[SimpleTypes.string#120], table=SimpleTypes, column_index_list=[4])
+    | |         |       | +-TableScan(column_list=[SimpleTypes.string#129], table=SimpleTypes, column_index_list=[4])
     | |         |       +-group_by_list=
-    | |         |         +-string#119 := ColumnRef(type=STRING, column=SimpleTypes.string#120)
+    | |         |         +-string#128 := ColumnRef(type=STRING, column=SimpleTypes.string#129)
     | |         +-query=
     | |           +-DifferentialPrivacyAggregateScan
     | |             +-column_list=[$groupby.string#34, $aggregate.$agg1#33]
     | |             +-input_scan=
     | |             | +-JoinScan
-    | |             |   +-column_list=[$public_groups1.string#118, $aggregate.$agg1_partial#114, $groupby.string_partial#115, $group_by.$uid#116]
+    | |             |   +-column_list=[$public_groups2.string#127, $aggregate.$agg1_partial#123, $groupby.string_partial#124, $group_by.$uid#125]
     | |             |   +-join_type=RIGHT
     | |             |   +-left_scan=
     | |             |   | +-SampleScan
-    | |             |   |   +-column_list=[$aggregate.$agg1_partial#114, $groupby.string_partial#115, $group_by.$uid#116]
+    | |             |   |   +-column_list=[$aggregate.$agg1_partial#123, $groupby.string_partial#124, $group_by.$uid#125]
     | |             |   |   +-input_scan=
     | |             |   |   | +-AggregateScan
-    | |             |   |   |   +-column_list=[$aggregate.$agg1_partial#114, $groupby.string_partial#115, $group_by.$uid#116]
+    | |             |   |   |   +-column_list=[$aggregate.$agg1_partial#123, $groupby.string_partial#124, $group_by.$uid#125]
     | |             |   |   |   +-input_scan=
     | |             |   |   |   | +-JoinScan
-    | |             |   |   |   |   +-column_list=[SimpleTypesWithAnonymizationUid.string#5, $distinct.string#32, SimpleTypesWithAnonymizationUid.uid#112]
+    | |             |   |   |   |   +-column_list=[SimpleTypesWithAnonymizationUid.string#5, $distinct.string#32, SimpleTypesWithAnonymizationUid.uid#121]
     | |             |   |   |   |   +-left_scan=
-    | |             |   |   |   |   | +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[string#5, uid#112], table=SimpleTypesWithAnonymizationUid, column_index_list=[4, 10])
+    | |             |   |   |   |   | +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[string#5, uid#121], table=SimpleTypesWithAnonymizationUid, column_index_list=[4, 10])
     | |             |   |   |   |   +-right_scan=
-    | |             |   |   |   |   | +-WithRefScan(column_list=[$distinct.string#32], with_query_name="$public_groups1")
+    | |             |   |   |   |   | +-WithRefScan(column_list=[$distinct.string#32], with_query_name="$public_groups2")
     | |             |   |   |   |   +-join_expr=
     | |             |   |   |   |   | +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
     | |             |   |   |   |   |   +-ColumnRef(type=STRING, column=SimpleTypesWithAnonymizationUid.string#5)
     | |             |   |   |   |   |   +-ColumnRef(type=STRING, column=$distinct.string#32)
     | |             |   |   |   |   +-has_using=TRUE
     | |             |   |   |   +-group_by_list=
-    | |             |   |   |   | +-string_partial#115 := ColumnRef(type=STRING, column=$distinct.string#32)
-    | |             |   |   |   | +-$uid#116 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#112)
+    | |             |   |   |   | +-string_partial#124 := ColumnRef(type=STRING, column=$distinct.string#32)
+    | |             |   |   |   | +-$uid#125 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#121)
     | |             |   |   |   +-aggregate_list=
-    | |             |   |   |     +-$agg1_partial#114 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+    | |             |   |   |     +-$agg1_partial#123 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
     | |             |   |   +-method="RESERVOIR"
     | |             |   |   +-size=
     | |             |   |   | +-Literal(type=INT64, value=3)
     | |             |   |   +-unit=ROWS
     | |             |   |   +-partition_by_list=
-    | |             |   |     +-ColumnRef(type=INT64, column=$group_by.$uid#116)
+    | |             |   |     +-ColumnRef(type=INT64, column=$group_by.$uid#125)
     | |             |   +-right_scan=
-    | |             |   | +-WithRefScan(column_list=[$public_groups1.string#118], with_query_name="$public_groups1")
+    | |             |   | +-WithRefScan(column_list=[$public_groups2.string#127], with_query_name="$public_groups2")
     | |             |   +-join_expr=
     | |             |     +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
-    | |             |       +-ColumnRef(type=STRING, column=$groupby.string_partial#115)
-    | |             |       +-ColumnRef(type=STRING, column=$public_groups1.string#118)
+    | |             |       +-ColumnRef(type=STRING, column=$groupby.string_partial#124)
+    | |             |       +-ColumnRef(type=STRING, column=$public_groups2.string#127)
     | |             +-group_by_list=
-    | |             | +-string#34 := ColumnRef(type=STRING, column=$public_groups1.string#118)
+    | |             | +-string#34 := ColumnRef(type=STRING, column=$public_groups2.string#127)
     | |             +-aggregate_list=
     | |             | +-$agg1#33 :=
     | |             |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
     | |             |     +-FunctionCall(ZetaSQL:if(BOOL, INT64, INT64) -> INT64)
     | |             |     | +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
-    | |             |     | | +-ColumnRef(type=INT64, column=$group_by.$uid#116)
+    | |             |     | | +-ColumnRef(type=INT64, column=$group_by.$uid#125)
     | |             |     | +-Literal(type=INT64, value=NULL)
-    | |             |     | +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#114)
+    | |             |     | +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#123)
     | |             |     +-Literal(type=STRUCT<INT64, INT64>, value=NULL)
     | |             +-option_list=
     | |               +-max_groups_contributed := Literal(type=INT64, value=3)
@@ -6261,66 +6261,66 @@ QueryStmt
     |           +-column_list=[$groupby.int32#68, $aggregate.$agg1#67]
     |           +-with_entry_list=
     |           | +-WithEntry
-    |           |   +-with_query_name="$public_groups2"
+    |           |   +-with_query_name="$public_groups1"
     |           |   +-with_subquery=
     |           |     +-AggregateScan
-    |           |       +-column_list=[$distinct.int32#128]
+    |           |       +-column_list=[$distinct.int32#119]
     |           |       +-input_scan=
-    |           |       | +-TableScan(column_list=[SimpleTypes.int32#129], table=SimpleTypes, column_index_list=[0])
+    |           |       | +-TableScan(column_list=[SimpleTypes.int32#120], table=SimpleTypes, column_index_list=[0])
     |           |       +-group_by_list=
-    |           |         +-int32#128 := ColumnRef(type=INT32, column=SimpleTypes.int32#129)
+    |           |         +-int32#119 := ColumnRef(type=INT32, column=SimpleTypes.int32#120)
     |           +-query=
     |             +-DifferentialPrivacyAggregateScan
     |               +-column_list=[$groupby.int32#68, $aggregate.$agg1#67]
     |               +-input_scan=
     |               | +-JoinScan
-    |               |   +-column_list=[$public_groups2.int32#127, $aggregate.$agg1_partial#123, $groupby.int32_partial#124, $group_by.$uid#125]
+    |               |   +-column_list=[$public_groups1.int32#118, $aggregate.$agg1_partial#114, $groupby.int32_partial#115, $group_by.$uid#116]
     |               |   +-join_type=RIGHT
     |               |   +-left_scan=
     |               |   | +-SampleScan
-    |               |   |   +-column_list=[$aggregate.$agg1_partial#123, $groupby.int32_partial#124, $group_by.$uid#125]
+    |               |   |   +-column_list=[$aggregate.$agg1_partial#114, $groupby.int32_partial#115, $group_by.$uid#116]
     |               |   |   +-input_scan=
     |               |   |   | +-AggregateScan
-    |               |   |   |   +-column_list=[$aggregate.$agg1_partial#123, $groupby.int32_partial#124, $group_by.$uid#125]
+    |               |   |   |   +-column_list=[$aggregate.$agg1_partial#114, $groupby.int32_partial#115, $group_by.$uid#116]
     |               |   |   |   +-input_scan=
     |               |   |   |   | +-JoinScan
-    |               |   |   |   |   +-column_list=[SimpleTypesWithAnonymizationUid.int32#35, $distinct.int32#66, SimpleTypesWithAnonymizationUid.uid#121]
+    |               |   |   |   |   +-column_list=[SimpleTypesWithAnonymizationUid.int32#35, $distinct.int32#66, SimpleTypesWithAnonymizationUid.uid#112]
     |               |   |   |   |   +-left_scan=
-    |               |   |   |   |   | +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[int32#35, uid#121], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 10])
+    |               |   |   |   |   | +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[int32#35, uid#112], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 10])
     |               |   |   |   |   +-right_scan=
-    |               |   |   |   |   | +-WithRefScan(column_list=[$distinct.int32#66], with_query_name="$public_groups2")
+    |               |   |   |   |   | +-WithRefScan(column_list=[$distinct.int32#66], with_query_name="$public_groups1")
     |               |   |   |   |   +-join_expr=
     |               |   |   |   |   | +-FunctionCall(ZetaSQL:$equal(INT32, INT32) -> BOOL)
     |               |   |   |   |   |   +-ColumnRef(type=INT32, column=SimpleTypesWithAnonymizationUid.int32#35)
     |               |   |   |   |   |   +-ColumnRef(type=INT32, column=$distinct.int32#66)
     |               |   |   |   |   +-has_using=TRUE
     |               |   |   |   +-group_by_list=
-    |               |   |   |   | +-int32_partial#124 := ColumnRef(type=INT32, column=$distinct.int32#66)
-    |               |   |   |   | +-$uid#125 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#121)
+    |               |   |   |   | +-int32_partial#115 := ColumnRef(type=INT32, column=$distinct.int32#66)
+    |               |   |   |   | +-$uid#116 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#112)
     |               |   |   |   +-aggregate_list=
-    |               |   |   |     +-$agg1_partial#123 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+    |               |   |   |     +-$agg1_partial#114 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
     |               |   |   +-method="RESERVOIR"
     |               |   |   +-size=
     |               |   |   | +-Literal(type=INT64, value=4)
     |               |   |   +-unit=ROWS
     |               |   |   +-partition_by_list=
-    |               |   |     +-ColumnRef(type=INT64, column=$group_by.$uid#125)
+    |               |   |     +-ColumnRef(type=INT64, column=$group_by.$uid#116)
     |               |   +-right_scan=
-    |               |   | +-WithRefScan(column_list=[$public_groups2.int32#127], with_query_name="$public_groups2")
+    |               |   | +-WithRefScan(column_list=[$public_groups1.int32#118], with_query_name="$public_groups1")
     |               |   +-join_expr=
     |               |     +-FunctionCall(ZetaSQL:$equal(INT32, INT32) -> BOOL)
-    |               |       +-ColumnRef(type=INT32, column=$groupby.int32_partial#124)
-    |               |       +-ColumnRef(type=INT32, column=$public_groups2.int32#127)
+    |               |       +-ColumnRef(type=INT32, column=$groupby.int32_partial#115)
+    |               |       +-ColumnRef(type=INT32, column=$public_groups1.int32#118)
     |               +-group_by_list=
-    |               | +-int32#68 := ColumnRef(type=INT32, column=$public_groups2.int32#127)
+    |               | +-int32#68 := ColumnRef(type=INT32, column=$public_groups1.int32#118)
     |               +-aggregate_list=
     |               | +-$agg1#67 :=
     |               |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
     |               |     +-FunctionCall(ZetaSQL:if(BOOL, INT64, INT64) -> INT64)
     |               |     | +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
-    |               |     | | +-ColumnRef(type=INT64, column=$group_by.$uid#125)
+    |               |     | | +-ColumnRef(type=INT64, column=$group_by.$uid#116)
     |               |     | +-Literal(type=INT64, value=NULL)
-    |               |     | +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#123)
+    |               |     | +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#114)
     |               |     +-Literal(type=STRUCT<INT64, INT64>, value=NULL)
     |               +-option_list=
     |                 +-max_groups_contributed := Literal(type=INT64, value=4)

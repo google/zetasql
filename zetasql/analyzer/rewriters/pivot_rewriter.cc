@@ -70,7 +70,8 @@ class PivotRewriterVisitor : public ResolvedASTDeepCopyVisitor {
       : analyzer_options_(*analyzer_options),
         catalog_(catalog),
         type_factory_(type_factory),
-        column_factory_(column_factory) {}
+        column_factory_(column_factory),
+        fn_builder_(*analyzer_options, *catalog, *type_factory) {}
 
   PivotRewriterVisitor(const PivotRewriterVisitor&) = delete;
   PivotRewriterVisitor& operator=(const PivotRewriterVisitor&) = delete;
@@ -192,6 +193,7 @@ class PivotRewriterVisitor : public ResolvedASTDeepCopyVisitor {
   Catalog* const catalog_;
   TypeFactory* type_factory_;
   ColumnFactory* const column_factory_;
+  FunctionCallBuilder fn_builder_;
 };
 
 absl::StatusOr<std::unique_ptr<ResolvedScan>>
@@ -536,11 +538,13 @@ PivotRewriterVisitor::RewriteAnyValuePivotExpr(
       array_type, array_agg_fn, array_agg_sig, std::move(array_agg_args), {},
       call->error_mode(), call->distinct(),
       ResolvedNonScalarFunctionCallBaseEnums::IGNORE_NULLS,
-      call->release_having_modifier(), call->release_order_by_item_list(),
+      /*where_expr=*/nullptr, call->release_having_modifier(),
+      call->release_order_by_item_list(),
       /*limit=*/MakeResolvedLiteral(Value::Int64(1)),
       call->function_call_info(),
       /*group_by_list=*/{},
-      /*group_by_aggregate_list=*/{});
+      /*group_by_aggregate_list=*/{},
+      /*having_expr=*/nullptr);
 }
 
 absl::StatusOr<std::unique_ptr<const ResolvedExpr>>
@@ -553,15 +557,26 @@ PivotRewriterVisitor::RewriteCountStarPivotExpr(
   // with
   //  COUNTIF(<pivot_column> IS NOT DISTINCT FROM <pivot value expr>)
   //
-  std::unique_ptr<ResolvedExpr> pivot_column_ref = MakeResolvedColumnRef(
+  std::unique_ptr<ResolvedColumnRef> pivot_column_ref = MakeResolvedColumnRef(
       pivot_column.type(), pivot_column, /*is_correlated=*/false);
-  ZETASQL_ASSIGN_OR_RETURN(
-      std::unique_ptr<ResolvedExpr> countif_arg,
-      AnalyzeSubstitute(analyzer_options_, *catalog_, *type_factory_,
-                        PivotColumnNotDistinctSql(),
-                        {{"pivot_column", pivot_column_ref.get()},
-                         {"pivot_value", pivot_value_expr.get()}}),
-      _.With(ExpectAnalyzeSubstituteSuccess));
+  std::unique_ptr<const ResolvedExpr> countif_arg;
+  if (analyzer_options_.language().LanguageFeatureEnabled(
+          FEATURE_V_1_3_IS_DISTINCT) &&
+      analyzer_options_.language().LanguageFeatureEnabled(
+          FEATURE_V_1_4_SIMPLIFY_PIVOT_REWRITE)) {
+    ZETASQL_ASSIGN_OR_RETURN(countif_arg, fn_builder_.IsNotDistinctFrom(
+                                      std::move(pivot_column_ref),
+                                      std::move(pivot_value_expr)));
+  } else {
+    ZETASQL_ASSIGN_OR_RETURN(
+        countif_arg,
+        AnalyzeSubstitute(analyzer_options_, *catalog_, *type_factory_,
+                          PivotColumnNotDistinctSql(),
+                          {{"pivot_column", pivot_column_ref.get()},
+                           {"pivot_value", pivot_value_expr.get()}}),
+        _.With(ExpectAnalyzeSubstituteSuccess));
+  }
+  ZETASQL_RET_CHECK(countif_arg != nullptr);
 
   std::vector<std::unique_ptr<const ResolvedExpr>> countif_args;
   countif_args.push_back(std::move(countif_arg));
@@ -577,10 +592,12 @@ PivotRewriterVisitor::RewriteCountStarPivotExpr(
   return MakeResolvedAggregateFunctionCall(
       types::Int64Type(), countif_fn, countif_sig, std::move(countif_args), {},
       call->error_mode(), call->distinct(), call->null_handling_modifier(),
-      call->release_having_modifier(), call->release_order_by_item_list(),
-      call->release_limit(), call->function_call_info(),
+      /*where_expr=*/nullptr, call->release_having_modifier(),
+      call->release_order_by_item_list(), call->release_limit(),
+      call->function_call_info(),
       /*group_by_list=*/{},
-      /*group_by_aggregate_list=*/{});
+      /*group_by_aggregate_list=*/{},
+      /*having_expr=*/nullptr);
 }
 
 absl::StatusOr<std::unique_ptr<const ResolvedExpr>>
@@ -620,7 +637,7 @@ PivotRewriterVisitor::MakeAggregateExpr(
   }
 
   // General case for remaining aggregate functions.
-  std::unique_ptr<ResolvedExpr> pivot_column_ref = MakeResolvedColumnRef(
+  std::unique_ptr<ResolvedColumnRef> pivot_column_ref = MakeResolvedColumnRef(
       pivot_column.type(), pivot_column, /*is_correlated=*/false);
   std::vector<std::unique_ptr<const ResolvedExpr>> agg_fn_args;
 
@@ -639,15 +656,36 @@ PivotRewriterVisitor::MakeAggregateExpr(
     } else {
       ZETASQL_ASSIGN_OR_RETURN(orig_arg, ProcessNode(call->argument_list(0)));
     }
-    ZETASQL_ASSIGN_OR_RETURN(
-        std::unique_ptr<ResolvedExpr> agg_fn_arg,
-        AnalyzeSubstitute(analyzer_options_, *catalog_, *type_factory_,
-                          absl::StrCat("IF(", PivotColumnNotDistinctSql(),
-                                       ", orig_arg, NULL)"),
-                          {{"pivot_column", pivot_column_ref.get()},
-                           {"pivot_value", pivot_value_expr_copy.get()},
-                           {"orig_arg", orig_arg.get()}}),
-        _.With(ExpectAnalyzeSubstituteSuccess));
+
+    std::unique_ptr<ResolvedExpr> agg_fn_arg;
+    if (analyzer_options_.language().LanguageFeatureEnabled(
+            FEATURE_V_1_3_IS_DISTINCT) &&
+        analyzer_options_.language().LanguageFeatureEnabled(
+            FEATURE_V_1_4_SIMPLIFY_PIVOT_REWRITE)) {
+      // Build the expression
+      //   IF(pivot_column IS NOT DISTINCT FROM pivot_value, orig_arg, NULL)
+      ZETASQL_ASSIGN_OR_RETURN(
+          std::unique_ptr<const ResolvedExpr> pivot_column_not_distinct_expr,
+          fn_builder_.IsNotDistinctFrom(std::move(pivot_column_ref),
+                                        std::move(pivot_value_expr_copy)));
+      std::unique_ptr<ResolvedLiteral> null_literal =
+          MakeResolvedLiteral(Value::Null(orig_arg->type()));
+      ZETASQL_ASSIGN_OR_RETURN(
+          agg_fn_arg,
+          fn_builder_.If(std::move(pivot_column_not_distinct_expr),
+                         std::move(orig_arg), std::move(null_literal)));
+    } else {
+      ZETASQL_ASSIGN_OR_RETURN(
+          agg_fn_arg,
+          AnalyzeSubstitute(analyzer_options_, *catalog_, *type_factory_,
+                            absl::StrCat("IF(", PivotColumnNotDistinctSql(),
+                                         ", orig_arg, NULL)"),
+                            {{"pivot_column", pivot_column_ref.get()},
+                             {"pivot_value", pivot_value_expr_copy.get()},
+                             {"orig_arg", orig_arg.get()}}),
+          _.With(ExpectAnalyzeSubstituteSuccess));
+    }
+    ZETASQL_RET_CHECK(agg_fn_arg != nullptr);
 
     agg_fn_args.push_back(std::move(agg_fn_arg));
 
@@ -672,11 +710,12 @@ PivotRewriterVisitor::MakeAggregateExpr(
   return MakeResolvedAggregateFunctionCall(
       call->type(), call->function(), call->signature(), std::move(agg_fn_args),
       {}, call->error_mode(), call->distinct(), call->null_handling_modifier(),
-      call_copy->release_having_modifier(),
+      /*where_expr=*/nullptr, call_copy->release_having_modifier(),
       call_copy->release_order_by_item_list(), call_copy->release_limit(),
       call->function_call_info(),
       /*group_by_list=*/{},
-      /*group_by_aggregate_list=*/{});
+      /*group_by_aggregate_list=*/{},
+      /*having_expr=*/nullptr);
 }
 }  // namespace
 

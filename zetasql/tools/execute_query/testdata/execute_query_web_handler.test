@@ -5,18 +5,88 @@ query:select 1;
 
 mode_execute
 sql_mode_query
+target_syntax_mode_standard
 table:<table>
   <thead>
     <tr>
+        <th>#&zwnj;</th>
         <th>&zwnj;</th>
     </tr>
   </thead>
   <tbody>
       <tr>
           <td>1</td>
+          <td>1</td>
       </tr>
   </tbody>
 </table>
+\
+==
+
+[mode=unanalyze]
+[target_syntax_mode=standard]
+WITH mytable AS (
+  SELECT 1 as Key, 2 as Value
+)
+SELECT * from mytable;
+--
+query:WITH mytable AS (
+  SELECT 1 as Key, 2 as Value
+)
+SELECT * from mytable;
+
+mode_unanalyze
+sql_mode_query
+target_syntax_mode_standard
+result_unanalyzed:WITH
+  mytable AS (
+    SELECT
+      1 AS a_1,
+      2 AS a_2
+  )
+SELECT
+  withrefscan_3.a_1 AS Key,
+  withrefscan_3.a_2 AS Value
+FROM
+  mytable AS withrefscan_3;
+\
+==
+
+[mode=unanalyze]
+[target_syntax_mode=pipe]
+WITH mytable AS (
+  SELECT 1 as Key, 2 as Value
+)
+SELECT * from mytable
+GROUP BY ALL;
+--
+query:WITH mytable AS (
+  SELECT 1 as Key, 2 as Value
+)
+SELECT * from mytable
+GROUP BY ALL;
+
+mode_unanalyze
+sql_mode_query
+target_syntax_mode_pipe
+result_unanalyzed:WITH
+  mytable AS (
+    SELECT
+      1 AS a_1,
+      2 AS a_2
+  )
+FROM
+  mytable AS withrefscan_3
+|&gt; EXTEND
+     withrefscan_3.a_1 AS a_4,
+     withrefscan_3.a_2 AS a_5
+|&gt; AGGREGATE
+   GROUP BY a_4, a_5
+|&gt; AS aggregatescan_6
+|&gt; SELECT
+     aggregatescan_6.a_4 AS Key,
+     aggregatescan_6.a_5 AS Value;
+\
 ==
 
 # Parse a simple procedural script
@@ -28,6 +98,7 @@ query:DECLARE x INT64 DEFAULT 100;
 
 mode_parse
 sql_mode_script
+target_syntax_mode_standard
 result_parsed:Script [0-28]
   StatementList [0-28]
     VariableDeclaration [0-27]
@@ -59,6 +130,7 @@ END WHILE;
 
 mode_parse
 sql_mode_script
+target_syntax_mode_standard
 result_parsed:Script [0-109]
   StatementList [0-109]
     VariableDeclaration [0-25]
@@ -120,21 +192,25 @@ END WHILE;
 mode_execute
 mode_analyze
 sql_mode_script
+target_syntax_mode_standard
 statement_text:SELECT x as num, x * x as num_square
 table:<table>
   <thead>
     <tr>
+        <th>#&zwnj;</th>
         <th>num&zwnj;</th>
         <th>num_square&zwnj;</th>
     </tr>
   </thead>
   <tbody>
       <tr>
+          <td>1</td>
           <td>0</td>
           <td>0</td>
       </tr>
   </tbody>
 </table>
+
 result_analyzed:QueryStmt
 +-output_column_list=
 | +-$query.num#1 AS num [INT64]
@@ -155,6 +231,7 @@ statement_text:SELECT x as num, x * x as num_square
 table:<table>
   <thead>
     <tr>
+        <th>#&zwnj;</th>
         <th>num&zwnj;</th>
         <th>num_square&zwnj;</th>
     </tr>
@@ -163,9 +240,11 @@ table:<table>
       <tr>
           <td>1</td>
           <td>1</td>
+          <td>1</td>
       </tr>
   </tbody>
 </table>
+
 result_analyzed:QueryStmt
 +-output_column_list=
 | +-$query.num#1 AS num [INT64]
@@ -186,17 +265,20 @@ statement_text:SELECT x as num, x * x as num_square
 table:<table>
   <thead>
     <tr>
+        <th>#&zwnj;</th>
         <th>num&zwnj;</th>
         <th>num_square&zwnj;</th>
     </tr>
   </thead>
   <tbody>
       <tr>
+          <td>1</td>
           <td>2</td>
           <td>4</td>
       </tr>
   </tbody>
 </table>
+
 result_analyzed:QueryStmt
 +-output_column_list=
 | +-$query.num#1 AS num [INT64]
@@ -224,7 +306,77 @@ query:SET x = x + 1;
 
 mode_execute
 sql_mode_script
+target_syntax_mode_standard
 error:Undeclared variable: x [at 1:5]
 SET x = x + 1;
     ^
 ==
+
+# UDF
+[mode=execute]
+[sql_mode=script]
+CREATE FUNCTION sq(x INT64) returns INT64 as (x * x);
+select sq(16);
+--
+query:CREATE FUNCTION sq(x INT64) returns INT64 as (x * x);
+select sq(16);
+
+mode_execute
+sql_mode_script
+target_syntax_mode_standard
+table:<table>
+  <thead>
+    <tr>
+        <th>#&zwnj;</th>
+        <th>$col_1&zwnj;</th>
+    </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>1</td>
+          <td>256</td>
+      </tr>
+  </tbody>
+</table>
+\
+==
+
+# TVF
+[mode=analyze,execute]
+[sql_mode=script]
+[enabled_ast_rewrites=ALL]
+
+CREATE TEMP TABLE FUNCTION mytvf() RETURNS TABLE<x INT64> AS (
+  select 1 x union all select 2 x
+);
+
+select * from mytvf();
+--
+query:CREATE TEMP TABLE FUNCTION mytvf() RETURNS TABLE&lt;x INT64&gt; AS (
+  select 1 x union all select 2 x
+);
+
+select * from mytvf();
+
+mode_execute
+sql_mode_script
+target_syntax_mode_standard
+table:<table>
+  <thead>
+    <tr>
+        <th>#&zwnj;</th>
+        <th>x&zwnj;</th>
+    </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>1</td>
+          <td>1</td>
+      </tr>
+      <tr>
+          <td>2</td>
+          <td>2</td>
+      </tr>
+  </tbody>
+</table>
+\

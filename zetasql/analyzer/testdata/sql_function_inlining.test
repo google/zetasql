@@ -2085,4 +2085,244 @@ QueryStmt
     |           +-ColumnRef(type=STRING, column=$inlined_template_with_typed_arg.arg_string#3)
     +-input_scan=
       +-SingleRowScan
+==
 
+[language_features=V_1_4_MULTILEVEL_AGGREGATION]
+SELECT
+  GroupingConstantFromUnnest([1,2,3], int64)
+FROM SimpleTypes;
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#20 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#20]
+    +-expr_list=
+    | +-$col1#20 :=
+    |   +-FunctionCall(Lazy_resolution_function:GroupingConstantFromUnnest(ARRAY<INT64> arr, INT64 int64_arg) -> INT64)
+    |     +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
+    |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    +-input_scan=
+      +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#20 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#20]
+    +-expr_list=
+    | +-$col1#20 :=
+    |   +-WithExpr
+    |     +-type=INT64
+    |     +-assignment_list=
+    |     | +-arr#24 := Literal(type=ARRAY<INT64>, value=[1, 2, 3])
+    |     | +-int64_arg#25 := ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    |     +-expr=
+    |       +-SubqueryExpr
+    |         +-type=INT64
+    |         +-subquery_type=SCALAR
+    |         +-parameter_list=
+    |         | +-ColumnRef(type=ARRAY<INT64>, column=$inlined_GroupingConstantFromUnnest.arr#24)
+    |         +-subquery=
+    |           +-ProjectScan
+    |             +-column_list=[$aggregate.$agg1#21]
+    |             +-input_scan=
+    |               +-AggregateScan
+    |                 +-column_list=[$aggregate.$agg1#21]
+    |                 +-input_scan=
+    |                 | +-ArrayScan
+    |                 |   +-column_list=[$array.X#22]
+    |                 |   +-array_expr_list=
+    |                 |   | +-ColumnRef(type=ARRAY<INT64>, column=$inlined_GroupingConstantFromUnnest.arr#24, is_correlated=TRUE)
+    |                 |   +-element_column_list=[$array.X#22]
+    |                 +-aggregate_list=
+    |                   +-$agg1#21 :=
+    |                     +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+    |                       +-ColumnRef(type=INT64, column=$group_by_list.$groupbymod#23)
+    |                       +-group_by_list=
+    |                         +-$groupbymod#23 := ColumnRef(type=INT64, column=$array.X#22)
+    +-input_scan=
+      +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
+==
+
+[language_features=V_1_4_MULTILEVEL_AGGREGATION]
+SELECT
+  GroupingConstantFromArg([1,2,3], int64)
+FROM SimpleTypes;
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#20 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#20]
+    +-expr_list=
+    | +-$col1#20 :=
+    |   +-FunctionCall(Lazy_resolution_function:GroupingConstantFromArg(ARRAY<INT64> arr, INT64 int64_arg) -> INT64)
+    |     +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
+    |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    +-input_scan=
+      +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#20 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#20]
+    +-expr_list=
+    | +-$col1#20 :=
+    |   +-WithExpr
+    |     +-type=INT64
+    |     +-assignment_list=
+    |     | +-arr#24 := Literal(type=ARRAY<INT64>, value=[1, 2, 3])
+    |     | +-int64_arg#25 := ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    |     +-expr=
+    |       +-SubqueryExpr
+    |         +-type=INT64
+    |         +-subquery_type=SCALAR
+    |         +-parameter_list=
+    |         | +-ColumnRef(type=ARRAY<INT64>, column=$inlined_GroupingConstantFromArg.arr#24)
+    |         | +-ColumnRef(type=INT64, column=$inlined_GroupingConstantFromArg.int64_arg#25)
+    |         +-subquery=
+    |           +-ProjectScan
+    |             +-column_list=[$aggregate.$agg1#21]
+    |             +-input_scan=
+    |               +-AggregateScan
+    |                 +-column_list=[$aggregate.$agg1#21]
+    |                 +-input_scan=
+    |                 | +-ArrayScan
+    |                 |   +-column_list=[$array.X#22]
+    |                 |   +-array_expr_list=
+    |                 |   | +-ColumnRef(type=ARRAY<INT64>, column=$inlined_GroupingConstantFromArg.arr#24, is_correlated=TRUE)
+    |                 |   +-element_column_list=[$array.X#22]
+    |                 +-aggregate_list=
+    |                   +-$agg1#21 :=
+    |                     +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+    |                       +-ColumnRef(type=INT64, column=$inlined_GroupingConstantFromArg.int64_arg#25, is_correlated=TRUE)
+    |                       +-group_by_list=
+    |                         +-$groupbymod#23 := ColumnRef(type=INT64, column=$array.X#22)
+    +-input_scan=
+      +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
+==
+
+[language_features=V_1_4_MULTILEVEL_AGGREGATION]
+SELECT NullaryWithMultilevelAgg() as result;
+--
+QueryStmt
++-output_column_list=
+| +-$query.result#1 AS result [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.result#1]
+    +-expr_list=
+    | +-result#1 := FunctionCall(Lazy_resolution_function:NullaryWithMultilevelAgg() -> INT64)
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.result#1 AS result [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.result#1]
+    +-expr_list=
+    | +-result#1 :=
+    |   +-SubqueryExpr
+    |     +-type=INT64
+    |     +-subquery_type=SCALAR
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$aggregate.$agg1#2]
+    |         +-input_scan=
+    |           +-AggregateScan
+    |             +-column_list=[$aggregate.$agg1#2]
+    |             +-input_scan=
+    |             | +-ArrayScan
+    |             |   +-column_list=[$array.x#3]
+    |             |   +-array_expr_list=
+    |             |   | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3, 3])
+    |             |   +-element_column_list=[$array.x#3]
+    |             +-aggregate_list=
+    |               +-$agg1#2 :=
+    |                 +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+    |                   +-ColumnRef(type=INT64, column=$group_by_list.$groupbymod#4)
+    |                   +-group_by_list=
+    |                     +-$groupbymod#4 := ColumnRef(type=INT64, column=$array.x#3)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+[language_features=V_1_4_MULTILEVEL_AGGREGATION]
+SELECT NestedNullaryWithMultilevelAgg() as result;
+--
+QueryStmt
++-output_column_list=
+| +-$query.result#1 AS result [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.result#1]
+    +-expr_list=
+    | +-result#1 := FunctionCall(Lazy_resolution_function:NestedNullaryWithMultilevelAgg() -> INT64)
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.result#1 AS result [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.result#1]
+    +-expr_list=
+    | +-result#1 :=
+    |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |     +-SubqueryExpr
+    |     | +-type=INT64
+    |     | +-subquery_type=SCALAR
+    |     | +-subquery=
+    |     |   +-ProjectScan
+    |     |     +-column_list=[$aggregate.$agg1#2]
+    |     |     +-input_scan=
+    |     |       +-AggregateScan
+    |     |         +-column_list=[$aggregate.$agg1#2]
+    |     |         +-input_scan=
+    |     |         | +-ArrayScan
+    |     |         |   +-column_list=[$array.x#3]
+    |     |         |   +-array_expr_list=
+    |     |         |   | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3, 3])
+    |     |         |   +-element_column_list=[$array.x#3]
+    |     |         +-aggregate_list=
+    |     |           +-$agg1#2 :=
+    |     |             +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+    |     |               +-ColumnRef(type=INT64, column=$group_by_list.$groupbymod#4)
+    |     |               +-group_by_list=
+    |     |                 +-$groupbymod#4 := ColumnRef(type=INT64, column=$array.x#3)
+    |     +-SubqueryExpr
+    |       +-type=INT64
+    |       +-subquery_type=SCALAR
+    |       +-subquery=
+    |         +-ProjectScan
+    |           +-column_list=[$aggregate.$agg1#5]
+    |           +-input_scan=
+    |             +-AggregateScan
+    |               +-column_list=[$aggregate.$agg1#5]
+    |               +-input_scan=
+    |               | +-ArrayScan
+    |               |   +-column_list=[$array.x#6]
+    |               |   +-array_expr_list=
+    |               |   | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3, 3])
+    |               |   +-element_column_list=[$array.x#6]
+    |               +-aggregate_list=
+    |                 +-$agg1#5 :=
+    |                   +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+    |                     +-ColumnRef(type=INT64, column=$group_by_list.$groupbymod#7)
+    |                     +-group_by_list=
+    |                       +-$groupbymod#7 := ColumnRef(type=INT64, column=$array.x#6)
+    +-input_scan=
+      +-SingleRowScan

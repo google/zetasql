@@ -206,8 +206,6 @@ message Album {
 
 ## `INSERT` statement
 
-Note: Table hints support has been added, but documentation is pending.
-
 Use the `INSERT` statement when you want to add new rows to a table.
 
 <pre>
@@ -244,10 +242,10 @@ replace_clause:
 `INSERT` statements must comply with the following rules:
 
 + Column names must be specified.
-+ Duplicate names are not allowed in the list of target columns.
++ Duplicate names aren't allowed in the list of target columns.
 + Values must be added in the same order as the specified columns.
 + The number of values added must match the number of specified columns.
-+ Values must have a type that is [compatible][compatible-types] with the
++ Values must have a type that's [compatible][compatible-types] with the
   target column.
 + All non-null columns must appear in the column list, and have a non-null value
   specified.
@@ -307,7 +305,7 @@ If the target table supports a default value for a
 column, you can omit the column from the `INSERT` statement. Alternatively, you
 can insert the default value explicitly using the `DEFAULT` keyword.
 
-**Note:** If a column does not require a value, the default value is typically
+**Note:** If a column doesn't require a value, the default value is typically
 `NULL`.
 
 The following example inserts default values for all unspecified columns.
@@ -351,10 +349,10 @@ this row would return the following:
 </table>
 
 If you construct an `INSERT` statement to use a default value for a
-column and that column does not support a default value, the statement fails.
-For example, the `Singers` table contains a column, `SingerId`, which cannot be
-`NULL`. Consequently, the following statement fails, because the `SingerId` does
-not support a default value:
+column and that column doesn't support a default value, the statement fails.
+For example, the `Singers` table contains a column, `SingerId`, which can't be
+`NULL`. Consequently, the following statement fails, because the `SingerId`
+doesn't support a default value:
 
 ```
 INSERT INTO Singers
@@ -365,8 +363,8 @@ VALUES (DEFAULT, "Andrew", "Duneskipper", "2000-01-15", "active", NULL);
 ### Duplicate rows
 
 By default, an `INSERT` statement fails when it tries to add a duplicate row.
-A duplicate row is defined as one for which the
-primary key already exists in the table.
+A duplicate row is defined as one for which the primary key or a unique key
+already exists in the table.
 
 You can change this behavior by choosing one of the following options for
 handling duplicate rows:
@@ -383,8 +381,8 @@ Your statement would resemble the following:
 INSERT [OR] { IGNORE | REPLACE | UPDATE } <em>&lt;rest of statement&gt;</em>
 </pre>
 
-These keywords require that your table includes a primary key. If the table does
-not have a primary key, the statement fails.
+These keywords require that your table includes a primary key. If the table
+doesn't have a primary key, the statement fails.
 
 If a table is unordered, the first row, last row, and sequence of rows
 are arbitrary.
@@ -425,7 +423,7 @@ VALUES ("Zak", "Sterling", "1996-03-12", "active", "nationality:'U.S.A.'");
 ```
 
 Using `REPLACE` is the same as deleting the existing row and inserting a
-replacement one. As a result, any columns that you do not mention in the
+replacement one. As a result, any columns that you don't mention in the
 replacement row are cleared and replaced with their default values. If you want
 your statement to preserve the values of unspecified columns, use
 `INSERT OR UPDATE`.
@@ -434,7 +432,7 @@ your statement to preserve the values of unspecified columns, use
 <a id="insert_update"></a>
 
 `INSERT OR UPDATE` updates the columns specified
-for one or more rows. Columns that are not listed in the `INSERT` statement
+for one or more rows. Columns that aren't listed in the `INSERT` statement
 remain unchanged.
 
 The following example illustrates how `INSERT OR UPDATE` changes an
@@ -446,11 +444,11 @@ INSERT OR UPDATE INTO Singers
 VALUES (5, "inactive");
 ```
 
-Notice that if the row does not exist, the previous statement inserts a new row
+Notice that if the row doesn't exist, the previous statement inserts a new row
 with values in the specified fields, and all other values set to their
 corresponding defaults.
 
-When you use the `UPDATE` keyword, any column that you do not specify remains
+When you use the `UPDATE` keyword, any column that you don't specify remains
 unchanged.
 
 ### `INSERT` and `ASSERT_ROWS_MODIFIED`
@@ -466,7 +464,7 @@ ZetaSQL commits the changes.  Otherwise, ZetaSQL returns
 an error and rolls back the statement.
 
 When calculating the number of rows modified, ZetaSQL includes rows
-that were inserted, updated, or replaced. It does not count rows that were
+that were inserted, updated, or replaced. It doesn't count rows that were
 skipped through the `IGNORE` keyword. To illustrate this, consider the following
 example of a **Singers** table:
 
@@ -537,13 +535,13 @@ inserted rows that include these parts:
     and `"UPDATE"`. The `ACTION` column is appended as the last output column.
 +   `*`: Returns all columns.
 +   `expression.*`: Returns all columns from range variables, like a table or
-    proto field. The dot star expression cannot be applied on other expressions,
+    proto field. The dot star expression can't be applied on other expressions,
     including field access.
 +   `except_clause`: Specifies the columns to exclude from the result. All
     matching column names are omitted from the output.
 +   `replace_clause`: Specifies the columns to replace in the result. The column
     that matches the identifier in a `replace_clause` is replaced by the
-    expression in that `replace_clause`. A `replace_clause` does not change the
+    expression in that `replace_clause`. A `replace_clause` doesn't change the
     names or order of columns. However, it can change the value and the value
     type of a column.
 +   `expression`: Represents a column name of the table specified by
@@ -556,7 +554,7 @@ inserted rows that include these parts:
 The following query inserts three rows into a table, and uses `THEN RETURN` to
 fetch these rows and compute a new column called `new_quantity`.
 
-```sql
+```zetasql
 INSERT Inventory (product, quantity)
 VALUES ('washer', 20),
        ('dryer', 30),
@@ -576,7 +574,7 @@ The following query tries to insert two rows into a table, but ignores a
 duplicated row. It uses `THEN RETURN` to fetch the inserted row and
 `WITH ACTION` to show the modified row action type.
 
-```sql
+```zetasql
 INSERT IGNORE Inventory (product, quantity)
 VALUES ('desk', 40),
        ('desk', 45)
@@ -593,7 +591,7 @@ The following query tries to insert or update a row into a table. It uses
 `THEN RETURN` to fetch the modified row and `WITH ACTION` to show the modified
 row action type.
 
-```sql
+```zetasql
 INSERT OR UPDATE Inventory (product, quantity)
 VALUES ('oven', 100)
 THEN RETURN WITH ACTION product, quantity * 10 AS new_quantity;
@@ -617,7 +615,7 @@ VALUES (5, "Catalina", "Smith", "1990-08-17", DEFAULT, "nationality:'U.S.A.'");
 
 **RESULT:** New singer, Catalina Smith, added to table.
 
-Try to add a singer, but only if the `SingerId` is not already in the table.
+Try to add a singer, but only if the `SingerId` isn't already in the table.
 
 ```
 INSERT OR IGNORE INTO Singers
@@ -651,7 +649,7 @@ now `inactive`. All other values, such as `BirthDate`, remain unchanged.
 
 Add a new row to the `Singers` table and return the `DEFAULT` column value.
 
-```sql
+```zetasql
 INSERT INTO Singers (SingerId, FirstName,
 LastName, BirthDate, Status, SingerInfo) VALUES (6, "Michael", "Leon",
 "1958-08-29", DEFAULT, "nationality:'U.S.A.'") THEN RETURN Status;
@@ -661,8 +659,6 @@ LastName, BirthDate, Status, SingerInfo) VALUES (6, "Michael", "Leon",
 value `active` of its `Status` column.
 
 ## `DELETE` statement
-
-Note: Table hints support has been added, but documentation is pending.
 
 Use the `DELETE` statement when you want to delete rows from a table.
 
@@ -749,7 +745,7 @@ Example:
 The following query deletes all rows in a table that contains a product called
 `washer` and then returns the deleted rows.
 
-```sql
+```zetasql
 DELETE FROM Inventory
 WHERE product = 'washer'
 THEN RETURN *;
@@ -762,8 +758,6 @@ THEN RETURN *;
 ```
 
 ## `UPDATE` statement
-
-Note: Table hints support has been added, but documentation is pending.
 
 Use the `UPDATE` statement when you want to update existing rows within a table.
 
@@ -814,7 +808,7 @@ You can also use columns from joined tables in a `SET` clause or `WHERE`
 condition.
 
 The `FROM` clause join can be a cross join if no condition is specified in the
-`WHERE` clause, otherwise it is an inner join. In either case, rows from the
+`WHERE` clause, otherwise it's an inner join. In either case, rows from the
 target table can join with at most one row from the `FROM` clause.
 
 To specify the join predicate between the table to be updated and tables in
@@ -838,7 +832,7 @@ The following example generates a table with inventory totals that include
 existing inventory and inventory from the `NewArrivals` table, and
 marks `supply_constrained` as false.
 
-```sql
+```zetasql
 UPDATE dataset.Inventory
 SET quantity = quantity +
   (SELECT quantity FROM dataset.NewArrivals
@@ -849,7 +843,7 @@ WHERE product IN (SELECT product FROM dataset.NewArrivals)
 
 Alternately, you can join the tables.
 
-```sql
+```zetasql
 UPDATE dataset.Inventory i
 SET quantity = i.quantity + n.quantity,
     supply_constrained = false
@@ -862,7 +856,7 @@ using the `WHERE` clause.
 
 Before:
 
-```sql
+```zetasql
 -- Inventory
 /*-------------------+----------+--------------------*
  |      product      | quantity | supply_constrained |
@@ -888,7 +882,7 @@ Before:
 
 After:
 
-```sql
+```zetasql
 /*-------------------+----------+--------------------*
  |      product      | quantity | supply_constrained |
  +-------------------+----------+--------------------+
@@ -960,7 +954,7 @@ The following query updates the `supply_constrained` column in this `Inventory`
 table when the quantity of product is zero, and returns all updated product with
 an out of stock message.
 
-```sql
+```zetasql
 UPDATE Inventory
 SET supply_constrained = true
 WHERE quantity = 0
@@ -1031,13 +1025,13 @@ WHERE s.SingerId = 5;
 
 `UPDATE` statements must use values that are compatible with the corresponding
 column's type. For example, a value of `1991-10-02` works for a column of type
-`Date`, but a value of `October 2, 1991` would not. You can, however, use values
+`Date`, but a value of `October 2, 1991` wouldn't. You can, however, use values
 that can be cast to the type of the corresponding column. Casting happens
 automatically for numerical values (this is also referred to as
 [coercion][coercion]).
 
 If you attempt to set a column with an invalid value, the statement fails.
-For example, the following statement does not work:
+For example, the following statement doesn't work:
 
 ```
 UPDATE Singers s
@@ -1292,8 +1286,8 @@ SET
 WHERE SingerId = 3 AND s.Albums.title = 'Go! Go! Go!';
 ```
 
-**Note:** In nested queries, you cannot use `INSERT OR` statements. These types
-of statements don't work because arrays and other compound data types do not
+**Note:** In nested queries, you can't use `INSERT OR` statements. These types
+of statements don't work because arrays and other compound data types don't
 always have a primary key, so there is no applicable definition of duplicate
 rows.
 
@@ -1403,7 +1397,7 @@ atomically.
    one row from the target table, and you are trying to update or delete that
    row in the target table.
 +  `not_matched_by_target_clause`: The `WHEN NOT MATCHED` clause defines how to
-   insert into the target table if a row from the source table does not match
+   insert into the target table if a row from the source table doesn't match
    any row in the target table.
 
    When the column names of the target table are omitted, all columns in the
@@ -1414,14 +1408,14 @@ atomically.
    sequence of their ordinal positions. Note that none of the pseudo column of
    the source table is included.
 +  `not_matched_by_source_clause`: The `WHEN NOT MATCHED BY SOURCE` clause
-   defines how to update or delete a row in the target table if that row does
-   not match any row in the source table.
+   defines how to update or delete a row in the target table if that row doesn't
+   match any row in the source table.
 
 In the following example, the query merges items from the `NewArrivals` table
 into the `Inventory` table. If an item is already present in `Inventory`, the
 query increments the quantity field. Otherwise, the query inserts a new row.
 
-```sql
+```zetasql
 MERGE dataset.Inventory T
 USING dataset.NewArrivals S
 ON T.product = S.product
@@ -1433,7 +1427,7 @@ WHEN NOT MATCHED THEN
 
 These are the tables before you run the query:
 
-```sql
+```zetasql
 -- NewArrivals
 /*-----------------+----------+--------------*
  |     product     | quantity |  warehouse   |
@@ -1459,7 +1453,7 @@ These are the tables before you run the query:
 
 This is the `Inventory` table after you run the query:
 
-```sql
+```zetasql
 --Inventory
 /*-------------------+----------*
  |      product      | quantity |

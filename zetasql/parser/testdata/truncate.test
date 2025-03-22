@@ -105,7 +105,7 @@ TRUNCATE TABLE foo-567-bar.baz;
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `foo-567-bar.baz` [at 1:16]
+ERROR: Syntax error: Table name contains '-' character. The dashed identifier part of the table name needs to be quoted: `foo-567-bar` [at 1:16]
 TRUNCATE TABLE foo-567-bar.baz;
                ^
 --

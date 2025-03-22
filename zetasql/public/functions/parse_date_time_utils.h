@@ -52,7 +52,7 @@ const char* ParseInt(const char* dp, const char* end_of_data, int max_width,
 
 // Parses up to <max_digits> (0 means unbounded) from chars in range [<dp>,
 // <end_of_data>), and returns a Duration (digits beyond the given <scale> are
-// truncated).
+// truncated), and sub-nanoseconds value is returned by <sub_nanoseconds>.
 //
 // The input const char* <dp> must not be nullptr and it must be smaller than
 // <end_of_data>. The <max_width> must be non-negative. Returns nullptr if any
@@ -62,7 +62,8 @@ const char* ParseInt(const char* dp, const char* end_of_data, int max_width,
 // an integer, and returns nullptr otherwise.
 const char* ParseSubSeconds(const char* dp, const char* end_of_data,
                             int max_digits, TimestampScale scale,
-                            absl::Duration* subseconds);
+                            absl::Duration* subseconds,
+                            uint32_t* sub_nanoseconds);
 }  // namespace parse_date_time_utils
 }  // namespace functions
 }  // namespace zetasql

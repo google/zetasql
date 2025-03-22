@@ -22,6 +22,7 @@
 
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "absl/status/status.h"
 
 namespace zetasql {
 

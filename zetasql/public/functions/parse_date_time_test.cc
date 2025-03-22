@@ -23,7 +23,6 @@
 #include <functional>
 #include <limits>
 #include <optional>
-#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -31,18 +30,24 @@
 #include "zetasql/base/logging.h"
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/compliance/functions_testlib.h"
+#include "zetasql/public/civil_time.h"
 #include "zetasql/public/functions/date_time_util.h"
+#include "zetasql/public/functions/datetime.pb.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/pico_time.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/timestamp_util.h"
 #include "zetasql/public/value.h"
 #include "zetasql/testing/test_function.h"
-#include "zetasql/base/case.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
+#include "absl/time/civil_time.h"
 #include "absl/time/time.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/status_macros.h"
@@ -52,6 +57,8 @@ namespace functions {
 namespace {
 
 using testing::HasSubstr;
+using testing::Not;
+using zetasql_base::testing::IsOk;
 using zetasql_base::testing::StatusIs;
 
 const FormatDateTimestampOptions kExpandQandJ =
@@ -372,6 +379,107 @@ TEST_P(ParseDateTimeTestWithParam, ParseStringToDateTimestampTests) {
 INSTANTIATE_TEST_SUITE_P(
     ParseDateTimestampTests, ParseDateTimeTestWithParam,
     testing::ValuesIn(GetFunctionTestsParseDateTimestamp()));
+
+class ParseTimestampPicosSuccessTest
+    : public ::testing::TestWithParam<FunctionTestCall> {};
+
+TEST_P(ParseTimestampPicosSuccessTest, ParseTimestampPicosTests) {
+  const FunctionTestCall& test = GetParam();
+
+  // Ignore tests that do not have the time zone explicitly specified since
+  // the function library requires a timezone.  Also ignore test cases
+  // with NULL value inputs.  The date/time function library is only
+  // implemented for non-NULL values.
+  if (test.params.params().size() != 3 || test.params.param(0).is_null() ||
+      test.params.param(1).is_null() || test.params.param(2).is_null()) {
+    return;
+  }
+
+  const Value& format_param = test.params.param(0);
+  const Value& timestamp_string_param = test.params.param(1);
+  const Value& timezone_param = test.params.param(2);
+  PicoTime result_timestamp;
+
+  absl::Status status = ParseStringToTimestamp(
+      format_param.string_value(), timestamp_string_param.string_value(),
+      timezone_param.string_value(), &result_timestamp);
+
+  std::string test_string = absl::Substitute(
+      absl::StrCat(test.function_name, "($0, $1, $2)"),
+      format_param.DebugString(), timestamp_string_param.DebugString(),
+      timezone_param.DebugString());
+
+  EXPECT_THAT(status, IsOk()) << test_string;
+  EXPECT_EQ(TYPE_TIMESTAMP_PICOS, test.params.result().type_kind())
+      << test_string;
+  EXPECT_EQ(test.params.result().timestamp_picos_value().ToPicoTime(),
+            result_timestamp)
+      << test_string << "\nexpected: "
+      << test.params.result().timestamp_picos_value().DebugString()
+      << "\nactual: " << result_timestamp.DebugString();
+}
+
+class ParseTimestampPicosFailureTest
+    : public ::testing::TestWithParam<FunctionTestCall> {};
+
+TEST_P(ParseTimestampPicosFailureTest, ParseTimestampPicosTests) {
+  const FunctionTestCall& test = GetParam();
+
+  // Ignore tests that do not have the time zone explicitly specified since
+  // the function library requires a timezone.  Also ignore test cases
+  // with NULL value inputs.  The date/time function library is only
+  // implemented for non-NULL values.
+  if (test.params.params().size() != 3 || test.params.param(0).is_null() ||
+      test.params.param(1).is_null() || test.params.param(2).is_null()) {
+    return;
+  }
+
+  const Value& format_param = test.params.param(0);
+  const Value& timestamp_string_param = test.params.param(1);
+  const Value& timezone_param = test.params.param(2);
+  PicoTime result_timestamp;
+
+  absl::Status status = ParseStringToTimestamp(
+      format_param.string_value(), timestamp_string_param.string_value(),
+      timezone_param.string_value(), &result_timestamp);
+
+  std::string test_string = absl::Substitute(
+      absl::StrCat(test.function_name, "($0, $1, $2)"),
+      format_param.DebugString(), timestamp_string_param.DebugString(),
+      timezone_param.DebugString());
+
+  EXPECT_THAT(status, Not(IsOk()))
+      << test_string << "\nexpected status: " << test.params.status();
+}
+
+static std::vector<FunctionTestCall> GetSuccessTestsParseTimestampPicos() {
+  std::vector<FunctionTestCall> tests;
+  for (const auto& test : GetFunctionTestsParseTimestampPicos()) {
+    if (test.params.status().ok()) {
+      tests.push_back(test);
+    }
+  }
+  return tests;
+}
+
+static std::vector<FunctionTestCall> GetFailureTestsParseTimestampPicos() {
+  std::vector<FunctionTestCall> tests;
+  for (const auto& test : GetFunctionTestsParseTimestampPicos()) {
+    if (!test.params.status().ok()) {
+      tests.push_back(test);
+    }
+  }
+  return tests;
+}
+
+// These tests are populated in zetasql/compliance/functions_testlib.cc.
+INSTANTIATE_TEST_SUITE_P(
+    ParseTimestampPicosTests, ParseTimestampPicosSuccessTest,
+    testing::ValuesIn(GetSuccessTestsParseTimestampPicos()));
+
+INSTANTIATE_TEST_SUITE_P(
+    ParseTimestampPicosTests, ParseTimestampPicosFailureTest,
+    testing::ValuesIn(GetFailureTestsParseTimestampPicos()));
 
 TEST(StringToTimestampTests, ParseTimestampSecondsSinceEpochTests) {
   // These tests validate results by comparing the parsed string result vs.

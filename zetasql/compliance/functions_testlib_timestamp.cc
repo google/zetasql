@@ -32,6 +32,8 @@
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/functions/datetime.pb.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/pico_time.h"
+#include "zetasql/public/timestamp_picos_value.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
 #include "zetasql/testing/test_function.h"
@@ -301,8 +303,41 @@ std::vector<FunctionTestCall> GetFunctionTestsDateSub() {
 
 std::vector<FunctionTestCall> GetFunctionTestsDateAddSub() {
   return ConcatTests<FunctionTestCall>({
-      GetFunctionTestsDateAdd(), GetFunctionTestsDateSub(),
+      GetFunctionTestsDateAdd(),
+      GetFunctionTestsDateSub(),
   });
+}
+
+std::vector<FunctionTestCall> GetFunctionTestsAddDate() {
+  std::vector<FunctionTestCall> add_tests = GetFunctionTestsDateAdd();
+  for (FunctionTestCall& test_fn : add_tests) {
+    test_fn.function_name = "adddate";
+  }
+  return add_tests;
+}
+
+std::vector<FunctionTestCall> GetFunctionTestsSubDate() {
+  // Reuse all of the DATE_ADD tests but change the function name and
+  // invert the interval value.
+  std::vector<FunctionTestCall> sub_tests = GetFunctionTestsDateAdd();
+  for (FunctionTestCall& test_fn : sub_tests) {
+    test_fn.function_name = "subdate";
+    if (!test_fn.params.param(1).is_null()) {
+      uint64_t interval = test_fn.params.param(1).int64_value();
+      *(test_fn.params.mutable_param(1)) = Int64(-1 * interval);
+    }
+  }
+  // And add one more to exercise a corner case unique to subtraction.
+  const EnumType* part_enum;
+  const google::protobuf::EnumDescriptor* enum_descriptor =
+      functions::DateTimestampPart_descriptor();
+  ZETASQL_CHECK_OK(type_factory()->MakeEnumType(enum_descriptor, &part_enum));
+  sub_tests.push_back(FunctionTestCall(
+      "subdate",
+      {DateFromStr("2001-01-01"), Int64(std::numeric_limits<int64_t>::lowest()),
+       Enum(part_enum, "YEAR")},
+      NullDate(), OUT_OF_RANGE));
+  return sub_tests;
 }
 
 static QueryParamsWithResult::FeatureSet GetFeatureSetForDateTimestampPart(
@@ -4722,7 +4757,7 @@ GetParseDateTimestampCommonTests() {
       // %E*S - seconds with 'full' fractional precision.
       //        As many digits are parsed and consumed as are present.
       // The tests for more than 6 digits are in
-      // GetParseNanoTimestampSensitiveTests.
+      // GetParseNanoAndPicoTimestampSensitiveTests.
       {"%E*S", TEST_FORMAT_TIME, "1", "00:00:01"},
       {"%E*S", TEST_FORMAT_TIME, "1.", EXPECT_ERROR},
       {"%E*S", TEST_FORMAT_TIME, "1.1", "00:00:01.100"},
@@ -4734,8 +4769,8 @@ GetParseDateTimestampCommonTests() {
       {"%E*S", TEST_FORMAT_TIME, "1.123456", kTestExpected01123456},
 
       // For %E#S, the valid is range is [0, 6] for micro precision and [0, 9]
-      // for nano precision. The test cases of [7, 9] are in
-      // GetParseNanoTimestampSensitiveTests.
+      // for nano precision, [0-12] for pico precision. The test cases of [7,
+      // 12] are in GetParseNanoAndPicoTimestampSensitiveTests.
       {"%E0S", TEST_FORMAT_TIME, "1", "00:00:01"},
       {"%E1S", TEST_FORMAT_TIME, "1", "00:00:01"},
       {"%E2S", TEST_FORMAT_TIME, "1", "00:00:01"},
@@ -4743,7 +4778,7 @@ GetParseDateTimestampCommonTests() {
       {"%E4S", TEST_FORMAT_TIME, "1", "00:00:01"},
       {"%E5S", TEST_FORMAT_TIME, "1", "00:00:01"},
       {"%E6S", TEST_FORMAT_TIME, "1", "00:00:01"},
-      {"%E10S", TEST_FORMAT_TIME, "1", EXPECT_ERROR},
+      {"%E13S", TEST_FORMAT_TIME, "1", EXPECT_ERROR},
 
       // For %E#S, up to # digits are parsed and consumed.
       {"%E0S", TEST_FORMAT_TIME, "1", "00:00:01"},
@@ -5413,7 +5448,8 @@ class ParseTimestampTest {
         timestamp_string_(timestamp_string),
         default_time_zone_(default_time_zone),
         expected_result_(expected_result),
-        nano_expected_result_(expected_result) {}
+        nano_expected_result_(expected_result),
+        pico_expected_result_(expected_result) {}
 
   ParseTimestampTest(absl::string_view format,
                      absl::string_view timestamp_string,
@@ -5424,7 +5460,21 @@ class ParseTimestampTest {
         timestamp_string_(timestamp_string),
         default_time_zone_(default_time_zone),
         expected_result_(expected_result),
-        nano_expected_result_(nano_expected_result) {}
+        nano_expected_result_(nano_expected_result),
+        pico_expected_result_(nano_expected_result) {}
+
+  ParseTimestampTest(absl::string_view format,
+                     absl::string_view timestamp_string,
+                     absl::string_view default_time_zone,
+                     absl::string_view expected_result,
+                     absl::string_view nano_expected_result,
+                     absl::string_view pico_expected_result)
+      : format_(format),
+        timestamp_string_(timestamp_string),
+        default_time_zone_(default_time_zone),
+        expected_result_(expected_result),
+        nano_expected_result_(nano_expected_result),
+        pico_expected_result_(pico_expected_result) {}
 
   ~ParseTimestampTest() {}
 
@@ -5435,6 +5485,9 @@ class ParseTimestampTest {
   const std::string& nano_expected_result() const {
     return nano_expected_result_;
   }
+  const std::string& pico_expected_result() const {
+    return pico_expected_result_;
+  }
 
  private:
   std::string format_;                // format string
@@ -5442,6 +5495,7 @@ class ParseTimestampTest {
   std::string default_time_zone_;     // default time zone
   std::string expected_result_;       // "" indicates an error is expected
   std::string nano_expected_result_;  // "" indicates an error is expected
+  std::string pico_expected_result_;  // "" indicates an error is expected
   // Copyable.
 };
 
@@ -5549,27 +5603,35 @@ static std::vector<ParseTimestampTest> GetParseTimestampSpecificTests() {
 
 // The format string in the test cases returned by this function should only
 // have the element "%E*S" or "%E#S".
-static std::vector<ParseTimestampTest> GetParseNanoTimestampSensitiveTests() {
+static std::vector<ParseTimestampTest>
+GetParseNanoAndPicoTimestampSensitiveTests() {
   const char kTestExpected01123456[] = "1970-01-01 00:00:01.123456";
   const char kTestExpected011234567[] = "1970-01-01 00:00:01.1234567";
-  const char kTestExpected0112345699[] = "1970-01-01 00:00:01.12345699";
-  const char kTestExpected01123456999[] = "1970-01-01 00:00:01.123456999";
+  const char kTestExpected0112345678[] = "1970-01-01 00:00:01.12345678";
+  const char kTestExpected01123456789[] = "1970-01-01 00:00:01.123456789";
+  const char kTestExpected011234567891[] = "1970-01-01 00:00:01.1234567891";
+  const char kTestExpected01123456789123[] = "1970-01-01 00:00:01.123456789123";
 
   // Additional digits beyond the supported precision are truncated (6 for
-  // micros, 9 for nanos)
+  // micros, 9 for nanos, 12 for picos)
   std::vector<ParseTimestampTest> tests({
       {"%E*S", "1.1234567", "UTC", kTestExpected01123456,
        kTestExpected011234567},
-      {"%E*S", "1.12345699", "UTC", kTestExpected01123456,
-       kTestExpected0112345699},
-      {"%E*S", "1.123456999", "UTC", kTestExpected01123456,
-       kTestExpected01123456999},
-      {"%E*S", "1.1234569999", "UTC", kTestExpected01123456,
-       kTestExpected01123456999},
-      {"%E*S", "1.123456999999999", "UTC", kTestExpected01123456,
-       kTestExpected01123456999},
-      {"%E10S", "1", "UTC", EXPECT_ERROR, EXPECT_ERROR},
+      {"%E*S", "1.12345678", "UTC", kTestExpected01123456,
+       kTestExpected0112345678},
+      {"%E*S", "1.123456789", "UTC", kTestExpected01123456,
+       kTestExpected01123456789},
+      {"%E*S", "1.1234567891", "UTC", kTestExpected01123456,
+       kTestExpected01123456789, kTestExpected011234567891},
+      {"%E*S", "1.123456789123456", "UTC", kTestExpected01123456,
+       kTestExpected01123456789, kTestExpected01123456789123},
+      {"%E10S", "1", "UTC", EXPECT_ERROR, EXPECT_ERROR, "1970-01-01 00:00:01"},
       {"%E7S", "1", "UTC", EXPECT_ERROR, "1970-01-01 00:00:01"},
+      {"%E9S", "1.123456789", "UTC", EXPECT_ERROR, kTestExpected01123456789},
+      {"%E10S", "1.1234567891", "UTC", EXPECT_ERROR, EXPECT_ERROR,
+       kTestExpected011234567891},
+      {"%E12S", "1.123456789123", "UTC", EXPECT_ERROR, EXPECT_ERROR,
+       kTestExpected01123456789123},
   });
   return tests;
 }
@@ -5677,7 +5739,8 @@ static std::vector<FunctionTestCall> GetFunctionTestsParseTime() {
   }
 
   // Add nano test cases.
-  for (const ParseTimestampTest& test : GetParseNanoTimestampSensitiveTests()) {
+  for (const ParseTimestampTest& test :
+       GetParseNanoAndPicoTimestampSensitiveTests()) {
     auto ConvertTimestampStringToTime = [](absl::string_view timestamp_string,
                                            absl::string_view timezone_string,
                                            functions::TimestampScale scale) {
@@ -5770,7 +5833,8 @@ static std::vector<FunctionTestCall> GetFunctionTestsParseDatetime() {
   }
 
   // Add nano test cases.
-  for (const ParseTimestampTest& test : GetParseNanoTimestampSensitiveTests()) {
+  for (const ParseTimestampTest& test :
+       GetParseNanoAndPicoTimestampSensitiveTests()) {
     auto ConvertTimestampStringToDatetime =
         [](absl::string_view timestamp_string,
            absl::string_view timezone_string, functions::TimestampScale scale) {
@@ -5805,7 +5869,7 @@ static std::vector<FunctionTestCall> GetFunctionTestsParseDatetime() {
 
 static std::vector<ParseTimestampTest> GetParseTimestampTests() {
   return ConcatTests<ParseTimestampTest>({
-      GetParseNanoTimestampSensitiveTests(),
+      GetParseNanoAndPicoTimestampSensitiveTests(),
       GetParseTimestampSpecificTests(),
       GetParseTimestampCommonTests(),
   });
@@ -5863,7 +5927,7 @@ static Value GetNanosResult(const ParseTimestampTest& test) {
 
 static void AddTestCasesForParseTimestampTest(
     const ParseTimestampTest& test, absl::string_view function_name,
-    const std::vector<ValueConstructor>& args,
+    absl::Span<const ValueConstructor> args,
     std::vector<FunctionTestCall>& tests) {
   if (test.expected_result().empty() && test.nano_expected_result().empty()) {
     tests.emplace_back(function_name, args, NullTimestamp(),
@@ -5929,22 +5993,69 @@ std::vector<FunctionTestCall> GetFunctionTestsParseDateTimestamp() {
   return tests;
 }
 
+static Value GetPicosResult(const ParseTimestampTest& test) {
+  if (test.pico_expected_result().empty()) {
+    return values::NullTimestampPicos();
+  }
+  PicoTime pico_time;
+  absl::TimeZone zone;
+  ZETASQL_CHECK_OK(functions::MakeTimeZone(test.default_time_zone(), &zone));
+  ZETASQL_CHECK_OK(functions::ConvertStringToTimestamp(
+      test.pico_expected_result(), zone,
+      /*allow_tz_in_str=*/true, &pico_time));
+  return Value::TimestampPicos(TimestampPicosValue(pico_time));
+}
+
+static void AddTestCasesForParseTimestampPicosTest(
+    const ParseTimestampTest& test, absl::string_view function_name,
+    absl::Span<const ValueConstructor> args,
+    std::vector<FunctionTestCall>& tests) {
+  if (test.expected_result().empty() && test.nano_expected_result().empty() &&
+      test.pico_expected_result().empty()) {
+    tests.emplace_back(function_name, args, values::NullTimestampPicos(),
+                       absl::StatusCode::kOutOfRange);
+    return;
+  }
+
+  Value expected_value = GetPicosResult(test);
+  absl::StatusCode expected_status =
+      IsExpectedError(test.pico_expected_result())
+          ? absl::StatusCode::kOutOfRange
+          : absl::StatusCode::kOk;
+
+  tests.emplace_back(function_name, QueryParamsWithResult(args, expected_value,
+                                                          expected_status));
+}
+
+std::vector<FunctionTestCall> GetFunctionTestsParseTimestampPicos() {
+  std::vector<FunctionTestCall> tests;
+  for (const ParseTimestampTest& test : GetParseTimestampTests()) {
+    std::vector<ValueConstructor> args = {String(test.format()),
+                                          String(test.timestamp_string()),
+                                          String(test.default_time_zone())};
+    AddTestCasesForParseTimestampPicosTest(test, "parse_timestamp_picos", args,
+                                           tests);
+  }
+
+  return tests;
+}
+
 // This struct is the same as ParseDateTimestampCommonTest except that it has
 // an additional field <current_date> to construct <current_date> or
 // <current_timestamp> arguments for test cases.
 struct CastStringToDateTimestampCommonTest : ParseDateTimestampCommonTest {
   int32_t current_date;
   std::string nano_expected_result;
+  std::string pico_expected_result;
   CastStringToDateTimestampCommonTest(absl::string_view format_string_in,
                                       TestFormatDateTimeParts parts_in,
                                       absl::string_view input_string_in,
                                       int32_t current_date_in,
                                       absl::string_view expected_result_in)
-      : ParseDateTimestampCommonTest{std::string(format_string_in), parts_in,
-                                     std::string(input_string_in),
-                                     std::string(expected_result_in)},
-        current_date(current_date_in),
-        nano_expected_result(expected_result_in) {}
+      : CastStringToDateTimestampCommonTest(
+            format_string_in, parts_in, input_string_in, current_date_in,
+            expected_result_in,
+            /*nano_expected_result_in=*/expected_result_in) {}
 
   CastStringToDateTimestampCommonTest(absl::string_view format_string_in,
                                       TestFormatDateTimeParts parts_in,
@@ -5956,30 +6067,38 @@ struct CastStringToDateTimestampCommonTest : ParseDateTimestampCommonTest {
                                      std::string(input_string_in),
                                      std::string(expected_result_in)},
         current_date(current_date_in),
-        nano_expected_result(nano_expected_result_in) {}
+        nano_expected_result(nano_expected_result_in),
+        pico_expected_result(nano_expected_result_in) {}
 
   CastStringToDateTimestampCommonTest(absl::string_view format_string_in,
                                       TestFormatDateTimeParts parts_in,
                                       absl::string_view input_string_in,
                                       absl::string_view expected_result_in)
-      : ParseDateTimestampCommonTest{std::string(format_string_in), parts_in,
-                                     std::string(input_string_in),
-                                     std::string(expected_result_in)},
-        nano_expected_result(expected_result_in) {
-    // Sets value of <current_date> to 1970-1-1 if not provided in constructor
-    // arguments.
-    ZETASQL_CHECK_OK(functions::ConstructDate(1970, 1, 1, &current_date));
-  }
+      : CastStringToDateTimestampCommonTest(
+            format_string_in, parts_in, input_string_in, expected_result_in,
+            /*nano_expected_result_in=*/expected_result_in) {}
 
   CastStringToDateTimestampCommonTest(absl::string_view format_string_in,
                                       TestFormatDateTimeParts parts_in,
                                       absl::string_view input_string_in,
                                       absl::string_view expected_result_in,
                                       absl::string_view nano_expected_result_in)
+      : CastStringToDateTimestampCommonTest(
+            format_string_in, parts_in, input_string_in, expected_result_in,
+            nano_expected_result_in,
+            /*pico_expected_result_in=*/nano_expected_result_in) {}
+
+  CastStringToDateTimestampCommonTest(absl::string_view format_string_in,
+                                      TestFormatDateTimeParts parts_in,
+                                      absl::string_view input_string_in,
+                                      absl::string_view expected_result_in,
+                                      absl::string_view nano_expected_result_in,
+                                      absl::string_view pico_expected_result_in)
       : ParseDateTimestampCommonTest{std::string(format_string_in), parts_in,
                                      std::string(input_string_in),
                                      std::string(expected_result_in)},
-        nano_expected_result(nano_expected_result_in) {
+        nano_expected_result(nano_expected_result_in),
+        pico_expected_result(pico_expected_result_in) {
     // Sets value of <current_date> to 1970-1-1 if not provided in constructor
     // arguments.
     ZETASQL_CHECK_OK(functions::ConstructDate(1970, 1, 1, &current_date));
@@ -6502,8 +6621,14 @@ GetCastStringToDateTimestampCommonTests() {
       {"FF9", TEST_FORMAT_DATE_AND_TIME, "123456789", date_2002_2_2,
        "2002-02-01 00:00:00.123456", "2002-02-01 00:00:00.123456789"},
 
-      {"FF10", TEST_FORMAT_TIME, "1", EXPECT_ERROR},
-      {"FF11", TEST_FORMAT_TIME, "1", EXPECT_ERROR},
+      {"FF12", TEST_FORMAT_TIME, "", EXPECT_ERROR},
+      {"FF12", TEST_FORMAT_TIME, "1", EXPECT_ERROR, EXPECT_ERROR, "00:00:00.1"},
+      {"FF12", TEST_FORMAT_TIME, "123456789321", EXPECT_ERROR, EXPECT_ERROR,
+       "00:00:00.123456789321"},
+      {"FF12", TEST_FORMAT_TIME, "1234567893210", EXPECT_ERROR},
+
+      {"FF13", TEST_FORMAT_TIME, "1", EXPECT_ERROR},
+      {"FF14", TEST_FORMAT_TIME, "1", EXPECT_ERROR},
 
       // Combined Time format elements.
       {"HH24:MI:SS.FF6", TEST_FORMAT_TIME, "01:02:03.040000",
@@ -6944,6 +7069,18 @@ class CastStringToTimestampTest : public ParseTimestampTest {
                            expected_result, nano_expected_result),
         current_timestamp_(current_timestamp) {}
 
+  CastStringToTimestampTest(absl::string_view format,
+                            absl::string_view timestamp_string,
+                            absl::string_view default_time_zone,
+                            absl::Time current_timestamp,
+                            absl::string_view expected_result,
+                            absl::string_view nano_expected_result,
+                            absl::string_view pico_expected_result)
+      : ParseTimestampTest(format, timestamp_string, default_time_zone,
+                           expected_result, nano_expected_result,
+                           pico_expected_result),
+        current_timestamp_(current_timestamp) {}
+
   ~CastStringToTimestampTest() {}
 
   const absl::Time current_timestamp() const { return current_timestamp_; }
@@ -6973,12 +7110,24 @@ GetCastStringToTimestampCommonTests() {
               ? ""
               : absl::StrCat("1970-01-01 ", common_test.nano_expected_result,
                              "+00");
+      std::string pico_result =
+          common_test.pico_expected_result.empty()
+              ? ""
+              : absl::StrCat("1970-01-01 ", common_test.pico_expected_result,
+                             "+00");
       tests.push_back({common_test.format_string, common_test.input_string,
-                       "UTC", current_timestamp, micro_result, nano_result});
+                       "UTC", current_timestamp, micro_result, nano_result,
+                       pico_result});
     } else {
-      tests.push_back({common_test.format_string, common_test.input_string,
-                       "UTC", current_timestamp, common_test.expected_result,
-                       common_test.nano_expected_result});
+      tests.push_back({
+          common_test.format_string,
+          common_test.input_string,
+          "UTC",
+          current_timestamp,
+          common_test.expected_result,
+          common_test.nano_expected_result,
+          common_test.pico_expected_result,
+      });
     }
   }
 
@@ -7331,6 +7480,45 @@ std::vector<FunctionTestCall> GetFunctionTestsCastStringToDateTimestamp() {
   for (const FunctionTestCall& test : GetFunctionTestsCastStringToDatetime()) {
     tests.push_back(test);
   }
+
+  return tests;
+}
+
+std::vector<FunctionTestCall> GetFunctionTestsCastStringToTimestampPicos() {
+  std::vector<FunctionTestCall> tests;
+
+  // Adds CAST_STRING_TO_TIMESTAMP_PICOS() tests.
+  for (const CastStringToTimestampTest& test :
+       GetCastStringToTimestampTests()) {
+    std::vector<ValueConstructor> args = {
+        String(test.format()), String(test.timestamp_string()),
+        String(test.default_time_zone()), Timestamp(test.current_timestamp())};
+    AddTestCasesForParseTimestampPicosTest(
+        test, "cast_string_to_timestamp_picos", args, tests);
+  }
+
+  // Null arguments handling.
+  absl::Time ts_1970_1_1_utc;
+  ZETASQL_CHECK_OK(functions::ConvertStringToTimestamp(
+      "1970-01-01", absl::UTCTimeZone(), kNanoseconds, true, &ts_1970_1_1_utc));
+  tests.push_back(
+      {"cast_string_to_timestamp_picos",
+       {NullString(), String(""), String("UTC"), Timestamp(ts_1970_1_1_utc)},
+       NullTimestampPicos()});
+  tests.push_back(
+      {"cast_string_to_timestamp_picos",
+       {String(""), NullString(), String("UTC"), Timestamp(ts_1970_1_1_utc)},
+       NullTimestampPicos()});
+  tests.push_back(
+      {"cast_string_to_timestamp_picos",
+       {String(""), String(""), NullString(), Timestamp(ts_1970_1_1_utc)},
+       NullTimestampPicos()});
+  tests.push_back({"cast_string_to_timestamp_picos",
+                   {String(""), String(""), String("UTC"), NullTimestamp()},
+                   NullTimestampPicos()});
+  tests.push_back({"cast_string_to_timestamp_picos",
+                   {NullString(), NullString(), NullString(), NullTimestamp()},
+                   NullTimestampPicos()});
 
   return tests;
 }
@@ -8810,6 +8998,116 @@ static std::vector<FormatTimestampTest> GetCastFormatTimestampTests() {
   return tests;
 }
 
+struct FormatTimestampPicosSuccessTest {
+  std::string format_string;    // format string
+  PicoTime timestamp;           // timestamp value to format
+  std::string timezone;         // time zone to use for formatting
+  std::string expected_result;  // expected output string
+};
+
+struct FormatTimestampPicosFailureTest {
+  std::string format_string;   // format string
+  PicoTime timestamp;          // timestamp value to format
+  std::string timezone;        // time zone to use for formatting
+  std::string expected_error;  // expected error
+};
+
+static std::vector<FormatTimestampPicosSuccessTest>
+GetCastFormatTimestampPicosSuccessTests() {
+  PicoTime epoch_timestamp = PicoTime();
+  PicoTime timestamp;
+  const std::string timezone_str = "America/Los_Angeles";
+  absl::TimeZone timezone;
+  ZETASQL_CHECK_OK(functions::MakeTimeZone(timezone_str, &timezone));
+  ZETASQL_CHECK_OK(functions::ConvertStringToTimestamp(
+      kCommonTestTimestamp, timezone, /*allow_tz_in_str=*/false, &timestamp));
+
+  std::vector<FormatTimestampPicosSuccessTest> tests = {
+      {"YYYY-MM-DD HH24:MI:SS", epoch_timestamp, "UTC", "1970-01-01 00:00:00"},
+
+      // Test the hour in different time zones.
+      {"HH24", timestamp, "America/Los_Angeles", "01"},
+      {"HH24", timestamp, "Asia/Yangon", "14"},
+      {"HH24", timestamp, "UTC", "08"},
+  };
+
+  for (const auto& literal_test : GetCastFormatLiteralTests()) {
+    tests.push_back({literal_test.format_string, timestamp, kCommonTestTimezone,
+                     literal_test.expected_result});
+  }
+  for (const auto& date_test : GetCommonCastFormatDateTests()) {
+    tests.push_back({date_test.format_string, timestamp, kCommonTestTimezone,
+                     date_test.expected_result});
+  }
+  for (const auto& time_test : GetCommonCastFormatTimeTests()) {
+    tests.push_back({time_test.format_string, timestamp, kCommonTestTimezone,
+                     time_test.expected_result});
+  }
+
+  // Timestamp range boundary testing.
+  ZETASQL_CHECK_OK(functions::ConvertStringToTimestamp(
+      "0001-01-01 00:00:00.000000", absl::UTCTimeZone(),
+      /*allow_tz_in_str=*/false, &timestamp));
+  tests.push_back({"YYYY-MM-DD HH24:MI:SS.FF12TZH:TZM", timestamp, "UTC",
+                   "0001-01-01 00:00:00.000000000000+00:00"});
+
+  ZETASQL_CHECK_OK(functions::ConvertStringToTimestamp(
+      "9999-12-31 23:59:59.999999999999", absl::UTCTimeZone(),
+      /*allow_tz_in_str=*/false, &timestamp));
+  tests.push_back({"YYYY-MM-DD HH24:MI:SS.FF12TZH:TZM", timestamp, "UTC",
+                   "9999-12-31 23:59:59.999999999999+00:00"});
+  tests.push_back({"YYYY-MM-DD HH24:MI:SS.FF12TZH:TZM", timestamp, timezone_str,
+                   "9999-12-31 15:59:59.999999999999-08:00"});
+  tests.push_back({"YYYY-MM-DD HH24:MI:SS.FF12TZH:TZM", timestamp,
+                   "Asia/Yangon", "10000-01-01 06:29:59.999999999999+06:30"});
+
+  // Check that CastFormatTimestamp removes subsecond timezone offset
+  // (before 1884 PST timezone had offset of 7h 52m 58s, but FormatTimestamp
+  // should only use 7h 52m).
+  ZETASQL_CHECK_OK(functions::ConvertStringToTimestamp(
+      "1812-09-07 07:52:01", absl::UTCTimeZone(),
+      /*allow_tz_in_str=*/false, &timestamp));
+  tests.push_back({"YYYY-MM-DD HH24:MI:SS", timestamp, "America/Los_Angeles",
+                   "1812-09-07 00:00:01"});
+  tests.push_back({"YYYY-MM-DD HH24:MI:SSTZHTZM", timestamp,
+                   "America/Los_Angeles", "1812-09-07 00:00:01-0752"});
+  tests.push_back({"YYYYMMDD", timestamp, "America/Los_Angeles", "18120907"});
+  tests.push_back({"HH24:MI:SS", timestamp, "America/Los_Angeles", "00:00:01"});
+  tests.push_back({"Dy Mon  DD HH24:MI:SS YYYY", timestamp,
+                   "America/Los_Angeles", "Mon Sep  07 00:00:01 1812"});
+
+  // Fractional sconds.
+  ZETASQL_CHECK_OK(functions::ConvertStringToTimestamp(
+      "2024-12-31 23:59:59.123456789123", absl::UTCTimeZone(),
+      /*allow_tz_in_str=*/false, &timestamp));
+  tests.push_back({"FF1", timestamp, "UTC", "1"});
+  tests.push_back({"FF2", timestamp, "UTC", "12"});
+  tests.push_back({"FF3", timestamp, "UTC", "123"});
+  tests.push_back({"FF4", timestamp, "UTC", "1234"});
+  tests.push_back({"FF5", timestamp, "UTC", "12345"});
+  tests.push_back({"FF6", timestamp, "UTC", "123456"});
+  tests.push_back({"FF7", timestamp, "UTC", "1234567"});
+  tests.push_back({"FF8", timestamp, "UTC", "12345678"});
+  tests.push_back({"FF9", timestamp, "UTC", "123456789"});
+  tests.push_back({"FF10", timestamp, "UTC", "1234567891"});
+  tests.push_back({"FF11", timestamp, "UTC", "12345678912"});
+  tests.push_back({"FF12", timestamp, "UTC", "123456789123"});
+
+  return tests;
+}
+
+static std::vector<FormatTimestampPicosFailureTest>
+GetCastFormatTimestampPicosFailureTests() {
+  PicoTime timestamp;
+  std::vector<FormatTimestampPicosFailureTest> tests;
+
+  tests.push_back({"xyz", timestamp, "America/Los_Angeles",
+                   "Cannot find matched format element at 0"});
+  tests.push_back({"YYYY", timestamp, "xyz", "Invalid time zone: xyz"});
+
+  return tests;
+}
+
 struct FormatValueTest {
   std::string format_string;
   Value value;
@@ -8939,6 +9237,31 @@ std::vector<FunctionTestCall> GetFunctionTestsCastFormatDateTimestamp() {
                        String(test.expected_result)});
     }
     tests.back().params.AddRequiredFeature(FEATURE_V_1_2_CIVIL_TIME);
+  }
+  return tests;
+}
+
+std::vector<FunctionTestCall>
+GetFunctionTestsCastFormatTimestampPicosSuccessTests() {
+  std::vector<FunctionTestCall> tests;
+  for (const auto& test : GetCastFormatTimestampPicosSuccessTests()) {
+    tests.push_back({"cast_format_timestamp_picos",
+                     {TimestampPicosValue(test.timestamp),
+                      String(test.format_string), String(test.timezone)},
+                     String(test.expected_result)});
+  }
+  return tests;
+}
+
+std::vector<FunctionTestCall>
+GetFunctionTestsCastFormatTimestampPicosFailureTests() {
+  std::vector<FunctionTestCall> tests;
+  for (const auto& test : GetCastFormatTimestampPicosFailureTests()) {
+    tests.push_back({"cast_format_timestamp_picos",
+                     {TimestampPicosValue(test.timestamp),
+                      String(test.format_string), String(test.timezone)},
+                     NullString(),
+                     {OUT_OF_RANGE, test.expected_error}});
   }
   return tests;
 }

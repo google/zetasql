@@ -1200,3 +1200,21 @@ QueryStmt
     |     +-Literal(type=INTERVAL, value=NULL)
     +-input_scan=
       +-SingleRowScan
+==
+
+[language_features=INTERVAL_TYPE]
+select TO_SECONDS_INTERVAL(INTERVAL '1 2' DAY TO HOUR)
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INTERVAL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:to_seconds_interval(INTERVAL) -> INTERVAL)
+    |     +-Literal(type=INTERVAL, value=0-0 1 2:0:0)
+    +-input_scan=
+      +-SingleRowScan
+

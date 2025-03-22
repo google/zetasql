@@ -41,7 +41,9 @@
 #include "absl/strings/ascii.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
 #include "absl/strings/str_replace.h"
+#include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 #include "unicode/chariter.h"
@@ -372,15 +374,35 @@ void CountLineBreaksAroundTokens(const ParseResumeLocation& parse_location,
   tokens.back().SetLineBreaksAfter(1);
 }
 
-// Marks all multiline comment tokens.
-void MarkAllMultilineTokens(std::vector<Token>& tokens) {
+// Returns true if the given token is a multiline, before it is marked as such.
+bool IsMultilineToken(const Token& token) {
+  return absl::StrContains(token.GetImage(), '\n') &&
+         // Only a `/*...*/` comment can be multiline. Other comment types
+         // greedily capture line breaks after them, although they are not
+         // multiline.
+         (token.IsSlashStarComment() || !token.IsComment());
+}
+
+// Marks all multiline comment tokens and removes trailing whitespace from
+// interior lines.
+void MarkAndFixUpAllMultilineTokens(std::vector<Token>& tokens,
+                                    const FormatterOptions& options) {
   for (Token& token : tokens) {
-    if (absl::StrContains(token.GetImage(), '\n') &&
-        // Only a `/*...*/` comment can be multiline. Other comment types
-        // greedily capture line breaks after them, although they are not
-        // multiline.
-        (token.IsSlashStarComment() || !token.IsComment())) {
+    if (IsMultilineToken(token)) {
       token.MarkAsMultiline();
+      if (!options.IsFormattingComments() || !token.IsComment()) {
+        continue;
+      }
+      std::vector<absl::string_view> lines =
+          absl::StrSplit(token.GetImage(), options.NewLineType());
+      for (absl::string_view& line : lines) {
+        line = absl::StripTrailingAsciiWhitespace(line);
+      }
+      const std::string new_image = absl::StrJoin(lines, options.NewLineType());
+      if (new_image != token.GetImage()) {
+        // We can't alter the image of a token, so we create a new one.
+        token = Token(token, /*keyword=*/"", new_image);
+      }
     }
   }
 }
@@ -932,14 +954,24 @@ bool MaybeUpdateGroupingStateForCurlyBracesParameter(
     const ParseToken& parse_token, absl::string_view sql,
     TokenGroupingState* grouping_state) {
   absl::string_view sql_substr = sql.substr(TokenEndOffset(parse_token));
+
+  bool forbid_whitespaces = true;
+  if ((TokenStartOffset(parse_token) > 0 &&
+       sql[TokenStartOffset(parse_token) - 1] == '$') ||
+      absl::StartsWith(sql_substr, "{")) {
+    // Allow whitespaces inside {} only if it starts with $ or double {{.
+    // Otherwise, this might be a proto constructor, which is a valid ZetaSQL.
+    forbid_whitespaces = false;
+  }
   icu::UnicodeString txt(sql_substr.data(),
                          static_cast<int32_t>(sql_substr.size()));
   int curly_braces_count = 1;
   icu::StringCharacterIterator it(txt);
   while (it.hasNext()) {
-    if (u_isUWhiteSpace(it.current32())) {
-      // Do not allow whitespaces inside a {token}.
-      // Also, this might mean we reached the end of line.
+    if (it.current32() == '\n') {
+      // Don't allow multiline parameters.
+      break;
+    } else if (forbid_whitespaces && u_isUWhiteSpace(it.current32())) {
       break;
     } else if (it.current32() == ':') {
       // Do not allow colon - this might be a braced proto constructor, where
@@ -950,6 +982,10 @@ bool MaybeUpdateGroupingStateForCurlyBracesParameter(
     } else if (it.current32() == '}') {
       curly_braces_count--;
       if (curly_braces_count == 0) {
+        if (!it.hasPrevious()) {
+          // This is empty {} - don't treat it as a parameter.
+          return false;
+        }
         // Found end of the {token} in curly braces.
         grouping_state->start_position = TokenStartOffset(parse_token);
         grouping_state->end_position =
@@ -1605,12 +1641,41 @@ absl::StatusOr<std::vector<Token>> TokenizeStatement(
   return tokens;
 }
 
+// Replace tokens with missing whitespace at the beginning (after the comment
+// symbol) or trailing whitespace.
+void FixupCommentWhitespace(std::vector<Token>& tokens) {
+  // Fixup comment leading and trailing whitespace.
+  // Make sure there's a single space after the comment symbol.
+  for (Token& token : tokens) {
+    if (!token.IsComment()) {
+      continue;
+    }
+    const absl::string_view image =
+        absl::StripTrailingAsciiWhitespace(token.GetImage());
+    if (image.empty()) {
+      continue;
+    }
+    std::string new_image;
+    if (image.length() > 1 && image[0] == '#' && image[1] != '#' &&
+        image[1] != ' ') {
+      new_image = absl::StrCat("# ", image.substr(1));
+    } else if (image.length() > 2 && absl::StartsWith(image, "--") &&
+               image[2] != '-' && image[2] != ' ') {
+      new_image = absl::StrCat("-- ", image.substr(2));
+    }
+    if (!new_image.empty()) {
+      // Create a token with updated image.
+      token = Token(token, new_image, new_image);
+      continue;
+    }
+  }
+}
+
 absl::StatusOr<std::vector<Token>> TokenizeNextStatement(
     ParseResumeLocation* parse_location, const FormatterOptions& options) {
   LanguageOptions language_options;
   language_options.EnableMaximumLanguageFeaturesForDevelopment();
-  // TODO Allow V_1_4_SQL_MACROS as well
-  language_options.DisableLanguageFeature(FEATURE_V_1_4_SQL_MACROS);
+  // TODO Allow macros as well
   ParseTokenOptions parser_options{.stop_at_end_of_statement = true,
                                    .include_comments = true,
                                    .language_options = language_options};
@@ -1625,9 +1690,9 @@ absl::StatusOr<std::vector<Token>> TokenizeNextStatement(
         GetParseTokens(parser_options, parse_location, &parse_tokens);
     // Convert ZetaSQL tokens in Formatter's own tokens.
     tokens.reserve(tokens.size() + parse_tokens.size());
-    for (auto&& token : parse_tokens) {
+    for (auto&& parse_token : parse_tokens) {
       grouping_state = MaybeMoveParseTokenIntoTokens(
-          token, parse_location->input(), grouping_state, tokens);
+          parse_token, parse_location->input(), grouping_state, tokens);
       if (!tokens.empty() && tokens.back().IsEndOfInput()) {
         break;
       }
@@ -1638,11 +1703,11 @@ absl::StatusOr<std::vector<Token>> TokenizeNextStatement(
       }
       if (grouping_state.type == GroupingType::kEmbeddedSql) {
         if (options.IsFormattingStructuredStrings()) {
-          ZETASQL_RETURN_IF_ERROR(ParseEmbeddedSql(token, parse_location->input(),
+          ZETASQL_RETURN_IF_ERROR(ParseEmbeddedSql(parse_token, parse_location->input(),
                                            grouping_state, options, tokens));
         } else {
           // Do not reparse the string literal.
-          tokens.emplace_back(std::move(token));
+          tokens.emplace_back(std::move(parse_token));
         }
         grouping_state.Reset();
       }
@@ -1683,7 +1748,10 @@ absl::StatusOr<std::vector<Token>> TokenizeNextStatement(
   SkipAllWhitespaces(parse_location);
 
   if (!tokens.empty()) {
-    MarkAllMultilineTokens(tokens);
+    if (options.IsFormattingComments()) {
+      FixupCommentWhitespace(tokens);
+    }
+    MarkAndFixUpAllMultilineTokens(tokens, options);
     CountLineBreaksAroundTokens(*parse_location, tokens);
   }
 

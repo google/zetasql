@@ -84,7 +84,9 @@ public class GraphElementType extends Type {
 
   /** Private constructor, instances must be created with {@link TypeFactory} */
   GraphElementType(
-      List<String> graphReference, ElementKind elementKind, Set<PropertyType> propertyTypes) {
+      List<String> graphReference,
+      ElementKind elementKind,
+      Set<PropertyType> propertyTypes) {
     super(TypeKind.TYPE_GRAPH_ELEMENT);
     this.graphReference = ImmutableList.copyOf(graphReference);
     this.graphReferenceString =
@@ -169,7 +171,7 @@ public class GraphElementType extends Type {
     }
 
     public boolean equivalent(PropertyType other) {
-      return equalsImpl(other, /*equivalent=*/ true);
+      return equalsImpl(other, /* equivalent= */ true);
     }
 
     public String getTypeName(ProductMode productMode) {
@@ -203,7 +205,7 @@ public class GraphElementType extends Type {
     @Override
     public boolean equals(Object other) {
       return (other instanceof PropertyType)
-          && equalsImpl((PropertyType) other, /*equivalent=*/ false);
+          && equalsImpl((PropertyType) other, /* equivalent= */ false);
     }
 
     @Override
@@ -217,9 +219,13 @@ public class GraphElementType extends Type {
   }
 
   String typeNameImpl(List<String> propertyTypeNames) {
+    String suffix = "";
     return String.format(
-        "%s(%s)<%s>",
-        typeElementKindName(), graphReferenceString, Joiner.on(", ").join(propertyTypeNames));
+        "%s(%s)<%s%s>",
+        typeElementKindName(),
+        graphReferenceString,
+        Joiner.on(", ").join(propertyTypeNames),
+        suffix);
   }
 
   @Override

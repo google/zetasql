@@ -67,20 +67,17 @@ Note: The examples in this section reference a property graph called
 You can use the `RETURN` statement to return specific node and edge properties.
 For example:
 
-```sql
+```zetasql
 SELECT name, id
 FROM GRAPH_TABLE(
   FinGraph
-  MATCH (n)
+  MATCH (n:Person)
   RETURN n.name AS name, n.id AS id
 );
 
 /*-----------+
  | name | id |
  +-----------+
- | NULL | 7  |
- | NULL | 16 |
- | NULL | 20 |
  | Alex | 1  |
  | Dana | 2  |
  | Lee  | 3  |
@@ -90,50 +87,65 @@ FROM GRAPH_TABLE(
 You can use the `RETURN` statement to produce output with graph pattern
 variables. These variables can be referenced outside `GRAPH_TABLE`. For example,
 
-```sql
+```zetasql
 SELECT n.name, n.id
 FROM GRAPH_TABLE(
   FinGraph
-  MATCH (n)
+  MATCH (n:Person)
   RETURN n
 );
 
 /*-----------+
  | name | id |
  +-----------+
- | NULL | 7  |
- | NULL | 16 |
- | NULL | 20 |
  | Alex | 1  |
  | Dana | 2  |
  | Lee  | 3  |
  +-----------*/
 ```
 
-The following query produces an error because `id` is not
+The following query produces an error because `id` isn't
 included in the `RETURN` statement, even though this property exists for
 element `n`:
 
-```sql {.bad}
+```zetasql {.bad}
 SELECT name, id
 FROM GRAPH_TABLE(
   FinGraph
-  MATCH (n)
+  MATCH (n:Person)
   RETURN n.name
 );
 ```
 
-The following query produces an error because `n` is a graph element and
-graph elements can't be included as query output:
+The following query produces an error because directly outputting the graph
+element `n` is not supported. Convert `n` to its JSON representation using the
+`SAFE_TO_JSON` for successful output.
 
-```sql {.bad}
+```zetasql {.bad}
 -- Error
 SELECT n
 FROM GRAPH_TABLE(
   FinGraph
-  MATCH (n)
+  MATCH (n:Person)
   RETURN n
 );
+```
+
+```zetasql
+SELECT SAFE_TO_JSON(n) as json_node
+FROM GRAPH_TABLE(
+  FinGraph
+  MATCH (n:Person)
+  RETURN n
+);
+
+/*---------------------------+
+ | json_node                 |
+ +---------------------------+
+ | {"identifier":"mUZpbk...} |
+ | {"identifier":"mUZpbk...} |
+ | {"identifier":"mUZpbk...} |
+ +--------------------------*/
 ```
 
 [graph-query-statements]: https://github.com/google/zetasql/blob/master/docs/graph-query-statements.md

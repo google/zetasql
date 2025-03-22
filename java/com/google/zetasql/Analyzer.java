@@ -121,11 +121,6 @@ public class Analyzer implements Serializable {
 
   /**
    * Renders statement as a sql string.
-   *
-   * <p>Note, there is a bug that prevents DatePart enum from serializing correctly when @arg
-   * catalog is registered.
-   *
-   * <p>TODO: fix DatePart serializing in registered catalogs.
    */
   public static String buildStatement(ResolvedStatement statement, SimpleCatalog catalog) {
     BuildSqlRequest.Builder request = BuildSqlRequest.newBuilder();

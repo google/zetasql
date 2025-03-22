@@ -73,6 +73,13 @@ class CompiledNFA {
   NFAState start_state() const { return start_state_; }
   NFAState final_state() const { return final_state_; }
 
+  // The number of pattern variables in the underlying
+  // ResolvedMatchRecongnizeScan used to generate the pattern. This may exceed
+  // the number of pattern variables actually referred to in edges. For example,
+  // in pattern "A{0}", variable 'A' technically exists, and the engine will
+  // pass it in, however, the NFA won't have any edges conditional on it.
+  int num_pattern_variables() const { return num_pattern_variables_; }
+
   StateMachineProto::CompiledNFAProto Serialize() const;
   static absl::StatusOr<std::unique_ptr<const CompiledNFA>> Deserialize(
       const StateMachineProto::CompiledNFAProto& proto);
@@ -97,6 +104,8 @@ class CompiledNFA {
 
   NFAState start_state_;
   NFAState final_state_;
+
+  int num_pattern_variables_ = 0;
 };
 }  // namespace zetasql::functions::match_recognize
 #endif  // ZETASQL_COMMON_MATCH_RECOGNIZE_COMPILED_NFA_H_

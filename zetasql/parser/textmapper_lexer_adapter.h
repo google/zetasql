@@ -22,13 +22,16 @@
 #include <deque>
 #include <memory>
 #include <utility>
+#include <vector>
 
 #include "zetasql/base/arena.h"
 #include "zetasql/parser/bison_parser_mode.h"
 #include "zetasql/parser/lookahead_transformer.h"
 #include "zetasql/parser/macros/macro_catalog.h"
+#include "zetasql/parser/macros/macro_expander.h"
 #include "zetasql/parser/tm_token.h"
 #include "zetasql/parser/token_codes.h"
+#include "zetasql/parser/token_with_location.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/parse_location.h"
 #include "absl/base/attributes.h"
@@ -51,6 +54,7 @@ class TextMapperLexerAdapter {
                                   absl::string_view filename,
                                   absl::string_view input, int start_offset,
                                   const LanguageOptions& language_options,
+                                  MacroExpansionMode macro_expansion_mode,
                                   const macros::MacroCatalog* macro_catalog,
                                   zetasql_base::UnsafeArena* arena);
   ~TextMapperLexerAdapter();
@@ -89,6 +93,13 @@ class TextMapperLexerAdapter {
     absl::string_view text;
   };
   std::deque<TextMapperToken> queued_tokens_;
+
+  // This is used by macro expander to store the stack frames.
+  // This is used to maintain the ownership of the allocated stack frames.
+  // All newly allocated stack frames owned by this vector thereby avoiding
+  // memory leaks.
+  std::vector<std::unique_ptr<StackFrame>> stack_frames_;
+
   std::shared_ptr<LookaheadTransformer> tokenizer_;
   TextMapperToken last_token_;
 };

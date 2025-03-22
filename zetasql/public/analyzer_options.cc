@@ -680,7 +680,6 @@ absl::Status AnalyzerOptions::SetInScopeExpressionColumn(absl::string_view name,
 
 void AnalyzerOptions::SetLookupExpressionColumnCallback(
     const LookupExpressionColumnCallback& lookup_expression_column_callback) {
-  data_->lookup_expression_column_callback = lookup_expression_column_callback;
   data_->lookup_expression_callback =
       [callback = std::move(lookup_expression_column_callback)](
           const std::string& column_name,

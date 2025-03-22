@@ -34,28 +34,28 @@ using ::testing::Test;
 class RowEdgeListTest : public Test {
  public:
   void SetUp() override {
-    NFA nfa;
-    start_ = nfa.NewState();
-    s0_ = nfa.NewState();
-    s1_ = nfa.NewState();
-    s2_ = nfa.NewState();
-    s3_ = nfa.NewState();
-    end_ = nfa.NewState();
+    ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<NFA> nfa, NFA::Create(2));
+    start_ = nfa->NewState();
+    s0_ = nfa->NewState();
+    s1_ = nfa->NewState();
+    s2_ = nfa->NewState();
+    s3_ = nfa->NewState();
+    end_ = nfa->NewState();
     a_var_ = PatternVariableId(0);
     b_var_ = PatternVariableId(1);
 
-    ZETASQL_ASSERT_OK(nfa.AddEdge(start_, a_var_, s0_));
-    ZETASQL_ASSERT_OK(nfa.AddEdge(s0_, a_var_, s1_));
-    ZETASQL_ASSERT_OK(nfa.AddEdge(s0_, b_var_, s2_));
-    ZETASQL_ASSERT_OK(nfa.AddEdge(s1_, a_var_, s0_));
-    ZETASQL_ASSERT_OK(nfa.AddEdge(s2_, a_var_, s0_));
-    ZETASQL_ASSERT_OK(nfa.AddEdge(s2_, a_var_, s3_));
-    ZETASQL_ASSERT_OK(nfa.AddEdge(s3_, end_));
-    nfa.SetAsStartState(start_);
-    nfa.SetAsFinalState(end_);
-    ZETASQL_ASSERT_OK(nfa.Validate(NFA::ValidationMode::kForMatching));
+    ZETASQL_ASSERT_OK(nfa->AddEdge(start_, a_var_, s0_));
+    ZETASQL_ASSERT_OK(nfa->AddEdge(s0_, a_var_, s1_));
+    ZETASQL_ASSERT_OK(nfa->AddEdge(s0_, b_var_, s2_));
+    ZETASQL_ASSERT_OK(nfa->AddEdge(s1_, a_var_, s0_));
+    ZETASQL_ASSERT_OK(nfa->AddEdge(s2_, a_var_, s0_));
+    ZETASQL_ASSERT_OK(nfa->AddEdge(s2_, a_var_, s3_));
+    ZETASQL_ASSERT_OK(nfa->AddEdge(s3_, end_));
+    nfa->SetAsStartState(start_);
+    nfa->SetAsFinalState(end_);
+    ZETASQL_ASSERT_OK(nfa->Validate(NFA::ValidationMode::kForMatching));
 
-    ZETASQL_ASSERT_OK_AND_ASSIGN(nfa_, CompiledNFA::Create(nfa));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(nfa_, CompiledNFA::Create(*nfa));
   }
 
  protected:

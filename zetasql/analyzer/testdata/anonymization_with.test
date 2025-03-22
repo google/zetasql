@@ -1,6 +1,7 @@
 # Table with UID in the WITH clause, anonymization in the outer SELECT
 [default language_features=ANONYMIZATION,V_1_1_WITH_ON_SUBQUERY,V_1_3_WITH_RECURSIVE]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+
 WITH t as (select *
            from SimpleTypesWithAnonymizationUid)
 SELECT WITH ANONYMIZATION anon_count(*) as anon_count from t;
@@ -93,7 +94,7 @@ QueryStmt
     |   +-with_query_name="with_scan"
     |   +-with_subquery=
     |     +-ProjectScan
-    |       +-parse_location=19-27
+    |       +-parse_location=18-28
     |       +-column_list=[with_scan.$col1#1]
     |       +-expr_list=
     |       | +-$col1#1 := Literal(parse_location=26-27, type=INT64, value=1)
@@ -141,7 +142,7 @@ QueryStmt
     |   +-with_query_name="t1"
     |   +-with_subquery=
     |     +-ProjectScan
-    |       +-parse_location=12-57
+    |       +-parse_location=11-58
     |       +-column_list=[t1.$col1#13]
     |       +-expr_list=
     |       | +-$col1#13 := Literal(parse_location=19-20, type=INT64, value=1)
@@ -170,9 +171,9 @@ with t1 as (select @_p0_INT64 from SimpleTypesWithAnonymizationUid)
 select with anonymization anon_count(* CLAMPED BETWEEN @_p1_INT64 AND @_p2_INT64)
 from (select * from t1);
 
-Rewrite ERROR: Subqueries of anonymization queries must explicitly SELECT the userid column 'uid' [at 1:13]
+Rewrite ERROR: Subqueries of anonymization queries must explicitly SELECT the userid column 'uid' [at 1:12]
 with t1 as (select 1 from SimpleTypesWithAnonymizationUid)
-            ^
+           ^
 ==
 
 # Require explicit uid projection
@@ -676,7 +677,7 @@ QueryStmt
     |   +-with_query_name="t"
     |   +-with_subquery=
     |     +-ProjectScan
-    |       +-parse_location=11-141
+    |       +-parse_location=10-142
     |       +-column_list=[$groupby.uid#14, $aggregate.$agg1#13]
     |       +-input_scan=
     |         +-AnonymizedAggregateScan
@@ -704,9 +705,9 @@ with t as (select with anonymization uid, anon_count(*)
 select with anonymization anon_count(*)
 from t;
 
-Rewrite ERROR: Subqueries of anonymization queries must explicitly SELECT the userid column 'uid' [at 1:12]
+Rewrite ERROR: Subqueries of anonymization queries must explicitly SELECT the userid column 'uid' [at 1:11]
 with t as (select with anonymization uid, anon_count(*)
-           ^
+          ^
 ==
 
 # Extraneous with clauses
@@ -1181,7 +1182,7 @@ QueryStmt
     |   +-with_query_name="t1"
     |   +-with_subquery=
     |     +-ProjectScan
-    |       +-parse_location=12-57
+    |       +-parse_location=11-58
     |       +-column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12]
     |       +-input_scan=
     |         +-TableScan(parse_location=26-57, column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
@@ -1516,7 +1517,7 @@ QueryStmt
     | | +-with_query_name="t1"
     | | +-with_subquery=
     | |   +-ProjectScan
-    | |     +-parse_location=12-57
+    | |     +-parse_location=11-58
     | |     +-column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12]
     | |     +-input_scan=
     | |       +-TableScan(parse_location=26-57, column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
@@ -1524,7 +1525,7 @@ QueryStmt
     |   +-with_query_name="t2"
     |   +-with_subquery=
     |     +-ProjectScan
-    |       +-parse_location=72-117
+    |       +-parse_location=71-118
     |       +-column_list=SimpleTypesWithAnonymizationUid.[int32#13, int64#14, uint32#15, uint64#16, string#17, bytes#18, bool#19, float#20, double#21, date#22, uid#23, numeric#24]
     |       +-input_scan=
     |         +-TableScan(parse_location=86-117, column_list=SimpleTypesWithAnonymizationUid.[int32#13, int64#14, uint32#15, uint64#16, string#17, bytes#18, bool#19, float#20, double#21, date#22, uid#23, numeric#24], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
@@ -2314,7 +2315,7 @@ QueryStmt
         |   | | +-with_query_name="t1"
         |   | | +-with_subquery=
         |   | |   +-ProjectScan
-        |   | |     +-parse_location=87-132
+        |   | |     +-parse_location=86-133
         |   | |     +-column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12]
         |   | |     +-input_scan=
         |   | |       +-TableScan(parse_location=101-132, column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
@@ -2322,7 +2323,7 @@ QueryStmt
         |   |   +-with_query_name="t2"
         |   |   +-with_subquery=
         |   |     +-ProjectScan
-        |   |       +-parse_location=149-194
+        |   |       +-parse_location=148-195
         |   |       +-column_list=[t2.$col1#25]
         |   |       +-expr_list=
         |   |       | +-$col1#25 := Literal(parse_location=156-157, type=INT64, value=1)
@@ -2346,9 +2347,9 @@ from (
        t2 as (select @_p2_INT64 from SimpleTypesWithAnonymizationUid)
   select * from t1);
 
-Rewrite ERROR: Subqueries of anonymization queries must explicitly SELECT the userid column 'uid' [at 4:15]
+Rewrite ERROR: Subqueries of anonymization queries must explicitly SELECT the userid column 'uid' [at 4:14]
        t2 as (select 1 from SimpleTypesWithAnonymizationUid)
-              ^
+             ^
 ==
 
 # WITH clause was crashed, see b/413760889.
@@ -2375,7 +2376,7 @@ QueryStmt
     |   +-with_query_name="t"
     |   +-with_subquery=
     |     +-OrderByScan
-    |       +-parse_location=14-87
+    |       +-parse_location=10-89
     |       +-column_list=[SimpleTypesWithAnonymizationUid.int64#2]
     |       +-is_ordered=TRUE
     |       +-input_scan=
@@ -2441,7 +2442,7 @@ QueryStmt
     |   +-with_query_name="t"
     |   +-with_subquery=
     |     +-ProjectScan
-    |       +-parse_location=11-67
+    |       +-parse_location=10-68
     |       +-column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12]
     |       +-input_scan=
     |         +-TableScan(parse_location=36-67, column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
@@ -2477,7 +2478,7 @@ QueryStmt
     |   +-with_query_name="t"
     |   +-with_subquery=
     |     +-ProjectScan
-    |       +-parse_location=11-67
+    |       +-parse_location=10-68
     |       +-column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12]
     |       +-input_scan=
     |         +-TableScan(parse_location=36-67, column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])

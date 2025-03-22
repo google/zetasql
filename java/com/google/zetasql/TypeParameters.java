@@ -80,6 +80,16 @@ public final class TypeParameters implements Serializable {
     return typeParametersProto.getStringTypeParameters();
   }
 
+  public NumericTypeParametersProto getNumericTypeParameters() {
+    Preconditions.checkState(isNumericTypeParameters());
+    return typeParametersProto.getNumericTypeParameters();
+  }
+
+  public ExtendedTypeParametersProto getExtendedTypeParameters() {
+    Preconditions.checkState(isExtendedTypeParameters());
+    return typeParametersProto.getExtendedTypeParameters();
+  }
+
   public boolean isEmpty() {
     return !typeParametersProto.hasStringTypeParameters()
         && !typeParametersProto.hasNumericTypeParameters()
@@ -105,6 +115,10 @@ public final class TypeParameters implements Serializable {
 
   public int getChildCount() {
     return childList.size();
+  }
+
+  public TypeParameters getChild(int index) {
+    return childList.get(index);
   }
 
   public List<TypeParameters> getChildList() {

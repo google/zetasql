@@ -17,7 +17,7 @@ SELECT {}
 ==
 
 
-[show_unparsed]
+[show_sqlbuilder_output]
 SELECT STRUCT {}
 --
 QueryStmt
@@ -31,7 +31,13 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  STRUCT< > () AS a_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 SELECT
   STRUCT< > () AS a_1;
 ==

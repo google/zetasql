@@ -16,7 +16,6 @@
 
 #include "zetasql/public/parse_helpers.h"
 
-#include <map>
 #include <string>
 #include <vector>
 
@@ -29,15 +28,17 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/container/btree_map.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
-#include "absl/strings/match.h"
-#include "zetasql/base/status.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
 
 using ::testing::ContainerEq;
 using ::testing::HasSubstr;
 using ::zetasql_base::testing::StatusIs;
 
 namespace zetasql {
+namespace {
 
 // Test cases that are valid for both IsValidStatementSyntax() and
 // IsValidNextStatementSyntax().
@@ -675,4 +676,83 @@ TEST(GetTopLevelTableNameFromDDLStatementTest, MultiStatementsTest) {
   }
 }
 
+struct SkipNextStatementTestCase {
+  std::string test_case;
+  std::vector<std::string> stmts;
+  bool expect_to_fail = false;
+};
+
+class SkipNextStatementTest
+    : public ::testing::TestWithParam<SkipNextStatementTestCase> {};
+
+TEST_P(SkipNextStatementTest, SingleValidStatement) {
+  const std::string sql = absl::StrJoin(GetParam().stmts, "");
+  ParseResumeLocation resume = ParseResumeLocation::FromStringView(sql);
+  EXPECT_EQ(resume.byte_position(), 0);
+
+  bool at_eoi;
+  if (GetParam().expect_to_fail) {
+    EXPECT_THAT(SkipNextStatement(&resume, &at_eoi),
+                StatusIs(absl::StatusCode::kInvalidArgument));
+  } else {
+    ZETASQL_ASSERT_OK(SkipNextStatement(&resume, &at_eoi));
+
+    const bool expected_at_eoi = GetParam().stmts.size() == 1;
+    EXPECT_EQ(at_eoi, expected_at_eoi) << GetParam().test_case;
+    EXPECT_EQ(resume.byte_position(),
+              expected_at_eoi ? sql.size() : GetParam().stmts[0].size())
+        << GetParam().test_case;
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    SkipNextStatementTestParams, SkipNextStatementTest,
+    ::testing::Values(
+        SkipNextStatementTestCase{"single_statement_with_semicolon",
+                                  {"SELECT 1, 2, 3;"}},
+        SkipNextStatementTestCase{"single_statement_no_semicolon",
+                                  {"SELECT 1, 2, 3"}},
+        SkipNextStatementTestCase{"single_statement_with_whitespace_at_end",
+                                  {"SELECT 1, 2, 3;   "}},
+        SkipNextStatementTestCase{"single_statement_with_double_dash_comment",
+                                  {"SELECT 1; -- :)"}},
+        SkipNextStatementTestCase{"single_statement_with_pound_comment",
+                                  {"SELECT 1 # ####"}},
+        SkipNextStatementTestCase{"multiple_valid_statements",
+                                  {"SELECT 1, 2, 34;", " /*hello*/ SELECT 2;"}},
+        SkipNextStatementTestCase{
+            "multiple_valid_statements_with_inner_comment",
+            {"SELECT /* ? */1;", " SET @a = 2;"}},
+        SkipNextStatementTestCase{
+            "single_invalid_tokenizable_statement_with_semicolon",
+            {"SELECT FROM ??;"}},
+        SkipNextStatementTestCase{
+            "single_invalid_tokenizable_statement_no_semicolon",
+            {"alkdjlas1!!!asf"}},
+        SkipNextStatementTestCase{
+            "single_invalid_tokenizable_statement_with_comment_at_end",
+            {"123456789012; #"}},
+        SkipNextStatementTestCase{"first_statement_invalid",
+                                  {"129381092380198;", " SHOW TABLES"}},
+        SkipNextStatementTestCase{"second_statement_invalid",
+                                  {"SELECT 1, 2, 34;", " 371983792173912831;"}},
+        SkipNextStatementTestCase{"first_statement_has_macro_call",
+                                  {"SELECT $FOO(12);", " HELLO WORLD"}},
+        SkipNextStatementTestCase{"valid_with_internal_semicolons",
+                                  {"SELECT ';' /*;*/;", " SELECT 1, 2, 3;"}},
+        SkipNextStatementTestCase{"invalid_with_internal_semicolons",
+                                  {"HELLO OUT THERE!;", ";"}},
+        SkipNextStatementTestCase{"semicolons_inside_comment",
+                                  {"/*;;;;;;;;;;;;*/;", " ?"}},
+        SkipNextStatementTestCase{"unclosed_quote",
+                                  {"SELECT '"},
+                                  /*expect_to_fail=*/true},
+        SkipNextStatementTestCase{"unclosed_block_comment",
+                                  {"SELECT 1, 2 /* ..."},
+                                  /*expect_to_fail=*/true},
+        SkipNextStatementTestCase{"invalid_character",
+                                  {"SELECT 🍝"},
+                                  /*expect_to_fail=*/true}));
+
+}  // namespace
 }  // namespace zetasql

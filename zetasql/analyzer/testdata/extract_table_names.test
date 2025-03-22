@@ -14,7 +14,6 @@
 [default show_extracted_table_names]
 [default show_table_resolution_time]
 [default no_show_resolved_ast]
-[default no_run_unparser]
 
 select 1 from KeyValue, TestTable
 --
@@ -897,7 +896,8 @@ Extracted table names:
 
 ==
 
-# `FROM x` matches a catalog table and a table parameter with different case.
+# `FROM x` matches a catalog table and a table argument with different case.
+# This resolves to the argument, so no table name referenced.
 [language_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION]
 CREATE TEMP TABLE FUNCTION Foo(KeyValue TABLE<x INT64>)
 AS (
@@ -910,12 +910,8 @@ Table resolution time:
 Extracted table names:
 ==
 
-# `TABLE x` matches a catalog table and a table parameter with different case.
-# TODO: b/176201271 - This extraction logic can't really be fixed as current
-# resolution logic depends on catalog contents. Once resolution order is changed
-# in b/372326459 and args are preferred, this will be fixed and
-# `no_test_extract_table_names` can be removed.
-[no_test_extract_table_names]
+# `TABLE x` matches a catalog table and a table argument with different case.
+# This resolves to the argument, so no table name referenced.
 [language_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION]
 CREATE TEMP TABLE FUNCTION Foo(KeyValue TABLE<x INT64>)
 AS (
@@ -925,11 +921,3 @@ AS (
 Table resolution time:
 
 Extracted table names:
-
-
-
-DEPRECATION WARNING:
-TABLE syntax was resolved as reference to a catalog table, when a function argument of the same name exists. This will change in the future to resolve as a reference to the function argument. If you wish to preserve this as a reference to a catalog table, rename the function argument to avoid the name collision [at 3:56]
-  SELECT * FROM tvf_one_relation_arg_with_fixed_output(TABLE keyvalue)
-                                                       ^
-[zetasql.DeprecationWarning] { kind: TABLE_SYNTAX_ARGUMENT_RESOLUTION_ORDER }

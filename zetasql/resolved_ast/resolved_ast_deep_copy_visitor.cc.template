@@ -50,9 +50,9 @@ absl::Status ResolvedASTDeepCopyVisitor::Visit{{node.name}}(
 absl::Status
 ResolvedASTDeepCopyVisitor::CopyVisit{{node.name}}(
     const {{node.name}}* node) {
-{# We need to make a deep copy of any fields that this node contains that are #}
-{# pointers or vector of node pointers. Go through each field and check them. #}
- # for field in (node.fields + node.inherited_fields)
+{# We need to make a deep copy of any fields that this node contains that #}
+{# are constructor arguments and are pointers or vector of node pointers. #}
+ # for field in (node.fields + node.inherited_fields) | is_constructor_arg
   # if field.is_node_ptr:
 {# If we found a node pointer, do a deep copy of the node. #}
   // Get deep copy of {{field.name}} field.
@@ -110,99 +110,36 @@ ResolvedASTDeepCopyVisitor::CopyVisit{{node.name}}(
  # endfor
   );
 
-{# Handle special cases of values that are not set by the constructor. #}
 {# It's impossible to copy some nodes exactly using only the constructor #}
 {# as some fields can be set but are not passed into the constructor. This #}
 {# code is for explicitly copying those values over for fields that have #}
 {# is_constructor_arg equal to False. If the generated file compiles, all #}
-{# fields are either handled here explicitly or by the constructor. #}
+{# fields are either handled here or by the constructor. #}
 
- # for field in (node.inherited_fields + node.fields)
-   # if field.name in ("hint_list", "lhs_hint_list", "rhs_hint_list",
-                       "path_hint_list")
-  // Copy the hint list explicitly because hint_list is not a constructor arg.
-  // Because it is not a constructor arg, the only way to copy the value is to
-  // copy it explicitly.
-  ZETASQL_RETURN_IF_ERROR(CopyHintList(node->{{field.name}}(), [&copy](
-    std::unique_ptr<const zetasql::ResolvedOption> hint) {
-    copy->add_{{field.name}}(std::move(hint));
-  }));
+ # for field in (node.inherited_fields + node.fields) if not field.is_constructor_arg
 
-   # elif field.name == "is_ordered"
-  // Copy the is_ordered field explicitly because it is not a constructor arg.
-  copy.get()->set_is_ordered(node->is_ordered());
+  # if not field.is_move_only
+  // Copy the field explicitly because it is not a constructor arg.
+  copy->set_{{field.name}}(node->{{field.name}}());
 
-   # elif field.name == "column_access_list"
-  // Copy the column_access_list field explicitly because it is not a
-  // constructor arg.
-  copy.get()->set_column_access_list(node->column_access_list());
-
-   # elif field.name == "column_index_list"
-  // Copy the column_index_list field explicitly because it is not a constructor
-  // arg.
-  copy.get()->set_column_index_list(node->column_index_list());
-
-   # elif field.name == "type_annotation_map"
-  // Copy the type_annotation_map field explicitly because it is not a
-  // constructor arg.
-  copy.get()->set_type_annotation_map(node->type_annotation_map());
-
-  # elif field.name == "collation"
-  // Copy the collation field explicitly because it is not a constructor arg.
-  copy.get()->set_collation(node->collation());
-
-  # elif field.name == "collation_list"
-  // Copy the collation field explicitly because it is not a constructor arg.
-  copy.get()->set_collation_list(node->collation_list());
-
-  # elif field.name == "in_collation"
-  // Copy the in_collation field explicitly because it is not a constructor arg.
-  copy.get()->set_in_collation(node->in_collation());
-
-  # elif field.name == "preserve_in_literal_remover"
-  // Copy the preserve_in_literal_remover field explicitly because it is not a
-  // constructor arg.
-  copy.get()->set_preserve_in_literal_remover(
-      node->preserve_in_literal_remover());
-
-   # elif field.name == "with_group_rows_subquery"
-  // Copy the with_group_rows_subquery field explicitly because it is not a
-  // constructor arg.
+  # elif field.is_node_ptr
+  // Copy the field explicitly because it is not a constructor arg.
   ZETASQL_ASSIGN_OR_RETURN(
-      std::unique_ptr<ResolvedScan> scan,
-      ProcessNode(node->with_group_rows_subquery()));
-  copy.get()->set_with_group_rows_subquery(std::move(scan));
+      std::unique_ptr<{{field.ctype}}> {{field.name}},
+      ProcessNode(node->{{field.name}}()));
+  copy->set_{{field.name}}(std::move({{field.name}}));
 
-   # elif field.name == "with_group_rows_parameter_list"
-  // Copy the with_group_rows_parameter_list field explicitly because it is not
-  // a constructor arg.
-  ZETASQL_RETURN_IF_ERROR(CopyWithGroupRowsParameterList<{{node.name}}>(node,
-                                                                copy.get()));
-  # elif field.name == "column_match_mode"
-  // Copy the `column_match_mode` field explicitly because it is not
-  // a constructor arg.
-  copy.get()->set_column_match_mode(node->column_match_mode());
+  # elif field.is_node_vector
+  // Copy the field explicitly because it is not a constructor arg.
+  ZETASQL_ASSIGN_OR_RETURN(
+     std::vector<std::unique_ptr<{{field.ctype}}>> {{field.name}},
+     ProcessNodeList(node->{{field.name}}()));
+  copy->set_{{field.name}}({
+       std::make_move_iterator({{field.name}}.begin()),
+       std::make_move_iterator({{field.name}}.end())
+  });
 
-  # elif field.name == "column_propagation_mode"
-  // Copy the `column_match_mode` field explicitly because it is not
-  // a constructor arg.
-  copy.get()->set_column_propagation_mode(node->column_propagation_mode());
-
-  # elif field.name == "node_source"
-  // Copy the `node_source` field explicitly because it is not a constructor
-  // arg.
-  copy.get()->set_node_source(node->node_source());
-
-  # elif field.name == "assignment_op"
-  // Copy the `assignment_op` field explicitly because it is not a constructor
-  // arg.
-  copy.get()->set_assignment_op(node->assignment_op());
-
-  # elif field.name == "lock_mode"
-  // Copy the lock_mode field explicitly because it is not a constructor arg.
-  copy.get()->set_lock_mode(std::move(lock_mode));
-
-  # elif not field.is_constructor_arg and not field.is_node_ptr
+  # else
   // Unhandled non-constructor argument not copied to new node explicitly.
   static_assert(false, CopyField{{field.name}}Of{{node.name}}MustBeImplementedManually);
   return absl::Status::CANCELLED;

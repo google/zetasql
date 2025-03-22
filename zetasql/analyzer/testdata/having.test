@@ -1,3 +1,4 @@
+
 # The HAVING clause requires either group by or aggregation to be present in
 # the query block.  It can reference columns available via the FROM clause, as
 # well as SELECT list aliases.

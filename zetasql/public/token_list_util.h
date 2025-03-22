@@ -25,8 +25,10 @@
 
 namespace zetasql {
 
-// Creates a TokenList value from a vector of strings.
-Value TokenListFromStringArray(std::vector<std::string> tokens);
+// Creates a TokenList value from a vector of strings. If `make_index` is true,
+// an index token is created for each text token.
+Value TokenListFromStringArray(std::vector<std::string> tokens,
+                               bool make_index = false);
 
 // Returns a vector of strings from a TokenList value. Each string is the text
 // representation of a token in the TokenList.

@@ -292,19 +292,19 @@ ScriptExecutorImpl::GenerateStatementTextSystemVariable() const {
       range.set_start(current_node->GetParseLocationRange().start());
       if (current_node->node_kind() == AST_IF_STATEMENT) {
         range.set_end(current_node->GetAsOrDie<ASTIfStatement>()
-                      ->condition()
-                      ->GetParseLocationRange()
-                      .end());
+                          ->condition()
+                          ->GetParseLocationRange()
+                          .end());
       } else if (current_node->node_kind() == AST_WHILE_STATEMENT) {
         range.set_end(current_node->GetAsOrDie<ASTWhileStatement>()
-                      ->condition()
-                      ->GetParseLocationRange()
-                      .end());
+                          ->condition()
+                          ->GetParseLocationRange()
+                          .end());
       } else if (current_node->node_kind() == AST_FOR_IN_STATEMENT) {
         range.set_end(current_node->GetAsOrDie<ASTForInStatement>()
-                      ->query()
-                      ->GetParseLocationRange()
-                      .end());
+                          ->query()
+                          ->GetParseLocationRange()
+                          .end());
       } else {
         return zetasql_base::InternalErrorBuilder() << "Unexpected node kind.";
       }
@@ -374,13 +374,12 @@ absl::Status ScriptExecutorImpl::ExitExceptionHandler() {
 absl::Status ScriptExecutorImpl::ExitForLoop() {
   ZETASQL_RET_CHECK(!options_.dry_run());
   ZETASQL_RET_CHECK(!callstack_.back().mutable_for_loop_stack()->empty());
-  ZETASQL_ASSIGN_OR_RETURN(int64_t iterator_memory,
-                   GetIteratorMemoryUsage(
-                       callstack_.back().for_loop_stack().back().get()));
-  ZETASQL_RETURN_IF_ERROR(UpdateAndCheckMemorySize(
-      GetCurrentNode()->ast_node(),
-      /*current_memory_size=*/ 0,
-      iterator_memory));
+  ZETASQL_ASSIGN_OR_RETURN(
+      int64_t iterator_memory,
+      GetIteratorMemoryUsage(callstack_.back().for_loop_stack().back().get()));
+  ZETASQL_RETURN_IF_ERROR(UpdateAndCheckMemorySize(GetCurrentNode()->ast_node(),
+                                           /*current_memory_size=*/0,
+                                           iterator_memory));
   callstack_.back().mutable_for_loop_stack()->pop_back();
   return absl::OkStatus();
 }
@@ -428,8 +427,7 @@ absl::Status ScriptExecutorImpl::ExecuteNextImpl() {
     case AST_BREAK_STATEMENT:
     case AST_CONTINUE_STATEMENT:
     case AST_RETURN_STATEMENT:
-      ZETASQL_RETURN_IF_ERROR(AdvancePastCurrentStatement(
-          absl::OkStatus()));
+      ZETASQL_RETURN_IF_ERROR(AdvancePastCurrentStatement(absl::OkStatus()));
       break;
     case AST_IF_STATEMENT:
       ZETASQL_RETURN_IF_ERROR(AdvancePastCurrentCondition(EvaluateCondition(
@@ -440,31 +438,27 @@ absl::Status ScriptExecutorImpl::ExecuteNextImpl() {
           curr_ast_node->GetAs<ASTElseifClause>()->condition())));
       break;
     case AST_CASE_STATEMENT:
-      ZETASQL_RETURN_IF_ERROR(AdvancePastCurrentStatement(
-          ExecuteCaseStatement()));
+      ZETASQL_RETURN_IF_ERROR(AdvancePastCurrentStatement(ExecuteCaseStatement()));
       break;
     case AST_WHEN_THEN_CLAUSE:
-      ZETASQL_RETURN_IF_ERROR(AdvancePastCurrentCondition(
-          EvaluateWhenThenClause()));
+      ZETASQL_RETURN_IF_ERROR(AdvancePastCurrentCondition(EvaluateWhenThenClause()));
       break;
     case AST_ASSIGNMENT_FROM_STRUCT:
-      ZETASQL_RETURN_IF_ERROR(AdvancePastCurrentStatement(
-          ExecuteAssignmentFromStruct()));
+      ZETASQL_RETURN_IF_ERROR(
+          AdvancePastCurrentStatement(ExecuteAssignmentFromStruct()));
       break;
     case AST_SINGLE_ASSIGNMENT:
-      ZETASQL_RETURN_IF_ERROR(AdvancePastCurrentStatement(
-          ExecuteSingleAssignment()));
+      ZETASQL_RETURN_IF_ERROR(AdvancePastCurrentStatement(ExecuteSingleAssignment()));
       break;
     case AST_VARIABLE_DECLARATION:
-      ZETASQL_RETURN_IF_ERROR(AdvancePastCurrentStatement(
-          ExecuteVariableDeclaration()));
+      ZETASQL_RETURN_IF_ERROR(
+          AdvancePastCurrentStatement(ExecuteVariableDeclaration()));
       break;
     case AST_WHILE_STATEMENT:
       ZETASQL_RETURN_IF_ERROR(ExecuteWhileCondition());
       break;
     case AST_REPEAT_STATEMENT:
-      ZETASQL_RETURN_IF_ERROR(AdvancePastCurrentStatement(
-          absl::OkStatus()));
+      ZETASQL_RETURN_IF_ERROR(AdvancePastCurrentStatement(absl::OkStatus()));
       break;
     case AST_UNTIL_CLAUSE:
       ZETASQL_RETURN_IF_ERROR(AdvancePastCurrentCondition(EvaluateCondition(
@@ -476,8 +470,7 @@ absl::Status ScriptExecutorImpl::ExecuteNextImpl() {
     case AST_CALL_STATEMENT:
       sql_feature_usage_.set_call_stmt(sql_feature_usage_.call_stmt() + 1);
       triggered_features_.insert(ScriptExecutorStateProto::CALL_STATEMENT);
-      ZETASQL_RETURN_IF_ERROR(MaybeDispatchException(
-          ExecuteCallStatement()));
+      ZETASQL_RETURN_IF_ERROR(MaybeDispatchException(ExecuteCallStatement()));
       break;
     case AST_RAISE_STATEMENT:
       ZETASQL_RETURN_IF_ERROR(ExecuteRaiseStatement(
@@ -493,8 +486,7 @@ absl::Status ScriptExecutorImpl::ExecuteNextImpl() {
           sql_feature_usage_.execute_immediate_stmt() + 1);
       triggered_features_.insert(
           ScriptExecutorStateProto::EXECUTE_IMMEDIATE_STATEMENT);
-      ZETASQL_RETURN_IF_ERROR(MaybeDispatchException(
-          ExecuteDynamicStatement()));
+      ZETASQL_RETURN_IF_ERROR(MaybeDispatchException(ExecuteDynamicStatement()));
       break;
     default:
       if (!curr_ast_node->IsSqlStatement()) {
@@ -586,8 +578,7 @@ absl::Status ScriptExecutorImpl::RaiseNewException(
   absl::StatusOr<Value> status_or_message_value =
       EvaluateExpression(stmt->message(), type_factory_->get_string());
   if (!status_or_message_value.ok()) {
-    return AdvancePastCurrentStatement(
-        status_or_message_value.status());
+    return AdvancePastCurrentStatement(status_or_message_value.status());
   }
   const Value& message_value = status_or_message_value.value();
   ZETASQL_RET_CHECK_EQ(message_value.type_kind(), TypeKind::TYPE_STRING);
@@ -601,8 +592,7 @@ absl::Status ScriptExecutorImpl::RaiseNewException(
   }
   std::string message =
       message_value.is_null() ? "NULL" : message_value.string_value();
-  return AdvancePastCurrentStatement(
-      MakeScriptExceptionAt(stmt) << message);
+  return AdvancePastCurrentStatement(MakeScriptExceptionAt(stmt) << message);
 }
 
 absl::Status ScriptExecutorImpl::ReraiseCaughtException(
@@ -656,8 +646,7 @@ absl::Status ScriptExecutorImpl::UpdateAndCheckVariableSize(
   if (total_memory_usage_ >
       options_.variable_size_limit_options().total_memory_limit()) {
     return MakeNoSizeRemainingError(
-        node,
-        options_.variable_size_limit_options().total_memory_limit(),
+        node, options_.variable_size_limit_options().total_memory_limit(),
         callstack_);
   }
 
@@ -668,7 +657,7 @@ absl::Status ScriptExecutorImpl::OnVariablesValueChangedWithoutSizeCheck(
     bool notify_evaluator, const StackFrame& var_declaration_stack_frame,
     const ASTNode* current_node,
     const std::vector<VariableChange>& variable_changes) {
-  if (variable_changes.empty() ||!notify_evaluator) {
+  if (variable_changes.empty() || !notify_evaluator) {
     return absl::OkStatus();
   }
   return evaluator_->OnVariablesChanged(
@@ -984,8 +973,7 @@ absl::Status ScriptExecutorImpl::ExecuteWhileCondition() {
   } else {
     // A while statement without a condition is a LOOP...END LOOP construct;
     // advance unconditionally.
-    return AdvancePastCurrentStatement(
-        absl::OkStatus());
+    return AdvancePastCurrentStatement(absl::OkStatus());
   }
 }
 
@@ -1030,8 +1018,7 @@ absl::StatusOr<bool> ScriptExecutorImpl::EvaluateWhenThenClause() {
 }
 
 absl::StatusOr<Value> ScriptExecutorImpl::GenerateStructValueFromRow(
-    TypeFactory* type_factory,
-    const EvaluatorTableIterator& iterator,
+    TypeFactory* type_factory, const EvaluatorTableIterator& iterator,
     const StructType* struct_type) const {
   // If struct_type is nullptr, construct from iterator.
   if (struct_type == nullptr) {
@@ -1053,7 +1040,7 @@ absl::StatusOr<Value> ScriptExecutorImpl::GenerateStructValueFromRow(
 }
 
 absl::Status ScriptExecutorImpl::ExecuteForInStatement() {
-  const ControlFlowNode * cfg_node = callstack_.back().current_node();
+  const ControlFlowNode* cfg_node = callstack_.back().current_node();
   const ASTForInStatement* for_stmt =
       cfg_node->ast_node()->GetAs<ASTForInStatement>();
   std::vector<std::unique_ptr<EvaluatorTableIterator>>* for_loop_stack =
@@ -1062,20 +1049,17 @@ absl::Status ScriptExecutorImpl::ExecuteForInStatement() {
   if (cfg_node->kind() == ControlFlowNode::Kind::kForInitial) {
     // Begin new loop
     ScriptSegment query_segment = ScriptSegment::FromASTNode(
-        CurrentScript()->script_text(),
-        for_stmt->query());
+        CurrentScript()->script_text(), for_stmt->query());
     // Placeholder value in case function exits early with error.
     for_loop_stack->push_back(nullptr);
-    ZETASQL_ASSIGN_OR_RETURN(
-      std::unique_ptr<EvaluatorTableIterator> iterator,
-      evaluator_->ExecuteQueryWithResult(*this, query_segment));
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<EvaluatorTableIterator> iterator,
+                     evaluator_->ExecuteQueryWithResult(*this, query_segment));
 
     // If next row exists, generates value for row and assigns to variable.
     if (iterator->NextRow()) {
       TypeFactory type_factory;
       ZETASQL_ASSIGN_OR_RETURN(Value variable_value,
-                       GenerateStructValueFromRow(&type_factory,
-                                                  *iterator,
+                       GenerateStructValueFromRow(&type_factory, *iterator,
                                                   /* struct_type */ nullptr));
       ZETASQL_RET_CHECK(zetasql_base::InsertIfNotPresent(MutableCurrentVariables(),
                                         for_stmt->variable()->GetAsIdString(),
@@ -1089,11 +1073,10 @@ absl::Status ScriptExecutorImpl::ExecuteForInStatement() {
 
       for_loop_stack->pop_back();
       for_loop_stack->push_back(std::move(iterator));
-      ZETASQL_ASSIGN_OR_RETURN(
-          int64_t iterator_memory,
-          GetIteratorMemoryUsage(for_loop_stack->back().get()));
-      ZETASQL_RETURN_IF_ERROR(UpdateAndCheckMemorySize(
-          for_stmt, iterator_memory, /*previous_memory_size=*/ 0));
+      ZETASQL_ASSIGN_OR_RETURN(int64_t iterator_memory,
+                       GetIteratorMemoryUsage(for_loop_stack->back().get()));
+      ZETASQL_RETURN_IF_ERROR(UpdateAndCheckMemorySize(for_stmt, iterator_memory,
+                                               /*previous_memory_size=*/0));
 
       return AdvancePastCurrentCondition(true);
     }
@@ -1104,33 +1087,32 @@ absl::Status ScriptExecutorImpl::ExecuteForInStatement() {
     }
     for_loop_stack->pop_back();
     for_loop_stack->push_back(std::move(iterator));
-    ZETASQL_ASSIGN_OR_RETURN(
-        int64_t iterator_memory,
-        GetIteratorMemoryUsage(for_loop_stack->back().get()));
-    ZETASQL_RETURN_IF_ERROR(UpdateAndCheckMemorySize(
-        for_stmt, iterator_memory, /*previous_memory_size=*/ 0));
+    ZETASQL_ASSIGN_OR_RETURN(int64_t iterator_memory,
+                     GetIteratorMemoryUsage(for_loop_stack->back().get()));
+    ZETASQL_RETURN_IF_ERROR(UpdateAndCheckMemorySize(for_stmt, iterator_memory,
+                                             /*previous_memory_size=*/0));
 
     return AdvancePastCurrentCondition(false);
   } else if (cfg_node->kind() == ControlFlowNode::Kind::kForAdvance) {
     // Advance running loop
     ZETASQL_RET_CHECK(!for_loop_stack->empty());
-    EvaluatorTableIterator * iterator = for_loop_stack->back().get();
+    EvaluatorTableIterator* iterator = for_loop_stack->back().get();
     ZETASQL_ASSIGN_OR_RETURN(int64_t previous_iterator_memory,
                      GetIteratorMemoryUsage(iterator));
 
     // If next row exists, store the row as a struct.
     if (iterator->NextRow()) {
-      Value* variable_value =
-          zetasql_base::FindOrNull(*MutableCurrentVariables(),
-                          for_stmt->variable()->GetAsIdString());
+      Value* variable_value = zetasql_base::FindOrNull(
+          *MutableCurrentVariables(), for_stmt->variable()->GetAsIdString());
       ZETASQL_RET_CHECK(variable_value != nullptr)
-          << "Variable "
-          << for_stmt->variable()->GetAsIdString().ToStringView()
+          << "Variable " << for_stmt->variable()->GetAsIdString().ToStringView()
           << " should be in scope, but cannot be found";
 
       TypeFactory type_factory;
-      ZETASQL_ASSIGN_OR_RETURN(*variable_value, GenerateStructValueFromRow(
-          &type_factory, *iterator, variable_value->type()->AsStruct()));
+      ZETASQL_ASSIGN_OR_RETURN(
+          *variable_value,
+          GenerateStructValueFromRow(&type_factory, *iterator,
+                                     variable_value->type()->AsStruct()));
 
       VariableChange var = {for_stmt->variable()->GetAsIdString(),
                             *variable_value, TypeParameters()};
@@ -1141,8 +1123,8 @@ absl::Status ScriptExecutorImpl::ExecuteForInStatement() {
 
       ZETASQL_ASSIGN_OR_RETURN(int64_t iterator_memory,
                        GetIteratorMemoryUsage(iterator));
-      ZETASQL_RETURN_IF_ERROR(UpdateAndCheckMemorySize(
-          for_stmt, iterator_memory, previous_iterator_memory));
+      ZETASQL_RETURN_IF_ERROR(UpdateAndCheckMemorySize(for_stmt, iterator_memory,
+                                               previous_iterator_memory));
 
       return AdvancePastCurrentCondition(true);
     }
@@ -1150,17 +1132,16 @@ absl::Status ScriptExecutorImpl::ExecuteForInStatement() {
     if (!iterator->Status().ok()) {
       return MakeScriptExceptionAt(for_stmt) << iterator->Status();
     }
-    ZETASQL_ASSIGN_OR_RETURN(int64_t iterator_memory,
-                     GetIteratorMemoryUsage(iterator));
-    ZETASQL_RETURN_IF_ERROR(UpdateAndCheckMemorySize(
-        for_stmt, iterator_memory, previous_iterator_memory));
+    ZETASQL_ASSIGN_OR_RETURN(int64_t iterator_memory, GetIteratorMemoryUsage(iterator));
+    ZETASQL_RETURN_IF_ERROR(UpdateAndCheckMemorySize(for_stmt, iterator_memory,
+                                             previous_iterator_memory));
 
     return AdvancePastCurrentCondition(false);
   }
   // Should never reach here.
   return zetasql_base::InternalErrorBuilder()
-      << "Control Flow nodes tied to ASTForInStatement should have"
-      << "Kind::kForInitial or Kind::kForAdvance";
+         << "Control Flow nodes tied to ASTForInStatement should have"
+         << "Kind::kForInitial or Kind::kForAdvance";
 }
 
 // Given <call_statement> calling a procedure defined <procedure_definition>,
@@ -1403,8 +1384,7 @@ absl::Status ScriptExecutorImpl::ExecuteCallStatement() {
     for (const zetasql::ASTTVFArgument* arg : call_statement->arguments()) {
       ZETASQL_RETURN_IF_ERROR(EvaluateExpression(arg->expr(), nullptr).status());
     }
-    return AdvancePastCurrentStatement(
-        absl::OkStatus());
+    return AdvancePastCurrentStatement(absl::OkStatus());
   }
   auto id_string_pool = std::make_unique<IdStringPool>();
   VariableMap variables;
@@ -1441,8 +1421,7 @@ absl::Status ScriptExecutorImpl::ExecuteCallStatement() {
           *procedure_definition, procedure_arguments, &callstack_.back()));
     }
 
-    return AdvancePastCurrentStatement(
-        absl::OkStatus());
+    return AdvancePastCurrentStatement(absl::OkStatus());
   }
   // TODO: Report correct error when procedure body failed to
   // parse.
@@ -1462,8 +1441,7 @@ absl::Status ScriptExecutorImpl::ExecuteCallStatement() {
   if (start_node->ast_node() == nullptr) {
     ZETASQL_RETURN_IF_ERROR(AssignOutArguments(*procedure_definition.get(), variables,
                                        &callstack_.back()));
-    ZETASQL_RETURN_IF_ERROR(
-        AdvancePastCurrentStatement(absl::OkStatus()));
+    ZETASQL_RETURN_IF_ERROR(AdvancePastCurrentStatement(absl::OkStatus()));
     return absl::OkStatus();
   }
 
@@ -1471,8 +1449,7 @@ absl::Status ScriptExecutorImpl::ExecuteCallStatement() {
     // In dry run mode, we skip procedures that have a SQL body; after enough
     // validation to confirm that we would successfully reach at least the
     // start of the procedure, we just move on to the next statement.
-    ZETASQL_RETURN_IF_ERROR(
-        AdvancePastCurrentStatement(absl::OkStatus()));
+    ZETASQL_RETURN_IF_ERROR(AdvancePastCurrentStatement(absl::OkStatus()));
   } else {
     callstack_.emplace_back(StackFrameImpl(
         std::move(parsed_script), start_node, std::move(variables),
@@ -1557,8 +1534,8 @@ ScriptExecutorImpl::EvaluateDynamicParams(
       VariableChange var = {using_arg->alias()->GetAsIdString(), param_value,
                             TypeParameters()};
       ZETASQL_RETURN_IF_ERROR(OnVariablesValueChangedWithSizeCheck(
-          /*notify_evaluator=*/true, callstack_.back(),
-          using_arg->expression(), {var}, variable_sizes_map));
+          /*notify_evaluator=*/true, callstack_.back(), using_arg->expression(),
+          {var}, variable_sizes_map));
       std::string param_name =
           absl::AsciiStrToLower(using_arg->alias()->GetAsString());
       // Params must be all unique (map::insert will return true in its second
@@ -1582,8 +1559,8 @@ ScriptExecutorImpl::EvaluateDynamicParams(
       VariableChange var = {IdString::MakeGlobal("positional parameter"),
                             param_value, TypeParameters()};
       ZETASQL_RETURN_IF_ERROR(OnVariablesValueChangedWithSizeCheck(
-          /*notify_evaluator=*/true, callstack_.back(),
-          using_arg->expression(), {var}, variable_sizes_map));
+          /*notify_evaluator=*/true, callstack_.back(), using_arg->expression(),
+          {var}, variable_sizes_map));
       std::get<ParameterValueList>(*stack_params).push_back(param_value);
     }
   }
@@ -1717,8 +1694,7 @@ absl::Status ScriptExecutorImpl::ExecuteDynamicStatement() {
     // During dry runs EvaluateScalarExpression will return null values for
     // complex expressions, thus we won't validate any further in dry run
     if (options_.dry_run()) {
-      ZETASQL_RETURN_IF_ERROR(AdvancePastCurrentStatement(
-          absl::OkStatus()));
+      ZETASQL_RETURN_IF_ERROR(AdvancePastCurrentStatement(absl::OkStatus()));
       return absl::OkStatus();
     }
     // NULL dynamic SQL not allowed
@@ -1801,8 +1777,7 @@ absl::Status ScriptExecutorImpl::ExecuteDynamicStatement() {
   }
 
   if (options_.dry_run()) {
-    ZETASQL_RETURN_IF_ERROR(
-        AdvancePastCurrentStatement(absl::OkStatus()));
+    ZETASQL_RETURN_IF_ERROR(AdvancePastCurrentStatement(absl::OkStatus()));
   } else {
     // Variable_sizes must be included to update the stack frame memory with
     // query parameter variable sizes.
@@ -1839,8 +1814,7 @@ const ControlFlowNode* ScriptExecutorImpl::GetCurrentNode() const {
 }
 
 absl::Status ScriptExecutorImpl::ValidateVariablesOnSetState(
-    const ControlFlowNode * next_cfg_node,
-    const VariableMap& new_variables,
+    const ControlFlowNode* next_cfg_node, const VariableMap& new_variables,
     const ParsedScript& parsed_script) const {
   ParsedScript::ArgumentTypeMap arguments = parsed_script.routine_arguments();
   ParsedScript::VariableCreationMap variables_in_scope;
@@ -1872,7 +1846,7 @@ absl::Status ScriptExecutorImpl::ValidateVariablesOnSetState(
       } else if (stmt->node_kind() == AST_FOR_IN_STATEMENT) {
         // Variable created in FOR...IN statement is always a struct type.
         ZETASQL_RET_CHECK(new_variable_value.type()->IsStruct());
-        zetasql_base::EraseKeyReturnValuePtr(&variables_in_scope, var_name);
+        variables_in_scope.erase(var_name);
       }
     } else if (arguments.contains(var_name)) {
       type_at_creation = zetasql_base::EraseKeyReturnValuePtr(&arguments, var_name);
@@ -2002,17 +1976,16 @@ absl::Status ScriptExecutorImpl::SetState(
     // calls to this->GetCurrentStack() returns the current parsed_script.
     // A non-nullptr cfg_node is used at StackFrame initialization to
     // differentiate from a script that is complete.
-    const ControlFlowNode * unused_cfg_node =
+    const ControlFlowNode* unused_cfg_node =
         parsed_script->control_flow_graph().start_node();
-    callstack_.emplace_back(StackFrameImpl(std::move(parsed_script),
-                                           unused_cfg_node));
-    for (const google::protobuf::Any& msg
-             : stack_frame_state.for_loop_stack()) {
+    callstack_.emplace_back(
+        StackFrameImpl(std::move(parsed_script), unused_cfg_node));
+    for (const google::protobuf::Any& msg :
+         stack_frame_state.for_loop_stack()) {
       ZETASQL_ASSIGN_OR_RETURN(
           std::unique_ptr<EvaluatorTableIterator> for_loop_iterator,
           evaluator_->DeserializeToIterator(
-              msg, *this,
-              *callstack_.back().parsed_script()));
+              msg, *this, *callstack_.back().parsed_script()));
       for_loop_stack.push_back(std::move(for_loop_iterator));
     }
     parsed_script = callstack_.back().ReleaseParsedScript();
@@ -2034,7 +2007,7 @@ absl::Status ScriptExecutorImpl::SetState(
 
       next_cfg_node = parsed_script->control_flow_graph().GetControlFlowNode(
           next_node, static_cast<ControlFlowNode::Kind>(
-              stack_frame_state.control_flow_node_kind()));
+                         stack_frame_state.control_flow_node_kind()));
       ZETASQL_RET_CHECK_NE(next_cfg_node, nullptr)
           << "Deserialized AST node has no associated control flow node";
 
@@ -2043,8 +2016,7 @@ absl::Status ScriptExecutorImpl::SetState(
           << absl::StrCat(state);
       ZETASQL_RETURN_IF_ERROR(
           ResetVariableSizes(next_node, new_variables, &new_variable_sizes));
-      ZETASQL_RETURN_IF_ERROR(
-          ResetIteratorSizes(next_node, for_loop_stack));
+      ZETASQL_RETURN_IF_ERROR(ResetIteratorSizes(next_node, for_loop_stack));
     }
 
     std::optional<std::variant<ParameterValueList, ParameterValueMap>>
@@ -2090,8 +2062,8 @@ absl::StatusOr<ScriptExecutorStateProto> ScriptExecutorImpl::GetState() const {
       stack_frame_proto->set_control_flow_node_kind(
           static_cast<int>(stack_frame.current_node()->kind()));
     }
-    for (const std::unique_ptr<EvaluatorTableIterator>& it
-             : stack_frame.for_loop_stack()) {
+    for (const std::unique_ptr<EvaluatorTableIterator>& it :
+         stack_frame.for_loop_stack()) {
       if (it != nullptr) {
         ZETASQL_RETURN_IF_ERROR(evaluator_->SerializeIterator(
             *it, *stack_frame_proto->add_for_loop_stack()));
@@ -2132,8 +2104,8 @@ absl::Status ScriptExecutorImpl::ResetIteratorSizes(
   for (const std::unique_ptr<EvaluatorTableIterator>& iterator : iterator_vec) {
     ZETASQL_ASSIGN_OR_RETURN(int64_t iterator_memory,
                      GetIteratorMemoryUsage(iterator.get()));
-    ZETASQL_RETURN_IF_ERROR(UpdateAndCheckMemorySize(
-        node, iterator_memory, /*previous_memory_size=*/ 0));
+    ZETASQL_RETURN_IF_ERROR(UpdateAndCheckMemorySize(node, iterator_memory,
+                                             /*previous_memory_size=*/0));
   }
   return absl::OkStatus();
 }
@@ -2423,8 +2395,8 @@ absl::StatusOr<ScriptSegment> ScriptExecutorImpl::SegmentForScalarExpression(
 }
 
 absl::StatusOr<bool> ScriptExecutorImpl::CheckIfExceptionHandled() const {
-  for (auto frame_it = callstack_.rbegin();
-       frame_it != callstack_.rend(); ++frame_it) {
+  for (auto frame_it = callstack_.rbegin(); frame_it != callstack_.rend();
+       ++frame_it) {
     const StackFrame& stack_frame = *frame_it;
     const ControlFlowNode* cfg_node = stack_frame.current_node();
     ZETASQL_RET_CHECK(cfg_node != nullptr);
@@ -2473,8 +2445,7 @@ absl::Status ScriptExecutorImpl::ExecuteSideEffects(
     const std::optional<ScriptException>& exception) {
   ControlFlowEdge::SideEffects side_effects = edge.ComputeSideEffects();
   if (!side_effects.destroyed_variables.empty()) {
-    ZETASQL_RETURN_IF_ERROR(
-        DestroyVariables(side_effects.destroyed_variables));
+    ZETASQL_RETURN_IF_ERROR(DestroyVariables(side_effects.destroyed_variables));
   }
   for (int i = 0; i < side_effects.num_exception_handlers_exited; ++i) {
     ZETASQL_RETURN_IF_ERROR(ExitExceptionHandler());
@@ -2585,8 +2556,7 @@ absl::Status ScriptExecutorImpl::MaybeDispatchException(
 
   ZETASQL_ASSIGN_OR_RETURN(bool handled, CheckIfExceptionHandled());
   if (handled) {
-    ZETASQL_ASSIGN_OR_RETURN(ScriptException exception,
-                     SetupNewException(status));
+    ZETASQL_ASSIGN_OR_RETURN(ScriptException exception, SetupNewException(status));
     return DispatchException(exception);
   }
   return status;

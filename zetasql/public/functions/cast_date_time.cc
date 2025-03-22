@@ -23,6 +23,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -34,6 +35,7 @@
 #include "zetasql/public/functions/datetime.pb.h"
 #include "zetasql/public/functions/input_format_string_max_width.h"
 #include "zetasql/public/functions/parse_date_time_utils.h"
+#include "zetasql/public/pico_time.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
@@ -43,6 +45,7 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
+#include "absl/strings/escaping.h"
 #include "absl/strings/match.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
@@ -191,10 +194,10 @@ size_t ParseInt(absl::string_view input_str, int min_width, int max_width,
 // successful parsing, and returns absl::string_view::npos otherwise.
 size_t ParseSubSeconds(absl::string_view input_str, int min_width,
                        int max_width, TimestampScale scale,
-                       absl::Duration* subseconds) {
+                       absl::Duration* subseconds, uint32_t* subnanoseconds) {
   const char* res_dp =
       ParseSubSeconds(input_str.data(), input_str.data() + input_str.size(),
-                      max_width, scale, subseconds);
+                      max_width, scale, subseconds, subnanoseconds);
   if (res_dp == nullptr) {
     return absl::string_view::npos;
   }
@@ -756,12 +759,14 @@ size_t ParseWithFormatElementOfTypeTZH(absl::string_view timestamp_string,
 }
 
 // This function conducts the parsing for <timestamp_string> with
-// <format_elements>.
+// <format_elements>. Upon return, <timestamp> constains the timestamp value
+// with nanosecond precision, and sub-nanoseconds value is returned by
+// <sub_nanoseconds>.
 absl::Status ParseTimeWithFormatElements(
     const std::vector<DateTimeFormatElement>& format_elements,
     absl::string_view timestamp_string, const absl::TimeZone default_timezone,
     const absl::Time current_timestamp, TimestampScale scale,
-    absl::Time* timestamp) {
+    absl::Time* timestamp, uint32_t* sub_nanoseconds) {
   // The number of format elements from <format_elements> that have been
   // successfully processed so far.
   size_t processed_format_element_count = 0;
@@ -781,6 +786,7 @@ absl::Status ParseTimeWithFormatElements(
   int hour_in_12_hour_clock = 0;
   bool afternoon = false;
   absl::Duration subseconds = absl::ZeroDuration();
+  *sub_nanoseconds = 0;
 
   // Indicates whether TZH or TZM appears in the format string.
   bool timezone_specified_in_format = false;
@@ -974,18 +980,21 @@ absl::Status ParseTimeWithFormatElements(
         }
         break;
       }
-      // Parses for subsecond value. Additional digits beyond the input <scale>
-      // are truncated (6 for micros, 9 for nanos). For example,
-      //   - for input "123", the output subsecond with "FF3" is 123.
-      //   - for input "1234567", the output subsecond with "FF7" is 123456
-      //     under micros scale, or 1234567 under nano scale.
+      // Parses for subsecond and sub_nanosecond values. For example, for input
+      // "123456789321", scale kPicoseconds, the subsecond
+      // will be 123456789 nanoseconds, and sub_nanosecond will be 321.
+      //
+      // Additional digits beyond the input <scale> are truncated (6 for micros,
+      // 9 for nanos). For example, for input "1234567" with format "FF7", the
+      // output subsecond is 123456 microseconds under micros scale, or
+      // 123456700 nanoseconds under nano scale.
       case FormatElementType::kFFN: {
         ZETASQL_RET_CHECK(format_element.subsecond_digit_count > 0 &&
-                  format_element.subsecond_digit_count <= 9);
+                  format_element.subsecond_digit_count <= 12);
         parsed_length = ParseSubSeconds(timestamp_str_to_parse,
                                         /*min_width=*/digit_count_range.min,
                                         /*max_width=*/digit_count_range.max,
-                                        scale, &subseconds);
+                                        scale, &subseconds, sub_nanoseconds);
         break;
       }
       // Parses for the sign and hour value of the time zone offset. For
@@ -1217,7 +1226,8 @@ absl::Status CheckForCoexistance(
 // Conducts basic and common verifications with the format string.
 absl::Status ConductBasicFormatStringChecks(absl::string_view format_string) {
   if (!IsWellFormedUTF8(format_string)) {
-    return MakeEvalError() << "Format string is not a valid UTF-8 string";
+    return MakeEvalError() << "Format string is not a valid UTF-8 string: "
+                           << absl::CEscape(format_string);
   }
 
   if (format_string.size() >
@@ -1323,9 +1333,10 @@ absl::Status ParseTimeWithFormatElements(
     absl::string_view timestamp_string, const absl::TimeZone default_timezone,
     const absl::Time current_timestamp, int64_t* timestamp_micros) {
   absl::Time base_time;
+  uint32_t unused;
   ZETASQL_RETURN_IF_ERROR(ParseTimeWithFormatElements(
       format_elements, timestamp_string, default_timezone, current_timestamp,
-      kMicroseconds, &base_time));
+      kMicroseconds, &base_time, &unused));
 
   if (!ConvertTimeToTimestamp(base_time, timestamp_micros)) {
     return MakeEvalError() << "Invalid result from parsing function";
@@ -1333,8 +1344,28 @@ absl::Status ParseTimeWithFormatElements(
   return absl::OkStatus();
 }
 
+// Validate format elements "FF<#>": FF10 - FF12 are only valid for kPicoseconds
+// scale.
+absl::Status ValidatekFFNFormatElements(
+    absl::Span<const DateTimeFormatElement> format_elements,
+    TimestampScale scale) {
+  if (scale != kPicoseconds) {
+    for (const DateTimeFormatElement& format_element : format_elements) {
+      if (format_element.type == FormatElementType::kFFN &&
+          format_element.subsecond_digit_count > 9) {
+        return MakeEvalError() << "Format element " << format_element.ToString()
+                               << " is not supported";
+      }
+    }
+  }
+
+  return absl::OkStatus();
+}
+
 absl::Status ValidateDateTimeFormatElementsForTimestampType(
-    absl::Span<const DateTimeFormatElement> format_elements) {
+    absl::Span<const DateTimeFormatElement> format_elements,
+    TimestampScale scale = kMicroseconds) {
+  ZETASQL_RETURN_IF_ERROR(ValidatekFFNFormatElements(format_elements, scale));
   return ValidateDateTimeFormatElements(format_elements, {}, "TIMESTAMP");
 }
 
@@ -1350,7 +1381,9 @@ absl::Status ValidateDateTimeFormatElementsForDateType(
 }
 
 absl::Status ValidateDateTimeFormatElementsForTimeType(
-    absl::Span<const DateTimeFormatElement> format_elements) {
+    absl::Span<const DateTimeFormatElement> format_elements,
+    TimestampScale scale = kMicroseconds) {
+  ZETASQL_RETURN_IF_ERROR(ValidatekFFNFormatElements(format_elements, scale));
   return ValidateDateTimeFormatElements(
       format_elements,
       {FormatElementCategory::kYear, FormatElementCategory::kMonth,
@@ -1361,7 +1394,9 @@ absl::Status ValidateDateTimeFormatElementsForTimeType(
 }
 
 absl::Status ValidateDateTimeFormatElementsForDatetimeType(
-    absl::Span<const DateTimeFormatElement> format_elements) {
+    absl::Span<const DateTimeFormatElement> format_elements,
+    TimestampScale scale = kMicroseconds) {
+  ZETASQL_RETURN_IF_ERROR(ValidatekFFNFormatElements(format_elements, scale));
   return ValidateDateTimeFormatElements(
       format_elements, {FormatElementCategory::kTimeZone}, "DATETIME");
 }
@@ -1526,6 +1561,9 @@ const FormatElementTypeTrie* InitializeFormatElementTypeTrie() {
   trie->Insert("FF7", FormatElementType::kFFN);
   trie->Insert("FF8", FormatElementType::kFFN);
   trie->Insert("FF9", FormatElementType::kFFN);
+  trie->Insert("FF10", FormatElementType::kFFN);
+  trie->Insert("FF11", FormatElementType::kFFN);
+  trie->Insert("FF12", FormatElementType::kFFN);
 
   /*Meridian indicator*/
   trie->Insert("AM", FormatElementType::kAM);
@@ -1836,17 +1874,28 @@ absl::StatusOr<std::string> FromDateTimeFormatElementToFormatString(
   }
 }
 
+// When <sub_nanoseconds> is empty, the timestamp to be formatted has nanosecond
+// precision. Otherwise, the timestamp to be formatted has picosecond precision.
+//
+// REQUIRES: When <sub_nanoseconds> has value, the value is in the range
+//   [0, 999].
 absl::StatusOr<std::string> ResolveFormatString(
     const DateTimeFormatElement& format_element, absl::Time base_time,
-    absl::TimeZone timezone) {
+    std::optional<uint32_t> sub_nanoseconds, absl::TimeZone timezone) {
   const absl::TimeZone::CivilInfo info = timezone.At(base_time);
   ZETASQL_ASSIGN_OR_RETURN(
-      const std::string format_string,
+      std::string format_string,
       FromDateTimeFormatElementToFormatString(format_element, info));
   // We do not need to go through steps of calling FormatTime function and
   // resolving casing for literal format elements.
   if (format_element.category == FormatElementCategory::kLiteral) {
     return format_string;
+  }
+
+  if (sub_nanoseconds.has_value()) {
+    ZETASQL_ASSIGN_OR_RETURN(format_string,
+                     internal_functions::AddPicosecondsInFormatString(
+                         format_string, /*subnanosecond=*/*sub_nanoseconds));
   }
 
   // The following resolves casing for format elements.
@@ -1872,7 +1921,8 @@ absl::StatusOr<std::string> ResolveFormatString(
 
 absl::StatusOr<std::string> FromCastFormatTimestampToStringInternal(
     absl::Span<const DateTimeFormatElement> format_elements,
-    absl::Time base_time, absl::TimeZone timezone) {
+    absl::Time base_time, std::optional<uint32_t> sub_nanoseconds,
+    absl::TimeZone timezone) {
   if (!IsValidTime(base_time)) {
     return MakeEvalError() << "Invalid timestamp value: "
                            << absl::ToUnixMicros(base_time);
@@ -1881,9 +1931,9 @@ absl::StatusOr<std::string> FromCastFormatTimestampToStringInternal(
       internal_functions::GetNormalizedTimeZone(base_time, timezone);
   std::string updated_format_string;
   for (const DateTimeFormatElement& format_element : format_elements) {
-    ZETASQL_ASSIGN_OR_RETURN(
-        std::string str_format,
-        ResolveFormatString(format_element, base_time, normalized_timezone));
+    ZETASQL_ASSIGN_OR_RETURN(std::string str_format,
+                     ResolveFormatString(format_element, base_time,
+                                         sub_nanoseconds, normalized_timezone));
     absl::StrAppend(&updated_format_string, str_format);
   }
   return updated_format_string;
@@ -1958,9 +2008,10 @@ absl::Status CastStringToTimestamp(absl::string_view format_string,
   ZETASQL_RETURN_IF_ERROR(
       ValidateDateTimeFormatElementsForTimestampType(format_elements));
 
+  uint32_t unused;
   return ParseTimeWithFormatElements(format_elements, timestamp_string,
                                      default_timezone, current_timestamp,
-                                     kNanoseconds, timestamp);
+                                     kNanoseconds, timestamp, &unused);
 }
 
 absl::Status CastStringToTimestamp(absl::string_view format_string,
@@ -1978,6 +2029,44 @@ absl::Status CastStringToTimestamp(absl::string_view format_string,
 
   return CastStringToTimestamp(format_string, timestamp_string, timezone,
                                current_timestamp, timestamp);
+}
+
+absl::StatusOr<PicoTime> CastStringToTimestamp(
+    absl::string_view format_string, absl::string_view timestamp_string,
+    absl::string_view default_timezone_string, absl::Time current_timestamp) {
+  // Other two input string arguments (<format_string> and <timestamp_string>)
+  // are checked in the overload call to CastStringToTimestamp.
+  if (!IsWellFormedUTF8(default_timezone_string)) {
+    return MakeEvalError() << "Timezone string is not valid UTF-8: "
+                           << absl::CEscape(default_timezone_string);
+  }
+  absl::TimeZone timezone;
+  ZETASQL_RETURN_IF_ERROR(MakeTimeZone(default_timezone_string, &timezone));
+
+  return CastStringToTimestamp(format_string, timestamp_string, timezone,
+                               current_timestamp);
+}
+
+absl::StatusOr<PicoTime> CastStringToTimestamp(
+    absl::string_view format_string, absl::string_view timestamp_string,
+    absl::TimeZone default_timezone, absl::Time current_timestamp) {
+  if (!IsWellFormedUTF8(timestamp_string)) {
+    return MakeEvalError() << "Timestamp string is not valid UTF-8: "
+                           << absl::CEscape(timestamp_string);
+  }
+  ZETASQL_RETURN_IF_ERROR(ConductBasicFormatStringChecks(format_string));
+  ZETASQL_ASSIGN_OR_RETURN(const std::vector<DateTimeFormatElement> format_elements,
+                   GetDateTimeFormatElements(format_string));
+  ZETASQL_RETURN_IF_ERROR(ValidateDateTimeFormatElementsForTimestampType(
+      format_elements, kPicoseconds));
+
+  uint32_t sub_nanoseconds;
+  absl::Time time;
+  ZETASQL_RETURN_IF_ERROR(ParseTimeWithFormatElements(
+      format_elements, timestamp_string, default_timezone, current_timestamp,
+      kPicoseconds, &time, &sub_nanoseconds));
+  ZETASQL_ASSIGN_OR_RETURN(PicoTime pico_time, PicoTime::Create(time));
+  return PicoTime::FromUnixPicos(pico_time.ToUnixPicos() + sub_nanoseconds);
 }
 
 absl::StatusOr<StringToDateCaster> StringToDateCaster::Create(
@@ -2049,13 +2138,14 @@ absl::Status StringToTimeCaster::Cast(absl::string_view time_string,
       << "Only kNanoseconds or kMicroseconds scale is supported";
 
   absl::Time timestamp;
+  uint32_t unused;
   // We use "1970-01-01 utc" as the <current_timestamp> argument for
   // ParseTimeWithFormatElements function, and it actually has no effect for the
   // final output since we derive default values for time parts from
   // "00:00:00:000000000".
   ZETASQL_RETURN_IF_ERROR(ParseTimeWithFormatElements(
       format_elements_, time_string, absl::UTCTimeZone(),
-      /*current_timestamp=*/absl::UnixEpoch(), scale, &timestamp));
+      /*current_timestamp=*/absl::UnixEpoch(), scale, &timestamp, &unused));
   ZETASQL_RETURN_IF_ERROR(
       ConvertTimestampToTime(timestamp, absl::UTCTimeZone(), scale, time));
 
@@ -2085,6 +2175,7 @@ absl::Status StringToDatetimeCaster::Cast(absl::string_view datetime_string,
       << "Only kNanoseconds or kMicroseconds scale is supported";
   absl::Time current_date_utc_ts;
   absl::Time timestamp;
+  uint32_t unused;
   ZETASQL_RETURN_IF_ERROR(ConvertDateToTimestamp(current_date, absl::UTCTimeZone(),
                                          &current_date_utc_ts));
   // We use <current_date_utc_ts> (constructed with <current_date> and "UTC")
@@ -2093,7 +2184,7 @@ absl::Status StringToDatetimeCaster::Cast(absl::string_view datetime_string,
   // function would be the same as year and month in <current_date>.
   ZETASQL_RETURN_IF_ERROR(ParseTimeWithFormatElements(
       format_elements_, datetime_string, absl::UTCTimeZone(),
-      current_date_utc_ts, scale, &timestamp));
+      current_date_utc_ts, scale, &timestamp, &unused));
   ZETASQL_RETURN_IF_ERROR(
       ConvertTimestampToDatetime(timestamp, absl::UTCTimeZone(), datetime));
   return absl::OkStatus();
@@ -2199,7 +2290,7 @@ absl::Status DateToStringCaster::Cast(int32_t date, std::string* out) const {
   ZETASQL_ASSIGN_OR_RETURN(
       *out, cast_date_time_internal::FromCastFormatTimestampToStringInternal(
                 format_elements_, MakeTime(date_timestamp, kMicroseconds),
-                absl::UTCTimeZone()));
+                /*sub_nanoseconds=*/std::nullopt, absl::UTCTimeZone()));
   return absl::OkStatus();
 }
 
@@ -2234,7 +2325,8 @@ absl::Status DatetimeToStringCaster::Cast(const DatetimeValue& datetime,
 
   ZETASQL_ASSIGN_OR_RETURN(
       *out, cast_date_time_internal::FromCastFormatTimestampToStringInternal(
-                format_elements_, datetime_in_utc, absl::UTCTimeZone()));
+                format_elements_, datetime_in_utc,
+                /*sub_nanoseconds=*/std::nullopt, absl::UTCTimeZone()));
   return absl::OkStatus();
 }
 
@@ -2271,7 +2363,8 @@ absl::Status TimeToStringCaster::Cast(const TimeValue& time,
 
   ZETASQL_ASSIGN_OR_RETURN(
       *out, cast_date_time_internal::FromCastFormatTimestampToStringInternal(
-                format_elements_, time_in_epoch_day, absl::UTCTimeZone()));
+                format_elements_, time_in_epoch_day,
+                /*sub_nanoseconds=*/std::nullopt, absl::UTCTimeZone()));
   return absl::OkStatus();
 }
 
@@ -2297,7 +2390,7 @@ absl::Status TimestampToStringCaster::Cast(int64_t timestamp_micros,
   ZETASQL_ASSIGN_OR_RETURN(
       *out, cast_date_time_internal::FromCastFormatTimestampToStringInternal(
                 format_elements_, MakeTime(timestamp_micros, kMicroseconds),
-                timezone));
+                /*sub_nanoseconds=*/std::nullopt, timezone));
   return absl::OkStatus();
 }
 
@@ -2306,8 +2399,16 @@ absl::Status TimestampToStringCaster::Cast(absl::Time timestamp,
                                            std::string* out) const {
   ZETASQL_ASSIGN_OR_RETURN(
       *out, cast_date_time_internal::FromCastFormatTimestampToStringInternal(
-                format_elements_, timestamp, timezone));
+                format_elements_, timestamp, /*sub_nanoseconds=*/std::nullopt,
+                timezone));
   return absl::OkStatus();
+}
+
+absl::StatusOr<std::string> TimestampToStringCaster::Cast(
+    PicoTime timestamp, absl::TimeZone timezone) const {
+  return cast_date_time_internal::FromCastFormatTimestampToStringInternal(
+      format_elements_, timestamp.ToAbslTime(), timestamp.SubNanoseconds(),
+      timezone);
 }
 
 absl::Status CastFormatTimestampToString(absl::string_view format_string,
@@ -2353,6 +2454,21 @@ absl::Status CastFormatTimestampToString(absl::string_view format_string,
                                          std::string* out) {
   ZETASQL_ASSIGN_OR_RETURN(auto caster, TimestampToStringCaster::Create(format_string));
   return caster.Cast(timestamp, timezone, out);
+}
+
+absl::StatusOr<std::string> CastFormatTimestampToString(
+    absl::string_view format_string, PicoTime timestamp,
+    absl::TimeZone timezone) {
+  ZETASQL_ASSIGN_OR_RETURN(auto caster, TimestampToStringCaster::Create(format_string));
+  return caster.Cast(timestamp, timezone);
+}
+
+absl::StatusOr<std::string> CastFormatTimestampToString(
+    absl::string_view format_string, PicoTime timestamp,
+    absl::string_view timezone_string) {
+  absl::TimeZone timezone;
+  ZETASQL_RETURN_IF_ERROR(MakeTimeZone(timezone_string, &timezone));
+  return CastFormatTimestampToString(format_string, timestamp, timezone);
 }
 
 }  // namespace functions

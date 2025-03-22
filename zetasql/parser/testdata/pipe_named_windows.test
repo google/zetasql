@@ -1,0 +1,231 @@
+[default language_features=PIPES]
+from t
+|> select sum(x) over(w), count(*) over (w2)
+   window w AS (),
+          w2 AS (partition by a)
+|> extend max(y) over (w partition by x)
+   window w AS (ORDER BY b ROWS CURRENT ROW)
+--
+QueryStatement [0-189] [from t |>...CURRENT ROW)]
+  Query [0-189] [from t |>...CURRENT ROW)]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeSelect [7-103] [|> select...partition by a)]
+      Select [10-103] [select sum...partition by a)]
+        SelectList [17-51] [sum(x) over...over (w2)]
+          SelectColumn [17-31] [sum(x) over(w)]
+            AnalyticFunctionCall [17-31] [sum(x) over(w)]
+              FunctionCall [17-23] [sum(x)]
+                PathExpression [17-20] [sum]
+                  Identifier(sum) [17-20] [sum]
+                PathExpression [21-22] [x]
+                  Identifier(x) [21-22] [x]
+              WindowSpecification [28-31] [(w)]
+                Identifier(w) [29-30] [w]
+          SelectColumn [33-51] [count(*) over (w2)]
+            AnalyticFunctionCall [33-51] [count(*) over (w2)]
+              FunctionCall [33-41] [count(*)]
+                PathExpression [33-38] [count]
+                  Identifier(count) [33-38] [count]
+                Star(*) [39-40] [*]
+              WindowSpecification [47-51] [(w2)]
+                Identifier(w2) [48-50] [w2]
+        WindowClause [55-103] [window w AS...partition by a)]
+          WindowDefinition [62-69] [w AS ()]
+            Identifier(w) [62-63] [w]
+            WindowSpecification [67-69] [()]
+          WindowDefinition [81-103] [w2 AS (partition by a)]
+            Identifier(w2) [81-83] [w2]
+            WindowSpecification [87-103] [(partition by a)]
+              PartitionBy [88-102] [partition by a]
+                PathExpression [101-102] [a]
+                  Identifier(a) [101-102] [a]
+    PipeExtend [104-189] [|> extend...CURRENT ROW)]
+      Select [107-189] [extend max...CURRENT ROW)]
+        SelectList [114-144] [max(y) over (w partition by x)]
+          SelectColumn [114-144] [max(y) over (w partition by x)]
+            AnalyticFunctionCall [114-144] [max(y) over (w partition by x)]
+              FunctionCall [114-120] [max(y)]
+                PathExpression [114-117] [max]
+                  Identifier(max) [114-117] [max]
+                PathExpression [118-119] [y]
+                  Identifier(y) [118-119] [y]
+              WindowSpecification [126-144] [(w partition by x)]
+                Identifier(w) [127-128] [w]
+                PartitionBy [129-143] [partition by x]
+                  PathExpression [142-143] [x]
+                    Identifier(x) [142-143] [x]
+        WindowClause [148-189] [window w AS...CURRENT ROW)]
+          WindowDefinition [155-189] [w AS (ORDER...CURRENT ROW)]
+            Identifier(w) [155-156] [w]
+            WindowSpecification [160-189] [(ORDER BY b ROWS CURRENT ROW)]
+              OrderBy [161-171] [ORDER BY b]
+                OrderingExpression(ASC) [170-171] [b]
+                  PathExpression [170-171] [b]
+                    Identifier(b) [170-171] [b]
+              WindowFrame(ROWS) [172-188] [ROWS CURRENT ROW]
+                WindowFrameExpr(CURRENT ROW) [177-188] [CURRENT ROW]
+--
+FROM
+  t
+|> SELECT
+     sum(x) OVER (w),
+     count(*) OVER (w2)
+   WINDOW w AS (), w2 AS (PARTITION BY a)
+|> EXTEND
+     max(y) OVER (w PARTITION BY x)
+   WINDOW w AS (
+     ORDER BY b ROWS CURRENT ROW)
+==
+
+# Unused window
+from t
+|> select sum(x)
+   window w AS ()
+--
+QueryStatement [0-41] [from t |>...window w AS ()]
+  Query [0-41] [from t |>...window w AS ()]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeSelect [7-41] [|> select...window w AS ()]
+      Select [10-41] [select sum...window w AS ()]
+        SelectList [17-23] [sum(x)]
+          SelectColumn [17-23] [sum(x)]
+            FunctionCall [17-23] [sum(x)]
+              PathExpression [17-20] [sum]
+                Identifier(sum) [17-20] [sum]
+              PathExpression [21-22] [x]
+                Identifier(x) [21-22] [x]
+        WindowClause [27-41] [window w AS ()]
+          WindowDefinition [34-41] [w AS ()]
+            Identifier(w) [34-35] [w]
+            WindowSpecification [39-41] [()]
+--
+FROM
+  t
+|> SELECT
+     sum(x)
+   WINDOW w AS ()
+==
+
+# Trailing comma on the window list, and the select-list before WINDOW.
+from t
+|> {{select|extend}} sum(x) over (w),
+   window w AS (),
+--
+ALTERNATION GROUP: select
+--
+QueryStatement [0-52] [from t |>...window w AS (),]
+  Query [0-52] [from t |>...window w AS (),]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeSelect [7-52] [|> select...window w AS (),]
+      Select [10-52] [select sum...window w AS (),]
+        SelectList [17-33] [sum(x) over (w),]
+          SelectColumn [17-32] [sum(x) over (w)]
+            AnalyticFunctionCall [17-32] [sum(x) over (w)]
+              FunctionCall [17-23] [sum(x)]
+                PathExpression [17-20] [sum]
+                  Identifier(sum) [17-20] [sum]
+                PathExpression [21-22] [x]
+                  Identifier(x) [21-22] [x]
+              WindowSpecification [29-32] [(w)]
+                Identifier(w) [30-31] [w]
+        WindowClause [37-52] [window w AS (),]
+          WindowDefinition [44-51] [w AS ()]
+            Identifier(w) [44-45] [w]
+            WindowSpecification [49-51] [()]
+--
+FROM
+  t
+|> SELECT
+     sum(x) OVER (w)
+   WINDOW w AS ()
+--
+ALTERNATION GROUP: extend
+--
+QueryStatement [0-52] [from t |>...window w AS (),]
+  Query [0-52] [from t |>...window w AS (),]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeExtend [7-52] [|> extend...window w AS (),]
+      Select [10-52] [extend sum...window w AS (),]
+        SelectList [17-33] [sum(x) over (w),]
+          SelectColumn [17-32] [sum(x) over (w)]
+            AnalyticFunctionCall [17-32] [sum(x) over (w)]
+              FunctionCall [17-23] [sum(x)]
+                PathExpression [17-20] [sum]
+                  Identifier(sum) [17-20] [sum]
+                PathExpression [21-22] [x]
+                  Identifier(x) [21-22] [x]
+              WindowSpecification [29-32] [(w)]
+                Identifier(w) [30-31] [w]
+        WindowClause [37-52] [window w AS (),]
+          WindowDefinition [44-51] [w AS ()]
+            Identifier(w) [44-45] [w]
+            WindowSpecification [49-51] [()]
+--
+FROM
+  t
+|> EXTEND
+     sum(x) OVER (w)
+   WINDOW w AS ()
+==
+
+from t
+|> {{select|extend}} sum(x) over (w)
+   window w AS (),,
+--
+ERROR: Syntax error: Expected end of input but got "," [at 3:19]
+   window w AS (),,
+                  ^
+==
+
+from t
+|> {{select|extend}} sum(x) over (w)
+   window ,
+--
+ERROR: Syntax error: Unexpected "," [at 3:11]
+   window ,
+          ^
+==
+
+from t
+|> {{select|extend}} sum(x) over (w)
+   window
+--
+ERROR: Syntax error: Unexpected end of statement [at 3:10]
+   window
+         ^
+==
+
+from t
+|> {{select|extend}} sum(x) over (w)
+   window w1 as ()
+   window w2 as ()
+--
+ERROR: Syntax error: Expected end of input but got keyword WINDOW [at 4:4]
+   window w2 as ()
+   ^
+==
+
+# Pipe operators that support window functions but not named windows.
+from t
+|> {{where|order by|window}} count(*) over ()
+   window w as ()
+--
+ERROR: Syntax error: Expected end of input but got keyword WINDOW [at 3:4]
+   window w as ()
+   ^

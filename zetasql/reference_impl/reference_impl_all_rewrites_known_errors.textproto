@@ -18,34 +18,6 @@
 # Add labels and queries
 # here to exclude them from compliance tests.
 
-# TODO: Fix the rewriters so that these tests pass.
-known_errors {
-  mode: ALLOW_ERROR_OR_WRONG_ANSWER
-  reason: "TODO: Results were in a different order than reference implementation even though both were unordered"
-  label: "unpivot_test:additional_select_1"
-  label: "unpivot_test:join"
-  label: "unpivot_test:multiple_value_columns"
-  label: "unpivot_test:multiple_value_with_mix_datatypes"
-  label: "unpivot_test:qualified_names"
-  label: "unpivot_test:subquery"
-  label: "unpivot_test:unpivot_basic"
-  label: "unpivot_test:unpivot_exclude_nulls"
-  label: "unpivot_test:unpivot_include_nulls"
-  label: "unnest_multiway_test:multiway_unnest_empty_literal_arrays_default_mode"
-  label: "unnest_multiway_test:multiway_unnest_empty_literal_arrays_pad_mode"
-  label: "unnest_multiway_test:multiway_unnest_one_null_array_default_mode"
-  label: "unnest_multiway_test:multiway_unnest_one_null_array_pad_mode"
-  label: "unnest_multiway_test:multiway_unnest_ten_unequal_arrays_column_ref_default_mode"
-  label: "unnest_multiway_test:multiway_unnest_ten_unequal_arrays_column_ref_null_mode"
-  label: "unnest_multiway_test:multiway_unnest_ten_unequal_arrays_column_ref_pad_mode"
-  label: "unnest_multiway_test:multiway_unnest_ten_unequal_arrays_column_ref_strict_mode"
-  label: "unnest_multiway_test:multiway_unnest_ten_unequal_arrays_column_ref_truncate_mode"
-  label: "unnest_multiway_test:multiway_unnest_three_unequal_arrays_column_ref_default_mode"
-  label: "unnest_multiway_test:multiway_unnest_three_unequal_arrays_column_ref_pad_mode"
-  label: "unnest_multiway_test:multiway_unnest_three_unequal_arrays_column_ref_truncate_mode"
-  label: "unnest_multiway_test:multiway_unnest_unequal_literal_arrays_default_mode"
-  label: "unnest_multiway_test:multiway_unnest_unequal_literal_arrays_pad_mode"
-}
 known_errors {
   mode: ALLOW_ERROR
   reason: "ERROR: generic::internal: ZETASQL_RET_CHECK failure (zetasql/analyzer/rewriters/insert_dml_values_rewriter.cc:61) column->HasDefaultExpression() No default expression exists for the column specified with DEFAULT keyword in insert dml"
@@ -306,50 +278,22 @@ known_errors {
   label: "dml_insert_test:insert_default"
 }
 known_errors {
-  mode: ALLOW_ERROR_OR_WRONG_ANSWER
-  reason: "TODO: Reference implementation reports non-determinism and in the rewritten resolved AST there is none"
-  label: "array_zip_test:array_zip_igore_order_array_all_elements_are_the_same"
-  label: "array_zip_test:array_zip_igore_order_array_all_elements_are_the_same_lambda"
-}
-known_errors {
-  mode: ALLOW_ERROR_OR_WRONG_ANSWER
-  reason: "TODO: After rewriter array is ordered instead of unordered"
-  label: "array_path_test:flatten_deeply_nested_unordered_array"
-}
-
-known_errors {
-  mode: ALLOW_ERROR_OR_WRONG_ANSWER
-  reason: "TODO: Reference implementation reports non-determinism and in the rewritten resolved AST there is none"
-  label: "aggregation_order_by_queries_test:aggregate_order_by_correlated_column_1"
-  label: "aggregation_order_by_queries_test:aggregation_order_by_computed_order_by_exprs"
-  label: "aggregation_order_by_queries_test:aggregation_order_by_distinct"
-  label: "aggregation_order_by_queries_test:aggregation_order_by_distinct_limit"
-  label: "aggregation_order_by_queries_test:aggregation_order_by_limit_computed_order_by_exprs"
-  label: "aggregation_order_by_queries_test:aggregation_order_by_limit_desc"
-  label: "aggregation_order_by_queries_test:aggregation_order_by_limit_order_by_different_columns"
-  label: "aggregation_order_by_queries_test:aggregation_order_by_limit_param"
-  label: "aggregation_order_by_queries_test:aggregation_order_by_limit_same_values"
-  label: "aggregation_order_by_queries_test:aggregation_order_by_limit_test_table"
-  label: "aggregation_order_by_queries_test:aggregation_order_by_limit_without_group_by"
-  label: "aggregation_order_by_queries_test:aggregation_order_by_range_date"
-  label: "aggregation_order_by_queries_test:aggregation_order_by_range_datetime"
-  label: "aggregation_order_by_queries_test:aggregation_order_by_range_timestamp"
-  label: "aggregation_order_by_queries_test:aggregation_order_by_test_table"
-  label: "aggregation_order_by_queries_test:aggregation_order_by_with_nulls_first_last"
-}
-known_errors {
-  mode: ALLOW_ERROR_OR_WRONG_ANSWER
-  reason: "TODO: Reference implementation reports non-determinism and in the rewritten resolved AST there is none"
-  label: "with_recursive_test:recursive_query_prime_factorization"
-}
-known_errors {
-  mode: ALLOW_ERROR_OR_WRONG_ANSWER
-  reason: "TODO: Reference implementation reports non-determinism and in the rewritten resolved AST there is none"
-  label: "pivot_test:pivot_array_agg_ignore_nulls"
+  mode: ALLOW_UNIMPLEMENTED
+  reason: "Example: WITH GROUP_ROWS subqueries are not supported in ORDER_BY_AND_LIMIT_IN_AGGREGATE rewriter"
+  label: "with_group_rows_test:aggregate_extra_inner_key"
+  label: "with_group_rows_test:aggregate_key1"
+  label: "with_group_rows_test:aggregate_key2"
+  label: "with_group_rows_test:aggregate_two_inner_keys"
+  label: "with_group_rows_test:distinct_column_values"
+  label: "with_group_rows_test:outer_agg_with_limit"
 }
 
 known_errors {
-  mode: ALLOW_ERROR_OR_WRONG_ANSWER
-  reason: "TODO: Reference implementation reports non-determinism and in the rewritten resolved AST there is none"
-  label: "graph_table_test:window_function_over_graph_table"
+  mode: ALLOW_UNIMPLEMENTED
+  reason: "Multi-level aggregation is not yet supported in the ORDER_BY_AND_LIMIT_IN_AGGREGATE rewriter"
+  label: "multi_level_aggregation_basic_test:multi_level_emps_metrics_by_dept"
+  label: "multi_level_aggregation_complex_test:multi_level_agg_with_order_by_modifier"
+  label: "multi_level_aggregation_complex_test:multi_level_agg_with_order_by_and_limit_1"
+  label: "multi_level_aggregation_complex_test:multi_level_agg_with_order_by_and_limit_2"
+  label: "multi_level_aggregation_complex_test:multi_level_agg_many_clauses"
 }

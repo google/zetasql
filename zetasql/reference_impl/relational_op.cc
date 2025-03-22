@@ -38,7 +38,9 @@
 #include "zetasql/public/evaluator_table_iterator.h"
 #include "zetasql/public/function_signature.h"
 #include "zetasql/public/functions/array_zip_mode.pb.h"
+#include "zetasql/public/sql_tvf.h"
 #include "zetasql/public/table_valued_function.h"
+#include "zetasql/public/templated_sql_tvf.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/value.h"
@@ -49,6 +51,7 @@
 #include "zetasql/reference_impl/tuple_comparator.h"
 #include "zetasql/reference_impl/variable_id.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
 #include "absl/algorithm/container.h"
 #include "absl/container/btree_set.h"
 #include "absl/container/flat_hash_map.h"
@@ -64,7 +67,6 @@
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
-#include "absl/types/optional.h"
 #include "absl/types/span.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_builder.h"
@@ -497,7 +499,7 @@ class EvaluatorTableTupleIterator : public TupleIterator {
     if (schema_->num_variables() != evaluator_table_iter_->NumColumns()) {
       status_ = zetasql_base::InternalErrorBuilder()
                 << "EvaluatorTableTupleIterator::Next() found wrong number of "
-                << "columns: " << current_.num_slots() << " vs. "
+                << "columns: " << schema_->num_variables() << " vs. "
                 << evaluator_table_iter_->NumColumns();
       return nullptr;
     }
@@ -632,75 +634,6 @@ EvaluatorTableScanOp::EvaluatorTableScanOp(
 // -------------------------------------------------------
 
 namespace {
-// EvaluatorTableIterator representing input relation scan.
-// The TVF implementation operates on relations with columns, therefore it is
-// necessary to adapt the input relation tuple iterator and translate column
-// indexes into matching tuple slots.
-class InputRelationIterator : public EvaluatorTableIterator {
- public:
-  // Creates a new instance of InputRelationIterator. Arguments:
-  // * columns - Names and types of columns produced by this iterator.
-  //   Accessed through NumColumns, GetColumnName, GetColumnType.
-  // * tuple_indexes - Maps indices of 'columns' to tuple iterator so that
-  //   proper values can be retrieved. Length must match 'columns'.
-  // * context - Common evaluation context.
-  // * iter - Tuple iterator of the relation being adapted.
-  InputRelationIterator(
-      std::vector<std::pair<std::string, const Type*>> columns,
-      const std::vector<int> tuple_indexes, EvaluationContext* context,
-      std::unique_ptr<TupleIterator> iter)
-      : columns_(std::move(columns)),
-        tuple_indexes_(std::move(tuple_indexes)),
-        context_(context),
-        iter_(std::move(iter)) {
-    ABSL_DCHECK_EQ(columns_.size(), tuple_indexes_.size());
-  }
-
-  InputRelationIterator(const InputRelationIterator&) = delete;
-  InputRelationIterator& operator=(const InputRelationIterator&) = delete;
-
-  int NumColumns() const override { return static_cast<int>(columns_.size()); }
-
-  std::string GetColumnName(int i) const override {
-    ABSL_DCHECK_LT(i, columns_.size());
-    return columns_[i].first;
-  }
-
-  const Type* GetColumnType(int i) const override {
-    ABSL_DCHECK_LT(i, columns_.size());
-    return columns_[i].second;
-  }
-
-  bool NextRow() override {
-    current_ = iter_->Next();
-    return current_ != nullptr;
-  }
-
-  const Value& GetValue(int i) const override {
-    ABSL_DCHECK_LT(i, tuple_indexes_.size());
-    return current_->slot(tuple_indexes_[i]).value();
-  }
-
-  absl::Status Status() const override { return iter_->Status(); }
-
-  absl::Status Cancel() override { return context_->CancelStatement(); }
-
-  void SetDeadline(absl::Time deadline) override {
-    context_->SetStatementEvaluationDeadline(deadline);
-  }
-
- private:
-  // Names and types of the columns
-  const std::vector<std::pair<std::string, const Type*>> columns_;
-  // Tuple slot index for each column. Size must match columns_.
-  const std::vector<int> tuple_indexes_;
-  // Current evaluation context.
-  EvaluationContext* context_;
-  // Input relation tuple iterator.
-  std::unique_ptr<TupleIterator> iter_;
-  // Current tuple values obtained from iter_.
-  const TupleData* current_ = nullptr;
-};
 
 // Tuple iterator that adapts TVF EvaluatorTableIterator and converts between
 // TVF columnar abstractions to tuples.
@@ -747,6 +680,7 @@ class EvaluatorTVFTupleIterator : public TupleIterator {
       current_.mutable_slot(i)->SetValue(
           evaluator_table_iter_->GetValue(static_cast<int>(tuple_indexes_[i])));
     }
+
     return &current_;
   }
 
@@ -772,22 +706,26 @@ class EvaluatorTVFTupleIterator : public TupleIterator {
     const TableValuedFunction* tvf, std::vector<TVFOpArgument> arguments,
     std::vector<TVFSchemaColumn> output_columns,
     std::vector<VariableId> variables,
-    std::shared_ptr<FunctionSignature> function_call_signature) {
+    std::shared_ptr<FunctionSignature> function_call_signature,
+    SqlTvfEvaluator eval_callback) {
   return absl::WrapUnique(
       new TVFOp(tvf, std::move(arguments), std::move(output_columns),
-                std::move(variables), std::move(function_call_signature)));
+                std::move(variables), std::move(function_call_signature),
+                std::move(eval_callback)));
 }
 
 TVFOp::TVFOp(const TableValuedFunction* tvf,
              std::vector<TVFOpArgument> arguments,
              std::vector<TVFSchemaColumn> output_columns,
              std::vector<VariableId> variables,
-             std::shared_ptr<FunctionSignature> function_call_signature)
+             std::shared_ptr<FunctionSignature> function_call_signature,
+             SqlTvfEvaluator eval_callback)
     : tvf_(tvf),
       arguments_(std::move(arguments)),
       output_columns_(std::move(output_columns)),
       variables_(std::move(variables)),
-      function_call_signature_(std::move(function_call_signature)) {}
+      function_call_signature_(std::move(function_call_signature)),
+      eval_callback_(std::move(eval_callback)) {}
 
 absl::Status TVFOp::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> params_schemas) {
@@ -846,10 +784,24 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> TVFOp::CreateIterator(
     }
   }
 
-  ZETASQL_ASSIGN_OR_RETURN(
-      std::unique_ptr<EvaluatorTableIterator> evaluator_table_iterator,
-      tvf_->CreateEvaluator(std::move(input_arguments), output_columns_,
-                            function_call_signature_.get()));
+  std::unique_ptr<EvaluatorTableIterator> evaluator_table_iterator;
+
+  if (eval_callback_ != nullptr) {
+    ZETASQL_RET_CHECK(tvf_->Is<SQLTableValuedFunction>() ||
+              tvf_->Is<TemplatedSQLTVF>());
+    std::unique_ptr<EvaluationContext> child_context =
+        context->MakeChildContext();
+
+    ZETASQL_ASSIGN_OR_RETURN(evaluator_table_iterator,
+                     eval_callback_(std::move(input_arguments), num_extra_slots,
+                                    std::move(child_context)));
+  } else {
+    // Delegate the TVF's supplied evaluator.
+    ZETASQL_ASSIGN_OR_RETURN(
+        evaluator_table_iterator,
+        tvf_->CreateEvaluator(std::move(input_arguments), output_columns_,
+                              function_call_signature_.get()));
+  }
 
   // evaluator_table_iterator can produce more output columns than were
   // selected, especially if the implementation assumes a fixed schema. The tvf
@@ -2147,6 +2099,7 @@ class SampleScanTupleIteratorBase : public TupleIterator {
                               std::unique_ptr<TupleSchema> schema,
                               const VariableId& weight)
       : bitgen_(MakeBitgen(seed)),
+        seed_(seed),
         context_(context),
         iter_(std::move(iter)),
         output_schema_(std::move(schema)),
@@ -5046,6 +4999,9 @@ class LoopTupleIterator : public TupleIterator {
     return absl::StrCat("LoopTupleIterator: inner iterator: ",
                         (iter_ != nullptr ? iter_->DebugString() : "nullptr"));
   }
+
+  // LoopOp is always unordered.
+  bool PreservesOrder() const override { return false; }
 
  private:
   LoopTupleIterator(const LoopOp* op, absl::Span<const TupleData* const> params,

@@ -13,7 +13,7 @@ EXPLAIN query;
 </pre>
 
 The `EXPLAIN` statement provides information on how ZetaSQL would
-execute a given query. This statement does not execute the query.
+execute a given query. This statement doesn't execute the query.
 
 ## `DESCRIBE/DESC`
 

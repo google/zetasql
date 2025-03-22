@@ -22,7 +22,17 @@
 #include <utility>
 #include <vector>
 
+#include "zetasql/public/function.h"
+#include "zetasql/public/function.pb.h"
+#include "zetasql/public/function_signature.h"
+#include "zetasql/public/parse_resume_location.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "absl/memory/memory.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/ret_check.h"
 
 namespace zetasql {

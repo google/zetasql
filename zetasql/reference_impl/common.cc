@@ -25,6 +25,7 @@
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_collation.h"
+#include "zetasql/resolved_ast/serialization.pb.h"
 #include "absl/status/statusor.h"
 #include "absl/types/span.h"
 #include "zetasql/base/ret_check.h"

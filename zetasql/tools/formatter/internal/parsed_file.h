@@ -191,10 +191,11 @@ class ParsedFile : public FilePart {
 
   // Creates a ParsedFile object that owns input sql. Returned object is not
   // fully initialized. Use one of the factory functions above instead.
-  explicit ParsedFile(std::string sql)
+  explicit ParsedFile(std::string sql, FormatterOptions options)
       : FilePart(sql, 0, static_cast<int>(sql.size())),
         sql_(std::move(sql)),
-        location_translator_(sql_) {}
+        location_translator_(sql_),
+        options_(std::move(options)) {}
 
   // Disable copy (and move) semantics.
   ParsedFile(const ParsedFile&) = delete;
@@ -226,19 +227,21 @@ class ParsedFile : public FilePart {
     return location_translator_;
   }
 
+  // Returns the formatter options used to parse the file.
+  const FormatterOptions& GetOptions() const { return options_; }
+
  private:
-  absl::Status ParseByteRanges(
-      std::vector<FormatterRange> byte_ranges, const FormatterOptions& options,
-      ParseAction parse_action);
+  absl::Status ParseByteRanges(std::vector<FormatterRange> byte_ranges,
+                               ParseAction parse_action);
 
   absl::StatusOr<std::unique_ptr<FilePart>> ParseNextFilePart(
-      ParseResumeLocation* parse_location, const FormatterOptions& options,
-      ParseAction parse_action);
+      ParseResumeLocation* parse_location, ParseAction parse_action);
 
   const std::string sql_;
   const ParseLocationTranslator location_translator_;
   std::vector<std::unique_ptr<const FilePart>> file_parts_;
   std::vector<absl::Status> parse_errors_;
+  FormatterOptions options_;
 };
 
 // Visitor interface for traversing all ParsedFile parts.

@@ -1351,8 +1351,8 @@ public class Value implements Serializable {
               bytes.length, serializedValue));
     }
 
-    long msb = ByteBuffer.wrap(bytes, 0, 8).order(ByteOrder.LITTLE_ENDIAN).getLong();
-    long lsb = ByteBuffer.wrap(bytes, 8, 8).order(ByteOrder.LITTLE_ENDIAN).getLong();
+    long msb = ByteBuffer.wrap(bytes, 0, 8).order(ByteOrder.BIG_ENDIAN).getLong();
+    long lsb = ByteBuffer.wrap(bytes, 8, 8).order(ByteOrder.BIG_ENDIAN).getLong();
     return new UUID(msb, lsb);
   }
 
@@ -1748,7 +1748,7 @@ public class Value implements Serializable {
   /** Returns a Uuid Value that equals to {@code v}. */
   private static ByteString serializeUuid(UUID v) {
     ByteBuffer buffer = ByteBuffer.allocate(UUID_VALUE_SIZE_IN_BYTES);
-    buffer.order(ByteOrder.LITTLE_ENDIAN);
+    buffer.order(ByteOrder.BIG_ENDIAN);
     buffer.putLong(0, v.getMostSignificantBits());
     buffer.putLong(8, v.getLeastSignificantBits());
     return ByteString.copyFrom(buffer);

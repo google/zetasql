@@ -16,8 +16,6 @@
 
 #include "zetasql/common/match_recognize/nfa_builder.h"
 
-#include <cstdint>
-#include <limits>
 #include <memory>
 #include <optional>
 #include <utility>
@@ -44,7 +42,9 @@ absl::StatusOr<std::unique_ptr<const NFA>> NFABuilder::BuildNFAForPattern(
     const ResolvedMatchRecognizeScan& scan,
     const NFABuilder::Options& options) {
   NFABuilder builder(options.parameter_evaluator);
-  builder.nfa_ = std::make_unique<NFA>();
+  ZETASQL_ASSIGN_OR_RETURN(builder.nfa_,
+                   NFA::Create(static_cast<int>(
+                       scan.pattern_variable_definition_list_size())));
   for (int i = 0; i < scan.pattern_variable_definition_list_size(); ++i) {
     builder.var_name_to_id_[scan.pattern_variable_definition_list(i)->name()] =
         PatternVariableId(i);
@@ -350,13 +350,13 @@ absl::StatusOr<int> NFABuilder::EvaluateQuantifierBound(
     return absl::OutOfRangeError(
         "Negative quantifier bound value is not allowed");
   }
-  constexpr int64_t max_quantifier_bound_value =
-      std::numeric_limits<int>::max();
-  if (value.int64_value() > max_quantifier_bound_value) {
+
+  if (value.int64_value() > kMaxSupportedQuantifierBound) {
     return absl::OutOfRangeError(absl::StrCat(
         "Quantifier bound value exceeds maximum supported value of ",
-        max_quantifier_bound_value));
+        kMaxSupportedQuantifierBound));
   }
+
   return static_cast<int>(value.int64_value());
 }
 

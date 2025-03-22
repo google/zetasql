@@ -65,7 +65,9 @@ QueryStatement [0-15] [SELECT {bar:3,}]
                 IntLiteral(3) [12-13] [3]
 --
 SELECT
-  { bar : 3 }
+  {
+    bar : 3
+  }
 ==
 
 # One field with multiple trailing commas.
@@ -104,7 +106,10 @@ QueryStatement [0-35] [SELECT NEW..." bar: 3 }]
                   IntLiteral(3) [32-33] [3]
 --
 SELECT
-  NEW x { foo : "blah" bar : 3 }
+  NEW x {
+    foo : "blah"
+    bar : 3
+  }
 ==
 
 # Simple constructor with trailing comma.
@@ -135,7 +140,10 @@ QueryStatement [0-36] [SELECT NEW...bar: 3, }]
                   IntLiteral(3) [32-33] [3]
 --
 SELECT
-  NEW x { foo : "blah" bar : 3 }
+  NEW x {
+    foo : "blah"
+    bar : 3
+  }
 ==
 
 # Simple constructor with multiple comma.
@@ -174,7 +182,10 @@ QueryStatement [0-36] [SELECT NEW..., bar: 3 }]
                   IntLiteral(3) [33-34] [3]
 --
 SELECT
-  NEW x { foo : "blah", bar : 3 }
+  NEW x {
+    foo : "blah",
+    bar : 3
+  }
 ==
 
 # Simple constructor with trailing comma.
@@ -205,7 +216,10 @@ QueryStatement [0-37] [SELECT NEW...bar: 3, }]
                   IntLiteral(3) [33-34] [3]
 --
 SELECT
-  NEW x { foo : "blah", bar : 3 }
+  NEW x {
+    foo : "blah",
+    bar : 3
+  }
 ==
 
 # Simple constructor with multiple commas.
@@ -273,7 +287,13 @@ QueryStatement [0-77] [SELECT NEW...[1,2,3] }]
                     IntLiteral(3) [73-74] [3]
 --
 SELECT
-  NEW x { foo  { monkey : "blah" } bar : 3 int_array : ARRAY[1, 2, 3] }
+  NEW x {
+    foo  {
+      monkey : "blah"
+    }
+    bar : 3
+    int_array : ARRAY[1, 2, 3]
+  }
 ==
 
 # Nested message with trailing comma.
@@ -308,7 +328,11 @@ QueryStatement [0-49] [SELECT NEW...blah",   }, }]
                           StringLiteralComponent("blah") [35-41] ["blah"]
 --
 SELECT
-  NEW x { foo  { monkey : "blah" } }
+  NEW x {
+    foo  {
+      monkey : "blah"
+    }
+  }
 ==
 
 # Nested message (with colon) and array field.
@@ -360,7 +384,13 @@ QueryStatement [0-78] [SELECT NEW...[1,2,3] }]
                     IntLiteral(3) [74-75] [3]
 --
 SELECT
-  NEW x { foo : { monkey : "blah" } bar : 3 int_array : ARRAY[1, 2, 3] }
+  NEW x {
+    foo : {
+      monkey : "blah"
+    }
+    bar : 3
+    int_array : ARRAY[1, 2, 3]
+  }
 ==
 
 # Sub-message array.
@@ -413,7 +443,14 @@ QueryStatement [0-100] [SELECT NEW...abc"   }] }]
                             StringLiteralComponent("abc") [88-93] ["abc"]
 --
 SELECT
-  NEW x { int_field : 1 submessage_array : ARRAY[{ monkey : "blah" }, { baz : "abc" }] }
+  NEW x {
+    int_field : 1
+    submessage_array : ARRAY[{
+      monkey : "blah"
+    }, {
+      baz : "abc"
+    }]
+  }
 ==
 
 # At parse-time map fields are just like repeated sub-message fields.
@@ -480,7 +517,16 @@ QueryStatement [0-116] [SELECT NEW...: 2   }] }]
                           IntLiteral(2) [108-109] [2]
 --
 SELECT
-  NEW x { int_field : 1 map_field : ARRAY[{ key : "blah" value : 1 }, { key : "abc" value : 2 }] }
+  NEW x {
+    int_field : 1
+    map_field : ARRAY[{
+      key : "blah"
+      value : 1
+    }, {
+      key : "abc"
+      value : 2
+    }]
+  }
 ==
 
 # Plain extension.
@@ -516,7 +562,11 @@ QueryStatement [0-57] [SELECT NEW...value: 1   } }]
                         IntLiteral(1) [50-51] [1]
 --
 SELECT
-  NEW x {(path.`to`.extension)  { value : 1 } }
+  NEW x {
+    (path.`to`.extension)  {
+      value : 1
+    }
+  }
 ==
 
 # Extension without parenthesis is not a parser error but an analyzer error.
@@ -542,7 +592,9 @@ QueryStatement [0-37] [SELECT NEW...extension: 1 }]
                   IntLiteral(1) [34-35] [1]
 --
 SELECT
-  NEW x { path.`to`.extension : 1 }
+  NEW x {
+    path.`to`.extension : 1
+  }
 ==
 
 # Extension with fields.
@@ -593,7 +645,13 @@ QueryStatement [0-80] [SELECT NEW...baz: 1 }]
                   IntLiteral(1) [77-78] [1]
 --
 SELECT
-  NEW x { foo : "bar", (path.`to`.extension)  { value : 1 } baz : 1 }
+  NEW x {
+    foo : "bar",
+    (path.`to`.extension)  {
+      value : 1
+    }
+    baz : 1
+  }
 ==
 
 # If an extension (not the first field) does not have a preceding comma it
@@ -612,9 +670,11 @@ ERROR: Syntax error: Function call cannot be applied to this expression. Functio
   ^
 ==
 
-# If there is an expression, there is a different error.
-# TODO: Try to make this error message more intuitive.
-# is an error.
+# An expression that looks like a function call in the RHS, specifically the
+# part "column(path.to.expression)" because a comma is missing after "column"
+# which is required by the proto NEW braced constructor just before setting
+# extension fields. This parses correct but we appropriately treat this as an
+# error in the analyzer.
 SELECT NEW x {
   foo: column
   (path.to.extension) {
@@ -623,9 +683,119 @@ SELECT NEW x {
   baz: 1
 }
 --
-ERROR: Syntax error: Unexpected "{" [at 3:23]
-  (path.to.extension) {
-                      ^
+QueryStatement [0-80] [SELECT NEW...baz: 1 }]
+  Query [0-80] [SELECT NEW...baz: 1 }]
+    Select [0-80] [SELECT NEW...baz: 1 }]
+      SelectList [7-80] [NEW x {...baz: 1 }]
+        SelectColumn [7-80] [NEW x {...baz: 1 }]
+          BracedNewConstructor [7-80] [NEW x {...baz: 1 }]
+            SimpleType [11-12] [x]
+              PathExpression [11-12] [x]
+                Identifier(x) [11-12] [x]
+            BracedConstructor [13-80] [{   foo: column...baz: 1 }]
+              BracedConstructorField [17-69] [foo: column...value: 1   }]
+                BracedConstructorLhs [17-20] [foo]
+                  PathExpression [17-20] [foo]
+                    Identifier(foo) [17-20] [foo]
+                BracedConstructorFieldValue [20-69] [: column...value: 1   }]
+                  UpdateConstructor [22-69] [column   (...value: 1   }]
+                    FunctionCall [22-50] [column   (path.to.extension)]
+                      PathExpression [22-28] [column]
+                        Identifier(column) [22-28] [column]
+                      PathExpression [32-49] [path.to.extension]
+                        Identifier(path) [32-36] [path]
+                        Identifier(`to`) [37-39] [to]
+                        Identifier(extension) [40-49] [extension]
+                    BracedConstructor [51-69] [{     value: 1   }]
+                      BracedConstructorField [57-65] [value: 1]
+                        BracedConstructorLhs [57-62] [value]
+                          PathExpression [57-62] [value]
+                            Identifier(value) [57-62] [value]
+                        BracedConstructorFieldValue [62-65] [: 1]
+                          IntLiteral(1) [64-65] [1]
+              BracedConstructorField [72-78] [baz: 1]
+                BracedConstructorLhs [72-75] [baz]
+                  PathExpression [72-75] [baz]
+                    Identifier(baz) [72-75] [baz]
+                BracedConstructorFieldValue [75-78] [: 1]
+                  IntLiteral(1) [77-78] [1]
+--
+SELECT
+  NEW x {
+    foo : column(path.`to`.extension) {
+      value : 1
+    }
+    baz : 1
+  }
+==
+
+# If a trailing comma is not specified, as the proto NEW braced constructor
+# requires for expressions before an extension, will parse to an UPDATE
+# constructor. Appropriate error handling will be done in the analyzer.
+WITH cte AS (
+  SELECT 3 AS UPDATE
+)
+SELECT NEW foo.TestExtraPB {
+     int32_val1: UPDATE
+     (foo.TestExtraPBExtensionHolder.test_extra_proto_extension) {
+         ext_value: [1]
+     }
+}
+--
+QueryStatement [0-189] [WITH cte AS...]      } }]
+  Query [0-189] [WITH cte AS...]      } }]
+    WithClause [0-36] [WITH cte AS...AS UPDATE )]
+      AliasedQuery [5-36] [cte AS (...AS UPDATE )]
+        Identifier(cte) [5-8] [cte]
+        Query [12-36] [(   SELECT 3 AS UPDATE )]
+          Select [16-34] [SELECT 3 AS UPDATE]
+            SelectList [23-34] [3 AS UPDATE]
+              SelectColumn [23-34] [3 AS UPDATE]
+                IntLiteral(3) [23-24] [3]
+                Alias [25-34] [AS UPDATE]
+                  Identifier(`UPDATE`) [28-34] [UPDATE]
+    Select [37-189] [SELECT NEW...]      } }]
+      SelectList [44-189] [NEW foo.TestExtra...]      } }]
+        SelectColumn [44-189] [NEW foo.TestExtra...]      } }]
+          BracedNewConstructor [44-189] [NEW foo.TestExtra...]      } }]
+            SimpleType [48-63] [foo.TestExtraPB]
+              PathExpression [48-63] [foo.TestExtraPB]
+                Identifier(foo) [48-51] [foo]
+                Identifier(TestExtraPB) [52-63] [TestExtraPB]
+            BracedConstructor [64-189] [{      int32_val1...]      } }]
+              BracedConstructorField [71-187] [int32_val1...[1]      }]
+                BracedConstructorLhs [71-81] [int32_val1]
+                  PathExpression [71-81] [int32_val1]
+                    Identifier(int32_val1) [71-81] [int32_val1]
+                BracedConstructorFieldValue [81-187] [: UPDATE...[1]      }]
+                  UpdateConstructor [83-187] [UPDATE...[1]      }]
+                    FunctionCall [83-154] [UPDATE...xtra_proto_extension)]
+                      PathExpression [83-89] [UPDATE]
+                        Identifier(`UPDATE`) [83-89] [UPDATE]
+                      PathExpression [96-153] [foo.TestExtraPBEx..._extension]
+                        Identifier(foo) [96-99] [foo]
+                        Identifier(TestExtraPBExtensionHolder) [100-126] [TestExtraPBExtensionHolder]
+                        Identifier(test_extra_proto_extension) [127-153] [test_extra_proto_extension]
+                    BracedConstructor [155-187] [{...[1]      }]
+                      BracedConstructorField [166-180] [ext_value: [1]]
+                        BracedConstructorLhs [166-175] [ext_value]
+                          PathExpression [166-175] [ext_value]
+                            Identifier(ext_value) [166-175] [ext_value]
+                        BracedConstructorFieldValue [175-180] [: [1]]
+                          ArrayConstructor [177-180] [[1]]
+                            IntLiteral(1) [178-179] [1]
+--
+WITH
+  cte AS (
+    SELECT
+      3 AS `UPDATE`
+  )
+SELECT
+  NEW foo.TestExtraPB {
+    int32_val1 : `UPDATE`(foo.TestExtraPBExtensionHolder.test_extra_proto_extension) {
+      ext_value : ARRAY[1]
+    }
+  }
 ==
 
 # This is a weird case where a user is trying to build a proto but forgot the
@@ -659,7 +829,9 @@ QueryStatement [0-52] [SELECT NEW...extension) }]
                       Identifier(extension) [40-49] [extension]
 --
 SELECT
-  NEW x { foo : column(path.`to`.extension) }
+  NEW x {
+    foo : column(path.`to`.extension)
+  }
 ==
 
 # Mixed constructor where the inner sub-message's constructor is typed.
@@ -705,7 +877,12 @@ QueryStatement [0-63] [SELECT NEW...bar: 3 }]
                   IntLiteral(3) [60-61] [3]
 --
 SELECT
-  NEW x { foo : NEW y { monkey : "blah" } bar : 3 }
+  NEW x {
+    foo : NEW y {
+      monkey : "blah"
+    }
+    bar : 3
+  }
 ==
 
 # Simple expressions
@@ -750,7 +927,12 @@ QueryStatement [0-69] [SELECT NEW...blah"   } }]
                           StringLiteralComponent("blah") [57-63] ["blah"]
 --
 SELECT
-  NEW x { foo : (3 + 5), (bar.baz)  { monkey : "blah" } }
+  NEW x {
+    foo : (3 + 5),
+    (bar.baz)  {
+      monkey : "blah"
+    }
+  }
 ==
 
 SELECT NEW x {
@@ -809,14 +991,19 @@ QueryStatement [0-95] [SELECT NEW...blah"   } }]
                           StringLiteralComponent("blah") [83-89] ["blah"]
 --
 SELECT
-  NEW x { foo : (
-    SELECT
-      t.*
-    FROM
-      t
-    WHERE
-      t.a = 1
-  ), (bar.baz)  { monkey : "blah" } }
+  NEW x {
+    foo : (
+      SELECT
+        t.*
+      FROM
+        t
+      WHERE
+        t.a = 1
+    ),
+    (bar.baz)  {
+      monkey : "blah"
+    }
+  }
 ==
 
 SELECT NEW x {
@@ -860,7 +1047,12 @@ QueryStatement [0-67] [SELECT NEW...blah"   } }]
                           StringLiteralComponent("blah") [55-61] ["blah"]
 --
 SELECT
-  NEW x { foo : 3 + 5, (bar.baz)  { monkey : "blah" } }
+  NEW x {
+    foo : 3 + 5,
+    (bar.baz)  {
+      monkey : "blah"
+    }
+  }
 ==
 
 # Function expression.
@@ -909,7 +1101,12 @@ QueryStatement [0-82] [SELECT NEW...blah"   } }]
                           StringLiteralComponent("blah") [70-76] ["blah"]
 --
 SELECT
-  NEW x { foo : CONCAT("foo", "bar"), (bar.baz)  { monkey : "blah" } }
+  NEW x {
+    foo : CONCAT("foo", "bar"),
+    (bar.baz)  {
+      monkey : "blah"
+    }
+  }
 ==
 
 # Aggregation expression.
@@ -947,12 +1144,14 @@ QueryStatement [0-56] [SELECT NEW...table_foo) }]
                               Identifier(table_foo) [44-53] [table_foo]
 --
 SELECT
-  NEW x { foo : (
-    SELECT
-      count(*)
-    FROM
-      table_foo
-  ) }
+  NEW x {
+    foo : (
+      SELECT
+        count(*)
+      FROM
+        table_foo
+    )
+  }
 ==
 
 # Untyped constructor.
@@ -983,7 +1182,10 @@ UpdateStatement [0-39] [UPDATE t SET..." bar: 3 }]
 --
 UPDATE t
 SET
-  x = { foo : "blah" bar : 3 }
+  x = {
+    foo : "blah"
+    bar : 3
+  }
 ==
 
 # Array constructor.
@@ -1021,7 +1223,11 @@ UpdateStatement [0-71] [UPDATE t SET...: "baz" }]]
 --
 UPDATE t
 SET
-  arr = ARRAY< ProtoType >[{ value : "bar" }, { value : "baz" }]
+  arr = ARRAY< ProtoType >[{
+    value : "bar"
+  }, {
+    value : "baz"
+  }]
 ==
 
 # Untyped array constructor.
@@ -1055,7 +1261,11 @@ UpdateStatement [0-55] [UPDATE t SET...: "baz" }]]
 --
 UPDATE t
 SET
-  arr = ARRAY[{ value : "bar" }, { value : "baz" }]
+  arr = ARRAY[{
+    value : "bar"
+  }, {
+    value : "baz"
+  }]
 ==
 
 # Struct constructor.
@@ -1093,7 +1303,9 @@ UpdateStatement [0-64] [UPDATE t SET...bar" }, 1)]
 --
 UPDATE t
 SET
-  str = STRUCT< ProtoType, INT64 > ({ value : "bar" }, 1)
+  str = STRUCT< ProtoType, INT64 > ({
+      value : "bar"
+    }, 1)
 ==
 
 # Untyped struct constructor.
@@ -1120,7 +1332,9 @@ UpdateStatement [0-40] [UPDATE t SET...bar" }, 1)]
 --
 UPDATE t
 SET
-  str = ({ value : "bar" }, 1)
+  str = ({
+      value : "bar"
+    }, 1)
 ==
 
 # Nested struct constructor (inner is has keyword since it is a single
@@ -1170,7 +1384,11 @@ UpdateStatement [0-97] [UPDATE t SET...: "foo"}))]
 --
 UPDATE t
 SET
-  str = STRUCT< ProtoType, STRUCT< ProtoType > > ({ value : "bar" }, STRUCT({ value : "foo" }))
+  str = STRUCT< ProtoType, STRUCT< ProtoType > > ({
+      value : "bar"
+    }, STRUCT({
+        value : "foo"
+      }))
 
 ==
 
@@ -1224,7 +1442,11 @@ UpdateStatement [0-101] [UPDATE t SET...foo"}, 1))]
 --
 UPDATE t
 SET
-  str = STRUCT< ProtoType, STRUCT< ProtoType, INT64 > > ({ value : "bar" }, ({ value : "foo" }, 1))
+  str = STRUCT< ProtoType, STRUCT< ProtoType, INT64 > > ({
+      value : "bar"
+    }, ({
+        value : "foo"
+      }, 1))
 
 ==
 
@@ -1292,4 +1514,6 @@ QueryStatement [0-44] [SELECT NEW...: FORK() }]
                       Identifier(FORK) [36-40] [FORK]
 --
 SELECT
-  NEW package.Message { field : FORK() }
+  NEW package.Message {
+    field : FORK()
+  }

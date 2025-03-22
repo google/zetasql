@@ -27,6 +27,7 @@
 #include "zetasql/public/civil_time.h"
 #include "zetasql/public/functions/datetime.pb.h"
 #include "zetasql/public/interval_value.h"
+#include "zetasql/public/pico_time.h"
 #include "zetasql/public/proto/type_annotation.pb.h"
 #include "absl/base/attributes.h"
 #include "absl/base/macros.h"
@@ -72,6 +73,7 @@ enum TimestampScale {
   kMilliseconds = 3,
   kMicroseconds = 6,
   kNanoseconds = 9,
+  kPicoseconds = 12,
 };
 
 // Checks that a date value falls between 0001-01-01 and 9999-12-31 (inclusive).
@@ -109,8 +111,13 @@ absl::Status MakeTimeZone(absl::string_view timezone_string,
                           absl::TimeZone* timezone);
 
 // Creates a absl::Time from an int64_t based timestamp value.
+ABSL_DEPRECATED("Use MakeTimeFromInt64() instead.")
 ABSL_MUST_USE_RESULT absl::Time MakeTime(int64_t timestamp,
                                          TimestampScale scale);
+
+// Creates a absl::Time from an int64_t based timestamp value.
+absl::StatusOr<absl::Time> MakeTimeFromInt64(int64_t timestamp,
+                                             TimestampScale scale);
 
 // Converts a absl::Time value into an int64_t timestamp for the given <scale>.
 // Returns false if the value is outside the representable range.
@@ -138,6 +145,10 @@ absl::StatusOr<absl::CivilDay> ConvertDateToCivilDay(int32_t date);
 // Returns error status if conversion fails.
 absl::Status ConvertTimestampToStringWithTruncation(int64_t timestamp,
                                                     TimestampScale scale,
+                                                    absl::TimeZone timezone,
+                                                    std::string* out);
+
+absl::Status ConvertTimestampToStringWithTruncation(const PicoTime& timestamp,
                                                     absl::TimeZone timezone,
                                                     std::string* out);
 
@@ -171,6 +182,10 @@ absl::Status ConvertTimestampToStringWithoutTruncation(
     int64_t timestamp, TimestampScale scale, absl::string_view timezone_string,
     std::string* out);
 
+absl::Status ConvertTimestampToStringWithoutTruncation(const PicoTime&,
+                                                       absl::TimeZone timezone,
+                                                       std::string* out);
+
 // Populates a absl::Time timestamp into a string of canonical format. For
 // example: "2014-01-31 12:22:34.123456789-08".
 // The maximum number of fractional second digits produced is defined by
@@ -183,6 +198,10 @@ absl::Status ConvertTimestampToString(absl::Time input, TimestampScale scale,
 
 absl::Status ConvertTimestampToString(absl::Time input, TimestampScale scale,
                                       absl::string_view timezone_string,
+                                      std::string* output);
+
+absl::Status ConvertTimestampToString(const PicoTime& input,
+                                      absl::TimeZone timezone,
                                       std::string* output);
 
 // Populates a Time into a string of canonical format.
@@ -234,6 +253,10 @@ absl::Status FormatTimestampToString(absl::string_view format_string,
                                      absl::Time timestamp,
                                      absl::string_view timezone_string,
                                      std::string* out);
+
+absl::Status FormatTimestampToString(absl::string_view format_string,
+                                     const PicoTime& timestamp,
+                                     absl::TimeZone timezone, std::string* out);
 
 // Populates <out> using the <format_string> as defined by absl::FormatTime()
 // in base/time.h. Assumes <date> is the number of days from 1970-01-01.
@@ -353,6 +376,10 @@ absl::Status ConvertStringToTimestamp(absl::string_view str,
                                       TimestampScale scale,
                                       bool allow_tz_in_str, absl::Time* output);
 
+absl::Status ConvertStringToTimestamp(absl::string_view str,
+                                      absl::TimeZone default_timezone,
+                                      bool allow_tz_in_str, PicoTime* output);
+
 // Converts the string representation of a time to a time value of the specified
 // <scale>. Returns error status if there are more fractional digits than
 // <scale>, or conversion otherwise fails.
@@ -459,6 +486,14 @@ absl::Status ExtractFromTimestamp(DateTimestampPart part, absl::Time base_time,
 absl::Status ExtractFromTimestamp(DateTimestampPart part, absl::Time base_time,
                                   absl::string_view timezone_string,
                                   int32_t* output);
+
+absl::StatusOr<int32_t> ExtractFromTimestamp(DateTimestampPart part,
+                                             const PicoTime& timestamp,
+                                             absl::string_view timezone_string);
+
+absl::StatusOr<int32_t> ExtractFromTimestamp(DateTimestampPart part,
+                                             const PicoTime& timestamp,
+                                             absl::TimeZone timezone);
 
 // Extracts a DateTimestampPart from the given TIME value. Returns error status
 // if the input TIME value is invalid.
@@ -983,8 +1018,7 @@ ABSL_MUST_USE_RESULT int32_t CurrentDate(absl::TimeZone timezone);
 // Converts <timezone_string> to absl::TimeZone and invokes previous
 // function.  If <timezone_string> is not a valid TimeZone, returns
 // an error.
-ABSL_MUST_USE_RESULT absl::Status CurrentDate(absl::string_view timezone_string,
-                                              int32_t* date);
+absl::Status CurrentDate(absl::string_view timezone_string, int32_t* date);
 
 // Returns the current timestamp as the number of microseconds from epoch.
 ABSL_MUST_USE_RESULT int64_t CurrentTimestamp();
@@ -1265,6 +1299,23 @@ void GetSignHourAndMinuteTimeZoneOffset(const absl::TimeZone::CivilInfo& info,
 // in years before 1884), we instead treat it (and display it) as -07:52.
 absl::TimeZone GetNormalizedTimeZone(absl::Time base_time,
                                      absl::TimeZone timezone);
+
+// Because absl::FormatTime only supports nanosecond precision, we need to
+// generate subnanosecond output ourselves. This function takes a format string
+// and a subnanosecond value, and returns a new format string that includes the
+// needed subnanosecond value.
+//
+// Exampless:
+// - format string is "%Y-%m-%d %H:%M:%E12S", and the subnanosecond
+//   value is 123, then the output format string will be
+//   "%Y-%m-%d %H:%M:%E9S123".
+// - format string is "%Y-%m-%d %H:%M:%E*S",
+//   - the subnanosecond value is 123, then the output format string will be
+//     "%Y-%m-%d %H:%M:%E*S123".
+//   - the subnanosecond value is 120, then the output format string will be
+//     "%Y-%m-%d %H:%M:%E*S12".
+absl::StatusOr<std::string> AddPicosecondsInFormatString(
+    absl::string_view format_string, uint32_t subnanosecond);
 
 }  // namespace internal_functions
 }  // namespace functions

@@ -18,9 +18,9 @@
 
 #include <cstdint>
 #include <memory>
-#include <optional>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "zetasql/base/logging.h"
@@ -35,12 +35,12 @@
 #include "zetasql/reference_impl/tuple.h"
 #include "zetasql/reference_impl/tuple_comparator.h"
 #include "zetasql/reference_impl/variable_id.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
-#include "absl/types/optional.h"
 #include "absl/types/span.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
@@ -65,10 +65,14 @@ std::string PatternMatchingOp::GetIteratorDebugString(
 
 absl::StatusOr<std::unique_ptr<PatternMatchingOp>> PatternMatchingOp::Create(
     std::vector<std::unique_ptr<KeyArg>> partition_keys,
+    std::vector<std::unique_ptr<KeyArg>> order_keys,
     std::vector<VariableId> match_result_variables,
     std::vector<std::string> pattern_variable_names,
     std::vector<std::unique_ptr<ValueExpr>> predicates,
     std::unique_ptr<const CompiledPattern> pattern,
+    std::variant<std::vector<std::string>, std::vector<int>>
+        query_parameter_keys,
+    std::vector<std::unique_ptr<ValueExpr>> query_parameter_values,
     std::unique_ptr<RelationalOp> input) {
   ZETASQL_RET_CHECK_EQ(pattern_variable_names.size(), predicates.size());
   // We expect 4 match result variables, see the definition of
@@ -79,9 +83,11 @@ absl::StatusOr<std::unique_ptr<PatternMatchingOp>> PatternMatchingOp::Create(
   //   4. is_sentinel.
   ZETASQL_RET_CHECK_EQ(match_result_variables.size(), 4);
   return absl::WrapUnique(new PatternMatchingOp(
-      std::move(partition_keys), std::move(match_result_variables),
-      std::move(pattern_variable_names), std::move(predicates),
-      std::move(pattern), std::move(input)));
+      std::move(partition_keys), std::move(order_keys),
+      std::move(match_result_variables), std::move(pattern_variable_names),
+      std::move(predicates), std::move(pattern),
+      std::move(query_parameter_keys), std::move(query_parameter_values),
+      std::move(input)));
 }
 
 absl::Status PatternMatchingOp::SetSchemasForEvaluation(
@@ -95,9 +101,23 @@ absl::Status PatternMatchingOp::SetSchemasForEvaluation(
         ConcatSpans(params_schemas, {input_schema.get()})));
   }
 
+  for (KeyArg* key : mutable_order_keys()) {
+    ZETASQL_RETURN_IF_ERROR(key->mutable_value_expr()->SetSchemasForEvaluation(
+        ConcatSpans(params_schemas, {input_schema.get()})));
+    if (key->mutable_collation() != nullptr) {
+      ZETASQL_RETURN_IF_ERROR(key->mutable_collation()->SetSchemasForEvaluation(
+          ConcatSpans(params_schemas, {input_schema.get()})));
+    }
+  }
+
   for (ExprArg* predicate : mutable_predicates()) {
     ZETASQL_RETURN_IF_ERROR(predicate->mutable_value_expr()->SetSchemasForEvaluation(
         ConcatSpans(params_schemas, {input_schema.get()})));
+  }
+
+  for (ExprArg* query_param : mutable_query_parameter_values()) {
+    ZETASQL_RETURN_IF_ERROR(query_param->mutable_value_expr()->SetSchemasForEvaluation(
+        params_schemas));
   }
 
   return absl::OkStatus();
@@ -113,17 +133,22 @@ class PatternMatchingTupleIterator : public TupleIterator {
   PatternMatchingTupleIterator(
       absl::Span<const TupleData* const> params,
       absl::Span<const KeyArg* const> partition_keys,
-      absl::Span<const int> slots_for_partition_keys,
+      std::vector<int> slots_for_partition_keys,
+      std::vector<int> slots_for_order_values,
       std::vector<VariableId> match_result_variables,
       absl::Span<const std::string> pattern_variable_names,
       absl::Span<const ExprArg* const> predicates,
+      const std::variant<std::vector<std::string>, std::vector<int>>&
+          query_parameter_keys,
+      absl::Span<const ExprArg* const> query_parameter_values,
       const CompiledPattern* pattern, std::unique_ptr<TupleIterator> input_iter,
       std::unique_ptr<TupleComparator> partition_comparator,
+      std::unique_ptr<TupleComparator> order_comparator,
       std::unique_ptr<TupleSchema> output_schema, EvaluationContext* context)
       : params_(params.begin(), params.end()),
         partition_keys_(partition_keys.begin(), partition_keys.end()),
-        slots_for_partition_keys_(slots_for_partition_keys.begin(),
-                                  slots_for_partition_keys.end()),
+        slots_for_partition_keys_(std::move(slots_for_partition_keys)),
+        slots_for_order_values_(std::move(slots_for_order_values)),
         match_result_variables_(std::move(match_result_variables)),
         pattern_variable_names_(pattern_variable_names.begin(),
                                 pattern_variable_names.end()),
@@ -131,17 +156,69 @@ class PatternMatchingTupleIterator : public TupleIterator {
         pattern_(pattern),
         input_iter_(std::move(input_iter)),
         partition_comparator_(std::move(partition_comparator)),
+        order_comparator_(std::move(order_comparator)),
         output_schema_(std::move(output_schema)),
         current_input_partition_(context->memory_accountant()),
         predicate_vals_(predicates_.size(), false),
         unconsumed_match_results_(context->memory_accountant()),
-        context_(context) {}
+        context_(context) {
+    PopulateQueryParameterMap<std::string>(query_parameter_keys,
+                                           query_parameter_values);
+    PopulateQueryParameterMap<int>(query_parameter_keys,
+                                   query_parameter_values);
+  }
 
   PatternMatchingTupleIterator(const PatternMatchingTupleIterator&) = delete;
   PatternMatchingTupleIterator& operator=(const PatternMatchingTupleIterator&) =
       delete;
 
   const TupleSchema& Schema() const override { return *output_schema_; }
+
+  template <typename Key>
+  void PopulateQueryParameterMap(
+      const std::variant<std::vector<std::string>, std::vector<int>>&
+          keys_variant,
+      absl::Span<const ExprArg* const> values) {
+    if (!std::holds_alternative<std::vector<Key>>(keys_variant)) {
+      return;
+    }
+    const std::vector<Key>& keys = std::get<std::vector<Key>>(keys_variant);
+    ABSL_DCHECK_EQ(keys.size(), values.size());
+
+    absl::flat_hash_map<Key, const ExprArg*> map;
+    for (int i = 0; i < keys.size(); ++i) {
+      map[keys[i]] = values[i];
+    }
+    query_parameter_map_ = std::move(map);
+  }
+
+  absl::StatusOr<const ExprArg*> GetQueryParameterExprArg(
+      std::variant<int, absl::string_view> param_key) {
+    if (std::holds_alternative<absl::string_view>(param_key)) {
+      return std::get<absl::flat_hash_map<std::string, const ExprArg*>>(
+                 query_parameter_map_)
+          .at(std::get<absl::string_view>(param_key));
+    } else if (std::holds_alternative<int>(param_key)) {
+      return std::get<absl::flat_hash_map<int, const ExprArg*>>(
+                 query_parameter_map_)
+          .at(std::get<int>(param_key));
+    } else {
+      ZETASQL_RET_CHECK_FAIL() << "Shouldn't get here";
+    }
+  }
+
+  absl::StatusOr<Value> EvaluateQueryParameter(
+      std::variant<int, absl::string_view> param_key) {
+    ZETASQL_ASSIGN_OR_RETURN(const ExprArg* expr_arg,
+                     GetQueryParameterExprArg(param_key));
+    absl::Status status;
+    TupleSlot result;
+    if (!expr_arg->value_expr()->EvalSimple(params_, context_, &result,
+                                            &status)) {
+      return status;
+    }
+    return result.value();
+  }
 
   // Evaluates the pattern predicates on 'row' and stores the results in
   // 'predicate_vals_'.
@@ -165,8 +242,13 @@ class PatternMatchingTupleIterator : public TupleIterator {
 
   // Reset state for matches in the next partition.
   absl::Status ResetMatchPartition() {
+    MatchOptions match_options;
+    match_options.parameter_evaluator =
+        [this](std::variant<int, absl::string_view> param_key) {
+          return EvaluateQueryParameter(param_key);
+        };
     ZETASQL_ASSIGN_OR_RETURN(current_match_partition_,
-                     pattern_->CreateMatchPartition(MatchOptions{}));
+                     pattern_->CreateMatchPartition(match_options));
     current_input_partition_.Clear();
     current_input_partition_ptrs_.clear();
     next_input_tuple_idx_ = 0;
@@ -242,6 +324,14 @@ class PatternMatchingTupleIterator : public TupleIterator {
 
     // Cache the tuple pointers.
     current_input_partition_ptrs_ = current_input_partition_.GetTuplePtrs();
+
+    // This is coarse-grained and could be refined further, but unlikely to be
+    // worth the effort.
+    if (!order_comparator_->IsUniquelyOrdered(current_input_partition_ptrs_,
+                                              slots_for_order_values_)) {
+      context_->SetNonDeterministicOutput();
+    }
+
     return true;
   }
 
@@ -288,9 +378,9 @@ class PatternMatchingTupleIterator : public TupleIterator {
   // Every match ends in a sentinel row. This is used to detect empty matches
   // in the following op.
   // TODO: we should only need the partition keys. However, AggregateOp
-  // currently precomputes values before applying the FILTER, so we cannot have
-  // invalid slots until we improve that framework to avoid precomputating
-  // values before applying the filter.
+  // currently precomputes values before applying the FILTER, so we cannot
+  // have invalid slots until we improve that framework to avoid
+  // precomputating values before applying the filter.
   std::unique_ptr<TupleData> MakeSentinelRow(int match_id) {
     int num_input_variables = input_iter_->Schema().num_variables();
     auto sentinel_tuple = std::make_unique<TupleData>(
@@ -313,9 +403,14 @@ class PatternMatchingTupleIterator : public TupleIterator {
     // Set the match id to seal the current match.
     sentinel_tuple->mutable_slot(num_input_variables)
         ->SetValue(Value::Int64(match_id));
-    // Set the row number to invalid for the sentinel row.
+    // Set the row number to NULL for the sentinel row.
+    // We cannot use Invalid() because `MATCH_ROW_NUMBER()` may be used inside
+    // an aggregation, and FILTER happens near the end, after HAVING MIN/MAX,
+    // etc, e.g. MEASURES ANY_VALUE(match_row_number() + match_row_number())
+    // We set it to NULL to avoid failing the computation of the arg, even if
+    // the row will be eliminated by FILTER.
     sentinel_tuple->mutable_slot(num_input_variables + 1)
-        ->SetValue(Value::Invalid());
+        ->SetValue(Value::NullInt64());
     // Label is invalid for the sentinel row, but the FILTER looking for the
     // assigned label (for scoped aggregates like max(A.x) which ranges over
     // assigned to `A`, will check this slot.
@@ -351,9 +446,10 @@ class PatternMatchingTupleIterator : public TupleIterator {
         }
       }
 
-      // Exhausted all matches found so far in the current partition, or we have
-      // just started. The partition still has unconsumed input tuples. Keep
-      // feeding them until we find matches, or reach the end of the partition.
+      // Exhausted all matches found so far in the current partition, or we
+      // have just started. The partition still has unconsumed input tuples.
+      // Keep feeding them until we find matches, or reach the end of the
+      // partition.
       while (unconsumed_match_results_.IsEmpty() &&
              next_input_tuple_idx_ < current_input_partition_ptrs_.size()) {
         // We have loaded a partition and are consuming it.
@@ -393,7 +489,8 @@ class PatternMatchingTupleIterator : public TupleIterator {
           for (int assigned_label : match.pattern_vars_by_row) {
             if (!unconsumed_match_results_.PushBack(
                     CopyTupleAndAddMatchResultValues(
-                        current_input_partition_ptrs_[idx], match.match_id, idx,
+                        current_input_partition_ptrs_[idx], match.match_id,
+                        idx + 1 /* row number is 1-based */,
                         pattern_variable_names_[assigned_label]),
                     &status_)) {
               return nullptr;
@@ -401,8 +498,8 @@ class PatternMatchingTupleIterator : public TupleIterator {
             ++idx;
           }
 
-          // Add a sentinel row for this match (so that we can also detect empty
-          // matches in the following op).
+          // Add a sentinel row for this match (so that we can also detect
+          // empty matches in the following op).
           if (!unconsumed_match_results_.PushBack(
                   MakeSentinelRow(match.match_id), &status_)) {
             return nullptr;
@@ -428,12 +525,19 @@ class PatternMatchingTupleIterator : public TupleIterator {
   const std::vector<const TupleData*> params_;
   const std::vector<const KeyArg*> partition_keys_;
   const std::vector<int> slots_for_partition_keys_;
+  const std::vector<int> slots_for_order_values_;
   const std::vector<VariableId> match_result_variables_;
   const std::vector<absl::string_view> pattern_variable_names_;
   const std::vector<const ExprArg*> predicates_;
+  std::variant<absl::flat_hash_map<std::string, const ExprArg*>,
+               absl::flat_hash_map<int, const ExprArg*>>
+      query_parameter_map_;
   const CompiledPattern* pattern_;
   std::unique_ptr<TupleIterator> input_iter_;
   std::unique_ptr<TupleComparator> partition_comparator_;
+  // Does NOT include partition keys - Use only within a single partition, not
+  // across partitions!
+  std::unique_ptr<TupleComparator> order_comparator_;
   std::unique_ptr<TupleSchema> output_schema_;
 
   // The last tuple returned. NULL if Next() has never been called.
@@ -442,9 +546,9 @@ class PatternMatchingTupleIterator : public TupleIterator {
   // The partition we are currently consuming, augmented by the values
   // of the analytic arguments. Empty if Next() has never been called.
   TupleDataDeque current_input_partition_;
-  // The tuples in the current input partition. Needed because the same row may
-  // appear in multiple matches, and we may need to fetch all the way back.
-  // This always matches the tuples held in 'current_input_partition_'.
+  // The tuples in the current input partition. Needed because the same row
+  // may appear in multiple matches, and we may need to fetch all the way
+  // back. This always matches the tuples held in 'current_input_partition_'.
   std::vector<const TupleData*> current_input_partition_ptrs_;
 
   // Index of the next tuple to read from current_input_partition_.
@@ -488,25 +592,31 @@ PatternMatchingOp::CreateIterator(absl::Span<const TupleData* const> params,
       input()->CreateIterator({params}, 4 + num_extra_slots, context));
 
   std::vector<int> slots_for_partition_keys;
-  slots_for_partition_keys.reserve(partition_keys().size());
-  for (const KeyArg* partition_key : partition_keys()) {
-    std::optional<int> slot =
-        iter->Schema().FindIndexForVariable(partition_key->variable());
-    ZETASQL_RET_CHECK(slot.has_value())
-        << "Could not find variable " << partition_key->variable()
-        << " in schema " << iter->Schema().DebugString();
-    slots_for_partition_keys.push_back(slot.value());
-  }
+  ZETASQL_RETURN_IF_ERROR(GetSlotsForKeysAndValues(iter->Schema(), partition_keys(),
+                                           &slots_for_partition_keys,
+                                           /*slots_for_values=*/nullptr));
 
   ZETASQL_ASSIGN_OR_RETURN(
       std::unique_ptr<TupleComparator> partition_comparator,
       TupleComparator::Create(partition_keys(), slots_for_partition_keys,
                               params, context));
 
+  std::vector<int> slots_for_order_keys;
+  std::vector<int> slots_for_order_values;
+  ZETASQL_RETURN_IF_ERROR(GetSlotsForKeysAndValues(iter->Schema(), order_keys(),
+                                           &slots_for_order_keys,
+                                           &slots_for_order_values));
+
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<TupleComparator> order_comparator,
+                   TupleComparator::Create(order_keys(), slots_for_order_keys,
+                                           params, context));
+
   iter = std::make_unique<PatternMatchingTupleIterator>(
-      params, partition_keys(), slots_for_partition_keys,
-      match_result_variables_, pattern_variable_names_, predicates(),
-      pattern_.get(), std::move(iter), std::move(partition_comparator),
+      params, partition_keys(), std::move(slots_for_partition_keys),
+      std::move(slots_for_order_values), match_result_variables_,
+      pattern_variable_names_, predicates(), query_parameter_keys(),
+      query_parameter_values(), pattern_.get(), std::move(iter),
+      std::move(partition_comparator), std::move(order_comparator),
       CreateOutputSchema(), context);
 
   return MaybeReorder(std::move(iter), context);
@@ -535,26 +645,34 @@ std::string PatternMatchingOp::IteratorDebugString() const {
 
 std::string PatternMatchingOp::DebugInternal(const std::string& indent,
                                              bool verbose) const {
-  return absl::StrCat("PatternMatchingOp(",
-                      ArgDebugString({"input", "partition_keys", "predicates"},
-                                     {k1, kN, kN}, indent, verbose),
-                      ",\n", indent, "pattern=(", pattern_->DebugString(), ")",
-                      "\n)");
+  return absl::StrCat(
+      "PatternMatchingOp(",
+      ArgDebugString({"input", "partition_keys", "order_keys", "predicates"},
+                     {k1, kN, kN, kN}, indent, verbose),
+      ",\n", indent, "pattern=(", pattern_->DebugString(), ")", "\n)");
 }
 
 PatternMatchingOp::PatternMatchingOp(
     std::vector<std::unique_ptr<KeyArg>> partition_keys,
+    std::vector<std::unique_ptr<KeyArg>> order_keys,
     std::vector<VariableId> match_result_variables,
     std::vector<std::string> pattern_variable_names,
     std::vector<std::unique_ptr<ValueExpr>> predicates,
     std::unique_ptr<const CompiledPattern> pattern,
+    std::variant<std::vector<std::string>, std::vector<int>>
+        query_parameter_keys,
+    std::vector<std::unique_ptr<ValueExpr>> query_parameter_values,
     std::unique_ptr<RelationalOp> input)
     : match_result_variables_(std::move(match_result_variables)),
       pattern_variable_names_(std::move(pattern_variable_names)),
-      pattern_(std::move(pattern)) {
+      pattern_(std::move(pattern)),
+      query_parameter_keys_(std::move(query_parameter_keys)) {
   SetArg(kInput, std::make_unique<RelationalArg>(std::move(input)));
   SetArgs<KeyArg>(kPartitionKey, std::move(partition_keys));
+  SetArgs<KeyArg>(kOrderKey, std::move(order_keys));
   SetArgs<ExprArg>(kPredicate, MakeExprArgList(std::move(predicates)));
+  SetArgs<ExprArg>(kQueryParam,
+                   MakeExprArgList(std::move(query_parameter_values)));
 }
 
 absl::Span<const KeyArg* const> PatternMatchingOp::partition_keys() const {
@@ -565,12 +683,28 @@ absl::Span<KeyArg* const> PatternMatchingOp::mutable_partition_keys() {
   return GetMutableArgs<KeyArg>(kPartitionKey);
 }
 
+absl::Span<const KeyArg* const> PatternMatchingOp::order_keys() const {
+  return GetArgs<KeyArg>(kOrderKey);
+}
+
+absl::Span<KeyArg* const> PatternMatchingOp::mutable_order_keys() {
+  return GetMutableArgs<KeyArg>(kOrderKey);
+}
+
 absl::Span<const ExprArg* const> PatternMatchingOp::predicates() const {
   return GetArgs<ExprArg>(kPredicate);
 }
 
 absl::Span<ExprArg* const> PatternMatchingOp::mutable_predicates() {
   return GetMutableArgs<ExprArg>(kPredicate);
+}
+
+absl::Span<const ExprArg* const> PatternMatchingOp::query_parameter_values()
+    const {
+  return GetArgs<ExprArg>(kQueryParam);
+}
+absl::Span<ExprArg* const> PatternMatchingOp::mutable_query_parameter_values() {
+  return GetMutableArgs<ExprArg>(kQueryParam);
 }
 
 const RelationalOp* PatternMatchingOp::input() const {

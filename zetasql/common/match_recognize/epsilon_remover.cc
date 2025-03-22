@@ -42,7 +42,7 @@ class EpsilonRemover {
     //
     // Also, populate state_map_ to map states between the original NFA and the
     // NFA we are creating.
-    epsilon_removed_ = std::make_unique<NFA>();
+    epsilon_removed_ = nfa.CreateEmptyNFA();
     state_map_[nfa.start_state()] = epsilon_removed_->NewState();
     epsilon_removed_->SetAsStartState(state_map_[nfa.start_state()]);
 

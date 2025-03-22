@@ -19,6 +19,7 @@
 #include <string>
 #include <vector>
 
+#include "google/protobuf/duration.pb.h"
 #include "google/protobuf/timestamp.pb.h"
 #include "google/protobuf/wrappers.pb.h"
 #include "google/type/date.pb.h"
@@ -59,6 +60,7 @@ std::vector<const Type*> ZetaSqlComplexTestTypes(
   std::vector<const Type*> output;
   std::vector<const google::protobuf::Descriptor*> proto_descriptors = {
       zetasql_test__::KitchenSinkPB::descriptor(),
+      google::protobuf::Duration::descriptor(),
       google::protobuf::Timestamp::descriptor(),
       google::type::Date::descriptor(),
       google::type::TimeOfDay::descriptor(),
@@ -95,13 +97,15 @@ std::vector<const Type*> ZetaSqlComplexTestTypes(
 }
 
 std::vector<std::string> ZetaSqlTestProtoFilepaths() {
-  // `rounding_mode`, `array_find_mode`, `array_zip_mode` fixes `Enum not found`
-  // error in RQG / RSG: b/293474126.
+  // `rounding_mode`, `array_find_mode`, `array_zip_mode`, `bitwise_agg_mode`
+  // fixes `Enum not found` error in RQG / RSG: b/293474126.
   return {"zetasql/public/functions/rounding_mode.proto",
           "zetasql/public/functions/array_find_mode.proto",
           "zetasql/public/functions/array_zip_mode.proto",
+          "zetasql/public/functions/bitwise_agg_mode.proto",
           "zetasql/testdata/test_schema.proto",
           "zetasql/testdata/test_proto3.proto",
+          "google/protobuf/duration.proto",
           "google/protobuf/timestamp.proto",
           "google/protobuf/wrappers.proto",
           "google/type/latlng.proto",
@@ -122,6 +126,7 @@ std::vector<std::string> ZetaSqlTestProtoNames() {
           "zetasql_test__.EmptyMessage",
           "zetasql_test__.Proto3TestExtraPB",
           "google.protobuf.Timestamp",
+          "google.protobuf.Duration",
           "google.type.Date",
           "google.type.TimeOfDay",
           "google.type.LatLng",
@@ -142,6 +147,7 @@ std::vector<std::string> ZetaSqlRandomTestProtoNames() {
       // TODO: b/281436434 - Add OneofProto back once the bug is fixed.
       // "zetasql_test__.OneofProto",
       "google.protobuf.Timestamp",
+      "google.protobuf.Duration",
       "google.type.Date",
       "google.type.TimeOfDay",
       "google.type.LatLng",

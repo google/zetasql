@@ -16,18 +16,22 @@
 
 #include "zetasql/public/functions/string_format.h"
 
-#include <limits>
-#include <memory>
 #include <string>
 #include <vector>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/base/testing/status_matchers.h"
-#include "zetasql/common/testing/testing_proto_util.h"
+#include "zetasql/public/options.pb.h"
+#include "zetasql/public/types/array_type.h"
 #include "zetasql/public/types/graph_element_type.h"
+#include "zetasql/public/types/struct_type.h"
+#include "zetasql/public/types/type.h"
+#include "zetasql/public/types/type_factory.h"
+#include "zetasql/public/value.h"
 #include "zetasql/testdata/test_schema.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 

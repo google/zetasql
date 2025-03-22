@@ -2232,3 +2232,296 @@ group by x,y,
 ERROR: Syntax error: Unexpected end of statement [at 3:14]
 group by x,y,
              ^
+==
+
+# Simple WHERE expressions as part of an aggregate function.
+select sum(value where value is not null)
+from T
+--
+
+QueryStatement [0-48] [select sum...null) from T]
+  Query [0-48] [select sum...null) from T]
+    Select [0-48] [select sum...null) from T]
+      SelectList [7-41] [sum(value...not null)]
+        SelectColumn [7-41] [sum(value...not null)]
+          FunctionCall [7-41] [sum(value...not null)]
+            PathExpression [7-10] [sum]
+              Identifier(sum) [7-10] [sum]
+            PathExpression [11-16] [value]
+              Identifier(value) [11-16] [value]
+            WhereClause [17-40] [where value is not null]
+              BinaryExpression(IS NOT) [23-40] [value is not null]
+                PathExpression [23-28] [value]
+                  Identifier(value) [23-28] [value]
+                NullLiteral(null) [36-40] [null]
+      FromClause [42-48] [from T]
+        TablePathExpression [47-48] [T]
+          PathExpression [47-48] [T]
+            Identifier(T) [47-48] [T]
+--
+SELECT
+  sum(value
+    WHERE
+      value IS NOT null)
+FROM
+  T
+==
+
+# Simple HAVING expression as part of an aggregate function.
+select sum(value group by key1 having count(*) > 10)
+from T
+--
+
+QueryStatement [0-59] [select sum...10) from T]
+  Query [0-59] [select sum...10) from T]
+    Select [0-59] [select sum...10) from T]
+      SelectList [7-52] [sum(value...count(*) > 10)]
+        SelectColumn [7-52] [sum(value...count(*) > 10)]
+          FunctionCall [7-52] [sum(value...count(*) > 10)]
+            PathExpression [7-10] [sum]
+              Identifier(sum) [7-10] [sum]
+            PathExpression [11-16] [value]
+              Identifier(value) [11-16] [value]
+            GroupBy [17-30] [group by key1]
+              GroupingItem [26-30] [key1]
+                PathExpression [26-30] [key1]
+                  Identifier(key1) [26-30] [key1]
+            Having [31-51] [having count(*) > 10]
+              BinaryExpression(>) [38-51] [count(*) > 10]
+                FunctionCall [38-46] [count(*)]
+                  PathExpression [38-43] [count]
+                    Identifier(count) [38-43] [count]
+                  Star(*) [44-45] [*]
+                IntLiteral(10) [49-51] [10]
+      FromClause [53-59] [from T]
+        TablePathExpression [58-59] [T]
+          PathExpression [58-59] [T]
+            Identifier(T) [58-59] [T]
+--
+SELECT
+  sum(value
+    GROUP BY key1
+    HAVING count(*) > 10)
+FROM
+  T
+==
+
+# WHERE and HAVING expressions are permitted with other modifiers
+select sum(distinct value
+    {{respect|ignore}} nulls
+    where value > 10
+    group by key1
+    having count(*) < 100
+    order by key2 {{desc|asc}}
+    limit 10
+  ) from T
+--
+
+ALTERNATION GROUP: respect,desc
+--
+QueryStatement [0-155] [select sum...) from T]
+  Query [0-155] [select sum...) from T]
+    Select [0-155] [select sum...) from T]
+      SelectList [7-148] [sum(distinct...limit 10   )]
+        SelectColumn [7-148] [sum(distinct...limit 10   )]
+          FunctionCall(distinct=true) [7-148] [sum(distinct...limit 10   )]
+            PathExpression [7-10] [sum]
+              Identifier(sum) [7-10] [sum]
+            PathExpression [20-25] [value]
+              Identifier(value) [20-25] [value]
+            WhereClause [48-64] [where value > 10]
+              BinaryExpression(>) [54-64] [value > 10]
+                PathExpression [54-59] [value]
+                  Identifier(value) [54-59] [value]
+                IntLiteral(10) [62-64] [10]
+            GroupBy [69-82] [group by key1]
+              GroupingItem [78-82] [key1]
+                PathExpression [78-82] [key1]
+                  Identifier(key1) [78-82] [key1]
+            Having [87-108] [having count(*) < 100]
+              BinaryExpression(<) [94-108] [count(*) < 100]
+                FunctionCall [94-102] [count(*)]
+                  PathExpression [94-99] [count]
+                    Identifier(count) [94-99] [count]
+                  Star(*) [100-101] [*]
+                IntLiteral(100) [105-108] [100]
+            OrderBy [113-131] [order by key2 desc]
+              OrderingExpression(DESC) [122-131] [key2 desc]
+                PathExpression [122-126] [key2]
+                  Identifier(key2) [122-126] [key2]
+            LimitOffset [136-144] [limit 10]
+              IntLiteral(10) [142-144] [10]
+      FromClause [149-155] [from T]
+        TablePathExpression [154-155] [T]
+          PathExpression [154-155] [T]
+            Identifier(T) [154-155] [T]
+--
+SELECT
+  sum(DISTINCT value RESPECT NULLS
+    WHERE
+      value > 10
+    GROUP BY key1
+    HAVING count(*) < 100
+    ORDER BY key2 DESC
+    LIMIT 10)
+FROM
+  T
+--
+ALTERNATION GROUP: respect,asc
+--
+QueryStatement [0-154] [select sum...) from T]
+  Query [0-154] [select sum...) from T]
+    Select [0-154] [select sum...) from T]
+      SelectList [7-147] [sum(distinct...limit 10   )]
+        SelectColumn [7-147] [sum(distinct...limit 10   )]
+          FunctionCall(distinct=true) [7-147] [sum(distinct...limit 10   )]
+            PathExpression [7-10] [sum]
+              Identifier(sum) [7-10] [sum]
+            PathExpression [20-25] [value]
+              Identifier(value) [20-25] [value]
+            WhereClause [48-64] [where value > 10]
+              BinaryExpression(>) [54-64] [value > 10]
+                PathExpression [54-59] [value]
+                  Identifier(value) [54-59] [value]
+                IntLiteral(10) [62-64] [10]
+            GroupBy [69-82] [group by key1]
+              GroupingItem [78-82] [key1]
+                PathExpression [78-82] [key1]
+                  Identifier(key1) [78-82] [key1]
+            Having [87-108] [having count(*) < 100]
+              BinaryExpression(<) [94-108] [count(*) < 100]
+                FunctionCall [94-102] [count(*)]
+                  PathExpression [94-99] [count]
+                    Identifier(count) [94-99] [count]
+                  Star(*) [100-101] [*]
+                IntLiteral(100) [105-108] [100]
+            OrderBy [113-130] [order by key2 asc]
+              OrderingExpression(ASC EXPLICITLY) [122-130] [key2 asc]
+                PathExpression [122-126] [key2]
+                  Identifier(key2) [122-126] [key2]
+            LimitOffset [135-143] [limit 10]
+              IntLiteral(10) [141-143] [10]
+      FromClause [148-154] [from T]
+        TablePathExpression [153-154] [T]
+          PathExpression [153-154] [T]
+            Identifier(T) [153-154] [T]
+--
+SELECT
+  sum(DISTINCT value RESPECT NULLS
+    WHERE
+      value > 10
+    GROUP BY key1
+    HAVING count(*) < 100
+    ORDER BY key2 ASC
+    LIMIT 10)
+FROM
+  T
+--
+ALTERNATION GROUP: ignore,desc
+--
+QueryStatement [0-154] [select sum...) from T]
+  Query [0-154] [select sum...) from T]
+    Select [0-154] [select sum...) from T]
+      SelectList [7-147] [sum(distinct...limit 10   )]
+        SelectColumn [7-147] [sum(distinct...limit 10   )]
+          FunctionCall(distinct=true) [7-147] [sum(distinct...limit 10   )]
+            PathExpression [7-10] [sum]
+              Identifier(sum) [7-10] [sum]
+            PathExpression [20-25] [value]
+              Identifier(value) [20-25] [value]
+            WhereClause [47-63] [where value > 10]
+              BinaryExpression(>) [53-63] [value > 10]
+                PathExpression [53-58] [value]
+                  Identifier(value) [53-58] [value]
+                IntLiteral(10) [61-63] [10]
+            GroupBy [68-81] [group by key1]
+              GroupingItem [77-81] [key1]
+                PathExpression [77-81] [key1]
+                  Identifier(key1) [77-81] [key1]
+            Having [86-107] [having count(*) < 100]
+              BinaryExpression(<) [93-107] [count(*) < 100]
+                FunctionCall [93-101] [count(*)]
+                  PathExpression [93-98] [count]
+                    Identifier(count) [93-98] [count]
+                  Star(*) [99-100] [*]
+                IntLiteral(100) [104-107] [100]
+            OrderBy [112-130] [order by key2 desc]
+              OrderingExpression(DESC) [121-130] [key2 desc]
+                PathExpression [121-125] [key2]
+                  Identifier(key2) [121-125] [key2]
+            LimitOffset [135-143] [limit 10]
+              IntLiteral(10) [141-143] [10]
+      FromClause [148-154] [from T]
+        TablePathExpression [153-154] [T]
+          PathExpression [153-154] [T]
+            Identifier(T) [153-154] [T]
+--
+SELECT
+  sum(DISTINCT value IGNORE NULLS
+    WHERE
+      value > 10
+    GROUP BY key1
+    HAVING count(*) < 100
+    ORDER BY key2 DESC
+    LIMIT 10)
+FROM
+  T
+--
+ALTERNATION GROUP: ignore,asc
+--
+QueryStatement [0-153] [select sum...) from T]
+  Query [0-153] [select sum...) from T]
+    Select [0-153] [select sum...) from T]
+      SelectList [7-146] [sum(distinct...limit 10   )]
+        SelectColumn [7-146] [sum(distinct...limit 10   )]
+          FunctionCall(distinct=true) [7-146] [sum(distinct...limit 10   )]
+            PathExpression [7-10] [sum]
+              Identifier(sum) [7-10] [sum]
+            PathExpression [20-25] [value]
+              Identifier(value) [20-25] [value]
+            WhereClause [47-63] [where value > 10]
+              BinaryExpression(>) [53-63] [value > 10]
+                PathExpression [53-58] [value]
+                  Identifier(value) [53-58] [value]
+                IntLiteral(10) [61-63] [10]
+            GroupBy [68-81] [group by key1]
+              GroupingItem [77-81] [key1]
+                PathExpression [77-81] [key1]
+                  Identifier(key1) [77-81] [key1]
+            Having [86-107] [having count(*) < 100]
+              BinaryExpression(<) [93-107] [count(*) < 100]
+                FunctionCall [93-101] [count(*)]
+                  PathExpression [93-98] [count]
+                    Identifier(count) [93-98] [count]
+                  Star(*) [99-100] [*]
+                IntLiteral(100) [104-107] [100]
+            OrderBy [112-129] [order by key2 asc]
+              OrderingExpression(ASC EXPLICITLY) [121-129] [key2 asc]
+                PathExpression [121-125] [key2]
+                  Identifier(key2) [121-125] [key2]
+            LimitOffset [134-142] [limit 10]
+              IntLiteral(10) [140-142] [10]
+      FromClause [147-153] [from T]
+        TablePathExpression [152-153] [T]
+          PathExpression [152-153] [T]
+            Identifier(T) [152-153] [T]
+--
+SELECT
+  sum(DISTINCT value IGNORE NULLS
+    WHERE
+      value > 10
+    GROUP BY key1
+    HAVING count(*) < 100
+    ORDER BY key2 ASC
+    LIMIT 10)
+FROM
+  T
+==
+
+# HAVING expression without a GROUP BY is not permitted by the parser.
+select sum(value having count(*) > 10) from T
+--
+
+ERROR: Syntax error: Expected keyword MAX or keyword MIN but got identifier "count" [at 1:25]
+select sum(value having count(*) > 10) from T
+                        ^

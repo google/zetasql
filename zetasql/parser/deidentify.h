@@ -21,6 +21,7 @@
 #include <string>
 
 #include "zetasql/parser/ast_node_kind.h"
+#include "zetasql/parser/parser.h"
 #include "zetasql/public/language_options.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/statusor.h"
@@ -52,8 +53,8 @@ struct DeidentificationResult {
 // consistently starting from A and then literals replaced by ? like parameters.
 absl::StatusOr<std::string> DeidentifySQLIdentifiersAndLiterals(
     absl::string_view input,
-    const zetasql::LanguageOptions& language_options =
-        zetasql::LanguageOptions::MaximumFeatures());
+    const ParserOptions& parser_options =
+        ParserOptions(LanguageOptions::MaximumFeatures()));
 
 // Return cleaned SQL with comments stripped, identifiers and literals
 // relabelled based on the provided set of kinds.  Updated nodes are labeled
@@ -65,8 +66,8 @@ absl::StatusOr<std::string> DeidentifySQLIdentifiersAndLiterals(
 absl::StatusOr<DeidentificationResult> DeidentifySQLWithMapping(
     absl::string_view input, std::set<ASTNodeKind> deidentified_kinds,
     std::set<ASTNodeKind> remapped_kinds,
-    const zetasql::LanguageOptions& language_options =
-        zetasql::LanguageOptions::MaximumFeatures());
+    const ParserOptions& parser_options =
+        ParserOptions(LanguageOptions::MaximumFeatures()));
 }  // namespace parser
 }  // namespace zetasql
 

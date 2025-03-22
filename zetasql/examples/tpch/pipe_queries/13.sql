@@ -24,5 +24,5 @@ FROM customer
 |> AGGREGATE COUNT(*) AS custdist
    GROUP BY c_count
 |> ORDER BY
-     custdist DESC,
-     c_count DESC;
+    custdist DESC,
+    c_count DESC;

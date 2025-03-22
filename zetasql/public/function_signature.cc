@@ -99,6 +99,7 @@ bool CanHaveDefaultValue(SignatureArgumentKind kind) {
     case ARG_TYPE_GRAPH_ELEMENT:
     case ARG_TYPE_GRAPH_PATH:
     case ARG_TYPE_SEQUENCE:
+    case ARG_MEASURE_TYPE_ANY_1:
       return false;
     default:
       ABSL_DCHECK(false) << "Invalid signature argument kind: " << kind;
@@ -186,7 +187,11 @@ absl::Status FunctionSignatureRewriteOptions::Deserialize(
     FunctionSignatureRewriteOptions& result) {
   result.set_enabled(proto.enabled())
       .set_rewriter(proto.rewriter())
-      .set_sql(proto.sql());
+      .set_sql(proto.sql())
+      .set_allow_table_references(proto.allow_table_references())
+      .set_allowed_function_groups(
+          std::vector(proto.allowed_function_groups().begin(),
+                      proto.allowed_function_groups().end()));
   return absl::OkStatus();
 }
 
@@ -196,6 +201,12 @@ void FunctionSignatureRewriteOptions::Serialize(
   proto->set_enabled(enabled());
   proto->set_rewriter(rewriter());
   proto->set_sql(sql_);
+  if (allow_table_references()) {
+    proto->set_allow_table_references(true);
+  }
+  for (const std::string& group : allowed_function_groups()) {
+    proto->add_allowed_function_groups(group);
+  }
 }
 
 const FunctionEnums::ArgumentCardinality FunctionArgumentType::REQUIRED;
@@ -619,6 +630,8 @@ std::string FunctionArgumentType::SignatureArgumentKindToString(
       return "<graph_path>";
     case ARG_TYPE_SEQUENCE:
       return "ANY SEQUENCE";
+    case ARG_MEASURE_TYPE_ANY_1:
+      return "<measure<T1>>";
     case ARG_MAP_TYPE_ANY_1_2:
       return "<map<T1, T2>>";
     case __SignatureArgumentKind__switch_must_have_a_default__:
@@ -944,6 +957,8 @@ std::string FunctionArgumentType::UserFacingName(
         return "SEQUENCE";
       case ARG_MAP_TYPE_ANY_1_2:
         return print_template_details ? "MAP<T1, T2>" : "MAP";
+      case ARG_MEASURE_TYPE_ANY_1:
+        return print_template_details ? "MEASURE<T1>" : "MEASURE";
       case ARG_TYPE_FIXED:
       default:
         // We really should have had type() != nullptr in this case.
@@ -1401,7 +1416,8 @@ std::string FunctionSignature::GetSQLDeclaration(
 namespace {
 inline bool IsRelatedToAny1(SignatureArgumentKind kind) {
   return kind == ARG_TYPE_ANY_1 || kind == ARG_ARRAY_TYPE_ANY_1 ||
-         kind == ARG_MAP_TYPE_ANY_1_2 || kind == ARG_RANGE_TYPE_ANY_1;
+         kind == ARG_MAP_TYPE_ANY_1_2 || kind == ARG_RANGE_TYPE_ANY_1 ||
+         kind == ARG_MEASURE_TYPE_ANY_1;
 }
 
 inline bool IsRelatedToAny2(SignatureArgumentKind kind) {
@@ -1439,13 +1455,20 @@ static inline bool TemplatedKindRelatedMapType(
          (kind_1 == ARG_MAP_TYPE_ANY_1_2 && IsRelatedToAny2(kind_2));
 }
 
+// Returns true if `kind_1` is a MEASURE templated type of `kind_2`
+static inline bool TemplatedKindRelatedMeasureType(
+    const SignatureArgumentKind kind_1, const SignatureArgumentKind kind_2) {
+  return (kind_1 == ARG_MEASURE_TYPE_ANY_1 && IsRelatedToAny1(kind_2));
+}
+
 // Returns true if `kind_1` is a templated type containing `kind_2`
 static inline bool TemplatedKindIsRelatedImpl(
     const SignatureArgumentKind kind_1, const SignatureArgumentKind kind_2) {
   return TemplatedKindRelatedArrayType(kind_1, kind_2) ||
          TemplatedKindRelatedProtoMapType(kind_1, kind_2) ||
          TemplatedKindRelatedRangeType(kind_1, kind_2) ||
-         TemplatedKindRelatedMapType(kind_1, kind_2);
+         TemplatedKindRelatedMapType(kind_1, kind_2) ||
+         TemplatedKindRelatedMeasureType(kind_1, kind_2);
 }
 
 }  // namespace

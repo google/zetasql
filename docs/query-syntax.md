@@ -80,9 +80,9 @@ Each item in the `SELECT` list is one of:
 ### `SELECT *`
 
 `SELECT *`, often referred to as *select star*, produces one output column for
-each column that is visible after executing the full query.
+each column that's visible after executing the full query.
 
-```sql
+```zetasql
 SELECT * FROM (SELECT "apple" AS fruit, "carrot" AS vegetable);
 
 /*-------+-----------*
@@ -100,7 +100,7 @@ single value and produce one output column, with an optional explicit `alias`.
 
 If the expression doesn't have an explicit alias, it receives an implicit alias
 according to the rules for [implicit aliases][implicit-aliases], if possible.
-Otherwise, the column is anonymous and you cannot refer to it by name elsewhere
+Otherwise, the column is anonymous and you can't refer to it by name elsewhere
 in the query.
 
 ### `SELECT expression.*` 
@@ -114,7 +114,7 @@ data type with fields, such as a STRUCT.
 The following query produces one output column for each column in the table
 `groceries`, aliased as `g`.
 
-```sql
+```zetasql
 WITH groceries AS
   (SELECT "milk" AS dairy,
    "eggs" AS protein,
@@ -131,7 +131,7 @@ FROM groceries AS g;
 
 More examples:
 
-```sql
+```zetasql
 WITH locations AS
   (SELECT STRUCT("Seattle" AS city, "Washington" AS state) AS location
   UNION ALL
@@ -147,7 +147,7 @@ FROM locations l;
  *---------+------------*/
 ```
 
-```sql
+```zetasql
 WITH locations AS
   (SELECT ARRAY<STRUCT<city STRING, state STRING>>[("Seattle", "Washington"),
     ("Phoenix", "Arizona")] AS location)
@@ -166,7 +166,7 @@ FROM locations l;
 A `SELECT * EXCEPT` statement specifies the names of one or more columns to
 exclude from the result. All matching column names are omitted from the output.
 
-```sql
+```zetasql
 WITH orders AS
   (SELECT 5 as order_id,
   "sprocket" as item_name,
@@ -194,7 +194,7 @@ that `REPLACE` clause.
 A `SELECT * REPLACE` statement doesn't change the names or order of columns.
 However, it can change the value and the value type.
 
-```sql
+```zetasql
 WITH orders AS
   (SELECT 5 as order_id,
   "sprocket" as item_name,
@@ -227,14 +227,14 @@ Note: `SELECT * REPLACE` doesn't replace columns that don't have names.
 ### `SELECT DISTINCT`
 
 A `SELECT DISTINCT` statement discards duplicate rows and returns only the
-remaining rows. `SELECT DISTINCT` cannot return columns of the following types:
+remaining rows. `SELECT DISTINCT` can't return columns of the following types:
 
 +  `PROTO`
 +  `GRAPH_ELEMENT`
 
 In the following example, `SELECT DISTINCT` is used to produce distinct arrays:
 
-```sql
+```zetasql
 WITH PlayerStats AS (
   SELECT ['Coolidge', 'Adams'] as Name, 3 as PointsScored UNION ALL
   SELECT ['Adams', 'Buchanan'], 0 UNION ALL
@@ -253,7 +253,7 @@ SELECT DISTINCT Name
 
 In the following example, `SELECT DISTINCT` is used to produce distinct structs:
 
-```sql
+```zetasql
 WITH
   PlayerStats AS (
     SELECT
@@ -291,7 +291,7 @@ A `SELECT ALL` statement returns all rows, including duplicate rows.
 
 ### `SELECT AS STRUCT`
 
-```sql
+```zetasql
 SELECT AS STRUCT expr [[AS] struct_field_name1] [,...]
 ```
 
@@ -302,7 +302,7 @@ and types produced in the `SELECT` list.
 
 Example:
 
-```sql
+```zetasql
 SELECT ARRAY(SELECT AS STRUCT 1 a, 2 b)
 ```
 
@@ -316,7 +316,7 @@ Anonymous columns are allowed.
 
 Example:
 
-```sql
+```zetasql
 SELECT AS STRUCT 1 x, 2, 3
 ```
 
@@ -327,7 +327,7 @@ second and third fields are anonymous.
 The example above produces the same result as this `SELECT AS VALUE` query using
 a struct constructor:
 
-```sql
+```zetasql
 SELECT AS VALUE STRUCT(1 AS x, 2, 3)
 ```
 
@@ -335,7 +335,7 @@ Duplicate columns are allowed.
 
 Example:
 
-```sql
+```zetasql
 SELECT AS STRUCT 1 x, 2 y, 3 x
 ```
 
@@ -346,14 +346,14 @@ name `x` while the second field has the name `y`.
 The example above produces the same result as this `SELECT AS VALUE` query
 using a struct constructor:
 
-```sql
+```zetasql
 SELECT AS VALUE STRUCT(1 AS x, 2 AS y, 3 AS x)
 ```
 
 ### `SELECT AS typename` 
 <a id="select_as_typename"></a>
 
-```sql
+```zetasql
 SELECT AS typename
   expr [[AS] field]
   [, ...]
@@ -377,7 +377,7 @@ grouping isn't supported on the constructed type.
 
 The following is an example of a `SELECT AS typename` query.
 
-```sql
+```zetasql
 SELECT AS tests.TestProtocolBuffer mytable.key int64_val, mytable.name string_val
 FROM mytable;
 ```
@@ -401,7 +401,7 @@ value table.
 
 Example:
 
-```sql
+```zetasql
 SELECT AS VALUE 1
 ```
 
@@ -409,7 +409,7 @@ The query above produces a table with row type INT64.
 
 Example:
 
-```sql
+```zetasql
 SELECT AS VALUE STRUCT(1 AS a, 2 AS b) xyz
 ```
 
@@ -417,13 +417,13 @@ The query above produces a table with row type `STRUCT<a int64, b int64>`.
 
 Example:
 
-```sql
+```zetasql
 SELECT AS VALUE v FROM (SELECT AS STRUCT 1 a, true b) v WHERE v.b
 ```
 
 Given a value table `v` as input, the query above filters out certain values in
 the `WHERE` clause, and then produces a value table using the exact same value
-that was in the input table. If the query above did not use `SELECT AS VALUE`,
+that was in the input table. If the query above didn't use `SELECT AS VALUE`,
 then the output table schema would differ from the input table schema because
 the output table would be a regular table with a column named `v` containing the
 input value.
@@ -502,7 +502,7 @@ arbitrarily deep into a nested data structure.
 
 Some examples of valid `field_path` values include:
 
-```sql
+```zetasql
 SELECT * FROM T1 t1, t1.array_column;
 
 SELECT * FROM T1 t1, t1.struct_column.array_field;
@@ -516,17 +516,17 @@ SELECT (SELECT STRING_AGG(a.struct_field1) FROM t1.array_of_structs a) FROM T1 t
 
 Field paths in the `FROM` clause must end in an
 array or a repeated field. In
-addition, field paths cannot contain arrays
+addition, field paths can't contain arrays
 or repeated fields before the end of the path. For example, the path
 `array_column.some_array.some_array_field` is invalid because it
 contains an array before the end of the path.
 
-Note: If a path has only one name, it is interpreted as a table.
+Note: If a path has only one name, it's interpreted as a table.
 To work around this, wrap the path using `UNNEST`, or use the
 fully-qualified path.
 
 Note: If a path has more than one name, and it matches a field
-name, it is interpreted as a field name. To force the path to be interpreted as
+name, it's interpreted as a field name. To force the path to be interpreted as
 a table name, wrap the path using <code>`</code>.
 
 #### `unnest_operator` 
@@ -542,7 +542,7 @@ In the example below, `subQ1` and `subQ2` are CTEs.
 
 Example:
 
-```sql
+```zetasql
 WITH
   subQ1 AS (SELECT * FROM Roster WHERE SchoolID = 52),
   subQ2 AS (SELECT SchoolID FROM subQ1)
@@ -582,7 +582,8 @@ returns multiple columns:
 
 Input values:
 
-+ `array_expression`: An expression that produces an array.
++ `array_expression`: An expression that produces an array and that's not an
+  array path.
 + `array_path`: The path to an `ARRAY` or
   non-`ARRAY` type, which may or may not contain a flattening operation, using the
   [array elements field access operation][array-el-field-operator].
@@ -604,12 +605,12 @@ Input values:
   array. Use this optional clause to return an additional column with
   the array element indexes, or _offsets_. Offset counting starts at zero for
   each row produced by the `UNNEST` operation. This column has an
-  optional alias; If the optional alias is not used, the default column name is
+  optional alias; If the optional alias isn't used, the default column name is
   `offset`.
 
   Example:
 
-  ```sql
+  ```zetasql
   SELECT * FROM UNNEST ([10,20,30]) as numbers WITH OFFSET;
 
   /*---------+--------*
@@ -641,7 +642,7 @@ field.
 
 Example:
 
-```sql
+```zetasql
 SELECT *
 FROM UNNEST(
   ARRAY<
@@ -669,7 +670,7 @@ struct in the input table.
 
 Example:
 
-```sql
+```zetasql
 SELECT *, struct_value
 FROM UNNEST(
   ARRAY<
@@ -696,7 +697,7 @@ protocol buffer field.
 
 Example:
 
-```sql
+```zetasql
 SELECT *
 FROM UNNEST(
   ARRAY<zetasql.examples.music.Album>[
@@ -718,7 +719,7 @@ As with structs, you can alias `UNNEST` to define a range variable. You
 can reference this alias in the `SELECT` list to return a value table where each
 row is a protocol buffer element from the array.
 
-```sql
+```zetasql
 SELECT proto_value
 FROM UNNEST(
   ARRAY<zetasql.examples.music.Album>[
@@ -746,13 +747,13 @@ following sections.
 
 The `UNNEST` keyword is required in explicit unnesting. For example:
 
-```sql
+```zetasql
 WITH Coordinates AS (SELECT ARRAY<STRUCT<x INT64, y ARRAY<INT64>>>[(1, [2,3]), (4, [5,6])] AS position)
 SELECT results FROM Coordinates, UNNEST(Coordinates.position.y) AS results;
 ```
 
-In explicit unnesting, `array_expression` must return an
-array value but doesn't need to resolve to an array.
+This example and the following examples use the `array_path` called
+`Coordinates.position` to illustrate unnesting.
 
 ##### Tables and explicit unnesting
 
@@ -761,23 +762,23 @@ you can optionally prepend `array_path` with a table.
 
 The following queries produce the same results:
 
-```sql
+```zetasql
 WITH Coordinates AS (SELECT ARRAY<STRUCT<x INT64, y ARRAY<INT64>>>[(1, [2,3]), (4, [5,6])] AS position)
 SELECT results FROM Coordinates, UNNEST(position.y) AS results;
 ```
 
-```sql
+```zetasql
 WITH Coordinates AS (SELECT ARRAY<STRUCT<x INT64, y ARRAY<INT64>>>[(1, [2,3]), (4, [5,6])] AS position)
 SELECT results FROM Coordinates, UNNEST(Coordinates.position.y) AS results;
 ```
 
 #### Implicit unnesting
 
-The `UNNEST` keyword is not used in implicit unnesting.
+The `UNNEST` keyword isn't used in implicit unnesting.
 
 For example:
 
-```sql
+```zetasql
 WITH Coordinates AS (SELECT ARRAY<STRUCT<x INT64, y ARRAY<INT64>>>[(1, [2,3]), (4, [5,6])] AS position)
 SELECT results FROM Coordinates, Coordinates.position.y AS results;
 ```
@@ -785,19 +786,19 @@ SELECT results FROM Coordinates, Coordinates.position.y AS results;
 When you use `array_path` with `UNNEST`, the
 [`FLATTEN` operator][flatten-operator] is used implicitly. These are equivalent:
 
-```sql
+```zetasql
 -- In UNNEST, FLATTEN used explicitly:
 WITH Coordinates AS (SELECT ARRAY<STRUCT<x INT64, y ARRAY<INT64>>>[(1, [2,3]), (4, [5,6])] AS position)
 SELECT results FROM Coordinates, UNNEST(FLATTEN(Coordinates.position.y)) AS results;
 ```
 
-```sql
+```zetasql
 -- In UNNEST, FLATTEN used implicitly:
 WITH Coordinates AS (SELECT ARRAY<STRUCT<x INT64, y ARRAY<INT64>>>[(1, [2,3]), (4, [5,6])] AS position)
 SELECT results FROM Coordinates, UNNEST(Coordinates.position.y) AS results;
 ```
 
-```sql
+```zetasql
 -- In the FROM clause, UNNEST used implicitly:
 WITH Coordinates AS (SELECT ARRAY<STRUCT<x INT64, y ARRAY<INT64>>>[(1, [2,3]), (4, [5,6])] AS position)
 SELECT results FROM Coordinates, Coordinates.position.y AS results;
@@ -808,7 +809,7 @@ SELECT results FROM Coordinates, Coordinates.position.y AS results;
 When you use `array_path` with implicit `UNNEST`, `array_path` must be prepended
 with the table. For example:
 
-```sql
+```zetasql
 WITH Coordinates AS (SELECT [1,2] AS position)
 SELECT results FROM Coordinates, Coordinates.position AS results;
 ```
@@ -817,18 +818,18 @@ SELECT results FROM Coordinates, Coordinates.position AS results;
 
 You can use `UNNEST` with `array_path` implicitly
 in the `FROM` clause, but only if the
-[array subscript operator][array-subscript-operator] is not included.
+[array subscript operator][array-subscript-operator] isn't included.
 
 The following query is valid:
 
-```sql
+```zetasql
 WITH Coordinates AS (SELECT ARRAY<STRUCT<x INT64, y ARRAY<INT64>>>[(1, [2,3]), (4, [5,6])] AS position)
 SELECT results FROM Coordinates, UNNEST(Coordinates.position.y[SAFE_OFFSET(1)]) AS results;
 ```
 
 The following query is invalid:
 
-```sql {.bad}
+```zetasql {.bad}
 -- Invalid
 WITH Coordinates AS (SELECT ARRAY<STRUCT<x INT64, y ARRAY<INT64>>>[(1, [2,3]), (4, [5,6])] AS position)
 SELECT results FROM Coordinates, Coordinates.position.y[SAFE_OFFSET(1)] AS results;
@@ -863,12 +864,12 @@ The `PIVOT` operator rotates rows into columns, using aggregation.
 `PIVOT` is part of the `FROM` clause.
 
 + `PIVOT` can be used to modify any table expression.
-+ A `WITH OFFSET` clause immediately preceding the `PIVOT` operator is not
++ A `WITH OFFSET` clause immediately preceding the `PIVOT` operator isn't
   allowed.
 
 Conceptual example:
 
-```sql
+```zetasql
 -- Before PIVOT is used to rotate sales and quarter into Q1, Q2, Q3, Q4 columns:
 /*---------+-------+---------+------*
  | product | sales | quarter | year |
@@ -899,8 +900,10 @@ Conceptual example:
 
 Top-level definitions:
 
-+ `from_item`: The subquery on which to perform a pivot operation.
-  The `from_item` must [follow these rules](#rules_for_pivot_from_item).
++ `from_item`: The table, subquery, or
+  table-valued function (TVF) on which
+  to perform a pivot operation. The `from_item` must
+  [follow these rules](#rules_for_pivot_from_item).
 + `pivot_operator`: The pivot operation to perform on a `from_item`.
 + `alias`: An alias to use for an item in the query.
 
@@ -915,9 +918,9 @@ Top-level definitions:
 + `input_column`: Takes a column and retrieves the row values for the
   column, [following these rules](#rules_input_column).
 + `pivot_column`: A pivot column to create for each aggregate function
-  call. If an alias is not provided, a default alias is created. A pivot column
+  call. If an alias isn't provided, a default alias is created. A pivot column
   value type must match the value type in `input_column` so that the values can
-  be compared. It is possible to have a value in `pivot_column` that doesn't
+  be compared. It's possible to have a value in `pivot_column` that doesn't
   match a value in `input_column`. Must be a constant and
   [follow these rules](#rules_pivot_column).
 
@@ -926,7 +929,9 @@ Top-level definitions:
 <a id="rules_for_pivot_from_item"></a>
 Rules for a `from_item` passed to `PIVOT`:
 
-+ The `from_item` is restricted to subqueries only.
++ The `from_item` may consist of any
+  table, subquery, or table-valued function
+  (TVF) result.
 + The `from_item` may not produce a value table.
 + The `from_item` may not be a subquery using `SELECT AS STRUCT`.
 
@@ -955,8 +960,8 @@ Rules for `input_column`:
 Rules for `pivot_column`:
 
 + A `pivot_column` must be a constant.
-+ Named constants, such as variables, are not supported.
-+ Query parameters are not supported.
++ Named constants, such as variables, aren't supported.
++ Query parameters aren't supported.
 + If a name is desired for a named constant or query parameter,
   specify it explicitly with an alias.
 + Corner cases exist where a distinct `pivot_column`s can end up with the same
@@ -1098,7 +1103,7 @@ Rules for `pivot_column`:
 
 The following examples reference a table called `Produce` that looks like this:
 
-```sql
+```zetasql
 WITH Produce AS (
   SELECT 'Kale' as product, 51 as sales, 'Q1' as quarter, 2020 as year UNION ALL
   SELECT 'Kale', 23, 'Q2', 2020 UNION ALL
@@ -1131,7 +1136,7 @@ these new columns: `Q1`, `Q2`, `Q3`, `Q4`. The aggregate function `SUM` is
 implicitly grouped by all unaggregated columns other than the `pivot_column`:
 `product` and `year`.
 
-```sql
+```zetasql
 SELECT * FROM
   Produce
   PIVOT(SUM(sales) FOR quarter IN ('Q1', 'Q2', 'Q3', 'Q4'))
@@ -1148,7 +1153,7 @@ SELECT * FROM
 
 If you don't include `year`, then `SUM` is grouped only by `product`.
 
-```sql
+```zetasql
 SELECT * FROM
   (SELECT product, sales, quarter FROM Produce)
   PIVOT(SUM(sales) FOR quarter IN ('Q1', 'Q2', 'Q3', 'Q4'))
@@ -1163,7 +1168,7 @@ SELECT * FROM
 
 You can select a subset of values in the `pivot_column`:
 
-```sql
+```zetasql
 SELECT * FROM
   (SELECT product, sales, quarter FROM Produce)
   PIVOT(SUM(sales) FOR quarter IN ('Q1', 'Q2', 'Q3'))
@@ -1176,7 +1181,7 @@ SELECT * FROM
  *---------+-----+-----+------*/
 ```
 
-```sql
+```zetasql
 SELECT * FROM
   (SELECT sales, quarter FROM Produce)
   PIVOT(SUM(sales) FOR quarter IN ('Q1', 'Q2', 'Q3'))
@@ -1192,7 +1197,7 @@ You can include multiple aggregation functions in the `PIVOT`. In this case, you
 must specify an alias for each aggregation. These aliases are used to construct
 the column names in the resulting table.
 
-```sql
+```zetasql
 SELECT * FROM
   (SELECT product, sales, quarter FROM Produce)
   PIVOT(SUM(sales) AS total_sales, COUNT(*) AS num_records FOR quarter IN ('Q1', 'Q2'))
@@ -1244,13 +1249,13 @@ The `UNPIVOT` operator rotates columns into rows. `UNPIVOT` is part of the
 
 + `UNPIVOT` can be used to modify any table
   expression.
-+ A `WITH OFFSET` clause immediately preceding the `UNPIVOT` operator is not
++ A `WITH OFFSET` clause immediately preceding the `UNPIVOT` operator isn't
   allowed.
-+ `PIVOT` aggregations cannot be reversed with `UNPIVOT`.
++ `PIVOT` aggregations can't be reversed with `UNPIVOT`.
 
 Conceptual example:
 
-```sql
+```zetasql
 -- Before UNPIVOT is used to rotate Q1, Q2, Q3, Q4 into sales and quarter columns:
 /*---------+----+----+----+----*
  | product | Q1 | Q2 | Q3 | Q4 |
@@ -1306,7 +1311,7 @@ Top-level definitions:
   `values_column` and `name_column`.
   [Follow these rules](#rules_for_unpivot_column) when creating an unpivot
   column.
-  + `row_value_alias`: An optional alias for a column that is displayed for the
+  + `row_value_alias`: An optional alias for a column that's displayed for the
     column in `name_column`. If not specified, the string value of the
     column name is used.
     [Follow these rules](#rules_for_row_value_alias) when creating a
@@ -1323,7 +1328,7 @@ Top-level definitions:
 + `column_sets_to_unpivot`: The columns from the `from_item` to unpivot.
   [Follow these rules](#rules_for_unpivot_column) when creating an unpivot
   column.
-  + `row_value_alias`: An optional alias for a column set that is displayed
+  + `row_value_alias`: An optional alias for a column set that's displayed
     for the column set in `name_column`. If not specified, a string value for
     the column set is used and each column in the string is separated with an
     underscore (`_`). For example, `(col1, col2)` outputs `col1_col2`.
@@ -1339,14 +1344,14 @@ Rules for a `from_item` passed to `UNPIVOT`:
   table, subquery, or table-valued function
   (TVF) result.
 + The `from_item` may not produce a value table.
-+ Duplicate columns in a `from_item` cannot be referenced in the `UNPIVOT`
++ Duplicate columns in a `from_item` can't be referenced in the `UNPIVOT`
   clause.
 
 <a id="rules_for_unpivot_operator"></a>
 Rules for `unpivot_operator`:
 
-+ Expressions are not permitted.
-+ Qualified names are not permitted. For example, `mytable.mycolumn` is not
++ Expressions aren't permitted.
++ Qualified names aren't permitted. For example, `mytable.mycolumn` isn't
   allowed.
 + In the case where the `UNPIVOT` result has duplicate column names:
     + `SELECT *` is allowed.
@@ -1355,26 +1360,26 @@ Rules for `unpivot_operator`:
 <a id="rules_for_values_column"></a>
 Rules for `values_column`:
 
-+ It cannot be a name used for a `name_column` or an `unpivot_column`.
++ It can't be a name used for a `name_column` or an `unpivot_column`.
 + It can be the same name as a column from the `from_item`.
 
 <a id="rules_for_name_column"></a>
 Rules for `name_column`:
 
-+ It cannot be a name used for a `values_column` or an `unpivot_column`.
++ It can't be a name used for a `values_column` or an `unpivot_column`.
 + It can be the same name as a column from the `from_item`.
 
 <a id="rules_for_unpivot_column"></a>
 Rules for `unpivot_column`:
 
 + Must be a column name from the `from_item`.
-+ It cannot reference duplicate `from_item` column names.
++ It can't reference duplicate `from_item` column names.
 + All columns in a column set must have equivalent data types.
-  + Data types cannot be coerced to a common supertype.
+  + Data types can't be coerced to a common supertype.
   + If the data types are exact matches (for example, a struct with
     different field names), the data type of the first input is
     the data type of the output.
-+ You cannot have the same name in the same column set. For example,
++ You can't have the same name in the same column set. For example,
   `(emp1, emp1)` results in an error.
 + You can have a the same name in different column sets. For example,
   `(emp1, emp2), (emp1, emp3)` is valid.
@@ -1391,7 +1396,7 @@ Rules for `row_value_alias`:
 
 The following examples reference a table called `Produce` that looks like this:
 
-```sql
+```zetasql
 WITH Produce AS (
   SELECT 'Kale' as product, 51 as Q1, 23 as Q2, 45 as Q3, 3 as Q4 UNION ALL
   SELECT 'Apple', 77, 0, 25, 2)
@@ -1410,7 +1415,7 @@ rotated. The values of these columns now populate a new column called `Sales`
 and the names of these columns now populate a new column called `Quarter`.
 This is a single-column unpivot operation.
 
-```sql
+```zetasql
 SELECT * FROM Produce
 UNPIVOT(sales FOR quarter IN (Q1, Q2, Q3, Q4))
 
@@ -1431,7 +1436,7 @@ UNPIVOT(sales FOR quarter IN (Q1, Q2, Q3, Q4))
 In this example, we `UNPIVOT` four quarters into two semesters.
 This is a multi-column unpivot operation.
 
-```sql
+```zetasql
 SELECT * FROM Produce
 UNPIVOT(
   (first_half_sales, second_half_sales)
@@ -1502,15 +1507,15 @@ amounts of data and you don't need precise answers.
    randomly selects the specified number of rows for each group, where for a
    particular group, every sample of that size is equally
    likely.
-+  `REPEATABLE`: Optional. When it is used, repeated
++  `REPEATABLE`: Optional. When it's used, repeated
    executions of the sampling operation return a result table with identical
-   rows for a given repeat argument, as long as the underlying data does
-   not change. `repeat_argument` represents a sampling seed
+   rows for a given repeat argument, as long as the underlying data doesn't
+   change. `repeat_argument` represents a sampling seed
    and must be a positive value of type `INT64`.
 +  `WITH WEIGHT`: Optional. Retrieves [scaling weight][scaling-weight]. If
    specified, the `TABLESAMPLE` operator outputs one extra column of type
-   `DOUBLE` that is greater than or equal 1.0 to represent the actual scaling
-   weight. If an alias is not provided, the default name _weight_ is used.
+   `DOUBLE` that's greater than or equal 1.0 to represent the actual scaling
+   weight. If an alias isn't provided, the default name _weight_ is used.
    +  In Bernoulli sampling, the weight is `1 / provided sampling probability`.
       For example, `TABLESAMPLE BERNOULLI (1 percent)` will expose the weight
       of `1 / 0.01`.
@@ -1531,28 +1536,28 @@ The following examples illustrate the use of the `TABLESAMPLE` operator.
 
 Select from a table using the `RESERVOIR` sampling method:
 
-```sql
+```zetasql
 SELECT MessageId
 FROM Messages TABLESAMPLE RESERVOIR (100 ROWS);
 ```
 
 Select from a table using the `BERNOULLI` sampling method:
 
-```sql
+```zetasql
 SELECT MessageId
 FROM Messages TABLESAMPLE BERNOULLI (0.1 PERCENT);
 ```
 
 Use `TABLESAMPLE` with a repeat argument:
 
-```sql
+```zetasql
 SELECT MessageId
 FROM Messages TABLESAMPLE RESERVOIR (100 ROWS) REPEATABLE(10);
 ```
 
 Use `TABLESAMPLE` with a subquery:
 
-```sql
+```zetasql
 SELECT Subject FROM
 (SELECT MessageId, Subject FROM Messages WHERE ServerId="test")
 TABLESAMPLE BERNOULLI(50 PERCENT)
@@ -1561,7 +1566,7 @@ WHERE MessageId > 3;
 
 Use a `TABLESAMPLE` operation with a join to another table.
 
-```sql
+```zetasql
 SELECT S.Subject
 FROM
 (SELECT MessageId, ThreadId FROM Messages WHERE ServerId="test") AS R
@@ -1572,7 +1577,7 @@ WHERE S.ServerId="test" AND R.ThreadId = S.ThreadId;
 
 Group results by country, using stratified sampling:
 
-```sql
+```zetasql
 SELECT country, SUM(click_cost) FROM ClickEvents
  TABLESAMPLE RESERVOIR (100 ROWS PARTITION BY country)
  GROUP BY country;
@@ -1580,7 +1585,7 @@ SELECT country, SUM(click_cost) FROM ClickEvents
 
 Add scaling weight to stratified sampling:
 
-```sql
+```zetasql
 SELECT country, SUM(click_cost * sampling_weight) FROM ClickEvents
  TABLESAMPLE RESERVOIR (100 ROWS PARTITION BY country)
  WITH WEIGHT AS sampling_weight
@@ -1590,7 +1595,7 @@ SELECT country, SUM(click_cost * sampling_weight) FROM ClickEvents
 This is equivalent to the previous example. Note that you don't have to use
 an alias after `WITH WEIGHT`. If you don't, the default alias `weight` is used.
 
-```sql
+```zetasql
 SELECT country, SUM(click_cost * weight) FROM ClickEvents
  TABLESAMPLE RESERVOIR (100 ROWS PARTITION BY country)
  WITH WEIGHT
@@ -1620,7 +1625,7 @@ click events, each of which has two fields: `country` and `click_cost`.
 and `click_cost` represents how much the click costs. In this example,
 100 rows are randomly selected for each country.
 
-```sql
+```zetasql
 SELECT click_cost, country FROM ClickEvents
 TABLESAMPLE RESERVOIR (100 ROWS PARTITION BY country)
 ```
@@ -1644,7 +1649,7 @@ click events, each of which has two fields: `country` and `click_cost`.
 and `click_cost` represents how much the click costs. To calculate the
 total click cost per country, you can use the following query:
 
-```sql
+```zetasql
 SELECT country, SUM(click_cost)
 FROM ClickEvents
 GROUP BY country;
@@ -1654,7 +1659,7 @@ You can leverage the existing uniform sampling with fixed probability, using
 Bernoulli sampling and run this query to estimate the result of the previous
 query:
 
-```sql
+```zetasql
 SELECT country, SUM(click_cost * weight)
 FROM ClickEvents TABLESAMPLE BERNOULLI (1 PERCENT)
 WITH WEIGHT
@@ -1680,7 +1685,7 @@ of the original table, it might miss an entire group of rows, such as countries
 in the running example, with small cardinality. For example, suppose that
 the `ClickEvents` table contains 10000 rows, with 9990 rows of value `US`
 and 10 rows of value `VN`. The number of distinct countries in this example
-is two. With 1% uniform sampling, it is statistically probable that all the
+is two. With 1% uniform sampling, it's statistically probable that all the
 sampled rows are from the `US` and none of them are from the `VN` partition.
 As a result, the output of the second query doesn't contain the `SUM` estimate
 for the group `VN`. We refer to this as the _missing-group problem_, which
@@ -1736,10 +1741,10 @@ combine and discard rows from the two `from_item`s to form a single source.
 
 An `INNER JOIN`, or simply `JOIN`, effectively calculates the Cartesian product
 of the two `from_item`s and discards all rows that don't meet the join
-condition. _Effectively_ means that it is possible to implement an `INNER JOIN`
+condition. _Effectively_ means that it's possible to implement an `INNER JOIN`
 without actually calculating the Cartesian product.
 
-```sql
+```zetasql
 FROM A INNER JOIN B ON A.w = B.y
 
 /*
@@ -1756,7 +1761,7 @@ Table A       Table B       Result
 */
 ```
 
-```sql
+```zetasql
 FROM A INNER JOIN B USING (x)
 
 /*
@@ -1778,7 +1783,7 @@ Table A       Table B       Result
 This query performs an `INNER JOIN` on the [`Roster`][roster-table]
 and [`TeamMascot`][teammascot-table] tables.
 
-```sql
+```zetasql
 SELECT Roster.LastName, TeamMascot.Mascot
 FROM Roster JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
 
@@ -1792,6 +1797,10 @@ FROM Roster JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
  *---------------------------*/
 ```
 
+You can use a [correlated][correlated-join] `INNER JOIN` to flatten an array
+into a set of rows. To learn more, see
+[Convert elements in an array to rows in a table][flattening-arrays].
+
 ### `CROSS JOIN`
 
 `CROSS JOIN` returns the Cartesian product of the two `from_item`s. In other
@@ -1804,7 +1813,7 @@ this still holds for the case when either `from_item` has zero rows.
 
 In a `FROM` clause, a `CROSS JOIN` can be written like this:
 
-```sql
+```zetasql
 FROM A CROSS JOIN B
 
 /*
@@ -1821,7 +1830,8 @@ Table A       Table B       Result
 ```
 
 You can use a [correlated][correlated-join] cross join to convert or
-flatten an array into a set of rows. To learn more, see
+flatten an array into a set of rows, though the (equivalent) `INNER JOIN` is
+preferred over `CROSS JOIN` for this case. To learn more, see
 [Convert elements in an array to rows in a table][flattening-arrays].
 
 **Examples**
@@ -1829,7 +1839,7 @@ flatten an array into a set of rows. To learn more, see
 This query performs an `CROSS JOIN` on the [`Roster`][roster-table]
 and [`TeamMascot`][teammascot-table] tables.
 
-```sql
+```zetasql
 SELECT Roster.LastName, TeamMascot.Mascot
 FROM Roster CROSS JOIN TeamMascot;
 
@@ -1856,7 +1866,7 @@ called a comma cross join.
 
 A comma cross join looks like this in a `FROM` clause:
 
-```sql
+```zetasql
 FROM A, B
 
 /*
@@ -1872,10 +1882,10 @@ Table A       Table B       Result
 */
 ```
 
-You cannot write comma cross joins inside parentheses. To learn more, see
+You can't write comma cross joins inside parentheses. To learn more, see
 [Join operations in a sequence][sequences-of-joins].
 
-```sql {.bad}
+```zetasql {.bad}
 FROM (A, B)  // INVALID
 ```
 
@@ -1888,7 +1898,7 @@ flatten an array into a set of rows. To learn more, see
 This query performs a comma cross join on the [`Roster`][roster-table]
 and [`TeamMascot`][teammascot-table] tables.
 
-```sql
+```zetasql
 SELECT Roster.LastName, TeamMascot.Mascot
 FROM Roster, TeamMascot;
 
@@ -1915,7 +1925,7 @@ rows in both `from_items` that meet the join condition. If a given row from one
 `from_item` doesn't join to any row in the other `from_item`, the row returns
 with `NULL` values for all columns from the other `from_item`.
 
-```sql
+```zetasql
 FROM A FULL OUTER JOIN B ON A.w = B.y
 
 /*
@@ -1934,7 +1944,7 @@ Table A       Table B       Result
 */
 ```
 
-```sql
+```zetasql
 FROM A FULL OUTER JOIN B USING (x)
 
 /*
@@ -1958,7 +1968,7 @@ Table A       Table B       Result
 This query performs a `FULL JOIN` on the [`Roster`][roster-table]
 and [`TeamMascot`][teammascot-table] tables.
 
-```sql
+```zetasql
 SELECT Roster.LastName, TeamMascot.Mascot
 FROM Roster FULL JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
 
@@ -1988,7 +1998,7 @@ in the _right_ `from_item`, the row will return with `NULL` values for all
 columns exclusively from the right `from_item`. Rows from the right
 `from_item` that don't join to any row in the left `from_item` are discarded.
 
-```sql
+```zetasql
 FROM A LEFT OUTER JOIN B ON A.w = B.y
 
 /*
@@ -2006,7 +2016,7 @@ Table A       Table B       Result
 */
 ```
 
-```sql
+```zetasql
 FROM A LEFT OUTER JOIN B USING (x)
 
 /*
@@ -2029,7 +2039,7 @@ Table A       Table B       Result
 This query performs a `LEFT JOIN` on the [`Roster`][roster-table]
 and [`TeamMascot`][teammascot-table] tables.
 
-```sql
+```zetasql
 SELECT Roster.LastName, TeamMascot.Mascot
 FROM Roster LEFT JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
 
@@ -2058,7 +2068,7 @@ in the _left_ `from_item`, the row will return with `NULL` values for all
 columns exclusively from the left `from_item`. Rows from the left `from_item`
 that don't join to any row in the right `from_item` are discarded.
 
-```sql
+```zetasql
 FROM A RIGHT OUTER JOIN B ON A.w = B.y
 
 /*
@@ -2076,7 +2086,7 @@ Table A       Table B       Result
 */
 ```
 
-```sql
+```zetasql
 FROM A RIGHT OUTER JOIN B USING (x)
 
 /*
@@ -2099,7 +2109,7 @@ Table A       Table B       Result
 This query performs a `RIGHT JOIN` on the [`Roster`][roster-table]
 and [`TeamMascot`][teammascot-table] tables.
 
-```sql
+```zetasql
 SELECT Roster.LastName, TeamMascot.Mascot
 FROM Roster RIGHT JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
 
@@ -2128,7 +2138,7 @@ cross join operation.
 #### `ON` clause 
 <a id="on_clause"></a>
 
-```sql
+```zetasql
 ON bool_expression
 ```
 
@@ -2159,7 +2169,7 @@ right-hand input in order.
 
 The following examples show how to use the `ON` clause:
 
-```sql
+```zetasql
 WITH
   A AS ( SELECT 1 as x UNION ALL SELECT 2 UNION ALL SELECT 3),
   B AS ( SELECT 2 as x UNION ALL SELECT 3 UNION ALL SELECT 4)
@@ -2182,7 +2192,7 @@ Table A   Table B   Result (A.x, B.x)
 */
 ```
 
-```sql
+```zetasql
 WITH
   A AS ( SELECT 1 as x UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT NULL),
   B AS ( SELECT 2 as x UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5)
@@ -2206,7 +2216,7 @@ Table A    Table B   Result
 */
 ```
 
-```sql
+```zetasql
 WITH
   A AS ( SELECT 1 as x UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT NULL),
   B AS ( SELECT 2 as x UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5)
@@ -2235,7 +2245,7 @@ Table A    Table B   Result
 #### `USING` clause 
 <a id="using_clause"></a>
 
-```sql
+```zetasql
 USING ( column_name_list )
 
 column_name_list:
@@ -2258,10 +2268,6 @@ Definitions:
   joining.
 
 Details:
-
-The `USING` keyword is not supported in
-strict
-mode.
 
 A `NULL` join condition evaluation is equivalent to a `FALSE` evaluation.
 
@@ -2291,7 +2297,7 @@ tables in that order.
 The following example shows how to use the `USING` clause with one
 column name in the column name list:
 
-```sql
+```zetasql
 WITH
   A AS ( SELECT 1 as x UNION ALL SELECT 2 UNION ALL SELECT 9 UNION ALL SELECT NULL),
   B AS ( SELECT 2 as x UNION ALL SELECT 9 UNION ALL SELECT 9 UNION ALL SELECT 5)
@@ -2313,7 +2319,7 @@ Table A    Table B   Result
 The following example shows how to use the `USING` clause with
 multiple column names in the column name list:
 
-```sql
+```zetasql
 WITH
   A AS (
     SELECT 1 as x, 15 as y UNION ALL
@@ -2343,7 +2349,7 @@ Table A         Table B        Result
 The following examples show additional ways in which to use the `USING` clause
 with one column name in the column name list:
 
-```sql
+```zetasql
 WITH
   A AS ( SELECT 1 as x UNION ALL SELECT 2 UNION ALL SELECT 9 UNION ALL SELECT NULL),
   B AS ( SELECT 2 as x UNION ALL SELECT 9 UNION ALL SELECT 9 UNION ALL SELECT 5)
@@ -2362,7 +2368,7 @@ Table A    Table B   Result
 */
 ```
 
-```sql
+```zetasql
 WITH
   A AS ( SELECT 1 as x UNION ALL SELECT 2 UNION ALL SELECT 9 UNION ALL SELECT NULL),
   B AS ( SELECT 2 as x UNION ALL SELECT 9 UNION ALL SELECT 9 UNION ALL SELECT 5)
@@ -2382,7 +2388,7 @@ Table A    Table B   Result
 */
 ```
 
-```sql
+```zetasql
 WITH
   A AS ( SELECT 1 as x UNION ALL SELECT 2 UNION ALL SELECT 2 UNION ALL SELECT NULL),
   B AS ( SELECT 2 as x UNION ALL SELECT 9 UNION ALL SELECT 9 UNION ALL SELECT 5)
@@ -2402,7 +2408,7 @@ Table A    Table B   Result
 */
 ```
 
-```sql
+```zetasql
 WITH
   A AS ( SELECT 1 as x UNION ALL SELECT 2 UNION ALL SELECT 2 UNION ALL SELECT NULL),
   B AS ( SELECT 2 as x UNION ALL SELECT 9 UNION ALL SELECT 9 UNION ALL SELECT 5)
@@ -2427,7 +2433,7 @@ Table A    Table B   Result
 The following example shows how to use the `USING` clause with
 only some column names in the column name list.
 
-```sql
+```zetasql
 WITH
   A AS (
     SELECT 1 as x, 15 as y UNION ALL
@@ -2460,7 +2466,7 @@ The query returns the rows from `Roster` and `TeamMascot` where
 `Roster.SchoolID` is the same as `TeamMascot.SchoolID`. The results include a
 single `SchoolID` column.
 
-```sql
+```zetasql
 SELECT * FROM Roster INNER JOIN TeamMascot USING (SchoolID);
 
 /*----------------------------------------*
@@ -2475,7 +2481,7 @@ SELECT * FROM Roster INNER JOIN TeamMascot USING (SchoolID);
 
 #### `ON` and `USING` equivalency
 
-The [`ON`][on-clause] and [`USING`][using-clause] join conditions are not
+The [`ON`][on-clause] and [`USING`][using-clause] join conditions aren't
 equivalent, but they share some rules and sometimes they can produce similar
 results.
 
@@ -2483,7 +2489,7 @@ In the following examples, observe what is returned when all rows
 are produced for inner and outer joins. Also, look at how
 each join condition handles `NULL` values.
 
-```sql
+```zetasql
 WITH
   A AS (SELECT 1 as x UNION ALL SELECT 2 UNION ALL SELECT 3),
   B AS (SELECT 2 as x UNION ALL SELECT 3 UNION ALL SELECT 4)
@@ -2506,7 +2512,7 @@ Table A   Table B   Result ON     Result USING
 */
 ```
 
-```sql
+```zetasql
 WITH
   A AS (SELECT 1 as x UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT NULL),
   B AS (SELECT 2 as x UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5)
@@ -2530,7 +2536,7 @@ Table A    Table B   Result ON           Result USING
 */
 ```
 
-```sql
+```zetasql
 WITH
   A AS (SELECT 1 as x UNION ALL SELECT 2 UNION ALL SELECT 3),
   B AS (SELECT 2 as x UNION ALL SELECT 3 UNION ALL SELECT 4)
@@ -2554,14 +2560,14 @@ Table A   Table B   Result ON           Result USING
 */
 ```
 
-Although `ON` and `USING` are not equivalent, they can return the same
+Although `ON` and `USING` aren't equivalent, they can return the same
 results in some situations if you specify the columns you want to return.
 
 In the following examples, observe what is returned when a specific row
 is produced for inner and outer joins. Also, look at how each
 join condition handles `NULL` values.
 
-```sql
+```zetasql
 WITH
   A AS (SELECT 1 as x UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT NULL),
   B AS (SELECT 2 as x UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5)
@@ -2585,7 +2591,7 @@ Table A    Table B   Result ON     Result USING
 */
 ```
 
-```sql
+```zetasql
 WITH
   A AS (SELECT 1 as x UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT NULL),
   B AS (SELECT 2 as x UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5)
@@ -2609,7 +2615,7 @@ Table A    Table B   Result ON    Result USING
 */
 ```
 
-```sql
+```zetasql
 WITH
   A AS (SELECT 1 as x UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT NULL),
   B AS (SELECT 2 as x UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5)
@@ -2635,7 +2641,7 @@ Table A    Table B   Result ON    Result USING
 */
 ```
 
-```sql
+```zetasql
 WITH
   A AS (SELECT 1 as x UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT NULL),
   B AS (SELECT 2 as x UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5)
@@ -2665,7 +2671,7 @@ In the following example, observe what is returned when `COALESCE` is used
 with the `ON` clause. It provides the same results as a query
 with the `USING` clause.
 
-```sql
+```zetasql
 WITH
   A AS (SELECT 1 as x UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT NULL),
   B AS (SELECT 2 as x UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5)
@@ -2697,7 +2703,7 @@ Table A    Table B   Result ON    Result USING
 The `FROM` clause can contain multiple `JOIN` operations in a sequence.
 `JOIN`s are bound from left to right. For example:
 
-```sql
+```zetasql
 FROM A JOIN B USING (x) JOIN C USING (x)
 
 -- A JOIN B USING (x)        = result_1
@@ -2707,7 +2713,7 @@ FROM A JOIN B USING (x) JOIN C USING (x)
 
 You can also insert parentheses to group `JOIN`s:
 
-```sql
+```zetasql
 FROM ( (A JOIN B USING (x)) JOIN C USING (x) )
 
 -- A JOIN B USING (x)        = result_1
@@ -2718,7 +2724,7 @@ FROM ( (A JOIN B USING (x)) JOIN C USING (x) )
 With parentheses, you can group `JOIN`s so that they are bound in a different
 order:
 
-```sql
+```zetasql
 FROM ( A JOIN (B JOIN C USING (x)) USING (x) )
 
 -- B JOIN C USING (x)       = result_1
@@ -2730,24 +2736,24 @@ A `FROM` clause can have multiple joins. Provided there are no comma cross joins
 in the `FROM` clause, joins don't require parenthesis, though parenthesis can
 help readability:
 
-```sql
+```zetasql
 FROM A JOIN B JOIN C JOIN D USING (w) ON B.x = C.y ON A.z = B.x
 ```
 
 If your clause contains comma cross joins, you must use parentheses:
 
-```sql {.bad}
+```zetasql {.bad}
 FROM A, B JOIN C JOIN D ON C.x = D.y ON B.z = C.x    // INVALID
 ```
 
-```sql
+```zetasql
 FROM A, B JOIN (C JOIN D ON C.x = D.y) ON B.z = C.x  // VALID
 ```
 
 When comma cross joins are present in a query with a sequence of JOINs, they
 group from left to right like other `JOIN` types:
 
-```sql
+```zetasql
 FROM A JOIN B USING (x) JOIN C USING (x), D
 
 -- A JOIN B USING (x)        = result_1
@@ -2755,26 +2761,26 @@ FROM A JOIN B USING (x) JOIN C USING (x), D
 -- result_2 CROSS JOIN D     = return value
 ```
 
-There cannot be a `RIGHT JOIN` or `FULL JOIN` after a comma cross join unless it
-is parenthesized:
+There can't be a `RIGHT JOIN` or `FULL JOIN` after a comma cross join unless
+it's parenthesized:
 
-```sql {.bad}
+```zetasql {.bad}
 FROM A, B RIGHT JOIN C ON TRUE // INVALID
 ```
 
-```sql {.bad}
+```zetasql {.bad}
 FROM A, B FULL JOIN C ON TRUE  // INVALID
 ```
 
-```sql
+```zetasql
 FROM A, B JOIN C ON TRUE       // VALID
 ```
 
-```sql
+```zetasql
 FROM A, (B RIGHT JOIN C ON TRUE) // VALID
 ```
 
-```sql
+```zetasql
 FROM A, (B FULL JOIN C ON TRUE)  // VALID
 ```
 
@@ -2787,7 +2793,7 @@ column name introduced by the left `from_item`.
 
 In a correlated join operation, rows from the right `from_item` are determined
 by a row from the left `from_item`. Consequently, `RIGHT OUTER` and `FULL OUTER`
-joins cannot be correlated because right `from_item` rows cannot be determined
+joins can't be correlated because right `from_item` rows can't be determined
 in the case when there is no row from the left `from_item`.
 
 All correlated join operations must reference an array in the right `from_item`.
@@ -2795,7 +2801,7 @@ All correlated join operations must reference an array in the right `from_item`.
 This is a conceptual example of a correlated join operation that includes
 a [correlated subquery][correlated-subquery]:
 
-```sql
+```zetasql
 FROM A JOIN UNNEST(ARRAY(SELECT AS STRUCT * FROM B WHERE A.ID = B.ID)) AS C
 ```
 
@@ -2807,18 +2813,18 @@ This is another conceptual example of a correlated join operation.
 `array_of_IDs` is part of the left `from_item` but is referenced in the
 right `from_item`.
 
-```sql
+```zetasql
 FROM A JOIN UNNEST(A.array_of_IDs) AS C
 ```
 
 The [`UNNEST` operator][unnest-operator] can be explicit or implicit.
 These are both allowed:
 
-```sql
+```zetasql
 FROM A JOIN UNNEST(A.array_of_IDs) AS IDs
 ```
 
-```sql
+```zetasql
 FROM A JOIN A.array_of_IDs AS IDs
 ```
 
@@ -2827,7 +2833,7 @@ against each distinct row from the left `from_item`. In the following
 conceptual example, the correlated join operation first
 evaluates `A` and `B`, then `A` and `C`:
 
-```sql
+```zetasql
 FROM
   A
   JOIN
@@ -2838,12 +2844,12 @@ FROM
 **Caveats**
 
 +   In a correlated `LEFT JOIN`, when the input table on the right side is empty
-    for some row from the left side, it is as if no rows from the right side
+    for some row from the left side, it's as if no rows from the right side
     satisfied the join condition in a regular `LEFT JOIN`. When there are no
     joining rows, a row with `NULL` values for all columns on the right side is
     generated to join with the row from the left side.
 +   In a correlated `CROSS JOIN`, when the input table on the right side is
-    empty for some row from the left side, it is as if no rows from the right
+    empty for some row from the left side, it's as if no rows from the right
     side satisfied the join condition in a regular correlated `INNER JOIN`. This
     means that the row is dropped from the results.
 
@@ -2852,7 +2858,7 @@ FROM
 This is an example of a correlated join, using the
 [Roster][roster-table] and [PlayerStats][playerstats-table] tables:
 
-```sql
+```zetasql
 SELECT *
 FROM
   Roster
@@ -2880,7 +2886,7 @@ the `UNNEST` operation produces no rows on the right input. In that case, a row
 with a `NULL` entry in each column of the right input is created to join with
 the row from the left input. For example:
 
-```sql
+```zetasql
 SELECT A.name, item, ARRAY_LENGTH(A.items) item_count_for_name
 FROM
   UNNEST(
@@ -2905,11 +2911,11 @@ LEFT JOIN
  *--------+------+---------------------*/
 ```
 
-In the case of a correlated `CROSS JOIN`, when the input on the right side
-is empty for some row from the left side, the final row is dropped from the
-results. For example:
+In the case of a correlated `INNER JOIN` or `CROSS JOIN`, when the input on the
+right side is empty for some row from the left side, the final row is dropped
+from the results. For example:
 
-```sql
+```zetasql
 SELECT A.name, item
 FROM
   UNNEST(
@@ -2920,7 +2926,7 @@ FROM
       STRUCT(
         'second' AS name,
         [] AS items)]) AS A
-CROSS JOIN
+INNER JOIN
   A.items AS item;
 
 /*-------+------*
@@ -2962,21 +2968,21 @@ order:
 Evaluation order doesn't always match syntax order.
 
 The `WHERE` clause only references columns available via the `FROM` clause;
-it cannot reference `SELECT` list aliases.
+it can't reference `SELECT` list aliases.
 
 **Examples**
 
 This query returns returns all rows from the [`Roster`][roster-table] table
 where the `SchoolID` column has the value `52`:
 
-```sql
+```zetasql
 SELECT * FROM Roster
 WHERE SchoolID = 52;
 ```
 
 The `bool_expression` can contain multiple sub-conditions:
 
-```sql
+```zetasql
 SELECT * FROM Roster
 WHERE STARTS_WITH(LastName, "Mc") OR STARTS_WITH(LastName, "Mac");
 ```
@@ -2986,13 +2992,13 @@ Expressions in an `INNER JOIN` have an equivalent expression in the
 equivalent expression using `CROSS JOIN` and `WHERE`. For example,
 the following two queries are equivalent:
 
-```sql
+```zetasql
 SELECT Roster.LastName, TeamMascot.Mascot
 FROM Roster INNER JOIN TeamMascot
 ON Roster.SchoolID = TeamMascot.SchoolID;
 ```
 
-```sql
+```zetasql
 SELECT Roster.LastName, TeamMascot.Mascot
 FROM Roster CROSS JOIN TeamMascot
 WHERE Roster.SchoolID = TeamMascot.SchoolID;
@@ -3075,7 +3081,7 @@ and their ordinals.
 The `GROUP BY` clause can group rows in a table with non-distinct
 values in the `GROUP BY` clause. For example:
 
-```sql
+```zetasql
 WITH PlayerStats AS (
   SELECT 'Adams' as LastName, 'Noam' as FirstName, 3 as PointsScored UNION ALL
   SELECT 'Buchanan', 'Jie', 0 UNION ALL
@@ -3099,7 +3105,7 @@ GROUP BY LastName;
 the `SELECT` clause, those aliases override names in the corresponding `FROM`
 clause. For example:
 
-```sql
+```zetasql
 WITH PlayerStats AS (
   SELECT 'Adams' as LastName, 'Noam' as FirstName, 3 as PointsScored UNION ALL
   SELECT 'Buchanan', 'Jie', 0 UNION ALL
@@ -3122,7 +3128,7 @@ GROUP BY last_name;
 You can use the `GROUP BY` clause with arrays. The following query executes
 because the array elements being grouped are the same length and group type:
 
-```sql
+```zetasql
 WITH PlayerStats AS (
   SELECT ['Coolidge', 'Adams'] as Name, 3 as PointsScored UNION ALL
   SELECT ['Adams', 'Buchanan'], 0 UNION ALL
@@ -3144,7 +3150,7 @@ GROUP BY Name;
 You can use the `GROUP BY` clause with structs. The following query executes
 because the struct fields being grouped have the same group types:
 
-```sql
+```zetasql
 WITH
   TeamStats AS (
     SELECT
@@ -3201,7 +3207,7 @@ list, using integer values. `1` refers to the first value in the
 `SELECT` list, `2` the second, and so forth. The value list can combine
 ordinals and value names. The following queries are equivalent:
 
-```sql
+```zetasql
 WITH PlayerStats AS (
   SELECT 'Adams' as LastName, 'Noam' as FirstName, 3 as PointsScored UNION ALL
   SELECT 'Buchanan', 'Jie', 0 UNION ALL
@@ -3221,7 +3227,7 @@ GROUP BY LastName, FirstName;
  +--------------+----------+-----------*/
 ```
 
-```sql
+```zetasql
 WITH PlayerStats AS (
   SELECT 'Adams' as LastName, 'Noam' as FirstName, 3 as PointsScored UNION ALL
   SELECT 'Buchanan', 'Jie', 0 UNION ALL
@@ -3257,7 +3263,7 @@ The following `SELECT` items are excluded from the `GROUP BY ALL` clause:
 
 +   Expressions that include [aggregate functions][aggregate-function-calls].
 +   Expressions that include [window functions][window-function-calls].
-+   Expressions that do not reference a name from the `FROM` clause.
++   Expressions that don't reference a name from the `FROM` clause.
     This includes:
     +   Constants
     +   Query parameters
@@ -3278,7 +3284,7 @@ In the following example, the query groups rows by `first_name` and
 `last_name`. `total_points` is excluded because it represents an
 aggregate function.
 
-```sql
+```zetasql
 WITH PlayerStats AS (
   SELECT 'Adams' as LastName, 'Noam' as FirstName, 3 as PointsScored UNION ALL
   SELECT 'Buchanan', 'Jie', 0 UNION ALL
@@ -3305,7 +3311,7 @@ If the select list contains an analytic function, the query groups rows by
 `first_name` and `last_name`. `total_people` is excluded because it
 contains a window function.
 
-```sql
+```zetasql
 WITH PlayerStats AS (
   SELECT 'Adams' as LastName, 'Noam' as FirstName, 3 as PointsScored UNION ALL
   SELECT 'Buchanan', 'Jie', 0 UNION ALL
@@ -3335,7 +3341,7 @@ In the following example, `coordinates` is excluded because `x_coordinate` and
 `FROM` clause, and they are prefixes of the path expression used in
 `x_coordinate`:
 
-```sql
+```zetasql
 WITH Values AS (
   SELECT 1 AS x, 2 AS y
   UNION ALL SELECT 1 AS x, 4 AS y
@@ -3360,7 +3366,7 @@ GROUP BY ALL
 In the following example, the inferred set of grouping keys is empty. The query
 returns one row even when the input contains zero rows.
 
-```sql
+```zetasql
 SELECT COUNT(*) AS num_rows
 FROM UNNEST([])
 GROUP BY ALL
@@ -3413,7 +3419,7 @@ For example, `GROUP BY GROUPING SETS(x,y)` is roughly equivalent to
 + `groupable_item`: Group rows in a table that share common values
   for certain columns. To learn more, see
   [Group rows by groupable items][group-by-groupable-item].
-  [Anonymous `STRUCT` values][tuple-struct] are not allowed.
+  [Anonymous `STRUCT` values][tuple-struct] aren't allowed.
 + `groupable_item_set`: Group rows by a set of
   [groupable items][group-by-groupable-item]. If the set contains no
   groupable items, group all rows and produce a grand total.
@@ -3469,7 +3475,7 @@ Conceptual grouping sets | Actual grouping sets
 `(d)`                    | `(d)`
 
 When evaluating the results for a particular grouping set,
-expressions that are not in the grouping set are aggregated and produce a
+expressions that aren't in the grouping set are aggregated and produce a
 `NULL` placeholder.
 
 You can filter results for specific groupable items. To learn more, see the
@@ -3480,7 +3486,7 @@ You can filter results for specific groupable items. To learn more, see the
 The following queries produce the same results, but
 the first one uses `GROUP BY GROUPING SETS` and the second one doesn't:
 
-```sql
+```zetasql
 -- GROUP BY with GROUPING SETS
 WITH
   Products AS (
@@ -3505,7 +3511,7 @@ ORDER BY product_name
  +--------------+--------------+-------------*/
 ```
 
-```sql
+```zetasql
 -- GROUP BY without GROUPING SETS
 -- (produces the same results as GROUPING SETS)
 WITH
@@ -3528,7 +3534,7 @@ ORDER BY product_name
 You can include groupable item sets in a `GROUP BY GROUPING SETS` clause.
 In the example below, `(product_type, product_name)` is a groupable item set.
 
-```sql
+```zetasql
 -- GROUP BY with GROUPING SETS and a groupable item set
 WITH
   Products AS (
@@ -3555,7 +3561,7 @@ ORDER BY product_type, product_name;
  +--------------+--------------+-------------*/
 ```
 
-```sql
+```zetasql
 -- GROUP BY with GROUPING SETS but without a groupable item set
 -- (produces the same results as GROUPING SETS with a groupable item set)
 WITH
@@ -3578,7 +3584,7 @@ ORDER BY product_type, product_name;
 You can include [`ROLLUP`][group-by-rollup] in a
 `GROUP BY GROUPING SETS` clause. For example:
 
-```sql
+```zetasql
 -- GROUP BY with GROUPING SETS and ROLLUP
 WITH
   Products AS (
@@ -3608,7 +3614,7 @@ ORDER BY product_type, product_name;
  +--------------+--------------+-------------*/
 ```
 
-```sql
+```zetasql
 -- GROUP BY with GROUPING SETS, but without ROLLUP
 -- (produces the same results as GROUPING SETS with ROLLUP)
 WITH
@@ -3631,7 +3637,7 @@ ORDER BY product_type, product_name;
 You can include [`CUBE`][group-by-cube] in a `GROUP BY GROUPING SETS` clause.
 For example:
 
-```sql
+```zetasql
 -- GROUP BY with GROUPING SETS and CUBE
 WITH
   Products AS (
@@ -3664,7 +3670,7 @@ ORDER BY product_type, product_name;
  +--------------+--------------+-------------*/
 ```
 
-```sql
+```zetasql
 -- GROUP BY with GROUPING SETS, but without CUBE
 -- (produces the same results as GROUPING SETS with CUBE)
 WITH
@@ -3713,7 +3719,7 @@ in a set of data.
 + `groupable_item`: Group rows in a table that share common values
   for certain columns. To learn more, see
   [Group rows by groupable items][group-by-groupable-item].[anonymous `STRUCT` values][tuple-struct]
-  are not allowed.
+  aren't allowed.
 + `groupable_item_set`: Group rows by a subset of
   [groupable items][group-by-groupable-item].
 
@@ -3745,7 +3751,7 @@ Conceptual grouping sets | Actual grouping sets
 `()`                     | `()`
 
 When evaluating the results for a particular grouping set,
-expressions that are not in the grouping set are aggregated and produce a
+expressions that aren't in the grouping set are aggregated and produce a
 `NULL` placeholder.
 
 You can filter results by specific groupable items. To learn more, see the
@@ -3756,7 +3762,7 @@ You can filter results by specific groupable items. To learn more, see the
 The following queries produce the same subtotals and a grand total, but
 the first one uses `GROUP BY` with `ROLLUP` and the second one doesn't:
 
-```sql
+```zetasql
 -- GROUP BY with ROLLUP
 WITH
   Products AS (
@@ -3782,7 +3788,7 @@ ORDER BY product_type, product_name;
  +--------------+--------------+-------------*/
 ```
 
-```sql
+```zetasql
 -- GROUP BY without ROLLUP (produces the same results as ROLLUP)
 WITH
   Products AS (
@@ -3807,7 +3813,7 @@ You can include groupable item sets in a `GROUP BY ROLLUP` clause.
 In the following example, `(product_type, product_name)` is a
 groupable item set.
 
-```sql
+```zetasql
 WITH
   Products AS (
     SELECT 'shirt' AS product_type, 't-shirt' AS product_name, 3 AS product_count UNION ALL
@@ -3861,7 +3867,7 @@ between items in a set of data.
 + `groupable_item`: Group rows in a table that share common values
   for certain columns. To learn more, see
   [Group rows by groupable items][group-by-groupable-item].
-  [Anonymous `STRUCT` values][tuple-struct] are not allowed.
+  [Anonymous `STRUCT` values][tuple-struct] aren't allowed.
 + `groupable_item_set`: Group rows by a set of
   [groupable items][group-by-groupable-item].
 
@@ -3900,7 +3906,7 @@ Conceptual grouping sets | Actual grouping sets
 `()`                     | `()`
 
 When evaluating the results for a particular grouping set,
-expressions that are not in the grouping set are aggregated and produce a
+expressions that aren't in the grouping set are aggregated and produce a
 `NULL` placeholder.
 
 You can filter results by specific groupable items. To learn more, see the
@@ -3911,7 +3917,7 @@ You can filter results by specific groupable items. To learn more, see the
 The following query groups rows by all combinations of `product_type` and
 `product_name` to produce a contingency table:
 
-```sql
+```zetasql
 -- GROUP BY with CUBE
 WITH
   Products AS (
@@ -3944,7 +3950,7 @@ You can include groupable item sets in a `GROUP BY CUBE` clause.
 In the following example, `(product_type, product_name)` is a
 groupable item set.
 
-```sql
+```zetasql
 WITH
   Products AS (
     SELECT 'shirt' AS product_type, 't-shirt' AS product_name, 3 AS product_count UNION ALL
@@ -4008,7 +4014,7 @@ well as `SELECT` list aliases. Expressions referenced in the `HAVING` clause
 must either appear in the `GROUP BY` clause or they must be the result of an
 aggregate function:
 
-```sql
+```zetasql
 SELECT LastName
 FROM Roster
 GROUP BY LastName
@@ -4018,7 +4024,7 @@ HAVING SUM(PointsScored) > 15;
 If a query contains aliases in the `SELECT` clause, those aliases override names
 in a `FROM` clause.
 
-```sql
+```zetasql
 SELECT LastName, SUM(PointsScored) AS ps
 FROM Roster
 GROUP BY LastName
@@ -4033,7 +4039,7 @@ aggregation must be present in at least one of the following forms:
 
 #### Aggregation function in the `SELECT` list.
 
-```sql
+```zetasql
 SELECT LastName, SUM(PointsScored) AS total
 FROM PlayerStats
 GROUP BY LastName
@@ -4042,7 +4048,7 @@ HAVING total > 15;
 
 #### Aggregation function in the `HAVING` clause.
 
-```sql
+```zetasql
 SELECT LastName
 FROM PlayerStats
 GROUP BY LastName
@@ -4056,7 +4062,7 @@ clause, the aggregation functions and the columns they reference don't need
 to be the same. In the example below, the two aggregation functions,
 `COUNT()` and `SUM()`, are different and also use different columns.
 
-```sql
+```zetasql
 SELECT LastName, COUNT(*)
 FROM PlayerStats
 GROUP BY LastName
@@ -4079,8 +4085,8 @@ collation_specification:
 </pre>
 
 The `ORDER BY` clause specifies a column or expression as the sort criterion for
-the result set. If an `ORDER BY` clause is not present, the order of the results
-of a query is not defined. Column aliases from a `FROM` clause or `SELECT` list
+the result set. If an `ORDER BY` clause isn't present, the order of the results
+of a query isn't defined. Column aliases from a `FROM` clause or `SELECT` list
 are allowed. If a query contains aliases in the `SELECT` clause, those aliases
 override names in the corresponding `FROM` clause. The data type of
 `expression` must be [orderable][orderable-data-types].
@@ -4103,7 +4109,7 @@ override names in the corresponding `FROM` clause. The data type of
     +  `NULLS LAST`. Sort null values after non-null values.
 +  `ASC | DESC`: Sort the results in ascending or descending
     order of `expression` values. `ASC` is the
-    default value. If null ordering is not specified
+    default value. If null ordering isn't specified
     with `NULLS FIRST` or `NULLS LAST`:
     +  `NULLS FIRST` is applied by default if the sort order is ascending.
     +  `NULLS LAST` is applied by default if the sort order is
@@ -4113,7 +4119,7 @@ override names in the corresponding `FROM` clause. The data type of
 
 Use the default sort order (ascending).
 
-```sql
+```zetasql
 SELECT x, y
 FROM (SELECT 1 AS x, true AS y UNION ALL
       SELECT 9, true UNION ALL
@@ -4131,7 +4137,7 @@ ORDER BY x;
 
 Use the default sort order (ascending), but return null values last.
 
-```sql
+```zetasql
 SELECT x, y
 FROM (SELECT 1 AS x, true AS y UNION ALL
       SELECT 9, true UNION ALL
@@ -4149,7 +4155,7 @@ ORDER BY x NULLS LAST;
 
 Use descending sort order.
 
-```sql
+```zetasql
 SELECT x, y
 FROM (SELECT 1 AS x, true AS y UNION ALL
       SELECT 9, true UNION ALL
@@ -4167,7 +4173,7 @@ ORDER BY x DESC;
 
 Use descending sort order, but return null values first.
 
-```sql
+```zetasql
 SELECT x, y
 FROM (SELECT 1 AS x, true AS y UNION ALL
       SELECT 9, true UNION ALL
@@ -4183,10 +4189,10 @@ ORDER BY x DESC NULLS FIRST;
  *------+-------*/
 ```
 
-It is possible to order by multiple columns. In the example below, the result
+It's possible to order by multiple columns. In the example below, the result
 set is ordered first by `SchoolID` and then by `LastName`:
 
-```sql
+```zetasql
 SELECT LastName, PointsScored, OpponentID
 FROM PlayerStats
 ORDER BY SchoolID, LastName;
@@ -4196,12 +4202,12 @@ When used in conjunction with
 [set operators][set-operators],
 the `ORDER BY` clause applies to the result set of the entire query; it doesn't
 apply only to the closest `SELECT` statement. For this reason, it can be helpful
-(though it is not required) to use parentheses to show the scope of the `ORDER
+(though it isn't required) to use parentheses to show the scope of the `ORDER
 BY`.
 
 This query without parentheses:
 
-```sql
+```zetasql
 SELECT * FROM Roster
 UNION ALL
 SELECT * FROM TeamMascot
@@ -4210,17 +4216,17 @@ ORDER BY SchoolID;
 
 is equivalent to this query with parentheses:
 
-```sql
+```zetasql
 ( SELECT * FROM Roster
   UNION ALL
   SELECT * FROM TeamMascot )
 ORDER BY SchoolID;
 ```
 
-but is not equivalent to this query, where the `ORDER BY` clause applies only to
+but isn't equivalent to this query, where the `ORDER BY` clause applies only to
 the second `SELECT` statement:
 
-```sql
+```zetasql
 SELECT * FROM Roster
 UNION ALL
 ( SELECT * FROM TeamMascot
@@ -4233,14 +4239,14 @@ the `SELECT` list.
 
 Example - the following two queries are equivalent:
 
-```sql
+```zetasql
 SELECT SUM(PointsScored), LastName
 FROM PlayerStats
 GROUP BY LastName
 ORDER BY LastName;
 ```
 
-```sql
+```zetasql
 SELECT SUM(PointsScored), LastName
 FROM PlayerStats
 GROUP BY 2
@@ -4249,7 +4255,7 @@ ORDER BY 2;
 
 Collate results using English - Canada:
 
-```sql
+```zetasql
 SELECT Place
 FROM Locations
 ORDER BY Place COLLATE "en_CA"
@@ -4257,7 +4263,7 @@ ORDER BY Place COLLATE "en_CA"
 
 Collate results using a parameter:
 
-```sql
+```zetasql
 #@collate_param = "arg_EG"
 SELECT Place
 FROM Locations
@@ -4266,7 +4272,7 @@ ORDER BY Place COLLATE @collate_param
 
 Using multiple `COLLATE` clauses in a statement:
 
-```sql
+```zetasql
 SELECT APlace, BPlace, CPlace
 FROM Locations
 ORDER BY APlace COLLATE "en_US" ASC,
@@ -4276,7 +4282,7 @@ ORDER BY APlace COLLATE "en_US" ASC,
 
 Case insensitive collation:
 
-```sql
+```zetasql
 SELECT Place
 FROM Locations
 ORDER BY Place COLLATE "en_US:ci"
@@ -4284,7 +4290,7 @@ ORDER BY Place COLLATE "en_US:ci"
 
 Default Unicode case-insensitive collation:
 
-```sql
+```zetasql
 SELECT Place
 FROM Locations
 ORDER BY Place COLLATE "und:ci"
@@ -4324,7 +4330,7 @@ Evaluation order doesn't always match syntax order.
 The following query returns the most popular vegetables in the
 [`Produce`][produce-table] table and their rank.
 
-```sql
+```zetasql
 SELECT
   item,
   RANK() OVER (PARTITION BY category ORDER BY purchases DESC) as rank
@@ -4345,7 +4351,7 @@ You don't have to include a window function in the `SELECT` list to use
 `QUALIFY`. The following query returns the most popular vegetables in the
 [`Produce`][produce-table] table.
 
-```sql
+```zetasql
 SELECT item
 FROM Produce
 WHERE Produce.category = 'vegetable'
@@ -4384,7 +4390,7 @@ They all return the same [result][named-window-example]. Note the different
 ways you can combine named windows and use them in a window function's
 `OVER` clause.
 
-```sql
+```zetasql
 SELECT item, purchases, category, LAST_VALUE(item)
   OVER (item_window) AS most_popular
 FROM Produce
@@ -4394,7 +4400,7 @@ WINDOW item_window AS (
   ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING)
 ```
 
-```sql
+```zetasql
 SELECT item, purchases, category, LAST_VALUE(item)
   OVER (d) AS most_popular
 FROM Produce
@@ -4405,7 +4411,7 @@ WINDOW
   d AS (c)
 ```
 
-```sql
+```zetasql
 SELECT item, purchases, category, LAST_VALUE(item)
   OVER (c ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING) AS most_popular
 FROM Produce
@@ -4421,413 +4427,777 @@ WINDOW
 <a id="set_operators"></a>
 
 <pre>
-<span class="var">set_operation</span>:
-  {
-    <a href="#sql_syntax"><span class="var">query_expr</span></a> <span class="var">set_operator</span> <a href="#sql_syntax"><span class="var">query_expr</span></a>
-    | <a href="#corresponding"><span class="var">corresponding_set_operation</span></a>
-  }
-
-<span class="var">set_operator</span>:
+  <a href="#sql_syntax"><span class="var">query_expr</span></a>
+  [ { INNER | [ { FULL | LEFT } [ OUTER ] ] } ]
   {
     <a href="#union">UNION</a> { ALL | DISTINCT } |
     <a href="#intersect">INTERSECT</a> { ALL | DISTINCT } |
     <a href="#except">EXCEPT</a> { ALL | DISTINCT }
   }
+  [ { <a href="#by_name_or_corresponding">BY NAME</a> [ ON (<span class="var">column_list</span>) ] | [ STRICT ] <a href="#by_name_or_corresponding">CORRESPONDING</a> [ BY (<span class="var">column_list</span>) ] } ]
+  <a href="#sql_syntax"><span class="var">query_expr</span></a>
 </pre>
 
-Set operators combine results from two or
-more input queries into a single result set. If you specify `ALL`, then all rows are
-retained. If `DISTINCT` is specified, duplicate rows are
-discarded.
+Set operators combine or filter
+results from two or more input queries into a single result set.
 
-If a given row R appears exactly m times in the first input query and n times
-in the second input query (m >= 0, n >= 0):
+**Definitions**
 
-+  For `UNION ALL`, R appears exactly m + n times in the
-   result.
-+  For `INTERSECT ALL`, R will appear exactly `MIN(m, n)` in the
-   result.
-+  For `EXCEPT ALL`, R appears exactly `MAX(m - n, 0)` in the
-   result.
-+  For `UNION DISTINCT`, the `DISTINCT`
-   is computed after the `UNION` is computed, so R appears exactly
-   one time.
-+  For `INTERSECT DISTINCT`, the `DISTINCT` is computed
-   after the result above is computed.
-+  For `EXCEPT DISTINCT`, row R appears once in the output if
-   m > 0 and n = 0.
-+  If there are more than two input queries, the above operations generalize
-   and the output is the same as if the input queries were combined
-   incrementally from left to right.
++   `query_expr`: One of two input queries whose results are combined or filtered
+    into a single result set.
++   `UNION`: Returns the combined results of the left and right input queries.
+    Values in columns that are matched by position are concatenated vertically.
++   `INTERSECT`: Returns rows that are found in the results of both the left and
+    right input queries.
++   `EXCEPT`: Returns rows from the left input query that aren't present in the
+    right input query.
++   `ALL`: Executes the set operation on all rows.
++   `DISTINCT`: Excludes duplicate rows in the set operation.
++   `BY NAME`, `CORRESPONDING`: Matches
+    columns by name instead of by position. The `BY NAME` modifier is equivalent to `STRICT CORRESPONDING`.
+    For details, see [`BY NAME` or `CORRESPONDING`][by-name-or-corresponding].
++   `INNER`, `FULL | LEFT [OUTER]`, `STRICT`, `ON`, `BY`:
+    Adjust how the `BY NAME` or `CORRESPONDING` modifier behaves when
+    the column names don't match exactly. For details, see
+    [`BY NAME` or  `CORRESPONDING`][by-name-or-corresponding].
 
-The following rules apply:
+**Positional column matching**
+
+By default, columns are matched positionally and follow these rules. If the
+`BY NAME` or `CORRESPONDING` modifier is
+used, columns are matched by name, as described in the next section.
+
++  Columns from input queries are matched by their position in the queries. That
+   is, the first column in the first input query is paired with the first column
+   in the second input query and so on.
++  The input queries on each side of the operator must return the same number of
+   columns.
+
+**Name-based column matching**
+
+To make set operations match columns by name instead of by column position,
+use the [`BY NAME` or `CORRESPONDING`][by-name-or-corresponding] modifier.
+
+With `BY NAME` or `STRICT CORRESPONDING`, the same column names
+must exist in each input, but they can be in different orders. Additional
+modifiers can be used to handle cases where the columns don't exactly match.
+
+The `BY NAME` modifier is equivalent to `STRICT CORRESPONDING`, but
+the `BY NAME` modifier is recommended because it's shorter and clearer.
+
+Example:
+
+```zetasql
+SELECT 1 AS one_digit, 10 AS two_digit
+UNION ALL BY NAME
+SELECT 20 AS two_digit, 2 AS one_digit;
+
+-- Column values match by name and not position in query.
+/*-----------+-----------+
+ | one_digit | two_digit |
+ +-----------+-----------+
+ | 1         | 10        |
+ | 2         | 20        |
+ +-----------+-----------*/
+```
+
+**Other column-related rules**
 
 +  For set operations other than `UNION
    ALL`, all column types must support
    equality comparison.
-+  (If `CORRESPONDING` is not
-   used) The input queries on each side of the operator must return
-   the same number of columns.
-+  (If `CORRESPONDING` is not
-   used) The operators pair the columns returned by each input query
-   according to the columns' positions in their respective `SELECT` lists. That
-   is, the first column in the first input query is paired with the first column
-   in the second input query.
-+  The results of the set operation always uses the column names from the
++  The results of the set operation always use the column names from the
    first input query.
-+  The results of the set operation always uses the supertypes of input types
++  The results of the set operation always use the supertypes of input types
    in corresponding columns, so paired columns must also have either the same
    data type or a common supertype.
-+  You must use parentheses to separate different set operations.
-   
-   + Set operations such as `UNION ALL` and `UNION DISTINCT` are different.
-   
-   
-   + Set operations such as `UNION ALL` and `UNION ALL CORRESPONDING` are different.
-   
-+  If the statement only repeats the same set operation, parentheses are not
-   necessary.
 
-Examples:
+**Parenthesized set operators**
 
-```sql
--- This works
-query1 UNION ALL query2 UNION ALL query3
++   Parentheses must be used to separate different set operations.
+    Set operations like `UNION ALL` and `UNION DISTINCT` are considered different.
++   Parentheses are also used to group set operations and control order of
+    operations. In `EXCEPT` set operations, for example,
+    query results can vary depending on the operation grouping.
+
+The following examples illustrate the use of parentheses with set
+operations:
+
+```zetasql
+-- Same set operations, no parentheses.
+query1
+UNION ALL
+query2
+UNION ALL
+query3;
 ```
 
-```sql
--- This works
-query1 UNION ALL (query2 UNION DISTINCT query3)
+```zetasql
+-- Different set operations, parentheses needed.
+query1
+UNION ALL
+(
+  query2
+  UNION DISTINCT
+  query3
+);
 ```
 
-```sql
--- This works
-query1 UNION ALL CORRESPONDING query2 UNION ALL CORRESPONDING query3
+```zetasql {.bad}
+-- Invalid
+query1
+UNION ALL
+query2
+UNION DISTINCT
+query3;
 ```
 
-```sql {.bad}
--- This is invalid
-query1 UNION ALL query2 UNION DISTINCT query3
+```zetasql
+-- Same set operations, no parentheses.
+query1
+EXCEPT ALL
+query2
+EXCEPT ALL
+query3;
+
+-- Equivalent query with optional parentheses, returns same results.
+(
+  query1
+  EXCEPT ALL
+  query2
+)
+EXCEPT ALL
+query3;
 ```
 
-```sql {.bad}
--- This is invalid
-query1 UNION ALL CORRESPONDING query2 UNION ALL query3
+```zetasql
+-- Different execution order with a subquery, parentheses needed.
+query1
+EXCEPT ALL
+(
+  query2
+  EXCEPT ALL
+  query3
+);
 ```
 
-```sql {.bad}
--- This is invalid
-query1 UNION ALL query2 INTERSECT ALL query3;
-```
+**Set operator behavior with duplicate rows**
+
+Consider a given row `R` that appears exactly `m` times in the first input query
+and `n` times in the second input query, where `m >= 0` and `n >= 0`:
+
++  For `UNION ALL`, row `R` appears exactly `m + n` times in the
+   result.
++  For `INTERSECT ALL`, row `R` appears exactly `MIN(m, n)` times in the
+   result.
++  For `EXCEPT ALL`, row `R` appears exactly `MAX(m - n, 0)` times in the
+   result.
++  For `UNION DISTINCT`, the `DISTINCT`
+   is computed after the `UNION` is computed, so row `R` appears exactly
+   one time.
++  For `INTERSECT DISTINCT`, row `R` appears once in the output if `m > 0` and
+   `n > 0`.
++  For `EXCEPT DISTINCT`, row `R` appears once in the output if
+   `m > 0` and `n = 0`.
++  If more than two input queries are used, the above operations generalize
+   and the output is the same as if the input queries were combined
+   incrementally from left to right.
+
+<span id="by_name_or_corresponding"><b>BY NAME or CORRESPONDING</b></span>
+
+Use the `BY NAME` or `CORRESPONDING` modifier
+with set operations to match columns by name instead of by position.
+The `BY NAME` modifier is equivalent to `STRICT CORRESPONDING`, but the
+`BY NAME` modifier is recommended because it's shorter and clearer.
+You can use mode prefixes to adjust how
+the `BY NAME` or `CORRESPONDING` modifier
+behaves when the column names don't match exactly.
+
++   `BY NAME`: Matches
+    columns by name instead of by position.
+    + Both input queries must have the same set of column names, but column order
+    can be different. If a column in one input query doesn't appear in the other
+    query, an error is raised.
+    + Input queries can't contain duplicate columns.
+    + Input queries that produce [value tables][value-tables] aren't supported.
++   `INNER`: Adjusts the `BY NAME` modifier behavior so that columns that appear
+    in both input queries are included in the query results and any other
+    columns are excluded.
+    +  No error is raised for the excluded columns that appear in one input
+    query but not in the other input query.
+    + At least one column must be common in both left and right input queries.
++   `FULL [OUTER]`: Adjusts the `BY NAME` modifier behavior so that all columns
+    from both input queries are included in the query results, even if some
+    columns aren't present in both queries.
+    +  Columns from the left input query are returned
+    first, followed by unique columns from the right input query.
+    + For columns in one input query that aren't present in the other query,
+    a `NULL` value is added as its column value for the other query in the results.
++   `LEFT [OUTER]`: Adjusts the `BY NAME` modifier so that all columns from the
+    left input query are included in the results, even if some columns in the
+    left query aren't present in the right query.
+    + For columns in the left query that aren't in the right query, a `NULL`
+    value is added as its column value for the right query in the results.
+    + At least one column name must be common in both left and right input queries.
++   `OUTER`: If used alone, equivalent to `FULL OUTER`.
++   `ON (column_list)`: Used after the `BY NAME` modifier to
+    specify a comma-separated list of column names and the column order to
+    return from the input queries.
+    + If `BY NAME ON (column_list)` is used
+    alone without mode prefixes like 
+    `INNER` or `FULL | LEFT [OUTER]`, then both the left and right
+    input queries must contain all the columns in the `column_list`.
+    + If any mode prefixes are used, then any column names not in the
+    `column_list` are excluded from the results according to the mode used.
++   `CORRESPONDING`: Equivalent to `INNER...BY NAME`.
+    + Supports `FULL | LEFT [OUTER]` modes the same way they're supported by the `BY NAME` modifier.
+    + Supports `INNER` mode, but this mode has no effect. The `INNER` mode is used with the `BY NAME`
+    modifier to exclude unmatched columns between input queries, which is
+    the default behavior of the `CORRESPONDING` modifier. Therefore, using
+    `INNER...CORRESPONDING` produces the same results as `CORRESPONDING`.
++   `STRICT`: Adjusts the `CORRESPONDING` modifier to be equivalent to the default `BY NAME` modifier, where input
+    queries must have the same set of column names.
++   `BY (column_list)`: Equivalent to `ON (column_list)` with `BY NAME`.
+
+The following table shows the equivalent syntaxes between the `BY NAME` and
+`CORRESPONDING` modifiers, using the `UNION ALL` set operator as an example:
+
+<table>
+  <thead>
+    <tr>
+      <th>BY NAME syntax</th>
+      <th>Equivalent CORRESPONDING syntax</th>
+    </tr>
+  </thead>
+  <tbody>
+
+    <tr>
+      <td><code>UNION ALL BY NAME</code></td>
+      <td><code>UNION ALL STRICT CORRESPONDING</code></td>
+    </tr>
+
+    <tr>
+      <td><code>INNER UNION ALL BY NAME</code></td>
+      <td><code>UNION ALL CORRESPONDING</code></td>
+    </tr>
+    <tr>
+      <td><code>{LEFT | FULL} [OUTER] UNION ALL BY NAME</code></td>
+      <td><code>{LEFT | FULL} [OUTER] UNION ALL CORRESPONDING</code></td>
+    </tr>
+    <tr>
+      <td><code>[FULL] OUTER UNION ALL BY NAME</code></td>
+      <td><code>[FULL] OUTER UNION ALL CORRESPONDING</code></td>
+    </tr>
+    <tr>
+      <td><code>UNION ALL BY NAME ON (col1, col2, ...)</code></td>
+      <td><code>UNION ALL STRICT CORRESPONDING BY (col1, col2, ...)</code></td>
+    </tr>
+  </tbody>
+</table>
+
+The following table shows the behavior of the mode prefixes for the
+`BY NAME` and `CORRESPONDING` modifiers
+when left and right input columns don't match:
+
+<table style="width:100%">
+  <thead>
+    <tr>
+      <th style="width:30%">Mode prefix and modifier</th>
+      <th>Behavior when left and right input columns don't match</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>BY NAME</code> (no prefix) or<br/><code>STRICT CORRESPONDING</code>
+      <td>Error, all columns must match in both inputs.</td>
+     </tr>
+    <tr>
+      <td><code>INNER BY NAME</code> or<br/><code>CORRESPONDING</code> (no prefix)</td>
+      <td>Drop all unmatched columns in both inputs.</td>
+    </tr>
+    <tr>
+      <td><code>FULL [OUTER] BY NAME</code> or<br/><code>FULL [OUTER] CORRESPONDING</code></td>
+      <td>Include all columns from both inputs. For column values that exist in one input but not in another, add <code>NULL</code> values.</td>
+    </tr>
+    <tr>
+      <td><code>LEFT [OUTER] BY NAME</code> or<br/><code>LEFT [OUTER] CORRESPONDING</code></td>
+      <td>Include all columns from the left input. For column values that exist in the left input but not in the right input, add <code>NULL</code> values. Drop any columns from the right input that don't exist in the left input.</td>
+    </tr>
+  </tbody>
+</table>
+
+For example set operations with modifiers, see the sections for each set
+operator, such as [`UNION`][union-syntax].
 
 ### `UNION` 
 <a id="union"></a>
 
-The `UNION` operator combines the results of two or more input queries by
-pairing columns from the results of each query and vertically concatenating
-them.
+The `UNION` operator returns the combined results of the left and right input
+queries. Columns are matched according to the rules described previously and
+rows are concatenated vertically.
+
+**Examples**
+
+```zetasql
+SELECT * FROM UNNEST(ARRAY<INT64>[1, 2, 3]) AS number
+UNION ALL
+SELECT 1;
+
+/*--------+
+ | number |
+ +--------+
+ | 1      |
+ | 2      |
+ | 3      |
+ | 1      |
+ +--------*/
+```
+
+```zetasql
+SELECT * FROM UNNEST(ARRAY<INT64>[1, 2, 3]) AS number
+UNION DISTINCT
+SELECT 1;
+
+/*--------+
+ | number |
+ +--------+
+ | 1      |
+ | 2      |
+ | 3      |
+ +--------*/
+```
+
+The following example shows multiple chained operators:
+
+```zetasql
+SELECT * FROM UNNEST(ARRAY<INT64>[1, 2, 3]) AS number
+UNION DISTINCT
+SELECT 1
+UNION DISTINCT
+SELECT 2;
+
+/*--------+
+ | number |
+ +--------+
+ | 1      |
+ | 2      |
+ | 3      |
+ +--------*/
+```
+
+The following example shows input queries with multiple columns. Both
+queries specify the same column names but in different orders. As a result, the
+column values are matched by column position in the input query and the column
+names are ignored.
+
+```zetasql
+SELECT 1 AS one_digit, 10 AS two_digit
+UNION ALL
+SELECT 20 AS two_digit, 2 AS one_digit;
+
+-- Column values are matched by position and not column name.
+/*-----------+-----------+
+ | one_digit | two_digit |
+ +-----------+-----------+
+ | 1         | 10        |
+ | 20        | 2         |
+ +-----------+-----------*/
+```
+
+To resolve this ordering issue, the following example uses the
+`BY NAME` modifier to match
+the columns by name instead of by position in the query results.
+
+```zetasql
+SELECT 1 AS one_digit, 10 AS two_digit
+UNION ALL BY NAME
+SELECT 20 AS two_digit, 2 AS one_digit;
+
+-- Column values now match.
+/*-----------+-----------+
+ | one_digit | two_digit |
+ +-----------+-----------+
+ | 1         | 10        |
+ | 2         | 20        |
+ +-----------+-----------*/
+```
+
+The previous set operation with `BY NAME` is equivalent to using the `STRICT
+CORRESPONDING` modifier. The `BY NAME` modifier is recommended because it's
+shorter and clearer than the `STRICT CORRESPONDING` modifier.
+
+```zetasql
+SELECT 1 AS one_digit, 10 AS two_digit
+UNION ALL STRICT CORRESPONDING
+SELECT 20 AS two_digit, 2 AS one_digit;
+
+/*-----------+-----------+
+ | one_digit | two_digit |
+ +-----------+-----------+
+ | 1         | 10        |
+ | 2         | 20        |
+ +-----------+-----------*/
+```
+
+The following example adds a `three_digit` column to the left input query and a
+`four_digit` column to the right input query. Because these columns aren't
+present in both queries, the `BY NAME`
+modifier would trigger an error. Therefore, the example
+adds the `INNER`
+mode prefix so that the new columns are excluded from the results, executing the
+query successfully.
+
+```zetasql
+SELECT 1 AS one_digit, 10 AS two_digit, 100 AS three_digit
+INNER UNION ALL BY NAME
+SELECT 20 AS two_digit, 2 AS one_digit, 1000 AS four_digit;
+
+/*-----------+-----------+
+ | one_digit | two_digit |
+ +-----------+-----------+
+ | 1         | 10        |
+ | 2         | 20        |
+ +-----------+-----------*/
+```
+
+To include the differing columns in the results, the following example uses
+the `FULL OUTER` mode prefix to populate `NULL` values for the missing column in
+each query.
+
+```zetasql
+SELECT 1 AS one_digit, 10 AS two_digit, 100 AS three_digit
+FULL OUTER UNION ALL BY NAME
+SELECT 20 AS two_digit, 2 AS one_digit, 1000 AS four_digit;
+
+/*-----------+-----------+-------------+------------+
+ | one_digit | two_digit | three_digit | four_digit |
+ +-----------+-----------+-------------+------------+
+ | 1         | 10        | 100         | NULL       |
+ | 2         | 20        | NULL        | 1000       |
+ +-----------+-----------+-------------+------------*/
+```
+
+Similarly, the following example uses the `LEFT OUTER` mode prefix to include
+the new column from only the left input query and populate a `NULL` value for
+the missing column in the right input query.
+
+```zetasql
+SELECT 1 AS one_digit, 10 AS two_digit, 100 AS three_digit
+LEFT OUTER UNION ALL BY NAME
+SELECT 20 AS two_digit, 2 AS one_digit, 1000 AS four_digit;
+
+/*-----------+-----------+-------------+
+ | one_digit | two_digit | three_digit |
+ +-----------+-----------+-------------+
+ | 1         | 10        | 100         |
+ | 2         | 20        | NULL        |
+ +-----------+-----------+-------------*/
+```
+
+The following example adds the modifier `ON (column_list)`
+to return only the specified columns in the specified order.
+
+```zetasql
+SELECT 1 AS one_digit, 10 AS two_digit, 100 AS three_digit
+FULL OUTER UNION ALL BY NAME ON (three_digit, two_digit)
+SELECT 20 AS two_digit, 2 AS one_digit, 1000 AS four_digit;
+
+/*-------------+-----------+
+ | three_digit | two_digit |
+ +-------------+-----------+
+ | 100         | 10        |
+ | NULL        | 20        |
+ +-----------+-------------*/
+```
 
 ### `INTERSECT` 
 <a id="intersect"></a>
 
-The `INTERSECT` operator returns rows that are found in the results of both
-the left and right input queries. Unlike `EXCEPT`, the positioning of the input
-queries (to the left versus right of the `INTERSECT` operator) doesn't matter.
+The `INTERSECT` operator returns rows that are found in the results of both the
+left and right input queries.
 
-### `EXCEPT` 
-<a id="except"></a>
+**Examples**
 
-The `EXCEPT` operator returns rows from the left input query that are
-not present in the right input query.
+```zetasql
+SELECT * FROM UNNEST(ARRAY<INT64>[1, 2, 3, 3, 4]) AS number
+INTERSECT ALL
+SELECT * FROM UNNEST(ARRAY<INT64>[2, 3, 3, 5]) AS number;
 
-Example:
-
-```sql
-SELECT * FROM UNNEST(ARRAY<int64>[1, 2, 3]) AS number
-EXCEPT DISTINCT SELECT 1;
-
-/*--------*
+/*--------+
  | number |
  +--------+
  | 2      |
  | 3      |
- *--------*/
-```
-
-### `CORRESPONDING` 
-<a id="corresponding"></a>
-
-<pre>
-<span class="var">corresponding_set_operation</span>:
-  <span class="var">query_expr</span> <span class="var">corresponding_set_operator</span> <span class="var">query_expr</span>
-
-<span class="var">corresponding_set_operator</span>:
-  [ <span class="var">set_op_outer_mode</span> ] <span class="var">set_operator</span> [ STRICT ] CORRESPONDING [ BY (<span class="var">column_list</span>) ]
-
-<span class="var">column_list</span>:
-  <span class="var">column_name</span>[, ...]
-
-<span class="var">set_op_outer_mode</span>:
-  { <span class="var">set_op_full_outer_mode</span> | <span class="var">set_op_left_outer_mode</span> }
-
-<span class="var">set_op_full_outer_mode</span>:
-  { FULL OUTER | FULL | OUTER }
-
-<span class="var">set_op_left_outer_mode</span>:
-  { LEFT OUTER | LEFT }
-</pre>
-
-Use the `CORRESPONDING` set operation to match columns by name instead of by
-position.
-
-**Definitions**
-
-+   `query_expr`: One of two input queries whose results are combined into a
-    single result set.
-+   `set_operator`: The [set operator][set-operators] to include in the
-    operation.
-+   `BY column_list`: If specified, the columns of an input query are preserved
-    if and only if they appear in `column_list`.
-+   `set_op_left_outer_mode`: Applies left outer mode to the set operation.
-+   `set_op_full_outer_mode`: Applies full outer mode to the set operation.
-+   `STRICT`: Applies strict mode to the set operation.
-
-<a id="rules_for_corresponding"></a>
-
-**Rules**
-
-For all `CORRESPONDING` set operations:
-
-+   `set_op_outer_mode` and `STRICT` cannot be used together.
-+   An input query that produces a [value table][value-tables] is not supported.
-
-If the `BY` clause is used:
-
-+   Columns in the result set are produced in the order in which they occur in
-    `column_list`. Any column names not in this list are excluded from the
-    results.
-+   Regarding duplicate and anonymous columns:
-    +   The `column_list` must not contain duplicate names.
-    +   Input queries must have at most one column with each name from
-        `column_list`.
-    +   Input queries may have anonymous or duplicate column names that are not
-        in `column_list`.
-+   If neither `STRICT` nor an outer mode is used (default mode):
-    +   Both the left and right input query must produce all columns in the
-        `column_list`.
-+   In strict mode:
-    +   Both the left and the right input query must produce exactly the columns
-        in `column_list`; column order can be different.
-+   In left outer mode:
-    +   Each column name in `column_list` must exist in the left input query.
-    +   If the right input query does not have a column in `column_list`, `NULL`
-        is used as the column values for rows originating from the right input
-        query.
-+   In full outer mode:
-    +   Each column name in `column_list` must exist in at least one input
-        query.
-    +   If one input query does not have a column in `column_list`, `NULL` is
-        used as the column values for rows originating from that input.
-
-If the `BY` clause isn't used:
-
-+   Columns from the left query are produced first, followed by the right
-    query's unique columns.
-+   Neither input queries can produce duplicate nor anonymous columns.
-+   If neither `STRICT` nor an outer mode is used (default mode):
-    +   Only columns appearing in both input queries are included in the result
-        set; all other columns are excluded.
-    +   There must be at least one column name common to the left and right
-        input query.
-+   In strict mode:
-    +   Both input queries must have the same set of columns; column order can
-        be different.
-    +   All columns from the input queries are included in the result set.
-+   In left outer mode:
-    +   All columns from the left input query are included in the result set.
-    +   If a column of the left query does not appear in the right query, `NULL`
-        is used as its column value for the right query.
-    +   There must be at least one column name common to the left and right
-        input query.
-+   In full outer mode:
-    +   All columns from the input queries are included in the result set.
-    +   If a column of one input query does not appear in the other query,
-        `NULL` is used as its column value for the other query.
-
-#### Produce results by column name 
-<a id="set_op_results_col_pos"></a>
-
-ZetaSQL supports set operations, and by default, all of
-these set operations match columns by position. More specifically:
-
-+ When rows of the second input query contribute to the set operation,
-  the column values are kept in the same position.
-+ When comparing rows for distinctness, the columns at the same position in the
-  right and left input query are compared.
-
-By default, the output column names are determined by the first input query in
-the set operation. Conceptually, this behavior gives an appearance that the
-columns of the second input query are renamed to match the first input query,
-before the set operation is computed.
-
-Examine the results of the following query:
-
-```sql
-WITH
-  Produce1 AS (SELECT 'apple' AS fruit, 'leek' AS vegetable),
-  Produce2 AS (SELECT 'kale' AS vegetable, 'orange' AS fruit)
-SELECT * FROM Produce1 UNION ALL SELECT * FROM Produce2;
-
-/*--------+-----------*
- | fruit  | vegetable |
- +--------+-----------+
- | apple  | leek      |
- | kale   | orange    |
- +--------+-----------*/
-```
-
-In the proceeding example, an attempt was made to list of fruits in one column
-and vegetables in another, however the results don't reflect this.
-
-To produce the intended results, use the `CORRESPONDING` set operation to match
-the columns by name. In particular, this means:
-
-+ When rows of the second input query contribute to the set operation,
-  the columns are reordered so that the column names are in the same positions
-  for both input queries.
-+ When comparing rows for distinctness, the columns with the same name on the
-  right and left side are compared.
-
-In the following example, the intended results are produced:
-
-```sql
-WITH
-  Produce1 AS (SELECT 'apple' AS fruit, 'leek' AS vegetable),
-  Produce2 AS (SELECT 'kale' AS vegetable, 'orange' AS fruit)
-SELECT * FROM Produce1 UNION ALL CORRESPONDING SELECT * FROM Produce2;
-
-/*--------+-----------*
- | fruit  | vegetable |
- +--------+-----------+
- | apple  | leek      |
- | orange | kale      |
- +--------+-----------*/
-```
-
-Notice that the order of the columns is determined by the first input query in
-this example.
-
-#### Produce results for specific columns only 
-<a id="set_op_results_specific_cols"></a>
-
-To produce results for only specific columns, use the optional `BY` clause
-with the `CORRESPONDING` set operation. In the following example, the only
-results produced are for `fruit`:
-
-```sql
-WITH
-  Produce1 AS (SELECT 'apple' AS fruit, 'leek' AS vegetable),
-  Produce2 AS (SELECT 'kale' AS vegetable, 'orange' AS fruit)
-SELECT * FROM Produce1 UNION ALL CORRESPONDING BY (fruit) SELECT * FROM Produce2;
-
-/*--------*
- | fruit  |
- +--------+
- | apple  |
- | orange |
+ | 3      |
  +--------*/
 ```
 
-#### Drop columns that don't appear in both result sets 
-<a id="set_op_results_drop_cols"></a>
+```zetasql
+SELECT * FROM UNNEST(ARRAY<INT64>[1, 2, 3, 3, 4]) AS number
+INTERSECT DISTINCT
+SELECT * FROM UNNEST(ARRAY<INT64>[2, 3, 3, 5]) AS number;
 
-With the `CORRESPONDING` set operation, only columns appearing in both
-input queries are preserved and all other columns are removed from the results.
-
-In the following example, the columns `extra_col1` and `extra_col2` are dropped
-as they only occur in one input query.
-
-```sql
-WITH
-  Produce1 AS (SELECT 'apple' AS fruit, 'leek' AS vegetable, 1 AS extra_col1),
-  Produce2 AS (SELECT 'kale' AS vegetable, 'orange' AS fruit, 2 AS extra_col2)
-SELECT * FROM Produce1 UNION ALL CORRESPONDING SELECT * FROM Produce2;
-
-/*--------+-----------*
- | fruit  | vegetable |
- +--------+-----------+
- | apple  | leek      |
- | orange | kale      |
- +--------+-----------*/
+/*--------+
+ | number |
+ +--------+
+ | 2      |
+ | 3      |
+ +--------*/
 ```
 
-#### Inject `NULL` values into the results for missing columns 
-<a id="set_op_results_add_nulls"></a>
+The following example shows multiple chained operations:
 
-You can inject `NULL` values for missing columns by including the `FULL OUTER`
-or `LEFT OUTER` syntax in the operation.
+```zetasql
+SELECT * FROM UNNEST(ARRAY<INT64>[1, 2, 3, 3, 4]) AS number
+INTERSECT DISTINCT
+SELECT * FROM UNNEST(ARRAY<INT64>[2, 3, 3, 5]) AS number
+INTERSECT DISTINCT
+SELECT * FROM UNNEST(ARRAY<INT64>[3, 3, 4, 5]) AS number;
 
-In the following example, `FULL OUTER` is used to add `NULL` values for missing
-columns in both input queries:
-
-```sql
-WITH
-  Produce1 AS (SELECT 'apple' AS fruit, 'leek' AS vegetable, 1 AS extra_col1),
-  Produce2 AS (SELECT 'kale' AS vegetable, 'orange' AS fruit, 2 AS extra_col2)
-SELECT * FROM Produce1
-FULL OUTER UNION ALL CORRESPONDING
-SELECT * FROM Produce2;
-
-/*--------+-----------+------------+------------+
- | fruit  | vegetable | extra_col1 | extra_col2 |
- +--------+-----------+------------+------------+
- | apple  | leek      | 1          | NULL       |
- | orange | kale      | NULL       | 2          |
- +--------+-----------+------------+------------*/
+/*--------+
+ | number |
+ +--------+
+ | 3      |
+ +--------*/
 ```
 
-In the following example, `LEFT OUTER` is used to add `NULL` values for missing
-columns in the second input query:
+The following example shows input queries that specify multiple columns. Both
+queries specify the same column names but in different orders. As a result, the
+same columns in differing order are considered different columns, so the query
+doesn't detect any intersecting row values. Therefore, no results are returned.
 
-```sql
+```zetasql
 WITH
-  Produce1 AS (SELECT 'apple' AS fruit, 'leek' AS vegetable, 1 AS extra_col1),
-  Produce2 AS (SELECT 'kale' AS vegetable, 'orange' AS fruit, 2 AS extra_col2)
-SELECT * FROM Produce1
-LEFT OUTER UNION ALL CORRESPONDING
-SELECT * FROM Produce2;
+  NumbersTable AS (
+    SELECT 1 AS one_digit, 10 AS two_digit
+    UNION ALL
+    SELECT 2, 20
+    UNION ALL
+    SELECT 3, 30
+  )
+SELECT one_digit, two_digit FROM NumbersTable
+INTERSECT DISTINCT
+SELECT 10 AS two_digit, 1 AS one_digit;
 
-/*--------+-----------+------------+
- | fruit  | vegetable | extra_col1 |
- +--------+-----------+------------+
- | apple  | leek      | 1          |
- | orange | kale      | NULL       |
- +--------+-----------+------------*/
+-- No intersecting values detected because columns aren't recognized as the same.
+/*-----------+-----------+
+
+ +-----------+-----------*/
 ```
 
-You can include the `BY` clause to only include specific columns in the results.
-For example:
+To resolve this ordering issue, the following example uses the
+`BY NAME` modifier to match
+the columns by name instead of by position in the query results.
 
-```sql
+```zetasql
 WITH
-  Produce1 AS (SELECT 'apple' AS fruit, 'leek' AS vegetable, 1 AS extra_col1),
-  Produce2 AS (SELECT 'kale' AS vegetable, 'orange' AS fruit, 2 AS extra_col2)
-SELECT * FROM Produce1
-FULL OUTER UNION ALL CORRESPONDING BY (fruit, extra_col1)
-SELECT * FROM Produce2;
+  NumbersTable AS (
+    SELECT 1 AS one_digit, 10 AS two_digit
+    UNION ALL
+    SELECT 2, 20
+    UNION ALL
+    SELECT 3, 30
+  )
+SELECT one_digit, two_digit FROM NumbersTable
+INTERSECT DISTINCT BY NAME
+SELECT 10 AS two_digit, 1 AS one_digit;
 
-/*--------+------------+
- | fruit  | extra_col1 |
- +--------+------------+
- | apple  | 1          |
- | orange | NULL       |
- +--------+------------*/
+/*-----------+-----------+
+ | one_digit | two_digit |
+ +-----------+-----------+
+ | 1         | 10        |
+ +-----------+-----------*/
 ```
+
+The previous set operation with `BY NAME` is equivalent to using the `STRICT
+CORRESPONDING` modifier. The `BY NAME` modifier is recommended because it's
+shorter and clearer than the `STRICT CORRESPONDING` modifier.
+
+```zetasql
+WITH
+  NumbersTable AS (
+    SELECT 1 AS one_digit, 10 AS two_digit
+    UNION ALL
+    SELECT 2, 20
+    UNION ALL
+    SELECT 3, 30
+  )
+SELECT one_digit, two_digit FROM NumbersTable
+INTERSECT DISTINCT STRICT CORRESPONDING
+SELECT 10 AS two_digit, 1 AS one_digit;
+
+/*-----------+-----------+
+ | one_digit | two_digit |
+ +-----------+-----------+
+ | 1         | 10        |
+ +-----------+-----------*/
+```
+
+For more syntax examples with the `BY NAME`
+modifier, see the [`UNION`][union] set operator.
+
+### `EXCEPT` 
+<a id="except"></a>
+
+The `EXCEPT` operator returns rows from the left input query that aren't present
+in the right input query.
+
+**Examples**
+
+```zetasql
+SELECT * FROM UNNEST(ARRAY<INT64>[1, 2, 3, 3, 4]) AS number
+EXCEPT ALL
+SELECT * FROM UNNEST(ARRAY<INT64>[1, 2]) AS number;
+
+/*--------+
+ | number |
+ +--------+
+ | 3      |
+ | 3      |
+ | 4      |
+ +--------*/
+```
+
+```zetasql
+SELECT * FROM UNNEST(ARRAY<INT64>[1, 2, 3, 3, 4]) AS number
+EXCEPT DISTINCT
+SELECT * FROM UNNEST(ARRAY<INT64>[1, 2]) AS number;
+
+/*--------+
+ | number |
+ +--------+
+ | 3      |
+ | 4      |
+ +--------*/
+```
+
+The following example shows multiple chained operations:
+
+```zetasql
+SELECT * FROM UNNEST(ARRAY<INT64>[1, 2, 3, 3, 4]) AS number
+EXCEPT DISTINCT
+SELECT * FROM UNNEST(ARRAY<INT64>[1, 2]) AS number
+EXCEPT DISTINCT
+SELECT * FROM UNNEST(ARRAY<INT64>[1, 4]) AS number;
+
+/*--------+
+ | number |
+ +--------+
+ | 3      |
+ +--------*/
+```
+
+The following example modifies the execution behavior of the set operations. The
+first input query is used against the result of the last two input queries
+instead of the values of the last two queries individually. In this example,
+the `EXCEPT` result of the last two input queries is `2`. Therefore, the
+`EXCEPT` results of the entire query are any values other than `2` in the first
+input query.
+
+```zetasql
+SELECT * FROM UNNEST(ARRAY<INT64>[1, 2, 3, 3, 4]) AS number
+EXCEPT DISTINCT
+(
+  SELECT * FROM UNNEST(ARRAY<INT64>[1, 2]) AS number
+  EXCEPT DISTINCT
+  SELECT * FROM UNNEST(ARRAY<INT64>[1, 4]) AS number
+);
+
+/*--------+
+ | number |
+ +--------+
+ | 1      |
+ | 3      |
+ | 4      |
+ +--------*/
+```
+
+The following example shows input queries that specify multiple columns. Both
+queries specify the same column names but in different orders. As a result, the
+same columns in differing order are considered different columns, so the query
+doesn't detect any common rows that should be excluded. Therefore, all column
+values from the left input query are returned with no exclusions.
+
+```zetasql
+WITH
+  NumbersTable AS (
+    SELECT 1 AS one_digit, 10 AS two_digit
+    UNION ALL
+    SELECT 2, 20
+    UNION ALL
+    SELECT 3, 30
+  )
+SELECT one_digit, two_digit FROM NumbersTable
+EXCEPT DISTINCT
+SELECT 10 AS two_digit, 1 AS one_digit;
+
+-- No values excluded because columns aren't recognized as the same.
+/*-----------+-----------+
+ | one_digit | two_digit |
+ +-----------+-----------+
+ | 1         | 10        |
+ | 2         | 20        |
+ | 3         | 30        |
+ +-----------+-----------*/
+```
+
+To resolve this ordering issue, the following example uses the
+`BY NAME` modifier to match
+the columns by name instead of by position in the query results.
+
+```zetasql
+WITH
+  NumbersTable AS (
+    SELECT 1 AS one_digit, 10 AS two_digit
+    UNION ALL
+    SELECT 2, 20
+    UNION ALL
+    SELECT 3, 30
+  )
+SELECT one_digit, two_digit FROM NumbersTable
+EXCEPT DISTINCT BY NAME
+SELECT 10 AS two_digit, 1 AS one_digit;
+
+/*-----------+-----------+
+ | one_digit | two_digit |
+ +-----------+-----------+
+ | 2         | 20        |
+ | 3         | 30        |
+ +-----------+-----------*/
+```
+
+The previous set operation with `BY NAME` is equivalent to using the `STRICT
+CORRESPONDING` modifier. The `BY NAME` modifier is recommended because it's
+shorter and clearer than the `STRICT CORRESPONDING` modifier.
+
+```zetasql
+WITH
+  NumbersTable AS (
+    SELECT 1 AS one_digit, 10 AS two_digit
+    UNION ALL
+    SELECT 2, 20
+    UNION ALL
+    SELECT 3, 30
+  )
+SELECT one_digit, two_digit FROM NumbersTable
+EXCEPT DISTINCT STRICT CORRESPONDING
+SELECT 10 AS two_digit, 1 AS one_digit;
+
+/*-----------+-----------+
+ | one_digit | two_digit |
+ +-----------+-----------+
+ | 2         | 20        |
+ | 3         | 30        |
+ +-----------+-----------*/
+```
+
+For more syntax examples with the `BY NAME`
+modifier, see the [`UNION`][union] set operator.
 
 ## `LIMIT` and `OFFSET` clause 
 <a id="limit_and_offset_clause"></a>
 
-```sql
+```zetasql
 LIMIT count [ OFFSET skip_rows ]
 ```
 
@@ -4862,11 +5232,11 @@ A constant expression can be represented by a general expression, literal, or
 parameter value.
 
 Note: Although the `LIMIT` clause limits the rows that a query produces, it
-does not limit the amount of data processed by that query.
+doesn't limit the amount of data processed by that query.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT *
 FROM UNNEST(ARRAY<STRING>['a', 'b', 'c', 'd', 'e']) AS letter
 ORDER BY letter ASC LIMIT 2;
@@ -4879,7 +5249,7 @@ ORDER BY letter ASC LIMIT 2;
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT *
 FROM UNNEST(ARRAY<STRING>['a', 'b', 'c', 'd', 'e']) AS letter
 ORDER BY letter ASC LIMIT 3 OFFSET 1;
@@ -4922,12 +5292,12 @@ recursive CTEs are present. You can learn more about the `RECURSIVE` keyword
 A `WITH` clause can optionally include the `RECURSIVE` keyword, which does
 two things:
 
-+ Enables recursion in the `WITH` clause. If this keyword is not present,
++ Enables recursion in the `WITH` clause. If this keyword isn't present,
   you can only include non-recursive common table expressions (CTEs).
   If this keyword is present, you can use both [recursive][recursive-cte] and
   [non-recursive][non-recursive-cte] CTEs.
 + [Changes the visibility][cte-visibility] of CTEs in the `WITH` clause. If this
-  keyword is not present, a CTE is only visible to CTEs defined after it in the
+  keyword isn't present, a CTE is only visible to CTEs defined after it in the
   `WITH` clause. If this keyword is present, a CTE is visible to all CTEs in the
   `WITH` clause where it was defined.
 
@@ -4943,7 +5313,7 @@ A non-recursive common table expression (CTE) contains
 a non-recursive [subquery][subquery-concepts]
 and a name associated with the CTE.
 
-+ A non-recursive CTE cannot reference itself.
++ A non-recursive CTE can't reference itself.
 + A non-recursive CTE can be referenced by the query expression that
   contains the `WITH` clause, but [rules apply][cte-rules].
 
@@ -4953,7 +5323,7 @@ In this example, a `WITH` clause defines two non-recursive CTEs that
 are referenced in the related set operation, where one CTE is referenced by
 each of the set operation's input query expressions:
 
-```sql
+```zetasql
 WITH subQ1 AS (SELECT SchoolID FROM Roster),
      subQ2 AS (SELECT OpponentID FROM PlayerStats)
 SELECT * FROM subQ1
@@ -4965,14 +5335,14 @@ You can break up more complex queries into a `WITH` clause and
 `WITH` `SELECT` statement instead of writing nested table subqueries.
 For example:
 
-```sql
+```zetasql
 WITH q1 AS (my_query)
 SELECT *
 FROM
   (WITH q2 AS (SELECT * FROM q1) SELECT * FROM q2)
 ```
 
-```sql
+```zetasql
 WITH q1 AS (my_query)
 SELECT *
 FROM
@@ -5034,7 +5404,7 @@ following parts:
 
 A recursive CTE looks like this:
 
-```sql
+```zetasql
 WITH RECURSIVE
   T1 AS ( (SELECT 1 AS n) UNION ALL (SELECT n + 1 AS n FROM T1 WHERE n < 3) )
 SELECT n FROM T1
@@ -5072,7 +5442,7 @@ see [Work with recursive CTEs][work-with-recursive-ctes].
 
 This is a simple recursive CTE:
 
-```sql
+```zetasql
 WITH RECURSIVE
   T1 AS (
     (SELECT 1 AS n) UNION ALL
@@ -5089,10 +5459,10 @@ SELECT * FROM T1 ORDER BY n
 ```
 
 Multiple subqueries in the same recursive CTE are okay, as
-long as each recursion has a cycle length of 1. It is also okay for recursive
+long as each recursion has a cycle length of 1. It's also okay for recursive
 entries to depend on non-recursive entries and vice-versa:
 
-```sql
+```zetasql
 WITH RECURSIVE
   T0 AS (SELECT 1 AS n),
   T1 AS ((SELECT * FROM T0) UNION ALL (SELECT n + 1 FROM T1 WHERE n < 4)),
@@ -5110,10 +5480,10 @@ SELECT * FROM T3 ORDER BY n
  *---*/
 ```
 
-Aggregate functions can be invoked in subqueries, as long as they are not
+Aggregate functions can be invoked in subqueries, as long as they aren't
 aggregating on the table being defined:
 
-```sql
+```zetasql
 WITH RECURSIVE
   T0 AS (SELECT * FROM UNNEST ([60, 20, 30])),
   T1 AS ((SELECT 1 AS n) UNION ALL (SELECT n + (SELECT COUNT(*) FROM T0) FROM T1 WHERE n < 4))
@@ -5129,7 +5499,7 @@ SELECT * FROM T1 ORDER BY n
 
 `INNER JOIN` can be used inside subqueries:
 
-```sql
+```zetasql
 WITH RECURSIVE
   T0 AS (SELECT 1 AS n),
   T1 AS ((SELECT 1 AS n) UNION ALL (SELECT n + 1 FROM T1 INNER JOIN T0 USING (n)))
@@ -5145,7 +5515,7 @@ SELECT * FROM T1 ORDER BY n
 
 `CROSS JOIN` can be used inside subqueries:
 
-```sql
+```zetasql
 WITH RECURSIVE
   T0 AS (SELECT 2 AS p),
   T1 AS ((SELECT 1 AS n) UNION ALL (SELECT T1.n + T0.p FROM T1 CROSS JOIN T0 WHERE T1.n < 4))
@@ -5165,7 +5535,7 @@ this query would never terminate; it would keep generating rows
 `0, 1, 2, 3, 4, 0, 1, 2, 3, 4...`. With `UNION DISTINCT`, however, the only row
 produced by iteration `5` is a duplicate, so the query terminates.
 
-```sql
+```zetasql
 WITH RECURSIVE
   T1 AS ( (SELECT 0 AS n) UNION DISTINCT (SELECT MOD(n + 1, 5) FROM T1) )
 SELECT * FROM T1 ORDER BY n
@@ -5187,7 +5557,7 @@ The following recursive CTE is disallowed because the
 self-reference doesn't include a set operator, base term, and
 recursive term.
 
-```sql {.bad}
+```zetasql {.bad}
 WITH RECURSIVE
   T1 AS (SELECT * FROM T1)
 SELECT * FROM T1
@@ -5198,7 +5568,7 @@ SELECT * FROM T1
 The following recursive CTE is disallowed because the self-reference to `T1`
 is in the base term. The self reference is only allowed in the recursive term.
 
-```sql {.bad}
+```zetasql {.bad}
 WITH RECURSIVE
   T1 AS ((SELECT * FROM T1) UNION ALL (SELECT 1))
 SELECT * FROM T1
@@ -5209,7 +5579,7 @@ SELECT * FROM T1
 The following recursive CTE is disallowed because there are multiple
 self-references in the recursive term when there must only be one.
 
-```sql {.bad}
+```zetasql {.bad}
 WITH RECURSIVE
   T1 AS ((SELECT 1 AS n) UNION ALL ((SELECT * FROM T1) UNION ALL (SELECT * FROM T1)))
 SELECT * FROM T1
@@ -5220,7 +5590,7 @@ SELECT * FROM T1
 The following recursive CTE is disallowed because the self-reference is
 inside an [expression subquery][expression-subquery-concepts]
 
-```sql {.bad}
+```zetasql {.bad}
 WITH RECURSIVE
   T1 AS ((SELECT 1 AS n) UNION ALL (SELECT (SELECT n FROM T1)))
 SELECT * FROM T1
@@ -5231,7 +5601,7 @@ SELECT * FROM T1
 The following recursive CTE is disallowed because there is a
 self-reference as an argument to a table-valued function (TVF).
 
-```sql {.bad}
+```zetasql {.bad}
 WITH RECURSIVE
   T1 AS (
     (SELECT 1 AS n) UNION ALL
@@ -5244,7 +5614,7 @@ SELECT * FROM T1;
 The following recursive CTE is disallowed because there is a
 self-reference as input to an outer join.
 
-```sql {.bad}
+```zetasql {.bad}
 WITH RECURSIVE
   T0 AS (SELECT 1 AS n),
   T1 AS ((SELECT 1 AS n) UNION ALL (SELECT * FROM T1 FULL OUTER JOIN T0 USING (n)))
@@ -5253,10 +5623,10 @@ SELECT * FROM T1;
 -- Error
 ```
 
-The following recursive CTE is disallowed because you cannot use aggregation
+The following recursive CTE is disallowed because you can't use aggregation
 with a self-reference.
 
-```sql {.bad}
+```zetasql {.bad}
 WITH RECURSIVE
   T1 AS (
     (SELECT 1 AS n) UNION ALL
@@ -5266,10 +5636,10 @@ SELECT * FROM T1;
 -- Error
 ```
 
-The following recursive CTE is disallowed because you cannot use the
+The following recursive CTE is disallowed because you can't use the
 window function `OVER` clause with a self-reference.
 
-```sql {.bad}
+```zetasql {.bad}
 WITH RECURSIVE
   T1 AS (
     (SELECT 1.0 AS n) UNION ALL
@@ -5279,10 +5649,10 @@ SELECT n FROM T1;
 -- Error
 ```
 
-The following recursive CTE is disallowed because you cannot use a
+The following recursive CTE is disallowed because you can't use a
 `LIMIT` clause with a self-reference.
 
-```sql {.bad}
+```zetasql {.bad}
 WITH RECURSIVE
   T1 AS ((SELECT 1 AS n) UNION ALL (SELECT n FROM T1 LIMIT 3))
 SELECT * FROM T1;
@@ -5290,10 +5660,10 @@ SELECT * FROM T1;
 -- Error
 ```
 
-The following recursive CTEs are disallowed because you cannot use an
+The following recursive CTEs are disallowed because you can't use an
 `ORDER BY` clause with a self-reference.
 
-```sql {.bad}
+```zetasql {.bad}
 WITH RECURSIVE
   T1 AS ((SELECT 1 AS n) UNION ALL (SELECT n + 1 FROM T1 ORDER BY n))
 SELECT * FROM T1;
@@ -5304,7 +5674,7 @@ SELECT * FROM T1;
 The following recursive CTE is disallowed because table `T1` can't be
 recursively referenced from inside an inner `WITH` clause
 
-```sql {.bad}
+```zetasql {.bad}
 WITH RECURSIVE
   T1 AS ((SELECT 1 AS n) UNION ALL (WITH t AS (SELECT n FROM T1) SELECT * FROM t))
 SELECT * FROM T1
@@ -5351,23 +5721,23 @@ The following rules apply to the recursive term in a recursive CTE:
 + The recursive term must contain the same number of columns as the
   base term, and the type of each column must be implicitly coercible to
   the type of the corresponding column in the base term.
-+ A recursive table reference cannot be used as an operand to a `FULL JOIN`,
++ A recursive table reference can't be used as an operand to a `FULL JOIN`,
   a right operand to a `LEFT JOIN`, or a left operand to a `RIGHT JOIN`.
-+ A recursive table reference cannot be used with the `TABLESAMPLE` operator.
-+ A recursive table reference cannot be used as an operand to a
++ A recursive table reference can't be used with the `TABLESAMPLE` operator.
++ A recursive table reference can't be used as an operand to a
   table-valued function (TVF).
 
 The following rules apply to a subquery inside a recursive term:
 
 + A subquery with a recursive table reference must be a `SELECT` expression,
   not a set operation, such as `UNION ALL`.
-+ A subquery cannot contain, directly or indirectly, a
++ A subquery can't contain, directly or indirectly, a
   recursive table reference anywhere outside of its `FROM` clause.
-+ A subquery with a recursive table reference cannot contain an `ORDER BY` or
++ A subquery with a recursive table reference can't contain an `ORDER BY` or
   `LIMIT` clause.
-+ A subquery with a recursive table reference cannot invoke aggregate functions.
-+ A subquery with a recursive table reference cannot invoke window functions.
-+ A subquery with a recursive table reference cannot contain the
++ A subquery with a recursive table reference can't invoke aggregate functions.
++ A subquery with a recursive table reference can't invoke window functions.
++ A subquery with a recursive table reference can't contain the
   `DISTINCT` keyword or
   `GROUP BY` clause. To filter
   duplicates, use `UNION DISTINCT` in the top-level set operation,
@@ -5384,7 +5754,7 @@ differences in the following sections.
 #### Visibility of CTEs in a `WITH` clause with the `RECURSIVE` keyword
 
 When you include the `RECURSIVE` keyword, references between CTEs in the `WITH`
-clause can go backwards and forwards. Cycles are not allowed.
+clause can go backwards and forwards. Cycles aren't allowed.
 
 This is what happens when you have two CTEs that reference
 themselves or each other in a `WITH` clause with the `RECURSIVE`
@@ -5394,11 +5764,11 @@ CTE in the clause:
 + A references A = Valid
 + A references B = Valid
 + B references A = Valid
-+ A references B references A = Invalid (cycles are not allowed)
++ A references B references A = Invalid (cycles aren't allowed)
 
 `A` can reference itself because self-references are supported:
 
-```sql
+```zetasql
 WITH RECURSIVE
   A AS (SELECT 1 AS n UNION ALL (SELECT n + 1 FROM A WHERE n < 3))
 SELECT * FROM A
@@ -5414,7 +5784,7 @@ SELECT * FROM A
 
 `A` can reference `B` because references between CTEs can go forwards:
 
-```sql
+```zetasql
 WITH RECURSIVE
   A AS (SELECT * FROM B),
   B AS (SELECT 1 AS n)
@@ -5429,7 +5799,7 @@ SELECT * FROM B
 
 `B` can reference `A` because references between CTEs can go backwards:
 
-```sql
+```zetasql
 WITH RECURSIVE
   A AS (SELECT 1 AS n),
   B AS (SELECT * FROM A)
@@ -5444,7 +5814,7 @@ SELECT * FROM B
 
 This produces an error. `A` and `B` reference each other, which creates a cycle:
 
-```sql
+```zetasql
 WITH RECURSIVE
   A AS (SELECT * FROM B),
   B AS (SELECT * FROM A)
@@ -5466,12 +5836,12 @@ is the second CTE in the clause:
 + A references A = Invalid
 + A references B = Invalid
 + B references A = Valid
-+ A references B references A = Invalid (cycles are not allowed)
++ A references B references A = Invalid (cycles aren't allowed)
 
-This produces an error. `A` cannot reference itself because self-references are
-not supported:
+This produces an error. `A` can't reference itself because self-references
+aren't supported:
 
-```sql
+```zetasql
 WITH
   A AS (SELECT 1 AS n UNION ALL (SELECT n + 1 FROM A WHERE n < 3))
 SELECT * FROM A
@@ -5479,10 +5849,10 @@ SELECT * FROM A
 -- Error
 ```
 
-This produces an error. `A` cannot reference `B` because references between
+This produces an error. `A` can't reference `B` because references between
 CTEs can go backwards but not forwards:
 
-```sql
+```zetasql
 WITH
   A AS (SELECT * FROM B),
   B AS (SELECT 1 AS n)
@@ -5493,7 +5863,7 @@ SELECT * FROM B
 
 `B` can reference `A` because references between CTEs can go backwards:
 
-```sql
+```zetasql
 WITH
   A AS (SELECT 1 AS n),
   B AS (SELECT * FROM A)
@@ -5509,7 +5879,7 @@ SELECT * FROM B
 This produces an error. `A` and `B` reference each other, which creates a
 cycle:
 
-```sql
+```zetasql
 WITH
   A AS (SELECT * FROM B),
   B AS (SELECT * FROM A)
@@ -5576,7 +5946,7 @@ In the following example, an aggregation threshold is enforced
 on a query. Notice that some privacy units are dropped because
 there aren't enough distinct instances.
 
-```sql
+```zetasql
 WITH ExamTable AS (
   SELECT "Hansen" AS last_name, "P91" AS test_id, 510 AS test_score UNION ALL
   SELECT "Wang", "U25", 500 UNION ALL
@@ -5662,7 +6032,7 @@ You can use the following syntax to build a differential privacy clause:
 + [`privacy_unit_column`][dp-privacy-unit-id]: The column that represents the
   privacy unit column. Replace `column_name` with the path expression for the
   column. The first identifier in the path can start with either a table name
-  or a column name that is visible in the `FROM` clause.
+  or a column name that's visible in the `FROM` clause.
 + [`group_selection_strategy`][dp-group-selection-strategy]: Determines how
   differential privacy is applied to groups.
 
@@ -5700,7 +6070,7 @@ cause query failure.
 ZetaSQL splits `epsilon` between the differentially private
 aggregates in the query. In addition to the explicit
 differentially private aggregate functions, the differential privacy process
-will also inject an implicit differentially private aggregate into the plan for
+also injects an implicit differentially private aggregate into the plan for
 removing small groups that computes a noisy entity count per group. If you have
 `n` explicit differentially private aggregate functions in your query, then each
 aggregate individually gets `epsilon/(n+1)` for its computation. If used with
@@ -5725,10 +6095,10 @@ be evaluated to determine `delta`. This allows a user to specify either
 (`epsilon`,`delta`) or (`epsilon`, `k_threshold`) in their
 differentially private query.
 
-While doing testing or initial data exploration, it is often useful to set
+While doing testing or initial data exploration, it's often useful to set
 `delta` to a value where all groups, including small groups, are
-preserved. This removes privacy protection and should only be done when it is
-not necessary to protect query results, such as when working with non-private
+preserved. This removes privacy protection and should only be done when it
+isn't necessary to protect query results, such as when working with non-private
 test data. `delta` roughly corresponds to the probability of keeping a small
 group.  In order to avoid losing small groups, set `delta` very close to 1,
 for example `0.99999`.
@@ -5791,7 +6161,7 @@ anonymized in a query. The choices are:
     count, and then adding the group from the results if the noised value is
     above a certain threshold. This process depends on epsilon and delta.
 
-    If the `group_selection_strategy` parameter is not included in
+    If the `group_selection_strategy` parameter isn't included in
     the `WITH DIFFERENTIAL_PRIVACY` clause, this is the default setting.
 +   `PUBLIC_GROUPS`: Groups won't be anonymized because they don't depend upon
     protected data or they have already been anonymized. Use this option if the
@@ -5804,7 +6174,7 @@ Semantic rules for `PUBLIC_GROUPS`:
 
 +   In the query, there should be a _public table_, which is a table
     without a privacy unit ID column. This table should contain
-    data that is common knowledge or data that has already been anonymized.
+    data that's common knowledge or data that has already been anonymized.
 +   In the query, there must be a _private table_, which is a table with a
     privacy unit ID column. This table might contain identifying data.
 +   In the `GROUP BY` clause, all grouping items must come from a
@@ -5827,7 +6197,7 @@ Semantic rules for `PUBLIC_GROUPS`:
 +   For every grouping item there must be a public group join,
     otherwise, an error is returned.
 +   To obtain accurate results in a differentially private query with
-    public groups, `NULL` privacy units should not be present in the query.
+    public groups, `NULL` privacy units shouldn't be present in the query.
 
 ### Differential privacy examples
 
@@ -5839,7 +6209,7 @@ differential privacy in ZetaSQL.
 
 The examples in this section reference the following tables:
 
-```sql
+```zetasql
 CREATE OR REPLACE TABLE {{USERNAME}}.professors AS (
   SELECT 101 AS id, "pencil" AS item, 24 AS quantity UNION ALL
   SELECT 123, "pen", 16 UNION ALL
@@ -5851,7 +6221,7 @@ CREATE OR REPLACE TABLE {{USERNAME}}.professors AS (
   SELECT 150, "pencil", 72);
 ```
 
-```sql
+```zetasql
 CREATE OR REPLACE TABLE {{USERNAME}}.students AS (
   SELECT 1 AS id, "pencil" AS item, 5 AS quantity UNION ALL
   SELECT 1, "pen", 2 UNION ALL
@@ -5864,13 +6234,13 @@ CREATE OR REPLACE TABLE {{USERNAME}}.students AS (
 
 The examples in this section reference these views:
 
-```sql
+```zetasql
 CREATE OR REPLACE VIEW {{USERNAME}}.view_on_professors
 OPTIONS(anonymization_userid_column='id')
 AS (SELECT * FROM {{USERNAME}}.professors);
 ```
 
-```sql
+```zetasql
 CREATE OR REPLACE VIEW {{USERNAME}}.view_on_students
 OPTIONS(anonymization_userid_column='id')
 AS (SELECT * FROM {{USERNAME}}.students);
@@ -5886,7 +6256,7 @@ You can add noise to a differentially private query. Smaller groups might not be
 included. Smaller epsilons and more noise will provide greater
 privacy protection.
 
-```sql
+```zetasql
 -- This gets the average number of items requested per professor and adds
 -- noise to the results
 SELECT
@@ -5908,7 +6278,7 @@ GROUP BY item;
  *----------+------------------*/
 ```
 
-```sql
+```zetasql
 -- This gets the average number of items requested per professor and adds
 -- noise to the results
 SELECT
@@ -5937,7 +6307,7 @@ Removing noise removes privacy protection. Only remove noise for
 testing queries on non-private data. When `epsilon` is high, noise is removed
 from the results.
 
-```sql
+```zetasql
 -- This gets the average number of items requested per professor and removes
 -- noise from the results
 SELECT
@@ -5957,7 +6327,7 @@ GROUP BY item;
  *----------+------------------*/
 ```
 
-```sql
+```zetasql
 -- This gets the average number of items requested per professor and removes
 -- noise from the results
 SELECT
@@ -5985,7 +6355,7 @@ A privacy unit column can exist within multiple groups. For example, in the
 `pen` group. You can set `max_groups_contributed` to different values to limit how many
 groups each privacy unit column will be included in.
 
-```sql
+```zetasql
 SELECT
   WITH DIFFERENTIAL_PRIVACY
     OPTIONS(epsilon=1e20, delta=.01, max_groups_contributed=1)
@@ -6005,7 +6375,7 @@ GROUP BY item;
  *----------+------------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   WITH DIFFERENTIAL_PRIVACY
     OPTIONS(epsilon=1e20, delta=.01, privacy_unit_column=id)
@@ -6028,12 +6398,12 @@ GROUP BY item;
 #### Use public groups in a differentially private query 
 <a id="use_public_groups"></a>
 
-In the following example, `UNNEST(["pen", "pencil", "book"])` is not
+In the following example, `UNNEST(["pen", "pencil", "book"])` isn't
 anonymized because it's public knowledge and doesn't reveal any information
 about user data. In the results, `scissors` is excluded because it's not in the
-public table that is generated by the `UNNEST` operation.
+public table that's generated by the `UNNEST` operation.
 
-```sql
+```zetasql
 -- Create the professors table (table to protect)
 CREATE OR REPLACE TABLE {{USERNAME}}.professors AS (
   SELECT 101 AS id, "pencil" AS item, 24 AS quantity UNION ALL
@@ -6082,9 +6452,9 @@ GROUP BY item;
 
 An alias is a temporary name given to a table, column, or expression present in
 a query. You can introduce explicit aliases in the `SELECT` list or `FROM`
-clause, or ZetaSQL will infer an implicit alias for some expressions.
+clause, or ZetaSQL infers an implicit alias for some expressions.
 Expressions with neither an explicit nor implicit alias are anonymous and the
-query cannot reference them by name.
+query can't reference them by name.
 
 ### Explicit aliases 
 <a id="explicit_alias_syntax"></a>
@@ -6098,7 +6468,7 @@ keyword is optional.
 
 Example:
 
-```sql
+```zetasql
 SELECT s.FirstName, s2.SongName
 FROM Singers AS s, (SELECT * FROM Songs) AS s2;
 ```
@@ -6108,7 +6478,7 @@ You can introduce explicit aliases for any expression in the `SELECT` list using
 
 Example:
 
-```sql
+```zetasql
 SELECT s.FirstName AS name, LOWER(s.FirstName) AS lname
 FROM Singers s;
 ```
@@ -6129,11 +6499,11 @@ rules. There can be multiple columns with the same alias in the `SELECT` list.
    fname`.
 
 In all other cases, there is no implicit alias, so the column is anonymous and
-cannot be referenced by name. The data from that column will still be returned
+can't be referenced by name. The data from that column will still be returned
 and the displayed query results may have a generated label for that column, but
-the label cannot be used like an alias.
+the label can't be used like an alias.
 
-In a `FROM` clause, `from_item`s are not required to have an alias. The
+In a `FROM` clause, `from_item`s aren't required to have an alias. The
 following rules apply:
 
 <ul>
@@ -6180,25 +6550,25 @@ Example:
 
 Assume the `Singers` table had a `Concerts` column of `ARRAY` type.
 
-```sql
+```zetasql
 SELECT FirstName
 FROM Singers AS s, s.Concerts;
 ```
 
 Invalid:
 
-```sql {.bad}
+```zetasql {.bad}
 SELECT FirstName
 FROM s.Concerts, Singers AS s;  // INVALID.
 ```
 
 `FROM` clause aliases are **not** visible to subqueries in the same `FROM`
-clause. Subqueries in a `FROM` clause cannot contain correlated references to
+clause. Subqueries in a `FROM` clause can't contain correlated references to
 other tables in the same `FROM` clause.
 
 Invalid:
 
-```sql {.bad}
+```zetasql {.bad}
 SELECT FirstName
 FROM Singers AS s, (SELECT (2020 - ReleaseDate) FROM s)  // INVALID.
 ```
@@ -6208,7 +6578,7 @@ the query, with or without qualification with the table name.
 
 Example:
 
-```sql
+```zetasql
 SELECT FirstName, s.ReleaseDate
 FROM Singers s WHERE ReleaseDate = 1975;
 ```
@@ -6221,14 +6591,14 @@ scanned multiple times during query processing.
 
 Example:
 
-```sql
+```zetasql
 SELECT * FROM Singers as s, Songs as s2
 ORDER BY s.LastName
 ```
 
 Invalid &mdash; `ORDER BY` doesn't use the table alias:
 
-```sql {.bad}
+```zetasql {.bad}
 SELECT * FROM Singers as s, Songs as s2
 ORDER BY Singers.LastName;  // INVALID.
 ```
@@ -6244,7 +6614,7 @@ Aliases in the `SELECT` list are visible only to the following clauses:
 
 Example:
 
-```sql
+```zetasql
 SELECT LastName AS last, SingerID
 FROM Singers
 ORDER BY last;
@@ -6267,7 +6637,7 @@ following values:
 
 Example:
 
-```sql
+```zetasql
 SELECT SingerID AS sid, COUNT(Songid) AS s2id
 FROM Songs
 GROUP BY 1
@@ -6276,7 +6646,7 @@ ORDER BY 2 DESC;
 
 The previous query is equivalent to:
 
-```sql
+```zetasql
 SELECT SingerID AS sid, COUNT(Songid) AS s2id
 FROM Songs
 GROUP BY sid
@@ -6287,13 +6657,13 @@ ORDER BY s2id DESC;
 <a id="duplicate_aliases"></a>
 
 A `SELECT` list or subquery containing multiple explicit or implicit aliases
-of the same name is allowed, as long as the alias name is not referenced
+of the same name is allowed, as long as the alias name isn't referenced
 elsewhere in the query, since the reference would be
 [ambiguous][ambiguous-aliases].
 
 Example:
 
-```sql
+```zetasql
 SELECT 1 AS a, 2 AS a;
 
 /*---+---*
@@ -6313,7 +6683,7 @@ including the schema of a destination table.
 The following query contains column names that conflict between tables, since
 both `Singers` and `Songs` have a column named `SingerID`:
 
-```sql
+```zetasql
 SELECT SingerID
 FROM Singers, Songs;
 ```
@@ -6321,7 +6691,7 @@ FROM Singers, Songs;
 The following query contains aliases that are ambiguous in the `GROUP BY` clause
 because they are duplicated in the `SELECT` list:
 
-```sql {.bad}
+```zetasql {.bad}
 SELECT FirstName AS name, LastName AS name,
 FROM Singers
 GROUP BY name;
@@ -6339,19 +6709,19 @@ The alias `P` is ambiguous and will produce an error because `P.FirstName` in
 the `GROUP BY` clause could refer to either `Person.FirstName` or
 `Person.PrimaryContact.FirstName`.
 
-```sql {.bad}
+```zetasql {.bad}
 SELECT FirstName, LastName, PrimaryContact AS P
 FROM Person AS P
 GROUP BY P.FirstName;
 ```
 
-A name is _not_ ambiguous in `GROUP BY`, `ORDER BY` or `HAVING` if it is both
+A name is _not_ ambiguous in `GROUP BY`, `ORDER BY` or `HAVING` if it's both
 a column name and a `SELECT` list alias, as long as the name resolves to the
-same underlying object. In the following example, The alias `BirthYear` is not
+same underlying object. In the following example, the alias `BirthYear` isn't
 ambiguous because it resolves to the same underlying column,
 `Singers.BirthYear`.
 
-```sql
+```zetasql
 SELECT LastName, BirthYear AS BirthYear
 FROM Singers
 GROUP BY BirthYear;
@@ -6393,7 +6763,7 @@ can be used to access the entire row or columns in the row.
 The following example selects column `x` from range variable `Coordinate`,
 which in effect selects column `x` from table `Grid`.
 
-```sql
+```zetasql
 WITH Grid AS (SELECT 1 x, 2 y)
 SELECT Coordinate.x FROM Grid AS Coordinate;
 
@@ -6407,7 +6777,7 @@ SELECT Coordinate.x FROM Grid AS Coordinate;
 The following example selects all columns from range variable `Coordinate`,
 which in effect selects all columns from table `Grid`.
 
-```sql
+```zetasql
 WITH Grid AS (SELECT 1 x, 2 y)
 SELECT Coordinate.* FROM Grid AS Coordinate;
 
@@ -6419,11 +6789,11 @@ SELECT Coordinate.* FROM Grid AS Coordinate;
 ```
 
 The following example selects the range variable `Coordinate`, which is a
-reference to rows in table `Grid`.  Since `Grid` is not a value table,
+reference to rows in table `Grid`. Since `Grid` isn't a value table,
 the result type of `Coordinate` is a struct that contains all the columns
 from `Grid`.
 
-```sql
+```zetasql
 WITH Grid AS (SELECT 1 x, 2 y)
 SELECT Coordinate FROM Grid AS Coordinate;
 
@@ -6450,7 +6820,7 @@ return a table with rows for customers with a CustomerId between 100
 and 200. The call doesn't include the `customer_type` argument, so the function
 uses the default `CUSTOMER_TYPE_ADVERTISER`.
 
-```sql
+```zetasql
 SELECT CustomerId, Info
 FROM CustomerRangeWithCustomerType(100, 200);
 ```
@@ -6458,7 +6828,7 @@ FROM CustomerRangeWithCustomerType(100, 200);
 The following query calls the `CustomerCreationTimeRange` function defined
 previously, passing the result of a subquery as the table argument.
 
-```sql
+```zetasql
 SELECT *
 FROM
   CustomerCreationTimeRange(
@@ -6474,7 +6844,7 @@ FROM
 The following query calls `CustomerCreationTimeRange`, passing the table
 `MyCustomerTable` as an argument.
 
-```sql
+```zetasql
 SELECT *
 FROM
   CustomerCreationTimeRange(
@@ -6504,7 +6874,7 @@ query clauses in this reference.
 The `Roster` table includes a list of player names (`LastName`) and the
 unique ID assigned to their school (`SchoolID`). It looks like this:
 
-```sql
+```zetasql
 /*-----------------------*
  | LastName   | SchoolID |
  +-----------------------+
@@ -6519,7 +6889,7 @@ unique ID assigned to their school (`SchoolID`). It looks like this:
 You can use this `WITH` clause to emulate a temporary table name for the
 examples in this reference:
 
-```sql
+```zetasql
 WITH Roster AS
  (SELECT 'Adams' as LastName, 50 as SchoolID UNION ALL
   SELECT 'Buchanan', 52 UNION ALL
@@ -6535,7 +6905,7 @@ The `PlayerStats` table includes a list of player names (`LastName`) and the
 unique ID assigned to the opponent they played in a given game (`OpponentID`)
 and the number of points scored by the athlete in that game (`PointsScored`).
 
-```sql
+```zetasql
 /*----------------------------------------*
  | LastName   | OpponentID | PointsScored |
  +----------------------------------------+
@@ -6550,7 +6920,7 @@ and the number of points scored by the athlete in that game (`PointsScored`).
 You can use this `WITH` clause to emulate a temporary table name for the
 examples in this reference:
 
-```sql
+```zetasql
 WITH PlayerStats AS
  (SELECT 'Adams' as LastName, 51 as OpponentID, 3 as PointsScored UNION ALL
   SELECT 'Buchanan', 77, 0 UNION ALL
@@ -6565,7 +6935,7 @@ SELECT * FROM PlayerStats
 The `TeamMascot` table includes a list of unique school IDs (`SchoolID`) and the
 mascot for that school (`Mascot`).
 
-```sql
+```zetasql
 /*---------------------*
  | SchoolID | Mascot   |
  +---------------------+
@@ -6579,7 +6949,7 @@ mascot for that school (`Mascot`).
 You can use this `WITH` clause to emulate a temporary table name for the
 examples in this reference:
 
-```sql
+```zetasql
 WITH TeamMascot AS
  (SELECT 50 as SchoolID, 'Jaguars' as Mascot UNION ALL
   SELECT 51, 'Knights' UNION ALL
@@ -6593,7 +6963,7 @@ SELECT * FROM TeamMascot
 
 Example:
 
-```sql
+```zetasql
 SELECT LastName, SUM(PointsScored)
 FROM PlayerStats
 GROUP BY LastName;
@@ -6631,7 +7001,7 @@ concatenating them.
 
 Example:
 
-```sql
+```zetasql
 SELECT Mascot AS X, SchoolID AS Y
 FROM TeamMascot
 UNION ALL
@@ -6694,7 +7064,7 @@ Results:
 This query returns the last names that are present in both Roster and
 PlayerStats.
 
-```sql
+```zetasql
 SELECT LastName
 FROM Roster
 INTERSECT ALL
@@ -6729,7 +7099,7 @@ Results:
 The query below returns last names in Roster that are **not** present in
 PlayerStats.
 
-```sql
+```zetasql
 SELECT LastName
 FROM Roster
 EXCEPT DISTINCT
@@ -6758,7 +7128,7 @@ Results:
 Reversing the order of the `SELECT` statements will return last names in
 PlayerStats that are **not** present in Roster:
 
-```sql
+```zetasql
 SELECT LastName
 FROM PlayerStats
 EXCEPT DISTINCT
@@ -6768,7 +7138,7 @@ FROM Roster;
 
 Results:
 
-```sql
+```zetasql
 (empty)
 ```
 
@@ -6837,6 +7207,10 @@ Results:
 [group-by-values]: #group_by_values
 
 [group-by-col-ordinals]: #group_by_col_ordinals
+
+[union]: #union
+
+[by-name-or-corresponding]: #by_name_or_corresponding
 
 [group-by-all]: #group_by_all
 

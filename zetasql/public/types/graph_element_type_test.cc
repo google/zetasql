@@ -24,6 +24,7 @@
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/type_parameters.pb.h"
 #include "zetasql/public/types/array_type.h"
+#include "zetasql/public/types/collation.h"
 #include "zetasql/public/types/struct_type.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_deserializer.h"
@@ -31,6 +32,9 @@
 #include "zetasql/public/types/type_modifiers.h"
 #include "zetasql/public/types/type_parameters.h"
 #include "gmock/gmock.h"
+#include "gtest/gtest.h"
+#include "absl/hash/hash.h"
+#include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "google/protobuf/text_format.h"
 
@@ -252,10 +256,11 @@ TEST(GraphElementTypeTest, BasicTest) {
   EXPECT_TRUE(graph_element_type->SupportsPartitioning(language_options));
   EXPECT_EQ(no_ordering_type, "GRAPH_ELEMENT");
 
-  EXPECT_EQ(absl::HashOf(*graph_element_type),
-            absl::HashOf(graph_element_type->kind(),
-                         graph_element_type->element_kind(),
-                         graph_element_type->property_types()));
+  EXPECT_EQ(
+      absl::HashOf(*graph_element_type),
+      absl::HashOf(
+          graph_element_type->element_kind(),
+          graph_element_type->property_types(), graph_element_type->kind()));
 }
 
 class GraphElementTypeEqualityTest : public testing::Test {
@@ -263,11 +268,11 @@ class GraphElementTypeEqualityTest : public testing::Test {
   void SetUp() override {
     ZETASQL_ASSERT_OK(factory_.MakeGraphElementType(
         {"graph_name"}, GraphElementType::ElementKind::kNode,
-        {{"aaA", factory_.get_string()}}, &graph_element_type_));
+        {{"aaA", factory_.get_string()}}, &static_graph_element_type_));
   }
 
   TypeFactory factory_;
-  const GraphElementType* graph_element_type_;
+  const GraphElementType* static_graph_element_type_;
 };
 
 TEST_F(GraphElementTypeEqualityTest, SameGraphElementType) {
@@ -275,82 +280,82 @@ TEST_F(GraphElementTypeEqualityTest, SameGraphElementType) {
   ZETASQL_ASSERT_OK(factory_.MakeGraphElementType(
       {"graph_name"}, GraphElementType::ElementKind::kNode,
       {{"aaA", factory_.get_string()}}, &graph_element_type2));
-  EXPECT_TRUE(graph_element_type_->Equals(graph_element_type2));
-  EXPECT_TRUE(graph_element_type_->Equivalent(graph_element_type2));
+  EXPECT_TRUE(static_graph_element_type_->Equals(graph_element_type2));
+  EXPECT_TRUE(static_graph_element_type_->Equivalent(graph_element_type2));
 }
 
 TEST_F(GraphElementTypeEqualityTest, CaseInsensitiveGraphReference) {
   const GraphElementType* graph_element_type2;
   ZETASQL_ASSERT_OK(factory_.MakeGraphElementType(
-      {"graph_NAME"}, graph_element_type_->element_kind(),
+      {"graph_NAME"}, static_graph_element_type_->element_kind(),
       {{"aaa", factory_.get_string()}}, &graph_element_type2));
-  EXPECT_TRUE(graph_element_type_->Equals(graph_element_type2));
-  EXPECT_TRUE(graph_element_type_->Equivalent(graph_element_type2));
+  EXPECT_TRUE(static_graph_element_type_->Equals(graph_element_type2));
+  EXPECT_TRUE(static_graph_element_type_->Equivalent(graph_element_type2));
 }
 
 TEST_F(GraphElementTypeEqualityTest, CaseInsensitivePropertyTypeName) {
   const GraphElementType* graph_element_type2;
   ZETASQL_ASSERT_OK(factory_.MakeGraphElementType(
-      {"graph_name"}, graph_element_type_->element_kind(),
+      {"graph_name"}, static_graph_element_type_->element_kind(),
       {{"aaa", factory_.get_string()}}, &graph_element_type2));
-  EXPECT_TRUE(graph_element_type_->Equals(graph_element_type2));
-  EXPECT_TRUE(graph_element_type_->Equivalent(graph_element_type2));
+  EXPECT_TRUE(static_graph_element_type_->Equals(graph_element_type2));
+  EXPECT_TRUE(static_graph_element_type_->Equivalent(graph_element_type2));
 }
 
 TEST_F(GraphElementTypeEqualityTest, DifferentPropertyTypeName) {
   const GraphElementType* graph_element_type2;
   ZETASQL_ASSERT_OK(factory_.MakeGraphElementType(
-      {"graph_name"}, graph_element_type_->element_kind(),
+      {"graph_name"}, static_graph_element_type_->element_kind(),
       {{"aaB", factory_.get_string()}}, &graph_element_type2));
-  EXPECT_FALSE(graph_element_type_->Equals(graph_element_type2));
-  EXPECT_FALSE(graph_element_type_->Equivalent(graph_element_type2));
+  EXPECT_FALSE(static_graph_element_type_->Equals(graph_element_type2));
+  EXPECT_FALSE(static_graph_element_type_->Equivalent(graph_element_type2));
 }
 
 TEST_F(GraphElementTypeEqualityTest, DifferentPropertyTypeValueType) {
   const GraphElementType* graph_element_type2;
   ZETASQL_ASSERT_OK(factory_.MakeGraphElementType(
-      {"graph_name"}, graph_element_type_->element_kind(),
+      {"graph_name"}, static_graph_element_type_->element_kind(),
       {{"aaA", factory_.get_bytes()}}, &graph_element_type2));
-  EXPECT_FALSE(graph_element_type_->Equals(graph_element_type2));
-  EXPECT_FALSE(graph_element_type_->Equivalent(graph_element_type2));
+  EXPECT_FALSE(static_graph_element_type_->Equals(graph_element_type2));
+  EXPECT_FALSE(static_graph_element_type_->Equivalent(graph_element_type2));
 }
 
 TEST_F(GraphElementTypeEqualityTest, DuplicatePropertyTypes) {
   const Type* string_type = factory_.get_string();
   const GraphElementType* graph_element_type2;
   ZETASQL_ASSERT_OK(factory_.MakeGraphElementType(
-      {"graph_name"}, graph_element_type_->element_kind(),
+      {"graph_name"}, static_graph_element_type_->element_kind(),
       {{"aaa", string_type}, {"aaA", string_type}, {"AAA", string_type}},
       &graph_element_type2));
-  EXPECT_TRUE(graph_element_type_->Equals(graph_element_type2));
-  EXPECT_TRUE(graph_element_type_->Equivalent(graph_element_type2));
+  EXPECT_TRUE(static_graph_element_type_->Equals(graph_element_type2));
+  EXPECT_TRUE(static_graph_element_type_->Equivalent(graph_element_type2));
 }
 
 TEST_F(GraphElementTypeEqualityTest, DifferentElementKind) {
   const GraphElementType* graph_element_type2;
   ZETASQL_ASSERT_OK(factory_.MakeGraphElementType(
       {"graph_name"}, GraphElementType::ElementKind::kEdge,
-      graph_element_type_->property_types(), &graph_element_type2));
-  EXPECT_FALSE(graph_element_type_->Equals(graph_element_type2));
-  EXPECT_FALSE(graph_element_type_->Equivalent(graph_element_type2));
+      static_graph_element_type_->property_types(), &graph_element_type2));
+  EXPECT_FALSE(static_graph_element_type_->Equals(graph_element_type2));
+  EXPECT_FALSE(static_graph_element_type_->Equivalent(graph_element_type2));
 }
 
 TEST_F(GraphElementTypeEqualityTest, DifferentGraphReference) {
   const GraphElementType* graph_element_type2;
   ZETASQL_ASSERT_OK(factory_.MakeGraphElementType(
       {"another_graph_name"}, GraphElementType::ElementKind::kNode,
-      graph_element_type_->property_types(), &graph_element_type2));
-  EXPECT_FALSE(graph_element_type_->Equals(graph_element_type2));
-  EXPECT_FALSE(graph_element_type_->Equivalent(graph_element_type2));
+      static_graph_element_type_->property_types(), &graph_element_type2));
+  EXPECT_FALSE(static_graph_element_type_->Equals(graph_element_type2));
+  EXPECT_FALSE(static_graph_element_type_->Equivalent(graph_element_type2));
 }
 
 TEST_F(GraphElementTypeEqualityTest, NestedCatalogNameInGraphReference) {
   const GraphElementType* graph_element_type2;
   ZETASQL_ASSERT_OK(factory_.MakeGraphElementType(
       {"foo", "graph_name"}, GraphElementType::ElementKind::kNode,
-      graph_element_type_->property_types(), &graph_element_type2));
-  EXPECT_FALSE(graph_element_type_->Equals(graph_element_type2));
-  EXPECT_FALSE(graph_element_type_->Equivalent(graph_element_type2));
+      static_graph_element_type_->property_types(), &graph_element_type2));
+  EXPECT_FALSE(static_graph_element_type_->Equals(graph_element_type2));
+  EXPECT_FALSE(static_graph_element_type_->Equivalent(graph_element_type2));
 }
 
 TEST_F(GraphElementTypeEqualityTest, PeriodInPath) {
@@ -358,15 +363,15 @@ TEST_F(GraphElementTypeEqualityTest, PeriodInPath) {
   const GraphElementType* graph_element_type2;
   ZETASQL_ASSERT_OK(factory_.MakeGraphElementType(
       {"foo.bar", "graph_name"}, GraphElementType::ElementKind::kNode,
-      graph_element_type_->property_types(), &graph_element_type1));
+      static_graph_element_type_->property_types(), &graph_element_type1));
   ZETASQL_ASSERT_OK(factory_.MakeGraphElementType(
       {"foo", "bar", "graph_name"}, GraphElementType::ElementKind::kNode,
-      graph_element_type_->property_types(), &graph_element_type2));
+      static_graph_element_type_->property_types(), &graph_element_type2));
   EXPECT_FALSE(graph_element_type1->Equals(graph_element_type2));
   EXPECT_FALSE(graph_element_type1->Equivalent(graph_element_type2));
 }
 
-TEST_F(GraphElementTypeEqualityTest, Equivalent) {
+TEST_F(GraphElementTypeEqualityTest, StaticGraphElementTypeEquivalent) {
   const StructType *struct_type, *equivalent_struct_type;
   ZETASQL_ASSERT_OK(
       factory_.MakeStructType({{"aaA", factory_.get_string()}}, &struct_type));
@@ -377,14 +382,14 @@ TEST_F(GraphElementTypeEqualityTest, Equivalent) {
 
   ZETASQL_ASSERT_OK(factory_.MakeGraphElementType(
       {"graph_name"}, GraphElementType::ElementKind::kNode,
-      {{"property", struct_type}}, &graph_element_type_));
+      {{"property", struct_type}}, &static_graph_element_type_));
   const GraphElementType* graph_element_type2;
   ZETASQL_ASSERT_OK(factory_.MakeGraphElementType(
       {"graph_name"}, GraphElementType::ElementKind::kNode,
       {{"property", equivalent_struct_type}}, &graph_element_type2));
 
-  EXPECT_FALSE(graph_element_type_->Equals(graph_element_type2));
-  EXPECT_TRUE(graph_element_type_->Equivalent(graph_element_type2));
+  EXPECT_FALSE(static_graph_element_type_->Equals(graph_element_type2));
+  EXPECT_TRUE(static_graph_element_type_->Equivalent(graph_element_type2));
 }
 
 TEST(TypeTest, TypeDeserializerGraphElementInvalidProto) {
@@ -474,7 +479,7 @@ TEST(TypeTest, TypeDeserializerGraphElementInvalidPropertyValueType) {
                HasSubstr("Property value type cannot be GraphElementType")));
 }
 
-TEST(TypeTest, TypeDeserializerGraphElement) {
+TEST(TypeTest, TypeDeserializerStaticGraphElement) {
   TypeFactory factory;
   const TypeDeserializer type_deserializer(&factory);
   TypeProto type_proto;

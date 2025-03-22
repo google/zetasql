@@ -2981,5 +2981,85 @@ TEST(IntervalTest, JustifyInterval) {
               StatusIs(absl::StatusCode::kOutOfRange));
 }
 
+TEST(IntervalTest, ToSecondsInterval) {
+  struct Sample {
+    std::string interval_string;
+    __int128 expected_nanos;
+  };
+
+  std::vector<Sample> samples = {
+      {"0-0 0 0:0:0", 0},
+
+      // Testcases where only a single interval part (months, days or nanos) is
+      // set.
+      {"0:0:0.000000001", 1},
+      {"-0:0:0.000000001", -1},
+      {"0:0:0.000001", 1000},
+      {"0:0:1", IntervalValue::kNanosInSecond},
+      {"0:0:1.001",
+       IntervalValue::kNanosInSecond + IntervalValue::kNanosInMilli},
+      {"-0:0:1.001",
+       -IntervalValue::kNanosInSecond - IntervalValue::kNanosInMilli},
+      {"0 0 0:1", IntervalValue::kNanosInMinute},
+      {"0 0 1:0:0", IntervalValue::kNanosInHour},
+      {"0 1 0", IntervalValue::kNanosInDay},
+      {"1 0 0", IntervalValue::kNanosInMonth},
+      {"0-1", IntervalValue::kNanosInMonth},
+      {"1-0", IntervalValue::kNanosInYear},
+
+      // Testcases where multiple interval parts are set.
+      {"1 1 1", IntervalValue::kNanosInMonth + IntervalValue::kNanosInDay +
+                    IntervalValue::kNanosInHour},
+      {"-1 -1 -1", -IntervalValue::kNanosInMonth - IntervalValue::kNanosInDay -
+                       IntervalValue::kNanosInHour},
+      {"1-1 1 1:1:1",
+       IntervalValue::kNanosInYear + IntervalValue::kNanosInMonth +
+           IntervalValue::kNanosInDay + IntervalValue::kNanosInHour +
+           IntervalValue::kNanosInMinute + IntervalValue::kNanosInSecond},
+      {"-1-1 -1 -1:1:1",
+       -(IntervalValue::kNanosInYear + IntervalValue::kNanosInMonth +
+         IntervalValue::kNanosInDay + IntervalValue::kNanosInHour +
+         IntervalValue::kNanosInMinute + IntervalValue::kNanosInSecond)},
+      {"1-2 3 4:5:6.123456789",
+       IntervalValue::kNanosInYear + 2 * IntervalValue::kNanosInMonth +
+           3 * IntervalValue::kNanosInDay + 4 * IntervalValue::kNanosInHour +
+           5 * IntervalValue::kNanosInMinute +
+           6 * IntervalValue::kNanosInSecond + 123456789},
+
+      // Testcases with the max interval value of each part.
+      {"10000-0 0 0:0:0", IntervalValue::kNanosInYear * 10000},
+      {"0-0 3660000 0:0:0", IntervalValue::kMaxNanos},
+      {"0 0 87840000:0:0", IntervalValue::kMaxNanos},
+      {"0-0 0 0:5270400000:0", IntervalValue::kMaxNanos},
+      {"0-0 0 0:0:316224000000", IntervalValue::kMaxNanos},
+  };
+
+  IntervalValue interval;
+  for (const auto& sample : samples) {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(interval,
+                         ToSecondsInterval(Interval(sample.interval_string)));
+    EXPECT_EQ(interval.get_nanos(), sample.expected_nanos);
+    EXPECT_EQ(interval.get_days(), 0);
+    EXPECT_EQ(interval.get_months(), 0);
+  }
+}
+
+// Cases where the interval itself is valid but the interval value in nanos
+// is not in the range [kMinNanos, kMaxNanos].
+TEST(IntervalValueTest, ToSecondsIntervalOutOfRange) {
+  std::vector<std::string> out_of_range_samples{
+      "10000-0 100000 0:0:0",   "-10000-0 -100000 0:0:0",
+      "0-0 3660000 1:0:0",      "0-0 -3660000 -1:0:0",
+      "0-0 1 87840000:0:0",     "0-0 -1 -87840000:0:0",
+      "0-0 1 0:5270400000:0",   "0-0 -1 -0:5270400000:0",
+      "0-0 1 0:0:316224000000", "0-0 -1 -0:0:316224000000",
+  };
+
+  for (auto& interval_string : out_of_range_samples) {
+    EXPECT_THAT(ToSecondsInterval(Interval(interval_string)),
+                StatusIs(absl::StatusCode::kOutOfRange));
+  }
+}
+
 }  // namespace
 }  // namespace zetasql

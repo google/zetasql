@@ -23,6 +23,7 @@
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parser.h"
 #include "zetasql/public/analyzer_options.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/value.h"
 #include "zetasql/scripting/error_helpers.h"
 #include "zetasql/scripting/parsed_script.h"

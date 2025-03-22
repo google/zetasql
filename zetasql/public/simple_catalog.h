@@ -249,7 +249,7 @@ class SimpleCatalog : public EnumerableCatalog {
   void AddOwnedFunction(std::unique_ptr<const Function> function)
       ABSL_LOCKS_EXCLUDED(mutex_);
   // Return true if and takes ownership if actually inserted.
-  bool AddOwnedFunctionIfNotPresent(const std::string& name,
+  bool AddOwnedFunctionIfNotPresent(absl::string_view name,
                                     std::unique_ptr<Function>* function);
   // Return true if and takes ownership if actually inserted.
   bool AddOwnedFunctionIfNotPresent(std::unique_ptr<Function>* function);
@@ -834,7 +834,7 @@ class SimpleTable : public Table {
   CreateEvaluatorTableIterator(
       absl::Span<const int> column_idxs) const override;
 
-  // Sets the <anonymization_info_> with the specified <userid_column_name>
+  // Sets the `anonymization_info_` with the specified `userid_column_name`
   // (overwriting any previous anonymization info).  An error is returned if
   // the named column is ambiguous or does not exist in this table.
   //
@@ -842,11 +842,19 @@ class SimpleTable : public Table {
   // anonymization semantics and containing sensitive private data.
   absl::Status SetAnonymizationInfo(const std::string& userid_column_name);
 
-  // Same as above, but with the specified <userid_column_name_path>.
+  // Same as above, but with the specified `userid_column_name_path`.
   absl::Status SetAnonymizationInfo(
       absl::Span<const std::string> userid_column_name_path);
 
-  // Resets <anonymization_info_>, implying that the table does not support
+  // Sets the `anonymization_info_` with the specified `anonymization_info`
+  // (overwriting any previous anonymization info).
+  //
+  // Setting the AnonymizationInfo defines this table as supporting
+  // anonymization semantics and containing sensitive private data.
+  absl::Status SetAnonymizationInfo(
+      std::unique_ptr<AnonymizationInfo> anonymization_info);
+
+  // Resets `anonymization_info_`, implying that the table does not support
   // anonymization queries.
   void ResetAnonymizationInfo() {
     anonymization_info_.reset();

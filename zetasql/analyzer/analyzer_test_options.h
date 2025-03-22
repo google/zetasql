@@ -28,6 +28,7 @@
 
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/type.h"
+#include "absl/status/statusor.h"
 #include "file_based_test_driver/test_case_options.h"
 
 namespace zetasql {
@@ -68,17 +69,22 @@ class AnalyzerTestCase;
 //   parse_multiple - if true, use AnalyzeNextStatement to analyze a sequence
 //                    of statements from the same string.
 //   default_timezone - default timezone to use for analysis.
-//   run_unparser
-//       - if true (default), runs the unparser on the resolved AST. Displays
-//         a warning message if the unparsed sql is not valid.
-//   unparser_positional_parameter_mode
-//       - if "question_mark" (default), unparses positional parameters as the
-//         ? character. If "named", unparses positional parameters as @param1,
-//         @param2, etc. in accordance with their positions.
-//   show_unparsed - if true, shows the unparsed sql of the resolved AST.
-//   show_unparsed_resolved_ast_diff
-//       - if true, shows both the original resolved AST and unparsed resolved
-//         AST, if they are different.
+//   run_sqlbuilder
+//       - if true (default), runs the SQLBuilder on the resolved AST. Displays
+//         a warning message if the SQLBuilder output is not valid (produces an
+//         error during re-analysis).
+//   sqlbuilder_positional_parameter_mode
+//       - if "question_mark" (default), SQLBuilder outputs positional
+//         parameters as the ? character. If "named", SQLBuilder outputs
+//         positional parameters as @param1, @param2, etc. in accordance with
+//         their positions. Has no effect if run_sqlbuilder is false.
+//   show_sqlbuilder_output
+//       - if true, shows the SQLBuilder output of the resolved AST. Has no
+//         effect if run_sqlbuilder is false.
+//   show_sqlbuilder_resolved_ast_diff
+//       - if true, shows both the original resolved AST and the resolved AST
+//         produced by re-analyzing the output of SQLBuilder, if they are
+//         different. Has no effect if run_sqlbuilder is false.
 //   language_features - comma-separated list of LanguageFeature enum names,
 //                       indicating enabled features, without the
 //                       FEATURE_ prefix.
@@ -198,17 +204,17 @@ extern const char* const kParseLocationRecordType;
 extern const char* const kDoNotShowReplacedLiterals;
 extern const char* const kCreateNewColumnForEachProjectedOutput;
 extern const char* const kRunInJava;
-extern const char* const kRunUnparser;
+extern const char* const kRunSqlBuilder;
 extern const char* const kShowExtractedTableNames;
 extern const char* const kShowTableResolutionTime;
 extern const char* const kShowResolvedAST;
 extern const char* const kShowStrictMode;
-extern const char* const kShowUnparsed;
-extern const char* const kShowUnparsedResolvedASTDiff;
+extern const char* const kShowSqlBuilderOutput;
+extern const char* const kShowSqlBuilderResolvedASTDiff;
 extern const char* const kStatementContext;
 extern const char* const kSupportedStatementKinds;
 extern const char* const kTestExtractTableNames;
-extern const char* const kUnparserPositionalParameterMode;
+extern const char* const kSqlBuilderPositionalParameterMode;
 extern const char* const kUseDatabase;
 extern const char* const kPrepareDatabase;
 extern const char* const kRunDeserializer;
@@ -236,6 +242,11 @@ extern const char* const kDisallowDuplicateOptions;
 extern const char* const kRewriteOptions;
 extern const char* const kShowReferencedPropertyGraphs;
 extern const char* const kPruneUnusedColumns;
+extern const char* const kEnhancedErrorRedaction;
+extern const char* const kSqlBuilderTargetSyntaxMode;
+extern const char* const kSqlBuilderTargetSyntaxModePipe;
+extern const char* const kSqlBuilderTargetSyntaxModeStandard;
+extern const char* const kSqlBuilderTargetSyntaxModeBoth;
 
 // set_flag
 // Causes a command line flag to be set to a particular value during the run

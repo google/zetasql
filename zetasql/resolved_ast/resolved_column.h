@@ -25,6 +25,7 @@
 #include "zetasql/public/type.h"
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/serialization.pb.h"
+#include "absl/hash/hash.h"
 #include "absl/status/statusor.h"
 
 namespace zetasql {

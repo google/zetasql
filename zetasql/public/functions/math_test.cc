@@ -17,10 +17,8 @@
 #include "zetasql/public/functions/math.h"
 
 #include <cstdint>
-#include <map>
+#include <limits>
 #include <string>
-#include <utility>
-#include <vector>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/float_margin.h"
@@ -34,6 +32,8 @@
 #include "zetasql/testing/test_function.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {

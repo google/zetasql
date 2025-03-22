@@ -17,6 +17,7 @@
 #ifndef ZETASQL_COMMON_MATCH_RECOGNIZE_NFA_H_
 #define ZETASQL_COMMON_MATCH_RECOGNIZE_NFA_H_
 
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
@@ -195,8 +196,11 @@ struct NFAEdge {
 // (broken link).
 class NFA {
  public:
-  // Constructs an empty NFA with no edges, no states.
-  explicit NFA() = default;
+  // Constructs an empty NFA to match the given number of pattern variables,
+  // with no edges, no states.
+  static absl::StatusOr<std::unique_ptr<NFA>> Create(int num_pattern_variables);
+  NFA(const NFA&) = delete;
+  NFA& operator=(const NFA&) = delete;
 
   // Indicates what type of validation on an NFA we are doing.
   enum class ValidationMode {
@@ -234,23 +238,7 @@ class NFA {
                        NFAState target) {
     return AddEdge(state, NFAEdge(var, target));
   }
-
-  absl::Status AddEdge(NFAState state, const NFAEdge& edge) {
-    ZETASQL_RET_CHECK(state.IsValid());
-    ZETASQL_RET_CHECK_LT(state.value(), num_states());
-    ZETASQL_RET_CHECK(edge.target.IsValid());
-    ZETASQL_RET_CHECK_LT(edge.target.value(), num_states());
-
-    if (edge_count_ >= kMaxSupportedEdges) {
-      return absl::OutOfRangeError(
-          "MATCH_RECOGNIZE pattern is too complex. This can happen if the "
-          "pattern is too long, quantifier bounds are too large, or if bounded "
-          "quantifiers are too deeply nested");
-    }
-    ++edge_count_;
-    edges_[state.value()].push_back(edge);
-    return absl::OkStatus();
-  }
+  absl::Status AddEdge(NFAState state, const NFAEdge& edge);
 
   // Returns the start state of the NFA (or an invalid state id if
   // SetAsStartState() has not yet been called).
@@ -285,11 +273,22 @@ class NFA {
   // to <num_states() - 1>, inclusive.
   int num_states() const { return static_cast<int>(edges_.size()); }
 
+  // Returns the number of pattern variables that can be referred to by any edge
+  // in the NFA.
+  int num_pattern_variables() const { return num_pattern_variables_; }
+
   // Validates the NFA for either matching or epsilon removal (see the
   // ValidationMode enum for details).
   absl::Status Validate(ValidationMode mode) const;
 
+  // Returns an empty NFA that recognizes the same pattern variables as this
+  // one. The caller is responsible for adding edges and setting the start/final
+  // state on the returned object.
+  std::unique_ptr<NFA> CreateEmptyNFA() const;
+
  private:
+  explicit NFA(int num_pattern_variables);
+
   absl::Status ValidateInternal(ValidationMode mode) const;
 
   // The state that the NFA must be in at the beginning of a match.
@@ -309,6 +308,9 @@ class NFA {
 
   // The total number of edges in the NFA. Used to enforce complexity limit.
   int edge_count_ = 0;
+
+  // Number of pattern variables that can be referred to by edges in the NFA.
+  const int num_pattern_variables_ = 0;
 };
 }  // namespace zetasql::functions::match_recognize
 

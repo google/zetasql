@@ -20,7 +20,6 @@
 #include <memory>
 #include <optional>
 #include <string>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -150,7 +149,7 @@ absl::Status TemplatedSQLTVF::Resolve(
       // TODO: Attach proper error locations to the returned Status.
       ZETASQL_ASSIGN_OR_RETURN(const InputArgumentType& arg_type,
                        tvf_arg_type.GetScalarArgType());
-      if (zetasql_base::ContainsKey(function_arguments, tvf_arg_name)) {
+      if (function_arguments.contains(tvf_arg_name)) {
         // TODO: Attach proper error locations to the returned Status.
         return MakeTVFQueryAnalysisError(
             absl::StrCat("Duplicate argument name ", tvf_arg_name.ToString()));
@@ -306,6 +305,21 @@ absl::Status TemplatedSQLTVF::MakeTVFQueryAnalysisError(
     absl::StrAppend(&result, ":\n", message);
   }
   return MakeSqlError() << result;
+}
+
+std::shared_ptr<TemplatedSQLTVFSignature>
+TemplatedSQLTVFSignature::CopyWithoutResolvedTemplatedQuery() const {
+  std::shared_ptr<TemplatedSQLTVFSignature> copy =
+      std::make_shared<TemplatedSQLTVFSignature>(
+          input_arguments(), result_schema(), options(),
+          /*resolved_templated_query=*/nullptr, arg_name_list_);
+  std::optional<const AnonymizationInfo> anonymization_info =
+      GetAnonymizationInfo();
+  if (anonymization_info.has_value()) {
+    copy->SetAnonymizationInfo(
+        std::make_unique<AnonymizationInfo>(*anonymization_info));
+  }
+  return copy;
 }
 
 namespace {

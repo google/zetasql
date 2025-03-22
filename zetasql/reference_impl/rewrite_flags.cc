@@ -17,13 +17,14 @@
 #include "zetasql/reference_impl/rewrite_flags.h"
 
 #include <string>
-#include <vector>
 
 #include "zetasql/common/options_utils.h"
+#include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/options.pb.h"
 #include "absl/container/btree_set.h"
 #include "absl/flags/flag.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 
 namespace zetasql {
@@ -46,8 +47,8 @@ absl::btree_set<ResolvedASTRewrite> MinimalRewritesForReference() {
       // (broken link) start
       // TODO: Remove this once the aggregation threshold rewriter
       // and anonymization rewriter are updated to follow the correct pattern.
+      // TODO: b/350555383 - Add REWRITE_MEASURE_TYPE here once it's ready.
       REWRITE_AGGREGATION_THRESHOLD,
-      REWRITE_INLINE_SQL_TVFS,
       REWRITE_INLINE_SQL_VIEWS,
       // (broken link) end
       // clang-format on

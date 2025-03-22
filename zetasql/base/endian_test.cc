@@ -333,5 +333,45 @@ TEST(BigEndianTest, Load128) {
   EXPECT_EQ(reference_h, value_h);
 }
 
+TEST(EndianessTest, BigEndian) {
+  // Check BigEndian uint16_t.
+  uint64_t comp = BigEndian::FromHost16(k16Value);
+  EXPECT_EQ(comp, k16ValueBE);
+  comp = BigEndian::ToHost16(k16ValueBE);
+  EXPECT_EQ(comp, k16Value);
+
+  // Check BigEndian uint32_t.
+  comp = BigEndian::FromHost32(k32Value);
+  EXPECT_EQ(comp, k32ValueBE);
+  comp = BigEndian::ToHost32(k32ValueBE);
+  EXPECT_EQ(comp, k32Value);
+
+  // Check BigEndian uint64_t.
+  comp = BigEndian::FromHost64(k64Value);
+  EXPECT_EQ(comp, k64ValueBE);
+  comp = BigEndian::ToHost64(k64ValueBE);
+  EXPECT_EQ(comp, k64Value);
+
+  // Check little-endian Load and store functions.
+  uint16_t u16Buf;
+  uint32_t u32Buf;
+  uint64_t u64Buf;
+
+  BigEndian::Store16(&u16Buf, k16Value);
+  EXPECT_EQ(u16Buf, k16ValueBE);
+  comp = BigEndian::Load16(&u16Buf);
+  EXPECT_EQ(comp, k16Value);
+
+  BigEndian::Store32(&u32Buf, k32Value);
+  EXPECT_EQ(u32Buf, k32ValueBE);
+  comp = BigEndian::Load32(&u32Buf);
+  EXPECT_EQ(comp, k32Value);
+
+  BigEndian::Store64(&u64Buf, k64Value);
+  EXPECT_EQ(u64Buf, k64ValueBE);
+  comp = BigEndian::Load64(&u64Buf);
+  EXPECT_EQ(comp, k64Value);
+}
+
 }  // namespace
 }  // namespace zetasql_base

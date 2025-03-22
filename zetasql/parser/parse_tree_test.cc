@@ -30,6 +30,7 @@
 #include "zetasql/proto/internal_error_location.pb.h"
 #include "zetasql/public/error_helpers.h"
 #include "zetasql/public/error_location.pb.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
 #include "zetasql/testdata/test_schema.pb.h"
 #include "gmock/gmock.h"
@@ -42,6 +43,7 @@
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/status_builder.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 namespace testing {

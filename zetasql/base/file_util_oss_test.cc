@@ -22,6 +22,7 @@
 #include "gtest/gtest.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/testing/status_matchers.h"
 
 namespace zetasql::internal {
@@ -119,8 +120,9 @@ TEST(FileUtilTest, GetContentsFailsOnMissingFile) {
 TEST(FileUtilTest, GetContentsFailsOnWrongTypeOfFile) {
   // Directory exists, but is not a regular file.
   std::string contents;
-  EXPECT_THAT(GetContents(getenv("TEST_SRCDIR"), &contents),
-              StatusIs(absl::StatusCode::kFailedPrecondition));
+  EXPECT_THAT(
+      GetContents(absl::NullSafeStringView(getenv("TEST_SRCDIR")), &contents),
+      StatusIs(absl::StatusCode::kFailedPrecondition));
   EXPECT_TRUE(contents.empty());
 }
 

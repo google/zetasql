@@ -24,6 +24,7 @@
 #include "zetasql/base/logging.h"
 #include "zetasql/common/multiprecision_int.h"
 #include "zetasql/public/numeric_value.h"
+#include "absl/base/optimization.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "zetasql/base/mathutil.h"

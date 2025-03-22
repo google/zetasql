@@ -477,7 +477,7 @@ QueryStmt
 #
 # The unparsed query for this is so large that re-analysis overflows stack
 # (in debug mode only), so we skip testing the unparser here.
-[no_run_unparser]
+[no_run_sqlbuilder]
 select kv1.key, kv2.key, kv3.key, kv4.key, kv5.key,
        kv6.value, kv7.value, kv8.value
 from KeyValue kv1
@@ -647,7 +647,7 @@ QueryStmt
 ==
 
 [language_features={{|DISABLE_OUTER_JOIN_ARRAY}}]
-[no_run_unparser]
+[no_run_sqlbuilder]
 # RIGHT JOIN a table with multiple identifiers in the path (which looks like an
 # array path)
 SELECT *
@@ -677,7 +677,7 @@ QueryStmt
         +-has_using=TRUE
 ==
 
-[no_run_unparser]
+[no_run_sqlbuilder]
 [language_features={{|DISABLE_OUTER_JOIN_ARRAY}}]
 # RIGHT JOIN a table with multiple identifiers in the path (which looks like an
 # array path). When the first identifiers as well as the whole path are both
@@ -724,7 +724,7 @@ QueryStmt
           +-Literal(type=BOOL, value=true)
 ==
 
-[no_run_unparser]
+[no_run_sqlbuilder]
 [language_features={{|DISABLE_OUTER_JOIN_ARRAY}}]
 # Same as above, except that the table with multiple identifiers show up in the
 # lhs of the RIGHT JOIN.

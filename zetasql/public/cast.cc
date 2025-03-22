@@ -16,7 +16,6 @@
 
 #include "zetasql/public/cast.h"
 
-#include <algorithm>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -26,10 +25,13 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/errors.h"
+#include "zetasql/common/graph_element_utils.h"
 #include "zetasql/common/internal_value.h"
 #include "zetasql/common/utf_util.h"
+#include "zetasql/public/catalog.h"
 #include "zetasql/public/civil_time.h"
 #include "zetasql/public/coercer.h"
+#include "zetasql/public/function_signature.h"
 #include "zetasql/public/functions/cast_date_time.h"
 #include "zetasql/public/functions/convert.h"
 #include "zetasql/public/functions/convert_proto.h"
@@ -40,6 +42,8 @@
 #include "zetasql/public/functions/range.h"
 #include "zetasql/public/functions/string.h"
 #include "zetasql/public/input_argument_type.h"
+#include "zetasql/public/interval_value.h"
+#include "zetasql/public/json_value.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
@@ -49,9 +53,14 @@
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/graph_element_type.h"
 #include "zetasql/public/types/graph_path_type.h"
+#include "zetasql/public/types/proto_type.h"
+#include "zetasql/public/types/struct_type.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/public/uuid_value.h"
 #include "zetasql/public/value.h"
 #include "absl/algorithm/container.h"
+#include "absl/base/attributes.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
@@ -59,7 +68,7 @@
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
-#include "zetasql/base/endian.h"
+#include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
@@ -482,8 +491,8 @@ class CastContext {
       // it will be in the supported range 0001-01-01 to 9999-12-31.
       int32_t current_date;
       ZETASQL_CHECK_OK(functions::ExtractFromTimestamp(
-          functions::DATE, current_timestamp_.value(),
-          default_timezone_, &current_date));
+          functions::DATE, current_timestamp_.value(), default_timezone_,
+          &current_date));
       current_date_ = current_date;
     }
   }
@@ -518,8 +527,8 @@ class CastContext {
       const Value& from_value, const Type* to_type) const = 0;
 
   // Checks that coercion is valid using Coercer.
-  virtual absl::Status ValidateCoercion(const Value& from_value,
-                                        const Type* to_type) const = 0;
+  virtual absl::Status ValidateLiteralValueCoercion(
+      const Value& from_value, const Type* to_type) const = 0;
 
   const absl::TimeZone default_timezone_;
   const LanguageOptions& language_options_;
@@ -578,6 +587,63 @@ absl::StatusOr<Value> NumericToStringWithFormat(const Value& v,
   return Value::String(str);
 }
 
+// Validates the value-aware implicit cast between two graph element types, and
+// looks up the static properties from the `from_value` according to those of
+// the `to_type` and returns them.
+static absl::Status ValidateGraphElementValueImplicitCastAndAddStaticProperties(
+    const Value& from_value, const GraphElementType* to_type,
+    const LanguageOptions& language_options,
+    std::vector<Value::Property>& result_static_properties,
+    absl::flat_hash_set<absl::string_view>& static_property_names) {
+  result_static_properties.clear();
+  static_property_names.clear();
+
+  const GraphElementType* from_graph_type = from_value.type()->AsGraphElement();
+  // The coercer currently ensures that they're both node / edge, and from
+  // the same graph reference. Checking here for completeness.
+  if (to_type->IsEdge() != from_graph_type->IsEdge()) {
+    return MakeSqlError()
+           << "Cannot cast graph element type between node and edge type: "
+           << from_graph_type->ShortTypeName(language_options.product_mode())
+           << " to " << to_type->ShortTypeName(language_options.product_mode());
+  }
+  if (!absl::c_equal(to_type->graph_reference(),
+                     from_graph_type->graph_reference(),
+                     zetasql_base::CaseEqual)) {
+    return MakeSqlError()
+           << "Cannot cast between graph element types with different "
+              "graph references: "
+           << from_graph_type->ShortTypeName(language_options.product_mode())
+           << " to " << to_type->ShortTypeName(language_options.product_mode());
+  }
+
+  // The same static property name must have the same value type.
+  for (const PropertyType& property_type : to_type->property_types()) {
+    static_property_names.insert(property_type.name);
+    if (absl::StatusOr<Value> from_property_val =
+            from_value.FindStaticPropertyByName(property_type.name);
+        from_property_val.ok()) {
+      ZETASQL_RET_CHECK(
+          from_property_val.value().type()->Equals(property_type.value_type))
+          << "In the same graph, property of the same name must have the "
+             "same value type. Current property type: "
+          << from_property_val.value().type()->ShortTypeName(
+                 language_options.product_mode())
+          << "; other property type: "
+          << property_type.value_type->ShortTypeName(
+                 language_options.product_mode());
+      result_static_properties.push_back(
+          {property_type.name, std::move(from_property_val.value())});
+    } else {
+      result_static_properties.push_back(
+          {property_type.name, Value::Null(property_type.value_type)});
+    }
+  }
+  // Coercion should be checked by the caller of `CastValue`.
+  ZETASQL_RET_CHECK(from_graph_type->CoercibleTo(to_type));
+  return absl::OkStatus();
+}
+
 absl::StatusOr<Value> CastContext::CastValue(
     const Value& from_value, const Type* to_type,
     const std::optional<std::string>& format) const {
@@ -623,7 +689,7 @@ absl::StatusOr<Value> CastContext::CastValue(
       // so perform a literal coercion check to see if the complex types
       // are compatible and therefore a NULL value can cast from one to
       // the other.
-      ZETASQL_RETURN_IF_ERROR(ValidateCoercion(v, to_type));
+      ZETASQL_RETURN_IF_ERROR(ValidateLiteralValueCoercion(v, to_type));
     }
     // We have already validated that this is a valid cast for NULL values,
     // so just return a NULL value of <to_type>.
@@ -753,7 +819,8 @@ absl::StatusOr<Value> CastContext::CastValue(
       return NumericCast<float, uint32_t>(v);
     case FCT(TYPE_FLOAT, TYPE_UINT64):
       return NumericCast<float, uint64_t>(v);
-    case FCT(TYPE_FLOAT, TYPE_DOUBLE): return NumericCast<float, double>(v);
+    case FCT(TYPE_FLOAT, TYPE_DOUBLE):
+      return NumericCast<float, double>(v);
     case FCT(TYPE_FLOAT, TYPE_STRING):
       if (format.has_value()) {
         return NumericToStringWithFormat(v, format.value(),
@@ -775,7 +842,8 @@ absl::StatusOr<Value> CastContext::CastValue(
       return NumericCast<double, uint32_t>(v);
     case FCT(TYPE_DOUBLE, TYPE_UINT64):
       return NumericCast<double, uint64_t>(v);
-    case FCT(TYPE_DOUBLE, TYPE_FLOAT): return NumericCast<double, float>(v);
+    case FCT(TYPE_DOUBLE, TYPE_FLOAT):
+      return NumericCast<double, float>(v);
     case FCT(TYPE_DOUBLE, TYPE_STRING):
       if (format.has_value()) {
         return NumericToStringWithFormat(v, format.value(),
@@ -815,7 +883,8 @@ absl::StatusOr<Value> CastContext::CastValue(
       return to_value;
     }
 
-    case FCT(TYPE_STRING, TYPE_BOOL): return StringToNumeric<bool>(v);
+    case FCT(TYPE_STRING, TYPE_BOOL):
+      return StringToNumeric<bool>(v);
     case FCT(TYPE_STRING, TYPE_INT32):
       return StringToNumeric<int32_t>(v);
     case FCT(TYPE_STRING, TYPE_INT64):
@@ -824,8 +893,10 @@ absl::StatusOr<Value> CastContext::CastValue(
       return StringToNumeric<uint32_t>(v);
     case FCT(TYPE_STRING, TYPE_UINT64):
       return StringToNumeric<uint64_t>(v);
-    case FCT(TYPE_STRING, TYPE_FLOAT): return StringToNumeric<float>(v);
-    case FCT(TYPE_STRING, TYPE_DOUBLE): return StringToNumeric<double>(v);
+    case FCT(TYPE_STRING, TYPE_FLOAT):
+      return StringToNumeric<float>(v);
+    case FCT(TYPE_STRING, TYPE_DOUBLE):
+      return StringToNumeric<double>(v);
     case FCT(TYPE_STRING, TYPE_NUMERIC):
       return StringToNumeric<NumericValue>(v);
     case FCT(TYPE_STRING, TYPE_BIGNUMERIC):
@@ -871,10 +942,8 @@ absl::StatusOr<Value> CastContext::CastValue(
           }
 
           ZETASQL_RETURN_IF_ERROR(functions::CastStringToTimestamp(
-              format.value(),
-              v.string_value(), default_timezone(),
-              current_timestamp().value(),
-              &timestamp));
+              format.value(), v.string_value(), default_timezone(),
+              current_timestamp().value(), &timestamp));
         } else {
           ZETASQL_RETURN_IF_ERROR(functions::ConvertStringToTimestamp(
               v.string_value(), default_timezone(), functions::kNanoseconds,
@@ -889,10 +958,8 @@ absl::StatusOr<Value> CastContext::CastValue(
           }
 
           ZETASQL_RETURN_IF_ERROR(functions::CastStringToTimestamp(
-              format.value(),
-              v.string_value(), default_timezone(),
-              current_timestamp().value(),
-              &timestamp));
+              format.value(), v.string_value(), default_timezone(),
+              current_timestamp().value(), &timestamp));
         } else {
           ZETASQL_RETURN_IF_ERROR(functions::ConvertStringToTimestamp(
               v.string_value(), default_timezone(), functions::kMicroseconds,
@@ -1222,7 +1289,7 @@ absl::StatusOr<Value> CastContext::CastValue(
       return Value::Proto(to_type->AsProto(), v.ToCord());
 
     case FCT(TYPE_ARRAY, TYPE_ARRAY): {
-      ZETASQL_RETURN_IF_ERROR(ValidateCoercion(v, to_type));
+      ZETASQL_RETURN_IF_ERROR(ValidateLiteralValueCoercion(v, to_type));
 
       const Type* to_element_type = to_type->AsArray()->element_type();
       std::vector<Value> casted_elements(v.num_elements());
@@ -1327,56 +1394,26 @@ absl::StatusOr<Value> CastContext::CastValue(
       // difference. Here we only change the property set and keep the element
       // identifiers.
       const auto* to_graph_type = to_type->AsGraphElement();
-      const auto* from_graph_type = v.type()->AsGraphElement();
-      // The coercer currently ensures that they're both node / edge, and from
-      // the same graph reference. Checking here for completeness.
-      if (to_graph_type->IsEdge() != from_graph_type->IsEdge()) {
-        return MakeSqlError()
-               << "Cannot cast graph element type between node and edge type: "
-               << v.type()->ShortTypeName(language_options().product_mode())
-               << " to "
-               << to_type->ShortTypeName(language_options().product_mode());
-      }
-      if (!absl::c_equal(to_graph_type->graph_reference(),
-                         from_graph_type->graph_reference(),
-                         zetasql_base::CaseEqual)) {
-        return MakeSqlError()
-               << "Cannot cast between graph element types with different "
-                  "graph references: "
-               << v.type()->ShortTypeName(language_options().product_mode())
-               << " to "
-               << to_type->ShortTypeName(language_options().product_mode());
-      }
-      std::vector<Value::Property> properties;
-      for (const PropertyType& property_type :
-           to_graph_type->property_types()) {
-        if (absl::StatusOr<Value> current_property_val =
-                v.FindPropertyByName(property_type.name);
-            current_property_val.ok()) {
-          ZETASQL_RET_CHECK(
-              current_property_val->type()->Equals(property_type.value_type))
-              << "In the same graph, property of the same name must have the "
-                 "same value type. Current property type: "
-              << current_property_val->type()->ShortTypeName(
-                     language_options().product_mode())
-              << "; other property type: "
-              << property_type.value_type->ShortTypeName(
-                     language_options().product_mode());
-          properties.push_back(
-              {property_type.name, *std::move(current_property_val)});
-        } else {
-          properties.push_back(
-              {property_type.name, Value::Null(property_type.value_type)});
-        }
-      }
-      return v.IsEdge()
-                 ? Value::MakeGraphEdge(
-                       to_graph_type, v.GetIdentifier(), properties,
-                       v.GetLabels(), v.GetDefinitionName(),
-                       v.GetSourceNodeIdentifier(), v.GetDestNodeIdentifier())
-                 : Value::MakeGraphNode(to_graph_type, v.GetIdentifier(),
-                                        properties, v.GetLabels(),
-                                        v.GetDefinitionName());
+
+      std::vector<Value::Property> to_type_static_properties;
+      absl::flat_hash_set<absl::string_view> static_property_names;
+      ZETASQL_RETURN_IF_ERROR(
+          ValidateGraphElementValueImplicitCastAndAddStaticProperties(
+              v, to_graph_type, language_options(), to_type_static_properties,
+              static_property_names));
+
+      Value::GraphElementLabelsAndProperties labels_and_properties = {
+          .static_labels = {v.GetLabels().begin(), v.GetLabels().end()},
+          .static_properties = to_type_static_properties};
+
+        return v.IsEdge()
+                   ? Value::MakeGraphEdge(
+                         to_graph_type, v.GetIdentifier(),
+                         labels_and_properties, v.GetDefinitionName(),
+                         v.GetSourceNodeIdentifier(), v.GetDestNodeIdentifier())
+                   : Value::MakeGraphNode(to_graph_type, v.GetIdentifier(),
+                                          labels_and_properties,
+                                          v.GetDefinitionName());
     }
     case FCT(TYPE_GRAPH_PATH, TYPE_GRAPH_PATH): {
       const GraphPathType* to_path_type = to_type->AsGraphPath();
@@ -1403,29 +1440,21 @@ absl::StatusOr<Value> CastContext::CastValue(
     case FCT(TYPE_UUID, TYPE_BYTES): {
       ZETASQL_ASSIGN_OR_RETURN(UuidValue uuid, v.uuid_value());
       std::string uuid_bytes;
-      __int128 packed_int = uuid.as_packed_int();
-      uuid_bytes.append(reinterpret_cast<const char*>(&packed_int),
-                        sizeof(UuidValue));
-
-#if defined(ABSL_IS_LITTLE_ENDIAN)
-      // The packed_int is in little endian format, so we need to reverse the
-      // bytes to get the correct byte order.
-      std::reverse(uuid_bytes.begin(), uuid_bytes.end());
-#endif
+      uuid.SerializeAndAppendToBytes(&uuid_bytes);
       return Value::Bytes(uuid_bytes);
     }
     case FCT(TYPE_BYTES, TYPE_UUID): {
       if (v.bytes_value().size() != sizeof(UuidValue)) {
-        return MakeSqlError()
-               << "Invalid bytes value size, expected " << sizeof(UuidValue)
-               << " bytes, but got " << v.bytes_value().size() << " bytes.";
+        return MakeSqlError() << "Invalid bytes value size for UUID, expected "
+                              << sizeof(UuidValue) << " bytes, but got "
+                              << v.bytes_value().size() << " bytes.";
       }
-      __int128 i =
-          static_cast<__int128>(zetasql_base::BigEndian::Load128(v.bytes_value().data()));
-      return Value::Uuid(UuidValue::FromPackedInt(i));
+      ZETASQL_ASSIGN_OR_RETURN(UuidValue uuid,
+                       UuidValue::DeserializeFromBytes(v.bytes_value()));
+      return Value::Uuid(uuid);
     }
     case FCT(TYPE_MAP, TYPE_MAP): {
-      ZETASQL_RETURN_IF_ERROR(ValidateCoercion(v, to_type));
+      ZETASQL_RETURN_IF_ERROR(ValidateLiteralValueCoercion(v, to_type));
 
       const Type* to_key_type = to_type->AsMap()->key_type();
       const Type* to_value_type = to_type->AsMap()->value_type();
@@ -1485,8 +1514,8 @@ class CastContextWithValidation : public CastContext {
     return conversion.evaluator().Eval(from_value);
   }
 
-  absl::Status ValidateCoercion(const Value& from_value,
-                                const Type* to_type) const override {
+  absl::Status ValidateLiteralValueCoercion(
+      const Value& from_value, const Type* to_type) const override {
     SignatureMatchResult result;
     TypeFactory type_factory;
     Coercer coercer(&type_factory, &language_options(), catalog_);
@@ -1531,8 +1560,8 @@ class CastContextWithoutValidation : public CastContext {
     return extended_cast_evaluator_->Eval(from_value, to_type);
   }
 
-  absl::Status ValidateCoercion(const Value& from_value,
-                                const Type* to_type) const override {
+  absl::Status ValidateLiteralValueCoercion(
+      const Value& from_value, const Type* to_type) const override {
     return absl::OkStatus();
   }
 
@@ -1592,26 +1621,19 @@ const CastFormatMap& GetCastFormatMap() {
   static const CastFormatMap* cast_format_map = nullptr;
   if (cast_format_map == nullptr) {
     CastFormatMap* map = new CastFormatMap();
-    map->insert(
-        {{TYPE_STRING, TYPE_BYTES}, functions::ValidateFormat});
-    map->insert(
-        {{TYPE_BYTES, TYPE_STRING}, functions::ValidateFormat});
+    map->insert({{TYPE_STRING, TYPE_BYTES}, functions::ValidateFormat});
+    map->insert({{TYPE_BYTES, TYPE_STRING}, functions::ValidateFormat});
 
     // String to Date/DateTime/Time/Timestamp
-    map->insert(
-        {{TYPE_STRING, TYPE_DATE}, ValidateFormatStringToDate});
-    map->insert(
-        {{TYPE_STRING, TYPE_DATETIME}, ValidateFormatStringToDatetime});
-    map->insert(
-        {{TYPE_STRING, TYPE_TIME}, ValidateFormatStringToTime});
+    map->insert({{TYPE_STRING, TYPE_DATE}, ValidateFormatStringToDate});
+    map->insert({{TYPE_STRING, TYPE_DATETIME}, ValidateFormatStringToDatetime});
+    map->insert({{TYPE_STRING, TYPE_TIME}, ValidateFormatStringToTime});
     map->insert(
         {{TYPE_STRING, TYPE_TIMESTAMP}, ValidateFormatStringToTimestamp});
 
     // Date/DateTime/Time/Timestamp to String
-    map->insert(
-        {{TYPE_DATE, TYPE_STRING}, ValidateFormatStringFromDate});
-    map->insert(
-        {{TYPE_TIME, TYPE_STRING}, ValidateFormatStringFromTime});
+    map->insert({{TYPE_DATE, TYPE_STRING}, ValidateFormatStringFromDate});
+    map->insert({{TYPE_TIME, TYPE_STRING}, ValidateFormatStringFromTime});
     map->insert(
         {{TYPE_DATETIME, TYPE_STRING}, ValidateFormatStringFromDateTime});
     map->insert(

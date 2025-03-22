@@ -21,9 +21,11 @@
 
 #include <algorithm>
 #include <atomic>
+#include <csignal>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <optional>
 #include <ostream>
 #include <sstream>
 #include <string>
@@ -35,6 +37,9 @@
 #include "absl/base/log_severity.h"
 #include "absl/flags/flag.h"
 #include "absl/log/log.h"
+#include "absl/status/status.h"
+#include "absl/strings/numbers.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
 

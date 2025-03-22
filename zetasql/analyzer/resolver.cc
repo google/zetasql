@@ -21,10 +21,8 @@
 #include <algorithm>
 #include <cstdint>
 #include <iterator>
-#include <limits>
 #include <map>
 #include <memory>
-#include <new>
 #include <optional>
 #include <set>
 #include <string>
@@ -102,7 +100,6 @@
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "absl/types/span.h"
-#include "absl/types/variant.h"
 #include "google/protobuf/repeated_ptr_field.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
@@ -569,8 +566,9 @@ absl::Status Resolver::MakeEqualityComparison(
     std::unique_ptr<const ResolvedExpr>* output_expr) {
   std::unique_ptr<ResolvedFunctionCall> resolved_function_call;
   ZETASQL_RETURN_IF_ERROR(function_resolver_->ResolveGeneralFunctionCall(
-      ast_location, {ast_location, ast_location}, "$equal",
-      /*is_analytic=*/false, MakeNodeVector(std::move(expr1), std::move(expr2)),
+      ast_location, {ast_location, ast_location},
+      /*match_internal_signatures=*/false, "$equal", /*is_analytic=*/false,
+      MakeNodeVector(std::move(expr1), std::move(expr2)),
       /*named_arguments=*/{}, /*expected_result_type=*/nullptr,
       &resolved_function_call));
 
@@ -589,8 +587,9 @@ absl::Status Resolver::MakeNotExpr(
   std::vector<std::unique_ptr<const ResolvedExpr>> arguments;
   arguments.push_back(std::move(expr));
   return ResolveFunctionCallWithResolvedArguments(
-      ast_location, {ast_location}, "$not", std::move(arguments),
-      /*named_arguments=*/{}, expr_resolution_info, expr_out);
+      ast_location, {ast_location}, /*match_internal_signatures=*/false, "$not",
+      std::move(arguments), /*named_arguments=*/{}, expr_resolution_info,
+      expr_out);
 }
 
 absl::Status Resolver::MakeCoalesceExpr(
@@ -608,9 +607,9 @@ absl::Status Resolver::MakeCoalesceExpr(
   size_t exprs_size = exprs.size();
   ZETASQL_RETURN_IF_ERROR(function_resolver_->ResolveGeneralFunctionCall(
       ast_location, std::vector<const ASTNode*>(exprs_size, ast_location),
-      "coalesce", /*is_analytic=*/false, std::move(exprs),
-      /*named_arguments=*/{}, /*expected_result_type=*/nullptr,
-      &resolved_function_call));
+      /*match_internal_signatures=*/false, "coalesce", /*is_analytic=*/false,
+      std::move(exprs), /*named_arguments=*/{},
+      /*expected_result_type=*/nullptr, &resolved_function_call));
 
   *output_expr = std::move(resolved_function_call);
   return absl::OkStatus();
@@ -633,9 +632,9 @@ absl::Status Resolver::MakeAndExpr(
     std::unique_ptr<ResolvedFunctionCall> resolved_function_call;
     ZETASQL_RETURN_IF_ERROR(function_resolver_->ResolveGeneralFunctionCall(
         ast_location, std::vector<const ASTNode*>(expr_count, ast_location),
-        "$and", /*is_analytic=*/false, std::move(exprs),
-        /*named_arguments=*/{}, /*expected_result_type=*/nullptr,
-        &resolved_function_call));
+        /*match_internal_signatures=*/false, "$and", /*is_analytic=*/false,
+        std::move(exprs), /*named_arguments=*/{},
+        /*expected_result_type=*/nullptr, &resolved_function_call));
 
     ZETASQL_RET_CHECK_EQ(resolved_function_call->function()->mode(), Function::SCALAR);
 
@@ -2109,7 +2108,11 @@ absl::Status Resolver::PruneColumnLists(const ResolvedNode* node) const {
     return absl::OkStatus();
   }
 
-  // Validate that SetColumnAccessList was called first.
+  // Validate that SetColumnAccessList was not called before PruneColumnLists,
+  // on the current outermost node.  This does not recheck inner statements,
+  // which can occur on the statements inside terminal pipe operators like
+  // ResolvedPipeInsertScan, where SetAccessList would already have run
+  // during the inner call to FinishResolveStatement.
   ZETASQL_RET_CHECK(node->node_kind() != zetasql::RESOLVED_UPDATE_STMT ||
             node->GetAs<ResolvedUpdateStmt>()->column_access_list_size() == 0)
       << "SetColumnAccessList was called before PruneColumnList";
@@ -2120,6 +2123,12 @@ absl::Status Resolver::PruneColumnLists(const ResolvedNode* node) const {
 
   ZETASQL_RET_CHECK(node->node_kind() != zetasql::RESOLVED_INSERT_STMT ||
             node->GetAs<ResolvedInsertStmt>()->column_access_list_size() == 0)
+      << "SetColumnAccessList was called before PruneColumnList";
+
+  ZETASQL_RET_CHECK(node->node_kind() != zetasql::RESOLVED_PIPE_INSERT_SCAN ||
+            node->GetAs<ResolvedPipeInsertScan>()
+                    ->insert_stmt()
+                    ->column_access_list_size() == 0)
       << "SetColumnAccessList was called before PruneColumnList";
 
   ZETASQL_RET_CHECK(node->node_kind() != zetasql::RESOLVED_DELETE_STMT ||
@@ -2408,8 +2417,18 @@ FunctionArgumentTypeList FunctionArgumentInfo::SignatureArguments() const {
   return ret;
 }
 
+std::vector<const FunctionArgumentInfo::ArgumentDetails*>
+FunctionArgumentInfo::GetArgumentDetails() const {
+  std::vector<const FunctionArgumentInfo::ArgumentDetails*> arg_details;
+  arg_details.reserve(details_.size());
+  for (const auto& details : details_) {
+    arg_details.push_back(details.get());
+  }
+  return arg_details;
+}
+
 bool FunctionArgumentInfo::HasArg(const IdString& name) const {
-  return zetasql_base::ContainsKey(details_index_by_name_, name);
+  return details_index_by_name_.contains(name);
 }
 
 const FunctionArgumentInfo::ArgumentDetails* FunctionArgumentInfo::FindTableArg(

@@ -25,8 +25,11 @@
 #include "zetasql/common/builtins_output_properties.h"
 #include "zetasql/public/builtin_function_options.h"
 #include "zetasql/public/function.h"
+#include "zetasql/public/function_signature.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/types/type.h"
+#include "zetasql/public/types/type_factory.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "zetasql/base/check.h"
@@ -210,7 +213,6 @@ absl::Status GetBuiltinFunctionsAndTypes(const BuiltinFunctionOptions& options,
   ZETASQL_RETURN_IF_ERROR(GetJSONFunctions(&type_factory, options, &functions, &types));
   ZETASQL_RETURN_IF_ERROR(GetMathFunctions(&type_factory, options, &functions, &types));
   GetHllCountFunctions(&type_factory, options, &functions);
-  GetD3ACountFunctions(&type_factory, options, &functions);
   GetKllQuantilesFunctions(&type_factory, options, &functions);
   ZETASQL_RETURN_IF_ERROR(
       GetProto3ConversionFunctions(&type_factory, options, &functions));
@@ -262,6 +264,8 @@ absl::Status GetBuiltinFunctionsAndTypes(const BuiltinFunctionOptions& options,
     GetGraphFunctions(&type_factory, options, &functions);
   }
   GetMapCoreFunctions(&type_factory, options, &functions);
+  GetMeasureFunctions(&type_factory, options, &functions);
+  GetMatchRecognizeFunctions(&type_factory, options, &functions);
   return ValidateBuiltinFunctionsAgainstOptions(options, output_properties);
 }
 

@@ -393,7 +393,7 @@ CREATE RECURSIVE VIEW a.b AS (
   )
 );
 --
-ERROR: table 'a.b' may not be recursively referenced from inside an inner WITH entry [at 4:59]
+ERROR: Table 'a.b' must not be recursively referenced from inside an inner recursive query [at 4:59]
     WITH RECURSIVE r AS (SELECT 2 UNION ALL SELECT 3 FROM a.b CROSS JOIN r)
                                                           ^
 ==
@@ -504,12 +504,12 @@ CreateViewStmt
 |   | +-SetOperationItem
 |   |   +-scan=
 |   |   | +-ProjectScan
-|   |   |   +-column_list=[non_recursive_term.n#1]
+|   |   |   +-column_list=[$union_all1.n#1]
 |   |   |   +-expr_list=
 |   |   |   | +-n#1 := Literal(type=INT64, value=1)
 |   |   |   +-input_scan=
 |   |   |     +-SingleRowScan
-|   |   +-output_column_list=[non_recursive_term.n#1]
+|   |   +-output_column_list=[$union_all1.n#1]
 |   +-recursive_term=
 |     +-SetOperationItem
 |       +-scan=
@@ -549,27 +549,27 @@ CreateViewStmt
 |   | +-SetOperationItem
 |   |   +-scan=
 |   |   | +-OrderByScan
-|   |   |   +-column_list=[non_recursive_term.n#1]
+|   |   |   +-column_list=[$union_all1.n#1]
 |   |   |   +-is_ordered=TRUE
 |   |   |   +-input_scan=
 |   |   |   | +-FilterScan
-|   |   |   |   +-column_list=[non_recursive_term.n#1]
+|   |   |   |   +-column_list=[$union_all1.n#1]
 |   |   |   |   +-input_scan=
 |   |   |   |   | +-ProjectScan
-|   |   |   |   |   +-column_list=[non_recursive_term.n#1]
+|   |   |   |   |   +-column_list=[$union_all1.n#1]
 |   |   |   |   |   +-expr_list=
 |   |   |   |   |   | +-n#1 := Literal(type=INT64, value=1)
 |   |   |   |   |   +-input_scan=
 |   |   |   |   |     +-SingleRowScan
 |   |   |   |   +-filter_expr=
 |   |   |   |     +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
-|   |   |   |       +-ColumnRef(type=INT64, column=non_recursive_term.n#1)
+|   |   |   |       +-ColumnRef(type=INT64, column=$union_all1.n#1)
 |   |   |   |       +-Literal(type=INT64, value=10)
 |   |   |   +-order_by_item_list=
 |   |   |     +-OrderByItem
 |   |   |       +-column_ref=
-|   |   |         +-ColumnRef(type=INT64, column=non_recursive_term.n#1)
-|   |   +-output_column_list=[non_recursive_term.n#1]
+|   |   |         +-ColumnRef(type=INT64, column=$union_all1.n#1)
+|   |   +-output_column_list=[$union_all1.n#1]
 |   +-recursive_term=
 |     +-SetOperationItem
 |       +-scan=

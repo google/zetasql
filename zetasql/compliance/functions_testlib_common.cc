@@ -22,6 +22,7 @@
 #include <string>
 #include <vector>
 
+#include "google/protobuf/duration.pb.h"
 #include "google/protobuf/timestamp.pb.h"
 #include "google/type/date.pb.h"
 #include "google/type/latlng.pb.h"
@@ -117,6 +118,13 @@ const ProtoType* NullableIntProtoType() {
   ZETASQL_CHECK_OK(type_factory()->MakeProtoType(
       zetasql_test__::NullableInt::descriptor(), &nullable_int_proto_type));
   return nullable_int_proto_type;
+}
+
+const ProtoType* ProtoDurationType() {
+  const ProtoType* proto_duration_type;
+  ZETASQL_CHECK_OK(type_factory()->MakeProtoType(
+      google::protobuf::Duration::descriptor(), &proto_duration_type));
+  return proto_duration_type;
 }
 
 const StructType* SimpleStructType() {
@@ -231,6 +239,13 @@ Value NullableInt(absl::string_view proto_str) {
   ABSL_CHECK(google::protobuf::TextFormat::ParseFromString(proto_str,
                                             &nullable_int_message));
   return ProtoToValue(NullableIntProtoType(), nullable_int_message);
+}
+
+Value ProtoDuration(int64_t seconds, int32_t nanos) {
+  google::protobuf::Duration proto_duration;
+  proto_duration.set_seconds(seconds);
+  proto_duration.set_nanos(nanos);
+  return ProtoToValue(ProtoDurationType(), proto_duration);
 }
 
 // Each returned row (vector) contains distinct values of a certain type.

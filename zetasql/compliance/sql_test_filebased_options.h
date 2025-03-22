@@ -22,6 +22,7 @@
 #ifndef ZETASQL_COMPLIANCE_SQL_TEST_FILEBASED_OPTIONS_H_
 #define ZETASQL_COMPLIANCE_SQL_TEST_FILEBASED_OPTIONS_H_
 
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <set>
@@ -83,6 +84,13 @@ class FilebasedSQLTestCaseOptions {
     return forbidden_features_;
   }
 
+  // Additional features that should be enabled by the reference driver to
+  // execute a [prepare_database] statement.
+  const std::set<LanguageFeature>& prepare_database_additional_features()
+      const {
+    return prepare_database_additional_features_;
+  }
+
   // [labels=...] specified specificallyh on this test case.
   const std::vector<std::string>& local_labels() const { return local_labels_; }
 
@@ -115,6 +123,11 @@ class FilebasedSQLTestCaseOptions {
   // result.
   bool extract_labels() const { return extract_labels_; }
 
+  // If true, the test will not attempt to detect falsely required features.
+  bool skip_required_feature_integrity_check() const {
+    return skip_required_feature_integrity_check_;
+  }
+
  private:
   // Encapsulation wise, these two classes are designed to work as one.
   friend class FilebasedSQLTestFileOptions;
@@ -124,6 +137,7 @@ class FilebasedSQLTestCaseOptions {
   std::map<std::string, Value> params_;
   std::set<LanguageFeature> required_features_;
   std::set<LanguageFeature> forbidden_features_;
+  std::set<LanguageFeature> prepare_database_additional_features_;
   std::vector<std::string> local_labels_;
   std::set<std::string> new_proto_file_names_;
   std::set<std::string> new_proto_message_names_;
@@ -133,6 +147,7 @@ class FilebasedSQLTestCaseOptions {
   bool prepare_database_ = false;
   bool reserve_match_recognize_ = false;
   bool reserve_graph_table_ = false;
+  bool skip_required_feature_integrity_check_ = false;
 
   FilebasedSQLTestCaseOptions();
 };

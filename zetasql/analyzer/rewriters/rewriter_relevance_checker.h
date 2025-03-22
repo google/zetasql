@@ -26,8 +26,14 @@ namespace zetasql {
 
 // Visit the ResolvedAST tree rooted at 'node' and return the set of rewriters
 // that can be applied somewhere in the tree.
+//
+// 'check_templated_function_calls' if true, also check inside of templated
+//    function calls. This is necessary when
+//    `ResolvedASTRewrite::REWRITE_APPLY_ENABLED_REWRITES_TO_TEMPLATED_FUNCTION_CALLS`
+//    is enabled because this is the only rewriter that explicitly modifies
+//    templated function calls.
 absl::StatusOr<absl::btree_set<ResolvedASTRewrite>> FindRelevantRewriters(
-    const ResolvedNode* node);
+    const ResolvedNode* node, bool check_templated_function_calls);
 
 }  // namespace zetasql
 

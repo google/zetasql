@@ -16,6 +16,7 @@
 
 #include <memory>
 
+#include "zetasql/parser/bison_parser_mode.h"
 #include "zetasql/parser/macros/macro_catalog.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parser.h"
@@ -30,8 +31,9 @@
 #include "absl/strings/string_view.h"
 
 namespace zetasql {
+namespace parser {
 
-using MacroCatalog = parser::macros::MacroCatalog;
+using MacroCatalog = macros::MacroCatalog;
 
 using ::testing::_;
 using ::testing::HasSubstr;
@@ -40,7 +42,6 @@ using ::zetasql_base::testing::StatusIs;
 static LanguageOptions GetLanguageOptions() {
   LanguageOptions language_options;
   language_options.EnableMaximumLanguageFeatures();
-  language_options.EnableLanguageFeature(FEATURE_V_1_4_SQL_MACROS);
   return language_options;
 }
 
@@ -53,8 +54,10 @@ static void RegisterMacros(absl::string_view source,
   bool at_end_of_input = false;
   while (!at_end_of_input) {
     std::unique_ptr<ParserOutput> output;
-    ZETASQL_ASSERT_OK(ParseNextStatement(&location, ParserOptions(GetLanguageOptions()),
-                                 &output, &at_end_of_input));
+    ZETASQL_ASSERT_OK(ParseNextStatement(
+        &location,
+        ParserOptions(GetLanguageOptions(), MacroExpansionMode::kStrict),
+        &output, &at_end_of_input));
     ASSERT_TRUE(output->statement() != nullptr);
     auto def_macro_stmt =
         output->statement()->GetAsOrNull<ASTDefineMacroStatement>();
@@ -71,7 +74,8 @@ TEST(ParserMacroExpansionTest, ExpandsMacros) {
   MacroCatalog macro_catalog;
   RegisterMacros("DEFINE MACRO m $1 b", macro_catalog);
 
-  ParserOptions parser_options(GetLanguageOptions(), &macro_catalog);
+  ParserOptions parser_options(GetLanguageOptions(),
+                               MacroExpansionMode::kLenient, &macro_catalog);
 
   ParseResumeLocation resume_location =
       ParseResumeLocation::FromStringView("SELECT a$m(x)2");
@@ -99,7 +103,8 @@ TEST(ParserMacroExpansionTest, RecognizesOnlyOriginalDefineMacroStatements) {
   MacroCatalog macro_catalog;
   RegisterMacros("DEFINE MACRO def DEFINE MACRO x 1", macro_catalog);
 
-  ParserOptions parser_options(GetLanguageOptions(), &macro_catalog);
+  ParserOptions parser_options(GetLanguageOptions(),
+                               MacroExpansionMode::kLenient, &macro_catalog);
 
   ParseResumeLocation resume_location =
       ParseResumeLocation::FromStringView("DEFINE MACRO m 1; $def");
@@ -128,7 +133,8 @@ TEST(ParserMacroExpansionTest,
   MacroCatalog macro_catalog;
   RegisterMacros("DEFINE MACRO def define", macro_catalog);
 
-  ParserOptions parser_options(GetLanguageOptions(), &macro_catalog);
+  ParserOptions parser_options(GetLanguageOptions(),
+                               MacroExpansionMode::kLenient, &macro_catalog);
 
   ParseResumeLocation resume_location =
       ParseResumeLocation::FromStringView("$def MACRO m 1");
@@ -143,7 +149,8 @@ TEST(ParserMacroExpansionTest,
 
 TEST(ParserMacroExpansionTest, DefineEmptyMacroNoSemiColon) {
   MacroCatalog macro_catalog;
-  ParserOptions parser_options(GetLanguageOptions(), &macro_catalog);
+  ParserOptions parser_options(GetLanguageOptions(),
+                               MacroExpansionMode::kStrict, &macro_catalog);
 
   ParseResumeLocation resume_location =
       ParseResumeLocation::FromStringView("DEFINE MACRO empty");
@@ -163,7 +170,8 @@ TEST(ParserMacroExpansionTest, DefineEmptyMacroNoSemiColon) {
 
 TEST(ParserMacroExpansionTest, DefineEmptyMacroWithSemiColon) {
   MacroCatalog macro_catalog;
-  ParserOptions parser_options(GetLanguageOptions(), &macro_catalog);
+  ParserOptions parser_options(GetLanguageOptions(),
+                               MacroExpansionMode::kStrict, &macro_catalog);
 
   ParseResumeLocation resume_location =
       ParseResumeLocation::FromStringView("DEFINE MACRO empty;");
@@ -183,7 +191,8 @@ TEST(ParserMacroExpansionTest, DefineEmptyMacroWithSemiColon) {
 
 TEST(ParserMacroExpansionTest, DefineMacroWithKeywordAsName) {
   MacroCatalog macro_catalog;
-  ParserOptions parser_options(GetLanguageOptions(), &macro_catalog);
+  ParserOptions parser_options(GetLanguageOptions(),
+                               MacroExpansionMode::kStrict, &macro_catalog);
 
   ParseResumeLocation resume_location =
       ParseResumeLocation::FromStringView("DEFINE MACRO limit 1");
@@ -203,7 +212,8 @@ TEST(ParserMacroExpansionTest, DefineMacroWithKeywordAsName) {
 
 TEST(ParserMacroExpansionTest, MacroNameCanBeQuoted) {
   MacroCatalog macro_catalog;
-  ParserOptions parser_options(GetLanguageOptions(), &macro_catalog);
+  ParserOptions parser_options(GetLanguageOptions(),
+                               MacroExpansionMode::kStrict, &macro_catalog);
 
   ParseResumeLocation resume_location =
       ParseResumeLocation::FromStringView("DEFINE MACRO `limit` 1");
@@ -223,7 +233,8 @@ TEST(ParserMacroExpansionTest, MacroNameCanBeQuoted) {
 
 TEST(ParserMacroExpansionTest, CorrectErrorWhenMacroNameIsASymbol) {
   MacroCatalog macro_catalog;
-  ParserOptions parser_options(GetLanguageOptions(), &macro_catalog);
+  ParserOptions parser_options(GetLanguageOptions(),
+                               MacroExpansionMode::kStrict, &macro_catalog);
 
   ParseResumeLocation resume_location =
       ParseResumeLocation::FromStringView("DEFINE MACRO + 1");
@@ -237,7 +248,8 @@ TEST(ParserMacroExpansionTest, CorrectErrorWhenMacroNameIsASymbol) {
 
 TEST(ParserMacroExpansionTest, CorrectErrorWhenMacroNameIsMissingAtEof) {
   MacroCatalog macro_catalog;
-  ParserOptions parser_options(GetLanguageOptions(), &macro_catalog);
+  ParserOptions parser_options(GetLanguageOptions(),
+                               MacroExpansionMode::kStrict, &macro_catalog);
 
   ParseResumeLocation resume_location =
       ParseResumeLocation::FromStringView("DEFINE MACRO      /*nothing*/  ");
@@ -254,7 +266,8 @@ TEST(ParserMacroExpansionTest, CorrectErrorWhenMacroNameIsMissingAtEof) {
 
 TEST(ParserMacroExpansionTest, CorrectErrorWhenMacroNameIsMissingAtSemicolon) {
   MacroCatalog macro_catalog;
-  ParserOptions parser_options(GetLanguageOptions(), &macro_catalog);
+  ParserOptions parser_options(GetLanguageOptions(),
+                               MacroExpansionMode::kStrict, &macro_catalog);
 
   ParseResumeLocation resume_location =
       ParseResumeLocation::FromStringView("DEFINE MACRO      /*nothing*/  ;");
@@ -270,7 +283,8 @@ TEST(ParserMacroExpansionTest, CorrectErrorWhenMacroNameIsMissingAtSemicolon) {
 TEST(ParserMacroExpansionTest, TopLevelCommentsArePreserved) {
   MacroCatalog macro_catalog;
   RegisterMacros("DEFINE MACRO m /* dropped_comment */ 1;", macro_catalog);
-  ParserOptions parser_options(GetLanguageOptions(), &macro_catalog);
+  ParserOptions parser_options(GetLanguageOptions(),
+                               MacroExpansionMode::kStrict, &macro_catalog);
   ParseResumeLocation resume_location = ParseResumeLocation::FromStringView(
       "/* preserved_comment */ SELECT $m()");
   bool at_end_of_input;
@@ -284,7 +298,7 @@ TEST(ParserMacroExpansionTest, TopLevelCommentsArePreserved) {
     Select [24-35]
       SelectList [31-35]
         SelectColumn [31-35]
-          IntLiteral($m()) [31-35]
+          IntLiteral(1) [31-35]
 )");
 }
 
@@ -292,7 +306,8 @@ TEST(ParserMacroExpansionTest,
      TopLevelCommentsArePreservedExpandingDefineMacroStatements) {
   MacroCatalog macro_catalog;
   RegisterMacros("DEFINE MACRO m1 /*internal comment*/ 123;", macro_catalog);
-  ParserOptions parser_options(GetLanguageOptions(), &macro_catalog);
+  ParserOptions parser_options(GetLanguageOptions(),
+                               MacroExpansionMode::kStrict, &macro_catalog);
   ParseResumeLocation resume_location = ParseResumeLocation::FromStringView(
       "select 1; /*comment 1*/ DEFINE MACRO m2 /*comment 2*/ $m1; SELECT "
       "$m1()");
@@ -335,8 +350,9 @@ TEST(ParserMacroExpansionTest,
     Select [59-71]
       SelectList [66-71]
         SelectColumn [66-71]
-          IntLiteral($m1()) [66-71]
+          IntLiteral(123) [66-71]
 )");
 }
 
+}  // namespace parser
 }  // namespace zetasql

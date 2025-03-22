@@ -28,6 +28,7 @@
 #include <vector>
 
 #include "zetasql/base/logging.h"
+#include "zetasql/common/string_util.h"
 #include "zetasql/common/thread_stack.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
@@ -40,18 +41,14 @@
 #include "zetasql/reference_impl/tuple_comparator.h"
 #include "zetasql/reference_impl/variable_id.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
-#include "absl/container/flat_hash_set.h"
 #include "absl/flags/flag.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
-#include "absl/types/optional.h"
 #include "absl/types/span.h"
-#include "zetasql/base/source_location.h"
 #include "zetasql/base/ret_check.h"
-#include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -395,34 +392,6 @@ absl::Status WindowFrameBoundaryArg::GetRowsBasedWindowBoundaries(
       return absl::OkStatus();
     }
   }
-}
-
-// Computes the key slot indexes corresponding to 'keys' in 'schema'. If
-// 'slots_for_values' is non-NULL, also complutes the value slot indexes.
-static absl::Status GetSlotsForKeysAndValues(
-    const TupleSchema& schema, absl::Span<const KeyArg* const> keys,
-    std::vector<int>* slots_for_keys, std::vector<int>* slots_for_values) {
-  slots_for_keys->reserve(keys.size());
-  for (const KeyArg* key : keys) {
-    std::optional<int> slot = schema.FindIndexForVariable(key->variable());
-    ZETASQL_RET_CHECK(slot.has_value()) << "Cannot find variable " << key->variable()
-                                << " in TupleSchema " << schema.DebugString();
-    slots_for_keys->push_back(slot.value());
-  }
-
-  if (slots_for_values != nullptr) {
-    const absl::flat_hash_set<int> slots_for_keys_set(slots_for_keys->begin(),
-                                                      slots_for_keys->end());
-    slots_for_values->reserve(schema.num_variables() -
-                              slots_for_keys_set.size());
-    for (int i = 0; i < schema.num_variables(); ++i) {
-      if (!slots_for_keys_set.contains(i)) {
-        slots_for_values->push_back(i);
-      }
-    }
-  }
-
-  return absl::OkStatus();
 }
 
 absl::Status WindowFrameBoundaryArg::GetRangeBasedWindowBoundaries(

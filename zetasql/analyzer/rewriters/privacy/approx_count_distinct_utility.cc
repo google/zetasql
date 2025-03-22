@@ -501,7 +501,7 @@ ReplaceApproxCountDistinctOfPrivacyIdCallsBySimplerAggregations(
 }
 
 absl::StatusOr<bool> HasApproxCountDistinctAggregation(
-    const std::vector<std::unique_ptr<const ResolvedComputedColumnBase>>&
+    absl::Span<const std::unique_ptr<const ResolvedComputedColumnBase>>
         aggregate_list) {
   for (const auto& aggregate : aggregate_list) {
     ZETASQL_RET_CHECK(aggregate->expr() != nullptr);

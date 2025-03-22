@@ -72,7 +72,7 @@ ZetaSQL supports the following bit functions.
 </tr>
 
 <tr>
-  <td><a href="https://github.com/google/zetasql/blob/master/docs/bit_functions.md#bit_or"><code>BIT_OR</code></a>
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#bit_or"><code>BIT_OR</code></a>
 </td>
   <td>
     Performs a bitwise OR operation on an expression.
@@ -82,7 +82,7 @@ ZetaSQL supports the following bit functions.
 </tr>
 
 <tr>
-  <td><a href="https://github.com/google/zetasql/blob/master/docs/bit_functions.md#bit_xor"><code>BIT_XOR</code></a>
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#bit_xor"><code>BIT_XOR</code></a>
 </td>
   <td>
     Performs a bitwise XOR operation on an expression.
@@ -96,7 +96,7 @@ ZetaSQL supports the following bit functions.
 
 ## `BIT_CAST_TO_INT32`
 
-```sql
+```zetasql
 BIT_CAST_TO_INT32(value)
 ```
 
@@ -117,7 +117,7 @@ The `value` parameter can represent:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT BIT_CAST_TO_UINT32(-1) as UINT32_value, BIT_CAST_TO_INT32(BIT_CAST_TO_UINT32(-1)) as bit_cast_value;
 
 /*---------------+----------------------*
@@ -129,7 +129,7 @@ SELECT BIT_CAST_TO_UINT32(-1) as UINT32_value, BIT_CAST_TO_INT32(BIT_CAST_TO_UIN
 
 ## `BIT_CAST_TO_INT64`
 
-```sql
+```zetasql
 BIT_CAST_TO_INT64(value)
 ```
 
@@ -150,7 +150,7 @@ The `value` parameter can represent:
 
 **Example**
 
-```sql
+```zetasql
 SELECT BIT_CAST_TO_UINT64(-1) as UINT64_value, BIT_CAST_TO_INT64(BIT_CAST_TO_UINT64(-1)) as bit_cast_value;
 
 /*-----------------------+----------------------*
@@ -162,7 +162,7 @@ SELECT BIT_CAST_TO_UINT64(-1) as UINT64_value, BIT_CAST_TO_INT64(BIT_CAST_TO_UIN
 
 ## `BIT_CAST_TO_UINT32`
 
-```sql
+```zetasql
 BIT_CAST_TO_UINT32(value)
 ```
 
@@ -183,7 +183,7 @@ The `value` parameter can represent:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT -1 as UINT32_value, BIT_CAST_TO_UINT32(-1) as bit_cast_value;
 
 /*--------------+----------------------*
@@ -195,7 +195,7 @@ SELECT -1 as UINT32_value, BIT_CAST_TO_UINT32(-1) as bit_cast_value;
 
 ## `BIT_CAST_TO_UINT64`
 
-```sql
+```zetasql
 BIT_CAST_TO_UINT64(value)
 ```
 
@@ -216,7 +216,7 @@ The `value` parameter can represent:
 
 **Example**
 
-```sql
+```zetasql
 SELECT -1 as INT64_value, BIT_CAST_TO_UINT64(-1) as bit_cast_value;
 
 /*--------------+----------------------*
@@ -228,7 +228,7 @@ SELECT -1 as INT64_value, BIT_CAST_TO_UINT64(-1) as bit_cast_value;
 
 ## `BIT_COUNT`
 
-```sql
+```zetasql
 BIT_COUNT(expression)
 ```
 
@@ -246,7 +246,7 @@ For signed integers, this is the number of bits in two's complement form.
 
 **Example**
 
-```sql
+```zetasql
 SELECT a, BIT_COUNT(a) AS a_bits, FORMAT("%T", b) as b, BIT_COUNT(b) AS b_bits
 FROM UNNEST([
   STRUCT(0 AS a, b'' AS b), (0, b'\x00'), (5, b'\x05'), (8, b'\x00\x08'),

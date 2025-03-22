@@ -1,6 +1,7 @@
 # max_rows_contributed added to anonymization options
 [default language_features=ANONYMIZATION,ANONYMIZATION_CASE_INSENSITIVE_OPTIONS,DIFFERENTIAL_PRIVACY_MAX_ROWS_CONTRIBUTED,TABLESAMPLE,STRATIFIED_RESERVOIR_TABLESAMPLE,JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS]
 [default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+
 select with anonymization options(max_rows_contributed = 5)
 anon_count(*)
 from SimpleTypesWithAnonymizationUid

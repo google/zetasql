@@ -19,6 +19,7 @@
 
 #include <stddef.h>
 
+#include <cstddef>
 #include <memory>
 #include <ostream>
 #include <string>
@@ -46,7 +47,7 @@ class Chunk {
   // that the token is not added to the chunk; it is only used to find chunk
   // column offset.
   static absl::StatusOr<Chunk> CreateEmptyChunk(
-      const bool starts_with_space, const int position_in_query,
+      bool starts_with_space, int position_in_query,
       const ParseLocationTranslator& location_translator,
       const Token& first_token);
 
@@ -89,13 +90,13 @@ class Chunk {
   // Returns a normalized string representation of this chunk that can be used
   // in tests or log lines. It's similar to PrintableString, but doesn't take
   // into account the information about token location on the line.
-  std::string DebugString(const bool verbose = false) const;
+  std::string DebugString(bool verbose = false) const;
 
   // Prints a <chunk> into a stream (especially in googletest).
   friend std::ostream& operator<<(std::ostream& os, const Chunk& chunk) {
     return os << chunk.DebugString();
   }
-  friend std::ostream& operator<<(std::ostream& os, const Chunk* const chunk);
+  friend std::ostream& operator<<(std::ostream& os, const Chunk* chunk);
 
   // Returns the i'th non-comment token in this chunk.
   // If i < 0, then the tokens are searched from end, with i = -1 corresponding
@@ -240,8 +241,8 @@ class Chunk {
 
   // Checks whether current or previous token in this chunk can be unary
   // operators and updates token types if needed.
-  void UpdateUnaryOperatorTypeIfNeeded(const Chunk* const previous_chunk,
-                                       const Token* const previous_token);
+  void UpdateUnaryOperatorTypeIfNeeded(const Chunk* previous_chunk,
+                                       const Token* previous_token);
 
   // Pointers to the next and previous chunks in the input.
   Chunk* NextChunk() const { return next_chunk_; }
@@ -360,7 +361,7 @@ class ChunkBlockFactory {
   // output. If offset is provided, it overwrites the default indentation
   // relative to the parent block.
   ChunkBlock* NewChunkBlock();
-  ChunkBlock* NewChunkBlock(ChunkBlock* parent, int offset = 0);
+  ChunkBlock* NewChunkBlock(ChunkBlock* parent);
   ChunkBlock* NewChunkBlock(ChunkBlock* parent, Chunk* chunk);
 
   // Returns the top of the ChunkBlock tree created so far.
@@ -435,10 +436,17 @@ class ChunkBlock {
   // the line that starts with this block.
   bool BreakCloseToLineLength() const { return break_close_to_line_length_; }
 
+  // Sets the minimum indent for this block compared to the previous level. This
+  // can be used to overwrite the default indentation size. If the value is
+  // smaller than the default indentation size, it will be ignored. Note that
+  // this adds additional indent only for blocks on this same level - children
+  // don't get this extra indent.
+  void SetMinOffset(int offset);
+
   // Returns the indentation level of this block. For leaf blocks, this is equal
   // to the number of indentation spaces the Chunk would have, if all possible
   // newlines were used.
-  int Level() const { return level_; }
+  int Level() const { return level_ + extra_offset_; }
 
   // Adds a new leaf chunk block for <chunk> that is at the same level as this
   // chunk block. Effectively, this means that the parent of this block will add
@@ -449,7 +457,7 @@ class ChunkBlock {
   // +--this block
   // |
   // +--new leaf block for <chunk>
-  void AddSameLevelChunk(class Chunk* chunk);
+  ChunkBlock* AddSameLevelChunk(class Chunk* chunk);
 
   // Adds a chunk on the same level as this chunk block, but creates a new
   // parent block for it. This way, the chunks have the same indentation level,
@@ -466,7 +474,7 @@ class ChunkBlock {
   // +--new parent
   //    |
   //    +-- new leaf block for <chunk>
-  void AddSameLevelCousinChunk(class Chunk* chunk);
+  ChunkBlock* AddSameLevelCousinChunk(class Chunk* chunk);
 
   // Adds two new chunk blocks, one intermediate chunk block that is at the same
   // level as this block, and then one more leaf chunk block for <chunk> that is
@@ -480,7 +488,7 @@ class ChunkBlock {
   // +--new block
   //    |
   //    +--new leaf block for <chunk>
-  void AddIndentedChunk(class Chunk* chunk, int offset = 0);
+  ChunkBlock* AddIndentedChunk(class Chunk* chunk);
 
   // Adds a new leaf chunk block for <chunk> that is at the same level as this
   // block and is immediately before this block. This is used to add comments
@@ -491,7 +499,7 @@ class ChunkBlock {
   // +--new leaf block for <chunk>
   // |
   // +--this block
-  void AddSameLevelChunkImmediatelyBefore(class Chunk* chunk);
+  ChunkBlock* AddSameLevelChunkImmediatelyBefore(class Chunk* chunk);
 
   // Adds a new leaf chunk block for <chunk> that is indented relative to this
   // block and is immediately before this block. This is used to add comments
@@ -504,7 +512,7 @@ class ChunkBlock {
   // |  +--new leaf block for <chunk>
   // |
   // +--this block
-  void AddIndentedChunkImmediatelyBefore(class Chunk* chunk);
+  ChunkBlock* AddIndentedChunkImmediatelyBefore(class Chunk* chunk);
 
   // Adds a new leaf chunk block for <chunk> that is a direct child of this
   // chunk block.
@@ -512,7 +520,7 @@ class ChunkBlock {
   // this block
   // |
   // +--new leaf block for <chunk>
-  void AddChildChunk(class Chunk* chunk);
+  ChunkBlock* AddChildChunk(class Chunk* chunk);
 
   // Adds the given <block> as a child of this block. It will also modify the
   // parent, level and all other properties of <block> to reflect it's new
@@ -618,8 +626,7 @@ class ChunkBlock {
   std::string DebugString(int indent = 0) const;
 
   // Prints a <block> into a stream (especially in googletest).
-  friend std::ostream& operator<<(std::ostream& os,
-                                  const ChunkBlock* const block);
+  friend std::ostream& operator<<(std::ostream& os, const ChunkBlock* block);
 
  private:
   // Creates a root chunk block. Level is -1 because the root is before anything
@@ -627,10 +634,8 @@ class ChunkBlock {
   explicit ChunkBlock(ChunkBlockFactory* block_factory);
 
   // Creates an intermediate (not top or leaf) chunk block with the given
-  // <parent>. Optional `offset` overrides the default indentation level
-  // relative to the parent block.
-  explicit ChunkBlock(ChunkBlockFactory* block_factory, ChunkBlock* parent,
-                      int offset = 0);
+  // <parent>.
+  explicit ChunkBlock(ChunkBlockFactory* block_factory, ChunkBlock* parent);
 
   // Creates a leaf chunk block with the given <parent> and <chunk>.
   // Leaf blocks always have the same level as their parent.
@@ -640,7 +645,7 @@ class ChunkBlock {
   // Adds a new chunk block that is a direct child of this chunk block, and then
   // adds a new grandchild block that is a leaf block for <chunk> right under
   // the newly created block.
-  void AddChildBlockWithGrandchildChunk(class Chunk* chunk, int offset = 0);
+  ChunkBlock* AddChildBlockWithGrandchildChunk(class Chunk* chunk);
 
   // Inserts a child leaf block for <chunk> right before the given <block>.
   //
@@ -651,7 +656,7 @@ class ChunkBlock {
   // +--new leaf block for <chunk>
   // |
   // +--<block>
-  void AddChunkBefore(class Chunk* chunk, ChunkBlock* block);
+  ChunkBlock* AddChunkBefore(class Chunk* chunk, ChunkBlock* block);
 
   // Inserts a new child block with grandchild leaf block for <chunk> right
   // before the given <block>.
@@ -665,13 +670,14 @@ class ChunkBlock {
   // |  +--new leaf block for <chunk>
   // |
   // +--<block>
-  void AddIndentedChunkBefore(class Chunk* chunk, ChunkBlock* block);
+  ChunkBlock* AddIndentedChunkBefore(class Chunk* chunk, ChunkBlock* block);
 
   ChunkBlockFactory* const block_factory_;
   ChunkBlock* parent_;
   class Chunk* chunk_;
 
   int level_ = -1;
+  int extra_offset_ = 0;
   bool is_list_ = false;
   bool break_close_to_line_length_ = false;
 

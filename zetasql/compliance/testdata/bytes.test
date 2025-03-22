@@ -220,6 +220,20 @@ SELECT UPPER(b"\xE2\x82\xAC"), UPPER(b"\xe2\x82\xac"), UPPER(b"a\123")
 ARRAY<STRUCT<BYTES, BYTES, BYTES>>[{b"\xe2\x82\xac", b"\xe2\x82\xac", b"AS"}]
 ==
 
+[name=function_lcase]
+[required_features=V_1_4_ALIASES_FOR_STRING_AND_DATE_FUNCTIONS]
+SELECT LCASE(b"\xE2\x82\xAC"), LCASE(b"\xe2\x82\xac"), LCASE(b"A\123")
+--
+ARRAY<STRUCT<BYTES, BYTES, BYTES>>[{b"\xe2\x82\xac", b"\xe2\x82\xac", b"as"}]
+==
+
+[name=function_ucase]
+[required_features=V_1_4_ALIASES_FOR_STRING_AND_DATE_FUNCTIONS]
+SELECT UCASE(b"\xE2\x82\xAC"), UCASE(b"\xe2\x82\xac"), UCASE(b"a\123")
+--
+ARRAY<STRUCT<BYTES, BYTES, BYTES>>[{b"\xe2\x82\xac", b"\xe2\x82\xac", b"AS"}]
+==
+
 [name=function_length]
 SELECT LENGTH(b"AbCdE"), LENGTH(b"a\123"), LENGTH(b"\xE2\x82\xAC"), LENGTH(b"€")
 --

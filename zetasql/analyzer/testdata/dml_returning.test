@@ -1189,55 +1189,6 @@ THEN RETURN Key
             ^
 ==
 
-DELETE KeyValue WHERE Value = 'Value_1'
-  THEN RETURN (SELECT k2 FROM (SELECT Key k1, Key k2 FROM KeyValue)
-               PIVOT (SUM(k1) FOR k1 IN (0,1)));
---
-DeleteStmt
-+-table_scan=
-| +-TableScan(column_list=[KeyValue.Value#2], table=KeyValue, column_index_list=[1])
-+-returning=
-| +-ReturningClause
-|   +-output_column_list=
-|   | +-KeyValue.$col1#11 AS `$col1` [INT64]
-|   +-expr_list=
-|     +-$col1#11 :=
-|       +-SubqueryExpr
-|         +-type=INT64
-|         +-subquery_type=SCALAR
-|         +-subquery=
-|           +-ProjectScan
-|             +-column_list=[$groupby.k2#8]
-|             +-input_scan=
-|               +-PivotScan
-|                 +-column_list=[$groupby.k2#8]
-|                 +-input_scan=
-|                 | +-ProjectScan
-|                 |   +-column_list=$subquery1.[k1#5, k2#6]
-|                 |   +-expr_list=
-|                 |   | +-k1#5 := ColumnRef(type=INT64, column=KeyValue.Key#3)
-|                 |   | +-k2#6 := ColumnRef(type=INT64, column=KeyValue.Key#3)
-|                 |   +-input_scan=
-|                 |     +-TableScan(column_list=[KeyValue.Key#3], table=KeyValue, column_index_list=[0])
-|                 +-group_by_list=
-|                 | +-k2#8 := ColumnRef(type=INT64, column=$subquery1.k2#6)
-|                 +-pivot_expr_list=
-|                 | +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
-|                 |   +-parse_location=130-137
-|                 |   +-ColumnRef(type=INT64, column=$subquery1.k1#5)
-|                 +-for_expr=
-|                 | +-ColumnRef(parse_location=142-144, type=INT64, column=$subquery1.k1#5)
-|                 +-pivot_value_list=
-|                   +-Literal(type=INT64, value=0, preserve_in_literal_remover=TRUE)
-|                   +-Literal(type=INT64, value=1, preserve_in_literal_remover=TRUE)
-+-column_access_list=READ
-+-where_expr=
-  +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
-    +-ColumnRef(type=STRING, column=KeyValue.Value#2)
-    +-Literal(type=STRING, value="Value_1")
-
-==
-
 [language_features=V_1_3_DML_RETURNING]
 INSERT INTO KeyValue (key, value) VALUES (1, "one")
 THEN RETURN * EXCEPT (KEY)

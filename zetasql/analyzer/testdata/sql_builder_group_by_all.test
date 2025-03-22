@@ -1,4 +1,4 @@
-[default show_unparsed]
+[default show_sqlbuilder_output]
 [default no_show_resolved_ast]
 [default language_features=V_1_4_GROUP_BY_ALL]
 
@@ -7,7 +7,8 @@ GROUP BY ALL
 --
 ALTERNATION GROUP: <empty>
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   aggregatescan_3.a_2 AS key,
   aggregatescan_3.a_2 AS key
@@ -21,10 +22,26 @@ FROM
       true
     GROUP BY ALL
   ) AS aggregatescan_3;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  KeyValue
+|> WHERE
+     true
+|> EXTEND
+     KeyValue.Key AS a_2
+|> AGGREGATE
+   GROUP BY a_2
+|> AS aggregatescan_3
+|> SELECT
+     aggregatescan_3.a_2 AS key,
+     aggregatescan_3.a_2 AS key;
 --
 ALTERNATION GROUP:  AS alias
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   aggregatescan_3.a_2 AS key,
   aggregatescan_3.a_2 AS alias
@@ -38,13 +55,29 @@ FROM
       true
     GROUP BY ALL
   ) AS aggregatescan_3;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  KeyValue
+|> WHERE
+     true
+|> EXTEND
+     KeyValue.Key AS a_2
+|> AGGREGATE
+   GROUP BY a_2
+|> AS aggregatescan_3
+|> SELECT
+     aggregatescan_3.a_2 AS key,
+     aggregatescan_3.a_2 AS alias;
 ==
 
 select DISTINCT key, key
 from TestTable
 GROUP BY ALL
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   aggregatescan_6.a_5 AS key,
   aggregatescan_6.a_5 AS key
@@ -67,11 +100,37 @@ FROM
       ) AS aggregatescan_4
     GROUP BY 1
   ) AS aggregatescan_6;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  TestTable
+|> SELECT
+     TestTable.key AS a_1
+|> AS testtable_2
+|> EXTEND
+     testtable_2.a_1 AS a_3
+|> AGGREGATE
+   GROUP BY a_3
+|> AS aggregatescan_4
+|> EXTEND
+     aggregatescan_4.a_3 AS a_5
+|> AGGREGATE
+   GROUP BY a_5
+|> AS aggregatescan_6
+|> SELECT
+     aggregatescan_6.a_5 AS a_5,
+     aggregatescan_6.a_5 AS a_7
+|> AS aggregatescan_6
+|> SELECT
+     aggregatescan_6.a_5 AS key,
+     aggregatescan_6.a_5 AS key;
 ==
 
 select value, cast(count(*) as double) from KeyValue group by all
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   aggregatescan_5.a_3 AS value,
   CAST(aggregatescan_5.a_4 AS DOUBLE) AS a_6
@@ -89,11 +148,29 @@ FROM
       ) AS keyvalue_2
     GROUP BY ALL
   ) AS aggregatescan_5;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  KeyValue
+|> SELECT
+     KeyValue.Value AS a_1
+|> AS keyvalue_2
+|> EXTEND
+     keyvalue_2.a_1 AS a_3
+|> AGGREGATE
+     COUNT(*) AS a_4
+   GROUP BY a_3
+|> AS aggregatescan_5
+|> SELECT
+     aggregatescan_5.a_3 AS value,
+     CAST(aggregatescan_5.a_4 AS DOUBLE) AS a_6;
 ==
 
 select cast(count(*) as double) from KeyValue group by all
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   CAST(aggregatescan_2.a_1 AS DOUBLE) AS a_3
 FROM
@@ -104,6 +181,16 @@ FROM
       KeyValue
     GROUP BY ALL
   ) AS aggregatescan_2;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  KeyValue
+|> AGGREGATE
+     COUNT(*) AS a_1
+|> AS aggregatescan_2
+|> SELECT
+     CAST(aggregatescan_2.a_1 AS DOUBLE) AS a_3;
 ==
 
 [language_features=V_1_4_GROUP_BY_ALL,V_1_1_SELECT_STAR_EXCEPT_REPLACE]
@@ -114,7 +201,8 @@ FROM (
 )
 GROUP BY ALL
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   projectscan_3.a_2 AS b
 FROM
@@ -124,6 +212,20 @@ FROM
       2 AS a_2
   ) AS projectscan_3
 GROUP BY ALL;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+SELECT
+  1 AS a_1,
+  2 AS a_2
+|> AS projectscan_3
+|> EXTEND
+     projectscan_3.a_2 AS a_4
+|> AGGREGATE
+   GROUP BY a_4
+|> AS aggregatescan_5
+|> SELECT
+     aggregatescan_5.a_4 AS b;
 ==
 
 [language_features=V_1_4_GROUP_BY_ALL,V_1_1_SELECT_STAR_EXCEPT_REPLACE]
@@ -136,7 +238,8 @@ GROUP BY {{`all`|ALL}}
 --
 ALTERNATION GROUP: `all`
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   0 AS a,
   aggregatescan_5.a_4 AS `all`
@@ -152,10 +255,26 @@ FROM
       ) AS projectscan_3
     GROUP BY 1
   ) AS aggregatescan_5;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+SELECT
+  1 AS a_1,
+  2 AS a_2
+|> AS projectscan_3
+|> EXTEND
+     projectscan_3.a_2 AS a_4
+|> AGGREGATE
+   GROUP BY a_4
+|> AS aggregatescan_5
+|> SELECT
+     0 AS a,
+     aggregatescan_5.a_4 AS `all`;
 --
 ALTERNATION GROUP: ALL
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   0 AS a,
   aggregatescan_5.a_4 AS `all`
@@ -171,6 +290,21 @@ FROM
       ) AS projectscan_3
     GROUP BY ALL
   ) AS aggregatescan_5;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+SELECT
+  1 AS a_1,
+  2 AS a_2
+|> AS projectscan_3
+|> EXTEND
+     projectscan_3.a_2 AS a_4
+|> AGGREGATE
+   GROUP BY a_4
+|> AS aggregatescan_5
+|> SELECT
+     0 AS a,
+     aggregatescan_5.a_4 AS `all`;
 ==
 
 # Having clause that references a non-selected column
@@ -183,7 +317,8 @@ HAVING SUM(b) > 1
 --
 ALTERNATION GROUP: a
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   aggregatescan_6.a_4 AS a
 FROM
@@ -201,10 +336,28 @@ FROM
   ) AS aggregatescan_6
 WHERE
   (aggregatescan_6.a_5) > 1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+SELECT
+  1 AS a_1,
+  2 AS a_2
+|> AS projectscan_3
+|> EXTEND
+     projectscan_3.a_1 AS a_4
+|> AGGREGATE
+     SUM(projectscan_3.a_2) AS a_5
+   GROUP BY a_4
+|> AS aggregatescan_6
+|> WHERE
+     (aggregatescan_6.a_5) > 1
+|> SELECT
+     aggregatescan_6.a_4 AS a;
 --
 ALTERNATION GROUP: *
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   aggregatescan_7.a_4 AS a,
   aggregatescan_7.a_5 AS b
@@ -224,6 +377,25 @@ FROM
   ) AS aggregatescan_7
 WHERE
   (aggregatescan_7.a_6) > 1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+SELECT
+  1 AS a_1,
+  2 AS a_2
+|> AS projectscan_3
+|> EXTEND
+     projectscan_3.a_1 AS a_4,
+     projectscan_3.a_2 AS a_5
+|> AGGREGATE
+     SUM(projectscan_3.a_2) AS a_6
+   GROUP BY a_4, a_5
+|> AS aggregatescan_7
+|> WHERE
+     (aggregatescan_7.a_6) > 1
+|> SELECT
+     aggregatescan_7.a_4 AS a,
+     aggregatescan_7.a_5 AS b;
 ==
 
 # GROUP BY ALL in subquery
@@ -236,7 +408,8 @@ FROM (
   GROUP BY ALL
 )
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   projectscan_3.a_1 AS a,
   projectscan_3.a_2 AS b,
@@ -248,6 +421,24 @@ FROM
       2 AS a_2
   ) AS projectscan_3
 GROUP BY ALL;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+SELECT
+  1 AS a_1,
+  2 AS a_2
+|> AS projectscan_3
+|> EXTEND
+     projectscan_3.a_1 AS a_4,
+     projectscan_3.a_2 AS a_5
+|> AGGREGATE
+     COUNT(*) AS a_6
+   GROUP BY a_4, a_5
+|> AS aggregatescan_7
+|> SELECT
+     aggregatescan_7.a_4 AS a,
+     aggregatescan_7.a_5 AS b,
+     aggregatescan_7.a_6 AS a_6;
 ==
 
 # GROUP BY ALL in the outermost query and its direct table subquery.
@@ -259,7 +450,8 @@ FROM (
 )
 GROUP BY ALL
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   projectscan_5.a_3 AS int32,
   projectscan_5.a_4 AS a_7
@@ -278,6 +470,33 @@ FROM
     GROUP BY ALL
   ) AS projectscan_5
 GROUP BY ALL;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  SimpleTypes
+|> SELECT
+     SimpleTypes.int32 AS a_1
+|> AS simpletypes_2
+|> EXTEND
+     simpletypes_2.a_1 AS a_3
+|> AGGREGATE
+     COUNT(*) AS a_4
+   GROUP BY a_3
+|> AS aggregatescan_5
+|> SELECT
+     aggregatescan_5.a_3 AS a_3,
+     aggregatescan_5.a_4 AS a_4
+|> AS projectscan_6
+|> EXTEND
+     projectscan_6.a_3 AS a_7,
+     projectscan_6.a_4 AS a_8
+|> AGGREGATE
+   GROUP BY a_7, a_8
+|> AS aggregatescan_9
+|> SELECT
+     aggregatescan_9.a_7 AS int32,
+     aggregatescan_9.a_8 AS a_8;
 ==
 
 # GROUP BY ALL in inner subquery and outermost query.
@@ -294,7 +513,8 @@ FROM (
 )
 GROUP BY ALL
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   projectscan_7.a_4 AS a,
   projectscan_7.a_5 AS b,
@@ -314,6 +534,36 @@ FROM
     GROUP BY ALL
   ) AS projectscan_7
 GROUP BY ALL;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+SELECT
+  1 AS a_1,
+  2 AS a_2
+|> AS projectscan_3
+|> EXTEND
+     projectscan_3.a_1 AS a_4,
+     projectscan_3.a_2 AS a_5
+|> AGGREGATE
+     COUNT(*) AS a_6
+   GROUP BY a_4, a_5
+|> AS aggregatescan_7
+|> SELECT
+     aggregatescan_7.a_4 AS a_4,
+     aggregatescan_7.a_5 AS a_5,
+     aggregatescan_7.a_6 AS a_6
+|> AS projectscan_8
+|> EXTEND
+     projectscan_8.a_4 AS a_9,
+     projectscan_8.a_5 AS a_10,
+     projectscan_8.a_6 AS a_11
+|> AGGREGATE
+   GROUP BY a_9, a_10, a_11
+|> AS aggregatescan_12
+|> SELECT
+     aggregatescan_12.a_9 AS a,
+     aggregatescan_12.a_10 AS b,
+     aggregatescan_12.a_11 AS a_11;
 ==
 
 [language_features=V_1_4_GROUP_BY_ALL,V_1_2_GROUP_BY_STRUCT]
@@ -324,7 +574,8 @@ SELECT x.a2.b1, x.a1, x.a2, SUM(y)
 FROM T
 GROUP BY ALL
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 WITH
   T AS (
     SELECT
@@ -347,6 +598,30 @@ FROM
       T AS withrefscan_3
     GROUP BY ALL
   ) AS aggregatescan_7;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+WITH
+  T AS (
+    SELECT
+      STRUCT< a1 INT64, a2 STRUCT< b1 STRUCT< c1 INT64, c2 INT64 >, b2 INT64 > > (1, STRUCT< b1 STRUCT< c1 INT64,
+        c2 INT64 >, b2 INT64 > (STRUCT< c1 INT64, c2 INT64 > (1, 1), 1)) AS a_1,
+      1 AS a_2
+  )
+FROM
+  T AS withrefscan_3
+|> EXTEND
+     withrefscan_3.a_1.a1 AS a_4,
+     withrefscan_3.a_1.a2 AS a_5
+|> AGGREGATE
+     SUM(withrefscan_3.a_2) AS a_6
+   GROUP BY a_4, a_5
+|> AS aggregatescan_7
+|> SELECT
+     aggregatescan_7.a_5.b1 AS b1,
+     aggregatescan_7.a_4 AS a1,
+     aggregatescan_7.a_5 AS a2,
+     aggregatescan_7.a_6 AS a_6;
 ==
 
 [language_features=V_1_4_GROUP_BY_ALL,V_1_2_GROUP_BY_STRUCT]
@@ -356,7 +631,8 @@ FROM (
 ) AS T
 GROUP BY ALL
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   (
     SELECT
@@ -379,6 +655,28 @@ FROM
       ) AS projectscan_3
     GROUP BY ALL
   ) AS aggregatescan_6;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+SELECT
+  STRUCT< a1 INT64, a2 STRUCT< b1 STRUCT< c1 INT64, c2 INT64 >, b2 INT64 > > (1, STRUCT< b1 STRUCT< c1 INT64,
+    c2 INT64 >, b2 INT64 > (STRUCT< c1 INT64, c2 INT64 > (1, 1), 1)) AS a_1,
+  1 AS a_2
+|> AS projectscan_3
+|> EXTEND
+     projectscan_3.a_1.a2 AS a_4
+|> AGGREGATE
+     SUM(projectscan_3.a_2) AS a_5
+   GROUP BY a_4
+|> AS aggregatescan_6
+|> SELECT
+     (
+       SELECT
+         aggregatescan_6.a_4.b1 AS a_8
+     ) AS a_7,
+     ARRAY< INT64 >[aggregatescan_6.a_4.b1.c1, aggregatescan_6.a_4.b2] AS a_9,
+     aggregatescan_6.a_4 AS a2,
+     aggregatescan_6.a_5 AS a_5;
 ==
 
 [language_features=V_1_4_GROUP_BY_ALL,V_1_2_GROUP_BY_STRUCT]
@@ -389,7 +687,8 @@ SELECT x.a2.b1, (SELECT x), SUM(y)
 FROM T
 GROUP BY ALL
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 WITH
   T AS (
     SELECT
@@ -407,6 +706,32 @@ SELECT
 FROM
   T AS withrefscan_3
 GROUP BY ALL;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+WITH
+  T AS (
+    SELECT
+      STRUCT< a1 INT64, a2 STRUCT< b1 STRUCT< c1 INT64, c2 INT64 >, b2 INT64 > > (1, STRUCT< b1 STRUCT< c1 INT64,
+        c2 INT64 >, b2 INT64 > (STRUCT< c1 INT64, c2 INT64 > (1, 1), 1)) AS a_1,
+      1 AS a_2
+  )
+FROM
+  T AS withrefscan_3
+|> EXTEND
+     withrefscan_3.a_1.a2.b1 AS a_5,
+     (
+       SELECT
+         withrefscan_3.a_1 AS a_4
+     ) AS a_6
+|> AGGREGATE
+     SUM(withrefscan_3.a_2) AS a_7
+   GROUP BY a_5, a_6
+|> AS aggregatescan_8
+|> SELECT
+     aggregatescan_8.a_5 AS b1,
+     aggregatescan_8.a_6 AS a_6,
+     aggregatescan_8.a_7 AS a_7;
 ==
 
 # Repro for b/323439034: When SELECT clause does not contain aggregate column
@@ -416,7 +741,8 @@ SELECT 'a' AS x
 FROM KeyValue
 GROUP BY ALL
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   "a" AS x
 FROM
@@ -427,5 +753,15 @@ FROM
       KeyValue
     GROUP BY ALL
   ) AS aggregatescan_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  KeyValue
+|> SELECT
+     NULL
+|> AS aggregatescan_1
+|> SELECT
+     "a" AS x;
 ==
 

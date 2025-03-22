@@ -13,9 +13,11 @@ a single scalar value, and appears in the `FROM` clause like a table subquery.
 
 You can create a TVF using the following syntax:
 
-```sql
+```zetasql
 CREATE
+  [ OR REPLACE ]
   { TEMPORARY | TEMP } TABLE FUNCTION
+  [ IF NOT EXISTS ]
   function_name ( [ function_parameter [ DEFAULT value_for_argument ] [, ...] ] )
   [ RETURNS TABLE < column_declaration [, ...] > ]
   [ { AS query | LANGUAGE language_name AS string_literal } ]
@@ -30,8 +32,13 @@ column_declaration:
 +   `CREATE ... TABLE FUNCTION`: Creates a new
     [table-valued function][table-valued-function] function.
     A function can have zero or more function parameters.
-+   `TEMPORARY` or `TEMP`: Indicates that the function is temporary; that is it
-     exists for the lifetime of the session.
+
+    +   `TEMPORARY` or `TEMP`: Indicates that the function is temporary, meaning
+     that it exists for the lifetime of the session.
++   `OR REPLACE`: Replaces any function with the same name if it exists. Can't
+    appear with `IF NOT EXISTS`.
++   `IF NOT EXISTS`: If any function exists with the same name, the `CREATE`
+    statement has no effect. Can't appear with `OR REPLACE`.
 +   `function_parameter`: A parameter for the function.
 
     + `parameter_name`: The name of the parameter.
@@ -40,7 +47,7 @@ column_declaration:
 
     + `ANY TYPE`: The function will accept an argument of any type for this
       function parameter. If more than one parameter includes `ANY TYPE`,
-      a relationship is not enforced between these parameters when the function
+      a relationship isn't enforced between these parameters when the function
       is defined. However, if the type of argument passed into the function at
       call time is incompatible with the function definition, this will
       result in an error.
@@ -73,7 +80,7 @@ column_declaration:
 ## Specify TVF arguments {#tvf_arguments}
 
 When a TVF with function parameters is called, arguments must be passed in for
-all function parameters that do not have default values. An argument can be of
+all function parameters that don't have default values. An argument can be of
 any supported ZetaSQL type or table, but must be coercible to the
 related function parameter's type.
 
@@ -87,7 +94,7 @@ arguments that have default values.
 Specify a table argument the same way you specify the fields of a
 [STRUCT][data-types-struct].
 
-```sql
+```zetasql
 parameter_name TABLE<column_name data_type [, ...]>
 ```
 
@@ -96,14 +103,14 @@ in which each row
 is a single column of a specific type. To specify a value table as an argument,
 include only the `data_type`, leaving out the `column_name`:
 
-```sql
+```zetasql
 parameter_name TABLE<data_type>
 ```
 
 In many cases, the `data_type` of the single column in the value table is a
 protocol buffer; for example:
 
-```sql
+```zetasql
 CREATE TEMP TABLE FUNCTION AggregatedMovieLogs(
   TicketPurchases TABLE<analysis_conduit.codelab.MovieTicketPurchase>)
 ```
@@ -121,7 +128,7 @@ of a range of rows from the Customer table. The first returns all rows for a
 range of `CustomerIds`; the second calls the first function and applies an
 additional filter based on `CustomerType`.
 
-```sql
+```zetasql
 CREATE TEMP TABLE FUNCTION CustomerRange(MinID INT64, MaxID INT64)
 AS (
   SELECT *
@@ -145,7 +152,7 @@ AS (
 The following function returns all rows from the input table if the first
 argument is greater than the second argument; otherwise it returns no rows.
 
-```sql
+```zetasql
 CREATE TEMP TABLE FUNCTION MyFunction(
      first_value ANY TYPE,
      second_value ANY TYPE,
@@ -161,7 +168,7 @@ and returns rows from the table where the predicate evaluates to true. The input
 table `SelectedCustomers` must contain a column named `creation_time`, and
 `creation_time` must be a numeric type, or the function will return an error.
 
-```sql
+```zetasql
 CREATE TEMP TABLE FUNCTION CustomerCreationTimeRange(
     min_creation_time INT64,
     max_creation_time INT64,

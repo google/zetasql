@@ -22,21 +22,26 @@
 #include <cctype>
 #include <cmath>
 #include <cstdint>
-#include <limits>
 #include <optional>
 #include <string>
 #include <vector>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/errors.h"
+#include "zetasql/public/civil_time.h"
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/functions/date_time_util_internal.h"
 #include "zetasql/public/functions/datetime.pb.h"
 #include "zetasql/public/functions/parse_date_time_utils.h"
+#include "zetasql/public/pico_time.h"
 #include "zetasql/public/strings.h"
-#include "zetasql/public/type.h"
-#include "absl/base/optimization.h"
+#include "zetasql/public/types/timestamp_util.h"
+#include "absl/status/status.h"
+#include "absl/strings/ascii.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/string_view.h"
+#include "absl/time/civil_time.h"
 #include "absl/time/time.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
@@ -117,12 +122,14 @@ static const char* ParseZone(const char* dp, std::string* zone,
 // parsing if a non-digit character is encountered.
 static const char* ParseSubSecondsIfStartingWithPoint(
     const char* dp, const char* end_of_data, int max_digits,
-    TimestampScale scale, absl::Duration* subseconds) {
+    TimestampScale scale, absl::Duration* subseconds,
+    uint32_t* sub_nanoseconds) {
   if (dp == nullptr) {
     return nullptr;
   } else if (end_of_data > dp && *dp == '.') {
     // Start to parse the integer part from dp + 1
-    return ParseSubSeconds(dp + 1, end_of_data, max_digits, scale, subseconds);
+    return ParseSubSeconds(dp + 1, end_of_data, max_digits, scale, subseconds,
+                           sub_nanoseconds);
   }
 
   return dp;
@@ -978,7 +985,8 @@ static absl::Status ParseTime(absl::string_view format,
                               absl::string_view timestamp_string,
                               const absl::TimeZone default_timezone,
                               TimestampScale scale, bool parse_version2,
-                              absl::Time* timestamp) {
+                              absl::Time* timestamp,
+                              uint32_t* sub_nanoseconds) {
   // The unparsed input.  Note that data and end_of_data can be nullptr
   // for an empty string_view.
 
@@ -1014,6 +1022,7 @@ static absl::Status ParseTime(absl::string_view format,
   DateParseContext date_parse_context;
 
   absl::Duration subseconds;
+  *sub_nanoseconds = 0;
 
   int timezone_offset_minutes = 0;
   bool saw_timezone_offset = false;
@@ -1323,7 +1332,8 @@ static absl::Status ParseTime(absl::string_view format,
         if (fmt + 1 < end_of_fmt && *fmt == '*' && *(fmt + 1) == 'S') {
           data = ParseInt(data, end_of_data, 2, 0, 60, &tm.tm_sec);
           data = ParseSubSecondsIfStartingWithPoint(
-              data, end_of_data, 0 /* max_digits */, scale, &subseconds);
+              data, end_of_data, 0 /* max_digits */, scale, &subseconds,
+              sub_nanoseconds);
           fmt += 2;
           continue;
         }
@@ -1348,14 +1358,14 @@ static absl::Status ParseTime(absl::string_view format,
         }
         if (fmt < end_of_fmt && std::isdigit(*fmt)) {
           int n = 0;
-          // Only %E0S to %E9S is supported (0-9 subseconds digits).
-          if (const char* np = ParseInt(fmt, end_of_fmt, 1, 0,
+          // Only %E0S to %E12S is supported (0-12 subseconds digits).
+          if (const char* np = ParseInt(fmt, end_of_fmt, 2, 0,
                                         static_cast<int32_t>(scale), &n)) {
             if (*np++ == 'S') {
               data = ParseInt(data, end_of_data, 2, 0, 60, &tm.tm_sec);
               if (n > 0) {
-                data = ParseSubSecondsIfStartingWithPoint(data, end_of_data, n,
-                                                          scale, &subseconds);
+                data = ParseSubSecondsIfStartingWithPoint(
+                    data, end_of_data, n, scale, &subseconds, sub_nanoseconds);
               }
               fmt = np;
               continue;
@@ -1676,6 +1686,20 @@ static absl::Status ParseTime(absl::string_view format,
   return absl::OkStatus();
 }  // NOLINT(readability/fn_size)
 
+static absl::Status ParseTime(absl::string_view format,
+                              absl::string_view timestamp_string,
+                              const absl::TimeZone default_timezone,
+                              TimestampScale scale, bool parse_version2,
+                              absl::Time* timestamp) {
+  if (scale == kPicoseconds) {
+    return MakeEvalError() << "Timestampscale kPicoseconds is not supported";
+  }
+
+  uint32_t unused;
+  return ParseTime(format, timestamp_string, default_timezone, scale,
+                   parse_version2, timestamp, &unused);
+}
+
 // Validates that <format_string> does not have any <invalid_elements>.
 static absl::Status ValidateParseFormat(absl::string_view format_string,
                                         absl::string_view target_type_name,
@@ -1834,6 +1858,33 @@ absl::Status ParseStringToTimestamp(absl::string_view format_string,
   ZETASQL_RETURN_IF_ERROR(MakeTimeZone(default_timezone_string, &timezone));
   return ParseStringToTimestamp(format_string, timestamp_string, timezone,
                                 parse_version2, timestamp);
+}
+
+absl::Status ParseStringToTimestamp(absl::string_view format_string,
+                                    absl::string_view timestamp_string,
+                                    absl::string_view default_timezone_string,
+                                    PicoTime* timestamp) {
+  absl::TimeZone timezone;
+  ZETASQL_RETURN_IF_ERROR(MakeTimeZone(default_timezone_string, &timezone));
+  return ParseStringToTimestamp(format_string, timestamp_string, timezone,
+                                timestamp);
+}
+
+absl::Status ParseStringToTimestamp(absl::string_view format_string,
+                                    absl::string_view timestamp_string,
+                                    absl::TimeZone default_timezone,
+                                    PicoTime* timestamp) {
+  uint32_t sub_nanoseconds;
+  absl::Time time;
+  ZETASQL_RETURN_IF_ERROR(ParseTime(format_string, timestamp_string, default_timezone,
+                            kPicoseconds, /*parse_version2=*/true, &time,
+                            &sub_nanoseconds));
+
+  ZETASQL_ASSIGN_OR_RETURN(PicoTime pico_time, PicoTime::Create(time));
+  ZETASQL_ASSIGN_OR_RETURN(*timestamp, PicoTime::FromUnixPicos(pico_time.ToUnixPicos() +
+                                                       sub_nanoseconds));
+
+  return absl::OkStatus();
 }
 
 absl::Status ParseStringToDate(absl::string_view format_string,

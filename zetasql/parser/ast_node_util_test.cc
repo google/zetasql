@@ -23,7 +23,9 @@
 #include "zetasql/parser/parser.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "zetasql/base/check.h"
 #include "absl/strings/ascii.h"
+#include "absl/strings/str_cat.h"
 
 namespace zetasql {
 namespace {

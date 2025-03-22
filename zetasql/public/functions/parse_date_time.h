@@ -22,6 +22,8 @@
 
 #include "zetasql/public/civil_time.h"
 #include "zetasql/public/functions/date_time_util.h"
+#include "zetasql/public/pico_time.h"
+#include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
 #include "zetasql/base/status.h"
@@ -82,6 +84,16 @@ absl::Status ParseStringToTimestamp(absl::string_view format_string,
                                     absl::string_view timestamp_string,
                                     absl::TimeZone default_timezone,
                                     bool parse_version2, absl::Time* timestamp);
+
+absl::Status ParseStringToTimestamp(absl::string_view format_string,
+                                    absl::string_view timestamp_string,
+                                    absl::string_view default_timezone_string,
+                                    PicoTime* timestamp);
+
+absl::Status ParseStringToTimestamp(absl::string_view format_string,
+                                    absl::string_view timestamp_string,
+                                    absl::TimeZone default_timezone,
+                                    PicoTime* timestamp);
 
 // Parses an input <date_string> with the given input <format_string>,
 // and produces the appropriate date as output. Date parts that are

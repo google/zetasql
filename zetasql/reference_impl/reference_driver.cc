@@ -27,12 +27,10 @@
 #include <vector>
 
 #include "zetasql/base/logging.h"
-#include "zetasql/analyzer/resolver.h"
 #include "zetasql/common/evaluator_registration_utils.h"
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/compliance/test_driver.h"
-#include "zetasql/parser/parse_tree.h"
-#include "zetasql/parser/parser.h"
+#include "zetasql/proto/script_exception.pb.h"
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
@@ -41,6 +39,7 @@
 #include "zetasql/public/error_helpers.h"
 #include "zetasql/public/evaluator.h"
 #include "zetasql/public/function.h"
+#include "zetasql/public/function_signature.h"
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/language_options.h"
@@ -165,16 +164,26 @@ ReferenceDriver::~ReferenceDriver() = default;
 // static
 std::unique_ptr<ReferenceDriver> ReferenceDriver::CreateFromTestDriver(
     TestDriver* test_driver) {
-  if (test_driver->IsReferenceImplementation()) {
-    auto* ref_driver = static_cast<ReferenceDriver*>(test_driver);
-    ABSL_CHECK(ref_driver != nullptr);
-    return std::make_unique<ReferenceDriver>(
-        ref_driver->GetSupportedLanguageOptions(),
-        ref_driver->enabled_rewrites());
-  } else {
-    return std::make_unique<ReferenceDriver>(
-        test_driver->GetSupportedLanguageOptions());
+  return std::make_unique<ReferenceDriver>(
+      test_driver->GetSupportedLanguageOptions());
+}
+
+static bool IsRelationAndUsesUnsupportedType(
+    const LanguageOptions& options, const FunctionArgumentType& arg_type,
+    const Type** example) {
+  if (!arg_type.IsFixedRelation()) {
+    return false;
   }
+  for (const TVFRelation::Column& column :
+       arg_type.options().relation_input_schema().columns()) {
+    if (!column.type->IsSupportedType(options)) {
+      if (example != nullptr) {
+        *example = column.type;
+      }
+      return true;
+    }
+  }
+  return false;
 }
 
 // static
@@ -192,6 +201,26 @@ bool ReferenceDriver::UsesUnsupportedType(const LanguageOptions& options,
       return true;
     }
   }
+
+  std::vector<const ResolvedNode*> create_tvf_stmts;
+  root->GetDescendantsWithKinds({RESOLVED_CREATE_TABLE_FUNCTION_STMT},
+                                &create_tvf_stmts);
+  for (const ResolvedNode* node : create_tvf_stmts) {
+    const auto* create_tvf_stmt =
+        node->GetAs<ResolvedCreateTableFunctionStmt>();
+    const FunctionArgumentType& return_type =
+        create_tvf_stmt->signature().result_type();
+    if (IsRelationAndUsesUnsupportedType(options, return_type, example)) {
+      return true;
+    }
+    for (const FunctionArgumentType& arg :
+         create_tvf_stmt->signature().arguments()) {
+      if (IsRelationAndUsesUnsupportedType(options, arg, example)) {
+        return true;
+      }
+    }
+  }
+
   std::vector<const ResolvedNode*> nodes;
   root->GetDescendantsWithKinds({RESOLVED_OUTPUT_COLUMN}, &nodes);
   for (const ResolvedNode* node : nodes) {
@@ -222,8 +251,8 @@ void ReferenceDriver::AddTable(const std::string& table_name,
 void ReferenceDriver::AddTableInternal(const std::string& table_name,
                                        const TestTable& table) {
   const Value& array_value = table.table_as_value;
-  ABSL_CHECK(array_value.type()->IsArray()) << table_name << " "
-                                       << array_value.DebugString(true);
+  ABSL_CHECK(array_value.type()->IsArray())  // Crash OK
+      << table_name << " " << array_value.DebugString(true);
   const Table* catalog_table;
   ZETASQL_CHECK_OK(catalog_.FindTable({table_name}, &catalog_table));
 
@@ -249,6 +278,19 @@ absl::Status ReferenceDriver::CreateDatabase(const TestDatabase& test_db) {
     const std::string& table_name = t.first;
     const TestTable& test_table = t.second;
     AddTableInternal(table_name, test_table);
+  }
+
+  AnalyzerOptions analyzer_options(language_options_);
+  if (!language_options_.SupportsStatementKind(
+          RESOLVED_CREATE_TABLE_FUNCTION_STMT)) {
+    language_options_.AddSupportedStatementKind(
+        RESOLVED_CREATE_TABLE_FUNCTION_STMT);
+  }
+  analyzer_options.set_default_time_zone(default_time_zone_);
+  for (const auto& [tvf_name, create_stmt] : test_db.tvfs) {
+    ZETASQL_RETURN_IF_ERROR(AddTVFFromCreateTableFunction(
+        create_stmt, analyzer_options, /*allow_persistent=*/true,
+        artifacts_.emplace_back(), *catalog_.catalog()));
   }
 
   for (const auto& [_, graph_ddl] : test_db.property_graph_defs) {
@@ -585,6 +627,46 @@ ReferenceDriver::ExecuteStatementForReferenceDriverInternal(
       return Value::String(
           absl::StrCat("Skipped creation of procedure ", name));
     }
+  }
+
+  if (analyzed->resolved_statement()->node_kind() ==
+      RESOLVED_CREATE_TABLE_FUNCTION_STMT) {
+    // This statement is executed directly in the reference driver, rather than
+    // through the algebrizer/evaluator.
+    // Insert the table function into the database
+    ZETASQL_RET_CHECK(database != nullptr);
+    const auto* create_tvf_stmt =
+        analyzed->resolved_statement()
+            ->GetAs<ResolvedCreateTableFunctionStmt>();
+
+    std::string tvf_name = absl::StrJoin(create_tvf_stmt->name_path(), ".");
+    aux_output.created_table_name = tvf_name;
+    bool already_exists = zetasql_base::ContainsKey(database->tvfs, tvf_name);
+    switch (create_tvf_stmt->create_mode()) {
+      case ResolvedCreateStatement::CREATE_DEFAULT:
+        if (already_exists) {
+          return zetasql_base::InvalidArgumentErrorBuilder()
+                 << "TVF " << tvf_name << " already exists";
+        } else {
+          database->tvfs[tvf_name] = sql;
+        }
+        break;
+      case ResolvedCreateStatement::CREATE_IF_NOT_EXISTS:
+        if (!already_exists) {
+          database->tvfs[tvf_name] = sql;
+        }
+        break;
+      case ResolvedCreateStatement::CREATE_OR_REPLACE:
+        database->tvfs[tvf_name] = sql;
+        break;
+      default:
+        return zetasql_base::InvalidArgumentErrorBuilder()
+               << "Unexpected create mode: "
+               << ResolvedCreateStatementEnums::CreateMode_Name(
+                      create_tvf_stmt->create_mode());
+    }
+    return Value::String(
+        absl::StrCat("TVF ", tvf_name, " created successfully"));
   }
 
   // Don't proceed if any columns referenced within the query have types not

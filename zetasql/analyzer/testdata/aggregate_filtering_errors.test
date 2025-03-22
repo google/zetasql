@@ -1,0 +1,238 @@
+[default language_features=ANALYTIC_FUNCTIONS,V_1_4_AGGREGATE_FILTERING,V_1_4_MULTILEVEL_AGGREGATION,V_1_4_GROUPING_BUILTIN,V_1_3_QUALIFY,V_1_2_GROUP_BY_STRUCT,V_1_1_ORDER_BY_IN_AGGREGATE]
+[default show_sqlbuilder_output]
+
+
+# Error if WHERE contains an aggregate or analytic function.
+SELECT
+  SUM(int64 WHERE SUM(int64) {{ OVER ()|}} > 0){{ OVER ()|}}
+FROM SimpleTypes;
+--
+ALTERNATION GROUP:  OVER (), OVER ()
+--
+ERROR: Analytic function not allowed in WHERE modifier [at 3:19]
+  SUM(int64 WHERE SUM(int64)  OVER () > 0) OVER ()
+                  ^
+--
+ALTERNATION GROUP:  OVER (),
+--
+ERROR: Analytic function not allowed in WHERE modifier [at 3:19]
+  SUM(int64 WHERE SUM(int64)  OVER () > 0)
+                  ^
+--
+ALTERNATION GROUP:  OVER ()
+--
+ERROR: Aggregate function SUM not allowed in WHERE modifier [at 3:19]
+  SUM(int64 WHERE SUM(int64)  > 0) OVER ()
+                  ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Aggregate function SUM not allowed in WHERE modifier [at 3:19]
+  SUM(int64 WHERE SUM(int64)  > 0)
+                  ^
+==
+
+# Error if WHERE is in scalar function calls.
+SELECT
+  {{CONCAT('a', 'b' WHERE bool IS NOT NULL)|POWER(int64, 2 WHERE bool IS NOT NULL)}}
+FROM SimpleTypes;
+--
+
+ALTERNATION GROUP: CONCAT('a', 'b' WHERE bool IS NOT NULL)
+--
+ERROR: WHERE in arguments is not supported on scalar functions [at 2:19]
+  CONCAT('a', 'b' WHERE bool IS NOT NULL)
+                  ^
+--
+ALTERNATION GROUP: POWER(int64, 2 WHERE bool IS NOT NULL)
+--
+ERROR: WHERE in arguments is not supported on scalar functions [at 2:18]
+  POWER(int64, 2 WHERE bool IS NOT NULL)
+                 ^
+==
+
+# Error if WHERE is not a boolean expression.
+SELECT
+  SUM(int64 WHERE {{int64 + 1|CONCAT('a', 'b')}}){{ OVER ()|}}
+FROM SimpleTypes;
+--
+
+ALTERNATION GROUP: int64 + 1, OVER ()
+--
+ERROR: WHERE modifier should return type BOOL, but returns INT64 [at 2:19]
+  SUM(int64 WHERE int64 + 1) OVER ()
+                  ^
+--
+ALTERNATION GROUP: int64 + 1,
+--
+ERROR: WHERE modifier should return type BOOL, but returns INT64 [at 2:19]
+  SUM(int64 WHERE int64 + 1)
+                  ^
+--
+ALTERNATION GROUP: CONCAT('a', 'b'), OVER ()
+--
+ERROR: WHERE modifier should return type BOOL, but returns STRING [at 2:19]
+  SUM(int64 WHERE CONCAT('a', 'b')) OVER ()
+                  ^
+--
+ALTERNATION GROUP: CONCAT('a', 'b'),
+--
+ERROR: WHERE modifier should return type BOOL, but returns STRING [at 2:19]
+  SUM(int64 WHERE CONCAT('a', 'b'))
+                  ^
+==
+
+# Error if WHERE modifier in an analytic function references a column that is
+# not grouped.
+SELECT
+  SUM(doubly_nested_struct.f.c
+      WHERE doubly_nested_struct.e = 1) OVER ()
+FROM DoublyNestedStructTable
+GROUP BY doubly_nested_struct.f;
+--
+ERROR: WHERE modifier expression references doubly_nested_struct.e which is neither grouped nor aggregated [at 3:13]
+      WHERE doubly_nested_struct.e = 1) OVER ()
+            ^
+==
+
+# Similar to the above, but testing the QUALIFY clause.
+SELECT
+  SUM(doubly_nested_struct.e)
+FROM DoublyNestedStructTable
+GROUP BY doubly_nested_struct.f
+QUALIFY COUNT(doubly_nested_struct.f WHERE doubly_nested_struct.e = 1) OVER() > 100;
+--
+ERROR: WHERE modifier expression references doubly_nested_struct.e which is neither grouped nor aggregated [at 5:44]
+QUALIFY COUNT(doubly_nested_struct.f WHERE doubly_nested_struct.e = 1) OVER()...
+                                           ^
+==
+
+# Error without AGGREGATE_FILTERING language feature.
+[language_features=ANALYTIC_FUNCTIONS]
+SELECT
+  SUM(int64 WHERE bool IS NOT NULL){{ OVER ()|}}
+FROM SimpleTypes;
+--
+
+ALTERNATION GROUP:  OVER ()
+--
+ERROR: WHERE modifier is not supported in function calls [at 2:13]
+  SUM(int64 WHERE bool IS NOT NULL) OVER ()
+            ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: WHERE modifier is not supported in function calls [at 2:13]
+  SUM(int64 WHERE bool IS NOT NULL)
+            ^
+==
+
+# Error with HAVING without AGGREGATE_FILTERING language feature.
+[language_features=V_1_4_MULTILEVEL_AGGREGATION]
+SELECT
+  SUM(ANY_VALUE(int64) GROUP BY int32 HAVING bool is not null)
+FROM SimpleTypes;
+--
+
+ERROR: HAVING modifier is not supported in function calls [at 2:39]
+  SUM(ANY_VALUE(int64) GROUP BY int32 HAVING bool is not null)
+                                      ^
+==
+
+# Error if HAVING is in scalar function calls. Should fail on GROUP BY.
+SELECT
+  {{CONCAT('a', 'b' GROUP BY int64 HAVING COUNT(*) > 1)|POWER(int64, 2 GROUP BY int64 HAVING SUM(int64)) > 1}}
+FROM SimpleTypes;
+--
+
+ALTERNATION GROUP: CONCAT('a', 'b' GROUP BY int64 HAVING COUNT(*) > 1)
+--
+ERROR: GROUP BY in arguments is not supported on scalar functions [at 2:19]
+  CONCAT('a', 'b' GROUP BY int64 HAVING COUNT(*) > 1)
+                  ^
+--
+ALTERNATION GROUP: POWER(int64, 2 GROUP BY int64 HAVING SUM(int64)) > 1
+--
+ERROR: GROUP BY in arguments is not supported on scalar functions [at 2:18]
+  POWER(int64, 2 GROUP BY int64 HAVING SUM(int64)) > 1
+                 ^
+==
+
+# Error if HAVING is used without GROUP BY.
+SELECT
+  SUM(int64 HAVING bool is not null)
+FROM SimpleTypes;
+--
+
+ERROR: Syntax error: Expected keyword MAX or keyword MIN but got identifier "bool" [at 2:20]
+  SUM(int64 HAVING bool is not null)
+                   ^
+==
+
+# Error if HAVING is not a boolean expression.
+SELECT
+  SUM(ANY_VALUE(int64) GROUP BY int32 HAVING ANY_VALUE(int64) + 1)
+FROM SimpleTypes;
+--
+
+ERROR: HAVING modifier should return type BOOL, but returns INT64 [at 2:46]
+  SUM(ANY_VALUE(int64) GROUP BY int32 HAVING ANY_VALUE(int64) + 1)
+                                             ^
+==
+
+# Error if HAVING references a column that is not aggregated or grouped.
+SELECT
+  SUM(ANY_VALUE(double) GROUP BY int32 HAVING bool IS NOT NULL)
+FROM SimpleTypes
+GROUP BY int64;
+--
+
+
+ERROR: multi-level aggregate expression references column bool which is neither grouped nor aggregated [at 2:47]
+  SUM(ANY_VALUE(double) GROUP BY int32 HAVING bool IS NOT NULL)
+                                              ^
+==
+
+# Error if HAVING modifier references a nested column that is not grouped.
+SELECT
+  SUM(doubly_nested_struct.f.c GROUP BY doubly_nested_struct.f.d.b HAVING doubly_nested_struct.e > 1)
+FROM DoublyNestedStructTable
+GROUP BY doubly_nested_struct.f;
+--
+ERROR: multi-level aggregate expression references doubly_nested_struct.e which is neither grouped nor aggregated [at 2:75]
+...f.c GROUP BY doubly_nested_struct.f.d.b HAVING doubly_nested_struct.e > 1)
+                                                  ^
+==
+
+# GROUPING function disallowed in HAVING modifier.
+SELECT
+  ARRAY_AGG(DISTINCT string GROUP BY string HAVING GROUPING(int64) = 1{{ ORDER BY string|}})
+FROM SimpleTypes
+GROUP BY int64
+--
+
+ALTERNATION GROUP:  ORDER BY string
+--
+ERROR: GROUPING function not allowed in HAVING modifier of a multi-level aggregate. [at 2:52]
+  ARRAY_AGG(DISTINCT string GROUP BY string HAVING GROUPING(int64) = 1 ORDER ...
+                                                   ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: GROUPING function not allowed in HAVING modifier of a multi-level aggregate. [at 2:52]
+  ARRAY_AGG(DISTINCT string GROUP BY string HAVING GROUPING(int64) = 1)
+                                                   ^
+==
+
+# GROUPING function disallowed in ORDER BY modifier.
+SELECT
+  ARRAY_AGG(DISTINCT string GROUP BY string HAVING COUNT(*) > 1 ORDER BY GROUPING(string))
+FROM SimpleTypes
+GROUP BY int64
+--
+
+ERROR: GROUPING function not allowed in ORDER BY modifier of a multi-level aggregate. [at 2:65]
+...DISTINCT string GROUP BY string HAVING COUNT(*) > 1 ORDER BY GROUPING(stri...
+                                                       ^
+==
+

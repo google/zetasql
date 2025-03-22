@@ -45,20 +45,22 @@ enum FunctionSignatureId {
   // 1200-1299 Time functions                 (Fully used)
   // 1300-1399 Math functions                 (Fully used)
   // 1400-1499 Aggregate functions I          (Fully used)
-  // 1500-1599 Analytic functions             (NextId: 1513)
+  // 1500-1599 Analytic functions             (NextId: 1519)
   // 1600-1699 Misc functions                 (Fully used)
   // 1700-1799 Net functions                  (NextId: 1716)
-  // 1800-1899 More time functions            (NextId: 1867)
+  // 1800-1899 More time functions            (NextId: 1868)
   // 1900-1999 Hashing/encryption functions   (NextId: 1938)
   // 2000-2199 Geography functions            (NextId: 2096)
-  // 2200-2231 Anonymization functions        (NextId: 2232)
+  // 2200-2299 Anonymization functions        (NextId: 2232)
   // 2300-2499 Numeric, more math & distances (NextId: 2388)
   // 2500-2599 Array and proto map functions  (NextId: 2561)
-  // 2600-2699 More misc functions.           (NextId: 2675)
-  // 2700-2799 Aggregate functions II         (NextId: 2780)
+  // 2600-2699 More misc functions.           (NextId: 2686)
+  // 2700-2799 Aggregate functions II         (NextId: 2795)
   // 2800-2899 Differential Privacy functions (NextId: 2840)
   // 2900-2999 Range functions                (NextId: 2921)
-  // 3000-3100 Map functions                  (NextId: 3001)
+  // 3000-3099 Map functions                  (NextId: 3001)
+  // 3100-3199 Measure functions              (NextId: 3101)
+  // 3200-3299 MATCH_RECOGNIZE functions      (NextId: 3205)
 
   // enum value                       // Related function name
   // ----------                       // ---------------------
@@ -452,6 +454,7 @@ enum FunctionSignatureId {
   FN_JUSTIFY_HOURS = 1858;         // justify_hours
   FN_JUSTIFY_DAYS = 1859;          // justify_days
   FN_JUSTIFY_INTERVAL = 1860;      // justify_interval
+  FN_TO_SECONDS_INTERVAL = 1867;   // to_seconds_interval
 
   FN_TIMESTAMP_BUCKET = 1861;  // timestamp_bucket
   FN_DATETIME_BUCKET = 1862;   // datetime_bucket
@@ -643,14 +646,17 @@ enum FunctionSignatureId {
   FN_BIT_AND_INT64 = 1416;            // bit_and
   FN_BIT_AND_UINT32 = 1417;           // bit_and
   FN_BIT_AND_UINT64 = 1418;           // bit_and
+  FN_BIT_AND_BYTES = 2780;            // bit_and
   FN_BIT_OR_INT32 = 1419;             // bit_or
   FN_BIT_OR_INT64 = 1420;             // bit_or
   FN_BIT_OR_UINT32 = 1421;            // bit_or
   FN_BIT_OR_UINT64 = 1422;            // bit_or
+  FN_BIT_OR_BYTES = 2781;             // bit_or
   FN_BIT_XOR_INT32 = 1423;            // bit_xor
   FN_BIT_XOR_INT64 = 1424;            // bit_xor
   FN_BIT_XOR_UINT32 = 1425;           // bit_xor
   FN_BIT_XOR_UINT64 = 1426;           // bit_xor
+  FN_BIT_XOR_BYTES = 2782;            // bit_xor
   FN_LOGICAL_AND = 1427;              // logical_and
   FN_LOGICAL_OR = 1428;               // logical_or
   // Approximate aggregate functions.
@@ -775,6 +781,8 @@ enum FunctionSignatureId {
   FN_PERCENTILE_DISC = 1512;             // percentile_disc
   FN_PERCENTILE_DISC_NUMERIC = 1514;     // percentile_disc
   FN_PERCENTILE_DISC_BIGNUMERIC = 1516;  // percentile_disc
+  FN_IS_FIRST = 1517;                    // is_first
+  FN_IS_LAST = 1518;                     // is_last
 
   //
   // Misc functions.
@@ -862,21 +870,24 @@ enum FunctionSignatureId {
       1637;  // from_proto(google.protobuf.BytesValue) -> bytes
   FN_FROM_PROTO_STRING =
       1638;  // from_proto(google.protobuf.StringValue) -> string
+  FN_FROM_PROTO_DURATION =
+      2684;  // from_proto(google.protobuf.Duration) -> interval
 
   // The idempotent signatures of from_proto just return the input value
   FN_FROM_PROTO_IDEMPOTENT_TIMESTAMP =
       1639;                              // from_proto(timestamp) -> timestamp
   FN_FROM_PROTO_IDEMPOTENT_DATE = 1640;  // from_proto(date) -> date
   FN_FROM_PROTO_IDEMPOTENT_TIME = 1641;  // from_proto(time) -> time
-  FN_FROM_PROTO_IDEMPOTENT_DOUBLE = 1643;  // from_proto(double) -> double
-  FN_FROM_PROTO_IDEMPOTENT_FLOAT = 1644;   // from_proto(float) -> float
-  FN_FROM_PROTO_IDEMPOTENT_INT64 = 1645;   // from_proto(int64) -> int64
-  FN_FROM_PROTO_IDEMPOTENT_UINT64 = 1646;  // from_proto(uint64) -> uint64
-  FN_FROM_PROTO_IDEMPOTENT_INT32 = 1647;   // from_proto(int32) -> int32
-  FN_FROM_PROTO_IDEMPOTENT_UINT32 = 1648;  // from_proto(uint32) -> uint32
-  FN_FROM_PROTO_IDEMPOTENT_BOOL = 1649;    // from_proto(bool) -> bool
-  FN_FROM_PROTO_IDEMPOTENT_BYTES = 1650;   // from_proto(bytes) -> bytes
-  FN_FROM_PROTO_IDEMPOTENT_STRING = 1651;  // from_proto(string) -> string
+  FN_FROM_PROTO_IDEMPOTENT_DOUBLE = 1643;    // from_proto(double) -> double
+  FN_FROM_PROTO_IDEMPOTENT_FLOAT = 1644;     // from_proto(float) -> float
+  FN_FROM_PROTO_IDEMPOTENT_INT64 = 1645;     // from_proto(int64) -> int64
+  FN_FROM_PROTO_IDEMPOTENT_UINT64 = 1646;    // from_proto(uint64) -> uint64
+  FN_FROM_PROTO_IDEMPOTENT_INT32 = 1647;     // from_proto(int32) -> int32
+  FN_FROM_PROTO_IDEMPOTENT_UINT32 = 1648;    // from_proto(uint32) -> uint32
+  FN_FROM_PROTO_IDEMPOTENT_BOOL = 1649;      // from_proto(bool) -> bool
+  FN_FROM_PROTO_IDEMPOTENT_BYTES = 1650;     // from_proto(bytes) -> bytes
+  FN_FROM_PROTO_IDEMPOTENT_STRING = 1651;    // from_proto(string) -> string
+  FN_FROM_PROTO_IDEMPOTENT_INTERVAL = 2685;  // from_proto(interval) -> interval
 
   FN_TO_PROTO_TIMESTAMP =
       1652;                 // to_proto(timestamp) -> google.protobuf.Timestamp
@@ -1089,7 +1100,7 @@ enum FunctionSignatureId {
   FN_ST_IS_RING = 2087;
   FN_ST_DUMP_POINTS = 2088;
 
-  // Measures
+  // Geograph-related measures
   FN_ST_LENGTH = 2040;
   FN_ST_PERIMETER = 2041;
   FN_ST_AREA = 2042;
@@ -1584,6 +1595,9 @@ enum FunctionSignatureId {
   // lax_uint64_array(JSON) -> array<UINT64>
   FN_JSON_LAX_TO_UINT64_ARRAY = 2650;
 
+  // json_contains(JSON, JSON) -> bool
+  FN_JSON_CONTAINS = 2651;
+
   // json_keys(JSON [, INT64][, STRING]) -> array<STRING>
   FN_JSON_KEYS = 2656;
 
@@ -1618,4 +1632,17 @@ enum FunctionSignatureId {
   FN_MAP_CARDINALITY = 3017;  // map_cardinality(map<K, V>) -> int64
   FN_MAP_DELETE = 3018;       // map_delete(map<K, V>, K[, ...]) -> map<K, V>
   FN_MAP_FILTER = 3019;  // map_filter(map<K, V>, (K, V) -> bool) -> map<K, V>
+
+  // Measure functions
+  FN_AGG = 3100;  // agg(measure<T>) -> T
+
+  // MATCH_RECOGNIZE functions
+  // We cannot use just FN_FIRST and FN_LAST because of collisions in generated
+  // code with FN_FIRST_VALUE and FN_LAST_VALUE.
+  // See b/231431917
+  FN_FIRST_AGG = 3200;         // FIRST<T>(T) -> T
+  FN_LAST_AGG = 3201;          // LAST<T>(T) -> T
+  FN_MATCH_NUMBER = 3202;      // MATCH_NUMBER() -> int64
+  FN_MATCH_ROW_NUMBER = 3203;  // MATCH_ROW_NUMBER() -> int64
+  FN_CLASSIFIER = 3204;        // CLASSIFIER() -> string
 }

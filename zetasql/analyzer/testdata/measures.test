@@ -1,0 +1,1504 @@
+# Success tests for MEASURE type. Cases which are supposed to be success should
+# be here (even if they currently error), while cases that are supposed to be
+# errors should be in measures_errors.test (even if they currently succeed).
+#
+# TODO: b/350555383 - Java support requires the ability to serialize and
+# deserialize the measure type. This means serializing and deserializing the
+# measure expression, which is tricky to do given circular dependencies. We
+# workaround this by disabling java support for now. This should be removed
+# once the serialization/deserialization is implemented.
+[default no_java]
+[default language_features=V_1_4_ENABLE_MEASURES,V_1_4_MULTILEVEL_AGGREGATION,V_1_2_GROUP_BY_STRUCT]
+[default enabled_ast_rewrites=DEFAULTS,+MEASURE_TYPE]
+
+# AGG(MEASURE<T>) -> T
+SELECT
+  key,
+  AGG(measure_sum_quantity)
+FROM MeasureTable_SingleKey GROUP BY key;
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.key#16 AS key [INT64]
+| +-$aggregate.$agg1#15 AS `$col2` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.key#16, $aggregate.$agg1#15]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$groupby.key#16, $aggregate.$agg1#15]
+        +-input_scan=
+        | +-TableScan(column_list=MeasureTable_SingleKey.[key#1, measure_sum_quantity#9], table=MeasureTable_SingleKey, column_index_list=[0, 8])
+        +-group_by_list=
+        | +-key#16 := ColumnRef(type=INT64, column=MeasureTable_SingleKey.key#1)
+        +-aggregate_list=
+          +-$agg1#15 :=
+            +-AggregateFunctionCall(ZetaSQL:AGG(MEASURE<INT64>) -> INT64)
+              +-ColumnRef(type=MEASURE<INT64>, column=MeasureTable_SingleKey.measure_sum_quantity#9)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$groupby.key#16 AS key [INT64]
+| +-$aggregate.$agg1#15 AS `$col2` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.key#16, $aggregate.$agg1#15]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$groupby.key#16, $aggregate.$agg1#15]
+        +-expr_list=
+        | +-$agg1#15 := ColumnRef(type=INT64, column=$aggregate.constituent_aggregate_0#20)
+        +-input_scan=
+          +-AggregateScan
+            +-column_list=[$groupby.key#16, $aggregate.constituent_aggregate_0#20]
+            +-input_scan=
+            | +-ProjectScan
+            |   +-column_list=MeasureTable_SingleKey.[key#1, quantity#17, struct_for_measure_measure_sum_quantity#9]
+            |   +-expr_list=
+            |   | +-struct_for_measure_measure_sum_quantity#9 :=
+            |   |   +-MakeStruct
+            |   |     +-type=STRUCT<referenced_columns STRUCT<quantity INT64>, key_columns STRUCT<key INT64>>
+            |   |     +-field_list=
+            |   |       +-MakeStruct
+            |   |       | +-type=STRUCT<quantity INT64>
+            |   |       | +-field_list=
+            |   |       |   +-ColumnRef(type=INT64, column=MeasureTable_SingleKey.quantity#17)
+            |   |       +-MakeStruct
+            |   |         +-type=STRUCT<key INT64>
+            |   |         +-field_list=
+            |   |           +-ColumnRef(type=INT64, column=MeasureTable_SingleKey.key#1)
+            |   +-input_scan=
+            |     +-TableScan(column_list=MeasureTable_SingleKey.[key#1, quantity#17], table=MeasureTable_SingleKey, column_index_list=[0, 2])
+            +-group_by_list=
+            | +-key#16 := ColumnRef(type=INT64, column=MeasureTable_SingleKey.key#1)
+            +-aggregate_list=
+              +-constituent_aggregate_0#20 :=
+                +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+                  +-ColumnRef(type=INT64, column=$aggregate.$any_value_grain_lock_0#18)
+                  +-group_by_list=
+                  | +-grain_lock_key#19 :=
+                  |   +-GetStructField
+                  |     +-type=STRUCT<key INT64>
+                  |     +-expr=
+                  |     | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<quantity INT64>, key_columns STRUCT<key INT64>>, column=MeasureTable_SingleKey.struct_for_measure_measure_sum_quantity#9)
+                  |     +-field_idx=1
+                  +-group_by_aggregate_list=
+                    +-$any_value_grain_lock_0#18 :=
+                      +-AggregateFunctionCall(ZetaSQL:any_value(INT64) -> INT64)
+                        +-GetStructField
+                          +-type=INT64
+                          +-expr=
+                          | +-GetStructField
+                          |   +-type=STRUCT<quantity INT64>
+                          |   +-expr=
+                          |   | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<quantity INT64>, key_columns STRUCT<key INT64>>, column=MeasureTable_SingleKey.struct_for_measure_measure_sum_quantity#9)
+                          |   +-field_idx=0
+                          +-field_idx=0
+==
+
+# Measure-typed columns can propoagate through WITH clauses (i.e. measure
+# column renames are handled correctly)
+WITH t AS (
+  SELECT measure_sum_quantity AS renamed_measure FROM MeasureTable_SingleKey
+) SELECT AGG(renamed_measure) FROM (SELECT * FROM t)
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#16 AS `$col1` [INT64]
++-query=
+  +-WithScan
+    +-column_list=[$aggregate.$agg1#16]
+    +-with_entry_list=
+    | +-WithEntry
+    |   +-with_query_name="t"
+    |   +-with_subquery=
+    |     +-ProjectScan
+    |       +-column_list=[MeasureTable_SingleKey.measure_sum_quantity#9]
+    |       +-input_scan=
+    |         +-TableScan(column_list=[MeasureTable_SingleKey.measure_sum_quantity#9], table=MeasureTable_SingleKey, column_index_list=[8])
+    +-query=
+      +-ProjectScan
+        +-column_list=[$aggregate.$agg1#16]
+        +-input_scan=
+          +-AggregateScan
+            +-column_list=[$aggregate.$agg1#16]
+            +-input_scan=
+            | +-ProjectScan
+            |   +-column_list=[t.renamed_measure#15]
+            |   +-input_scan=
+            |     +-WithRefScan(column_list=[t.renamed_measure#15], with_query_name="t")
+            +-aggregate_list=
+              +-$agg1#16 :=
+                +-AggregateFunctionCall(ZetaSQL:AGG(MEASURE<INT64>) -> INT64)
+                  +-ColumnRef(type=MEASURE<INT64>, column=t.renamed_measure#15)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#16 AS `$col1` [INT64]
++-query=
+  +-WithScan
+    +-column_list=[$aggregate.$agg1#16]
+    +-with_entry_list=
+    | +-WithEntry
+    |   +-with_query_name="t"
+    |   +-with_subquery=
+    |     +-ProjectScan
+    |       +-column_list=[MeasureTable_SingleKey.struct_for_measure_measure_sum_quantity#9]
+    |       +-input_scan=
+    |         +-ProjectScan
+    |           +-column_list=MeasureTable_SingleKey.[key#17, quantity#18, struct_for_measure_measure_sum_quantity#9]
+    |           +-expr_list=
+    |           | +-struct_for_measure_measure_sum_quantity#9 :=
+    |           |   +-MakeStruct
+    |           |     +-type=STRUCT<referenced_columns STRUCT<quantity INT64>, key_columns STRUCT<key INT64>>
+    |           |     +-field_list=
+    |           |       +-MakeStruct
+    |           |       | +-type=STRUCT<quantity INT64>
+    |           |       | +-field_list=
+    |           |       |   +-ColumnRef(type=INT64, column=MeasureTable_SingleKey.quantity#18)
+    |           |       +-MakeStruct
+    |           |         +-type=STRUCT<key INT64>
+    |           |         +-field_list=
+    |           |           +-ColumnRef(type=INT64, column=MeasureTable_SingleKey.key#17)
+    |           +-input_scan=
+    |             +-TableScan(column_list=MeasureTable_SingleKey.[key#17, quantity#18], table=MeasureTable_SingleKey, column_index_list=[0, 2])
+    +-query=
+      +-ProjectScan
+        +-column_list=[$aggregate.$agg1#16]
+        +-input_scan=
+          +-ProjectScan
+            +-column_list=[$aggregate.$agg1#16]
+            +-expr_list=
+            | +-$agg1#16 := ColumnRef(type=INT64, column=$aggregate.constituent_aggregate_0#21)
+            +-input_scan=
+              +-AggregateScan
+                +-column_list=[$aggregate.constituent_aggregate_0#21]
+                +-input_scan=
+                | +-ProjectScan
+                |   +-column_list=[t.struct_for_measure_renamed_measure#15]
+                |   +-input_scan=
+                |     +-WithRefScan(column_list=[t.struct_for_measure_renamed_measure#15], with_query_name="t")
+                +-aggregate_list=
+                  +-constituent_aggregate_0#21 :=
+                    +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+                      +-ColumnRef(type=INT64, column=$aggregate.$any_value_grain_lock_0#19)
+                      +-group_by_list=
+                      | +-grain_lock_key#20 :=
+                      |   +-GetStructField
+                      |     +-type=STRUCT<key INT64>
+                      |     +-expr=
+                      |     | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<quantity INT64>, key_columns STRUCT<key INT64>>, column=t.struct_for_measure_renamed_measure#15)
+                      |     +-field_idx=1
+                      +-group_by_aggregate_list=
+                        +-$any_value_grain_lock_0#19 :=
+                          +-AggregateFunctionCall(ZetaSQL:any_value(INT64) -> INT64)
+                            +-GetStructField
+                              +-type=INT64
+                              +-expr=
+                              | +-GetStructField
+                              |   +-type=STRUCT<quantity INT64>
+                              |   +-expr=
+                              |   | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<quantity INT64>, key_columns STRUCT<key INT64>>, column=t.struct_for_measure_renamed_measure#15)
+                              |   +-field_idx=0
+                              +-field_idx=0
+==
+
+# Measure-typed columns can propoagate through WITH clauses (i.e. measure
+# column renames are handled correctly)
+WITH t1 AS (
+  SELECT measure_sum_quantity AS rename_1 FROM MeasureTable_SingleKey
+), t2 AS (
+  SELECT rename_1 AS rename_2 FROM t1
+) SELECT AGG(rename_2) FROM (SELECT * FROM t2)
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#17 AS `$col1` [INT64]
++-query=
+  +-WithScan
+    +-column_list=[$aggregate.$agg1#17]
+    +-with_entry_list=
+    | +-WithEntry
+    | | +-with_query_name="t1"
+    | | +-with_subquery=
+    | |   +-ProjectScan
+    | |     +-column_list=[MeasureTable_SingleKey.measure_sum_quantity#9]
+    | |     +-input_scan=
+    | |       +-TableScan(column_list=[MeasureTable_SingleKey.measure_sum_quantity#9], table=MeasureTable_SingleKey, column_index_list=[8])
+    | +-WithEntry
+    |   +-with_query_name="t2"
+    |   +-with_subquery=
+    |     +-ProjectScan
+    |       +-column_list=[t1.rename_1#15]
+    |       +-input_scan=
+    |         +-WithRefScan(column_list=[t1.rename_1#15], with_query_name="t1")
+    +-query=
+      +-ProjectScan
+        +-column_list=[$aggregate.$agg1#17]
+        +-input_scan=
+          +-AggregateScan
+            +-column_list=[$aggregate.$agg1#17]
+            +-input_scan=
+            | +-ProjectScan
+            |   +-column_list=[t2.rename_2#16]
+            |   +-input_scan=
+            |     +-WithRefScan(column_list=[t2.rename_2#16], with_query_name="t2")
+            +-aggregate_list=
+              +-$agg1#17 :=
+                +-AggregateFunctionCall(ZetaSQL:AGG(MEASURE<INT64>) -> INT64)
+                  +-ColumnRef(type=MEASURE<INT64>, column=t2.rename_2#16)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#17 AS `$col1` [INT64]
++-query=
+  +-WithScan
+    +-column_list=[$aggregate.$agg1#17]
+    +-with_entry_list=
+    | +-WithEntry
+    | | +-with_query_name="t1"
+    | | +-with_subquery=
+    | |   +-ProjectScan
+    | |     +-column_list=[MeasureTable_SingleKey.struct_for_measure_measure_sum_quantity#9]
+    | |     +-input_scan=
+    | |       +-ProjectScan
+    | |         +-column_list=MeasureTable_SingleKey.[key#18, quantity#19, struct_for_measure_measure_sum_quantity#9]
+    | |         +-expr_list=
+    | |         | +-struct_for_measure_measure_sum_quantity#9 :=
+    | |         |   +-MakeStruct
+    | |         |     +-type=STRUCT<referenced_columns STRUCT<quantity INT64>, key_columns STRUCT<key INT64>>
+    | |         |     +-field_list=
+    | |         |       +-MakeStruct
+    | |         |       | +-type=STRUCT<quantity INT64>
+    | |         |       | +-field_list=
+    | |         |       |   +-ColumnRef(type=INT64, column=MeasureTable_SingleKey.quantity#19)
+    | |         |       +-MakeStruct
+    | |         |         +-type=STRUCT<key INT64>
+    | |         |         +-field_list=
+    | |         |           +-ColumnRef(type=INT64, column=MeasureTable_SingleKey.key#18)
+    | |         +-input_scan=
+    | |           +-TableScan(column_list=MeasureTable_SingleKey.[key#18, quantity#19], table=MeasureTable_SingleKey, column_index_list=[0, 2])
+    | +-WithEntry
+    |   +-with_query_name="t2"
+    |   +-with_subquery=
+    |     +-ProjectScan
+    |       +-column_list=[t1.struct_for_measure_rename_1#15]
+    |       +-input_scan=
+    |         +-WithRefScan(column_list=[t1.struct_for_measure_rename_1#15], with_query_name="t1")
+    +-query=
+      +-ProjectScan
+        +-column_list=[$aggregate.$agg1#17]
+        +-input_scan=
+          +-ProjectScan
+            +-column_list=[$aggregate.$agg1#17]
+            +-expr_list=
+            | +-$agg1#17 := ColumnRef(type=INT64, column=$aggregate.constituent_aggregate_0#22)
+            +-input_scan=
+              +-AggregateScan
+                +-column_list=[$aggregate.constituent_aggregate_0#22]
+                +-input_scan=
+                | +-ProjectScan
+                |   +-column_list=[t2.struct_for_measure_rename_2#16]
+                |   +-input_scan=
+                |     +-WithRefScan(column_list=[t2.struct_for_measure_rename_2#16], with_query_name="t2")
+                +-aggregate_list=
+                  +-constituent_aggregate_0#22 :=
+                    +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+                      +-ColumnRef(type=INT64, column=$aggregate.$any_value_grain_lock_0#20)
+                      +-group_by_list=
+                      | +-grain_lock_key#21 :=
+                      |   +-GetStructField
+                      |     +-type=STRUCT<key INT64>
+                      |     +-expr=
+                      |     | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<quantity INT64>, key_columns STRUCT<key INT64>>, column=t2.struct_for_measure_rename_2#16)
+                      |     +-field_idx=1
+                      +-group_by_aggregate_list=
+                        +-$any_value_grain_lock_0#20 :=
+                          +-AggregateFunctionCall(ZetaSQL:any_value(INT64) -> INT64)
+                            +-GetStructField
+                              +-type=INT64
+                              +-expr=
+                              | +-GetStructField
+                              |   +-type=STRUCT<quantity INT64>
+                              |   +-expr=
+                              |   | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<quantity INT64>, key_columns STRUCT<key INT64>>, column=t2.struct_for_measure_rename_2#16)
+                              |   +-field_idx=0
+                              +-field_idx=0
+==
+
+# Measures can be described by Pipe STATIC_DESCRIBE
+[language_features=V_1_4_ENABLE_MEASURES,PIPES,PIPE_STATIC_DESCRIBE]
+FROM MeasureTable_SingleKey
+|> STATIC_DESCRIBE
+|> SELECT key
+--
+QueryStmt
++-output_column_list=
+| +-MeasureTable_SingleKey.key#1 AS key [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[MeasureTable_SingleKey.key#1]
+    +-input_scan=
+      +-StaticDescribeScan
+        +-column_list=[MeasureTable_SingleKey.key#1]
+        +-describe_text=
+        |   """
+        |   NameList:
+        |     key INT64 MeasureTable_SingleKey.key#1
+        |     country STRING MeasureTable_SingleKey.country#2
+        |     quantity INT64 MeasureTable_SingleKey.quantity#3
+        |     price INT64 MeasureTable_SingleKey.price#4
+        |     measure_count_star MEASURE<INT64> MeasureTable_SingleKey.measure_count_star#5
+        |     measure_count_star_per_key MEASURE<INT64> MeasureTable_SingleKey.measure_count_star_per_key#6
+        |     measure_count_distinct_key MEASURE<INT64> MeasureTable_SingleKey.measure_count_distinct_key#7
+        |     measure_count_key_per_key MEASURE<INT64> MeasureTable_SingleKey.measure_count_key_per_key#8
+        |     measure_sum_quantity MEASURE<INT64> MeasureTable_SingleKey.measure_sum_quantity#9
+        |     measure_sum_price MEASURE<INT64> MeasureTable_SingleKey.measure_sum_price#10
+        |     measure_sum_price_times_quantity MEASURE<INT64> MeasureTable_SingleKey.measure_sum_price_times_quantity#11
+        |     measure_ratio_price_to_quantity MEASURE<DOUBLE> MeasureTable_SingleKey.measure_ratio_price_to_quantity#12
+        |     measure_ratio_price_to_quantity_per_key MEASURE<DOUBLE> MeasureTable_SingleKey.measure_ratio_price_to_quantity_per_key#13
+        |     measure_complex_ratio_metric MEASURE<DOUBLE> MeasureTable_SingleKey.measure_complex_ratio_metric#14
+        |   NameScope:
+        |     Names:
+        |       country -> STRING (MeasureTable_SingleKey.country#2) (implicit)
+        |       key -> INT64 (MeasureTable_SingleKey.key#1) (implicit)
+        |       measure_complex_ratio_metric -> MEASURE<DOUBLE> (MeasureTable_SingleKey.measure_complex_ratio_metric#14) (implicit)
+        |       measure_count_distinct_key -> MEASURE<INT64> (MeasureTable_SingleKey.measure_count_distinct_key#7) (implicit)
+        |       measure_count_key_per_key -> MEASURE<INT64> (MeasureTable_SingleKey.measure_count_key_per_key#8) (implicit)
+        |       measure_count_star -> MEASURE<INT64> (MeasureTable_SingleKey.measure_count_star#5) (implicit)
+        |       measure_count_star_per_key -> MEASURE<INT64> (MeasureTable_SingleKey.measure_count_star_per_key#6) (implicit)
+        |       measure_ratio_price_to_quantity -> MEASURE<DOUBLE> (MeasureTable_SingleKey.measure_ratio_price_to_quantity#12) (implicit)
+        |       measure_ratio_price_to_quantity_per_key -> MEASURE<DOUBLE> (MeasureTable_SingleKey.measure_ratio_price_to_quantity_per_key#13) (implicit)
+        |       measure_sum_price -> MEASURE<INT64> (MeasureTable_SingleKey.measure_sum_price#10) (implicit)
+        |       measure_sum_price_times_quantity -> MEASURE<INT64> (MeasureTable_SingleKey.measure_sum_price_times_quantity#11) (implicit)
+        |       measure_sum_quantity -> MEASURE<INT64> (MeasureTable_SingleKey.measure_sum_quantity#9) (implicit)
+        |       price -> INT64 (MeasureTable_SingleKey.price#4) (implicit)
+        |       quantity -> INT64 (MeasureTable_SingleKey.quantity#3) (implicit)
+        |     Range variables:
+        |       MeasureTable_SingleKey -> RANGE_VARIABLE<key,country,quantity,price,measure_count_star,measure_count_star_per_key,measure_count_distinct_key,measure_count_key_per_key,measure_sum_quantity,measure_sum_price,measure_sum_price_times_quantity,measure_ratio_price_to_quantity,measure_ratio_price_to_quantity_per_key,measure_complex_ratio_metric>
+        |   """
+        +-input_scan=
+          +-TableScan(column_list=[MeasureTable_SingleKey.key#1], table=MeasureTable_SingleKey, column_index_list=[0])
+==
+
+SELECT
+  country,
+  AGG(measure_count_key_per_key)
+FROM MeasureTable_SingleKey
+GROUP BY country
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.country#16 AS country [STRING]
+| +-$aggregate.$agg1#15 AS `$col2` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.country#16, $aggregate.$agg1#15]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$groupby.country#16, $aggregate.$agg1#15]
+        +-input_scan=
+        | +-TableScan(column_list=MeasureTable_SingleKey.[country#2, measure_count_key_per_key#8], table=MeasureTable_SingleKey, column_index_list=[1, 7])
+        +-group_by_list=
+        | +-country#16 := ColumnRef(type=STRING, column=MeasureTable_SingleKey.country#2)
+        +-aggregate_list=
+          +-$agg1#15 :=
+            +-AggregateFunctionCall(ZetaSQL:AGG(MEASURE<INT64>) -> INT64)
+              +-ColumnRef(type=MEASURE<INT64>, column=MeasureTable_SingleKey.measure_count_key_per_key#8)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$groupby.country#16 AS country [STRING]
+| +-$aggregate.$agg1#15 AS `$col2` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.country#16, $aggregate.$agg1#15]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$groupby.country#16, $aggregate.$agg1#15]
+        +-expr_list=
+        | +-$agg1#15 := ColumnRef(type=INT64, column=$aggregate.constituent_aggregate_0#19)
+        +-input_scan=
+          +-AggregateScan
+            +-column_list=[$groupby.country#16, $aggregate.constituent_aggregate_0#19]
+            +-input_scan=
+            | +-ProjectScan
+            |   +-column_list=MeasureTable_SingleKey.[key#17, country#2, struct_for_measure_measure_count_key_per_key#8]
+            |   +-expr_list=
+            |   | +-struct_for_measure_measure_count_key_per_key#8 :=
+            |   |   +-MakeStruct
+            |   |     +-type=STRUCT<referenced_columns STRUCT<key INT64>, key_columns STRUCT<key INT64>>
+            |   |     +-field_list=
+            |   |       +-MakeStruct
+            |   |       | +-type=STRUCT<key INT64>
+            |   |       | +-field_list=
+            |   |       |   +-ColumnRef(type=INT64, column=MeasureTable_SingleKey.key#17)
+            |   |       +-MakeStruct
+            |   |         +-type=STRUCT<key INT64>
+            |   |         +-field_list=
+            |   |           +-ColumnRef(type=INT64, column=MeasureTable_SingleKey.key#17)
+            |   +-input_scan=
+            |     +-TableScan(column_list=MeasureTable_SingleKey.[key#17, country#2], table=MeasureTable_SingleKey, column_index_list=[0, 1])
+            +-group_by_list=
+            | +-country#16 := ColumnRef(type=STRING, column=MeasureTable_SingleKey.country#2)
+            +-aggregate_list=
+              +-constituent_aggregate_0#19 :=
+                +-AggregateFunctionCall(ZetaSQL:count(INT64) -> INT64)
+                  +-Literal(type=INT64, value=1)
+                  +-group_by_list=
+                    +-$groupbymod#18 :=
+                      +-GetStructField
+                        +-type=INT64
+                        +-expr=
+                        | +-GetStructField
+                        |   +-type=STRUCT<key INT64>
+                        |   +-expr=
+                        |   | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<key INT64>, key_columns STRUCT<key INT64>>, column=MeasureTable_SingleKey.struct_for_measure_measure_count_key_per_key#8)
+                        |   +-field_idx=0
+                        +-field_idx=0
+==
+
+SELECT
+  country,
+  AGG(measure_sum_price_times_quantity)
+FROM MeasureTable_SingleKey
+GROUP BY country
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.country#16 AS country [STRING]
+| +-$aggregate.$agg1#15 AS `$col2` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.country#16, $aggregate.$agg1#15]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$groupby.country#16, $aggregate.$agg1#15]
+        +-input_scan=
+        | +-TableScan(column_list=MeasureTable_SingleKey.[country#2, measure_sum_price_times_quantity#11], table=MeasureTable_SingleKey, column_index_list=[1, 10])
+        +-group_by_list=
+        | +-country#16 := ColumnRef(type=STRING, column=MeasureTable_SingleKey.country#2)
+        +-aggregate_list=
+          +-$agg1#15 :=
+            +-AggregateFunctionCall(ZetaSQL:AGG(MEASURE<INT64>) -> INT64)
+              +-ColumnRef(type=MEASURE<INT64>, column=MeasureTable_SingleKey.measure_sum_price_times_quantity#11)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$groupby.country#16 AS country [STRING]
+| +-$aggregate.$agg1#15 AS `$col2` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.country#16, $aggregate.$agg1#15]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$groupby.country#16, $aggregate.$agg1#15]
+        +-expr_list=
+        | +-$agg1#15 := ColumnRef(type=INT64, column=$aggregate.constituent_aggregate_0#22)
+        +-input_scan=
+          +-AggregateScan
+            +-column_list=[$groupby.country#16, $aggregate.constituent_aggregate_0#22]
+            +-input_scan=
+            | +-ProjectScan
+            |   +-column_list=MeasureTable_SingleKey.[key#17, country#2, quantity#19, price#18, struct_for_measure_measure_sum_price_times_quantity#11]
+            |   +-expr_list=
+            |   | +-struct_for_measure_measure_sum_price_times_quantity#11 :=
+            |   |   +-MakeStruct
+            |   |     +-type=STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<key INT64>>
+            |   |     +-field_list=
+            |   |       +-MakeStruct
+            |   |       | +-type=STRUCT<price INT64, quantity INT64>
+            |   |       | +-field_list=
+            |   |       |   +-ColumnRef(type=INT64, column=MeasureTable_SingleKey.price#18)
+            |   |       |   +-ColumnRef(type=INT64, column=MeasureTable_SingleKey.quantity#19)
+            |   |       +-MakeStruct
+            |   |         +-type=STRUCT<key INT64>
+            |   |         +-field_list=
+            |   |           +-ColumnRef(type=INT64, column=MeasureTable_SingleKey.key#17)
+            |   +-input_scan=
+            |     +-TableScan(column_list=MeasureTable_SingleKey.[key#17, country#2, quantity#19, price#18], table=MeasureTable_SingleKey, column_index_list=[0, 1, 2, 3])
+            +-group_by_list=
+            | +-country#16 := ColumnRef(type=STRING, column=MeasureTable_SingleKey.country#2)
+            +-aggregate_list=
+              +-constituent_aggregate_0#22 :=
+                +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+                  +-ColumnRef(type=INT64, column=$aggregate.$any_value_grain_lock_0#20)
+                  +-group_by_list=
+                  | +-grain_lock_key#21 :=
+                  |   +-GetStructField
+                  |     +-type=STRUCT<key INT64>
+                  |     +-expr=
+                  |     | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<key INT64>>, column=MeasureTable_SingleKey.struct_for_measure_measure_sum_price_times_quantity#11)
+                  |     +-field_idx=1
+                  +-group_by_aggregate_list=
+                    +-$any_value_grain_lock_0#20 :=
+                      +-AggregateFunctionCall(ZetaSQL:any_value(INT64) -> INT64)
+                        +-FunctionCall(ZetaSQL:$multiply(INT64, INT64) -> INT64)
+                          +-GetStructField
+                          | +-type=INT64
+                          | +-expr=
+                          | | +-GetStructField
+                          | |   +-type=STRUCT<price INT64, quantity INT64>
+                          | |   +-expr=
+                          | |   | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<key INT64>>, column=MeasureTable_SingleKey.struct_for_measure_measure_sum_price_times_quantity#11)
+                          | |   +-field_idx=0
+                          | +-field_idx=0
+                          +-GetStructField
+                            +-type=INT64
+                            +-expr=
+                            | +-GetStructField
+                            |   +-type=STRUCT<price INT64, quantity INT64>
+                            |   +-expr=
+                            |   | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<key INT64>>, column=MeasureTable_SingleKey.struct_for_measure_measure_sum_price_times_quantity#11)
+                            |   +-field_idx=0
+                            +-field_idx=1
+==
+
+SELECT
+  country,
+  AGG(measure_sum_price_times_quantity)
+FROM MeasureTable_TwoKeys
+GROUP BY country
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.country#15 AS country [STRING]
+| +-$aggregate.$agg1#14 AS `$col2` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.country#15, $aggregate.$agg1#14]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$groupby.country#15, $aggregate.$agg1#14]
+        +-input_scan=
+        | +-TableScan(column_list=MeasureTable_TwoKeys.[country#3, measure_sum_price_times_quantity#11], table=MeasureTable_TwoKeys, column_index_list=[2, 10])
+        +-group_by_list=
+        | +-country#15 := ColumnRef(type=STRING, column=MeasureTable_TwoKeys.country#3)
+        +-aggregate_list=
+          +-$agg1#14 :=
+            +-AggregateFunctionCall(ZetaSQL:AGG(MEASURE<INT64>) -> INT64)
+              +-ColumnRef(type=MEASURE<INT64>, column=MeasureTable_TwoKeys.measure_sum_price_times_quantity#11)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$groupby.country#15 AS country [STRING]
+| +-$aggregate.$agg1#14 AS `$col2` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.country#15, $aggregate.$agg1#14]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$groupby.country#15, $aggregate.$agg1#14]
+        +-expr_list=
+        | +-$agg1#14 := ColumnRef(type=INT64, column=$aggregate.constituent_aggregate_0#22)
+        +-input_scan=
+          +-AggregateScan
+            +-column_list=[$groupby.country#15, $aggregate.constituent_aggregate_0#22]
+            +-input_scan=
+            | +-ProjectScan
+            |   +-column_list=MeasureTable_TwoKeys.[key1#16, key2#17, country#3, quantity#19, price#18, struct_for_measure_measure_sum_price_times_quantity#11]
+            |   +-expr_list=
+            |   | +-struct_for_measure_measure_sum_price_times_quantity#11 :=
+            |   |   +-MakeStruct
+            |   |     +-type=STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<key1 INT64, key2 INT64>>
+            |   |     +-field_list=
+            |   |       +-MakeStruct
+            |   |       | +-type=STRUCT<price INT64, quantity INT64>
+            |   |       | +-field_list=
+            |   |       |   +-ColumnRef(type=INT64, column=MeasureTable_TwoKeys.price#18)
+            |   |       |   +-ColumnRef(type=INT64, column=MeasureTable_TwoKeys.quantity#19)
+            |   |       +-MakeStruct
+            |   |         +-type=STRUCT<key1 INT64, key2 INT64>
+            |   |         +-field_list=
+            |   |           +-ColumnRef(type=INT64, column=MeasureTable_TwoKeys.key1#16)
+            |   |           +-ColumnRef(type=INT64, column=MeasureTable_TwoKeys.key2#17)
+            |   +-input_scan=
+            |     +-TableScan(column_list=MeasureTable_TwoKeys.[key1#16, key2#17, country#3, quantity#19, price#18], table=MeasureTable_TwoKeys, column_index_list=[0, 1, 2, 3, 4])
+            +-group_by_list=
+            | +-country#15 := ColumnRef(type=STRING, column=MeasureTable_TwoKeys.country#3)
+            +-aggregate_list=
+              +-constituent_aggregate_0#22 :=
+                +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+                  +-ColumnRef(type=INT64, column=$aggregate.$any_value_grain_lock_0#20)
+                  +-group_by_list=
+                  | +-grain_lock_key#21 :=
+                  |   +-GetStructField
+                  |     +-type=STRUCT<key1 INT64, key2 INT64>
+                  |     +-expr=
+                  |     | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<key1 INT64, key2 INT64>>, column=MeasureTable_TwoKeys.struct_for_measure_measure_sum_price_times_quantity#11)
+                  |     +-field_idx=1
+                  +-group_by_aggregate_list=
+                    +-$any_value_grain_lock_0#20 :=
+                      +-AggregateFunctionCall(ZetaSQL:any_value(INT64) -> INT64)
+                        +-FunctionCall(ZetaSQL:$multiply(INT64, INT64) -> INT64)
+                          +-GetStructField
+                          | +-type=INT64
+                          | +-expr=
+                          | | +-GetStructField
+                          | |   +-type=STRUCT<price INT64, quantity INT64>
+                          | |   +-expr=
+                          | |   | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<key1 INT64, key2 INT64>>, column=MeasureTable_TwoKeys.struct_for_measure_measure_sum_price_times_quantity#11)
+                          | |   +-field_idx=0
+                          | +-field_idx=0
+                          +-GetStructField
+                            +-type=INT64
+                            +-expr=
+                            | +-GetStructField
+                            |   +-type=STRUCT<price INT64, quantity INT64>
+                            |   +-expr=
+                            |   | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<key1 INT64, key2 INT64>>, column=MeasureTable_TwoKeys.struct_for_measure_measure_sum_price_times_quantity#11)
+                            |   +-field_idx=0
+                            +-field_idx=1
+==
+
+# Ratio metric
+SELECT
+  country,
+  AGG(measure_ratio_price_to_quantity)
+FROM MeasureTable_SingleKey
+GROUP BY country
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.country#16 AS country [STRING]
+| +-$aggregate.$agg1#15 AS `$col2` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.country#16, $aggregate.$agg1#15]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$groupby.country#16, $aggregate.$agg1#15]
+        +-input_scan=
+        | +-TableScan(column_list=MeasureTable_SingleKey.[country#2, measure_ratio_price_to_quantity#12], table=MeasureTable_SingleKey, column_index_list=[1, 11])
+        +-group_by_list=
+        | +-country#16 := ColumnRef(type=STRING, column=MeasureTable_SingleKey.country#2)
+        +-aggregate_list=
+          +-$agg1#15 :=
+            +-AggregateFunctionCall(ZetaSQL:AGG(MEASURE<DOUBLE>) -> DOUBLE)
+              +-ColumnRef(type=MEASURE<DOUBLE>, column=MeasureTable_SingleKey.measure_ratio_price_to_quantity#12)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$groupby.country#16 AS country [STRING]
+| +-$aggregate.$agg1#15 AS `$col2` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.country#16, $aggregate.$agg1#15]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$groupby.country#16, $aggregate.$agg1#15]
+        +-expr_list=
+        | +-$agg1#15 :=
+        |   +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+        |     +-Cast(INT64 -> DOUBLE)
+        |     | +-ColumnRef(type=INT64, column=$aggregate.constituent_aggregate_0#22)
+        |     +-Cast(INT64 -> DOUBLE)
+        |       +-ColumnRef(type=INT64, column=$aggregate.constituent_aggregate_1#25)
+        +-input_scan=
+          +-AggregateScan
+            +-column_list=[$groupby.country#16, $aggregate.constituent_aggregate_0#22, $aggregate.constituent_aggregate_1#25]
+            +-input_scan=
+            | +-ProjectScan
+            |   +-column_list=MeasureTable_SingleKey.[key#17, country#2, quantity#19, price#18, struct_for_measure_measure_ratio_price_to_quantity#12]
+            |   +-expr_list=
+            |   | +-struct_for_measure_measure_ratio_price_to_quantity#12 :=
+            |   |   +-MakeStruct
+            |   |     +-type=STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<key INT64>>
+            |   |     +-field_list=
+            |   |       +-MakeStruct
+            |   |       | +-type=STRUCT<price INT64, quantity INT64>
+            |   |       | +-field_list=
+            |   |       |   +-ColumnRef(type=INT64, column=MeasureTable_SingleKey.price#18)
+            |   |       |   +-ColumnRef(type=INT64, column=MeasureTable_SingleKey.quantity#19)
+            |   |       +-MakeStruct
+            |   |         +-type=STRUCT<key INT64>
+            |   |         +-field_list=
+            |   |           +-ColumnRef(type=INT64, column=MeasureTable_SingleKey.key#17)
+            |   +-input_scan=
+            |     +-TableScan(column_list=MeasureTable_SingleKey.[key#17, country#2, quantity#19, price#18], table=MeasureTable_SingleKey, column_index_list=[0, 1, 2, 3])
+            +-group_by_list=
+            | +-country#16 := ColumnRef(type=STRING, column=MeasureTable_SingleKey.country#2)
+            +-aggregate_list=
+              +-constituent_aggregate_0#22 :=
+              | +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+              |   +-ColumnRef(type=INT64, column=$aggregate.$any_value_grain_lock_0#20)
+              |   +-group_by_list=
+              |   | +-grain_lock_key#21 :=
+              |   |   +-GetStructField
+              |   |     +-type=STRUCT<key INT64>
+              |   |     +-expr=
+              |   |     | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<key INT64>>, column=MeasureTable_SingleKey.struct_for_measure_measure_ratio_price_to_quantity#12)
+              |   |     +-field_idx=1
+              |   +-group_by_aggregate_list=
+              |     +-$any_value_grain_lock_0#20 :=
+              |       +-AggregateFunctionCall(ZetaSQL:any_value(INT64) -> INT64)
+              |         +-GetStructField
+              |           +-type=INT64
+              |           +-expr=
+              |           | +-GetStructField
+              |           |   +-type=STRUCT<price INT64, quantity INT64>
+              |           |   +-expr=
+              |           |   | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<key INT64>>, column=MeasureTable_SingleKey.struct_for_measure_measure_ratio_price_to_quantity#12)
+              |           |   +-field_idx=0
+              |           +-field_idx=0
+              +-constituent_aggregate_1#25 :=
+                +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+                  +-ColumnRef(type=INT64, column=$aggregate.$any_value_grain_lock_0#23)
+                  +-group_by_list=
+                  | +-grain_lock_key#24 :=
+                  |   +-GetStructField
+                  |     +-type=STRUCT<key INT64>
+                  |     +-expr=
+                  |     | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<key INT64>>, column=MeasureTable_SingleKey.struct_for_measure_measure_ratio_price_to_quantity#12)
+                  |     +-field_idx=1
+                  +-group_by_aggregate_list=
+                    +-$any_value_grain_lock_0#23 :=
+                      +-AggregateFunctionCall(ZetaSQL:any_value(INT64) -> INT64)
+                        +-GetStructField
+                          +-type=INT64
+                          +-expr=
+                          | +-GetStructField
+                          |   +-type=STRUCT<price INT64, quantity INT64>
+                          |   +-expr=
+                          |   | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<key INT64>>, column=MeasureTable_SingleKey.struct_for_measure_measure_ratio_price_to_quantity#12)
+                          |   +-field_idx=0
+                          +-field_idx=1
+==
+
+# Ratio metric
+SELECT
+  country,
+  AGG(measure_ratio_price_to_quantity)
+FROM MeasureTable_TwoKeys
+GROUP BY country
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.country#15 AS country [STRING]
+| +-$aggregate.$agg1#14 AS `$col2` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.country#15, $aggregate.$agg1#14]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$groupby.country#15, $aggregate.$agg1#14]
+        +-input_scan=
+        | +-TableScan(column_list=MeasureTable_TwoKeys.[country#3, measure_ratio_price_to_quantity#12], table=MeasureTable_TwoKeys, column_index_list=[2, 11])
+        +-group_by_list=
+        | +-country#15 := ColumnRef(type=STRING, column=MeasureTable_TwoKeys.country#3)
+        +-aggregate_list=
+          +-$agg1#14 :=
+            +-AggregateFunctionCall(ZetaSQL:AGG(MEASURE<DOUBLE>) -> DOUBLE)
+              +-ColumnRef(type=MEASURE<DOUBLE>, column=MeasureTable_TwoKeys.measure_ratio_price_to_quantity#12)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$groupby.country#15 AS country [STRING]
+| +-$aggregate.$agg1#14 AS `$col2` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.country#15, $aggregate.$agg1#14]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$groupby.country#15, $aggregate.$agg1#14]
+        +-expr_list=
+        | +-$agg1#14 :=
+        |   +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+        |     +-Cast(INT64 -> DOUBLE)
+        |     | +-ColumnRef(type=INT64, column=$aggregate.constituent_aggregate_0#22)
+        |     +-Cast(INT64 -> DOUBLE)
+        |       +-ColumnRef(type=INT64, column=$aggregate.constituent_aggregate_1#25)
+        +-input_scan=
+          +-AggregateScan
+            +-column_list=[$groupby.country#15, $aggregate.constituent_aggregate_0#22, $aggregate.constituent_aggregate_1#25]
+            +-input_scan=
+            | +-ProjectScan
+            |   +-column_list=MeasureTable_TwoKeys.[key1#16, key2#17, country#3, quantity#19, price#18, struct_for_measure_measure_ratio_price_to_quantity#12]
+            |   +-expr_list=
+            |   | +-struct_for_measure_measure_ratio_price_to_quantity#12 :=
+            |   |   +-MakeStruct
+            |   |     +-type=STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<key1 INT64, key2 INT64>>
+            |   |     +-field_list=
+            |   |       +-MakeStruct
+            |   |       | +-type=STRUCT<price INT64, quantity INT64>
+            |   |       | +-field_list=
+            |   |       |   +-ColumnRef(type=INT64, column=MeasureTable_TwoKeys.price#18)
+            |   |       |   +-ColumnRef(type=INT64, column=MeasureTable_TwoKeys.quantity#19)
+            |   |       +-MakeStruct
+            |   |         +-type=STRUCT<key1 INT64, key2 INT64>
+            |   |         +-field_list=
+            |   |           +-ColumnRef(type=INT64, column=MeasureTable_TwoKeys.key1#16)
+            |   |           +-ColumnRef(type=INT64, column=MeasureTable_TwoKeys.key2#17)
+            |   +-input_scan=
+            |     +-TableScan(column_list=MeasureTable_TwoKeys.[key1#16, key2#17, country#3, quantity#19, price#18], table=MeasureTable_TwoKeys, column_index_list=[0, 1, 2, 3, 4])
+            +-group_by_list=
+            | +-country#15 := ColumnRef(type=STRING, column=MeasureTable_TwoKeys.country#3)
+            +-aggregate_list=
+              +-constituent_aggregate_0#22 :=
+              | +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+              |   +-ColumnRef(type=INT64, column=$aggregate.$any_value_grain_lock_0#20)
+              |   +-group_by_list=
+              |   | +-grain_lock_key#21 :=
+              |   |   +-GetStructField
+              |   |     +-type=STRUCT<key1 INT64, key2 INT64>
+              |   |     +-expr=
+              |   |     | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<key1 INT64, key2 INT64>>, column=MeasureTable_TwoKeys.struct_for_measure_measure_ratio_price_to_quantity#12)
+              |   |     +-field_idx=1
+              |   +-group_by_aggregate_list=
+              |     +-$any_value_grain_lock_0#20 :=
+              |       +-AggregateFunctionCall(ZetaSQL:any_value(INT64) -> INT64)
+              |         +-GetStructField
+              |           +-type=INT64
+              |           +-expr=
+              |           | +-GetStructField
+              |           |   +-type=STRUCT<price INT64, quantity INT64>
+              |           |   +-expr=
+              |           |   | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<key1 INT64, key2 INT64>>, column=MeasureTable_TwoKeys.struct_for_measure_measure_ratio_price_to_quantity#12)
+              |           |   +-field_idx=0
+              |           +-field_idx=0
+              +-constituent_aggregate_1#25 :=
+                +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+                  +-ColumnRef(type=INT64, column=$aggregate.$any_value_grain_lock_0#23)
+                  +-group_by_list=
+                  | +-grain_lock_key#24 :=
+                  |   +-GetStructField
+                  |     +-type=STRUCT<key1 INT64, key2 INT64>
+                  |     +-expr=
+                  |     | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<key1 INT64, key2 INT64>>, column=MeasureTable_TwoKeys.struct_for_measure_measure_ratio_price_to_quantity#12)
+                  |     +-field_idx=1
+                  +-group_by_aggregate_list=
+                    +-$any_value_grain_lock_0#23 :=
+                      +-AggregateFunctionCall(ZetaSQL:any_value(INT64) -> INT64)
+                        +-GetStructField
+                          +-type=INT64
+                          +-expr=
+                          | +-GetStructField
+                          |   +-type=STRUCT<price INT64, quantity INT64>
+                          |   +-expr=
+                          |   | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<key1 INT64, key2 INT64>>, column=MeasureTable_TwoKeys.struct_for_measure_measure_ratio_price_to_quantity#12)
+                          |   +-field_idx=0
+                          +-field_idx=1
+==
+
+# Ratio of multi-level aggregate expressions
+SELECT
+  country,
+  AGG(measure_ratio_price_to_quantity_per_key)
+FROM MeasureTable_SingleKey
+GROUP BY country
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.country#16 AS country [STRING]
+| +-$aggregate.$agg1#15 AS `$col2` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.country#16, $aggregate.$agg1#15]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$groupby.country#16, $aggregate.$agg1#15]
+        +-input_scan=
+        | +-TableScan(column_list=MeasureTable_SingleKey.[country#2, measure_ratio_price_to_quantity_per_key#13], table=MeasureTable_SingleKey, column_index_list=[1, 12])
+        +-group_by_list=
+        | +-country#16 := ColumnRef(type=STRING, column=MeasureTable_SingleKey.country#2)
+        +-aggregate_list=
+          +-$agg1#15 :=
+            +-AggregateFunctionCall(ZetaSQL:AGG(MEASURE<DOUBLE>) -> DOUBLE)
+              +-ColumnRef(type=MEASURE<DOUBLE>, column=MeasureTable_SingleKey.measure_ratio_price_to_quantity_per_key#13)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$groupby.country#16 AS country [STRING]
+| +-$aggregate.$agg1#15 AS `$col2` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.country#16, $aggregate.$agg1#15]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$groupby.country#16, $aggregate.$agg1#15]
+        +-expr_list=
+        | +-$agg1#15 :=
+        |   +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+        |     +-Cast(INT64 -> DOUBLE)
+        |     | +-ColumnRef(type=INT64, column=$aggregate.constituent_aggregate_0#26)
+        |     +-Cast(INT64 -> DOUBLE)
+        |       +-ColumnRef(type=INT64, column=$aggregate.constituent_aggregate_1#29)
+        +-input_scan=
+          +-AggregateScan
+            +-column_list=[$groupby.country#16, $aggregate.constituent_aggregate_0#26, $aggregate.constituent_aggregate_1#29]
+            +-input_scan=
+            | +-ProjectScan
+            |   +-column_list=MeasureTable_SingleKey.[key#17, country#2, quantity#19, price#18, struct_for_measure_measure_ratio_price_to_quantity_per_key#13]
+            |   +-expr_list=
+            |   | +-struct_for_measure_measure_ratio_price_to_quantity_per_key#13 :=
+            |   |   +-MakeStruct
+            |   |     +-type=STRUCT<referenced_columns STRUCT<key INT64, price INT64, quantity INT64>, key_columns STRUCT<key INT64>>
+            |   |     +-field_list=
+            |   |       +-MakeStruct
+            |   |       | +-type=STRUCT<key INT64, price INT64, quantity INT64>
+            |   |       | +-field_list=
+            |   |       |   +-ColumnRef(type=INT64, column=MeasureTable_SingleKey.key#17)
+            |   |       |   +-ColumnRef(type=INT64, column=MeasureTable_SingleKey.price#18)
+            |   |       |   +-ColumnRef(type=INT64, column=MeasureTable_SingleKey.quantity#19)
+            |   |       +-MakeStruct
+            |   |         +-type=STRUCT<key INT64>
+            |   |         +-field_list=
+            |   |           +-ColumnRef(type=INT64, column=MeasureTable_SingleKey.key#17)
+            |   +-input_scan=
+            |     +-TableScan(column_list=MeasureTable_SingleKey.[key#17, country#2, quantity#19, price#18], table=MeasureTable_SingleKey, column_index_list=[0, 1, 2, 3])
+            +-group_by_list=
+            | +-country#16 := ColumnRef(type=STRING, column=MeasureTable_SingleKey.country#2)
+            +-aggregate_list=
+              +-constituent_aggregate_0#26 :=
+              | +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+              |   +-ColumnRef(type=INT64, column=$aggregate.$agg1#21)
+              |   +-group_by_list=
+              |   | +-$groupbymod#20 :=
+              |   |   +-GetStructField
+              |   |     +-type=INT64
+              |   |     +-expr=
+              |   |     | +-GetStructField
+              |   |     |   +-type=STRUCT<key INT64, price INT64, quantity INT64>
+              |   |     |   +-expr=
+              |   |     |   | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<key INT64, price INT64, quantity INT64>, key_columns STRUCT<key INT64>>, column=MeasureTable_SingleKey.struct_for_measure_measure_ratio_price_to_quantity_per_key#13)
+              |   |     |   +-field_idx=0
+              |   |     +-field_idx=0
+              |   +-group_by_aggregate_list=
+              |     +-$agg1#21 :=
+              |       +-AggregateFunctionCall(ZetaSQL:any_value(INT64) -> INT64)
+              |         +-ColumnRef(type=INT64, column=$aggregate.$any_value_grain_lock_0#24)
+              |         +-group_by_list=
+              |         | +-grain_lock_key#25 :=
+              |         |   +-GetStructField
+              |         |     +-type=STRUCT<key INT64>
+              |         |     +-expr=
+              |         |     | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<key INT64, price INT64, quantity INT64>, key_columns STRUCT<key INT64>>, column=MeasureTable_SingleKey.struct_for_measure_measure_ratio_price_to_quantity_per_key#13)
+              |         |     +-field_idx=1
+              |         +-group_by_aggregate_list=
+              |           +-$any_value_grain_lock_0#24 :=
+              |             +-AggregateFunctionCall(ZetaSQL:any_value(INT64) -> INT64)
+              |               +-GetStructField
+              |                 +-type=INT64
+              |                 +-expr=
+              |                 | +-GetStructField
+              |                 |   +-type=STRUCT<key INT64, price INT64, quantity INT64>
+              |                 |   +-expr=
+              |                 |   | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<key INT64, price INT64, quantity INT64>, key_columns STRUCT<key INT64>>, column=MeasureTable_SingleKey.struct_for_measure_measure_ratio_price_to_quantity_per_key#13)
+              |                 |   +-field_idx=0
+              |                 +-field_idx=1
+              +-constituent_aggregate_1#29 :=
+                +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+                  +-ColumnRef(type=INT64, column=$aggregate.$agg1#23)
+                  +-group_by_list=
+                  | +-$groupbymod#22 :=
+                  |   +-GetStructField
+                  |     +-type=INT64
+                  |     +-expr=
+                  |     | +-GetStructField
+                  |     |   +-type=STRUCT<key INT64, price INT64, quantity INT64>
+                  |     |   +-expr=
+                  |     |   | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<key INT64, price INT64, quantity INT64>, key_columns STRUCT<key INT64>>, column=MeasureTable_SingleKey.struct_for_measure_measure_ratio_price_to_quantity_per_key#13)
+                  |     |   +-field_idx=0
+                  |     +-field_idx=0
+                  +-group_by_aggregate_list=
+                    +-$agg1#23 :=
+                      +-AggregateFunctionCall(ZetaSQL:any_value(INT64) -> INT64)
+                        +-ColumnRef(type=INT64, column=$aggregate.$any_value_grain_lock_0#27)
+                        +-group_by_list=
+                        | +-grain_lock_key#28 :=
+                        |   +-GetStructField
+                        |     +-type=STRUCT<key INT64>
+                        |     +-expr=
+                        |     | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<key INT64, price INT64, quantity INT64>, key_columns STRUCT<key INT64>>, column=MeasureTable_SingleKey.struct_for_measure_measure_ratio_price_to_quantity_per_key#13)
+                        |     +-field_idx=1
+                        +-group_by_aggregate_list=
+                          +-$any_value_grain_lock_0#27 :=
+                            +-AggregateFunctionCall(ZetaSQL:any_value(INT64) -> INT64)
+                              +-GetStructField
+                                +-type=INT64
+                                +-expr=
+                                | +-GetStructField
+                                |   +-type=STRUCT<key INT64, price INT64, quantity INT64>
+                                |   +-expr=
+                                |   | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<key INT64, price INT64, quantity INT64>, key_columns STRUCT<key INT64>>, column=MeasureTable_SingleKey.struct_for_measure_measure_ratio_price_to_quantity_per_key#13)
+                                |   +-field_idx=0
+                                +-field_idx=2
+==
+
+# Ratio of complex multi-level aggregate expressions
+SELECT
+  country,
+  AGG(measure_complex_ratio_metric)
+FROM MeasureTable_SingleKey
+GROUP BY country
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.country#16 AS country [STRING]
+| +-$aggregate.$agg1#15 AS `$col2` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.country#16, $aggregate.$agg1#15]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$groupby.country#16, $aggregate.$agg1#15]
+        +-input_scan=
+        | +-TableScan(column_list=MeasureTable_SingleKey.[country#2, measure_complex_ratio_metric#14], table=MeasureTable_SingleKey, column_index_list=[1, 13])
+        +-group_by_list=
+        | +-country#16 := ColumnRef(type=STRING, column=MeasureTable_SingleKey.country#2)
+        +-aggregate_list=
+          +-$agg1#15 :=
+            +-AggregateFunctionCall(ZetaSQL:AGG(MEASURE<DOUBLE>) -> DOUBLE)
+              +-ColumnRef(type=MEASURE<DOUBLE>, column=MeasureTable_SingleKey.measure_complex_ratio_metric#14)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$groupby.country#16 AS country [STRING]
+| +-$aggregate.$agg1#15 AS `$col2` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.country#16, $aggregate.$agg1#15]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$groupby.country#16, $aggregate.$agg1#15]
+        +-expr_list=
+        | +-$agg1#15 :=
+        |   +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+        |     +-ColumnRef(type=DOUBLE, column=$aggregate.constituent_aggregate_0#29)
+        |     +-ColumnRef(type=DOUBLE, column=$aggregate.constituent_aggregate_1#34)
+        +-input_scan=
+          +-AggregateScan
+            +-column_list=[$groupby.country#16, $aggregate.constituent_aggregate_0#29, $aggregate.constituent_aggregate_1#34]
+            +-input_scan=
+            | +-ProjectScan
+            |   +-column_list=MeasureTable_SingleKey.[key#17, country#2, price#18, struct_for_measure_measure_complex_ratio_metric#14]
+            |   +-expr_list=
+            |   | +-struct_for_measure_measure_complex_ratio_metric#14 :=
+            |   |   +-MakeStruct
+            |   |     +-type=STRUCT<referenced_columns STRUCT<key INT64, price INT64>, key_columns STRUCT<key INT64>>
+            |   |     +-field_list=
+            |   |       +-MakeStruct
+            |   |       | +-type=STRUCT<key INT64, price INT64>
+            |   |       | +-field_list=
+            |   |       |   +-ColumnRef(type=INT64, column=MeasureTable_SingleKey.key#17)
+            |   |       |   +-ColumnRef(type=INT64, column=MeasureTable_SingleKey.price#18)
+            |   |       +-MakeStruct
+            |   |         +-type=STRUCT<key INT64>
+            |   |         +-field_list=
+            |   |           +-ColumnRef(type=INT64, column=MeasureTable_SingleKey.key#17)
+            |   +-input_scan=
+            |     +-TableScan(column_list=MeasureTable_SingleKey.[key#17, country#2, price#18], table=MeasureTable_SingleKey, column_index_list=[0, 1, 3])
+            +-group_by_list=
+            | +-country#16 := ColumnRef(type=STRING, column=MeasureTable_SingleKey.country#2)
+            +-aggregate_list=
+              +-constituent_aggregate_0#29 :=
+              | +-AggregateFunctionCall(ZetaSQL:sum(DOUBLE) -> DOUBLE)
+              |   +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+              |     +-ColumnRef(type=DOUBLE, column=$aggregate.$agg1#20)
+              |     +-Cast(INT64 -> DOUBLE)
+              |       +-ColumnRef(type=INT64, column=$aggregate.$agg2#21)
+              |   +-group_by_list=
+              |   | +-$groupbymod#19 :=
+              |   |   +-GetStructField
+              |   |     +-type=INT64
+              |   |     +-expr=
+              |   |     | +-GetStructField
+              |   |     |   +-type=STRUCT<key INT64, price INT64>
+              |   |     |   +-expr=
+              |   |     |   | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<key INT64, price INT64>, key_columns STRUCT<key INT64>>, column=MeasureTable_SingleKey.struct_for_measure_measure_complex_ratio_metric#14)
+              |   |     |   +-field_idx=0
+              |   |     +-field_idx=0
+              |   +-group_by_aggregate_list=
+              |     +-$agg1#20 :=
+              |     | +-AggregateFunctionCall(ZetaSQL:avg(INT64) -> DOUBLE)
+              |     |   +-ColumnRef(type=INT64, column=$aggregate.$any_value_grain_lock_0#25)
+              |     |   +-group_by_list=
+              |     |   | +-grain_lock_key#26 :=
+              |     |   |   +-GetStructField
+              |     |   |     +-type=STRUCT<key INT64>
+              |     |   |     +-expr=
+              |     |   |     | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<key INT64, price INT64>, key_columns STRUCT<key INT64>>, column=MeasureTable_SingleKey.struct_for_measure_measure_complex_ratio_metric#14)
+              |     |   |     +-field_idx=1
+              |     |   +-group_by_aggregate_list=
+              |     |     +-$any_value_grain_lock_0#25 :=
+              |     |       +-AggregateFunctionCall(ZetaSQL:any_value(INT64) -> INT64)
+              |     |         +-GetStructField
+              |     |           +-type=INT64
+              |     |           +-expr=
+              |     |           | +-GetStructField
+              |     |           |   +-type=STRUCT<key INT64, price INT64>
+              |     |           |   +-expr=
+              |     |           |   | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<key INT64, price INT64>, key_columns STRUCT<key INT64>>, column=MeasureTable_SingleKey.struct_for_measure_measure_complex_ratio_metric#14)
+              |     |           |   +-field_idx=0
+              |     |           +-field_idx=1
+              |     +-$agg2#21 :=
+              |       +-AggregateFunctionCall(ZetaSQL:min(INT64) -> INT64)
+              |         +-ColumnRef(type=INT64, column=$aggregate.$any_value_grain_lock_0#27)
+              |         +-group_by_list=
+              |         | +-grain_lock_key#28 :=
+              |         |   +-GetStructField
+              |         |     +-type=STRUCT<key INT64>
+              |         |     +-expr=
+              |         |     | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<key INT64, price INT64>, key_columns STRUCT<key INT64>>, column=MeasureTable_SingleKey.struct_for_measure_measure_complex_ratio_metric#14)
+              |         |     +-field_idx=1
+              |         +-group_by_aggregate_list=
+              |           +-$any_value_grain_lock_0#27 :=
+              |             +-AggregateFunctionCall(ZetaSQL:any_value(INT64) -> INT64)
+              |               +-GetStructField
+              |                 +-type=INT64
+              |                 +-expr=
+              |                 | +-GetStructField
+              |                 |   +-type=STRUCT<key INT64, price INT64>
+              |                 |   +-expr=
+              |                 |   | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<key INT64, price INT64>, key_columns STRUCT<key INT64>>, column=MeasureTable_SingleKey.struct_for_measure_measure_complex_ratio_metric#14)
+              |                 |   +-field_idx=0
+              |                 +-field_idx=1
+              +-constituent_aggregate_1#34 :=
+                +-AggregateFunctionCall(ZetaSQL:sum(DOUBLE) -> DOUBLE)
+                  +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+                    +-ColumnRef(type=DOUBLE, column=$aggregate.$agg1#23)
+                    +-Cast(INT64 -> DOUBLE)
+                      +-ColumnRef(type=INT64, column=$aggregate.$agg2#24)
+                  +-group_by_list=
+                  | +-$groupbymod#22 :=
+                  |   +-GetStructField
+                  |     +-type=INT64
+                  |     +-expr=
+                  |     | +-GetStructField
+                  |     |   +-type=STRUCT<key INT64, price INT64>
+                  |     |   +-expr=
+                  |     |   | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<key INT64, price INT64>, key_columns STRUCT<key INT64>>, column=MeasureTable_SingleKey.struct_for_measure_measure_complex_ratio_metric#14)
+                  |     |   +-field_idx=0
+                  |     +-field_idx=0
+                  +-group_by_aggregate_list=
+                    +-$agg1#23 :=
+                    | +-AggregateFunctionCall(ZetaSQL:avg(INT64) -> DOUBLE)
+                    |   +-ColumnRef(type=INT64, column=$aggregate.$any_value_grain_lock_0#30)
+                    |   +-group_by_list=
+                    |   | +-grain_lock_key#31 :=
+                    |   |   +-GetStructField
+                    |   |     +-type=STRUCT<key INT64>
+                    |   |     +-expr=
+                    |   |     | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<key INT64, price INT64>, key_columns STRUCT<key INT64>>, column=MeasureTable_SingleKey.struct_for_measure_measure_complex_ratio_metric#14)
+                    |   |     +-field_idx=1
+                    |   +-group_by_aggregate_list=
+                    |     +-$any_value_grain_lock_0#30 :=
+                    |       +-AggregateFunctionCall(ZetaSQL:any_value(INT64) -> INT64)
+                    |         +-GetStructField
+                    |           +-type=INT64
+                    |           +-expr=
+                    |           | +-GetStructField
+                    |           |   +-type=STRUCT<key INT64, price INT64>
+                    |           |   +-expr=
+                    |           |   | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<key INT64, price INT64>, key_columns STRUCT<key INT64>>, column=MeasureTable_SingleKey.struct_for_measure_measure_complex_ratio_metric#14)
+                    |           |   +-field_idx=0
+                    |           +-field_idx=1
+                    +-$agg2#24 :=
+                      +-AggregateFunctionCall(ZetaSQL:max(INT64) -> INT64)
+                        +-ColumnRef(type=INT64, column=$aggregate.$any_value_grain_lock_0#32)
+                        +-group_by_list=
+                        | +-grain_lock_key#33 :=
+                        |   +-GetStructField
+                        |     +-type=STRUCT<key INT64>
+                        |     +-expr=
+                        |     | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<key INT64, price INT64>, key_columns STRUCT<key INT64>>, column=MeasureTable_SingleKey.struct_for_measure_measure_complex_ratio_metric#14)
+                        |     +-field_idx=1
+                        +-group_by_aggregate_list=
+                          +-$any_value_grain_lock_0#32 :=
+                            +-AggregateFunctionCall(ZetaSQL:any_value(INT64) -> INT64)
+                              +-GetStructField
+                                +-type=INT64
+                                +-expr=
+                                | +-GetStructField
+                                |   +-type=STRUCT<key INT64, price INT64>
+                                |   +-expr=
+                                |   | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<key INT64, price INT64>, key_columns STRUCT<key INT64>>, column=MeasureTable_SingleKey.struct_for_measure_measure_complex_ratio_metric#14)
+                                |   +-field_idx=0
+                                +-field_idx=1
+==
+
+# Measures can propagate through inner joins.
+SELECT
+  T1.country,
+  AGG(T1.measure_sum_quantity)
+FROM MeasureTable_SingleKey AS T1
+INNER JOIN MeasureTable_SingleKey AS T2 USING (key)
+GROUP BY T1.country;
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.country#30 AS country [STRING]
+| +-$aggregate.$agg1#29 AS `$col2` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.country#30, $aggregate.$agg1#29]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$groupby.country#30, $aggregate.$agg1#29]
+        +-input_scan=
+        | +-JoinScan
+        |   +-column_list=MeasureTable_SingleKey.[key#1, country#2, measure_sum_quantity#9, key#15]
+        |   +-left_scan=
+        |   | +-TableScan(column_list=MeasureTable_SingleKey.[key#1, country#2, measure_sum_quantity#9], table=MeasureTable_SingleKey, column_index_list=[0, 1, 8], alias="T1")
+        |   +-right_scan=
+        |   | +-TableScan(column_list=[MeasureTable_SingleKey.key#15], table=MeasureTable_SingleKey, column_index_list=[0], alias="T2")
+        |   +-join_expr=
+        |   | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        |   |   +-ColumnRef(type=INT64, column=MeasureTable_SingleKey.key#1)
+        |   |   +-ColumnRef(type=INT64, column=MeasureTable_SingleKey.key#15)
+        |   +-has_using=TRUE
+        +-group_by_list=
+        | +-country#30 := ColumnRef(type=STRING, column=MeasureTable_SingleKey.country#2)
+        +-aggregate_list=
+          +-$agg1#29 :=
+            +-AggregateFunctionCall(ZetaSQL:AGG(MEASURE<INT64>) -> INT64)
+              +-ColumnRef(type=MEASURE<INT64>, column=MeasureTable_SingleKey.measure_sum_quantity#9)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$groupby.country#30 AS country [STRING]
+| +-$aggregate.$agg1#29 AS `$col2` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.country#30, $aggregate.$agg1#29]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$groupby.country#30, $aggregate.$agg1#29]
+        +-expr_list=
+        | +-$agg1#29 := ColumnRef(type=INT64, column=$aggregate.constituent_aggregate_0#34)
+        +-input_scan=
+          +-AggregateScan
+            +-column_list=[$groupby.country#30, $aggregate.constituent_aggregate_0#34]
+            +-input_scan=
+            | +-JoinScan
+            |   +-column_list=MeasureTable_SingleKey.[key#1, country#2, struct_for_measure_measure_sum_quantity#9, key#15]
+            |   +-left_scan=
+            |   | +-ProjectScan
+            |   |   +-column_list=MeasureTable_SingleKey.[key#1, country#2, quantity#31, struct_for_measure_measure_sum_quantity#9]
+            |   |   +-expr_list=
+            |   |   | +-struct_for_measure_measure_sum_quantity#9 :=
+            |   |   |   +-MakeStruct
+            |   |   |     +-type=STRUCT<referenced_columns STRUCT<quantity INT64>, key_columns STRUCT<key INT64>>
+            |   |   |     +-field_list=
+            |   |   |       +-MakeStruct
+            |   |   |       | +-type=STRUCT<quantity INT64>
+            |   |   |       | +-field_list=
+            |   |   |       |   +-ColumnRef(type=INT64, column=MeasureTable_SingleKey.quantity#31)
+            |   |   |       +-MakeStruct
+            |   |   |         +-type=STRUCT<key INT64>
+            |   |   |         +-field_list=
+            |   |   |           +-ColumnRef(type=INT64, column=MeasureTable_SingleKey.key#1)
+            |   |   +-input_scan=
+            |   |     +-TableScan(column_list=MeasureTable_SingleKey.[key#1, country#2, quantity#31], table=MeasureTable_SingleKey, column_index_list=[0, 1, 2], alias="T1")
+            |   +-right_scan=
+            |   | +-TableScan(column_list=[MeasureTable_SingleKey.key#15], table=MeasureTable_SingleKey, column_index_list=[0], alias="T2")
+            |   +-join_expr=
+            |   | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+            |   |   +-ColumnRef(type=INT64, column=MeasureTable_SingleKey.key#1)
+            |   |   +-ColumnRef(type=INT64, column=MeasureTable_SingleKey.key#15)
+            |   +-has_using=TRUE
+            +-group_by_list=
+            | +-country#30 := ColumnRef(type=STRING, column=MeasureTable_SingleKey.country#2)
+            +-aggregate_list=
+              +-constituent_aggregate_0#34 :=
+                +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+                  +-ColumnRef(type=INT64, column=$aggregate.$any_value_grain_lock_0#32)
+                  +-group_by_list=
+                  | +-grain_lock_key#33 :=
+                  |   +-GetStructField
+                  |     +-type=STRUCT<key INT64>
+                  |     +-expr=
+                  |     | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<quantity INT64>, key_columns STRUCT<key INT64>>, column=MeasureTable_SingleKey.struct_for_measure_measure_sum_quantity#9)
+                  |     +-field_idx=1
+                  +-group_by_aggregate_list=
+                    +-$any_value_grain_lock_0#32 :=
+                      +-AggregateFunctionCall(ZetaSQL:any_value(INT64) -> INT64)
+                        +-GetStructField
+                          +-type=INT64
+                          +-expr=
+                          | +-GetStructField
+                          |   +-type=STRUCT<quantity INT64>
+                          |   +-expr=
+                          |   | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<quantity INT64>, key_columns STRUCT<key INT64>>, column=MeasureTable_SingleKey.struct_for_measure_measure_sum_quantity#9)
+                          |   +-field_idx=0
+                          +-field_idx=0
+==
+
+# Measures can propagate through cross / comma joins.
+SELECT
+  T1.country,
+  AGG(T1.measure_sum_quantity)
+FROM MeasureTable_SingleKey AS T1
+{{,|CROSS JOIN}} MeasureTable_SingleKey AS T2
+GROUP BY T1.country;
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.country#30 AS country [STRING]
+| +-$aggregate.$agg1#29 AS `$col2` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.country#30, $aggregate.$agg1#29]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$groupby.country#30, $aggregate.$agg1#29]
+        +-input_scan=
+        | +-JoinScan
+        |   +-column_list=MeasureTable_SingleKey.[country#2, measure_sum_quantity#9]
+        |   +-left_scan=
+        |   | +-TableScan(column_list=MeasureTable_SingleKey.[country#2, measure_sum_quantity#9], table=MeasureTable_SingleKey, column_index_list=[1, 8], alias="T1")
+        |   +-right_scan=
+        |     +-TableScan(table=MeasureTable_SingleKey, alias="T2")
+        +-group_by_list=
+        | +-country#30 := ColumnRef(type=STRING, column=MeasureTable_SingleKey.country#2)
+        +-aggregate_list=
+          +-$agg1#29 :=
+            +-AggregateFunctionCall(ZetaSQL:AGG(MEASURE<INT64>) -> INT64)
+              +-ColumnRef(type=MEASURE<INT64>, column=MeasureTable_SingleKey.measure_sum_quantity#9)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$groupby.country#30 AS country [STRING]
+| +-$aggregate.$agg1#29 AS `$col2` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.country#30, $aggregate.$agg1#29]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$groupby.country#30, $aggregate.$agg1#29]
+        +-expr_list=
+        | +-$agg1#29 := ColumnRef(type=INT64, column=$aggregate.constituent_aggregate_0#35)
+        +-input_scan=
+          +-AggregateScan
+            +-column_list=[$groupby.country#30, $aggregate.constituent_aggregate_0#35]
+            +-input_scan=
+            | +-JoinScan
+            |   +-column_list=MeasureTable_SingleKey.[country#2, struct_for_measure_measure_sum_quantity#9]
+            |   +-left_scan=
+            |   | +-ProjectScan
+            |   |   +-column_list=MeasureTable_SingleKey.[key#31, country#2, quantity#32, struct_for_measure_measure_sum_quantity#9]
+            |   |   +-expr_list=
+            |   |   | +-struct_for_measure_measure_sum_quantity#9 :=
+            |   |   |   +-MakeStruct
+            |   |   |     +-type=STRUCT<referenced_columns STRUCT<quantity INT64>, key_columns STRUCT<key INT64>>
+            |   |   |     +-field_list=
+            |   |   |       +-MakeStruct
+            |   |   |       | +-type=STRUCT<quantity INT64>
+            |   |   |       | +-field_list=
+            |   |   |       |   +-ColumnRef(type=INT64, column=MeasureTable_SingleKey.quantity#32)
+            |   |   |       +-MakeStruct
+            |   |   |         +-type=STRUCT<key INT64>
+            |   |   |         +-field_list=
+            |   |   |           +-ColumnRef(type=INT64, column=MeasureTable_SingleKey.key#31)
+            |   |   +-input_scan=
+            |   |     +-TableScan(column_list=MeasureTable_SingleKey.[key#31, country#2, quantity#32], table=MeasureTable_SingleKey, column_index_list=[0, 1, 2], alias="T1")
+            |   +-right_scan=
+            |     +-TableScan(table=MeasureTable_SingleKey, alias="T2")
+            +-group_by_list=
+            | +-country#30 := ColumnRef(type=STRING, column=MeasureTable_SingleKey.country#2)
+            +-aggregate_list=
+              +-constituent_aggregate_0#35 :=
+                +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+                  +-ColumnRef(type=INT64, column=$aggregate.$any_value_grain_lock_0#33)
+                  +-group_by_list=
+                  | +-grain_lock_key#34 :=
+                  |   +-GetStructField
+                  |     +-type=STRUCT<key INT64>
+                  |     +-expr=
+                  |     | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<quantity INT64>, key_columns STRUCT<key INT64>>, column=MeasureTable_SingleKey.struct_for_measure_measure_sum_quantity#9)
+                  |     +-field_idx=1
+                  +-group_by_aggregate_list=
+                    +-$any_value_grain_lock_0#33 :=
+                      +-AggregateFunctionCall(ZetaSQL:any_value(INT64) -> INT64)
+                        +-GetStructField
+                          +-type=INT64
+                          +-expr=
+                          | +-GetStructField
+                          |   +-type=STRUCT<quantity INT64>
+                          |   +-expr=
+                          |   | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<quantity INT64>, key_columns STRUCT<key INT64>>, column=MeasureTable_SingleKey.struct_for_measure_measure_sum_quantity#9)
+                          |   +-field_idx=0
+                          +-field_idx=0
+==
+
+# Measures can propagate past ArrayScans.
+SELECT 1 FROM (
+  SELECT *
+  FROM UNNEST(ARRAY(SELECT measure_sum_quantity FROM MeasureTable_SingleKey))
+)
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#16 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#16]
+    +-expr_list=
+    | +-$col1#16 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$array.$unnest1#15]
+        +-input_scan=
+          +-ArrayScan
+            +-column_list=[$array.$unnest1#15]
+            +-array_expr_list=
+            | +-SubqueryExpr
+            |   +-type=ARRAY<MEASURE<INT64>>
+            |   +-subquery_type=ARRAY
+            |   +-subquery=
+            |     +-ProjectScan
+            |       +-column_list=[MeasureTable_SingleKey.measure_sum_quantity#9]
+            |       +-input_scan=
+            |         +-TableScan(column_list=[MeasureTable_SingleKey.measure_sum_quantity#9], table=MeasureTable_SingleKey, column_index_list=[8])
+            +-element_column_list=[$array.$unnest1#15]
+==
+
+# Measures can propagate past FilterScan, OrderByScan and LimitOffsetScan.
+SELECT 1 FROM (
+  SELECT measure_sum_quantity
+  FROM MeasureTable_SingleKey
+  WHERE true
+  ORDER BY key
+  LIMIT 2
+)
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#15 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#15]
+    +-expr_list=
+    | +-$col1#15 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-LimitOffsetScan
+        +-column_list=[MeasureTable_SingleKey.measure_sum_quantity#9]
+        +-input_scan=
+        | +-OrderByScan
+        |   +-column_list=[MeasureTable_SingleKey.measure_sum_quantity#9]
+        |   +-is_ordered=TRUE
+        |   +-input_scan=
+        |   | +-FilterScan
+        |   |   +-column_list=MeasureTable_SingleKey.[key#1, measure_sum_quantity#9]
+        |   |   +-input_scan=
+        |   |   | +-TableScan(column_list=MeasureTable_SingleKey.[key#1, measure_sum_quantity#9], table=MeasureTable_SingleKey, column_index_list=[0, 8])
+        |   |   +-filter_expr=
+        |   |     +-Literal(type=BOOL, value=true)
+        |   +-order_by_item_list=
+        |     +-OrderByItem
+        |       +-column_ref=
+        |         +-ColumnRef(type=INT64, column=MeasureTable_SingleKey.key#1)
+        +-limit=
+          +-Literal(type=INT64, value=2)

@@ -17,6 +17,7 @@
 #include "zetasql/tools/execute_query/execute_query_web_writer.h"
 
 #include <memory>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -25,6 +26,7 @@
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/tools/execute_query/output_query_result.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "external/mstch/mstch/include/mstch/mstch.hpp"
 #include "zetasql/base/status_macros.h"
 
@@ -36,15 +38,18 @@ namespace {
 absl::Status RenderResultsAsTable(std::unique_ptr<EvaluatorTableIterator> iter,
                                   mstch::map &table_params) {
   std::vector<mstch::node> columnNames;
-  columnNames.reserve(iter->NumColumns());
+  columnNames.reserve(iter->NumColumns() + 1);
+  columnNames.push_back(std::string("#"));
   for (int i = 0; i < iter->NumColumns(); ++i) {
     columnNames.push_back(iter->GetColumnName(i));
   }
 
   std::vector<mstch::node> rows;
+  int row_num = 1;
   while (iter->NextRow()) {
     std::vector<mstch::node> row_values;
-    row_values.reserve(iter->NumColumns());
+    row_values.reserve(iter->NumColumns() + 1);
+    row_values.push_back(absl::StrCat(row_num++));
     for (int i = 0; i < iter->NumColumns(); ++i) {
       row_values.push_back(zetasql::ValueToOutputString(
           iter->GetValue(i), /*escape_strings=*/false));

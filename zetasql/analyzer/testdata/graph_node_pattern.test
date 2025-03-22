@@ -1,6 +1,6 @@
 [default language_features=V_1_4_SQL_GRAPH]
 [default no_test_extract_table_names]
-[default show_unparsed]
+[default show_sqlbuilder_output]
 
 # WHERE clause in node pattern
 select gt.* from
@@ -18,7 +18,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=[$graph_table.Name#2]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
         | +-GraphScan
         |   +-column_list=[$element_table.n#1]
@@ -47,7 +47,7 @@ QueryStmt
         |       |   |       +-op=NOT
         |       |   |       +-operand_list=
         |       |   |         +-GraphWildCardLabel
-        |       |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+        |       |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
         |       +-head=$element_table.n#1
         |       +-tail=$element_table.n#1
         +-shape_expr_list=
@@ -58,7 +58,8 @@ QueryStmt
               | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.n#1)
               +-property=name(STRING)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   aml_1.a_3 AS Name
 FROM
@@ -73,6 +74,23 @@ FROM
       a_2.name AS a_3
     )
   ) AS aml_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a_2
+      IS (% | ! %)
+      WHERE
+        ((a_2.id) + 3) = 2)
+    COLUMNS(
+      a_2.name AS a_3
+    )
+  ) AS aml_1
+|> SELECT
+     aml_1.a_3 AS Name;
 ==
 
 # Correlated columns in node WHERE clause
@@ -110,7 +128,7 @@ QueryStmt
                 +-input_scan=
                   +-GraphTableScan
                     +-column_list=[$graph_table.Id#4]
-                    +-property_graph=sample_catalog.aml
+                    +-property_graph=aml
                     +-input_scan=
                     | +-GraphScan
                     |   +-column_list=[$element_table.n#3]
@@ -137,7 +155,7 @@ QueryStmt
                     |       |   |       +-op=NOT
                     |       |   |       +-operand_list=
                     |       |   |         +-GraphWildCardLabel
-                    |       |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+                    |       |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
                     |       +-head=$element_table.n#3
                     |       +-tail=$element_table.n#3
                     +-shape_expr_list=
@@ -148,7 +166,8 @@ QueryStmt
                           | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.n#3)
                           +-property=id(INT64)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   1 AS a_7
 FROM
@@ -176,6 +195,33 @@ WHERE
       ) AS graphtablescan_5
   );
 
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  KeyValue
+|> WHERE
+     EXISTS(
+       FROM
+         GRAPH_TABLE(
+           aml
+           MATCH
+             (a_3
+             IS (% | ! %)
+             WHERE
+               (a_3.name) = (KeyValue.Value))
+           COLUMNS(
+             a_3.id AS a_4
+           )
+         ) AS aml_2
+       |> SELECT
+            aml_2.a_4 AS a_4
+       |> AS graphtablescan_5
+       |> SELECT
+            1 AS a_6
+     )
+|> SELECT
+     1 AS a_7;
+
 ==
 
 # Matching with label expression and where clause
@@ -194,7 +240,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=[$graph_table.One#2]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
         | +-GraphScan
         |   +-column_list=[$element_table.n#1]
@@ -214,15 +260,16 @@ QueryStmt
         |       |   | +-GraphLabelNaryExpr
         |       |   |   +-op=OR
         |       |   |   +-operand_list=
-        |       |   |     +-GraphLabel(label=sample_catalog.aml.Person)
-        |       |   |     +-GraphLabel(label=sample_catalog.aml.Account)
-        |       |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person]
+        |       |   |     +-GraphLabel(label=aml.Person)
+        |       |   |     +-GraphLabel(label=aml.Account)
+        |       |   +-target_element_table_list=[aml.Account,aml.Person]
         |       +-head=$element_table.n#1
         |       +-tail=$element_table.n#1
         +-shape_expr_list=
           +-One#2 := Literal(type=INT64, value=1)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   aml_1.a_3 AS One
 FROM
@@ -237,6 +284,23 @@ FROM
       1 AS a_3
     )
   ) AS aml_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a_2
+      IS (Person | Account)
+      WHERE
+        (1 + 1) = 2)
+    COLUMNS(
+      1 AS a_3
+    )
+  ) AS aml_1
+|> SELECT
+     aml_1.a_3 AS One;
 ==
 
 select gt.* from
@@ -254,7 +318,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=[$graph_table.One#2]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
         | +-GraphScan
         |   +-column_list=[$element_table.n#1]
@@ -265,14 +329,15 @@ QueryStmt
         |       | +-GraphNodeScan
         |       |   +-column_list=[$element_table.n#1]
         |       |   +-label_expr=
-        |       |   | +-GraphLabel(label=sample_catalog.aml.Person)
-        |       |   +-target_element_table_list=[sample_catalog.aml.Person]
+        |       |   | +-GraphLabel(label=aml.Person)
+        |       |   +-target_element_table_list=[aml.Person]
         |       +-head=$element_table.n#1
         |       +-tail=$element_table.n#1
         +-shape_expr_list=
           +-One#2 := Literal(type=INT64, value=1)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   aml_1.a_3 AS One
 FROM
@@ -285,4 +350,19 @@ FROM
       1 AS a_3
     )
   ) AS aml_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a_2
+      IS Person)
+    COLUMNS(
+      1 AS a_3
+    )
+  ) AS aml_1
+|> SELECT
+     aml_1.a_3 AS One;
 

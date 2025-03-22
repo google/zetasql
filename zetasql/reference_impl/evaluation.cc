@@ -31,15 +31,12 @@
 #include "zetasql/public/value.h"
 #include "zetasql/reference_impl/tuple.h"
 #include "absl/container/flat_hash_set.h"
-#include "absl/container/node_hash_set.h"
 #include "absl/flags/flag.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
-#include "absl/types/optional.h"
 #include "zetasql/base/map_util.h"
-#include "zetasql/base/source_location.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 #include "zetasql/base/clock.h"
@@ -105,6 +102,7 @@ std::unique_ptr<EvaluationContext> EvaluationContext::MakeChildContext() const {
   EvaluationContext* mutable_parent_ref = const_cast<EvaluationContext*>(this);
   std::unique_ptr<EvaluationContext> child_context = absl::WrapUnique(
       new EvaluationContext(options_, memory_accountant_, mutable_parent_ref));
+  child_context->tables_ = tables_;
   child_context->SetLanguageOptions(language_options_);
   child_context->SetSessionUser(session_user_);
   child_context->SetStatementEvaluationDeadline(statement_eval_deadline_);

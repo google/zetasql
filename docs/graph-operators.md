@@ -67,7 +67,8 @@ including the following GQL-specific operators:
   <td><a href="#same_predicate"><code>SAME</code> predicate</a>
 </td>
   <td>
-    In a graph, determines if all graph elements in a list bind to the same node or edge.
+    In a graph, checks if all graph elements in a list bind to the same node
+    or edge.
   </td>
 </tr>
 
@@ -77,7 +78,7 @@ including the following GQL-specific operators:
 ## Graph concatenation operator 
 <a id="graph_concatenation_operator"></a>
 
-```sql
+```zetasql
 graph_path || graph_path [ || ... ]
 ```
 
@@ -96,7 +97,7 @@ Arguments:
 This operator produces an error if the last node in the first path isn't the
 same as the first node in the second path.
 
-```sql
+```zetasql
 -- This successfully produces the concatenated path called `full_path`.
 MATCH
   p=(src:Account)-[t1:Transfers]->(mid:Account),
@@ -104,9 +105,9 @@ MATCH
 LET full_path = p || q
 ```
 
-```sql
+```zetasql
 -- This produces an error because the first node of the path to be concatenated
--- (mid2) is not equal to the last node of the previous path (mid1).
+-- (mid2) isn't equal to the last node of the previous path (mid1).
 MATCH
   p=(src:Account)-[t1:Transfers]->(mid1:Account),
   q=(mid2:Account)-[t2:Transfers]->(dst:Account)
@@ -116,7 +117,7 @@ LET full_path = p || q
 The first node in each subsequent path is removed from the
 concatenated path.
 
-```sql
+```zetasql
 -- The concatenated path called `full_path` contains these elements:
 -- src, t1, mid, t2, dst.
 MATCH
@@ -134,7 +135,7 @@ In the following query, a path called `p` and `q` are concatenated. Notice that
 second path. Also notice that the duplicate `mid` is removed from the
 concatenated path called `full_path`:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH
   p=(src:Account)-[t1:Transfers]->(mid:Account),
@@ -159,8 +160,8 @@ RETURN
 The following query produces an error because the last node for `p` must
 be the first node for `q`:
 
-```sql
--- Error: `mid1` and `mid2` are not equal.
+```zetasql
+-- Error: `mid1` and `mid2` aren't equal.
 GRAPH FinGraph
 MATCH
   p=(src:Account)-[t1:Transfers]->(mid1:Account),
@@ -171,7 +172,7 @@ RETURN TO_JSON(full_path) AS results
 
 The following query produces an error because the path called `p` is `NULL`:
 
-```sql
+```zetasql
 -- Error: a graph path is NULL.
 GRAPH FinGraph
 MATCH
@@ -200,7 +201,7 @@ ZetaSQL supports the following logical operators in
       <td><code>NOT</code></td>
       <td style="white-space:nowrap"><code>!X</code></td>
       <td>
-        Returns <code>TRUE</code> if <code>X</code> is not included, otherwise,
+        Returns <code>TRUE</code> if <code>X</code> isn't included, otherwise,
         returns <code>FALSE</code>.
       </td>
     </tr>
@@ -231,10 +232,13 @@ ZetaSQL supports the following logical operators in
 ZetaSQL supports the following graph-specific predicates in
 graph expressions. A predicate can produce `TRUE`, `FALSE`, or `NULL`.
 
++   [`ALL_DIFFERENT` predicate][all-different-predicate]
 +   [`PROPERTY_EXISTS` predicate][property-exists-predicate]
 +   [`IS SOURCE` predicate][is-source-predicate]
 +   [`IS DESTINATION` predicate][is-destination-predicate]
 +   [`SAME` predicate][same-predicate]
+
+[all-different-predicate]: #all_different_predicate
 
 [property-exists-predicate]: #property_exists_predicate
 
@@ -247,7 +251,7 @@ graph expressions. A predicate can produce `TRUE`, `FALSE`, or `NULL`.
 ## `IS DESTINATION` predicate 
 <a id="is_destination_predicate"></a>
 
-```sql
+```zetasql
 node IS [ NOT ] DESTINATION [ OF ] edge
 ```
 
@@ -263,7 +267,7 @@ Arguments:
 
 **Examples**
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (a:Account)-[transfer:Transfers]-(b:Account)
 WHERE a IS DESTINATION of transfer
@@ -280,7 +284,7 @@ RETURN a.id AS a_id, b.id AS b_id
  +-------------*/
 ```
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (a:Account)-[transfer:Transfers]-(b:Account)
 WHERE b IS DESTINATION of transfer
@@ -300,7 +304,7 @@ RETURN a.id AS a_id, b.id AS b_id
 ## `IS SOURCE` predicate 
 <a id="is_source_predicate"></a>
 
-```sql
+```zetasql
 node IS [ NOT ] SOURCE [ OF ] edge
 ```
 
@@ -316,7 +320,7 @@ Arguments:
 
 **Examples**
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (a:Account)-[transfer:Transfers]-(b:Account)
 WHERE a IS SOURCE of transfer
@@ -333,7 +337,7 @@ RETURN a.id AS a_id, b.id AS b_id
  +-------------*/
 ```
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (a:Account)-[transfer:Transfers]-(b:Account)
 WHERE b IS SOURCE of transfer
@@ -353,7 +357,7 @@ RETURN a.id AS a_id, b.id AS b_id
 ## `PROPERTY_EXISTS` predicate 
 <a id="property_exists_predicate"></a>
 
-```sql
+```zetasql
 PROPERTY_EXISTS(element, element_property)
 ```
 
@@ -367,12 +371,12 @@ Arguments:
 + `element`: The graph pattern variable for a node or edge element.
 + `element_property`: The name of the property to look for in `element`.
   The property name must refer to a property in the graph. If the property
-  does not exist in the graph, an error is produced. The property name is
+  doesn't exist in the graph, an error is produced. The property name is
   resolved in a case-insensitive manner.
 
 **Example**
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (n:Person|Account WHERE PROPERTY_EXISTS(n, name))
 RETURN n.name
@@ -389,24 +393,29 @@ RETURN n.name
 ## `SAME` predicate 
 <a id="same_predicate"></a>
 
-```sql
-SAME (element, element[, element])
+```zetasql
+SAME (element, element[, ...])
 ```
 
 **Description**
 
-In a graph, determines if all graph elements in a list bind to the same node or
-edge. Can produce `TRUE`, `FALSE`, or `NULL`.
+In a graph, checks if all graph elements in a list bind to the same node or
+edge. Returns `TRUE` if the elements bind to the same node or edge, otherwise
+`FALSE`.
 
 Arguments:
 
 + `element`: The graph pattern variable for a node or edge element.
 
+**Details**
+
+Produces an error if `element` is `NULL`.
+
 **Example**
 
-The following query checks to see if `a` and `b` are not the same person.
+The following query checks to see if `a` and `b` aren't the same person.
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (src:Account)<-[transfer:Transfers]-(dest:Account)
 WHERE NOT SAME(src, dest)

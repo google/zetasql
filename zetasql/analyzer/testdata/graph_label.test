@@ -1,7 +1,6 @@
 [default language_features=V_1_4_SQL_GRAPH]
 [default no_test_extract_table_names]
-[default show_unparsed]
-
+[default show_sqlbuilder_output]
 
 # testing !, &
 select gt.* from
@@ -20,7 +19,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=$graph_table.[number#2, concat_str#3]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
         | +-GraphScan
         |   +-column_list=[$element_table.n#1]
@@ -43,13 +42,13 @@ QueryStmt
         |       |   |     +-GraphLabelNaryExpr
         |       |   |     | +-op=NOT
         |       |   |     | +-operand_list=
-        |       |   |     |   +-GraphLabel(label=sample_catalog.aml.Person)
+        |       |   |     |   +-GraphLabel(label=aml.Person)
         |       |   |     +-GraphLabelNaryExpr
         |       |   |     | +-op=NOT
         |       |   |     | +-operand_list=
-        |       |   |     |   +-GraphLabel(label=sample_catalog.aml.Account)
+        |       |   |     |   +-GraphLabel(label=aml.Account)
         |       |   |     +-GraphWildCardLabel
-        |       |   +-target_element_table_list=[sample_catalog.aml.Syndicate]
+        |       |   +-target_element_table_list=[aml.Syndicate]
         |       +-head=$element_table.n#1
         |       +-tail=$element_table.n#1
         +-shape_expr_list=
@@ -59,7 +58,8 @@ QueryStmt
               +-Literal(type=STRING, value="str")
               +-Literal(type=STRING, value="_suffix")
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   aml_1.a_3 AS number,
   aml_1.a_4 AS concat_str
@@ -76,6 +76,25 @@ FROM
       CONCAT("str", "_suffix") AS a_4
     )
   ) AS aml_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a_2
+      IS (! Person & ! Account & %)
+      WHERE
+        (1 + 2) = 3)
+    COLUMNS(
+      1 AS a_3,
+      CONCAT("str", "_suffix") AS a_4
+    )
+  ) AS aml_1
+|> SELECT
+     aml_1.a_3 AS number,
+     aml_1.a_4 AS concat_str;
 ==
 
 # not found in catalog
@@ -107,7 +126,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=$graph_table.[number#2, concat_str#3]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
         | +-GraphScan
         |   +-column_list=[$element_table.n#1]
@@ -124,17 +143,17 @@ QueryStmt
         |       |   |     +-GraphLabelNaryExpr
         |       |   |     | +-op=NOT
         |       |   |     | +-operand_list=
-        |       |   |     |   +-GraphLabel(label=sample_catalog.aml.Person)
+        |       |   |     |   +-GraphLabel(label=aml.Person)
         |       |   |     +-GraphLabelNaryExpr
         |       |   |     | +-op=AND
         |       |   |     | +-operand_list=
-        |       |   |     |   +-GraphLabel(label=sample_catalog.aml.Account)
+        |       |   |     |   +-GraphLabel(label=aml.Account)
         |       |   |     |   +-GraphLabelNaryExpr
         |       |   |     |     +-op=NOT
         |       |   |     |     +-operand_list=
-        |       |   |     |       +-GraphLabel(label=sample_catalog.aml.Person)
+        |       |   |     |       +-GraphLabel(label=aml.Person)
         |       |   |     +-GraphWildCardLabel
-        |       |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+        |       |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
         |       +-head=$element_table.n#1
         |       +-tail=$element_table.n#1
         +-shape_expr_list=
@@ -144,7 +163,8 @@ QueryStmt
               +-Literal(type=STRING, value="str")
               +-Literal(type=STRING, value="_suffix")
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   aml_1.a_3 AS number,
   aml_1.a_4 AS concat_str
@@ -159,6 +179,23 @@ FROM
       CONCAT("str", "_suffix") AS a_4
     )
   ) AS aml_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a_2
+      IS (! Person |(Account & ! Person) | %))
+    COLUMNS(
+      1 AS a_3,
+      CONCAT("str", "_suffix") AS a_4
+    )
+  ) AS aml_1
+|> SELECT
+     aml_1.a_3 AS number,
+     aml_1.a_4 AS concat_str;
 
 ==
 
@@ -179,7 +216,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=$graph_table.[number#2, concat_str#3]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
         | +-GraphScan
         |   +-column_list=[$element_table.n#1]
@@ -196,17 +233,17 @@ QueryStmt
         |       |   |     +-GraphLabelNaryExpr
         |       |   |     | +-op=OR
         |       |   |     | +-operand_list=
-        |       |   |     |   +-GraphLabel(label=sample_catalog.aml.Account)
-        |       |   |     |   +-GraphLabel(label=sample_catalog.aml.Person)
+        |       |   |     |   +-GraphLabel(label=aml.Account)
+        |       |   |     |   +-GraphLabel(label=aml.Person)
         |       |   |     +-GraphLabelNaryExpr
         |       |   |       +-op=OR
         |       |   |       +-operand_list=
         |       |   |         +-GraphLabelNaryExpr
         |       |   |         | +-op=NOT
         |       |   |         | +-operand_list=
-        |       |   |         |   +-GraphLabel(label=sample_catalog.aml.Person)
+        |       |   |         |   +-GraphLabel(label=aml.Person)
         |       |   |         +-GraphWildCardLabel
-        |       |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person]
+        |       |   +-target_element_table_list=[aml.Account,aml.Person]
         |       +-head=$element_table.n#1
         |       +-tail=$element_table.n#1
         +-shape_expr_list=
@@ -216,7 +253,8 @@ QueryStmt
               +-Literal(type=STRING, value="str")
               +-Literal(type=STRING, value="_suffix")
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   aml_1.a_3 AS number,
   aml_1.a_4 AS concat_str
@@ -231,6 +269,23 @@ FROM
       CONCAT("str", "_suffix") AS a_4
     )
   ) AS aml_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a_2
+      IS ((Account | Person) &(! Person | %)))
+    COLUMNS(
+      1 AS a_3,
+      CONCAT("str", "_suffix") AS a_4
+    )
+  ) AS aml_1
+|> SELECT
+     aml_1.a_3 AS number,
+     aml_1.a_4 AS concat_str;
 ==
 
 # NOT operator on a parenthesized expression
@@ -250,7 +305,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=$graph_table.[number#2, concat_str#3]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
         | +-GraphScan
         |   +-column_list=[$element_table.n#1]
@@ -267,9 +322,9 @@ QueryStmt
         |       |   |     +-GraphLabelNaryExpr
         |       |   |       +-op=OR
         |       |   |       +-operand_list=
-        |       |   |         +-GraphLabel(label=sample_catalog.aml.Account)
-        |       |   |         +-GraphLabel(label=sample_catalog.aml.Person)
-        |       |   +-target_element_table_list=[sample_catalog.aml.Syndicate]
+        |       |   |         +-GraphLabel(label=aml.Account)
+        |       |   |         +-GraphLabel(label=aml.Person)
+        |       |   +-target_element_table_list=[aml.Syndicate]
         |       +-head=$element_table.n#1
         |       +-tail=$element_table.n#1
         +-shape_expr_list=
@@ -279,7 +334,8 @@ QueryStmt
               +-Literal(type=STRING, value="str")
               +-Literal(type=STRING, value="_suffix")
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   aml_1.a_3 AS number,
   aml_1.a_4 AS concat_str
@@ -294,6 +350,23 @@ FROM
       CONCAT("str", "_suffix") AS a_4
     )
   ) AS aml_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a_2
+      IS !(Account | Person))
+    COLUMNS(
+      1 AS a_3,
+      CONCAT("str", "_suffix") AS a_4
+    )
+  ) AS aml_1
+|> SELECT
+     aml_1.a_3 AS number,
+     aml_1.a_4 AS concat_str;
 
 ==
 
@@ -314,7 +387,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=$graph_table.[balance#2, id#3]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
         | +-GraphScan
         |   +-column_list=[$element_table.n#1]
@@ -325,8 +398,8 @@ QueryStmt
         |       | +-GraphNodeScan
         |       |   +-column_list=[$element_table.n#1]
         |       |   +-label_expr=
-        |       |   | +-GraphLabel(label=sample_catalog.aml.Account)
-        |       |   +-target_element_table_list=[sample_catalog.aml.Account]
+        |       |   | +-GraphLabel(label=aml.Account)
+        |       |   +-target_element_table_list=[aml.Account]
         |       +-head=$element_table.n#1
         |       +-tail=$element_table.n#1
         +-shape_expr_list=
@@ -343,7 +416,8 @@ QueryStmt
               | +-ColumnRef(type=GRAPH_NODE(aml)<balance UINT64, id INT64>, column=$element_table.n#1)
               +-property=id(INT64)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   aml_1.a_3 AS balance,
   aml_1.a_4 AS id
@@ -358,6 +432,23 @@ FROM
       a_2.id AS a_4
     )
   ) AS aml_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a_2
+      IS Account)
+    COLUMNS(
+      a_2.balance AS a_3,
+      a_2.id AS a_4
+    )
+  ) AS aml_1
+|> SELECT
+     aml_1.a_3 AS balance,
+     aml_1.a_4 AS id;
 ==
 
 # An empty label filter will resolve to the labelexpr % | !%
@@ -384,7 +475,7 @@ QueryStmt
     +-input_scan=
       +-GraphTableScan
         +-column_list=$graph_table.[age#2, balance#3, birthday#4, data#5, id#6, name#7, syndicateData#8, syndicateId#9, syndicateName#10]
-        +-property_graph=sample_catalog.aml
+        +-property_graph=aml
         +-input_scan=
         | +-GraphScan
         |   +-column_list=[$element_table.n#1]
@@ -403,7 +494,7 @@ QueryStmt
         |       |   |       +-op=NOT
         |       |   |       +-operand_list=
         |       |   |         +-GraphWildCardLabel
-        |       |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+        |       |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
         |       +-head=$element_table.n#1
         |       +-tail=$element_table.n#1
         +-shape_expr_list=
@@ -462,7 +553,8 @@ QueryStmt
               | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.n#1)
               +-property=syndicateName(STRING)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   aml_1.a_3 AS age,
   aml_1.a_4 AS balance,
@@ -491,6 +583,37 @@ FROM
       a_2.syndicateName AS a_11
     )
   ) AS aml_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a_2
+      IS (% | ! %))
+    COLUMNS(
+      a_2.age AS a_3,
+      a_2.balance AS a_4,
+      a_2.birthday AS a_5,
+      a_2.data AS a_6,
+      a_2.id AS a_7,
+      a_2.name AS a_8,
+      a_2.syndicateData AS a_9,
+      a_2.syndicateId AS a_10,
+      a_2.syndicateName AS a_11
+    )
+  ) AS aml_1
+|> SELECT
+     aml_1.a_3 AS age,
+     aml_1.a_4 AS balance,
+     aml_1.a_5 AS birthday,
+     aml_1.a_6 AS data,
+     aml_1.a_7 AS id,
+     aml_1.a_8 AS name,
+     aml_1.a_9 AS syndicateData,
+     aml_1.a_10 AS syndicateId,
+     aml_1.a_11 AS syndicateName;
 ==
 
 # Referring to a node pattern with an edge only label is an error

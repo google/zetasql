@@ -127,7 +127,7 @@ A `SELECT *` statement on this table would return rows similar to the following:
 </tbody>
 </table>
 
-While tables do not have a type, some operations will construct an implicit
+While tables don't have a type, some operations will construct an implicit
 `STRUCT` type out of a SQL row, using the column names and types for field
 definitions.
 
@@ -159,14 +159,14 @@ following constraints:
 
 An index allows the database engine to query a column or set of columns more
 quickly. You can specify that sort order is ascending or descending. A unique
-or primary key index defines an indexed column that is subject to the uniqueness
+or primary key index defines an indexed column that's subject to the uniqueness
 constraint.
 
 ## Pseudocolumns 
 <a id="pseudo_columns"></a>
 
 ZetaSQL tables support pseudocolumns. Pseudocolumns contain data elements
-that you can query like regular columns, but are not considered real columns in
+that you can query like regular columns, but aren't considered real columns in
 the table. Pseudocolumn values may not be physically stored with each row, but
 the query engine will materialize a value for the column using some appropriate
 mechanism.
@@ -207,11 +207,11 @@ Here's an example of rows returned by this query:
 </tbody>
 </table>
 
-In this case,the schema for the **Singers** table does not define a column,
+In this case,the schema for the **Singers** table doesn't define a column,
 `ROWNUM`. Instead, the engine materializes the data only when requested.
 
 To return a value of a pseudocolumn, you must specify it in your query.
-Pseudocolumns do not show up in `SELECT *` statements. For example:
+Pseudocolumns don't show up in `SELECT *` statements. For example:
 
 ```
 SELECT * FROM singers
@@ -229,7 +229,7 @@ is a single value of type `STRUCT`, and there are no column names.
 In the following example, a value table for a `STRUCT` is produced with the
 `SELECT AS VALUE` statement:
 
-```sql
+```zetasql
 SELECT * FROM (SELECT AS VALUE STRUCT(123 AS a, FALSE AS b))
 
 /*-----+-------*
@@ -247,7 +247,7 @@ files instead of in the database.
 For example, the following protocol buffer definition, `AlbumReview`, contains
 data about the reviews for an album.
 
-```sql
+```zetasql
 message AlbumReview {
   optional string albumtitle = 1;
   optional string reviewer = 2;
@@ -266,7 +266,7 @@ A list of `AlbumReview` protocol buffers is stored in a file, `AlbumReviewData`.
 The following query returns a stream of rows, with each row a value of type
 `AlbumReview`.
 
-```sql
+```zetasql
 SELECT a FROM AlbumReviewsData AS a
 ```
 
@@ -274,14 +274,14 @@ To get specific data, such as all album titles in
 the table, you have two options. You can specify `albumtitle` as a protocol
 buffer field:
 
-```sql
+```zetasql
 SELECT a.albumtitle FROM AlbumReviewsData AS a
 ```
 
 You can also access the top-level fields inside the value like columns in a
 table:
 
-```sql
+```zetasql
 SELECT albumtitle FROM AlbumReviewsData
 ```
 
@@ -321,7 +321,7 @@ simple as possible. To illustrate this, consider the
 [AlbumReview][value-table-example] example specified earlier. To create a new
 table from this data, you could write:
 
-```sql
+```zetasql
 CREATE TABLE Reviews AS
 SELECT albumreviews FROM AlbumReviewData AS albumreviews;
 ```
@@ -331,7 +331,7 @@ This statement creates a table that has a single column,
 `AlbumReviewData`. To retrieve all album titles from this table, you'd need to
 write a query similar to:
 
-```sql
+```zetasql
 SELECT r.albumreviews.albumtitle
 FROM Reviews AS r;
 ```
@@ -339,7 +339,7 @@ FROM Reviews AS r;
 Now, consider the same initial `CREATE TABLE` statement, this time modified to
 use `SELECT AS VALUE`:
 
-```sql
+```zetasql
 CREATE TABLE Reviews AS
 SELECT AS VALUE albumreviews FROM AlbumReview AS albumreviews;
 ```
@@ -349,7 +349,7 @@ query any protocol buffer field as if it was a column. Now, if
 you want to retrieve all album titles from this table, you can write a much
 simpler query:
 
-```sql
+```zetasql
 SELECT albumtitle
 FROM Reviews;
 ```
@@ -389,7 +389,7 @@ For example, consider the following definition for a table,
 Next, we have a file, `AlbumReviewData` that contains a list of `AlbumReview`
 protocol buffers.
 
-```sql
+```zetasql
 {albumtitle: "Songs on a Broken Banjo", reviewer: "Dan Starling", review: "Off key"}
 {albumtitle: "Six and Seven", reviewer: "Alice Wayfarer", review: "Hurt my ears!"}
 {albumtitle: "Go! Go! Go!", reviewer: "Eustace Millson", review: "My kids loved it!"}
@@ -399,7 +399,7 @@ The following query combines the `AlbumReview` data from the
 `SingersAndAlbums` table with the data stored in the `AlbumReviewData` file and
 stores it in a new value table, `AllAlbumReviews`.
 
-```sql
+```zetasql
 SELECT AS VALUE sa.AlbumReview FROM SingersAndAlbums AS sa
 UNION ALL
 SELECT a FROM AlbumReviewData AS a
@@ -415,7 +415,7 @@ because `a` is an alias of the table `AlbumReviewData`, and this table has a
 `ROWNUM` pseudocolumn. As a result, `AlbumReviewData AS a` represents the
 scanned rows, not the value.
 
-```sql
+```zetasql
 -- This works
 SELECT a.ROWNUM, a.albumtitle AS title FROM AlbumReviewData AS a
 
@@ -428,12 +428,12 @@ SELECT a.ROWNUM, a.albumtitle AS title FROM AlbumReviewData AS a
  *--------+---------------------------*/
 ```
 
-However, if you try to construct the query as follows, the query does not work.
+However, if you try to construct the query as follows, the query doesn't work.
 The reason it fails is because the subquery,
 `SELECT a FROM AlbumReviewData AS a`, returns the `AlbumReviewData` value only,
-and this value does not have a field called `ROWNUM`.
+and this value doesn't have a field called `ROWNUM`.
 
-```sql
+```zetasql
 -- This fails
 SELECT a.ROWNUM, a.albumtitle AS title FROM (SELECT a FROM AlbumReviewData AS a)
 ```

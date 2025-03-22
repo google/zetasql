@@ -17,6 +17,7 @@
 #include "zetasql/public/types/simple_type.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <functional>
@@ -24,8 +25,6 @@
 #include <memory>
 #include <optional>
 #include <string>
-#include <string_view>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -41,7 +40,7 @@
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/strings.h"
-#include "zetasql/public/timestamp_pico_value.h"
+#include "zetasql/public/timestamp_picos_value.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/type_parameters.pb.h"
 #include "zetasql/public/types/internal_utils.h"
@@ -53,21 +52,18 @@
 #include "zetasql/public/uuid_value.h"
 #include "zetasql/public/value.pb.h"
 #include "zetasql/public/value_content.h"
-#include "absl/functional/any_invocable.h"
-#include "absl/functional/function_ref.h"
+#include "absl/base/no_destructor.h"
 #include "absl/hash/hash.h"
 #include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
-#include "absl/strings/escaping.h"
 #include "absl/strings/str_cat.h"
-#include "absl/strings/str_format.h"
-#include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "absl/time/time.h"
 #include "absl/types/span.h"
+#include "zetasql/common/search/public/token_list_util.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
@@ -143,6 +139,10 @@ const std::map<absl::string_view, TypeNameInfo>& SimpleTypeNameInfoMap() {
 
 // Specifies when the type kind is enabled.
 struct TypeKindInfo {
+  // Whether this type kind is valid when stored in
+  // `GetSimpleTypeKindInfo::kMap`.
+  bool valid = false;
+
   // If true, this type kind can be used in both the internal mode and the
   // external mode. If false, this type kind can be used in the internal mode
   // only .
@@ -182,11 +182,13 @@ struct TypeKindInfo {
                         disabling_type_feature);
   }
 
+  TypeKindInfo() = default;
+
  private:
   TypeKindInfo(bool internal_product_mode_only,
                std::optional<LanguageFeature> type_feature,
                std::optional<LanguageFeature> disabling_type_feature)
-      : internal_product_mode_only(internal_product_mode_only) {
+      : valid(true), internal_product_mode_only(internal_product_mode_only) {
     ABSL_CHECK(!(type_feature.has_value() &&  // Crash OK
             disabling_type_feature.has_value()))
         << "Only one of type_feature or disabling_type_feature should be set.";
@@ -195,37 +197,49 @@ struct TypeKindInfo {
   }
 };
 
-const std::map<TypeKind, TypeKindInfo>& SimpleTypeKindInfoMap() {
-  static auto result = new std::map<TypeKind, TypeKindInfo>{
-      {TYPE_INT32, TypeKindInfo::BuildInternalOnly()},
-      {TYPE_UINT32, TypeKindInfo::BuildInternalOnly()},
-      {TYPE_INT64, TypeKindInfo::Build()},
-      {TYPE_UINT64, TypeKindInfo::BuildInternalOnly()},
-      {TYPE_BOOL, TypeKindInfo::Build()},
-      {TYPE_FLOAT, TypeKindInfo::BuildWithDisablingTypeFeature(
-                       FEATURE_V_1_4_DISABLE_FLOAT32)},
-      {TYPE_DOUBLE, TypeKindInfo::Build()},
-      {TYPE_BYTES, TypeKindInfo::Build()},
-      {TYPE_STRING, TypeKindInfo::Build()},
-      {TYPE_DATE, TypeKindInfo::Build()},
-      {TYPE_TIMESTAMP, TypeKindInfo::Build()},
-      {TYPE_TIMESTAMP_PICOS,
-       TypeKindInfo::BuildWithTypeFeature(FEATURE_TIMESTAMP_PICO_TYPE)},
-      {TYPE_TIME, TypeKindInfo::BuildWithTypeFeature(FEATURE_V_1_2_CIVIL_TIME)},
-      {TYPE_DATETIME,
-       TypeKindInfo::BuildWithTypeFeature(FEATURE_V_1_2_CIVIL_TIME)},
-      {TYPE_INTERVAL,
-       TypeKindInfo::BuildWithTypeFeature(FEATURE_INTERVAL_TYPE)},
-      {TYPE_GEOGRAPHY, TypeKindInfo::BuildWithTypeFeature(FEATURE_GEOGRAPHY)},
-      {TYPE_NUMERIC, TypeKindInfo::BuildWithTypeFeature(FEATURE_NUMERIC_TYPE)},
-      {TYPE_BIGNUMERIC,
-       TypeKindInfo::BuildWithTypeFeature(FEATURE_BIGNUMERIC_TYPE)},
-      {TYPE_JSON, TypeKindInfo::BuildWithTypeFeature(FEATURE_JSON_TYPE)},
-      {TYPE_TOKENLIST,
-       TypeKindInfo::BuildWithTypeFeature(FEATURE_TOKENIZED_SEARCH)},
-      {TYPE_UUID, TypeKindInfo::BuildWithTypeFeature(FEATURE_V_1_4_UUID_TYPE)},
-  };
-  return *result;
+const TypeKindInfo* GetSimpleTypeKindInfo(TypeKind kind) {
+  using TypeKindInfoArray = std::array<TypeKindInfo, TypeKind_ARRAYSIZE>;
+  static const absl::NoDestructor<TypeKindInfoArray> kMap([]() {
+    TypeKindInfoArray result;
+    result[TYPE_INT32] = TypeKindInfo::BuildInternalOnly();
+    result[TYPE_UINT32] = TypeKindInfo::BuildInternalOnly();
+    result[TYPE_INT64] = TypeKindInfo::Build();
+    result[TYPE_UINT64] = TypeKindInfo::BuildInternalOnly();
+    result[TYPE_BOOL] = TypeKindInfo::Build();
+    result[TYPE_FLOAT] = TypeKindInfo::BuildWithDisablingTypeFeature(
+        FEATURE_V_1_4_DISABLE_FLOAT32);
+    result[TYPE_DOUBLE] = TypeKindInfo::Build();
+    result[TYPE_BYTES] = TypeKindInfo::Build();
+    result[TYPE_STRING] = TypeKindInfo::Build();
+    result[TYPE_DATE] = TypeKindInfo::Build();
+    result[TYPE_TIMESTAMP] = TypeKindInfo::Build();
+    result[TYPE_TIMESTAMP_PICOS] =
+        TypeKindInfo::BuildWithTypeFeature(FEATURE_TIMESTAMP_PICO_TYPE);
+    result[TYPE_TIME] =
+        TypeKindInfo::BuildWithTypeFeature(FEATURE_V_1_2_CIVIL_TIME);
+    result[TYPE_DATETIME] =
+        TypeKindInfo::BuildWithTypeFeature(FEATURE_V_1_2_CIVIL_TIME);
+    result[TYPE_INTERVAL] =
+        TypeKindInfo::BuildWithTypeFeature(FEATURE_INTERVAL_TYPE);
+    result[TYPE_GEOGRAPHY] =
+        TypeKindInfo::BuildWithTypeFeature(FEATURE_GEOGRAPHY);
+    result[TYPE_NUMERIC] =
+        TypeKindInfo::BuildWithTypeFeature(FEATURE_NUMERIC_TYPE);
+    result[TYPE_BIGNUMERIC] =
+        TypeKindInfo::BuildWithTypeFeature(FEATURE_BIGNUMERIC_TYPE);
+    result[TYPE_JSON] = TypeKindInfo::BuildWithTypeFeature(FEATURE_JSON_TYPE);
+    result[TYPE_TOKENLIST] =
+        TypeKindInfo::BuildWithTypeFeature(FEATURE_TOKENIZED_SEARCH);
+    result[TYPE_UUID] =
+        TypeKindInfo::BuildWithTypeFeature(FEATURE_V_1_4_UUID_TYPE);
+    return result;
+  }());
+  const int kind_id = static_cast<int>(kind);
+  if (kind_id < 0 || kind_id >= kMap->size()) {
+    return nullptr;
+  }
+  const TypeKindInfo& info = (*kMap)[kind_id];
+  return info.valid ? &info : nullptr;
 }
 
 // Joined result of TypeNameInfo and TypeKindInfo.
@@ -241,22 +255,19 @@ struct TypeInfo {
 // Caller takes ownership of the result.
 std::map<absl::string_view, TypeInfo>* BuildSimpleTypeInfoMap() {
   auto* result = new std::map<absl::string_view, TypeInfo>;
-  const std::map<TypeKind, TypeKindInfo>& type_kind_info_map =
-      SimpleTypeKindInfoMap();
   for (const auto& item : SimpleTypeNameInfoMap()) {
     const TypeNameInfo& type_name_info = item.second;
     TypeKind type_kind = type_name_info.type_kind;
-    auto itr = type_kind_info_map.find(type_kind);
-    ABSL_CHECK(itr != type_kind_info_map.end())
+    const TypeKindInfo* type_kind_info = GetSimpleTypeKindInfo(type_kind);
+    ABSL_CHECK(type_kind_info != nullptr)
         << TypeKind_Name(type_kind) << " not found in SimpleTypeKindInfoMap()";
-    const TypeKindInfo& type_kind_info = itr->second;
     result->emplace(
         item.first,
         TypeInfo{type_kind,
                  type_name_info.internal_product_mode_only ||
-                     type_kind_info.internal_product_mode_only,
-                 type_kind_info.type_feature, type_name_info.alias_feature,
-                 type_kind_info.disabling_type_feature});
+                     type_kind_info->internal_product_mode_only,
+                 type_kind_info->type_feature, type_name_info.alias_feature,
+                 type_kind_info->disabling_type_feature});
   }
   return result;
 }
@@ -302,8 +313,8 @@ std::string AddTypePrefix(absl::string_view value, const Type* type,
   return absl::StrCat(type->TypeName(mode), " ", ToStringLiteral(value));
 }
 
-const TimestampPicoValue& GetTimestampPicoValue(const ValueContent& value) {
-  return value.GetAs<internal::TimestampPicoRef*>()->value();
+const TimestampPicosValue& GetTimestampPicosValue(const ValueContent& value) {
+  return value.GetAs<internal::TimestampPicosRef*>()->value();
 }
 
 template <typename ContentT>
@@ -328,7 +339,7 @@ bool ReferencedValueLess(const ValueContent& x, const ValueContent& y) {
 
 }  // namespace
 
-SimpleType::SimpleType(const TypeFactory* factory, TypeKind kind)
+SimpleType::SimpleType(const TypeFactoryBase* factory, TypeKind kind)
     : Type(factory, kind) {
   ABSL_CHECK(IsSimpleType(kind)) << kind;
 }
@@ -337,23 +348,20 @@ SimpleType::~SimpleType() = default;
 
 bool SimpleType::IsSupportedType(
     const LanguageOptions& language_options) const {
-  const std::map<TypeKind, TypeKindInfo>& type_kind_info_map =
-      SimpleTypeKindInfoMap();
-  auto itr = type_kind_info_map.find(kind());
-  if (itr == type_kind_info_map.end()) {
+  const TypeKindInfo* info = GetSimpleTypeKindInfo(kind());
+  if (info == nullptr) {
     return false;
   }
-  const TypeKindInfo& info = itr->second;
   if (language_options.product_mode() == PRODUCT_EXTERNAL &&
-      info.internal_product_mode_only) {
+      info->internal_product_mode_only) {
     return false;
   }
-  if (info.type_feature.has_value() &&
-      !language_options.LanguageFeatureEnabled(info.type_feature.value())) {
+  if (info->type_feature.has_value() &&
+      !language_options.LanguageFeatureEnabled(info->type_feature.value())) {
     return false;
-  } else if (info.disabling_type_feature.has_value() &&
+  } else if (info->disabling_type_feature.has_value() &&
              language_options.LanguageFeatureEnabled(
-                 *info.disabling_type_feature)) {
+                 *info->disabling_type_feature)) {
     return false;
   }
 
@@ -427,6 +435,55 @@ absl::StatusOr<std::string> SimpleType::TypeNameWithModifiers(
   return result_type_name;
 }
 
+std::string SimpleType::CapitalizedName() const {
+  switch (kind()) {
+    case TYPE_INT32:
+      return "Int32";
+    case TYPE_INT64:
+      return "Int64";
+    case TYPE_UINT32:
+      return "Uint32";
+    case TYPE_UINT64:
+      return "Uint64";
+    case TYPE_BOOL:
+      return "Bool";
+    case TYPE_FLOAT:
+      return "Float";
+    case TYPE_DOUBLE:
+      return "Double";
+    case TYPE_STRING:
+      return "String";
+    case TYPE_BYTES:
+      return "Bytes";
+    case TYPE_DATE:
+      return "Date";
+    case TYPE_TIMESTAMP:
+      return "Timestamp";
+    case TYPE_TIMESTAMP_PICOS:
+      return "Timestamp_picos";
+    case TYPE_TIME:
+      return "Time";
+    case TYPE_DATETIME:
+      return "Datetime";
+    case TYPE_INTERVAL:
+      return "Interval";
+    case TYPE_GEOGRAPHY:
+      return "Geography";
+    case TYPE_NUMERIC:
+      return "Numeric";
+    case TYPE_BIGNUMERIC:
+      return "BigNumeric";
+    case TYPE_JSON:
+      return "Json";
+    case TYPE_TOKENLIST:
+      return "TokenList";
+    case TYPE_UUID:
+      return "Uuid";
+    default:
+      ABSL_LOG(FATAL) << "Unexpected simple type kind: " << kind();
+  }
+}
+
 TypeKind SimpleType::GetTypeKindIfSimple(
     absl::string_view type_name, ProductMode mode,
     const LanguageOptions::LanguageFeatureSet* enabled_language_features) {
@@ -486,7 +543,7 @@ void SimpleType::CopyValueContent(TypeKind kind, const ValueContent& from,
       from.GetAs<internal::BigNumericRef*>()->Ref();
       break;
     case TYPE_TIMESTAMP_PICOS:
-      from.GetAs<internal::TimestampPicoRef*>()->Ref();
+      from.GetAs<internal::TimestampPicosRef*>()->Ref();
       break;
     case TYPE_INTERVAL:
       from.GetAs<internal::IntervalRef*>()->Ref();
@@ -528,7 +585,7 @@ void SimpleType::ClearValueContent(TypeKind kind, const ValueContent& value) {
       value.GetAs<internal::BigNumericRef*>()->Unref();
       return;
     case TYPE_TIMESTAMP_PICOS:
-      value.GetAs<internal::TimestampPicoRef*>()->Unref();
+      value.GetAs<internal::TimestampPicosRef*>()->Unref();
       return;
     case TYPE_INTERVAL:
       value.GetAs<internal::IntervalRef*>()->Unref();
@@ -564,7 +621,7 @@ uint64_t SimpleType::GetValueContentExternallyAllocatedByteSize(
     case TYPE_BIGNUMERIC:
       return sizeof(internal::BigNumericRef);
     case TYPE_TIMESTAMP_PICOS:
-      return sizeof(internal::TimestampPicoRef);
+      return sizeof(internal::TimestampPicosRef);
     case TYPE_JSON:
       return value.GetAs<internal::JSONRef*>()->physical_byte_size();
     case TYPE_TOKENLIST:
@@ -634,7 +691,7 @@ absl::HashState SimpleType::HashValueContent(const ValueContent& value,
                                       value.simple_type_extended_content_);
     case TYPE_TIMESTAMP_PICOS:
       return absl::HashState::combine(std::move(state),
-                                      GetTimestampPicoValue(value).HashCode());
+                                      GetTimestampPicosValue(value).HashCode());
     case TYPE_TIME:
       return absl::HashState::combine(std::move(state),
                                       value.GetAs<TimeValueContentType>(),
@@ -702,7 +759,7 @@ bool SimpleType::ValueContentEquals(
       return ContentEquals<TimestampValueContentType>(x, y) &&
              x.simple_type_extended_content_ == y.simple_type_extended_content_;
     case TYPE_TIMESTAMP_PICOS:
-      return ReferencedValueEquals<internal::TimestampPicoRef>(x, y);
+      return ReferencedValueEquals<internal::TimestampPicosRef>(x, y);
     case TYPE_TIME:
       return ContentEquals<TimeValueContentType>(x, y) &&
              x.simple_type_extended_content_ == y.simple_type_extended_content_;
@@ -774,7 +831,7 @@ bool SimpleType::ValueContentLess(const ValueContent& x, const ValueContent& y,
               x.simple_type_extended_content_ <
                   y.simple_type_extended_content_);
     case TYPE_TIMESTAMP_PICOS:
-      return ReferencedValueLess<internal::TimestampPicoRef>(x, y);
+      return ReferencedValueLess<internal::TimestampPicosRef>(x, y);
     case TYPE_TIME:
       return ContentLess<TimeValueContentType>(x, y) ||
              (ContentEquals<TimeValueContentType>(x, y) &&
@@ -800,101 +857,22 @@ bool SimpleType::ValueContentLess(const ValueContent& x, const ValueContent& y,
   }
 }
 
-namespace {
-// Formats 'token' into 'out'.
-void FormatToken(std::string& out, absl::string_view text, uint64_t attribute) {
-  absl::StrAppendFormat(&out, "'%s':%d", absl::Utf8SafeCEscape(text),
-                        attribute);
-}
-
-// Sorts and returns the data in 'tokens'.
-std::vector<std::pair<std::string_view, uint64_t>> SortedTokens(
-    absl::Span<const tokens::Token> tokens) {
-  std::vector<std::pair<std::string_view, uint64_t>> token_info;
-  for (const tokens::Token& t : tokens) {
-    token_info.emplace_back(t.text(), t.attribute());
-  }
-  std::sort(token_info.begin(), token_info.end());
-  return token_info;
-}
-}  // namespace
-
-// Formats 'token' into 'out'.
-void SimpleType::FormatTextToken(std::string& out,
-                                 const tokens::TextToken& token,
-                                 const FormatValueContentOptions& options) {
-  absl::StrAppend(&out, "{");
-  absl::StrAppendFormat(&out, "text: '%s'",
-                        absl::Utf8SafeCEscape(token.text()));
-  absl::StrAppendFormat(&out, ", attribute: %lu", token.attribute());
-  absl::StrAppendFormat(&out, ", index_tokens: [%s]",
-                        absl::StrJoin(SortedTokens(token.index_tokens()),
-                                      ", ",
-                                      [](std::string* out, auto t) {
-                                        FormatToken(*out, std::get<0>(t),
-                                                    std::get<1>(t));
-                                      }));
-  absl::StrAppend(&out, "}");
-}
-
 std::string SimpleType::FormatTokenList(
     const ValueContent& value, const FormatValueContentOptions& options) const {
-  if (options.mode != FormatValueContentOptions::Mode::kDebug) {
-    // TOKENLIST doesn't have literals.
-    // TODO: generate expression with standard constructor
-    // functions when available.
-    return internal::GetCastExpressionString(
-        ToBytesLiteral(GetTokenListValue(value).GetBytes()), this,
-        options.product_mode);
-  }
-  std::vector<std::string> lines = FormatTokenLines(value, options);
-  if (lines.empty()) lines = {"<empty>"};
-  return absl::StrJoin(lines, "\n");
+  return search::FormatTokenList(
+      GetTokenListValue(value),
+      options.mode == FormatValueContentOptions::Mode::kDebug,
+      options.collapse_identical_tokens,
+      options.format_token_attribute ? options.format_token_attribute
+                                     : search::DefaultFormatAttribute);
 }
 
 std::vector<std::string> SimpleType::FormatTokenLines(
     const ValueContent& value, const FormatValueContentOptions& options) {
-  auto iter = GetTokenListValue(value).GetIterator();
-  if (!iter.ok()) {
-    return {iter.status().ToString()};
-  }
-  tokens::TextToken buf, cur;
-  int run_length = 0;
-  std::vector<std::string> lines;
-  auto add_token_line = [&](const tokens::TextToken& token, int run_length) {
-    std::string out;
-    FormatTextToken(out, token, options);
-    if (run_length > 1) absl::StrAppend(&out, " (", run_length, " times)");
-    lines.push_back(std::move(out));
-  };
-
-  while (!iter->done()) {
-    if (!iter->Next(cur).ok()) {
-      return {iter.status().ToString()};
-    }
-
-    if (!options.collapse_identical_tokens) {
-      std::string tok_str;
-      FormatTextToken(tok_str, cur, options);
-      lines.push_back(std::move(tok_str));
-    } else {
-      if (buf == cur) {
-        ++run_length;
-      } else {
-        if (run_length > 0) {
-          add_token_line(buf, run_length);
-        }
-        buf = std::move(cur);
-        run_length = 1;
-      }
-    }
-  }
-  if (options.collapse_identical_tokens && run_length > 0) {
-    // As long as there was at least one token, buf will contain a token that
-    // has yet to be printed.
-    add_token_line(buf, run_length);
-  }
-  return lines;
+  return search::FormatTokenLines(
+      GetTokenListValue(value), options.collapse_identical_tokens,
+      options.format_token_attribute ? options.format_token_attribute
+                                     : search::DefaultFormatAttribute);
 }
 
 std::string SimpleType::FormatValueContent(
@@ -927,10 +905,16 @@ std::string SimpleType::FormatValueContent(
                  : s;
     }
     case TYPE_TIMESTAMP_PICOS: {
-      std::string s = GetTimestampPicoValue(value).ToString();
+      std::string s;
+      // Failure cannot actually happen in this context since the value
+      // is guaranteed to be valid.
+      ZETASQL_CHECK_OK(functions::ConvertTimestampToString(  // Crash OK
+          GetTimestampPicosValue(value).ToPicoTime(), absl::UTCTimeZone(), &s));
+
+      // TODO: Update the following code once timestamp_picos
+      // literal syntax is decided.
       return options.add_simple_type_prefix()
-                 ? internal::GetCastExpressionString(ToStringLiteral(s), this,
-                                                     options.product_mode)
+                 ? AddTypePrefix(s, this, options.product_mode)
                  : s;
     }
     case TYPE_TIME: {
@@ -1103,7 +1087,7 @@ absl::Status SimpleType::SerializeValueContent(const ValueContent& value,
     }
     case TYPE_TIMESTAMP_PICOS: {
       value_proto->set_timestamp_pico_value(
-          GetTimestampPicoValue(value).SerializeAsProtoBytes());
+          GetTimestampPicosValue(value).SerializeAsProtoBytes());
       break;
     }
     case TYPE_DATETIME: {
@@ -1251,10 +1235,10 @@ absl::Status SimpleType::DeserializeValueContent(const ValueProto& value_proto,
       if (!value_proto.has_timestamp_pico_value()) {
         return TypeMismatchError(value_proto);
       }
-      ZETASQL_ASSIGN_OR_RETURN(TimestampPicoValue t,
-                       TimestampPicoValue::DeserializeFromProtoBytes(
+      ZETASQL_ASSIGN_OR_RETURN(TimestampPicosValue t,
+                       TimestampPicosValue::DeserializeFromProtoBytes(
                            value_proto.timestamp_pico_value()));
-      value->set(new internal::TimestampPicoRef(t));
+      value->set(new internal::TimestampPicosRef(t));
       break;
     }
     case TYPE_DATETIME: {

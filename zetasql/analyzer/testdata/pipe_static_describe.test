@@ -17,6 +17,7 @@ ERROR: Pipe STATIC_DESCRIBE not supported [at 2:1]
 ==
 
 [default language_features=PIPES,PIPE_STATIC_DESCRIBE]
+
 from KeyValue
 |> STATIC_DESCRIBE
 --
@@ -421,7 +422,7 @@ QueryStmt
 
 # TODO SQLBuilder currently loses the STATIC_DESCRIBE, since it can't
 # generate pipe operators yet.
-[show_unparsed]
+[show_sqlbuilder_output]
 from KeyValue
 |> static_describe
 --
@@ -447,7 +448,8 @@ QueryStmt
     +-input_scan=
       +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   keyvalue_3.a_1 AS Key,
   keyvalue_3.a_2 AS Value
@@ -459,3 +461,15 @@ FROM
     FROM
       KeyValue
   ) AS keyvalue_3;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  KeyValue
+|> SELECT
+     KeyValue.Key AS a_1,
+     KeyValue.Value AS a_2
+|> AS keyvalue_3
+|> SELECT
+     keyvalue_3.a_1 AS Key,
+     keyvalue_3.a_2 AS Value;

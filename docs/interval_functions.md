@@ -62,7 +62,7 @@ ZetaSQL supports the following interval functions.
 
 ## `EXTRACT`
 
-```sql
+```zetasql
 EXTRACT(part FROM interval_expression)
 ```
 
@@ -80,7 +80,7 @@ one of `YEAR`, `MONTH`, `DAY`, `HOUR`, `MINUTE`, `SECOND`, `MILLISECOND` or
 
 In the following example, different parts of two intervals are extracted.
 
-```sql
+```zetasql
 SELECT
   EXTRACT(YEAR FROM i) AS year,
   EXTRACT(MONTH FROM i) AS month,
@@ -105,7 +105,7 @@ FROM
 When a negative sign precedes the time part in an interval, the negative sign
 distributes over the hours, minutes, and seconds. For example:
 
-```sql
+```zetasql
 SELECT
   EXTRACT(HOUR FROM i) AS hour,
   EXTRACT(MINUTE FROM i) AS minute
@@ -122,7 +122,7 @@ FROM
 When a negative sign precedes the year and month part in an interval, the
 negative sign distributes over the years and months. For example:
 
-```sql
+```zetasql
 SELECT
   EXTRACT(YEAR FROM i) AS year,
   EXTRACT(MONTH FROM i) AS month
@@ -138,7 +138,7 @@ FROM
 
 ## `JUSTIFY_DAYS`
 
-```sql
+```zetasql
 JUSTIFY_DAYS(interval_expression)
 ```
 
@@ -153,7 +153,7 @@ incrementing/decrementing the month or year part of the interval.
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   JUSTIFY_DAYS(INTERVAL 29 DAY) AS i1,
   JUSTIFY_DAYS(INTERVAL -30 DAY) AS i2,
@@ -170,7 +170,7 @@ SELECT
 
 ## `JUSTIFY_HOURS`
 
-```sql
+```zetasql
 JUSTIFY_HOURS(interval_expression)
 ```
 
@@ -185,7 +185,7 @@ Normalizes the time part of the interval to the range from -23:59:59.999999 to
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   JUSTIFY_HOURS(INTERVAL 23 HOUR) AS i1,
   JUSTIFY_HOURS(INTERVAL -24 HOUR) AS i2,
@@ -201,7 +201,7 @@ SELECT
 
 ## `JUSTIFY_INTERVAL`
 
-```sql
+```zetasql
 JUSTIFY_INTERVAL(interval_expression)
 ```
 
@@ -215,7 +215,7 @@ Normalizes the days and time parts of the interval.
 
 **Example**
 
-```sql
+```zetasql
 SELECT JUSTIFY_INTERVAL(INTERVAL '29 49:00:00' DAY TO SECOND) AS i
 
 /*-------------*
@@ -227,7 +227,7 @@ SELECT JUSTIFY_INTERVAL(INTERVAL '29 49:00:00' DAY TO SECOND) AS i
 
 ## `MAKE_INTERVAL`
 
-```sql
+```zetasql
 MAKE_INTERVAL(
   [ [ year => ] value ]
   [, [ month => ] value ]
@@ -250,7 +250,7 @@ optional, `0` by default, and can be [named arguments][named-arguments].
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   MAKE_INTERVAL(1, 6, 15) AS i1,
   MAKE_INTERVAL(hour => 10, second => 20) AS i2,

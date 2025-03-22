@@ -19,9 +19,9 @@ type][proto-data-type]. For related
 functions, see [Protocol buffer functions][proto-functions].
 
 As efficient and as popular as protocol buffers are, however, when it comes to
-data storage they do have one drawback: they do not map well to SQL syntax. For
+data storage they do have one drawback: they don't map well to SQL syntax. For
 example, SQL syntax expects that a given field can support a `NULL` or default
-value. Protocol buffers, on the other hand, do not support `NULL`s very well,
+value. Protocol buffers, on the other hand, don't support `NULL`s very well,
 and there isn't a standard way to determine whether a missing field should get a
 `NULL` or a default value.
 
@@ -41,7 +41,7 @@ type][proto-data-type-construct].
 You can use the [`CAST AS PROTO`][cast-as-proto] function to cast `PROTO` to or
 from `BYTES`, `STRING`, or `PROTO`.
 
-```sql
+```zetasql
 SELECT CAST('first_name: "Alana", last_name: "Yah", customer_no: 1234'
   AS example.CustomerInfo);
 ```
@@ -85,7 +85,7 @@ message Item {
 }
 ```
 
-```sql
+```zetasql
 SELECT
   PROTO_MODIFY_MAP(m.purchased, 'B', 11) AS result_map
 FROM
@@ -124,7 +124,7 @@ message Item {
 }
 ```
 
-```sql
+```zetasql
 SELECT NEW Item([('A', 32), ('B', 9)] AS purchased)
 ```
 
@@ -143,7 +143,7 @@ message Item {
 }
 ```
 
-```sql
+```zetasql
 SELECT
   PROTO_MODIFY_MAP(m.purchased, 'A', 6) AS result_map
 FROM
@@ -171,7 +171,7 @@ message Item {
 }
 ```
 
-```sql
+```zetasql
 SELECT
   PROTO_MODIFY_MAP(m.purchased, 'A', NULL) AS result_map
 FROM
@@ -190,7 +190,7 @@ FROM
 You can check to see if a protocol buffer map field contains a key with the
 [`PROTO_MAP_CONTAINS_KEY` function][proto-map-contains-key].
 
-In the following example, the key `B` is not present in a
+In the following example, the key `B` isn't present in a
 map field called `purchased` in a protocol buffer called `Item`.
 
 ```proto
@@ -199,7 +199,7 @@ message Item {
 }
 ```
 
-```sql
+```zetasql
 SELECT
   PROTO_MAP_CONTAINS_KEY(m.map, 'B') AS key_is_present
 FROM
@@ -215,11 +215,12 @@ FROM
 ## Query a protocol buffer 
 <a id="querying_protocol_buffers"></a>
 
-Use the dot operator to access the fields contained within a protocol
-buffer. You can't use this operator to get values of fields that use the
-[`Oneof`][oneof-type], [`Any`][any-type], or [`Unknown Fields`][unknown-fields-type]type.
-If you need to reference an ambiguous field,
-see [`EXTRACT`][proto-extract].
+Use the dot operator to access the fields contained within a protocol buffer.
+You can't use this operator to get values of fields that use the
+[`Oneof`][oneof-type], [`Any`][any-type], or
+[`Unknown Fields`][unknown-fields-type] type. If you must
+reference fields in ambiguous messages (caused by reused field numbers), use
+the [`EXTRACT`][proto-extract] function.
 
 ### Example protocol buffer message 
 <a id="example_protocol_buffer_message"></a>
@@ -227,7 +228,7 @@ see [`EXTRACT`][proto-extract].
 The following example queries for a table called `Customers`. This table
 contains a column `Orders` of type `PROTO`.
 
-```sql
+```zetasql
 CREATE TABLE Customers (
   Id INT64,
   Orders examples.shipping.Order,
@@ -300,7 +301,7 @@ a top-level or nested field of the message.
 Using our example protocol buffer message, the following query returns all
 protocol buffer values from the `Orders` column:
 
-```sql
+```zetasql
 SELECT
   c.Orders
 FROM
@@ -310,7 +311,7 @@ FROM
 This query returns the top-level field `order_number` from all protocol buffer
 messages in the `Orders` column using the [dot operator][dot-operator]:
 
-```sql
+```zetasql
 SELECT
   c.Orders.order_number
 FROM
@@ -326,7 +327,7 @@ In the previous example, the `Order` protocol buffer contains another protocol
 buffer message, `Address`, in the `shipping_address` field. You can create a
 query that returns all orders that have a shipping address in the United States:
 
-```sql
+```zetasql
 SELECT
   c.Orders.order_number,
   c.Orders.shipping_address
@@ -346,7 +347,7 @@ protocol buffer message contains a repeated field, `line_item`.
 The following query returns a set of `ARRAY`s containing the line items,
 each holding all the line items for one order:
 
-```sql
+```zetasql
 SELECT
   c.Orders.line_item
 FROM
@@ -364,7 +365,7 @@ For more information about default field values, see [Default values and
 You can return the number of values in a repeated fields in a protocol buffer
 using the `ARRAY_LENGTH` function.
 
-```sql
+```zetasql
 SELECT
   c.Orders.order_number,
   ARRAY_LENGTH(c.Orders.line_item)
@@ -387,7 +388,7 @@ message Item {
 }
 ```
 
-```sql
+```zetasql
 SELECT
   m.purchased[KEY('A')] AS map_value
 FROM
@@ -406,7 +407,7 @@ query protocol buffer map fields by querying the underlying repeated field.
 In the following example, the underlying repeated field has `key` and `value`
 fields that can be queried.
 
-```sql
+```zetasql
 SELECT
   C.Orders.order_number
 FROM
@@ -464,7 +465,7 @@ contains a field, `foo_field` of type `Foo`.
 A query that returns the value of the `bar` extension field would resemble the
 following:
 
-```sql
+```zetasql
 SELECT
   foo_field.(some.package.bar)
 FROM
@@ -476,7 +477,7 @@ These types of extensions are often referred to as *top-level extensions*.
 If you want your statement to return a specific value from a top-level
 extension, you would modify it as follows:
 
-```sql
+```zetasql
 SELECT
   foo_field.(some.package.point).y
 FROM
@@ -486,7 +487,7 @@ FROM
 You can refine your statement to look for a specific value of a top-level
 extension as well.
 
-```sql
+```zetasql
 SELECT
   foo_field.(some.package.bar)
 FROM
@@ -501,7 +502,7 @@ around individual components, not around multiple components or the entire path.
 
 Correct example:
 
-```sql
+```zetasql
 SELECT
   foo_field.(`some`.`package`.`bar`).value = 5
 FROM
@@ -510,14 +511,14 @@ FROM
 
 Incorrect examples:
 
-```sql {.bad}
+```zetasql {.bad}
 SELECT
   foo_field.(`some.package`.`bar`).value = 5
 FROM
   Test;
 ```
 
-```sql {.bad}
+```zetasql {.bad}
 SELECT
   foo_field.(`some.package.bar`).value = 5
 FROM
@@ -548,7 +549,7 @@ syntax as described in the previous section. To reference a nested extension,
 in addition to specifying the package name, you must also specify the name of
 the message where the extension is declared. For example:
 
-```sql
+```zetasql
 SELECT
   foo_field.(some.package.Baz.foo_ext)
 FROM
@@ -558,7 +559,7 @@ FROM
 You can reference a specific field in a nested extension using the same syntax
 described in the previous section. For example:
 
-```sql
+```zetasql
 SELECT
   foo_field.(some.package.Baz.foo_ext).a
 FROM
@@ -570,7 +571,7 @@ FROM
 
 You can use a [correlated join][correlated-join] to [unnest][unnest-operator]
 standard repeated fields or repeated extension fields and return a table with
-one row for each instance of the field. A standard repeated field does not
+one row for each instance of the field. A standard repeated field doesn't
 require an explicit `UNNEST`, but a repeated extension field does.
 
 Consider the following protocol buffer:
@@ -593,51 +594,56 @@ message Extension {
 }
 ```
 
-The following query uses a standard repeated field,
-`repeated_value`, in a correlated comma `CROSS JOIN` and runs without an
-explicit `UNNEST`.
+The following query uses a standard repeated field, `repeated_value`, in a
+correlated `INNER JOIN` and runs without requiring an explicit `UNNEST`.
 
-```sql
-WITH t AS
-  (SELECT
-     CAST("""
-       record_key: 1
-       repeated_value: 1
-       repeated_value: 2
-       repeated_value: 3
-       [some.package.Extension.repeated_extension_value]: 4
-       [some.package.Extension.repeated_extension_value]: 5
-       [some.package.Extension.repeated_extension_value]: 6"""
-     AS some.package.Example) AS proto_field)
+```zetasql
+WITH
+  ExampleData AS (
+    SELECT
+      CAST("""
+        record_key: 1
+        repeated_value: 1
+        repeated_value: 2
+        repeated_value: 3
+        [some.package.Extension.repeated_extension_value]: 4
+        [some.package.Extension.repeated_extension_value]: 5
+        [some.package.Extension.repeated_extension_value]: 6"""
+        AS some.package.Example) AS proto_field
+  )
 SELECT
-  t.proto_field.record_key,
+  T.proto_field.record_key,
   value
 FROM
-  t CROSS JOIN t.proto_field.repeated_value AS value;
+  ExampleData AS T
+INNER JOIN
+  T.proto_field.repeated_value AS value;
 ```
 
-The following query uses a repeated extension field,
-`repeated_extension_value`, in a correlated comma `CROSS JOIN` and requires an
-explicit `UNNEST`.
+The following query uses a repeated extension field, `repeated_extension_value`,
+in a correlated `INNER JOIN` and requires an explicit `UNNEST`.
 
-```sql
-WITH t AS
-  (SELECT
-     CAST("""
-       record_key: 1
-       repeated_value: 1
-       repeated_value: 2
-       repeated_value: 3
-       [some.package.Extension.repeated_extension_value]: 4
-       [some.package.Extension.repeated_extension_value]: 5
-       [some.package.Extension.repeated_extension_value]: 6"""
-     AS some.package.Example) AS proto_field)
+```zetasql
+WITH
+  ExampleData AS (
+    SELECT
+      CAST("""
+        record_key: 1
+        repeated_value: 1
+        repeated_value: 2
+        repeated_value: 3
+        [some.package.Extension.repeated_extension_value]: 4
+        [some.package.Extension.repeated_extension_value]: 5
+        [some.package.Extension.repeated_extension_value]: 6"""
+        AS some.package.Example) AS proto_field
+  )
 SELECT
-  t.proto_field.record_key,
+  T.proto_field.record_key,
   value
 FROM
-  t CROSS JOIN
-  UNNEST(t.proto_field.(some.package.Extension.repeated_extension_value)) AS value;
+  ExampleData AS T
+INNER JOIN
+  UNNEST(T.proto_field.(some.package.Extension.repeated_extension_value)) AS value;
 ```
 
 ## Type mapping 
@@ -666,7 +672,7 @@ protocol buffer field types and the resulting ZetaSQL types.
       <td>
       <code>optional int64 int = 1;</code><br>
       When reading, if this field isn't set, the default value (0) is returned. By
-      default, protocol buffer fields do not return <code>NULL</code>.
+      default, protocol buffer fields don't return <code>NULL</code>.
       </td>
       <td><code>INT64</code></td>
     </tr>
@@ -702,25 +708,27 @@ protocol buffer field types and the resulting ZetaSQL types.
   </tbody>
 </table>
 
-### Default values and `NULL`s  {: #default_values_and_nulls}
+### Default values and `NULL`s 
+<a id="default_values_and_nulls"></a>
 
 Protocol buffer messages themselves don't have a default value; only the
 non-repeated fields contained inside a protocol buffer have defaults. When
 the result of a query returns a full protocol buffer value, it's returned
-as a `blob` (a data structure that is used to store large binary data).
+as a `blob` (a data structure that's used to store large binary data).
 The result preserves all fields in the protocol buffer as they were stored,
 including unset fields. This means that you can run a query that returns a
 protocol buffer, and then extract fields or check field presence in your client
 code with normal protocol buffer default behavior.
 
-However, `NULL` values are never returned when accessing non-repeated leaf
-fields contained in a `PROTO` from within a SQL statement, unless a containing
-parent message is `NULL`. This behavior is consistent with the standards for
-handling protocol buffers messages. If the field value isn't explicitly set on
-a non-repeated leaf field, the `PROTO` default value for the field is returned.
-A change to the default value for a `PROTO` field affects all future reads of
-that field using the new `PROTO` definition for records where the value is
-unset.
+`NULL` values aren't typically returned when accessing non-repeated leaf fields
+contained in a `PROTO` from within a SQL statement. However, `NULL` values can
+result in some cases, for example if a containing parent message is `NULL`.
+
+This behavior is consistent with the standards for handling protocol buffers
+messages. If the field value isn't explicitly set on a non-repeated leaf field,
+the `PROTO` default value for the field is returned. A change to the default
+value for a `PROTO` field affects all future reads of that field using the new
+`PROTO` definition for records where the value is unset.
 
 For example, consider the following protocol buffer:
 
@@ -804,7 +812,7 @@ various accessed fields:
 </tbody>
 </table>
 
-###  `zetasql.use_defaults`
+### `zetasql.use_defaults` {: #zetasql_use_defaults}
 
 You can change this default behavior using a special annotation on your protocol
 message definition, `zetasql.use_defaults`, which you set on an
@@ -829,7 +837,7 @@ message SimpleMessage {
 ```
 
 In the case where protocol buffers have empty repeated fields, an empty `ARRAY`
-is returned rather than a `NULL`-valued `ARRAY`. This behavior cannot be
+is returned rather than a `NULL`-valued `ARRAY`. This behavior can't be
 changed.
 
 After a value has been read out of a protocol buffer field, that value is
@@ -880,7 +888,7 @@ message ShippingAddress {
 }
 ```
 
-```sql
+```zetasql
 SELECT
   c.Orders.shipping_address.has_country
 FROM
@@ -905,7 +913,7 @@ any value exists with some desired property. For example, the following query
 returns the name of every customer who has placed an order for the product
 "Foo".
 
-```sql
+```zetasql
 SELECT
   C.Id
 FROM
@@ -947,7 +955,7 @@ message OuterMessage {
 Running the following query returns a `5` for `value` because it is
 explicitly defined.
 
-```sql
+```zetasql
 SELECT
   proto_field.nested.value
 FROM
@@ -958,7 +966,7 @@ FROM
 If `value` isn't explicitly defined but `nested` is, you get a `0` because
 the annotation on the protocol buffer definition says to use default values.
 
-```sql
+```zetasql
 SELECT
   proto_field.nested.value
 FROM
@@ -971,7 +979,7 @@ though the annotation says to use default values for the `value` field. This is
 because the containing message is `NULL`. This behavior applies to both
 repeated and non-repeated fields within a nested message.
 
-```sql
+```zetasql
 SELECT
   proto_field.nested.value
 FROM
@@ -1006,7 +1014,7 @@ annotation.
 This result is the equivalent of having an `INT32` column and querying it as
 follows:
 
-```sql
+```zetasql
 SELECT
   DATE_FROM_UNIX_DATE(date)...
 ```
@@ -1029,6 +1037,8 @@ Protocol buffers can be coerced into other data types. For more information, see
 [nested-extensions]: https://developers.google.com/protocol-buffers/docs/proto#nested-extensions
 
 [default-values]: #default_values_and_nulls
+
+[zetasql-use-defaults]: #zetasql_use_defaults
 
 [conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md
 

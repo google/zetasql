@@ -15,6 +15,7 @@
 //
 
 #include <memory>
+#include <string>
 
 #include "zetasql/base/testing/status_matchers.h"  
 #include "zetasql/public/types/annotation.h"
@@ -122,6 +123,56 @@ TEST(MeasureTypeTest, TestTypeNameWithModifiers) {
                   modifiers_collation, PRODUCT_INTERNAL),
               StatusIs(absl::StatusCode::kInvalidArgument,
                        HasSubstr("MeasureType does not support collation")));
+}
+
+TEST(MeasureTypeTest, TestSupportsOrdering) {
+  TypeFactory factory;
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Type* measure_type_with_string,
+                       factory.MakeMeasureType(types::StringType()));
+  EXPECT_FALSE(measure_type_with_string->SupportsOrdering());
+
+  std::string type_description = "";
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(FEATURE_V_1_3_ARRAY_ORDERING);
+  EXPECT_FALSE(measure_type_with_string->SupportsOrdering(language_options,
+                                                          &type_description));
+  EXPECT_EQ(type_description, "MEASURE");
+
+  type_description = "";
+  const ArrayType* array_type_with_measure;
+  ZETASQL_ASSERT_OK(factory.MakeArrayType(measure_type_with_string,
+                                  &array_type_with_measure));
+  EXPECT_FALSE(array_type_with_measure->SupportsOrdering(language_options,
+                                                         &type_description));
+  EXPECT_EQ(type_description, "ARRAY containing MEASURE");
+}
+
+TEST(MeasureTypeTest, TestSupportsPartitioning) {
+  TypeFactory factory;
+  std::string type_description = "";
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(FEATURE_V_1_2_GROUP_BY_ARRAY);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Type* measure_type_with_string,
+                       factory.MakeMeasureType(types::StringType()));
+  EXPECT_FALSE(measure_type_with_string->SupportsPartitioning(
+      language_options, &type_description));
+  EXPECT_EQ(type_description, "MEASURE");
+
+  type_description = "";
+  const ArrayType* array_type_with_measure;
+  ZETASQL_ASSERT_OK(factory.MakeArrayType(measure_type_with_string,
+                                  &array_type_with_measure));
+  EXPECT_FALSE(array_type_with_measure->SupportsPartitioning(
+      language_options, &type_description));
+  EXPECT_EQ(type_description, "ARRAY containing MEASURE");
+}
+
+TEST(MeasureTypeTest, TestSupportsEquality) {
+  TypeFactory factory;
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Type* measure_type_with_string,
+                       factory.MakeMeasureType(types::StringType()));
+  EXPECT_FALSE(measure_type_with_string->SupportsEquality());
 }
 
 // TODO: b/350555383 - Add tests for all class methods.

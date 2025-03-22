@@ -17,6 +17,7 @@
 #include "zetasql/analyzer/graph_stmt_resolver.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <iterator>
 #include <memory>
 #include <optional>
@@ -34,8 +35,10 @@
 #include "zetasql/parser/ast_node.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_errors.h"
+#include "zetasql/public/catalog.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/parse_location.h"
 #include "zetasql/public/property_graph.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
@@ -46,7 +49,10 @@
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/base/case.h"
+#include "absl/algorithm/container.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
+#include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
@@ -1011,6 +1017,7 @@ absl::Status GraphStmtResolver::ResolveCreatePropertyGraphStmt(
       edge_tables.push_back(std::move(edge_table));
     }
   }
+
   // Validates element table uniqueness at graph level.
   StringViewHashSetCase element_table_names;
   ZETASQL_RETURN_IF_ERROR(ValidateNoDuplicateElementTable(

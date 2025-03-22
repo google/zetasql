@@ -23,7 +23,6 @@
 #include <memory>
 #include <optional>
 #include <string>
-#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -35,6 +34,7 @@
 #include "zetasql/analyzer/path_expression_span.h"
 #include "zetasql/analyzer/query_resolver_helper.h"
 #include "zetasql/analyzer/resolver.h"
+#include "zetasql/common/errors.h"
 #include "zetasql/resolved_ast/resolved_ast_deep_copy_visitor.h"
 #include "zetasql/resolved_ast/resolved_ast_rewrite_visitor.h"
 // This includes common macro definitions to define in the resolver cc files.
@@ -56,20 +56,20 @@
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_column.h"
+#include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/container/node_hash_map.h"
-#include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
-#include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -194,8 +194,8 @@ absl::Status Resolver::ResolveDeleteStatementImpl(
   std::unique_ptr<const ResolvedExpr> resolved_where_expr;
   ZETASQL_RETURN_IF_ERROR(ResolveScalarExpr(ast_statement->where(), scope,
                                     "WHERE clause", &resolved_where_expr));
-  ZETASQL_RETURN_IF_ERROR(CoerceExprToBool(
-      ast_statement->where(), "WHERE clause", &resolved_where_expr));
+  ZETASQL_RETURN_IF_ERROR(CoerceExprToBool(ast_statement->where(), "WHERE clause",
+                                   &resolved_where_expr));
 
   std::unique_ptr<const ResolvedAssertRowsModified>
       resolved_assert_rows_modified;
@@ -246,8 +246,8 @@ absl::Status Resolver::ResolveTruncateStatement(
   if (ast_statement->where() != nullptr) {
     ZETASQL_RETURN_IF_ERROR(ResolveScalarExpr(ast_statement->where(), &truncate_scope,
                                       "WHERE clause", &resolved_where_expr));
-    ZETASQL_RETURN_IF_ERROR(CoerceExprToBool(
-        ast_statement->where(), "WHERE clause", &resolved_where_expr));
+    ZETASQL_RETURN_IF_ERROR(CoerceExprToBool(ast_statement->where(), "WHERE clause",
+                                     &resolved_where_expr));
   }
 
   *output = MakeResolvedTruncateStmt(std::move(resolved_table_scan),
@@ -256,8 +256,7 @@ absl::Status Resolver::ResolveTruncateStatement(
 }
 
 absl::Status Resolver::ResolveInsertValuesRow(
-    const ASTInsertValuesRow* ast_insert_values_row,
-    const NameScope* scope,
+    const ASTInsertValuesRow* ast_insert_values_row, const NameScope* scope,
     const ResolvedColumnList& insert_columns,
     std::unique_ptr<const ResolvedInsertRow>* output) {
   if (ast_insert_values_row->values().size() != insert_columns.size()) {
@@ -328,12 +327,16 @@ absl::Status Resolver::ResolveInsertValuesRow(
 // <output_column_list> returns the list of columns produced by <output> that
 // map positionally into <insert_columns>.
 absl::Status Resolver::ResolveInsertQuery(
-    const ASTQuery* query, const NameScope* nested_scope,
-    const ResolvedColumnList& insert_columns,
+    const ASTNode* ast_location, const ASTQuery* query,
+    const NameScope* nested_scope, const ResolvedColumnList& insert_columns,
+    const NameList* pipe_input_name_list,
+    std::unique_ptr<const ResolvedScan> pipe_input_scan,
     std::unique_ptr<const ResolvedScan>* output,
     ResolvedColumnList* output_column_list,
     std::vector<std::unique_ptr<const ResolvedColumnRef>>* parameter_list) {
-  ZETASQL_RET_CHECK(query != nullptr);
+  // We have either an input ASTQuery or a pipe input table.
+  ZETASQL_RET_CHECK_NE(query != nullptr, pipe_input_name_list != nullptr);
+  ZETASQL_RET_CHECK_EQ(pipe_input_name_list != nullptr, pipe_input_scan != nullptr);
   const int num_insert_columns = insert_columns.size();
 
   std::unique_ptr<CorrelatedColumnsSet> correlated_columns_set;
@@ -348,11 +351,23 @@ absl::Status Resolver::ResolveInsertQuery(
   }
 
   std::unique_ptr<const ResolvedScan> resolved_query;
-  std::shared_ptr<const NameList> query_name_list;
+  std::shared_ptr<const NameList> owned_query_name_list;
+  const NameList* query_name_list = nullptr;
 
-  ZETASQL_RETURN_IF_ERROR(ResolveQuery(query, name_scope, kInsertId, &resolved_query,
-                               &query_name_list,
-                               {.is_outer_query = !is_nested}));
+  if (query != nullptr) {
+    ZETASQL_RETURN_IF_ERROR(ResolveQuery(query, name_scope, kInsertId, &resolved_query,
+                                 &owned_query_name_list,
+                                 {.is_outer_query = !is_nested}));
+    query_name_list = owned_query_name_list.get();
+  } else {
+    ZETASQL_RET_CHECK(pipe_input_name_list != nullptr);
+    ZETASQL_RET_CHECK(pipe_input_scan != nullptr);
+    // For pipe INSERT, we use the pipe input query's NameList and the
+    // ResolvedScan representing the pipe input table.
+    query_name_list = pipe_input_name_list;
+    resolved_query = std::move(pipe_input_scan);
+  }
+  ZETASQL_RET_CHECK(query_name_list != nullptr);
 
   if (correlated_columns_set != nullptr) {
     FetchCorrelatedSubqueryParameters(*correlated_columns_set, parameter_list);
@@ -360,11 +375,13 @@ absl::Status Resolver::ResolveInsertQuery(
 
   *output_column_list = query_name_list->GetResolvedColumns();
   if (output_column_list->size() != num_insert_columns) {
-    return MakeSqlErrorAt(query)
-        << "Inserted row has wrong column count; Has "
-        << output_column_list->size()
-        << ", expected " << num_insert_columns;
+    return MakeSqlErrorAt(ast_location)
+           << "Inserted row has wrong column count; Has "
+           << output_column_list->size() << ", expected " << num_insert_columns;
   }
+
+  // All input columns are read and thus can't be pruned.
+  RecordColumnAccess(*output_column_list);
 
   bool needs_cast = false;
   UntypedLiteralMap untyped_literal_map(resolved_query.get());
@@ -379,7 +396,7 @@ absl::Status Resolver::ResolveInsertQuery(
       if (!coercer_.AssignableTo(input_argument_type, insert_type,
                                  /* is_explicit = */ false, &unused) &&
           untyped_literal_map.Find((*output_column_list)[i]) == nullptr) {
-        return MakeSqlErrorAt(query)
+        return MakeSqlErrorAt(ast_location)
                << "Query column " << (i + 1) << " has type "
                << current_type->ShortTypeName(product_mode())
                << " which cannot be inserted into column "
@@ -390,9 +407,9 @@ absl::Status Resolver::ResolveInsertQuery(
   }
 
   if (needs_cast) {
-    ZETASQL_RETURN_IF_ERROR(CreateWrapperScanWithCasts(
-        query, insert_columns, kInsertCastId,
-        &resolved_query, output_column_list));
+    ZETASQL_RETURN_IF_ERROR(CreateWrapperScanWithCasts(ast_location, insert_columns,
+                                               kInsertCastId, &resolved_query,
+                                               output_column_list));
   }
   ZETASQL_RET_CHECK_EQ(output_column_list->size(), insert_columns.size());
 
@@ -587,6 +604,8 @@ absl::Status RewriteGeneratedColumnExpressions(
 
 absl::Status Resolver::ResolveInsertStatement(
     const ASTInsertStatement* ast_statement,
+    const NameList* pipe_input_name_list,
+    std::unique_ptr<const ResolvedScan> pipe_input_scan,
     std::unique_ptr<ResolvedInsertStmt>* output) {
   ZETASQL_ASSIGN_OR_RETURN(const ASTPathExpression* target_path,
                    ast_statement->GetTargetPathForNonNested());
@@ -699,7 +718,8 @@ absl::Status Resolver::ResolveInsertStatement(
   return ResolveInsertStatementImpl(
       ast_statement, target_alias, name_list, std::move(resolved_table_scan),
       insert_columns,
-      /*nested_scope=*/nullptr,
+      /*nested_scope=*/nullptr, pipe_input_name_list,
+      std::move(pipe_input_scan),
       out_resolved_columns_to_catalog_columns_for_target_scan, output);
 }
 
@@ -708,6 +728,8 @@ absl::Status Resolver::ResolveInsertStatementImpl(
     const std::shared_ptr<const NameList>& target_name_list,
     std::unique_ptr<const ResolvedTableScan> resolved_table_scan,
     const ResolvedColumnList& insert_columns, const NameScope* nested_scope,
+    const NameList* pipe_input_name_list,
+    std::unique_ptr<const ResolvedScan> pipe_input_scan,
     ResolvedColumnToCatalogColumnHashMap&
         resolved_columns_to_catalog_columns_for_target_scan,
     std::unique_ptr<ResolvedInsertStmt>* output) {
@@ -753,6 +775,7 @@ absl::Status Resolver::ResolveInsertStatementImpl(
   std::vector<std::unique_ptr<const ResolvedColumnRef>> query_parameter_list;
   if (ast_statement->rows() != nullptr) {
     ZETASQL_RET_CHECK(ast_statement->query() == nullptr);
+    ZETASQL_RET_CHECK(pipe_input_name_list == nullptr);
     row_list.reserve(ast_statement->rows()->rows().size());
     const NameScope* value_scope =
         is_nested ? nested_scope : empty_name_scope_.get();
@@ -763,9 +786,16 @@ absl::Status Resolver::ResolveInsertStatementImpl(
       row_list.push_back(std::move(resolved_insert_row));
     }
   } else {
-    ZETASQL_RET_CHECK(ast_statement->query() != nullptr);
+    // We either have a query in the AST or we're in pipe INSERT and have
+    // a pipe_input_name_list.
+    ZETASQL_RET_CHECK_NE(ast_statement->query() != nullptr,
+                 pipe_input_name_list != nullptr);
     ZETASQL_RETURN_IF_ERROR(ResolveInsertQuery(
-        ast_statement->query(), nested_scope, insert_columns, &resolved_query,
+        ast_statement->query() != nullptr
+            ? static_cast<const ASTNode*>(ast_statement->query())
+            : ast_statement,
+        ast_statement->query(), nested_scope, insert_columns,
+        pipe_input_name_list, std::move(pipe_input_scan), &resolved_query,
         &query_output_column_list, &query_parameter_list));
   }
 
@@ -1045,9 +1075,9 @@ absl::Status Resolver::ResolveDMLValue(
     ZETASQL_RETURN_IF_ERROR(ResolveScalarExpr(ast_value, scope, clause_name,
                                       &resolved_value,
                                       annotated_target_type.type));
-    ZETASQL_RETURN_IF_ERROR(CoerceExprToType(
-        ast_value, annotated_target_type, kImplicitAssignment,
-        coercion_err_msg, &resolved_value));
+    ZETASQL_RETURN_IF_ERROR(CoerceExprToType(ast_value, annotated_target_type,
+                                     kImplicitAssignment, coercion_err_msg,
+                                     &resolved_value));
   }
 
   *output = MakeResolvedDMLValue(std::move(resolved_value));
@@ -1146,11 +1176,9 @@ static const ASTAlias* GetTargetAlias(const ASTUpdateItem* ast_update_item) {
 static int GetFieldPathDepth(const ResolvedExpr* expr) {
   const ResolvedNodeKind node_kind = expr->node_kind();
   if (node_kind == RESOLVED_GET_PROTO_FIELD) {
-    return 1 +
-           GetFieldPathDepth(expr->GetAs<ResolvedGetProtoField>()->expr());
+    return 1 + GetFieldPathDepth(expr->GetAs<ResolvedGetProtoField>()->expr());
   } else if (node_kind == RESOLVED_GET_STRUCT_FIELD) {
-    return 1 +
-           GetFieldPathDepth(expr->GetAs<ResolvedGetStructField>()->expr());
+    return 1 + GetFieldPathDepth(expr->GetAs<ResolvedGetStructField>()->expr());
   } else {
     ABSL_DCHECK_EQ(node_kind, RESOLVED_COLUMN_REF);
     return 0;
@@ -1184,10 +1212,10 @@ static bool AreFieldPathsOverlapping(const ResolvedExpr* field_path1,
   const int field_path1_depth = GetFieldPathDepth(field_path1);
   const int field_path2_depth = GetFieldPathDepth(field_path2);
   const int compare_depth = std::min(field_path1_depth, field_path2_depth);
-  field_path1 = StripLastnFields(field_path1,
-                                 field_path1_depth - compare_depth);
-  field_path2 = StripLastnFields(field_path2,
-                                 field_path2_depth - compare_depth);
+  field_path1 =
+      StripLastnFields(field_path1, field_path1_depth - compare_depth);
+  field_path2 =
+      StripLastnFields(field_path2, field_path2_depth - compare_depth);
   return IsSameFieldPath(field_path1, field_path2,
                          FieldPathMatchingOption::kFieldPath);
 }
@@ -1305,9 +1333,9 @@ absl::Status Resolver::PopulateUpdateTargetInfos(
       ZETASQL_RET_CHECK(!update_target_infos->empty());
       UpdateTargetInfo& info = update_target_infos->back();
       return ResolveExtensionFieldAccess(
-          std::move(info.target),
-          ResolveExtensionFieldOptions(), dot_generalized_field->path(),
-          &expr_resolution_info->flatten_state, &info.target);
+          std::move(info.target), ResolveExtensionFieldOptions(),
+          dot_generalized_field->path(), &expr_resolution_info->flatten_state,
+          &info.target);
     }
     case AST_DOT_IDENTIFIER: {
       const auto* dot_identifier = path->GetAsOrDie<ASTDotIdentifier>();
@@ -1416,8 +1444,9 @@ absl::Status Resolver::PopulateUpdateTargetInfos(
             array_element->position(),
             /*arg_locations=*/
             {unwrapped_ast_position_expr, unwrapped_ast_position_expr},
-            subtraction_name, std::move(subtraction_args),
-            /*named_arguments=*/{}, expr_resolution_info, &info.array_offset));
+            /*match_internal_signatures=*/false, subtraction_name,
+            std::move(subtraction_args), /*named_arguments=*/{},
+            expr_resolution_info, &info.array_offset));
       } else if (function_name == kProtoMapAtKey ||
                  function_name == kSafeProtoMapAtKey) {
         // ZetaSQL does not currently support updating proto map entries
@@ -1819,8 +1848,9 @@ absl::Status Resolver::MergeWithUpdateItem(
 
     const Type* target_type = resolved_update_item.target()->type();
     if (!target_type->IsArray()) {
-      const std::string nested_statement_type =
-          is_nested_delete ? "DELETE" : is_nested_update ? "UPDATE" : "INSERT";
+      const std::string nested_statement_type = is_nested_delete   ? "DELETE"
+                                                : is_nested_update ? "UPDATE"
+                                                                   : "INSERT";
       return MakeSqlErrorAt(target_path)
              << "Update target " << GeneralizedPathAsString(target_path)
              << " for nested " << nested_statement_type
@@ -1935,7 +1965,9 @@ absl::Status Resolver::MergeWithUpdateItem(
       ZETASQL_RETURN_IF_ERROR(ResolveInsertStatementImpl(
           ast_input_update_item->insert_statement(), target_alias,
           /*target_name_list=*/nullptr, /*table_scan=*/nullptr, insert_columns,
-          nested_dml_scope, resolved_columns_from_table_scans_,
+          nested_dml_scope,
+          /*pipe_input_name_list=*/nullptr,
+          /*pipe_input_scan=*/nullptr, resolved_columns_from_table_scans_,
           &resolved_stmt));
       resolved_update_item.add_insert_list(std::move(resolved_stmt));
     }
@@ -1978,10 +2010,10 @@ absl::Status Resolver::ResolveUpdateStatement(
     if (!language().LanguageFeatureEnabled(FEATURE_DML_UPDATE_WITH_JOIN)) {
       return MakeSqlErrorAt(ast_statement) << "Update with joins not supported";
     }
-    ZETASQL_RETURN_IF_ERROR(ResolveTableExpression(
-        ast_statement->from_clause()->table_expression(),
-        empty_name_scope_.get(), empty_name_scope_.get(),
-        &resolved_from_scan, &from_name_list));
+    ZETASQL_RETURN_IF_ERROR(
+        ResolveTableExpression(ast_statement->from_clause()->table_expression(),
+                               empty_name_scope_.get(), empty_name_scope_.get(),
+                               &resolved_from_scan, &from_name_list));
   }
 
   // With the exception of the target expression in the SET clause, the rest of
@@ -1995,10 +2027,9 @@ absl::Status Resolver::ResolveUpdateStatement(
              << " in the FROM clause was already defined as the UPDATE target";
     }
     ZETASQL_RETURN_IF_ERROR(update_name_list->MergeFrom(*from_name_list,
-        ast_statement->from_clause()));
+                                                ast_statement->from_clause()));
   }
-  ZETASQL_RETURN_IF_ERROR(update_name_list->MergeFrom(
-      *target_name_list, target_path));
+  ZETASQL_RETURN_IF_ERROR(update_name_list->MergeFrom(*target_name_list, target_path));
 
   std::shared_ptr<const NameList> shared_update_name_list(
       update_name_list.release());
@@ -2076,8 +2107,8 @@ absl::Status Resolver::ResolveUpdateStatementImpl(
   std::unique_ptr<const ResolvedExpr> resolved_where_expr;
   ZETASQL_RETURN_IF_ERROR(ResolveScalarExpr(ast_statement->where(), update_scope,
                                     "UPDATE scope", &resolved_where_expr));
-  ZETASQL_RETURN_IF_ERROR(CoerceExprToBool(
-      ast_statement->where(), "WHERE clause", &resolved_where_expr));
+  ZETASQL_RETURN_IF_ERROR(CoerceExprToBool(ast_statement->where(), "WHERE clause",
+                                   &resolved_where_expr));
 
   std::unique_ptr<const ResolvedAssertRowsModified>
       resolved_assert_rows_modified;
@@ -2181,9 +2212,9 @@ absl::Status Resolver::ResolveMergeStatement(
   ZETASQL_RETURN_IF_ERROR(ResolveScalarExpr(statement->merge_condition(),
                                     all_scope.get(), "merge condition",
                                     &resolved_merge_condition_expr));
-  ZETASQL_RETURN_IF_ERROR(CoerceExprToBool(
-      statement->merge_condition(), "merge condition",
-      &resolved_merge_condition_expr));
+  ZETASQL_RETURN_IF_ERROR(CoerceExprToBool(statement->merge_condition(),
+                                   "merge condition",
+                                   &resolved_merge_condition_expr));
 
   IdStringHashMapCase<ResolvedColumn> target_table_columns;
   for (const ResolvedColumn& column :
@@ -2247,9 +2278,9 @@ absl::Status Resolver::ResolveMergeWhenClauseList(
       ZETASQL_RETURN_IF_ERROR(ResolveScalarExpr(when_clause->search_condition(),
                                         visible_name_scope, "match condition",
                                         &resolved_match_condition_expr));
-      ZETASQL_RETURN_IF_ERROR(CoerceExprToBool(
-          when_clause->search_condition(), "match condition",
-          &resolved_match_condition_expr));
+      ZETASQL_RETURN_IF_ERROR(CoerceExprToBool(when_clause->search_condition(),
+                                       "match condition",
+                                       &resolved_match_condition_expr));
     }
 
     const ASTMergeAction* action = when_clause->action();
@@ -2415,8 +2446,7 @@ absl::Status Resolver::ResolveMergeInsertAction(
                                            resolved_insert_row));
   }
   // Avoids pruning the insert columns that we are inserting into.
-  RecordColumnAccess(*resolved_insert_column_list,
-                     ResolvedStatement::WRITE);
+  RecordColumnAccess(*resolved_insert_column_list, ResolvedStatement::WRITE);
 
   return absl::OkStatus();
 }
@@ -2548,7 +2578,8 @@ absl::Status Resolver::ResolveGeneratedColumnsForDml(
           {catalog_column, resolved_column});
       ZETASQL_RET_CHECK(success);
     }
-    if (catalog_column->HasGeneratedExpression()) {
+    if (catalog_column->HasGeneratedExpression() &&
+        resolved_column.table_name() == target_table->Name()) {
       int column_index = -1;
       bool duplicate = false;
       FindColumnIndex(target_table, catalog_column->Name(), &column_index,

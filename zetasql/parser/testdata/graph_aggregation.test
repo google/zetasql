@@ -1,0 +1,894 @@
+[default reserve_graph_table]
+[default language_features=V_1_4_SQL_GRAPH]
+
+# RETURN with simple aggregation
+select * from graph_table(aml
+  MATCH (a) -> (b)
+  RETURN SUM(a.account_id) as col1
+)
+--
+QueryStatement [33-118] [select * from...as col1 )]
+  Query [33-118] [select * from...as col1 )]
+    Select [33-118] [select * from...as col1 )]
+      SelectList [40-41] [*]
+        SelectColumn [40-41] [*]
+          Star(*) [40-41] [*]
+      FromClause [42-118] [from graph_table...as col1 )]
+        GraphTableQuery [47-118] [graph_table...as col1 )]
+          PathExpression [59-62] [aml]
+            Identifier(aml) [59-62] [aml]
+          GqlOperatorList [65-116] [MATCH (a)...ccount_id) as col1]
+            GqlOperatorList [65-116] [MATCH (a)...ccount_id) as col1]
+              GqlMatch [65-81] [MATCH (a) -> (b)]
+                GraphPattern [71-81] [(a) -> (b)]
+                  GraphPathPattern [71-81] [(a) -> (b)]
+                    GraphNodePattern [71-74] [(a)]
+                      GraphElementPatternFiller [72-73] [a]
+                        Identifier(a) [72-73] [a]
+                    GraphEdgePattern [75-77] [->]
+                    GraphNodePattern [78-81] [(b)]
+                      GraphElementPatternFiller [79-80] [b]
+                        Identifier(b) [79-80] [b]
+              GqlReturn [84-116] [RETURN SUM...count_id) as col1]
+                Select [90-116] [SUM(a.account_id) as col1]
+                  SelectList [91-116] [SUM(a.account_id) as col1]
+                    SelectColumn [91-116] [SUM(a.account_id) as col1]
+                      FunctionCall [91-108] [SUM(a.account_id)]
+                        PathExpression [91-94] [SUM]
+                          Identifier(SUM) [91-94] [SUM]
+                        PathExpression [95-107] [a.account_id]
+                          Identifier(a) [95-96] [a]
+                          Identifier(account_id) [97-107] [account_id]
+                      Alias [109-116] [as col1]
+                        Identifier(col1) [112-116] [col1]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+      ->
+      (b)
+    RETURN
+      SUM(a.account_id) AS col1
+  )
+==
+
+# RETURN with explicit ALL set quantifier
+select * from graph_table(aml
+  MATCH (a) -> (b)
+  RETURN ALL COUNT(a.id) as count
+)
+--
+QueryStatement [0-84] [select * from...as count )]
+  Query [0-84] [select * from...as count )]
+    Select [0-84] [select * from...as count )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-84] [from graph_table...as count )]
+        GraphTableQuery [14-84] [graph_table...as count )]
+          PathExpression [26-29] [aml]
+            Identifier(aml) [26-29] [aml]
+          GqlOperatorList [32-82] [MATCH (a)...) as count]
+            GqlOperatorList [32-82] [MATCH (a)...) as count]
+              GqlMatch [32-48] [MATCH (a) -> (b)]
+                GraphPattern [38-48] [(a) -> (b)]
+                  GraphPathPattern [38-48] [(a) -> (b)]
+                    GraphNodePattern [38-41] [(a)]
+                      GraphElementPatternFiller [39-40] [a]
+                        Identifier(a) [39-40] [a]
+                    GraphEdgePattern [42-44] [->]
+                    GraphNodePattern [45-48] [(b)]
+                      GraphElementPatternFiller [46-47] [b]
+                        Identifier(b) [46-47] [b]
+              GqlReturn [51-82] [RETURN ALL...) as count]
+                Select [57-82] [ALL COUNT(a.id) as count]
+                  SelectList [62-82] [COUNT(a.id) as count]
+                    SelectColumn [62-82] [COUNT(a.id) as count]
+                      FunctionCall [62-73] [COUNT(a.id)]
+                        PathExpression [62-67] [COUNT]
+                          Identifier(COUNT) [62-67] [COUNT]
+                        PathExpression [68-72] [a.id]
+                          Identifier(a) [68-69] [a]
+                          Identifier(id) [70-72] [id]
+                      Alias [74-82] [as count]
+                        Identifier(count) [77-82] [count]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+      ->
+      (b)
+    RETURN
+      COUNT(a.id) AS count
+  )
+==
+
+# RETURN * is allowed
+select * from graph_table(aml
+  MATCH (a) -> (b)
+  RETURN *
+)
+--
+QueryStatement [0-61] [select * from...RETURN * )]
+  Query [0-61] [select * from...RETURN * )]
+    Select [0-61] [select * from...RETURN * )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-61] [from graph_table...RETURN * )]
+        GraphTableQuery [14-61] [graph_table...RETURN * )]
+          PathExpression [26-29] [aml]
+            Identifier(aml) [26-29] [aml]
+          GqlOperatorList [32-59] [MATCH (a) -> (b)   RETURN *]
+            GqlOperatorList [32-59] [MATCH (a) -> (b)   RETURN *]
+              GqlMatch [32-48] [MATCH (a) -> (b)]
+                GraphPattern [38-48] [(a) -> (b)]
+                  GraphPathPattern [38-48] [(a) -> (b)]
+                    GraphNodePattern [38-41] [(a)]
+                      GraphElementPatternFiller [39-40] [a]
+                        Identifier(a) [39-40] [a]
+                    GraphEdgePattern [42-44] [->]
+                    GraphNodePattern [45-48] [(b)]
+                      GraphElementPatternFiller [46-47] [b]
+                        Identifier(b) [46-47] [b]
+              GqlReturn [51-59] [RETURN *]
+                Select [57-59] [*]
+                  SelectList [58-59] [*]
+                    SelectColumn [58-59] [*]
+                      Star(*) [58-59] [*]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+      ->
+      (b)
+    RETURN
+      *
+  )
+==
+
+# Element dotstar is not allowed
+select * from graph_table(aml
+  MATCH (a) -> (b)
+  RETURN a.*
+)
+--
+ERROR: Syntax error: Unexpected "*" [at 3:12]
+  RETURN a.*
+           ^
+==
+
+# Subquery with struct.*
+select * from graph_table(aml
+  MATCH (a) -> (b)
+  RETURN (SELECT as STRUCT STRUCT(a, 2 AS b).*
+FROM (
+  SELECT 1 AS a
+) LIMIT 1) as subquery
+)
+--
+QueryStatement [0-143] [select * from...subquery )]
+  Query [0-143] [select * from...subquery )]
+    Select [0-143] [select * from...subquery )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-143] [from graph_table...subquery )]
+        GraphTableQuery [14-143] [graph_table...subquery )]
+          PathExpression [26-29] [aml]
+            Identifier(aml) [26-29] [aml]
+          GqlOperatorList [32-141] [MATCH (a)...as subquery]
+            GqlOperatorList [32-141] [MATCH (a)...as subquery]
+              GqlMatch [32-48] [MATCH (a) -> (b)]
+                GraphPattern [38-48] [(a) -> (b)]
+                  GraphPathPattern [38-48] [(a) -> (b)]
+                    GraphNodePattern [38-41] [(a)]
+                      GraphElementPatternFiller [39-40] [a]
+                        Identifier(a) [39-40] [a]
+                    GraphEdgePattern [42-44] [->]
+                    GraphNodePattern [45-48] [(b)]
+                      GraphElementPatternFiller [46-47] [b]
+                        Identifier(b) [46-47] [b]
+              GqlReturn [51-141] [RETURN (SELECT...as subquery]
+                Select [57-141] [(SELECT as...as subquery]
+                  SelectList [58-141] [(SELECT as...as subquery]
+                    SelectColumn [58-141] [(SELECT as...as subquery]
+                      ExpressionSubquery [58-129] [(SELECT as...) LIMIT 1)]
+                        Query [59-128] [SELECT as...) LIMIT 1]
+                          Select [59-120] [SELECT as...SELECT 1 AS a )]
+                            SelectAs(as_mode=STRUCT) [66-75] [as STRUCT]
+                            SelectList [76-95] [STRUCT(a, 2 AS b).*]
+                              SelectColumn [76-95] [STRUCT(a, 2 AS b).*]
+                                DotStar [76-95] [STRUCT(a, 2 AS b).*]
+                                  StructConstructorWithKeyword [76-93] [STRUCT(a, 2 AS b)]
+                                    StructConstructorArg [83-84] [a]
+                                      PathExpression [83-84] [a]
+                                        Identifier(a) [83-84] [a]
+                                    StructConstructorArg [86-92] [2 AS b]
+                                      IntLiteral(2) [86-87] [2]
+                                      Alias [88-92] [AS b]
+                                        Identifier(b) [91-92] [b]
+                            FromClause [96-120] [FROM (   SELECT 1 AS a )]
+                              TableSubquery [101-120] [(   SELECT 1 AS a )]
+                                Query [105-118] [SELECT 1 AS a]
+                                  Select [105-118] [SELECT 1 AS a]
+                                    SelectList [112-118] [1 AS a]
+                                      SelectColumn [112-118] [1 AS a]
+                                        IntLiteral(1) [112-113] [1]
+                                        Alias [114-118] [AS a]
+                                          Identifier(a) [117-118] [a]
+                          LimitOffset [121-128] [LIMIT 1]
+                            IntLiteral(1) [127-128] [1]
+                      Alias [130-141] [as subquery]
+                        Identifier(subquery) [133-141] [subquery]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+      ->
+      (b)
+    RETURN
+      (
+        SELECT AS STRUCT
+          STRUCT(a, 2 AS b).*
+        FROM
+          (
+            SELECT
+              1 AS a
+          )
+        LIMIT 1) AS subquery
+  )
+==
+
+# RETURN with aggregation modifier and group by clause
+select * from graph_table(aml
+  MATCH (a) -> (b)
+  RETURN STRING_AGG(DISTINCT a.name IGNORE NULLS) GROUP BY a.name
+)
+--
+QueryStatement [0-116] [select * from...BY a.name )]
+  Query [0-116] [select * from...BY a.name )]
+    Select [0-116] [select * from...BY a.name )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-116] [from graph_table...BY a.name )]
+        GraphTableQuery [14-116] [graph_table...BY a.name )]
+          PathExpression [26-29] [aml]
+            Identifier(aml) [26-29] [aml]
+          GqlOperatorList [32-114] [MATCH (a)...BY a.name]
+            GqlOperatorList [32-114] [MATCH (a)...BY a.name]
+              GqlMatch [32-48] [MATCH (a) -> (b)]
+                GraphPattern [38-48] [(a) -> (b)]
+                  GraphPathPattern [38-48] [(a) -> (b)]
+                    GraphNodePattern [38-41] [(a)]
+                      GraphElementPatternFiller [39-40] [a]
+                        Identifier(a) [39-40] [a]
+                    GraphEdgePattern [42-44] [->]
+                    GraphNodePattern [45-48] [(b)]
+                      GraphElementPatternFiller [46-47] [b]
+                        Identifier(b) [46-47] [b]
+              GqlReturn [51-114] [RETURN STRING_AGG...BY a.name]
+                Select [57-114] [STRING_AGG...BY a.name]
+                  SelectList [58-98] [STRING_AGG...IGNORE NULLS)]
+                    SelectColumn [58-98] [STRING_AGG...IGNORE NULLS)]
+                      FunctionCall(distinct=true) [58-98] [STRING_AGG...IGNORE NULLS)]
+                        PathExpression [58-68] [STRING_AGG]
+                          Identifier(STRING_AGG) [58-68] [STRING_AGG]
+                        PathExpression [78-84] [a.name]
+                          Identifier(a) [78-79] [a]
+                          Identifier(name) [80-84] [name]
+                  GroupBy [99-114] [GROUP BY a.name]
+                    GroupingItem [108-114] [a.name]
+                      PathExpression [108-114] [a.name]
+                        Identifier(a) [108-109] [a]
+                        Identifier(name) [110-114] [name]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+      ->
+      (b)
+    RETURN
+      STRING_AGG(DISTINCT a.name IGNORE NULLS)
+    GROUP BY a.name
+  )
+==
+
+# RETURN with DISTINCT
+select * from graph_table(aml
+  MATCH (a) -> (b)
+  RETURN DISTINCT AVG(a.account_id HAVING MAX 100) GROUP BY a.account_id
+)
+--
+QueryStatement [0-123] [select * from...account_id )]
+  Query [0-123] [select * from...account_id )]
+    Select [0-123] [select * from...account_id )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-123] [from graph_table...ccount_id )]
+        GraphTableQuery [14-123] [graph_table...account_id )]
+          PathExpression [26-29] [aml]
+            Identifier(aml) [26-29] [aml]
+          GqlOperatorList [32-121] [MATCH (a)...account_id]
+            GqlOperatorList [32-121] [MATCH (a)...account_id]
+              GqlMatch [32-48] [MATCH (a) -> (b)]
+                GraphPattern [38-48] [(a) -> (b)]
+                  GraphPathPattern [38-48] [(a) -> (b)]
+                    GraphNodePattern [38-41] [(a)]
+                      GraphElementPatternFiller [39-40] [a]
+                        Identifier(a) [39-40] [a]
+                    GraphEdgePattern [42-44] [->]
+                    GraphNodePattern [45-48] [(b)]
+                      GraphElementPatternFiller [46-47] [b]
+                        Identifier(b) [46-47] [b]
+              GqlReturn [51-121] [RETURN DISTINCT...account_id]
+                Select(distinct=true) [57-121] [DISTINCT AVG...account_id]
+                  SelectList [67-99] [AVG(a.account_id...NG MAX 100)]
+                    SelectColumn [67-99] [AVG(a.account_id...NG MAX 100)]
+                      FunctionCall [67-99] [AVG(a.account_id...NG MAX 100)]
+                        PathExpression [67-70] [AVG]
+                          Identifier(AVG) [67-70] [AVG]
+                        PathExpression [71-83] [a.account_id]
+                          Identifier(a) [71-72] [a]
+                          Identifier(account_id) [73-83] [account_id]
+                        HavingModifier [84-98] [HAVING MAX 100]
+                          IntLiteral(100) [95-98] [100]
+                  GroupBy [100-121] [GROUP BY a.account_id]
+                    GroupingItem [109-121] [a.account_id]
+                      PathExpression [109-121] [a.account_id]
+                        Identifier(a) [109-110] [a]
+                        Identifier(account_id) [111-121] [account_id]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+      ->
+      (b)
+    RETURN DISTINCT
+      AVG(a.account_id
+        HAVING MAX 100)
+    GROUP BY a.account_id
+  )
+==
+
+# RETURN with GROUP BY ALL
+select * from graph_table(aml
+  MATCH (a) -> (b)
+  RETURN ARRAY_AGG(a), ANY_VALUE(b) GROUP BY ALL
+)
+--
+QueryStatement [0-99] [select * from...GROUP BY ALL )]
+  Query [0-99] [select * from...GROUP BY ALL )]
+    Select [0-99] [select * from...GROUP BY ALL )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-99] [from graph_table...UP BY ALL )]
+        GraphTableQuery [14-99] [graph_table...GROUP BY ALL )]
+          PathExpression [26-29] [aml]
+            Identifier(aml) [26-29] [aml]
+          GqlOperatorList [32-97] [MATCH (a)...GROUP BY ALL]
+            GqlOperatorList [32-97] [MATCH (a)...GROUP BY ALL]
+              GqlMatch [32-48] [MATCH (a) -> (b)]
+                GraphPattern [38-48] [(a) -> (b)]
+                  GraphPathPattern [38-48] [(a) -> (b)]
+                    GraphNodePattern [38-41] [(a)]
+                      GraphElementPatternFiller [39-40] [a]
+                        Identifier(a) [39-40] [a]
+                    GraphEdgePattern [42-44] [->]
+                    GraphNodePattern [45-48] [(b)]
+                      GraphElementPatternFiller [46-47] [b]
+                        Identifier(b) [46-47] [b]
+              GqlReturn [51-97] [RETURN ARRAY_AGG...ROUP BY ALL]
+                Select [57-97] [ARRAY_AGG(...GROUP BY ALL]
+                  SelectList [58-84] [ARRAY_AGG(a), ANY_VALUE(b)]
+                    SelectColumn [58-70] [ARRAY_AGG(a)]
+                      FunctionCall [58-70] [ARRAY_AGG(a)]
+                        PathExpression [58-67] [ARRAY_AGG]
+                          Identifier(ARRAY_AGG) [58-67] [ARRAY_AGG]
+                        PathExpression [68-69] [a]
+                          Identifier(a) [68-69] [a]
+                    SelectColumn [72-84] [ANY_VALUE(b)]
+                      FunctionCall [72-84] [ANY_VALUE(b)]
+                        PathExpression [72-81] [ANY_VALUE]
+                          Identifier(ANY_VALUE) [72-81] [ANY_VALUE]
+                        PathExpression [82-83] [b]
+                          Identifier(b) [82-83] [b]
+                  GroupBy [85-97] [GROUP BY ALL]
+                    GroupByAll [94-97] [ALL]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+      ->
+      (b)
+    RETURN
+      ARRAY_AGG(a),
+      ANY_VALUE(b)
+    GROUP BY ALL
+  )
+==
+
+# RETURN with GROUP BY ()
+select * from graph_table(aml
+  MATCH (a) -> (b)
+  RETURN COUNT(*) GROUP BY ()
+)
+--
+QueryStatement [0-80] [select * from...GROUP BY () )]
+  Query [0-80] [select * from...GROUP BY () )]
+    Select [0-80] [select * from...GROUP BY () )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-80] [from graph_table...OUP BY () )]
+        GraphTableQuery [14-80] [graph_table...GROUP BY () )]
+          PathExpression [26-29] [aml]
+            Identifier(aml) [26-29] [aml]
+          GqlOperatorList [32-78] [MATCH (a)...GROUP BY ()]
+            GqlOperatorList [32-78] [MATCH (a)...GROUP BY ()]
+              GqlMatch [32-48] [MATCH (a) -> (b)]
+                GraphPattern [38-48] [(a) -> (b)]
+                  GraphPathPattern [38-48] [(a) -> (b)]
+                    GraphNodePattern [38-41] [(a)]
+                      GraphElementPatternFiller [39-40] [a]
+                        Identifier(a) [39-40] [a]
+                    GraphEdgePattern [42-44] [->]
+                    GraphNodePattern [45-48] [(b)]
+                      GraphElementPatternFiller [46-47] [b]
+                        Identifier(b) [46-47] [b]
+              GqlReturn [51-78] [RETURN COUNT(*) GROUP BY ()]
+                Select [57-78] [COUNT(*) GROUP BY ()]
+                  SelectList [58-66] [COUNT(*)]
+                    SelectColumn [58-66] [COUNT(*)]
+                      FunctionCall [58-66] [COUNT(*)]
+                        PathExpression [58-63] [COUNT]
+                          Identifier(COUNT) [58-63] [COUNT]
+                        Star(*) [64-65] [*]
+                  GroupBy [67-78] [GROUP BY ()]
+                    GroupingItem [76-78] [()]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+      ->
+      (b)
+    RETURN
+      COUNT(*)
+    GROUP BY ()
+  )
+==
+
+# Intermediate RETURN statements with aggregation
+select * from graph_table(aml
+  MATCH (a) -> (b)
+  MATCH ((b) -> (c)) Where a.account_id = c.account_id
+  MATCH (c IS Account) -> (a)
+  RETURN SUM(a), b, c GROUP BY ALL
+  NEXT
+  MATCH (c) -> (a) WHERE t1.amount + t2.amount = t3.amount
+  MATCH ()
+  RETURN *
+  NEXT
+  RETURN DISTINCT SUM(a.account_id) as aid GROUP BY a.account_id
+)
+--
+QueryStatement [0-330] [select * from...account_id )]
+  Query [0-330] [select * from...account_id )]
+    Select [0-330] [select * from...account_id )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-330] [from graph_table...ccount_id )]
+        GraphTableQuery [14-330] [graph_table...account_id )]
+          PathExpression [26-29] [aml]
+            Identifier(aml) [26-29] [aml]
+          GqlOperatorList [32-328] [MATCH (a)...account_id]
+            GqlOperatorList [32-168] [MATCH (a)...GROUP BY ALL]
+              GqlMatch [32-48] [MATCH (a) -> (b)]
+                GraphPattern [38-48] [(a) -> (b)]
+                  GraphPathPattern [38-48] [(a) -> (b)]
+                    GraphNodePattern [38-41] [(a)]
+                      GraphElementPatternFiller [39-40] [a]
+                        Identifier(a) [39-40] [a]
+                    GraphEdgePattern [42-44] [->]
+                    GraphNodePattern [45-48] [(b)]
+                      GraphElementPatternFiller [46-47] [b]
+                        Identifier(b) [46-47] [b]
+              GqlMatch [51-103] [MATCH ((b)...account_id]
+                GraphPattern [57-103] [((b) -> (c...account_id]
+                  ParenthesizedGraphPathPattern [57-69] [((b) -> (c))]
+                    GraphNodePattern [58-61] [(b)]
+                      GraphElementPatternFiller [59-60] [b]
+                        Identifier(b) [59-60] [b]
+                    GraphEdgePattern [62-64] [->]
+                    GraphNodePattern [65-68] [(c)]
+                      GraphElementPatternFiller [66-67] [c]
+                        Identifier(c) [66-67] [c]
+                  WhereClause [70-103] [Where a.account_i...account_id]
+                    BinaryExpression(=) [76-103] [a.account_id = c.account_id]
+                      PathExpression [76-88] [a.account_id]
+                        Identifier(a) [76-77] [a]
+                        Identifier(account_id) [78-88] [account_id]
+                      PathExpression [91-103] [c.account_id]
+                        Identifier(c) [91-92] [c]
+                        Identifier(account_id) [93-103] [account_id]
+              GqlMatch [106-133] [MATCH (c IS Account) -> (a)]
+                GraphPattern [112-133] [(c IS Account) -> (a)]
+                  GraphPathPattern [112-133] [(c IS Account) -> (a)]
+                    GraphNodePattern [112-126] [(c IS Account)]
+                      GraphElementPatternFiller [113-125] [c IS Account]
+                        Identifier(c) [113-114] [c]
+                        GraphLabelFilter [115-125] [IS Account]
+                          GraphElementLabel [118-125] [Account]
+                            Identifier(Account) [118-125] [Account]
+                    GraphEdgePattern [127-129] [->]
+                    GraphNodePattern [130-133] [(a)]
+                      GraphElementPatternFiller [131-132] [a]
+                        Identifier(a) [131-132] [a]
+              GqlReturn [136-168] [RETURN SUM...GROUP BY ALL]
+                Select [142-168] [SUM(a), b, c GROUP BY ALL]
+                  SelectList [143-155] [SUM(a), b, c]
+                    SelectColumn [143-149] [SUM(a)]
+                      FunctionCall [143-149] [SUM(a)]
+                        PathExpression [143-146] [SUM]
+                          Identifier(SUM) [143-146] [SUM]
+                        PathExpression [147-148] [a]
+                          Identifier(a) [147-148] [a]
+                    SelectColumn [151-152] [b]
+                      PathExpression [151-152] [b]
+                        Identifier(b) [151-152] [b]
+                    SelectColumn [154-155] [c]
+                      PathExpression [154-155] [c]
+                        Identifier(c) [154-155] [c]
+                  GroupBy [156-168] [GROUP BY ALL]
+                    GroupByAll [165-168] [ALL]
+            GqlOperatorList [178-256] [MATCH (c)...RETURN *]
+              GqlMatch [178-234] [MATCH (c)...t3.amount]
+                GraphPattern [184-234] [(c) -> (a)...t3.amount]
+                  GraphPathPattern [184-194] [(c) -> (a)]
+                    GraphNodePattern [184-187] [(c)]
+                      GraphElementPatternFiller [185-186] [c]
+                        Identifier(c) [185-186] [c]
+                    GraphEdgePattern [188-190] [->]
+                    GraphNodePattern [191-194] [(a)]
+                      GraphElementPatternFiller [192-193] [a]
+                        Identifier(a) [192-193] [a]
+                  WhereClause [195-234] [WHERE t1.amount...t3.amount]
+                    BinaryExpression(=) [201-234] [t1.amount...t3.amount]
+                      BinaryExpression(+) [201-222] [t1.amount + t2.amount]
+                        PathExpression [201-210] [t1.amount]
+                          Identifier(t1) [201-203] [t1]
+                          Identifier(amount) [204-210] [amount]
+                        PathExpression [213-222] [t2.amount]
+                          Identifier(t2) [213-215] [t2]
+                          Identifier(amount) [216-222] [amount]
+                      PathExpression [225-234] [t3.amount]
+                        Identifier(t3) [225-227] [t3]
+                        Identifier(amount) [228-234] [amount]
+              GqlMatch [237-245] [MATCH ()]
+                GraphPattern [243-245] [()]
+                  GraphPathPattern [243-245] [()]
+                    GraphNodePattern [243-245] [()]
+                      GraphElementPatternFiller [244-244] []
+              GqlReturn [248-256] [RETURN *]
+                Select [254-256] [*]
+                  SelectList [255-256] [*]
+                    SelectColumn [255-256] [*]
+                      Star(*) [255-256] [*]
+            GqlOperatorList [266-328] [RETURN DISTINCT...account_id]
+              GqlReturn [266-328] [RETURN DISTINCT...account_id]
+                Select(distinct=true) [272-328] [DISTINCT SUM...account_id]
+                  SelectList [282-306] [SUM(a.account_id) as aid]
+                    SelectColumn [282-306] [SUM(a.account_id) as aid]
+                      FunctionCall [282-299] [SUM(a.account_id)]
+                        PathExpression [282-285] [SUM]
+                          Identifier(SUM) [282-285] [SUM]
+                        PathExpression [286-298] [a.account_id]
+                          Identifier(a) [286-287] [a]
+                          Identifier(account_id) [288-298] [account_id]
+                      Alias [300-306] [as aid]
+                        Identifier(aid) [303-306] [aid]
+                  GroupBy [307-328] [GROUP BY a.account_id]
+                    GroupingItem [316-328] [a.account_id]
+                      PathExpression [316-328] [a.account_id]
+                        Identifier(a) [316-317] [a]
+                        Identifier(account_id) [318-328] [account_id]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+      ->
+      (b)
+    MATCH
+      (
+        (b)
+        ->
+        (c)
+      )
+      WHERE
+        a.account_id = c.account_id
+    MATCH
+      (c
+      IS Account)
+      ->
+      (a)
+    RETURN
+      SUM(a),
+      b,
+      c
+    GROUP BY ALL
+    NEXT
+    MATCH
+      (c)
+      ->
+      (a)
+      WHERE
+        t1.amount + t2.amount = t3.amount
+    MATCH
+      ()
+    RETURN
+      *
+    NEXT
+    RETURN DISTINCT
+      SUM(a.account_id) AS aid
+    GROUP BY a.account_id
+  )
+
+==
+
+# GROUP BY ROLLUP/CUBE/GROUPING SETS, this will be a resolver error as
+# ROLLUP/CUBE/GROUPING SETS will be unsupported for the GQL RETURN clause
+# OVER clause is also unsupported and will be handled in resolver
+select * from graph_table(aml
+  MATCH (a) -> (b)
+  MATCH ((b) -> (c)) Where a.account_id = c.account_id
+  MATCH (c IS Account) -> (a)
+  RETURN GROUPING(a) as x, GROUPING(b) as y, GROUPING(c) as z
+  GROUP BY GROUPING SETS(ROLLUP(a),CUBE(b,c))
+  NEXT
+  MATCH (c) -> (a) WHERE t1.amount + t2.amount = t3.amount
+  MATCH ()
+  RETURN *
+  NEXT
+  RETURN ALL SUM(a.account_id) OVER (PARTITION BY c) as aid GROUP BY ROLLUP((a,b),b,c)
+)
+--
+QueryStatement [0-425] [select * from...,b),b,c) )]
+  Query [0-425] [select * from...,b),b,c) )]
+    Select [0-425] [select * from...,b),b,c) )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-425] [from graph_table...,b),b,c) )]
+        GraphTableQuery [14-425] [graph_table...,b),b,c) )]
+          PathExpression [26-29] [aml]
+            Identifier(aml) [26-29] [aml]
+          GqlOperatorList [32-423] [MATCH (a)...(a,b),b,c)]
+            GqlOperatorList [32-241] [MATCH (a)...CUBE(b,c))]
+              GqlMatch [32-48] [MATCH (a) -> (b)]
+                GraphPattern [38-48] [(a) -> (b)]
+                  GraphPathPattern [38-48] [(a) -> (b)]
+                    GraphNodePattern [38-41] [(a)]
+                      GraphElementPatternFiller [39-40] [a]
+                        Identifier(a) [39-40] [a]
+                    GraphEdgePattern [42-44] [->]
+                    GraphNodePattern [45-48] [(b)]
+                      GraphElementPatternFiller [46-47] [b]
+                        Identifier(b) [46-47] [b]
+              GqlMatch [51-103] [MATCH ((b)...account_id]
+                GraphPattern [57-103] [((b) -> (c...account_id]
+                  ParenthesizedGraphPathPattern [57-69] [((b) -> (c))]
+                    GraphNodePattern [58-61] [(b)]
+                      GraphElementPatternFiller [59-60] [b]
+                        Identifier(b) [59-60] [b]
+                    GraphEdgePattern [62-64] [->]
+                    GraphNodePattern [65-68] [(c)]
+                      GraphElementPatternFiller [66-67] [c]
+                        Identifier(c) [66-67] [c]
+                  WhereClause [70-103] [Where a.account_i...account_id]
+                    BinaryExpression(=) [76-103] [a.account_id = c.account_id]
+                      PathExpression [76-88] [a.account_id]
+                        Identifier(a) [76-77] [a]
+                        Identifier(account_id) [78-88] [account_id]
+                      PathExpression [91-103] [c.account_id]
+                        Identifier(c) [91-92] [c]
+                        Identifier(account_id) [93-103] [account_id]
+              GqlMatch [106-133] [MATCH (c IS Account) -> (a)]
+                GraphPattern [112-133] [(c IS Account) -> (a)]
+                  GraphPathPattern [112-133] [(c IS Account) -> (a)]
+                    GraphNodePattern [112-126] [(c IS Account)]
+                      GraphElementPatternFiller [113-125] [c IS Account]
+                        Identifier(c) [113-114] [c]
+                        GraphLabelFilter [115-125] [IS Account]
+                          GraphElementLabel [118-125] [Account]
+                            Identifier(Account) [118-125] [Account]
+                    GraphEdgePattern [127-129] [->]
+                    GraphNodePattern [130-133] [(a)]
+                      GraphElementPatternFiller [131-132] [a]
+                        Identifier(a) [131-132] [a]
+              GqlReturn [136-241] [RETURN GROUPING...CUBE(b,c))]
+                Select [142-241] [GROUPING(a...CUBE(b,c))]
+                  SelectList [143-195] [GROUPING(a...GROUPING(c) as z]
+                    SelectColumn [143-159] [GROUPING(a) as x]
+                      FunctionCall [143-154] [GROUPING(a)]
+                        PathExpression [143-151] [GROUPING]
+                          Identifier(`GROUPING`) [143-151] [GROUPING]
+                        PathExpression [152-153] [a]
+                          Identifier(a) [152-153] [a]
+                      Alias [155-159] [as x]
+                        Identifier(x) [158-159] [x]
+                    SelectColumn [161-177] [GROUPING(b) as y]
+                      FunctionCall [161-172] [GROUPING(b)]
+                        PathExpression [161-169] [GROUPING]
+                          Identifier(`GROUPING`) [161-169] [GROUPING]
+                        PathExpression [170-171] [b]
+                          Identifier(b) [170-171] [b]
+                      Alias [173-177] [as y]
+                        Identifier(y) [176-177] [y]
+                    SelectColumn [179-195] [GROUPING(c) as z]
+                      FunctionCall [179-190] [GROUPING(c)]
+                        PathExpression [179-187] [GROUPING]
+                          Identifier(`GROUPING`) [179-187] [GROUPING]
+                        PathExpression [188-189] [c]
+                          Identifier(c) [188-189] [c]
+                      Alias [191-195] [as z]
+                        Identifier(z) [194-195] [z]
+                  GroupBy [198-241] [GROUP BY GROUPING...CUBE(b,c))]
+                    GroupingItem [207-241] [GROUPING SETS...CUBE(b,c))]
+                      GroupingSetList [207-241] [GROUPING SETS...CUBE(b,c))]
+                        GroupingSet [221-230] [ROLLUP(a)]
+                          Rollup [221-230] [ROLLUP(a)]
+                            PathExpression [228-229] [a]
+                              Identifier(a) [228-229] [a]
+                        GroupingSet [231-240] [CUBE(b,c)]
+                          Cube [231-240] [CUBE(b,c)]
+                            PathExpression [236-237] [b]
+                              Identifier(b) [236-237] [b]
+                            PathExpression [238-239] [c]
+                              Identifier(c) [238-239] [c]
+            GqlOperatorList [251-329] [MATCH (c)...RETURN *]
+              GqlMatch [251-307] [MATCH (c)...t3.amount]
+                GraphPattern [257-307] [(c) -> (a)...t3.amount]
+                  GraphPathPattern [257-267] [(c) -> (a)]
+                    GraphNodePattern [257-260] [(c)]
+                      GraphElementPatternFiller [258-259] [c]
+                        Identifier(c) [258-259] [c]
+                    GraphEdgePattern [261-263] [->]
+                    GraphNodePattern [264-267] [(a)]
+                      GraphElementPatternFiller [265-266] [a]
+                        Identifier(a) [265-266] [a]
+                  WhereClause [268-307] [WHERE t1.amount...t3.amount]
+                    BinaryExpression(=) [274-307] [t1.amount...t3.amount]
+                      BinaryExpression(+) [274-295] [t1.amount + t2.amount]
+                        PathExpression [274-283] [t1.amount]
+                          Identifier(t1) [274-276] [t1]
+                          Identifier(amount) [277-283] [amount]
+                        PathExpression [286-295] [t2.amount]
+                          Identifier(t2) [286-288] [t2]
+                          Identifier(amount) [289-295] [amount]
+                      PathExpression [298-307] [t3.amount]
+                        Identifier(t3) [298-300] [t3]
+                        Identifier(amount) [301-307] [amount]
+              GqlMatch [310-318] [MATCH ()]
+                GraphPattern [316-318] [()]
+                  GraphPathPattern [316-318] [()]
+                    GraphNodePattern [316-318] [()]
+                      GraphElementPatternFiller [317-317] []
+              GqlReturn [321-329] [RETURN *]
+                Select [327-329] [*]
+                  SelectList [328-329] [*]
+                    SelectColumn [328-329] [*]
+                      Star(*) [328-329] [*]
+            GqlOperatorList [339-423] [RETURN ALL...(a,b),b,c)]
+              GqlReturn [339-423] [RETURN ALL...(a,b),b,c)]
+                Select [345-423] [ALL SUM(a....(a,b),b,c)]
+                  SelectList [350-396] [SUM(a.account_id...c) as aid]
+                    SelectColumn [350-396] [SUM(a.account_id...c) as aid]
+                      AnalyticFunctionCall [350-389] [SUM(a.account_id...ITION BY c)]
+                        FunctionCall [350-367] [SUM(a.account_id)]
+                          PathExpression [350-353] [SUM]
+                            Identifier(SUM) [350-353] [SUM]
+                          PathExpression [354-366] [a.account_id]
+                            Identifier(a) [354-355] [a]
+                            Identifier(account_id) [356-366] [account_id]
+                        WindowSpecification [373-389] [(PARTITION BY c)]
+                          PartitionBy [374-388] [PARTITION BY c]
+                            PathExpression [387-388] [c]
+                              Identifier(c) [387-388] [c]
+                      Alias [390-396] [as aid]
+                        Identifier(aid) [393-396] [aid]
+                  GroupBy [397-423] [GROUP BY ROLLUP((a,b),b,c)]
+                    GroupingItem [406-423] [ROLLUP((a,b),b,c)]
+                      Rollup [406-423] [ROLLUP((a,b),b,c)]
+                        StructConstructorWithParens [413-418] [(a,b)]
+                          PathExpression [414-415] [a]
+                            Identifier(a) [414-415] [a]
+                          PathExpression [416-417] [b]
+                            Identifier(b) [416-417] [b]
+                        PathExpression [419-420] [b]
+                          Identifier(b) [419-420] [b]
+                        PathExpression [421-422] [c]
+                          Identifier(c) [421-422] [c]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+      ->
+      (b)
+    MATCH
+      (
+        (b)
+        ->
+        (c)
+      )
+      WHERE
+        a.account_id = c.account_id
+    MATCH
+      (c
+      IS Account)
+      ->
+      (a)
+    RETURN
+      `GROUPING`(a) AS x,
+      `GROUPING`(b) AS y,
+      `GROUPING`(c) AS z
+    GROUP BY GROUPING SETS(ROLLUP(a), CUBE(b, c))
+    NEXT
+    MATCH
+      (c)
+      ->
+      (a)
+      WHERE
+        t1.amount + t2.amount = t3.amount
+    MATCH
+      ()
+    RETURN
+      *
+    NEXT
+    RETURN
+      SUM(a.account_id) OVER (PARTITION BY c) AS aid
+    GROUP BY ROLLUP((a, b), b, c)
+  )

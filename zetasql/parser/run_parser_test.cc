@@ -26,6 +26,7 @@
 #include "zetasql/base/logging.h"
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/parser/ast_node_kind.h"
+#include "zetasql/parser/bison_parser_mode.h"
 #include "zetasql/parser/deidentify.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_visitor.h"
@@ -72,6 +73,8 @@ ABSL_DECLARE_FLAG(bool, output_asc_explicitly);
 
 namespace zetasql {
 
+using parser::MacroExpansionMode;
+
 class RunParserTest : public ::testing::Test {
  public:  // Pointer-to-member-function usage requires public member functions
   // Valid options in the case cases:
@@ -109,6 +112,9 @@ class RunParserTest : public ::testing::Test {
   // the integer range.
   const std::string kShowParseLocationText = "show_parse_location_text";
 
+  // Controls macro expansion
+  const std::string kMacroExpansionMode = "macro_expansion_mode";
+
   RunParserTest() {
       test_case_options_.RegisterString(kModeOption, "statement");
       test_case_options_.RegisterString(kLanguageFeatures, "");
@@ -123,6 +129,7 @@ class RunParserTest : public ::testing::Test {
       test_case_options_.RegisterString(kSupportedGenericEntityTypes, "");
       test_case_options_.RegisterString(kSupportedGenericSubEntityTypes, "");
       test_case_options_.RegisterBool(kShowParseLocationText, true);
+      test_case_options_.RegisterString(kMacroExpansionMode, "none");
 
       // Force a blank line at the start of every test case.
       absl::SetFlag(&FLAGS_file_based_test_driver_insert_leading_blank_lines,
@@ -256,9 +263,10 @@ class RunParserTest : public ::testing::Test {
     bool next_statement_is_ctas;
     ZETASQL_ASSERT_OK_AND_ASSIGN(ParserOptions guess_parser_options,
                          GetParserOptions());
-    const ASTNodeKind guessed_statement_kind =
-        ParseStatementKind(test_case, guess_parser_options.language_options(),
-                           &next_statement_is_ctas);
+    const ASTNodeKind guessed_statement_kind = ParseStatementKind(
+        test_case, guess_parser_options.language_options(),
+        guess_parser_options.macro_expansion_mode(),
+        guess_parser_options.macro_catalog(), &next_statement_is_ctas);
 
     // Ensure that fetching all properties does not fail.
     parser::ASTStatementProperties ast_statement_properties;
@@ -300,7 +308,8 @@ class RunParserTest : public ::testing::Test {
                            GetParserOptions());
       const ASTNodeKind guessed_statement_kind = ParseNextStatementKind(
           location, ctas_guess_parser_options.language_options(),
-          &next_statement_is_ctas);
+          ctas_guess_parser_options.macro_expansion_mode(),
+          ctas_guess_parser_options.macro_catalog(), &next_statement_is_ctas);
 
       // Ensure that fetching all properties does not fail.
       parser::ASTStatementProperties ast_statement_properties;
@@ -602,7 +611,6 @@ class RunParserTest : public ::testing::Test {
     ZETASQL_ASSIGN_OR_RETURN(LanguageOptions::LanguageFeatureSet features,
                      GetRequiredLanguageFeatures(test_case_options_));
     language_options_->SetEnabledLanguageFeatures(features);
-    language_options_->EnableLanguageFeature(FEATURE_SHADOW_PARSING);
 
     if (test_case_options_.GetBool(kQualifyReserved)) {
       ZETASQL_EXPECT_OK(language_options_->EnableReservableKeyword("QUALIFY"));
@@ -626,9 +634,24 @@ class RunParserTest : public ::testing::Test {
         absl::StrSplit(sub_entity_types_config, ',');
     language_options_->SetSupportedGenericSubEntityTypes(sub_entity_types);
 
+    absl::string_view expansion_mode_str =
+        test_case_options_.GetString(kMacroExpansionMode);
+    if (expansion_mode_str.empty()) {
+      macro_expansion_mode_ = MacroExpansionMode::kNone;
+    } else if (expansion_mode_str == "none") {
+      macro_expansion_mode_ = MacroExpansionMode::kNone;
+    } else if (expansion_mode_str == "lenient") {
+      macro_expansion_mode_ = MacroExpansionMode::kLenient;
+    } else if (expansion_mode_str == "strict") {
+      macro_expansion_mode_ = MacroExpansionMode::kStrict;
+    } else {
+      return absl::InvalidArgumentError(
+          absl::StrCat("Invalid macro expansion mode: ",
+                       test_case_options_.GetString(kMacroExpansionMode)));
+    }
     return ParserOptions(/*id_string_pool=*/nullptr, /*arena=*/nullptr,
                          // ParserOptions wants a copy of LanguageOptions.
-                         *language_options_);
+                         *language_options_, macro_expansion_mode_);
   }
 
   void CheckExtractedStatementProperties(
@@ -843,15 +866,18 @@ class RunParserTest : public ::testing::Test {
                                    absl::string_view unparsed) {
     // The deidentified SQL should be the same independent of how many times it
     // was unparsed or deidentified.
-    ZETASQL_ASSERT_OK_AND_ASSIGN(std::string deidentified_unparsed,
-                         parser::DeidentifySQLIdentifiersAndLiterals(
-                             unparsed, *language_options_));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(auto parser_options1, GetParserOptions());
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        std::string deidentified_unparsed,
+        parser::DeidentifySQLIdentifiersAndLiterals(unparsed, parser_options1));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(auto parser_options2, GetParserOptions());
     ZETASQL_ASSERT_OK_AND_ASSIGN(std::string deidentified_deidentified,
                          parser::DeidentifySQLIdentifiersAndLiterals(
-                             deidentified_unparsed, *language_options_));
+                             deidentified_unparsed, parser_options2));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(auto parser_options3, GetParserOptions());
     ZETASQL_ASSERT_OK_AND_ASSIGN(std::string test_case_deidentified,
                          parser::DeidentifySQLIdentifiersAndLiterals(
-                             test_case, *language_options_));
+                             test_case, parser_options3));
     EXPECT_EQ(deidentified_unparsed, test_case_deidentified);
     EXPECT_EQ(deidentified_deidentified, test_case_deidentified);
   }
@@ -929,6 +955,7 @@ class RunParserTest : public ::testing::Test {
 
   file_based_test_driver::TestCaseOptions test_case_options_;
   std::unique_ptr<LanguageOptions> language_options_;
+  MacroExpansionMode macro_expansion_mode_;
 };
 
 TEST_F(RunParserTest, ParseQueries) {

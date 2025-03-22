@@ -68,7 +68,7 @@ if multiple such tables match the given label expression.
 In the following example, `n` represents a graph element in the
 [`FinGraph`][fin-graph] property graph:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (n:Person)
 RETURN n.name

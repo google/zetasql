@@ -74,15 +74,21 @@ namespace zetasql {
 // position points at the middle token, this function tries to extract the
 // leftmost position of a child node instead.  For example, for "abc=def",
 // this will point at 'a' rather than '='.
+//
+// If <use_end_location>, then it will use the end location instead of the start
+// location for <ast_node> as well as any child nodes if
+// <include_leftmost_child> is true.
 ParseLocationPoint GetErrorLocationPoint(const ASTNode* ast_node,
-                                         bool include_leftmost_child);
+                                         bool include_leftmost_child,
+                                         bool use_end_location = false);
 
 // Returns MakeSqlError() annotated with the error location for <ast_node>.
 // See GetErrorLocationPoint() for the meaning of <include_leftmost_child>.
 inline ::zetasql_base::StatusBuilder MakeSqlErrorAtNode(const ASTNode* ast_node,
-                                                bool include_leftmost_child) {
+                                                bool include_leftmost_child,
+                                                bool use_end_location = false) {
   return MakeSqlError().AttachPayload(
-      GetErrorLocationPoint(ast_node, include_leftmost_child)
+      GetErrorLocationPoint(ast_node, include_leftmost_child, use_end_location)
           .ToInternalErrorLocation());
 }
 
@@ -91,6 +97,10 @@ inline ::zetasql_base::StatusBuilder MakeSqlErrorAtNode(const ASTNode* ast_node,
 // of "leftmost child".
 inline ::zetasql_base::StatusBuilder MakeSqlErrorAt(const ASTNode* ast_node) {
   return MakeSqlErrorAtNode(ast_node, /*include_leftmost_child=*/true);
+}
+inline ::zetasql_base::StatusBuilder MakeSqlErrorAtEnd(const ASTNode* ast_node) {
+  return MakeSqlErrorAtNode(ast_node, /*include_leftmost_child=*/true,
+                            /*use_end_location=*/true);
 }
 inline ::zetasql_base::StatusBuilder MakeSqlErrorAt(const ASTNode& ast_node) {
   return MakeSqlErrorAt(&ast_node);

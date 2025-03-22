@@ -12,14 +12,14 @@ ZetaSQL. For syntax, see the [differential privacy clause][dp-clause].
 For a list of functions that you can use with this syntax, see
 [differentially private aggregate functions][dp-functions].
 
-Note: In this topic, the privacy parameters in the examples are not
+Note: In this topic, the privacy parameters in the examples aren't
 recommendations. You should work with your privacy or security officer to
 determine the optimal privacy parameters for your dataset and organization.
 
 ## What is differential privacy?
 
 Differential privacy is a standard for computations on data that limits the
-personal information that is revealed by an output. Differential privacy is
+personal information that's revealed by an output. Differential privacy is
 commonly used to share data and to allow inferences about groups of people
 while preventing someone from learning information about an individual.
 
@@ -80,7 +80,7 @@ the following:
     a `GROUP BY` clause. Limits the number of groups each entity can
     contribute to, based on the `kappa` or `max_groups_contributed` differential privacy parameter.
 1.  [Clamps][dp-clamping] each per-entity aggregate contribution to be within
-    the clamping bounds. If the clamping bounds are not specified, they are
+    the clamping bounds. If the clamping bounds aren't specified, they are
     implicitly calculated in a differentially private way.
 1.  Aggregates the clamped per-entity aggregate contributions for each group.
 1.  Adds noise to the final aggregate value for each group. The scale of
@@ -123,7 +123,7 @@ valid:
 ## Define a privacy unit column 
 <a id="dp_define_privacy_unit_id"></a>
 
-A privacy unit is the entity in a dataset that is being protected, using
+A privacy unit is the entity in a dataset that's being protected, using
 differential privacy. An entity can be an individual, a company, a location,
 or any column that you choose.
 
@@ -143,7 +143,7 @@ In the following example, a privacy unit column,
 `anonymization_userid_column='id'`, is added to a view. `id` represents a
 privacy unit column in a table called `students`.
 
-```sql
+```zetasql
 CREATE OR REPLACE VIEW view_on_students
 OPTIONS(anonymization_userid_column='id')
 AS (SELECT * FROM students);
@@ -153,7 +153,7 @@ In the following examples, a privacy unit column is added to a
 differential privacy clause. `id` represents a column that originates from a
 table called `students`.
 
-```sql
+```zetasql
 SELECT WITH DIFFERENTIAL_PRIVACY
   OPTIONS (epsilon=10, delta=.01, privacy_unit_column=id)
   item,
@@ -161,7 +161,7 @@ SELECT WITH DIFFERENTIAL_PRIVACY
 FROM students;
 ```
 
-```sql
+```zetasql
 SELECT WITH DIFFERENTIAL_PRIVACY
   OPTIONS (epsilon=10, delta=.01, privacy_unit_column=members.id)
   item,
@@ -176,7 +176,7 @@ privacy unit column and so does
 `FROM` clause rules, see [Review `FROM` clause rules for differentially private
 table expressions][dp-from-rules].
 
-```sql {.bad}
+```zetasql {.bad}
 -- This produces an error
 SELECT WITH DIFFERENTIAL_PRIVACY
   OPTIONS(epsilon=10, delta=.01, max_groups_contributed=2)
@@ -211,7 +211,7 @@ This section describes limitations of differential privacy.
 
 If a query contains a
 differential privacy clause and the
-privacy unit column is not defined in that clause, these rules apply:
+privacy unit column isn't defined in that clause, these rules apply:
 
 + The query must contain at least one table expression or table path in the
   `FROM` clause that has a defined privacy unit column. The
@@ -228,7 +228,7 @@ privacy unit column is not defined in that clause, these rules apply:
   privacy unit column name in the join predicate or an error
   is returned.
 + Cross joins are disallowed between two differentially private
-  table expressions, since they are not joined on the privacy unit column.
+  table expressions, since they aren't joined on the privacy unit column.
 
 ### Performance implications of differential privacy
 
@@ -237,9 +237,9 @@ because per-entity aggregation is performed and the `kappa` or `max_groups_contr
 is applied. Limiting contribution bounds can help improve the performance of
 your differentially private queries.
 
-The performance profiles of the following queries are not similar:
+The performance profiles of the following queries aren't similar:
 
-```sql
+```zetasql
 SELECT
   WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1, delta=1e-10, privacy_unit_column=id)
   column_a, COUNT(column_b)
@@ -247,7 +247,7 @@ FROM table_a
 GROUP BY column_a;
 ```
 
-```sql
+```zetasql
 SELECT column_a, COUNT(column_b)
 FROM table_a
 GROUP BY column_a;
@@ -261,7 +261,7 @@ performed.
 The performance profiles of the following queries should be similar,
 although the differentially private query is slightly slower:
 
-```sql
+```zetasql
 SELECT
   WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1, delta=1e-10, privacy_unit_column=id)
   column_a, COUNT(column_b)
@@ -269,7 +269,7 @@ FROM table_a
 GROUP BY column_a;
 ```
 
-```sql
+```zetasql
 SELECT column_a, id, COUNT(column_b)
 FROM table_a
 GROUP BY column_a, id;
@@ -300,7 +300,7 @@ basic statistics like sums, due to arithmetic limitations.
 <a id="privacy_guarantees"></a>
 
 While ZetaSQL differential privacy applies the
-[differential privacy algorithm][dp-paper]{: .external}, it does not make a
+[differential privacy algorithm][dp-paper]{: .external}, it doesn't make a
 guarantee regarding the privacy properties of the resulting dataset.
 
 #### Runtime errors
@@ -318,7 +318,7 @@ control some of the contents of a dataset or the order of contents in a dataset.
 Differentially private noise additions on floating-point data types are subject
 to the vulnerabilities described in [Widespread Underestimation of Sensitivity
 in Differentially Private Libraries and How to Fix It][dp-vulnerabilities]{: .external}.
-Noise additions on integer data types are not subject to the vulnerabilities
+Noise additions on integer data types aren't subject to the vulnerabilities
 described in the paper.
 
 #### Timing attack risks

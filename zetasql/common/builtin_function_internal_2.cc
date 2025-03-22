@@ -29,10 +29,12 @@
 #include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
 #include "zetasql/public/function_signature.h"
+#include "zetasql/public/functions/bitwise_agg_mode.pb.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/type.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
@@ -48,6 +50,11 @@
 namespace zetasql {
 
 class AnalyzerOptions;
+
+static FunctionSignatureOptions SetRewriter(ResolvedASTRewrite rewriter) {
+  return FunctionSignatureOptions().set_rewrite_options(
+      FunctionSignatureRewriteOptions().set_rewriter(rewriter));
+}
 
 template <typename ArgumentType>
 static bool AllArgumentsHaveType(const std::vector<ArgumentType>& arguments) {
@@ -581,6 +588,25 @@ std::string NoLiteralOrParameterString(
   return "";
 }
 
+FunctionOptions SetDateAddSubFunctionOptions(
+    const ZetaSQLBuiltinFunctionOptions& options,
+    absl::string_view function_name, absl::string_view alias_name) {
+  FunctionOptions function_options;
+  function_options
+      .set_no_matching_signature_callback(
+          &NoMatchingSignatureForDateOrTimeAddOrSubFunction)
+      .set_pre_resolution_argument_constraint(
+          absl::bind_front(&CheckDateDatetimeTimestampAddSubArguments,
+                           std::string(function_name)))
+      .set_get_sql_callback(absl::bind_front(&DateAddOrSubFunctionSQL,
+                                             std::string(function_name)));
+  if (options.language_options.LanguageFeatureEnabled(
+          FEATURE_V_1_4_ALIASES_FOR_STRING_AND_DATE_FUNCTIONS)) {
+    function_options.set_alias_name(alias_name);
+  }
+  return function_options;
+}
+
 void GetDatetimeAddSubFunctions(TypeFactory* type_factory,
                                 const ZetaSQLBuiltinFunctionOptions& options,
                                 NameToFunctionMap* functions) {
@@ -616,13 +642,7 @@ void GetDatetimeAddSubFunctions(TypeFactory* type_factory,
            FN_TIMESTAMP_ADD,
            extended_datetime_signatures},
       },
-      FunctionOptions()
-          .set_no_matching_signature_callback(
-              &NoMatchingSignatureForDateOrTimeAddOrSubFunction)
-          .set_pre_resolution_argument_constraint(absl::bind_front(
-              &CheckDateDatetimeTimestampAddSubArguments, "DATE_ADD"))
-          .set_get_sql_callback(
-              absl::bind_front(&DateAddOrSubFunctionSQL, "DATE_ADD")));
+      SetDateAddSubFunctionOptions(options, "DATE_ADD", "adddate"));
 
   InsertFunction(
       functions, options, "datetime_add", SCALAR,
@@ -688,13 +708,7 @@ void GetDatetimeAddSubFunctions(TypeFactory* type_factory,
            FN_TIMESTAMP_SUB,
            extended_datetime_signatures},
       },
-      FunctionOptions()
-          .set_no_matching_signature_callback(
-              &NoMatchingSignatureForDateOrTimeAddOrSubFunction)
-          .set_pre_resolution_argument_constraint(absl::bind_front(
-              &CheckDateDatetimeTimestampAddSubArguments, "DATE_SUB"))
-          .set_get_sql_callback(
-              absl::bind_front(&DateAddOrSubFunctionSQL, "DATE_SUB")));
+      SetDateAddSubFunctionOptions(options, "DATE_SUB", "subdate"));
 
   InsertFunction(
       functions, options, "datetime_sub", SCALAR,
@@ -1112,6 +1126,9 @@ void GetIntervalFunctions(TypeFactory* type_factory,
 
   InsertFunction(functions, options, "justify_interval", SCALAR,
                  {{interval_type, {interval_type}, FN_JUSTIFY_INTERVAL}});
+
+  InsertFunction(functions, options, "to_seconds_interval", SCALAR,
+                 {{interval_type, {interval_type}, FN_TO_SECONDS_INTERVAL}});
 }
 
 void GetArithmeticFunctions(TypeFactory* type_factory,
@@ -1502,27 +1519,51 @@ void GetAggregateFunctions(TypeFactory* type_factory,
                   {interval_type, {interval_type}, FN_AVG_INTERVAL}},
                  DefaultAggregateFunctionOptions());
 
+  const Type* bitwise_agg_mode_type = types::BitwiseAggModeEnumType();
+  const FunctionArgumentType bitwise_agg_mode_arg(
+      bitwise_agg_mode_type,
+      FunctionArgumentTypeOptions(FunctionArgumentType::OPTIONAL)
+          .set_default(
+              Value::Enum(bitwise_agg_mode_type->AsEnum(),
+                          static_cast<int>(functions::BitwiseAggEnums::STRICT)))
+          .set_argument_name("mode", kNamedOnly));
+
+  const FunctionSignatureOptions bitwise_agg_bytes_options =
+      FunctionSignatureOptions().AddRequiredLanguageFeature(
+          FEATURE_V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES);
+
   InsertFunction(functions, options, "bit_and", AGGREGATE,
                  {{int32_type, {int32_type}, FN_BIT_AND_INT32},
                   {int64_type, {int64_type}, FN_BIT_AND_INT64},
                   {uint32_type, {uint32_type}, FN_BIT_AND_UINT32},
-                  {uint64_type, {uint64_type}, FN_BIT_AND_UINT64}},
+                  {uint64_type, {uint64_type}, FN_BIT_AND_UINT64},
+                  {bytes_type,
+                   {bytes_type, bitwise_agg_mode_arg},
+                   FN_BIT_AND_BYTES,
+                   bitwise_agg_bytes_options}},
                  DefaultAggregateFunctionOptions());
 
   InsertFunction(functions, options, "bit_or", AGGREGATE,
                  {{int32_type, {int32_type}, FN_BIT_OR_INT32},
                   {int64_type, {int64_type}, FN_BIT_OR_INT64},
                   {uint32_type, {uint32_type}, FN_BIT_OR_UINT32},
-                  {uint64_type, {uint64_type}, FN_BIT_OR_UINT64}},
+                  {uint64_type, {uint64_type}, FN_BIT_OR_UINT64},
+                  {bytes_type,
+                   {bytes_type, bitwise_agg_mode_arg},
+                   FN_BIT_OR_BYTES,
+                   bitwise_agg_bytes_options}},
                  DefaultAggregateFunctionOptions());
 
   InsertFunction(functions, options, "bit_xor", AGGREGATE,
                  {{int32_type, {int32_type}, FN_BIT_XOR_INT32},
                   {int64_type, {int64_type}, FN_BIT_XOR_INT64},
                   {uint32_type, {uint32_type}, FN_BIT_XOR_UINT32},
-                  {uint64_type, {uint64_type}, FN_BIT_XOR_UINT64}},
+                  {uint64_type, {uint64_type}, FN_BIT_XOR_UINT64},
+                  {bytes_type,
+                   {bytes_type, bitwise_agg_mode_arg},
+                   FN_BIT_XOR_BYTES,
+                   bitwise_agg_bytes_options}},
                  DefaultAggregateFunctionOptions());
-
   InsertFunction(functions, options, "logical_and", AGGREGATE,
                  {{bool_type, {bool_type}, FN_LOGICAL_AND}},
                  DefaultAggregateFunctionOptions());
@@ -1564,7 +1605,8 @@ void GetAggregateFunctions(TypeFactory* type_factory,
             .set_supports_distinct_modifier(false)
             .set_supports_window_framing(false)
             .set_window_ordering_support(FunctionOptions::ORDER_UNSUPPORTED)
-            .set_supports_having_modifier(false));
+            .set_supports_having_modifier(false)
+            .set_supports_group_by_modifier(false));
   }
 
   FunctionArgumentTypeOptions non_null_non_agg;
@@ -1880,6 +1922,7 @@ void GetStatisticalFunctions(TypeFactory* type_factory,
 void GetAnalyticFunctions(TypeFactory* type_factory,
                           const ZetaSQLBuiltinFunctionOptions& options,
                           NameToFunctionMap* functions) {
+  const Type* bool_type = type_factory->get_bool();
   const Type* int64_type = type_factory->get_int64();
   const Type* double_type = type_factory->get_double();
   const Function::Mode ANALYTIC = Function::ANALYTIC;
@@ -1935,6 +1978,22 @@ void GetAnalyticFunctions(TypeFactory* type_factory,
   InsertSimpleFunction(functions, options, "row_number", ANALYTIC,
                        {{int64_type, {}, FN_ROW_NUMBER}},
                        optional_order_disallowed_frame);
+
+  FunctionArgumentType is_first_arg(
+      int64_type, FunctionArgumentTypeOptions().set_must_be_constant(true));
+
+  InsertFunction(functions, options, "is_first", ANALYTIC,
+                 {{bool_type,
+                   {{is_first_arg}},
+                   FN_IS_FIRST,
+                   SetRewriter(REWRITE_IS_FIRST_IS_LAST_FUNCTION)}},
+                 optional_order_disallowed_frame);
+  InsertFunction(functions, options, "is_last", ANALYTIC,
+                 {{bool_type,
+                   {{is_first_arg}},
+                   FN_IS_LAST,
+                   SetRewriter(REWRITE_IS_FIRST_IS_LAST_FUNCTION)}},
+                 optional_order_disallowed_frame);
 
   // The optional arguments will be populated in the resolved tree.
   // The second offset argument defaults to 1, and the third default

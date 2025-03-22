@@ -1,14 +1,26 @@
 [default language_features=V_1_4_CORRESPONDING_FULL]
 [default no_show_resolved_ast]
-
-[default show_unparsed]
+[default show_sqlbuilder_output]
 
 # Basic STRICT.
 SELECT 1 AS B, 4 AS A
 UNION ALL STRICT CORRESPONDING
 SELECT 2 AS a, 3 AS b
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+(
+SELECT
+  1 AS B,
+  4 AS A
+) UNION ALL STRICT CORRESPONDING(
+SELECT
+  2 AS A,
+  3 AS B
+);
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 (
 SELECT
   1 AS B,
@@ -27,7 +39,8 @@ SELECT int64, float, int32 FROM SimpleTypes
 UNION ALL STRICT CORRESPONDING
 SELECT int64, int32, float FROM SimpleTypes
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 (
 SELECT
   SimpleTypes.int32 AS int32,
@@ -63,6 +76,41 @@ FROM
     FROM
       SimpleTypes
   ) AS simpletypes_14
+);
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+(
+FROM
+  SimpleTypes
+|> SELECT
+     SimpleTypes.int32 AS int32,
+     SimpleTypes.int64 AS int64,
+     SimpleTypes.float AS float
+) UNION ALL STRICT CORRESPONDING(
+FROM
+  SimpleTypes
+|> SELECT
+     SimpleTypes.int32 AS a_7,
+     SimpleTypes.int64 AS a_8,
+     SimpleTypes.float AS a_9
+|> AS simpletypes_10
+|> SELECT
+     simpletypes_10.a_8 AS int64,
+     simpletypes_10.a_9 AS float,
+     simpletypes_10.a_7 AS int32
+) UNION ALL STRICT CORRESPONDING(
+FROM
+  SimpleTypes
+|> SELECT
+     SimpleTypes.int32 AS a_11,
+     SimpleTypes.int64 AS a_12,
+     SimpleTypes.float AS a_13
+|> AS simpletypes_14
+|> SELECT
+     simpletypes_14.a_12 AS int64,
+     simpletypes_14.a_11 AS int32,
+     simpletypes_14.a_13 AS float
 );
 ==
 
@@ -112,7 +160,8 @@ QueryStmt
     |   +-output_column_list=SimpleTypes.[int64#23, int64#23, int32#22]
     +-column_match_mode=CORRESPONDING
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 (
 SELECT
   CAST(aggregatescan_9.a_7 AS INT64) AS a,
@@ -147,6 +196,38 @@ FROM
       SimpleTypes
   ) AS simpletypes_13
 );
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+(
+FROM
+  SimpleTypes
+|> SELECT
+     SimpleTypes.int32 AS a_4,
+     SimpleTypes.int64 AS a_5
+|> AS simpletypes_6
+|> EXTEND
+     simpletypes_6.a_4 AS a_7,
+     simpletypes_6.a_5 AS a_8
+|> AGGREGATE
+   GROUP BY a_7, a_8
+|> AS aggregatescan_9
+|> SELECT
+     CAST(aggregatescan_9.a_7 AS INT64) AS a,
+     aggregatescan_9.a_8 AS int64,
+     aggregatescan_9.a_7 AS b
+) UNION ALL STRICT CORRESPONDING(
+FROM
+  SimpleTypes
+|> SELECT
+     SimpleTypes.int32 AS a_11,
+     SimpleTypes.int64 AS a_12
+|> AS simpletypes_13
+|> SELECT
+     simpletypes_13.a_11 AS b,
+     simpletypes_13.a_12 AS a,
+     simpletypes_13.a_12 AS int64
+);
 ==
 
 # Duplicate column ids in the first query. Alias order is preserved.
@@ -158,7 +239,8 @@ UNION ALL STRICT CORRESPONDING
 SELECT 1 AS col4, 2 AS COL3, 3 AS COL2, 4 AS COL1
 
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 (
 SELECT
   projectscan_7.a_5 AS col1,
@@ -178,6 +260,26 @@ SELECT
   3 AS col2,
   4 AS col1
 );
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+(
+SELECT
+  1 AS a_5,
+  2 AS a_6
+|> AS projectscan_7
+|> SELECT
+     projectscan_7.a_5 AS col1,
+     projectscan_7.a_5 AS col2,
+     projectscan_7.a_6 AS col3,
+     projectscan_7.a_5 AS col4
+) UNION ALL STRICT CORRESPONDING(
+SELECT
+  1 AS col4,
+  2 AS col3,
+  3 AS col2,
+  4 AS col1
+);
 ==
 
 # Duplicate column ids in the 2nd scan. Alias order is not guaranteed to be
@@ -189,7 +291,8 @@ FROM (
   SELECT 2 AS col
 )
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 (
 SELECT
   1 AS a,
@@ -203,6 +306,21 @@ FROM
     SELECT
       2 AS a_5
   ) AS projectscan_6
+);
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+(
+SELECT
+  1 AS a,
+  2 AS b
+) UNION ALL STRICT CORRESPONDING(
+SELECT
+  2 AS a_5
+|> AS projectscan_6
+|> SELECT
+     projectscan_6.a_5 AS a,
+     projectscan_6.a_5 AS b
 );
 ==
 
@@ -246,7 +364,8 @@ QueryStmt
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=INNER
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 (
 SELECT
   simpletypes_6.a_5 AS a,
@@ -281,6 +400,38 @@ FROM
     GROUP BY 1, 2
   ) AS aggregatescan_13
 );
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+(
+FROM
+  SimpleTypes
+|> SELECT
+     SimpleTypes.int32 AS a_4,
+     SimpleTypes.int64 AS a_5
+|> AS simpletypes_6
+|> SELECT
+     simpletypes_6.a_5 AS a,
+     simpletypes_6.a_4 AS b,
+     simpletypes_6.a_4 AS c
+) EXCEPT DISTINCT CORRESPONDING(
+FROM
+  SimpleTypes
+|> SELECT
+     SimpleTypes.int32 AS a_8,
+     SimpleTypes.int64 AS a_9
+|> AS simpletypes_10
+|> EXTEND
+     simpletypes_10.a_9 AS a_11,
+     simpletypes_10.a_8 AS a_12
+|> AGGREGATE
+   GROUP BY a_11, a_12
+|> AS aggregatescan_13
+|> SELECT
+     aggregatescan_13.a_11 AS a,
+     aggregatescan_13.a_12 AS b,
+     aggregatescan_13.a_12 AS c
+);
 ==
 
 # STRICT CORRESPONDING as an input to BY_POSITION
@@ -291,7 +442,8 @@ UNION ALL (
   SELECT int64, int32 FROM SimpleTypes
 )
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 (
 SELECT
   SimpleTypes.int32 AS int32,
@@ -317,6 +469,32 @@ FROM
       SimpleTypes
   ) AS simpletypes_9
 ));
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+(
+FROM
+  SimpleTypes
+|> SELECT
+     SimpleTypes.int32 AS int32,
+     SimpleTypes.int64 AS int64
+) UNION ALL((
+FROM
+  SimpleTypes
+|> SELECT
+     SimpleTypes.int32 AS a_3,
+     SimpleTypes.int64 AS a_4
+) UNION ALL STRICT CORRESPONDING(
+FROM
+  SimpleTypes
+|> SELECT
+     SimpleTypes.int32 AS a_7,
+     SimpleTypes.int64 AS a_8
+|> AS simpletypes_9
+|> SELECT
+     simpletypes_9.a_8 AS a_4,
+     simpletypes_9.a_7 AS a_3
+));
 ==
 
 # STRICT CORRESPONDING as an input to BY_POSITION
@@ -328,7 +506,8 @@ FROM
 UNION ALL
 SELECT int32, int64 FROM SimpleTypes
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 (
 SELECT
   setoperationscan_8.a_1 AS int64,
@@ -367,6 +546,41 @@ FROM
       SimpleTypes
   ) AS projectscan_12
 );
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+((
+FROM
+  SimpleTypes
+|> SELECT
+     SimpleTypes.int32 AS a_3,
+     SimpleTypes.int64 AS a_4
+|> AS simpletypes_5
+|> SELECT
+     simpletypes_5.a_4 AS a_1,
+     simpletypes_5.a_3 AS a_2
+) UNION ALL STRICT CORRESPONDING(
+FROM
+  SimpleTypes
+|> SELECT
+     SimpleTypes.int32 AS a_2,
+     SimpleTypes.int64 AS a_1
+)
+|> AS setoperationscan_8
+|> SELECT
+     setoperationscan_8.a_1 AS int64,
+     CAST(setoperationscan_8.a_2 AS INT64) AS int32
+) UNION ALL(
+FROM
+  SimpleTypes
+|> SELECT
+     SimpleTypes.int32 AS a_10,
+     SimpleTypes.int64 AS a_11
+|> AS projectscan_12
+|> SELECT
+     CAST(projectscan_12.a_10 AS INT64) AS a_13,
+     projectscan_12.a_11 AS a_11
+);
 ==
 
 # STRICT CORRESPONDING as an input to CORRESPONDING
@@ -377,7 +591,8 @@ UNION ALL CORRESPONDING (
   SELECT int64, int32 FROM SimpleTypes
 )
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 (
 SELECT
   SimpleTypes.int32 AS int32
@@ -402,6 +617,31 @@ FROM
       SimpleTypes
   ) AS simpletypes_9
 ));
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+(
+FROM
+  SimpleTypes
+|> SELECT
+     SimpleTypes.int32 AS int32
+) UNION ALL CORRESPONDING((
+FROM
+  SimpleTypes
+|> SELECT
+     SimpleTypes.int32 AS int32,
+     SimpleTypes.int64 AS a_4
+) UNION ALL CORRESPONDING(
+FROM
+  SimpleTypes
+|> SELECT
+     SimpleTypes.int32 AS a_7,
+     SimpleTypes.int64 AS a_8
+|> AS simpletypes_9
+|> SELECT
+     simpletypes_9.a_8 AS a_4,
+     simpletypes_9.a_7 AS int32
+));
 ==
 
 # STRICT CORRESPONDING as an input to CORRESPONDING.
@@ -414,7 +654,8 @@ UNION ALL STRICT CORRESPONDING
 SELECT int32, int64 FROM SimpleTypes
 
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 ((
 SELECT
   SimpleTypes.int32 AS int32,
@@ -440,6 +681,32 @@ SELECT
 FROM
   SimpleTypes
 );
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+((
+FROM
+  SimpleTypes
+|> SELECT
+     SimpleTypes.int32 AS int32,
+     SimpleTypes.int64 AS int64
+) UNION ALL CORRESPONDING(
+FROM
+  SimpleTypes
+|> SELECT
+     SimpleTypes.int32 AS a_7,
+     SimpleTypes.int64 AS a_8
+|> AS simpletypes_9
+|> SELECT
+     simpletypes_9.a_8 AS int64,
+     simpletypes_9.a_7 AS int32
+)) UNION ALL STRICT CORRESPONDING(
+FROM
+  SimpleTypes
+|> SELECT
+     SimpleTypes.int32 AS int32,
+     SimpleTypes.int64 AS int64
+);
 ==
 
 # BY_POSITION as an input to STRICT CORRESPONDING
@@ -452,7 +719,8 @@ UNION ALL STRICT CORRESPONDING
 SELECT int64, int32 FROM SimpleTypes
 
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 ((
 SELECT
   CAST(projectscan_5.a_3 AS INT64) AS int32,
@@ -502,6 +770,48 @@ FROM
       ) AS simpletypes_14
   ) AS projectscan_15
 );
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+((
+FROM
+  SimpleTypes
+|> SELECT
+     SimpleTypes.int32 AS a_3,
+     SimpleTypes.int64 AS a_4
+|> AS projectscan_5
+|> SELECT
+     CAST(projectscan_5.a_3 AS INT64) AS int32,
+     projectscan_5.a_4 AS int64
+) UNION ALL(
+FROM
+  SimpleTypes
+|> SELECT
+     SimpleTypes.int32 AS a_7,
+     SimpleTypes.int64 AS a_8
+|> AS simpletypes_9
+|> SELECT
+     simpletypes_9.a_8 AS a_8,
+     simpletypes_9.a_7 AS a_7
+|> AS projectscan_10
+|> SELECT
+     projectscan_10.a_8 AS a_8,
+     CAST(projectscan_10.a_7 AS INT64) AS a_11
+)) UNION ALL STRICT CORRESPONDING(
+FROM
+  SimpleTypes
+|> SELECT
+     SimpleTypes.int32 AS a_12,
+     SimpleTypes.int64 AS a_13
+|> AS simpletypes_14
+|> SELECT
+     simpletypes_14.a_13 AS a_13,
+     simpletypes_14.a_12 AS a_12
+|> AS projectscan_15
+|> SELECT
+     projectscan_15.a_13 AS int64,
+     CAST(projectscan_15.a_12 AS INT64) AS int32
+);
 ==
 
 # BY_POSITION as an input to STRICT CORRESPONDING
@@ -513,7 +823,8 @@ UNION ALL STRICT CORRESPONDING
   SELECT int64, int32 FROM SimpleTypes
 )
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 (
 SELECT
   projectscan_6.a_4 AS int64,
@@ -562,6 +873,48 @@ FROM
           SimpleTypes
       ) AS simpletypes_14
   ) AS projectscan_15
+));
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+(
+FROM
+  SimpleTypes
+|> SELECT
+     SimpleTypes.int32 AS a_3,
+     SimpleTypes.int64 AS a_4
+|> AS simpletypes_5
+|> SELECT
+     simpletypes_5.a_4 AS a_4,
+     simpletypes_5.a_3 AS a_3
+|> AS projectscan_6
+|> SELECT
+     projectscan_6.a_4 AS int64,
+     CAST(projectscan_6.a_3 AS INT64) AS int32
+) UNION ALL STRICT CORRESPONDING((
+FROM
+  SimpleTypes
+|> SELECT
+     SimpleTypes.int32 AS a_8,
+     SimpleTypes.int64 AS a_9
+|> AS projectscan_10
+|> SELECT
+     CAST(projectscan_10.a_8 AS INT64) AS int32,
+     projectscan_10.a_9 AS int64
+) UNION ALL(
+FROM
+  SimpleTypes
+|> SELECT
+     SimpleTypes.int32 AS a_12,
+     SimpleTypes.int64 AS a_13
+|> AS simpletypes_14
+|> SELECT
+     simpletypes_14.a_13 AS a_13,
+     simpletypes_14.a_12 AS a_12
+|> AS projectscan_15
+|> SELECT
+     projectscan_15.a_13 AS a_13,
+     CAST(projectscan_15.a_12 AS INT64) AS a_16
 ));
 ==
 
@@ -614,7 +967,8 @@ QueryStmt
     |   +-output_column_list=[$union_all2_cast.int32#42, SimpleTypes.double#28]
     +-column_match_mode=CORRESPONDING
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 (
 SELECT
   projectscan_6.a_3 AS a,
@@ -650,4 +1004,35 @@ FROM
           SimpleTypes
       ) AS simpletypes_10
   ) AS projectscan_11
+);
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+(
+FROM
+  SimpleTypes
+|> SELECT
+     SimpleTypes.int64 AS a_3
+|> AS simpletypes_4
+|> SELECT
+     simpletypes_4.a_3 AS a_3,
+     simpletypes_4.a_3 AS a_5
+|> AS projectscan_6
+|> SELECT
+     projectscan_6.a_3 AS a,
+     CAST(projectscan_6.a_3 AS DOUBLE) AS b
+) UNION ALL STRICT CORRESPONDING(
+FROM
+  SimpleTypes
+|> SELECT
+     SimpleTypes.int32 AS a_8,
+     SimpleTypes.double AS a_9
+|> AS simpletypes_10
+|> SELECT
+     simpletypes_10.a_9 AS a_9,
+     simpletypes_10.a_8 AS a_8
+|> AS projectscan_11
+|> SELECT
+     projectscan_11.a_9 AS b,
+     CAST(projectscan_11.a_8 AS INT64) AS a
 );

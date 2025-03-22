@@ -19,6 +19,7 @@
 
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -139,7 +140,8 @@ class SimpleGraphNodeTable : public GraphNodeTable {
       const Table* input_table, const std::vector<int>& key_cols,
       const absl::flat_hash_set<const GraphElementLabel*>& labels,
       std::vector<std::unique_ptr<const GraphPropertyDefinition>>
-          property_definitions);
+          property_definitions
+  );
 
   ~SimpleGraphNodeTable() override;
 
@@ -194,7 +196,8 @@ class SimpleGraphEdgeTable : public GraphEdgeTable {
       std::vector<std::unique_ptr<const GraphPropertyDefinition>>
           property_definitions,
       std::unique_ptr<const GraphNodeTableReference> source_node,
-      std::unique_ptr<const GraphNodeTableReference> destination_node);
+      std::unique_ptr<const GraphNodeTableReference> destination_node
+  );
 
   ~SimpleGraphEdgeTable() override;
 
@@ -393,8 +396,7 @@ class SimpleGraphPropertyDefinition : public GraphPropertyDefinition {
   // TODO: remove this field once we are able to store unique_ptrs on
   // the AnalyzerOutput.
   const ResolvedExpr* resolved_expr_;
-  friend void InternalSetResolvedExpr(SimpleGraphPropertyDefinition* def,
-                                      const ResolvedExpr* resolved_expr);
+  friend class InternalPropertyGraph;
 };
 }  // namespace zetasql
 

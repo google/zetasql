@@ -34,7 +34,6 @@
 namespace zetasql {
 
 class LanguageOptions;
-class TypeFactory;
 class TypeParameterValue;
 class TypeParameters;
 class ValueContent;
@@ -71,6 +70,8 @@ class RangeType : public ListBackedType {
   absl::StatusOr<std::string> TypeNameWithModifiers(
       const TypeModifiers& type_modifiers, ProductMode mode) const override;
 
+  std::string CapitalizedName() const override;
+
   bool IsSupportedType(const LanguageOptions& language_options) const override;
 
   int nesting_depth() const override {
@@ -93,7 +94,7 @@ class RangeType : public ListBackedType {
       const FormatValueContentOptions& options) const override;
 
  private:
-  RangeType(const TypeFactory* factory, const Type* element_type);
+  RangeType(const TypeFactoryBase* factory, const Type* element_type);
   ~RangeType() override;
 
   // Helper function for determining if a type kind is a supported range element

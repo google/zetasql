@@ -1,5 +1,6 @@
 [default language_features=ANONYMIZATION,TABLE_VALUED_FUNCTIONS,TEMPLATE_FUNCTIONS,CREATE_TABLE_FUNCTION]
 [default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+
 CREATE MODEL foo_model AS
 SELECT anon_count(*) AS anon_count
 FROM SimpleTypesWithAnonymizationUid;

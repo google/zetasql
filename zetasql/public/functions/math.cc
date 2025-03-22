@@ -22,9 +22,13 @@
 #include <limits>
 #include <type_traits>
 
+#include "zetasql/common/multiprecision_int.h"
 #include "zetasql/public/functions/rounding_mode.pb.h"
-#include "absl/base/macros.h"
+#include "zetasql/public/numeric_value.h"
+#include "absl/base/optimization.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
 
 namespace zetasql {
 namespace functions {
@@ -59,27 +63,10 @@ static double kDecimalExponentFloat[kFloatMaxExponent -
                                     kFloatMinExponent + 1];
 
 void InitExponents() {
-  for (int i = 0; i < ABSL_ARRAYSIZE(kDecimalExponentDouble); ++i) {
-    // Note: exp10 and exp10l are GNU extensions. Fall back to pow and powl if
-    // they're not available.
-#ifdef _GNU_SOURCE
-    kDecimalExponentDouble[i] = exp10l(i + kDoubleMinExponent);
-#else
-    kDecimalExponentDouble[i] = powl(10.0, i + kDoubleMinExponent);
-#endif
-  }
-  for (int i = 0; i < ABSL_ARRAYSIZE(kDecimalExponentFloat); ++i) {
-#ifdef _GNU_SOURCE
-    kDecimalExponentFloat[i] = exp10(i + kFloatMinExponent);
-#else
-    kDecimalExponentFloat[i] = pow(10.0, i + kFloatMinExponent);
-#endif
-  }
-
   // For doubles the results from pow/exp10 cause issues for rounding
   // whole numbers which is a pretty obvious wart. Instead compute with repeated
-  // multiplying/dividing by 10. Unfortunately, for floats doing this creates
-  // those issues so we use two different methods for the types.
+  // multiplying/dividing by 10. For floats below 1 we also use nextafter()
+  // to avoid those issues.
   //
   // No solution will be fully correct with floating points here, but this
   // prevents the obvious whole number warts.
@@ -95,6 +82,24 @@ void InitExponents() {
   for (int i = 0; i < -kDoubleMinExponent; ++i) {
     exponent /= 10;
     kDecimalExponentDouble[-kDoubleMinExponent - i - 1] = exponent;
+  }
+
+  // Copy the values to kFloatMinExponent, and fix the values that are too high.
+  for (int i = kFloatMinExponent; i < kFloatMaxExponent + 1; ++i) {
+    double& dest = kDecimalExponentFloat[i - kFloatMinExponent];
+    const long double& src = kDecimalExponentDouble[i - kDoubleMinExponent];
+    dest = static_cast<double>(src);
+    if (dest > src) {
+      // If the exponent is even ULP higher than its exact value, the result
+      // of `x / exp` is lower than exact. This prevents roundtrip of expression
+      // `trunc(x / exp) * x` for values that we expect to roundtrip, because
+      // `x / exp` is just a bit lower than its exact integer value, and `trunc`
+      // rounds down to the next integer value.
+      // To avoid this, we make the exponent the nearest value less than the
+      // exact value, and thus `x / exp` is ULP higher than its exact value, and
+      // this makes sure `trunc(x / exp) * x` roundtrips when we need it to.
+      dest = std::nextafter(dest, 0);
+    }
   }
 }
 
@@ -131,12 +136,12 @@ static inline bool CastRounded(FromType in, ToType* out) {
 
 template <>
 bool RoundDecimal(double in, int64_t digits, double* out, absl::Status* error) {
-  if (digits < -kDoubleMaxExponent) {
-    *out = 0.0;
+  if (digits > -kDoubleMinExponent || !std::isfinite(in)) {
+    *out = in;
     return true;
   }
-  if (digits > -kDoubleMinExponent) {
-    *out = in;
+  if (digits < -kDoubleMaxExponent) {
+    *out = 0.0;
     return true;
   }
   digits = -digits;
@@ -181,12 +186,12 @@ bool RoundDecimal(float in, int64_t digits, float* out, absl::Status* error) {
   static_assert(std::numeric_limits<double>::max_exponent >=
                 std::numeric_limits<float>::max_exponent * 2 ,
                 "double's exponent must be wider than float's");
-  if (digits < -kFloatMaxExponent) {
-    *out = 0.0;
+  if (digits > -kFloatMinExponent || !std::isfinite(in)) {
+    *out = in;
     return true;
   }
-  if (digits > -kFloatMinExponent) {
-    *out = in;
+  if (digits < -kFloatMaxExponent) {
+    *out = 0.0;
     return true;
   }
   digits = -digits;
@@ -202,12 +207,12 @@ bool RoundDecimal(float in, int64_t digits, float* out, absl::Status* error) {
 }
 template <>
 bool TruncDecimal(double in, int64_t digits, double* out, absl::Status* error) {
-  if (digits < -kDoubleMaxExponent) {
-    *out = 0.0;
+  if (digits > -kDoubleMinExponent || !std::isfinite(in)) {
+    *out = in;
     return true;
   }
-  if (digits > -kDoubleMinExponent) {
-    *out = in;
+  if (digits < -kDoubleMaxExponent) {
+    *out = 0.0;
     return true;
   }
   digits = -digits;
@@ -235,12 +240,12 @@ bool TruncDecimal(float in, int64_t digits, float* out, absl::Status* error) {
   static_assert(std::numeric_limits<double>::max_exponent >=
                 std::numeric_limits<float>::max_exponent * 2 ,
                 "double's exponent must be wider than float's");
-  if (digits < -kFloatMaxExponent) {
-    *out = 0.0;
+  if (digits > -kFloatMinExponent || !std::isfinite(in)) {
+    *out = in;
     return true;
   }
-  if (digits > -kFloatMinExponent) {
-    *out = in;
+  if (digits < -kFloatMaxExponent) {
+    *out = 0.0;
     return true;
   }
   digits = -digits;

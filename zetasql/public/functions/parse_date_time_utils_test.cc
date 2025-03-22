@@ -24,12 +24,11 @@
 #include <utility>
 #include <vector>
 
-#include "zetasql/base/logging.h"
 #include "zetasql/public/functions/date_time_util.h"
-#include "zetasql/testing/test_function.h"
-#include "gmock/gmock.h"
+#include "zetasql/public/types/timestamp_util.h"
 #include "gtest/gtest.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
 #include "absl/time/time.h"
 
 namespace zetasql {
@@ -59,13 +58,16 @@ static void TestConvertTimeToTimestamp(absl::Time time,
 static void TestParseSubSeconds(
     const char* dp, const char* end_of_data, int max_digits,
     TimestampScale scale, size_t expected_offset,
-    absl::Duration expected_subseconds = absl::Duration()) {
+    absl::Duration expected_subseconds = absl::Duration(),
+    uint32_t expected_sub_nanoseconds = 0) {
   absl::Duration subseconds;
-  const char* res =
-      ParseSubSeconds(dp, end_of_data, max_digits, scale, &subseconds);
+  uint32_t sub_nanoseconds;
+  const char* res = ParseSubSeconds(dp, end_of_data, max_digits, scale,
+                                    &subseconds, &sub_nanoseconds);
   if (expected_offset > 0) {
     EXPECT_EQ(res - dp, expected_offset);
     EXPECT_EQ(subseconds, expected_subseconds);
+    EXPECT_EQ(sub_nanoseconds, expected_sub_nanoseconds);
   } else {
     EXPECT_EQ(res, nullptr);
   }
@@ -74,10 +76,11 @@ static void TestParseSubSeconds(
 static void TestParseSubSeconds(
     absl::string_view input_str, int max_digits, TimestampScale scale,
     size_t expected_offset,
-    absl::Duration expected_subseconds = absl::Duration()) {
-  return TestParseSubSeconds(input_str.data(),
-                             input_str.data() + input_str.size(), max_digits,
-                             scale, expected_offset, expected_subseconds);
+    absl::Duration expected_subseconds = absl::Duration(),
+    uint32_t expected_sub_nanoseconds = 0) {
+  return TestParseSubSeconds(
+      input_str.data(), input_str.data() + input_str.size(), max_digits, scale,
+      expected_offset, expected_subseconds, expected_sub_nanoseconds);
 }
 
 // Type <T> here indicates the output type when calling ParseInt function in the
@@ -276,6 +279,12 @@ TEST(ParseDateTimeInternalTests, ParseSubSeconds) {
   // <max_digits> = 0 means "unbounded" for ParseSubSeconds function.
   TestParseSubSeconds(input_str, /*max_digits*/ 0, kNanoseconds, digits_length,
                       absl::Nanoseconds(123456789));
+
+  // Test sub_nanoseconds.
+  TestParseSubSeconds(input_str, /*max_digits*/ 0, kPicoseconds, digits_length,
+                      absl::Nanoseconds(123456789), 100);
+  TestParseSubSeconds("1234567891234postfix", /*max_digits*/ 0, kPicoseconds,
+                      13, absl::Nanoseconds(123456789), 123);
 
   // Error cases.
   TestParseSubSeconds(input_str, kSeconds - 1, kSeconds, EXPECT_ERROR);

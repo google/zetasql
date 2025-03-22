@@ -236,10 +236,6 @@ QueryStmt
       +-SingleRowScan
 ==
 
-# IF is a parser special case for a reserved keyword that works as a function.
-# We don't have an unparser special case for this, so it generates SAFE.IF(...),
-# which won't re-parse.
-[no_run_unparser]
 [language_features={{|V_1_2_SAFE_FUNCTION_CALL}}]
 select safe.`if`(true, 1, 2)
 --

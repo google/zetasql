@@ -18,15 +18,18 @@
 #define ZETASQL_PUBLIC_PARSE_HELPERS_H_
 
 #include <string>
+#include <vector>
 
 #include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/parser.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/parse_resume_location.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "absl/container/flat_hash_map.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
-#include "zetasql/base/status.h"
 
 namespace zetasql {
 
@@ -135,6 +138,16 @@ absl::Status GetNextStatementProperties(
     const ParseResumeLocation& resume_location,
     const LanguageOptions& language_options,
     StatementProperties* statement_properties);
+
+// Skips a statement without parsing it, even if it's invalid.
+//
+// Statements are separated by semicolons.  A final semicolon is not required
+// to end the last statement.  If only whitespace and comments follow a
+// statement, `*at_end_of_input` will be set to true and the byte offset will
+// point to the end of the input.  Otherwise, `*at_end_of_input` will be set
+// to false and the byte offset will point to the character after the semicolon.
+absl::Status SkipNextStatement(ParseResumeLocation* resume_location,
+                               bool* at_end_of_input);
 
 // Returns the target table name of a DDL statement as an identifier path.
 //

@@ -40,7 +40,7 @@ GQL query based on the [syntax rules][gql_syntax].
   <td><a href="#gql_filter"><code>FILTER</code> statement</a>
 </td>
   <td>
-    Filters out rows in the query results that do not satisfy a specified
+    Filters out rows in the query results that don't satisfy a specified
     condition.
   </td>
 </tr>
@@ -167,7 +167,7 @@ to composite the building blocks of GQL into a query.
     ends with a [`RETURN` statement][return].
 +   `composite_linear_query_statement`: A list of
     `simple_linear_query_statement`s composited with the [set operators][set-op].
-+   `linear_query_statement`: A statement that is either a
++   `linear_query_statement`: A statement that's either a
     `simple_linear_query_statement` or a `composite_linear_query_statement`.
 +   `multi_linear_query_statement`: A list of `linear_query_statement`s chained
     together with the [`NEXT` statement][next].
@@ -210,7 +210,7 @@ linear query statement in a graph query.
 The following example queries the [`FinGraph`][fin-graph] property graph to find
 accounts with incoming transfers and looks up their owners:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (:Account)-[:Transfers]->(account:Account)
 RETURN account, COUNT(*) AS num_incoming_transfers
@@ -249,7 +249,7 @@ FILTER [ WHERE ] <span class="var">bool_expression</span>
 
 #### Description
 
-Filters out rows in the query results that do not satisfy a specified condition.
+Filters out rows in the query results that don't satisfy a specified condition.
 
 #### Definitions
 
@@ -276,75 +276,75 @@ Note: The examples in this section reference a property graph called
 In the following query, only people who were born before `1990-01-10`
 are included in the results table:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (p:Person)-[o:Owns]->(a:Account)
-FILTER p.birthday < '1990-01-10'
-RETURN p.name
+FILTER p.Id <> 1
+RETURN p.name, a.Id AS account_id
 
-/*------+
- | name |
- +------+
- | Dana |
- | Lee  |
- +------*/
+/*--------+------------+
+ | name   | account_id |
+ +--------+------------+
+ | "Dana" | 20         |
+ | "Lee"  | 16         |
+ +--------+------------*/
 ```
 
 `WHERE` is an optional keyword that you can include in a `FILTER` statement.
 The following query is semantically identical to the previous query:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (p:Person)-[o:Owns]->(a:Account)
-FILTER WHERE p.birthday < '1990-01-10'
-RETURN p.name
+FILTER WHERE p.Id <> 1
+RETURN p.name, a.Id AS account_id
 
-/*------+
- | name |
- +------+
- | Dana |
- | Lee  |
- +------*/
+/*--------+------------+
+ | name   | account_id |
+ +--------+------------+
+ | "Dana" |         20 |
+ | "Lee"  |         16 |
+ +--------+------------*/
 ```
 
 In the following example, `FILTER` follows an aggregation step with
 grouping. Semantically, it's similar to the `HAVING` clause in SQL:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (source:Account)-[e:Transfers]->(dest:Account)
-RETURN source, dest, SUM(e.amount) AS total_amount
-GROUP BY source, dest
+RETURN source, COUNT(e) AS num_transfers
+GROUP BY source
 
 NEXT
 
-FILTER WHERE total_amount < 400
-RETURN source.id AS source_id, dest.id AS destination_id, total_amount
+FILTER WHERE num_transfers > 1
+RETURN source.id AS source_id, num_transfers
 
-/*-------------------------------------------+
- | source_id | destination_id | total_amount |
- +-------------------------------------------+
- | 16        | 20             | 300          |
- | 20        | 16             | 200          |
- +-------------------------------------------*/
+/*---------------------------+
+ | source_id | num_transfers |
+ +---------------------------+
+ | 7         | 2             |
+ | 20        | 2             |
+ +---------------------------*/
 ```
 
 In the following example, an error is produced because `FILTER` references
-`m`, which is not in the working table:
+`m`, which isn't in the working table:
 
-```sql {.bad}
--- Error: m does not exist
+```zetasql {.bad}
+-- Error: m doesn't exist
 GRAPH FinGraph
 MATCH (p:Person)-[o:Owns]->(a:Account)
-FILTER WHERE m.birthday < '1990-01-10'
+FILTER WHERE m.Id <> 1
 RETURN p.name
 ```
 
 In the following example, an error is produced because even though `p` is in the
-working table, `p` does not have a property called `date_of_birth`:
+working table, `p` doesn't have a property called `date_of_birth`:
 
-```sql {.bad}
--- ERROR: date_of_birth is not a property of p
+```zetasql {.bad}
+-- ERROR: date_of_birth isn't a property of p
 GRAPH FinGraph
 MATCH (p:Person)-[o:Owns]->(a:Account)
 FILTER WHERE p.date_of_birth < '1990-01-10'
@@ -393,7 +393,7 @@ The `FOR` statement can reference columns in the working table.
 
 The `FOR` statement evaluation is similar to the [`UNNEST`][unnest-operator] operator.
 
-The `FOR` statement does not preserve order.
+The `FOR` statement doesn't preserve order.
 
 And empty or `NULL` `array_expression` produces zero rows.
 
@@ -414,22 +414,22 @@ In the following query, there are three rows in the working table prior to the
 `FOR` statement. After the `FOR` statement, each row is expanded into two rows,
 one per `element` value from the array.
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (p:Person)-[o:Owns]->(a:Account)
 FOR element in ["all","some"] WITH OFFSET
-RETURN p.name, element as alert_type, offset
-ORDER BY p.name, element, offset
+RETURN p.Id, element as alert_type, offset
+ORDER BY p.Id, element, offset
 
 /*----------------------------+
- | name | alert_type | offset |
+ | Id   | alert_type | offset |
  +----------------------------+
- | Alex | all        | 0      |
- | Alex | some       | 1      |
- | Dana | all        | 0      |
- | Dana | some       | 1      |
- | Lee  | all        | 0      |
- | Lee  | some       | 1      |
+ | 1    | all        | 0      |
+ | 1    | some       | 1      |
+ | 2    | all        | 0      |
+ | 2    | some       | 1      |
+ | 3    | all        | 0      |
+ | 3    | some       | 1      |
  +----------------------------*/
 ```
 
@@ -437,24 +437,22 @@ In the following query, there are two rows in the working table prior to the
 `FOR` statement. After the `FOR` statement, each row is expanded into a
 different number of rows, based on the value of `array_expression` for that row.
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (p:Person)-[o:Owns]->(a:Account)
-FILTER p.name != "Alex"
-FOR element in GENERATE_ARRAY(1,LENGTH(p.name))
-RETURN p.name, element
-ORDER BY p.name, element
+FILTER WHERE p.Id <> 1
+FOR element in GENERATE_ARRAY(1, p.Id)
+RETURN p.Id, element
+ORDER BY p.Id, element
 
 /*----------------+
- | name | element |
+ | Id   | element |
  +----------------+
- | Dana | 1       |
- | Dana | 2       |
- | Dana | 3       |
- | Dana | 4       |
- | Lee  | 1       |
- | Lee  | 2       |
- | Lee  | 3       |
+ | 2    | 1       |
+ | 2    | 2       |
+ | 3    | 1       |
+ | 3    | 2       |
+ | 3    | 3       |
  +----------------*/
 ```
 
@@ -462,7 +460,7 @@ In the following query, there are three rows in the working table prior to the
 `FOR` statement. After the `FOR` statement, no row is produced because
 `array_expression` is an empty array.
 
-```sql
+```zetasql
 -- No rows produced
 GRAPH FinGraph
 MATCH (p:Person)
@@ -474,7 +472,7 @@ In the following query, there are three rows in the working table prior to the
 `FOR` statement. After the `FOR` statement, no row is produced because
 `array_expression` is a `NULL` array.
 
-```sql
+```zetasql
 -- No rows produced
 GRAPH FinGraph
 MATCH (p:Person)
@@ -486,7 +484,7 @@ In the following example, an error is produced because `WITH` is used directly
 After the `FOR` statement. The query can be fixed by adding `WITH OFFSET` after
 the `FOR` statement, or by using `RETURN` directly instead of `WITH`.
 
-```sql {.bad}
+```zetasql {.bad}
 -- Error: Expected keyword OFFSET but got identifier "element"
 GRAPH FinGraph
 FOR element in [1,2,3]
@@ -495,7 +493,7 @@ RETURN col
 ORDER BY col
 ```
 
-```sql
+```zetasql
 GRAPH FinGraph
 FOR element in [1,2,3] WITH OFFSET
 WITH element as col
@@ -538,7 +536,7 @@ linear query statement.
 
 #### Details
 
-`LET` does not change the cardinality of the working table nor modify its
+`LET` doesn't change the cardinality of the working table nor modify its
 existing columns.
 
 The variable can only be used in the current linear query statement. To use it
@@ -562,7 +560,7 @@ Note: The examples in this section reference a property graph called
 In the following graph query, the variable `a` is defined and then referenced
 later:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (source:Account)-[e:Transfers]->(destination:Account)
 LET a = source
@@ -582,7 +580,7 @@ RETURN a.id AS a_id
 The following `LET` statement in the second linear query statement is valid
 because `a` is defined and returned from the first linear query statement:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (source:Account)-[e:Transfers]->(destination:Account)
 LET a = source
@@ -605,9 +603,9 @@ RETURN b.id AS b_id
 ```
 
 The following `LET` statement in the second linear query statement is invalid
-because `a` is not returned from the first linear query statement.
+because `a` isn't returned from the first linear query statement.
 
-```sql {.bad}
+```zetasql {.bad}
 GRAPH FinGraph
 MATCH (source:Account)-[e:Transfers]->(destination:Account)
 LET a = source
@@ -615,14 +613,14 @@ RETURN source.id
 
 NEXT
 
-LET b = a  -- ERROR: 'a' does not exist.
+LET b = a  -- ERROR: 'a' doesn't exist.
 RETURN b.id AS b_id
 ```
 
 The following `LET` statement is invalid because `a` is defined and then
 referenced in the same `LET` statement:
 
-```sql {.bad}
+```zetasql {.bad}
 GRAPH FinGraph
 MATCH (source:Account)-[e:Transfers]->(destination:Account)
 LET a = source, b = a -- ERROR: Can't define and reference 'a' in the same operation.
@@ -632,7 +630,7 @@ RETURN a
 The following `LET` statement is valid because `a` is defined first and then
 referenced afterwards:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (source:Account)-[e:Transfers]->(destination:Account)
 LET a = source
@@ -653,14 +651,14 @@ RETURN b.id AS b_id
 In the following examples, the `LET` statements are invalid because `a` is
 redefined:
 
-```sql {.bad}
+```zetasql {.bad}
 GRAPH FinGraph
 MATCH (source:Account)-[e:Transfers]->(destination:Account)
 LET a = source, a = destination -- ERROR: 'a' has already been defined.
 RETURN a.id AS a_id
 ```
 
-```sql {.bad}
+```zetasql {.bad}
 GRAPH FinGraph
 MATCH (source:Account)-[e:Transfers]->(destination:Account)
 LET a = source
@@ -671,7 +669,7 @@ RETURN a.id AS a_id
 In the following examples, the `LET` statements are invalid because `b` is
 redefined:
 
-```sql {.bad}
+```zetasql {.bad}
 GRAPH FinGraph
 MATCH (source:Account)-[e:Transfers]->(destination:Account)
 LET a = source
@@ -689,7 +687,7 @@ The following `LET` statement is valid because although `b` is defined in the
 first linear query statement, it's not passed to the second linear query
 statement:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (source:Account)-[e:Transfers]->(destination:Account)
 LET a = source
@@ -747,38 +745,39 @@ Note: The examples in this section reference a property graph called
 The following example uses the `LIMIT` statement to limit the query results to
 three rows:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (source:Account)-[e:Transfers]->(destination:Account)
-ORDER BY source.nick_name
+ORDER BY source.Id
 LIMIT 3
-RETURN source.nick_name
+RETURN source.Id, source.nick_name
 
-/*----------------+
- | nick_name      |
- +----------------+
- | Rainy day fund |
- | Rainy day fund |
- | Vacation fund  |
- +----------------*/
+/*---------+---------------+
+ | Id      | nick_name     |
+ +---------+---------------+
+ | 7       | Vacation fund |
+ | 7       | Vacation fund |
+ | 16      | Vacation fund |
+ +-------------------------*/
 ```
 
-The following query finds the account and its owner with the largest outgoing
-transfer to a blocked account:
+The following query finds the account and its owner with the most outgoing
+transfers to a blocked account:
 
-```sql
+```zetasql
 GRAPH FinGraph
-MATCH (src_account:Account)-[transfer:Transfers]->(dst_account:Account)
-WHERE dst_account.is_blocked
-ORDER BY transfer.amount DESC
+MATCH (src_account:Account)-[transfer:Transfers]->(dst_account:Account {is_blocked:true})
+RETURN src_account, COUNT(transfer) as total_transfers
+ORDER BY total_transfers
 LIMIT 1
+NEXT
 MATCH (src_account:Account)<-[owns:Owns]-(owner:Person)
 RETURN src_account.id AS account_id, owner.name AS owner_name
 
 /*-------------------------+
  | account_id | owner_name |
  +-------------------------+
- | 7          | Alex       |
+ | 20         | Dana       |
  +-------------------------*/
 ```
 
@@ -816,7 +815,7 @@ The `INNER JOIN` semantics is used when the working table and matched result
 have variables in common. In the following example, the `INNER JOIN`
 semantics is used because `friend` is produced by both `MATCH` statements:
 
-```sql
+```zetasql
 MATCH (person:Person)-[:knows]->(friend:Person)
 MATCH (friend)-[:knows]->(otherFriend:Person)
 ```
@@ -826,7 +825,7 @@ result have no variables in common. In the following example, the `CROSS JOIN`
 semantics is used because `person1` and `friend` exist in the result of the
 first `MATCH` statement, but not the second one:
 
-```sql
+```zetasql
 MATCH (person1:Person)-[:knows]->(friend:Person)
 MATCH (person2:Person)-[:knows]->(otherFriend:Person)
 ```
@@ -841,7 +840,7 @@ Note: The examples in this section reference a property graph called
 The following query matches all `Person` nodes and returns the name and ID of
 each person:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (p:Person)
 RETURN p.name, p.id
@@ -858,7 +857,7 @@ RETURN p.name, p.id
 The following query matches all `Person` and `Account` nodes and returns their
 labels and ID:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (n:Person|Account)
 RETURN LABELS(n) AS label, n.id
@@ -875,9 +874,9 @@ RETURN LABELS(n) AS label, n.id
  +----------------*/
 ```
 
-The following query matches all `Account` nodes that are not blocked:
+The following query matches all `Account` nodes that aren't blocked:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (a:Account {is_blocked: false})
 RETURN a.id
@@ -893,7 +892,7 @@ RETURN a.id
 The following query matches all `Person` nodes that have a `birthday` less than
 `1990-01-10`:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (p:Person WHERE p.birthday < '1990-01-10')
 RETURN p.name
@@ -908,7 +907,7 @@ RETURN p.name
 
 The following query matches all `Owns` edges:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH -[e:Owns]->
 RETURN e.id
@@ -925,7 +924,7 @@ RETURN e.id
 The following query matches all `Owns` edges created within a specific period of
 time:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH -[e:Owns WHERE e.create_time > '2020-01-14' AND e.create_time < '2020-05-14']->
 RETURN e.id
@@ -941,10 +940,9 @@ RETURN e.id
 The following query matches all `Transfers` edges where a blocked account is
 involved in any direction:
 
-```sql
+```zetasql
 GRAPH FinGraph
-MATCH (account:Account)-[transfer:Transfers]-(:Account)
-WHERE account.is_blocked
+MATCH (account:Account)-[transfer:Transfers]-(:Account {is_blocked:true})
 RETURN transfer.order_number, transfer.amount
 
 /*--------------------------+
@@ -960,7 +958,7 @@ RETURN transfer.order_number, transfer.amount
 The following query matches all `Transfers` initiated from an `Account` owned by
 `Person` with `id` equal to `2`:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH
   (p:Person {id: 2})-[:Owns]->(account:Account)-[t:Transfers]->
@@ -979,7 +977,7 @@ The following query matches all the destination `Accounts` one to three
 transfers away from a source `Account` with `id` equal to `7`, other than the
 source itself:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (src:Account {id: 7})-[e:Transfers]->{1, 3}(dst:Account)
 WHERE src != dst
@@ -1000,11 +998,11 @@ RETURN ARRAY_LENGTH(e) AS hops, dst.id AS destination_account_id
 The following query matches paths between `Account` nodes with one to two
 `Transfers` edges through intermediate accounts that are blocked:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH
   (src:Account)
-  ((:Account)-[:Transfers]->(interm:Account) WHERE interm.is_blocked){1,2}
+  ((a:Account)-[:Transfers]->(b:Account {is_blocked:true}) WHERE a != b ){1,2}
   -[:Transfers]->(dst:Account)
 RETURN src.id AS source_account_id, dst.id AS destination_account_id
 
@@ -1020,17 +1018,17 @@ RETURN src.id AS source_account_id, dst.id AS destination_account_id
 The following query finds unique reachable accounts which are one or two
 transfers away from a given `Account` node:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH ANY (src:Account {id: 7})-[e:Transfers]->{1,2}(dst:Account)
-LET ids_in_path = ARRAY(SELECT e.to_id FROM UNNEST(e) AS e)
+LET ids_in_path = ARRAY_CONCAT(ARRAY_AGG(e.Id), [dst.Id])
 RETURN src.id AS source_account_id, dst.id AS destination_account_id, ids_in_path
 
 /*----------------------------------------------------------+
  | source_account_id | destination_account_id | ids_in_path |
  +----------------------------------------------------------+
- | 7                 | 16                     | 16          |
- | 7                 | 20                     | 16,20       |
+ | 7                 | 16                     | [7, 16]     |
+ | 7                 | 20                     | [7, 16, 20] |
  +----------------------------------------------------------*/
 ```
 
@@ -1038,7 +1036,7 @@ The following query matches all `Person` nodes and optionally matches the
 blocked `Account` owned by the `Person`. The missing blocked `Account` is
 represented as `NULL`:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (n:Person)
 OPTIONAL MATCH (n:Person)-[:Owns]->(a:Account {is_blocked: TRUE})
@@ -1075,7 +1073,7 @@ Note: The examples in this section reference a property graph called
 
 The following linear query statements are chained by the `NEXT` statement:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (:Account)-[:Transfers]->(account:Account)
 RETURN account, COUNT(*) AS num_incoming_transfers
@@ -1092,17 +1090,12 @@ NEXT
 
 FILTER num_incoming_transfers < 2
 RETURN account_id, owner_name
-UNION ALL
-RETURN "Bob" AS owner_name, 100 AS account_id
 
 /*-------------------------+
  | account_id | owner_name |
  +-------------------------+
  | 7          | Alex       |
  | 20         | Dana       |
- | 100        | Bob        |
- | 100        | Bob        |
- | 100        | Bob        |
  +-------------------------*/
 ```
 
@@ -1135,9 +1128,9 @@ Note: The examples in this section reference a property graph called
 
 [fin-graph]: https://github.com/google/zetasql/blob/master/docs/graph-schema-statements.md#fin_graph
 
-In the following example, the first two rows are not included in the results:
+In the following example, the first two rows aren't included in the results:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (p:Person)
 OFFSET 2
@@ -1191,9 +1184,9 @@ Orders the query results.
 
 #### Details
 
-Ordinals are not supported in the `ORDER BY` statement.
+Ordinals aren't supported in the `ORDER BY` statement.
 
-The `ORDER BY` statement is ignored unless it is immediately followed by the
+The `ORDER BY` statement is ignored unless it's immediately followed by the
 `LIMIT` or `OFFSET` statement.
 
 If you would like to apply `ORDER BY` to what is in `RETURN` statement, use the
@@ -1210,7 +1203,7 @@ Note: The examples in this section reference a property graph called
 The following query sorts the results by the `transfer.amount`
 values in descending order:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (src_account:Account)-[transfer:Transfers]->(dst_account:Account)
 ORDER BY transfer.amount DESC
@@ -1226,7 +1219,7 @@ RETURN src_account.id AS account_id, transfer.amount AS transfer_amount
  +------------------------------*/
 ```
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (src_account:Account)-[transfer:Transfers]->(dst_account:Account)
 ORDER BY transfer.amount DESC
@@ -1247,8 +1240,8 @@ If you don't include the `LIMIT` or `OFFSET` statement right after the
 `ORDER BY` statement, the effect of `ORDER BY` is discarded and the result is
 unordered.
 
-```sql
--- Warning: The transfer.amount values are not sorted because the
+```zetasql
+-- Warning: The transfer.amount values aren't sorted because the
 -- LIMIT statement is missing.
 GRAPH FinGraph
 MATCH (src_account:Account)-[transfer:Transfers]->(dst_account:Account)
@@ -1266,7 +1259,7 @@ RETURN src_account.id AS account_id, transfer.amount AS transfer_amount
  +------------------------------*/
 ```
 
-```sql
+```zetasql
 -- Warning: Using the LIMIT clause in the RETURN statement, but not immediately
 -- after the ORDER BY statement, also returns the unordered transfer.amount
 -- values.
@@ -1351,7 +1344,7 @@ specified, all groupable items from the return list are used implicitly as
 grouping keys (This is
 equivalent to `GROUP BY ALL`).
 
-Ordinals are not supported in the `ORDER BY` and `GROUP BY` clauses.
+Ordinals aren't supported in the `ORDER BY` and `GROUP BY` clauses.
 
 #### Examples
 
@@ -1362,7 +1355,7 @@ Note: The examples in this section reference a property graph called
 
 The following query returns `p.name` and `p.id`:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (p:Person)
 RETURN p.name, p.id
@@ -1380,7 +1373,7 @@ In the following example, the first linear query statement returns all columns
 including `p`, `a`, `b`, and `c`. The second linear query statement returns the
 specified `p.name` and `d` columns:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (p:Person)
 LET a = 1, b = 2, c = 3
@@ -1401,7 +1394,7 @@ RETURN p.name, (a + b + c) AS d
 
 The following query returns distinct rows:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (src:Account {id: 7})-[e:Transfers]->{1, 3}(dst:Account)
 RETURN DISTINCT ARRAY_LENGTH(e) AS hops, dst.id AS destination_account_id
@@ -1420,7 +1413,7 @@ In the following example, the first linear query statement returns `account` and
 aggregated `num_incoming_transfers` per account. The second statement returns
 sorted result.
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (:Account)-[:Transfers]->(account:Account)
 RETURN account, COUNT(*) AS num_incoming_transfers
@@ -1444,7 +1437,7 @@ ORDER BY num_incoming_transfers DESC
 In the following example, the `GROUP BY ALL` clause groups rows by inferring
 grouping keys from the return items in the `RETURN` statement.
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (:Account)-[:Transfers]->(account:Account)
 RETURN account, COUNT(*) AS num_incoming_transfers
@@ -1468,7 +1461,7 @@ RETURN owner.name AS owner_name, num_incoming_transfers
 In the following example, the `LIMIT` clause in the `RETURN` statement
 reduces the results to one row:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (p:Person)
 RETURN p.name, p.id
@@ -1484,7 +1477,7 @@ LIMIT 1
 In the following example, the `OFFSET` clause in the `RETURN` statement
 skips the first row:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (p:Person)
 RETURN p.name, p.id
@@ -1502,7 +1495,7 @@ In the following example, the `OFFSET` clause in the `RETURN` statement
 skips the first row, then the `LIMIT` clause reduces the
 results to one row:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (p:Person)
 RETURN p.name, p.id
@@ -1520,7 +1513,7 @@ In the following example, an error is produced because the `OFFSET` clause must
 come before the `LIMIT` clause when they are both used in the
 `RETURN` statement:
 
-```sql {.bad}
+```zetasql {.bad}
 -- Error: The LIMIT clause must come after the OFFSET clause in a
 -- RETURN operation.
 GRAPH FinGraph
@@ -1533,7 +1526,7 @@ OFFSET 1
 In the following example, the `ORDER BY` clause in the `RETURN` statement sorts
 the results by `hops` and then `destination_account_id`:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (src:Account {id: 7})-[e:Transfers]->{1, 3}(dst:Account)
 RETURN DISTINCT ARRAY_LENGTH(e) AS hops, dst.id AS destination_account_id
@@ -1575,7 +1568,7 @@ Note: The examples in this section reference a property graph called
 
 `SKIP` is a synonym for `OFFSET`. Therefore, these queries are equivalent:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (p:Person)
 SKIP 2
@@ -1588,7 +1581,7 @@ RETURN p.name, p.id
  +-----------*/
 ```
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (p:Person)
 OFFSET 2
@@ -1642,9 +1635,9 @@ If any expression performs aggregation, and no `GROUP BY` clause is
 specified, all groupable items from the return list are implicitly used as
 grouping keys (This is equivalent to `GROUP BY ALL`).
 
-Window functions are not supported in `expression`.
+Window functions aren't supported in `expression`.
 
-Ordinals are not supported in the `GROUP BY` clause.
+Ordinals aren't supported in the `GROUP BY` clause.
 
 #### Examples
 
@@ -1655,7 +1648,7 @@ Note: The examples in this section reference a property graph called
 
 The following query returns all distinct destination account IDs:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (src:Account)-[transfer:Transfers]->(dst:Account)
 WITH DISTINCT dst
@@ -1674,7 +1667,7 @@ The following query uses `*` to carry over the existing columns of
 the working table in addition to defining a new one for the destination
 account id.
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (src:Account)-[transfer:Transfers]->(dst:Account)
 WITH *, dst.id
@@ -1692,14 +1685,14 @@ RETURN dst.id AS destination_id
 ```
 
 In the following example, aggregation is performed implicitly because the
-`WITH` statement has an aggregate expression but does not specify a `GROUP BY`
+`WITH` statement has an aggregate expression but doesn't specify a `GROUP BY`
 clause. All groupable items from the return item list are used as grouping keys
  (This is equivalent to `GROUP BY ALL`).
 In this case, the grouping keys inferred are `src.id` and `dst.id`.
 Therefore, this query returns the number of transfers for each
 distinct combination of `src.id` and `dst.id`.
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (src:Account)-[transfer:Transfers]->(dst:Account)
 WITH COUNT(*) AS transfer_total, src.id AS source_id, dst.id AS destination_id
@@ -1716,11 +1709,11 @@ RETURN transfer_total, destination_id, source_id
 ```
 
 In the following example, an error is produced because the `WITH` statement only
-contains `dst`. `src` is not visible after the `WITH` statement in the `RETURN`
+contains `dst`. `src` isn't visible after the `WITH` statement in the `RETURN`
 statement.
 
-```sql {.bad}
--- Error: src does not exist
+```zetasql {.bad}
+-- Error: src doesn't exist
 GRAPH FinGraph
 MATCH (src:Account)-[transfer:Transfers]->(dst:Account)
 WITH dst
@@ -1769,14 +1762,14 @@ Each linear query statement in the same set operation shares the same working ta
 Most of the rules for GQL set operators are the same as those for
 SQL [set operators][set-op], but there are some differences:
 
-+   A GQL set operator does not support hints, or the `CORRESPONDING` keyword.
++   A GQL set operator doesn't support hints, or the `CORRESPONDING` keyword.
     Since each set operation input (a linear query statement) only
     produces columns with names, the default behavior of GQL set operations
     requires all inputs to have the same set of column names and all
     paired columns to share the same [supertype][supertypes].
-+   GQL does not allow chaining different kinds of set operations in the same
++   GQL doesn't allow chaining different kinds of set operations in the same
     set operation.
-+   GQL does not allow using parentheses to separate different set operations.
++   GQL doesn't allow using parentheses to separate different set operations.
 +   The results produced by the linear query statements are combined in a left
     associative order.
 
@@ -1786,7 +1779,7 @@ A set operation between two linear query statements with the same set of
 output column names and types but with different column orders is supported.
 For example:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (p:Person)
 RETURN p.name, 1 AS group_id
@@ -1807,10 +1800,10 @@ RETURN 2 AS group_id, p.name
 ```
 
 In a set operation, chaining the same kind of set operation is supported, but
-chaining different kinds of set operations is not.
+chaining different kinds of set operations isn't.
 For example:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (p:Person)
 RETURN p.name, 1 AS group_id
@@ -1836,8 +1829,8 @@ RETURN 3 AS group_id, p.name
  +------+----------*/
 ```
 
-```sql {.bad}
--- ERROR: GQL does not allow chaining EXCEPT DISTINCT with UNION ALL
+```zetasql {.bad}
+-- ERROR: GQL doesn't allow chaining EXCEPT DISTINCT with UNION ALL
 GRAPH FinGraph
 MATCH (p:Person)
 RETURN p.name, 1 AS group_id

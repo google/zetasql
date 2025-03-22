@@ -16,12 +16,13 @@
 
 #include "zetasql/reference_impl/type_helpers.h"
 
-#include <memory>
 #include <string>
 #include <vector>
 
+#include "zetasql/public/catalog.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/type.h"
+#include "zetasql/resolved_ast/resolved_column.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/types/span.h"
@@ -67,6 +68,9 @@ static absl::StatusOr<const StructType*> CreateStructTypeForTableRow(
 const char* kDMLOutputNumRowsModifiedColumnName = "num_rows_modified";
 const char* kDMLOutputAllRowsColumnName = "all_rows";
 const char* kDMLOutputReturningColumnName = "returning_rows";
+
+constexpr char kCreatedObjectType[] = "created_object_type";
+constexpr char kCreatedObjectName[] = "created_object_name";
 
 absl::StatusOr<const ArrayType*> CreateTableArrayType(
     const ResolvedColumnList& table_columns, bool is_value_table,

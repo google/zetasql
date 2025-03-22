@@ -1897,6 +1897,22 @@ QueryStmt
             +-Literal(type=ENUM<zetasql_test__.TestEnum>, value=NULL)
 ==
 
+select NOT false
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+    |     +-Literal(type=BOOL, value=false)
+    +-input_scan=
+      +-SingleRowScan
+==
+
 select NOT 0
 --
 ERROR: No matching signature for operator NOT for argument types: INT64. Supported signature: NOT (BOOL) [at 1:8]
@@ -2918,7 +2934,7 @@ SELECT 1 IS  DISTINCT FROM 2;
 
 # IS DISTINCT FROM - simple example
 [language_features=V_1_3_IS_DISTINCT]
-[show_unparsed]
+[show_sqlbuilder_output]
 SELECT 1 IS {{NOT|}} DISTINCT FROM 2;
 --
 ALTERNATION GROUP: NOT
@@ -2937,7 +2953,13 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  1 IS NOT DISTINCT FROM 2 AS a_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 SELECT
   1 IS NOT DISTINCT FROM 2 AS a_1;
 --
@@ -2957,7 +2979,13 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  1 IS DISTINCT FROM 2 AS a_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 SELECT
   1 IS DISTINCT FROM 2 AS a_1;
 ==
@@ -3189,7 +3217,7 @@ QueryStmt
 ==
 
 [language_features=V_1_3_IS_DISTINCT]
-[show_unparsed]
+[show_sqlbuilder_output]
 SELECT (1 IS DISTINCT FROM 2) IS TRUE;
 --
 QueryStmt
@@ -3207,6 +3235,12 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  (1 IS DISTINCT FROM 2) IS TRUE AS a_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 SELECT
   (1 IS DISTINCT FROM 2) IS TRUE AS a_1;

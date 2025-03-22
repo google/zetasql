@@ -18,9 +18,9 @@
 #define ZETASQL_PUBLIC_NUMERIC_VALUE_H_
 
 #include <array>
+#include <compare>
 #include <cstddef>
 #include <cstdint>
-#include <limits>
 #include <optional>
 #include <ostream>
 #include <string>
@@ -302,7 +302,7 @@ class NumericValue final {
 
   // Returns the packed uint64_t array in little endian order.
   std::array<uint64_t, 2> ToPackedLittleEndianArray() const {
-    return {low_bits_, high_bits_};
+    return value_.number();
   }
 
   // Returns high 64 bits of the packed NUMERIC value.
@@ -545,11 +545,8 @@ class NumericValue final {
   int64_t GetFractionalPart() const;
 
   // A NUMERIC value is stored as a scaled integer, the original NUMERIC value
-  // is multiplied by the scaling factor 10^9. The intended representation is
-  // __int128, but since __int128 causes crashes for loads and stores that are
-  // not 16-byte aligned, it is split into two 64-bit components here.
-  uint64_t high_bits_;
-  uint64_t low_bits_;
+  // is multiplied by the scaling factor 10^9.
+  FixedInt<64, 2> value_;
 };
 
 // This class represents values of the ZetaSQL BIGNUMERIC type. Supports 38
@@ -1033,11 +1030,9 @@ constexpr __int128 kNumericMin = -kNumericMax;
 }  // namespace internal
 
 inline NumericValue::NumericValue(uint64_t high_bits, uint64_t low_bits)
-    : high_bits_(high_bits), low_bits_(low_bits) {}
+    : value_(std::array<uint64_t, 2>{low_bits, high_bits}) {}
 
-inline constexpr NumericValue::NumericValue(__int128 value)
-    : high_bits_(static_cast<__int128>(value) >> 64),
-      low_bits_(value & std::numeric_limits<uint64_t>::max()) {}
+inline constexpr NumericValue::NumericValue(__int128 value) : value_(value) {}
 
 inline constexpr NumericValue::NumericValue()
     : NumericValue(static_cast<__int128>(0)) {}
@@ -1187,7 +1182,7 @@ inline std::string NumericValue::ToString() const {
 
 template <typename H>
 inline H AbslHashValue(H h, const NumericValue& v) {
-  return H::combine(std::move(h), v.high_bits_, v.low_bits_);
+  return H::combine(std::move(h), v.high_bits(), v.low_bits());
 }
 
 template <typename T>
@@ -1231,12 +1226,16 @@ inline absl::StatusOr<T> NumericValue::To() const {
 }
 
 inline constexpr __int128 NumericValue::as_packed_int() const {
-  return (static_cast<__int128>(high_bits_) << 64) + low_bits_;
+  return __int128{value_};
 }
 
-inline constexpr uint64_t NumericValue::high_bits() const { return high_bits_; }
+inline constexpr uint64_t NumericValue::high_bits() const {
+  return value_.number()[1];
+}
 
-inline constexpr uint64_t NumericValue::low_bits() const { return low_bits_; }
+inline constexpr uint64_t NumericValue::low_bits() const {
+  return value_.number()[0];
+}
 
 inline int64_t NumericValue::GetFractionalPart() const {
   int64_t remainder;

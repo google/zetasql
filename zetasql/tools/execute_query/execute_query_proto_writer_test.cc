@@ -241,9 +241,7 @@ TEST(ExecuteQueryJsonWriterTest, Basic) {
             "name": "",
             "tag": [],
             "date": 0,
-            "msg": {
-              "value": ""
-            }
+            "msg": {}
           },
           {
             "key": 100,
@@ -252,7 +250,6 @@ TEST(ExecuteQueryJsonWriterTest, Basic) {
               "aaa",
               "zzz"
             ],
-            "date": 0,
             "any": {
               "@type": "type.googleapis.com/zetasql_test__.TestStatusPayload",
               "value": "foobar"
@@ -261,13 +258,10 @@ TEST(ExecuteQueryJsonWriterTest, Basic) {
           {
             "key": 200,
             "name": "bar",
-            "date": 0,
             "tag": [
               "bbb"
             ],
-            "msg": {
-              "value": ""
-            }
+            "msg": {}
           }
         ]
       }

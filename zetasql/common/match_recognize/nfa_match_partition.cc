@@ -27,6 +27,7 @@
 #include "zetasql/common/match_recognize/nfa.h"
 #include "zetasql/common/match_recognize/row_edge_list.h"
 #include "zetasql/public/functions/match_recognize/match_partition.h"
+#include "absl/base/optimization.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
@@ -35,14 +36,30 @@
 
 namespace zetasql::functions::match_recognize {
 
+std::string NFAMatchPartitionOptions::DebugString() const {
+  std::string result;
+  absl::StrAppend(&result,
+                  "Overlapping mode: ", overlapping_mode ? "true" : "false");
+  absl::StrAppend(
+      &result, ", longest match mode: ", longest_match_mode ? "true" : "false");
+  return result;
+}
+
 NFAMatchPartition::NFAMatchPartition(std::shared_ptr<const CompiledNFA> nfa,
                                      const NFAMatchPartitionOptions& options)
     : nfa_(std::move(nfa)), edge_tracker_(nfa_.get()), options_(options) {}
 
 absl::StatusOr<MatchResult> NFAMatchPartition::AddRow(
     const std::vector<bool>& row_pattern_variables) {
-  if (finalized_) {
+  if (ABSL_PREDICT_FALSE(finalized_)) {
     return absl::FailedPreconditionError("AddRow() called after Finalize()");
+  }
+  if (ABSL_PREDICT_FALSE(row_pattern_variables.size() !=
+                         nfa_->num_pattern_variables())) {
+    return absl::InternalError(absl::StrCat(
+        "Incorrect number of pattern variables passed to "
+        "NFAMatchPartition::AddRow(): expected ",
+        nfa_->num_pattern_variables(), ", got ", row_pattern_variables.size()));
   }
 
   std::unique_ptr<const RowEdgeList> row_edge_list =
@@ -60,7 +77,7 @@ absl::StatusOr<MatchResult> NFAMatchPartition::AddRow(
   if (row_edge_list == nullptr) {
     // We can't return any new matches if it is possible that a match spanning
     // the current row is not finished yet.
-    return MatchResult{.total_rows_fully_processed = row_offset_};
+    return MatchResult{};
   } else {
     return ExtractMatches(*row_edge_list, /*in_finalize=*/false);
   }
@@ -193,8 +210,6 @@ absl::StatusOr<MatchResult> NFAMatchPartition::ExtractMatches(
       ++start_match_row_number;
     }
   }
-  result.total_rows_fully_processed =
-      row_offset_ + row_edge_list.num_rows() - (finalized_ ? 1 : 0);
   row_offset_ += row_edge_list.num_rows();
   return result;
 }

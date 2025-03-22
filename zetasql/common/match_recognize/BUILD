@@ -14,6 +14,8 @@
 # limitations under the License.
 #
 
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
+
 package(
     default_visibility = ["//zetasql/base:zetasql_implementation"],
 )
@@ -28,6 +30,7 @@ cc_library(
         "//zetasql/base:status",
         "@com_google_absl//absl/base:nullability",
         "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
@@ -85,6 +88,7 @@ cc_test(
         "//zetasql/resolved_ast",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:string_view",
     ],
 )
@@ -202,6 +206,7 @@ cc_library(
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
         "//zetasql/public/functions/match_recognize:match_partition",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",

@@ -21,13 +21,11 @@
 #include <memory>
 #include <set>
 #include <string>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
 #include "zetasql/base/logging.h"
-#include "google/protobuf/compiler/importer.h"
-#include "google/protobuf/descriptor.h"
+#include "zetasql/common/errors.h"
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/base/testing/status_matchers.h"  
 #include "zetasql/common/testing/testing_proto_util.h"
@@ -60,6 +58,7 @@
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_column.h"
+#include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/resolved_ast/sql_builder.h"
 #include "zetasql/testdata/sample_catalog.h"
@@ -72,9 +71,9 @@
 #include "absl/container/node_hash_set.h"
 #include "absl/flags/declare.h"
 #include "absl/flags/flag.h"
-#include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/strings/ascii.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
@@ -84,7 +83,6 @@
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
-#include "zetasql/base/status_payload.h"
 
 ABSL_DECLARE_FLAG(bool, zetasql_redact_error_messages_for_tests);
 ABSL_DECLARE_FLAG(zetasql::ErrorMessageStability,
@@ -302,14 +300,15 @@ TEST_F(AnalyzerOptionsTest, ParserASTOwnershipTests) {
 
 TEST_F(AnalyzerOptionsTest, QueryParameterModes) {
   std::unique_ptr<const AnalyzerOutput> output;
+  auto catalog = std::make_unique<zetasql::SimpleCatalog>("empty_catalog");
   {
     // Named mode with positional parameter.
     AnalyzerOptions options = options_;
     options.set_parameter_mode(PARAMETER_NAMED);
     ZETASQL_EXPECT_OK(options.AddPositionalQueryParameter(types::Int64Type()));
 
-    EXPECT_THAT(AnalyzeStatement("SELECT 1;", options, nullptr, &type_factory_,
-                                 &output),
+    EXPECT_THAT(AnalyzeStatement("SELECT 1;", options, catalog.get(),
+                                 &type_factory_, &output),
                 StatusIs(_, HasSubstr("Positional parameters cannot be "
                                       "provided in named parameter mode")));
   }
@@ -320,8 +319,8 @@ TEST_F(AnalyzerOptionsTest, QueryParameterModes) {
     options.set_parameter_mode(PARAMETER_POSITIONAL);
     ZETASQL_EXPECT_OK(options.AddQueryParameter("test_param", types::Int64Type()));
 
-    EXPECT_THAT(AnalyzeStatement("SELECT 1;", options, nullptr, &type_factory_,
-                                 &output),
+    EXPECT_THAT(AnalyzeStatement("SELECT 1;", options, catalog.get(),
+                                 &type_factory_, &output),
                 StatusIs(_, HasSubstr("Named parameters cannot be provided "
                                       "in positional parameter mode")));
   }
@@ -346,7 +345,7 @@ TEST_F(AnalyzerOptionsTest, QueryParameterModes) {
     options.set_allow_undeclared_parameters(true);
 
     EXPECT_THAT(
-        AnalyzeStatement("SELECT 1;", options, nullptr, &type_factory_,
+        AnalyzeStatement("SELECT 1;", options, catalog.get(), &type_factory_,
                          &output),
         StatusIs(
             _,
@@ -1074,8 +1073,8 @@ TEST_F(AnalyzerOptionsTest, DeprecationWarnings) {
   }
 }
 
-// When a built-in function that requires rewrite is hidden by a non-built-in
-// function, an error with status kNotFound is returned.
+// When a built-in function that is required by a rewrite is hidden by a
+// non-built-in function, an error is returned.
 TEST_F(AnalyzerOptionsTest, BuiltInHiddenByNonBuiltIn) {
   // Hides the built-in `IF` function by a user-defined `IF`, equilvalent SQL:
   // ```sql
@@ -1108,9 +1107,9 @@ TEST_F(AnalyzerOptionsTest, BuiltInHiddenByNonBuiltIn) {
   std::unique_ptr<const AnalyzerOutput> output;
   absl::Status status =
       AnalyzeExpression(expr, options_, &catalog, &type_factory_, &output);
-  EXPECT_EQ(status.code(), absl::StatusCode::kNotFound);
+  EXPECT_EQ(status.code(), absl::StatusCode::kInvalidArgument);
   EXPECT_EQ(status.message(),
-            "Required built-in function \"if\" not available.");
+            "Required built-in function \"`if`\" not available");
 }
 
 TEST_F(AnalyzerOptionsTest, ResolvedASTRewrites) {
@@ -2533,6 +2532,34 @@ TEST_F(AnalyzeGeneratedColumnTest,
               "cycle : test_table.gen., test_table.gen.")));
 }
 
+TEST_F(AnalyzeGeneratedColumnTest, UpdateCount) {
+  auto t = std::make_unique<SimpleTable>(
+      "T", std::vector<SimpleTable::NameAndType>{});
+  ZETASQL_ASSERT_OK(t->AddColumn(new SimpleColumn(t->Name(), "Id", types::StringType()),
+                         /*is_owned=*/true));
+  AddGeneratedColumnToTable("Value", {}, "1+1", t.get());
+  t->SetContents({{values::String("1"), values::Int64(2)}});
+  ZETASQL_ASSERT_OK(t->SetPrimaryKey({0}));
+  catalog_.AddOwnedTable(std::move(t));
+
+  auto c = std::make_unique<SimpleTable>(
+      "C", std::vector<SimpleTable::NameAndType>{});
+  ZETASQL_ASSERT_OK(c->AddColumn(new SimpleColumn(c->Name(), "Id", types::StringType()),
+                         /*is_owned=*/true));
+  ZETASQL_ASSERT_OK(
+      c->AddColumn(new SimpleColumn(c->Name(), "Count", types::Int64Type()),
+                   /*is_owned=*/true));
+  c->SetContents({{values::String("1"), values::Int64(0)}});
+  ZETASQL_ASSERT_OK(c->SetPrimaryKey({0}));
+  catalog_.AddOwnedTable(std::move(c));
+
+  std::string sql = "UPDATE C set Count=(SELECT count(*) from T) WHERE id='1';";
+  std::unique_ptr<const AnalyzerOutput> analyzer_output;
+
+  ZETASQL_EXPECT_OK(AnalyzeStatement(sql, analyzer_options_, &catalog_,
+                             catalog_.type_factory(), &analyzer_output));
+}
+
 // Verify the catalog name path of the outer proto type will be carried to its
 // inner field types.
 // Have to put it here rather than in a text-based test since the Java library
@@ -2595,48 +2622,5 @@ SELECT
 FROM
   source AS withrefscan_3;)sql",
             formatted_sql);
-}
-
-// Test fixture for verifying that error messages are correct in actual analyzer
-// errors when partial redaction is enabled. If a test fails due to a changed
-// error message, the GetRedactedErrorMessage() in error_helpers.cc needs
-// updating.
-class AnalyzerErrorRedactionTest : public ::testing::Test {
- public:
-  void SetUp() override {
-    analyzer_options_.set_error_message_stability(
-        ERROR_MESSAGE_STABILITY_TEST_REDACTED);
-    analyzer_options_.set_enhanced_error_redaction(true);
-  }
-
- protected:
-  AnalyzerOptions analyzer_options_;
-  std::unique_ptr<const AnalyzerOutput> analyzer_output_;
-  SampleCatalog catalog_;
-};
-
-TEST_F(AnalyzerErrorRedactionTest, MismatchedSignatureOnNestedFunction) {
-  absl::string_view sql = "SELECT nested_catalog.nested_function(1,2,3,4)";
-  ASSERT_THAT(AnalyzeStatement(sql, analyzer_options_, catalog_.catalog(),
-                               catalog_.type_factory(), &analyzer_output_),
-              StatusIs(absl::StatusCode::kInvalidArgument,
-                       "FUNCTION_SIGNATURE_MISMATCH: NESTED_FUNCTION"));
-}
-
-TEST_F(AnalyzerErrorRedactionTest, MismatchedSignatureOnTopLevelFunction) {
-  absl::string_view sql = "SELECT fn_overloaded_bytes_and_date(1,2,3,4)";
-  ASSERT_THAT(
-      AnalyzeStatement(sql, analyzer_options_, catalog_.catalog(),
-                       catalog_.type_factory(), &analyzer_output_),
-      StatusIs(absl::StatusCode::kInvalidArgument,
-               "FUNCTION_SIGNATURE_MISMATCH: FN_OVERLOADED_BYTES_AND_DATE"));
-}
-
-TEST_F(AnalyzerErrorRedactionTest, MismatchedSignatureOnBuiltinFunction) {
-  absl::string_view sql = "SELECT TIMESTAMP(1,2,3,4)";
-  ASSERT_THAT(AnalyzeStatement(sql, analyzer_options_, catalog_.catalog(),
-                               catalog_.type_factory(), &analyzer_output_),
-              StatusIs(absl::StatusCode::kInvalidArgument,
-                       "FUNCTION_SIGNATURE_MISMATCH: TIMESTAMP"));
 }
 }  // namespace zetasql

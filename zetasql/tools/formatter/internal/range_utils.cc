@@ -18,7 +18,6 @@
 
 #include <algorithm>
 #include <set>
-#include <string>
 #include <vector>
 
 #include "zetasql/public/formatter_options.h"

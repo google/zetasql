@@ -47,7 +47,7 @@ following syntax to build a window function:
 +  `function_name`: The function that performs a window operation.
    For example, the numbering function `RANK()` could be used here.
 +  `argument_list`: Arguments that are specific to the function.
-   Some functions have them, some do not.
+   Some functions have them, some don't.
 +  `OVER`: Keyword required in the window function syntax preceding
    the [`OVER` clause][over-clause-def].
 +  [`over_clause`][over-clause-def]: References a window that defines a group
@@ -87,7 +87,7 @@ A single result for each row in the input.
 ### Defining the `OVER` clause 
 <a id="def_over_clause"></a>
 
-```sql
+```zetasql
 function_name ( [ argument_list ] ) OVER over_clause
 
 over_clause:
@@ -128,7 +128,7 @@ These queries use a named window:
 ### Defining the window specification 
 <a id="def_window_spec"></a>
 
-```sql
+```zetasql
 window_specification:
   [ named_window ]
   [ PARTITION BY partition_expression [, ...] ]
@@ -153,7 +153,7 @@ Important: If you use a named window, special rules apply to
    +  Multiple partition expressions are allowed in the `PARTITION BY` clause.
    +  An expression can't contain floating point types, non-groupable types,
       constants, or window functions.
-   +  If this optional clause is not used, all rows in the input table
+   +  If this optional clause isn't used, all rows in the input table
       comprise a single partition.
 +  `ORDER BY`: Defines how rows are ordered within a partition.
    This clause is optional in most situations, but is required in some
@@ -170,23 +170,23 @@ If neither the `ORDER BY` clause nor window frame clause are present,
 the window frame includes all rows in that partition.
 
 For aggregate analytic functions, if the `ORDER BY` clause is present but
-the window frame clause is not, the following window frame clause is
+the window frame clause isn't, the following window frame clause is
 used by default:
 
-```sql
+```zetasql
 RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
 ```
 
 For example, the following queries are equivalent:
 
-```sql
-SELECT book, LAST_VALUE(item)
+```zetasql
+SELECT book, LAST_VALUE(book)
   OVER (ORDER BY year)
 FROM Library
 ```
 
-```sql
-SELECT book, LAST_VALUE(item)
+```zetasql
+SELECT book, LAST_VALUE(book)
   OVER (
     ORDER BY year
     RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
@@ -210,14 +210,14 @@ If you use a named window in your window specifications, these rules apply:
    followed by `ORDER BY` and `window_frame_clause`. If you add a named window,
    its window specifications are processed first.
 
-   ```sql
+   ```zetasql
    --this works:
    SELECT item, purchases, LAST_VALUE(item)
      OVER (item_window ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING) AS most_popular
    FROM Produce
    WINDOW item_window AS (ORDER BY purchases)
 
-   --this does not work:
+   --this doesn't work:
    SELECT item, purchases, LAST_VALUE(item)
      OVER (item_window ORDER BY purchases) AS most_popular
    FROM Produce
@@ -258,7 +258,7 @@ These queries define how rows are ordered in a partition:
 ### Defining the window frame clause 
 <a id="def_window_frame"></a>
 
-```sql
+```zetasql
 window_frame_clause:
   { rows_range } { frame_start | frame_between }
 
@@ -400,7 +400,7 @@ These queries compute values with the current row as a boundary:
 ### Referencing a named window 
 <a id="ref_named_window"></a>
 
-```sql
+```zetasql
 SELECT query_expr,
   function_name ( [ argument_list ] ) OVER over_clause
 FROM from_item
@@ -453,7 +453,7 @@ and [`Farm`][farm-table].
 
 Some examples reference a table called `Produce`:
 
-```sql
+```zetasql
 WITH Produce AS
  (SELECT 'kale' as item, 23 as purchases, 'vegetable' as category
   UNION ALL SELECT 'banana', 2, 'fruit'
@@ -479,7 +479,7 @@ SELECT * FROM Produce
 
 Some examples reference a table called `Employees`:
 
-```sql
+```zetasql
 WITH Employees AS
  (SELECT 'Isabella' as name, 2 as department, DATE(1997, 09, 28) as start_date
   UNION ALL SELECT 'Anthony', 1, DATE(1995, 11, 29)
@@ -505,7 +505,7 @@ SELECT * FROM Employees
 
 Some examples reference a table called `Farm`:
 
-```sql
+```zetasql
 WITH Farm AS
  (SELECT 'cat' as animal, 23 as population, 'mammal' as category
   UNION ALL SELECT 'duck', 3, 'bird'
@@ -539,7 +539,7 @@ This computes a grand total for all items in the
 +  (**banana**, **apple**, **leek**, **cabbage**, **==lettuce==**, **kale**) = 54 total purchases
 +  (**banana**, **apple**, **leek**, **cabbage**, **lettuce**, **==kale==**) = 54 total purchases
 
-```sql
+```zetasql
 SELECT item, purchases, category, SUM(purchases)
   OVER () AS total_purchases
 FROM Produce
@@ -570,7 +570,7 @@ This computes a subtotal for each category in the
    +  (**leek**, **cabbage**, **==lettuce==**, **kale**) = 44 total purchases
    +  (**leek**, **cabbage**, **lettuce**, **==kale==**) = 44 total purchases
 
-```sql
+```zetasql
 SELECT item, purchases, category, SUM(purchases)
   OVER (
     PARTITION BY category
@@ -606,7 +606,7 @@ order defined using the `ORDER BY` clause.
    +  (**leek**, **cabbage**, **==lettuce==**, kale) = 21 total purchases
    +  (**leek**, **cabbage**, **lettuce**, **==kale==**) = 44 total purchases
 
-```sql
+```zetasql
 SELECT item, purchases, category, SUM(purchases)
   OVER (
     PARTITION BY category
@@ -630,7 +630,7 @@ FROM Produce
 This does the same thing as the preceding example. You don't have to add
 `CURRENT ROW` as a boundary unless you would like to for readability.
 
-```sql
+```zetasql
 SELECT item, purchases, category, SUM(purchases)
   OVER (
     PARTITION BY category
@@ -651,7 +651,7 @@ rows prior to the current row in the partition.
 +  (**banana**, **leek**, **apple**, cabbage, ==lettuce==, kale) = 12
 +  (**banana**, **leek**, **apple**, **cabbage**, lettuce, ==kale==) = 21
 
-```sql
+```zetasql
 SELECT item, purchases, category, SUM(purchases)
   OVER (
     ORDER BY purchases
@@ -684,7 +684,7 @@ current row. The upper boundary is 1 row after the current row.
 +  (banana, leek, apple, **cabbage**, **==lettuce==**, **kale**) = 14 average purchases
 +  (banana, leek, apple, cabbage, **lettuce**, **==kale==**) = 16.5 average purchases
 
-```sql
+```zetasql
 SELECT item, purchases, category, AVG(purchases)
   OVER (
     ORDER BY purchases
@@ -716,7 +716,7 @@ count in the [`Farm`][farm-table] table.
 +  (goose, **dog**, **ox**, **goat**, **==duck==**, cat) = 4 animals between population range 2-4.
 +  (goose, dog, ox, goat, duck, **==cat==**) = 1 animal between population range 22-24.
 
-```sql
+```zetasql
 SELECT animal, population, category, COUNT(*)
   OVER (
     ORDER BY population
@@ -751,7 +751,7 @@ in a window are partitioned and ordered in each partition. The
    +  (**leek**, **cabbage**, **==lettuce==**, **kale**) = kale is most popular
    +  (**leek**, **cabbage**, **lettuce**, **==kale==**) = kale is most popular
 
-```sql
+```zetasql
 SELECT item, purchases, category, LAST_VALUE(item)
   OVER (
     PARTITION BY category
@@ -789,7 +789,7 @@ most popular item in a specific range in that category.
    +  (leek, **cabbage**, **==lettuce==**, **kale**) = kale is most popular
    +  (leek, cabbage, **lettuce**, **==kale==**) = kale is most popular
 
-```sql
+```zetasql
 SELECT item, purchases, category, LAST_VALUE(item)
   OVER (
     PARTITION BY category
@@ -814,7 +814,7 @@ This example returns the same results as the preceding example, but it includes
 a named window called `item_window`. Some of the window specifications are
 defined directly in the `OVER` clause and some are defined in the named window.
 
-```sql
+```zetasql
 SELECT item, purchases, category, LAST_VALUE(item)
   OVER (
     item_window
@@ -841,7 +841,7 @@ in the `OVER` clause. The [`Employees`][employees-table] table is referenced.
    +  (**Isabella**, **==Daniel==**, **Jose**) = Assign rank 2 to Daniel
    +  (**Isabella**, **Daniel**, **==Jose==**) = Assign rank 3 to Jose
 
-```sql
+```zetasql
 SELECT name, department, start_date,
   RANK() OVER (PARTITION BY department ORDER BY start_date) AS rank
 FROM Employees;
@@ -865,7 +865,7 @@ You can define some of your logic in a named window and some of it in a
 window frame clause. This logic is combined. Here is an example, using the
 [`Produce`][produce-table] table.
 
-```sql
+```zetasql
 SELECT item, purchases, category, LAST_VALUE(item)
   OVER (item_window) AS most_popular
 FROM Produce
@@ -888,7 +888,7 @@ WINDOW item_window AS (
 
 You can also get the previous results with these examples:
 
-```sql
+```zetasql
 SELECT item, purchases, category, LAST_VALUE(item)
   OVER (item_window) AS most_popular
 FROM Produce
@@ -899,7 +899,7 @@ WINDOW
   item_window AS (c)
 ```
 
-```sql
+```zetasql
 SELECT item, purchases, category, LAST_VALUE(item)
   OVER (item_window ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING) AS most_popular
 FROM Produce
@@ -912,7 +912,7 @@ WINDOW
 The following example produces an error because a window frame clause has been
 defined twice:
 
-```sql {.bad}
+```zetasql {.bad}
 SELECT item, purchases, category, LAST_VALUE(item)
   OVER (
     item_window

@@ -563,7 +563,7 @@ set x=y
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `a-100.b.c` [at 1:8]
+ERROR: Syntax error: Table name contains '-' character. The dashed identifier part of the table name needs to be quoted: `a-100` [at 1:8]
 update a-100.b.c
        ^
 --

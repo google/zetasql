@@ -17,7 +17,6 @@
 #include "zetasql/analyzer/lambda_util.h"
 
 #include <algorithm>
-#include <type_traits>
 #include <vector>
 
 #include "zetasql/base/logging.h"
@@ -27,7 +26,6 @@
 #include "zetasql/public/id_string.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
-#include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 #include "zetasql/base/status_macros.h"
 

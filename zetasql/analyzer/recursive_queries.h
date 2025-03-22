@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "zetasql/parser/parse_tree.h"
+#include "zetasql/public/id_string.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/statusor.h"
 
@@ -53,6 +54,40 @@ absl::StatusOr<WithEntrySortResult> SortWithEntries(
 // recursive.
 absl::StatusOr<bool> IsViewSelfRecursive(
     const ASTCreateViewStatementBase* stmt);
+
+// Returns whether the given parser AST node `node` contains a reference to the
+// table with the given `name`.
+//
+// For example, suppose NodeType is ASTQueryExpression, which corresponds to a
+// named subquery, e.g. the subquery in
+//
+// WITH RECURSIVE t AS (
+//   SELECT 1
+//   UNION ALL
+//   SELECT * FROM T
+// )
+// ...
+//
+// and the name of the subquery `name` is {"t"}. The function will return true
+// because the subquery contains a reference to itself, i.e. the "t" in "(FROM
+// t)".
+//
+// Note however, if the reference to "t" is shadowed by an inner WITH alias,
+// e.g.
+//
+// (
+//   SELECT 1
+//   |> UNION ALL (WITH t AS (...) FROM t)
+// )
+//
+// the function will return false because the reference to "t" is not a self
+// reference (it is referencing to a different "t").
+//
+// `NodeType` denotes the AST node kind for `node`, and must derive from
+// ASTNode.
+template <typename NodeType>
+absl::StatusOr<bool> ContainsReferenceToTable(
+    const NodeType* node, const std::vector<IdString>& name);
 
 }  // namespace zetasql
 

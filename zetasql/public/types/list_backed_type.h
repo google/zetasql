@@ -34,7 +34,7 @@ class ListBackedType : public ContainerType {
 #endif  // SWIG
 
  protected:
-  ListBackedType(const TypeFactory* factory, TypeKind kind)
+  ListBackedType(const TypeFactoryBase* factory, TypeKind kind)
       : ContainerType(factory, kind) {}
 
   friend struct MultisetValueContentContainerElementHasher;

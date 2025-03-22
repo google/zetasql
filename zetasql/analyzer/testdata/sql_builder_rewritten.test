@@ -4,20 +4,28 @@
 # specific work in the SQLBuilder component to handle shapes that the analyzer
 # does not produce but the rewriter does, such as ResolvedWithExpr. This file
 # includes tests that excercise such code and document its outputs.
-[default show_unparsed]
+[default show_sqlbuilder_output]
 [default no_show_resolved_ast]
 
 [language_features=V_1_3_UNNEST_AND_FLATTEN_ARRAYS]
 [enabled_ast_rewrites=DEFAULTS,-WITH_EXPR|DEFAULTS,+WITH_EXPR]
 SELECT FLATTEN(ARRAY_CONCAT([STRUCT(1 AS a)], [STRUCT(2 AS a)]).a);
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  FLATTEN((ARRAY_CONCAT(ARRAY< STRUCT< a INT64 > >[STRUCT< a INT64 > (1)], ARRAY< STRUCT< a INT64 > >[STRUCT<
+      a INT64 > (2)])).a) AS a_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 SELECT
   FLATTEN((ARRAY_CONCAT(ARRAY< STRUCT< a INT64 > >[STRUCT< a INT64 > (1)], ARRAY< STRUCT< a INT64 > >[STRUCT<
       a INT64 > (2)])).a) AS a_1;
 
 [[ REWRITER ARTIFACTS FOR RULE GROUPS 'DEFAULTS,-WITH_EXPR' ]]
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   (
     SELECT
@@ -39,11 +47,35 @@ SELECT
         SELECT
           ARRAY_CONCAT(ARRAY< STRUCT< a INT64 > >[STRUCT< a INT64 > (1)], ARRAY< STRUCT< a INT64 > >[STRUCT< a INT64 >
             (2)]) AS a_2
-      )
+      ) AS a_2_7
+  ) AS a_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+SELECT
+  (
+    SELECT
+      ARRAY_CONCAT(ARRAY< STRUCT< a INT64 > >[STRUCT< a INT64 > (1)], ARRAY< STRUCT< a INT64 > >[STRUCT< a INT64 >
+        (2)]) AS a_2
+    |> AS a_2_7
+    |> SELECT
+         `IF`((a_2) IS NULL, CAST(NULL AS ARRAY< INT64 >), ARRAY(
+             FROM
+               UNNEST(a_2) AS a_3 WITH OFFSET AS a_4
+             |> SELECT
+                  a_3 AS a_3,
+                  a_4 AS a_4,
+                  a_3.a AS a_5
+             |> AS projectscan_6
+             |> ORDER BY projectscan_6.a_4
+             |> SELECT
+                  projectscan_6.a_5 AS a_5
+           ))
   ) AS a_1;
 
 [[ REWRITER ARTIFACTS FOR RULE GROUPS 'DEFAULTS,+WITH_EXPR' ]]
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   (
     SELECT
@@ -66,4 +98,27 @@ SELECT
           ARRAY_CONCAT(ARRAY< STRUCT< a INT64 > >[STRUCT< a INT64 > (1)], ARRAY< STRUCT< a INT64 > >[STRUCT< a INT64 >
             (2)]) AS a_2
       ) AS projectscan_3
+  ) AS a_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+SELECT
+  (
+    SELECT
+      ARRAY_CONCAT(ARRAY< STRUCT< a INT64 > >[STRUCT< a INT64 > (1)], ARRAY< STRUCT< a INT64 > >[STRUCT< a INT64 >
+        (2)]) AS a_2
+    |> AS projectscan_3
+    |> SELECT
+         `IF`((projectscan_3.a_2) IS NULL, CAST(NULL AS ARRAY< INT64 >), ARRAY(
+             FROM
+               UNNEST(projectscan_3.a_2) AS a_5 WITH OFFSET AS a_6
+             |> SELECT
+                  a_5 AS a_5,
+                  a_6 AS a_6,
+                  a_5.a AS a_7
+             |> AS projectscan_8
+             |> ORDER BY projectscan_8.a_6
+             |> SELECT
+                  projectscan_8.a_7 AS a_7
+           )) AS a_4
   ) AS a_1;

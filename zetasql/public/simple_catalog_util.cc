@@ -22,6 +22,7 @@
 #include <utility>
 #include <vector>
 
+#include "zetasql/common/internal_property_graph.h"
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
@@ -39,6 +40,7 @@
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/templated_sql_function.h"
 #include "zetasql/public/templated_sql_tvf.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
@@ -306,6 +308,25 @@ absl::StatusOr<std::unique_ptr<SQLConstant>> MakeConstantFromCreateConstant(
   return constant;
 }
 
+// Returns the catalog column and column name from a table, given the column
+// reference.
+static absl::Status GetColumnAndNameFromColumnRef(
+    const ResolvedExpr& column_ref, const Table* table, const Column*& column,
+    std::string& name) {
+  if (column_ref.Is<ResolvedColumnRef>()) {
+    name = column_ref.GetAs<ResolvedColumnRef>()->column().name();
+    column = table->FindColumnByName(name);
+  } else if (column_ref.Is<ResolvedCatalogColumnRef>()) {
+    column = column_ref.GetAs<ResolvedCatalogColumnRef>()->column();
+  } else {
+    ZETASQL_RET_CHECK_FAIL() << column_ref.DebugString();
+  }
+  ZETASQL_RET_CHECK(column != nullptr);
+  return absl::OkStatus();
+}
+
+// Returns a list of column indices in the `table`, given a list of column
+// references.
 static absl::StatusOr<std::vector<int>> GetColumnIndices(
     const Table* table,
     absl::Span<const std::unique_ptr<const ResolvedExpr>> column_refs) {
@@ -319,15 +340,7 @@ static absl::StatusOr<std::vector<int>> GetColumnIndices(
   for (const auto& ref : column_refs) {
     std::string name;
     const Column* column = nullptr;
-    if (ref->Is<ResolvedColumnRef>()) {
-      name = ref->GetAs<ResolvedColumnRef>()->column().name();
-      column = table->FindColumnByName(name);
-    } else if (ref->Is<ResolvedCatalogColumnRef>()) {
-      column = ref->GetAs<ResolvedCatalogColumnRef>()->column();
-    } else {
-      ZETASQL_RET_CHECK_FAIL() << ref->DebugString();
-    }
-    ZETASQL_RET_CHECK(column != nullptr);
+    ZETASQL_RETURN_IF_ERROR(GetColumnAndNameFromColumnRef(*ref, table, column, name));
     column_indices.push_back(column_to_index_map[column]);
   }
   return column_indices;
@@ -342,6 +355,8 @@ static absl::Status AddElementTable(
       resolved_element_table->input_scan()->GetAs<ResolvedTableScan>()->table();
   ZETASQL_ASSIGN_OR_RETURN(std::vector<int> key_indices,
                    GetColumnIndices(table, resolved_element_table->key_list()));
+
+  // Static properties.
   std::vector<std::unique_ptr<const GraphPropertyDefinition>> property_defs;
   for (const auto& def : resolved_element_table->property_definition_list()) {
     const GraphPropertyDeclaration* property_decl;
@@ -351,17 +366,22 @@ static absl::Status AddElementTable(
         property_decl, def->sql());
     property_defs.push_back(std::move(property_def));
   }
+
+  // Static labels.
   absl::flat_hash_set<const GraphElementLabel*> labels;
   for (const auto& label_name : resolved_element_table->label_name_list()) {
     const GraphElementLabel* label;
     ZETASQL_RETURN_IF_ERROR(graph.FindLabelByName(label_name, label));
     labels.insert(label);
   }
+
   std::unique_ptr<const ElementTableType> element_table;
   if constexpr (std::is_same_v<ElementTableType, GraphNodeTable>) {
     element_table = std::make_unique<SimpleGraphNodeTable>(
         resolved_element_table->alias(), graph.NamePath(), table,
-        std::move(key_indices), std::move(labels), std::move(property_defs));
+        std::move(key_indices), std::move(labels),
+        std::move(property_defs)
+    );
     graph.AddNodeTable(std::move(element_table));
     return absl::OkStatus();
   }
@@ -392,7 +412,9 @@ static absl::Status AddElementTable(
     element_table = std::make_unique<SimpleGraphEdgeTable>(
         resolved_element_table->alias(), graph.NamePath(), table,
         std::move(key_indices), std::move(labels), std::move(property_defs),
-        std::move(source_node), std::move(dest_node));
+        std::move(source_node),
+        std::move(dest_node)
+    );
     graph.AddEdgeTable(std::move(element_table));
     return absl::OkStatus();
   }
@@ -438,11 +460,6 @@ PopulatePropertyGraph(
   return std::move(graph);
 }
 
-void InternalSetResolvedExpr(SimpleGraphPropertyDefinition* def,
-                             const ResolvedExpr* resolved_expr) {
-  def->resolved_expr_ = resolved_expr;
-}
-
 static absl::Status ResolveGraphPropertyDefinitions(
     LanguageOptions language_options, const PropertyGraph* graph,
     SimpleCatalog* catalog,
@@ -483,13 +500,13 @@ static absl::Status ResolveGraphPropertyDefinitions(
     ZETASQL_RETURN_IF_ERROR(
         element_table->GetPropertyDefinitions(property_definitions));
     for (const GraphPropertyDefinition* definition : property_definitions) {
+      ZETASQL_RET_CHECK(definition->Is<SimpleGraphPropertyDefinition>());
       std::unique_ptr<const AnalyzerOutput> analyzer_output;
       ZETASQL_RETURN_IF_ERROR(AnalyzeExpression(definition->expression_sql(), options,
                                         catalog, catalog->type_factory(),
                                         &analyzer_output));
 
-      ZETASQL_RET_CHECK(definition->Is<SimpleGraphPropertyDefinition>());
-      InternalSetResolvedExpr(
+      InternalPropertyGraph::InternalSetResolvedExpr(
           const_cast<SimpleGraphPropertyDefinition*>(
               definition->GetAs<SimpleGraphPropertyDefinition>()),
           analyzer_output->resolved_expr());

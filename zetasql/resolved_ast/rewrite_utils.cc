@@ -28,9 +28,13 @@
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/annotation/collation.h"
 #include "zetasql/public/builtin_function.pb.h"
+#include "zetasql/public/coercer.h"
 #include "zetasql/public/function.h"
+#include "zetasql/public/function.pb.h"
 #include "zetasql/public/function_signature.h"
+#include "zetasql/public/functions/differential_privacy.pb.h"
 #include "zetasql/public/input_argument_type.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
@@ -38,6 +42,7 @@
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_builder.h"
 #include "zetasql/resolved_ast/resolved_ast_deep_copy_visitor.h"
+#include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
 #include "zetasql/resolved_ast/resolved_ast_helper.h"
 #include "zetasql/resolved_ast/resolved_ast_rewrite_visitor.h"
 #include "zetasql/resolved_ast/resolved_ast_visitor.h"
@@ -959,7 +964,8 @@ FunctionCallBuilder::Coalesce(
 
 absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>>
 FunctionCallBuilder::Less(std::unique_ptr<const ResolvedExpr> left_expr,
-                          std::unique_ptr<const ResolvedExpr> right_expr) {
+                          std::unique_ptr<const ResolvedExpr> right_expr,
+                          bool or_equal) {
   ZETASQL_RET_CHECK_NE(left_expr.get(), nullptr);
   ZETASQL_RET_CHECK_NE(right_expr.get(), nullptr);
   ZETASQL_RET_CHECK(left_expr->type()->Equals(right_expr->type()))
@@ -969,9 +975,14 @@ FunctionCallBuilder::Less(std::unique_ptr<const ResolvedExpr> left_expr,
   std::string unused_type_description;
   ZETASQL_RET_CHECK(left_expr->type()->SupportsOrdering(analyzer_options_.language(),
                                                 &unused_type_description));
+  if (or_equal) {
+    ZETASQL_RET_CHECK(
+        left_expr->type()->SupportsEquality(analyzer_options_.language()));
+  }
 
   const Function* less_fn = nullptr;
-  ZETASQL_RETURN_IF_ERROR(GetBuiltinFunctionFromCatalog("$less", &less_fn));
+  ZETASQL_RETURN_IF_ERROR(GetBuiltinFunctionFromCatalog(
+      or_equal ? "$less_or_equal" : "$less", &less_fn));
 
   // Only the first signature has collation enabled in function signature
   // options.
@@ -1022,6 +1033,19 @@ FunctionCallBuilder::Less(std::unique_ptr<const ResolvedExpr> left_expr,
   // We don't need to propagate type annotation map for this function because
   // the return type is not STRING.
   return resolved_function;
+}
+
+absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>>
+FunctionCallBuilder::Less(std::unique_ptr<const ResolvedExpr> left_expr,
+                          std::unique_ptr<const ResolvedExpr> right_expr) {
+  return Less(std::move(left_expr), std::move(right_expr), /*or_equal=*/false);
+}
+
+absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>>
+FunctionCallBuilder::LessOrEqual(
+    std::unique_ptr<const ResolvedExpr> left_expr,
+    std::unique_ptr<const ResolvedExpr> right_expr) {
+  return Less(std::move(left_expr), std::move(right_expr), /*or_equal=*/true);
 }
 
 namespace {
@@ -1209,9 +1233,9 @@ absl::StatusOr<FunctionSignature> GetBinaryFunctionSignatureFromArgumentTypes(
 }  // namespace
 
 absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>>
-FunctionCallBuilder::GreaterOrEqual(
-    std::unique_ptr<const ResolvedExpr> left_expr,
-    std::unique_ptr<const ResolvedExpr> right_expr) {
+FunctionCallBuilder::Greater(std::unique_ptr<const ResolvedExpr> left_expr,
+                             std::unique_ptr<const ResolvedExpr> right_expr,
+                             bool or_equal) {
   ZETASQL_RET_CHECK_NE(left_expr.get(), nullptr);
   ZETASQL_RET_CHECK_NE(right_expr.get(), nullptr);
 
@@ -1226,8 +1250,9 @@ FunctionCallBuilder::GreaterOrEqual(
       << right_expr->type()->DebugString();
 
   const Function* greater_or_equal_function = nullptr;
-  ZETASQL_RETURN_IF_ERROR(GetBuiltinFunctionFromCatalog("$greater_or_equal",
-                                                &greater_or_equal_function));
+  ZETASQL_RETURN_IF_ERROR(GetBuiltinFunctionFromCatalog(
+      or_equal ? "$greater_or_equal" : "$greater", &greater_or_equal_function));
+
   std::unique_ptr<FunctionSignature> signature;
   if (!left_expr->type()->Equals(right_expr->type())) {
     // Unequal types can happen, but are only supported if the respective
@@ -1242,7 +1267,7 @@ FunctionCallBuilder::GreaterOrEqual(
     signature = std::make_unique<FunctionSignature>(
         FunctionSignature({types::BoolType(), 1},
                           {{left_expr->type(), 1}, {right_expr->type(), 1}},
-                          FN_GREATER_OR_EQUAL));
+                          or_equal ? FN_GREATER_OR_EQUAL : FN_GREATER));
   }
 
   std::vector<std::unique_ptr<const ResolvedExpr>> arguments;
@@ -1252,6 +1277,21 @@ FunctionCallBuilder::GreaterOrEqual(
   return MakeResolvedFunctionCall(
       signature->result_type().type(), greater_or_equal_function, *signature,
       std::move(arguments), ResolvedFunctionCall::DEFAULT_ERROR_MODE);
+}
+
+absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>>
+FunctionCallBuilder::Greater(std::unique_ptr<const ResolvedExpr> left_expr,
+                             std::unique_ptr<const ResolvedExpr> right_expr) {
+  return Greater(std::move(left_expr), std::move(right_expr),
+                 /*or_equal=*/false);
+}
+
+absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>>
+FunctionCallBuilder::GreaterOrEqual(
+    std::unique_ptr<const ResolvedExpr> left_expr,
+    std::unique_ptr<const ResolvedExpr> right_expr) {
+  return Greater(std::move(left_expr), std::move(right_expr),
+                 /*or_equal=*/true);
 }
 
 absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>>
@@ -1422,6 +1462,29 @@ FunctionCallBuilder::NestedBinaryInt64Add(
                         types::Int64Type());
 }
 
+// Construct a ResolvedAnalyticFunctionCall for ROW_NUMBER()
+absl::StatusOr<std::unique_ptr<const ResolvedAnalyticFunctionCall>>
+FunctionCallBuilder::RowNumber() {
+  const Function* fn = nullptr;
+  ZETASQL_RETURN_IF_ERROR(GetBuiltinFunctionFromCatalog("row_number", &fn));
+  ZETASQL_RET_CHECK(fn != nullptr);
+  ZETASQL_RET_CHECK(fn->IsZetaSQLBuiltin());
+  ZETASQL_RET_CHECK(fn->IsAnalytic());
+  ZETASQL_RET_CHECK_EQ(fn->NumSignatures(), 1);
+
+  FunctionSignature concrete_signature = *fn->GetSignature(0);
+  concrete_signature.SetConcreteResultType(type_factory_.get_int64());
+  ZETASQL_RET_CHECK(concrete_signature.IsConcrete());
+
+  return ResolvedAnalyticFunctionCallBuilder()
+      .set_type(type_factory_.get_int64())
+      .set_function(fn)
+      .set_signature(std::move(concrete_signature))
+      .set_error_mode(ResolvedFunctionCall::DEFAULT_ERROR_MODE)
+      .set_window_frame(nullptr)
+      .Build();
+}
+
 absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>>
 FunctionCallBuilder::IsNodeEndpoint(
     std::unique_ptr<const ResolvedExpr> node_expr,
@@ -1456,6 +1519,38 @@ FunctionCallBuilder::IsNodeEndpoint(
       .Build();
 }
 
+// Returns the common supertype of the two given GraphElement types.
+absl::StatusOr<const zetasql::Type*> GetCommonGraphElementSuperType(
+    const zetasql::Type* type1, const zetasql::Type* type2,
+    Coercer& coercer) {
+  ZETASQL_RET_CHECK(type1 != nullptr);
+  ZETASQL_RET_CHECK(type2 != nullptr);
+  InputArgumentTypeSet types;
+  InputArgumentType arg_type1(type1, /*is_query_parameter=*/false,
+                              /*is_literal_for_constness=*/false);
+  InputArgumentType arg_type2(type2, /*is_query_parameter=*/false,
+                              /*is_literal_for_constness=*/true);
+  types.Insert(arg_type1);
+  types.Insert(arg_type2);
+  return coercer.GetCommonSuperType(types);
+}
+
+// Returns a cast of the given expr to the given type, or the expr itself if the
+// types are already the same.
+absl::StatusOr<std::unique_ptr<const ResolvedExpr>> CastGraphElementIfNeeded(
+    std::unique_ptr<const ResolvedExpr> expr, const Type* to_type) {
+  ZETASQL_RET_CHECK(expr != nullptr);
+  ZETASQL_RET_CHECK(to_type != nullptr);
+
+  // The to_type is already the same as the expr type, return the expr directly.
+  if (expr->type()->Equals(to_type)) {
+    return std::move(expr);
+  }
+  TypeModifiers type_modifiers;
+  return MakeResolvedCast(to_type, std::move(expr),
+                          /*return_null_on_error=*/false);
+}
+
 absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>>
 FunctionCallBuilder::AreEqualGraphElements(
     std::vector<std::unique_ptr<const ResolvedExpr>> element_expressions) {
@@ -1477,18 +1572,32 @@ FunctionCallBuilder::AreEqualGraphElements(
   std::vector<std::unique_ptr<const ResolvedExpr>> equalities;
   equalities.reserve(element_expressions.size() - 1);
   for (int i = 1; i < element_expressions.size(); ++i) {
-    FunctionArgumentTypeList argument_types;
-    argument_types.reserve(2);
-    argument_types.emplace_back(element_expressions[0]->type(),
-                                /*num_occurrences=*/1);
-    argument_types.emplace_back(element_expressions[i]->type(),
-                                /*num_occurrences=*/1);
     ZETASQL_ASSIGN_OR_RETURN(
         std::unique_ptr<const ResolvedExpr> copy,
         ResolvedASTDeepCopyVisitor::Copy(element_expressions[0].get()));
+    std::unique_ptr<const ResolvedExpr> lhs = std::move(copy);
+    std::unique_ptr<const ResolvedExpr> rhs = std::move(element_expressions[i]);
+    // Supertype case.
+    if (!lhs->type()->Equals(rhs->type())) {
+      ZETASQL_ASSIGN_OR_RETURN(
+          const zetasql::Type* common_type,
+          GetCommonGraphElementSuperType(lhs->type(), rhs->type(), coercer_));
+      ZETASQL_ASSIGN_OR_RETURN(lhs,
+                       CastGraphElementIfNeeded(std::move(lhs), common_type));
+      ZETASQL_ASSIGN_OR_RETURN(rhs,
+                       CastGraphElementIfNeeded(std::move(rhs), common_type));
+    }
+
     std::vector<std::unique_ptr<const ResolvedExpr>> args(2);
-    args[0] = std::move(copy);
-    args[1] = std::move(element_expressions[i]);
+    args[0] = std::move(lhs);
+    args[1] = std::move(rhs);
+
+    FunctionArgumentTypeList argument_types;
+    argument_types.reserve(2);
+    argument_types.emplace_back(args[0]->type(),
+                                /*num_occurrences=*/1);
+    argument_types.emplace_back(args[1]->type(),
+                                /*num_occurrences=*/1);
     FunctionSignature fn_signature({types::BoolType(), /*num_occurrences=*/1},
                                    argument_types, function_signature_id);
     ZETASQL_ASSIGN_OR_RETURN(
@@ -1843,24 +1952,70 @@ FunctionCallBuilder::Mod(std::unique_ptr<const ResolvedExpr> dividend_expr,
 }
 
 absl::StatusOr<std::unique_ptr<const ResolvedAggregateFunctionCall>>
-FunctionCallBuilder::Count(std::unique_ptr<const ResolvedColumnRef> column_ref,
+FunctionCallBuilder::Count(std::unique_ptr<const ResolvedExpr> expr,
                            bool is_distinct) {
-  FunctionArgumentTypeList count_args_types;
-  count_args_types.emplace_back(column_ref->type(), /*num_occurrences=*/1);
-  std::vector<std::unique_ptr<const ResolvedExpr>> count_args;
-  count_args.push_back(std::move(column_ref));
+  FunctionArgumentTypeList count_fn_args_types;
+  count_fn_args_types.emplace_back(expr->type(), /*num_occurrences=*/1);
+  std::vector<std::unique_ptr<const ResolvedExpr>> count_fn_args;
+  count_fn_args.push_back(std::move(expr));
 
   const Function* count_fn = nullptr;
   ZETASQL_RETURN_IF_ERROR(GetBuiltinFunctionFromCatalog("count", &count_fn));
   FunctionSignature count_fn_sig(
       FunctionArgumentType(types::Int64Type(), /*num_occurrences=*/1),
-      count_args_types, FN_COUNT);
+      count_fn_args_types, FN_COUNT);
 
   return ResolvedAggregateFunctionCallBuilder()
       .set_type(types::Int64Type())
       .set_function(count_fn)
       .set_signature(count_fn_sig)
-      .set_argument_list(std::move(count_args))
+      .set_argument_list(std::move(count_fn_args))
+      .set_error_mode(ResolvedFunctionCall::DEFAULT_ERROR_MODE)
+      .set_distinct(is_distinct)
+      .Build();
+}
+
+absl::StatusOr<std::unique_ptr<const ResolvedExpr>>
+FunctionCallBuilder::CountStar(bool is_distinct, bool is_analytic) {
+  FunctionArgumentTypeList count_args_types;
+
+  const Function* count_fn = nullptr;
+  ZETASQL_RETURN_IF_ERROR(GetBuiltinFunctionFromCatalog("$count_star", &count_fn));
+  ZETASQL_RET_CHECK(count_fn != nullptr);
+
+  FunctionSignature concrete_signature = *count_fn->GetSignature(0);
+  concrete_signature.SetConcreteResultType(type_factory_.get_int64());
+  ZETASQL_RET_CHECK(concrete_signature.IsConcrete());
+
+  ZETASQL_RET_CHECK_EQ(count_fn->NumSignatures(), 1);
+
+  if (is_analytic) {
+    return ResolvedAnalyticFunctionCallBuilder()
+        .set_type(type_factory_.get_int64())
+        .set_function(count_fn)
+        .set_signature(std::move(concrete_signature))
+        .set_error_mode(ResolvedFunctionCall::DEFAULT_ERROR_MODE)
+        .set_distinct(is_distinct)
+        .set_window_frame(
+            ResolvedWindowFrameBuilder()
+                .set_start_expr(
+                    ResolvedWindowFrameExprBuilder()
+                        .set_boundary_type(
+                            ResolvedWindowFrameExpr::UNBOUNDED_PRECEDING)
+                        .set_expression(nullptr))
+                .set_end_expr(
+                    ResolvedWindowFrameExprBuilder()
+                        .set_boundary_type(
+                            ResolvedWindowFrameExpr::UNBOUNDED_FOLLOWING)
+                        .set_expression(nullptr))
+                .set_frame_unit(ResolvedWindowFrame::ROWS))
+        .Build();
+  }
+
+  return ResolvedAggregateFunctionCallBuilder()
+      .set_type(type_factory_.get_int64())
+      .set_function(count_fn)
+      .set_signature(std::move(concrete_signature))
       .set_error_mode(ResolvedFunctionCall::DEFAULT_ERROR_MODE)
       .set_distinct(is_distinct)
       .Build();
@@ -1896,7 +2051,7 @@ FunctionCallBuilder::WithSideEffects(
 absl::StatusOr<std::unique_ptr<const ResolvedAggregateFunctionCall>>
 FunctionCallBuilder::AnyValue(
     std::unique_ptr<const ResolvedExpr> input_expr,
-    std::unique_ptr<const ResolvedExpr> having_min_expr) {
+    std::unique_ptr<const ResolvedExpr> having_min_max_expr, bool is_max) {
   ZETASQL_RET_CHECK(input_expr != nullptr);
   const Type* input_type = input_expr->type();
   FunctionArgumentTypeList args_types;
@@ -1911,10 +2066,12 @@ FunctionCallBuilder::AnyValue(
       args_types, FN_ANY_VALUE);
 
   std::unique_ptr<const ResolvedAggregateHavingModifier> resolved_having =
-      having_min_expr != nullptr ? MakeResolvedAggregateHavingModifier(
-                                       ResolvedAggregateHavingModifier::MIN,
-                                       std::move(having_min_expr))
-                                 : nullptr;
+      having_min_max_expr != nullptr
+          ? MakeResolvedAggregateHavingModifier(
+                is_max ? ResolvedAggregateHavingModifier::MAX
+                       : ResolvedAggregateHavingModifier::MIN,
+                std::move(having_min_max_expr))
+          : nullptr;
 
   return ResolvedAggregateFunctionCallBuilder()
       .set_type(input_type)
@@ -2337,7 +2494,7 @@ LikeAnyAllSubqueryScanBuilder::AggregateLogicalOperation(
       /*limit=*/nullptr);
 }
 
-bool IsBuiltInFunctionIdEq(const ResolvedFunctionCall* const function_call,
+bool IsBuiltInFunctionIdEq(const ResolvedFunctionCallBase* const function_call,
                            FunctionSignatureId function_signature_id) {
   ABSL_DCHECK(function_call->function() != nullptr)
       << "Expected function_call->function() to not be null";
@@ -2510,4 +2667,72 @@ FunctionCallBuilder::ExtractForDpApproxCountDistinct(
       .Build();
 }
 
+absl::StatusOr<std::unique_ptr<const ResolvedAnalyticFunctionCall>>
+FunctionCallBuilder::IsFirstK(
+    absl::Nonnull<std::unique_ptr<const ResolvedExpr>> arg_k) {
+  ZETASQL_RET_CHECK(arg_k->type()->IsInt64());
+  ZETASQL_RET_CHECK(arg_k->Is<ResolvedLiteral>() || arg_k->Is<ResolvedParameter>());
+  const Function* analytic_function = nullptr;
+  ZETASQL_RETURN_IF_ERROR(
+      GetBuiltinFunctionFromCatalog("is_first", &analytic_function));
+
+  std::vector<std::unique_ptr<const ResolvedExpr>> args;
+  args.emplace_back(std::move(arg_k));
+  ZETASQL_RET_CHECK_EQ(analytic_function->NumSignatures(), 1);
+  const FunctionSignature* catalog_signature =
+      analytic_function->GetSignature(0);
+  ZETASQL_RET_CHECK_EQ(catalog_signature->arguments().size(), 1);
+  FunctionArgumentType arg_type(catalog_signature->argument(0).type(),
+                                catalog_signature->argument(0).options(),
+                                /*num_occurrences=*/1);
+  FunctionArgumentType result_type(catalog_signature->result_type().type(),
+                                   catalog_signature->result_type().options(),
+                                   /*num_occurrences=*/1);
+  FunctionSignature concrete_signature(result_type, {arg_type},
+                                       catalog_signature->context_id(),
+                                       catalog_signature->options());
+  ZETASQL_RET_CHECK(concrete_signature.HasConcreteArguments());
+
+  ZETASQL_RET_CHECK(concrete_signature.IsConcrete());
+  return MakeResolvedAnalyticFunctionCall(
+      concrete_signature.result_type().type(), analytic_function,
+      concrete_signature, std::move(args), {},
+      ResolvedFunctionCallBase::DEFAULT_ERROR_MODE, false,
+      ResolvedNonScalarFunctionCallBase::DEFAULT_NULL_HANDLING,
+      /*where_expr=*/nullptr,
+      /*window_frame=*/nullptr);
+}
+
+absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>>
+FunctionCallBuilder::IsNotDistinctFrom(
+    std::unique_ptr<const ResolvedExpr> left_expr,
+    std::unique_ptr<const ResolvedExpr> right_expr) {
+  ZETASQL_RET_CHECK_NE(left_expr, nullptr);
+  ZETASQL_RET_CHECK_NE(right_expr, nullptr);
+  ZETASQL_RET_CHECK(left_expr->type()->Equals(right_expr->type()))
+      << "Inconsistent types of left_expr and right_expr: "
+      << left_expr->type()->DebugString() << " vs "
+      << right_expr->type()->DebugString();
+
+  const Function* is_not_distinct_from_fn = nullptr;
+  ZETASQL_RETURN_IF_ERROR(GetBuiltinFunctionFromCatalog("$is_not_distinct_from",
+                                                &is_not_distinct_from_fn));
+
+  FunctionArgumentType result(types::BoolType(), 1);
+  FunctionArgumentType arg(left_expr->type(), 1);
+  FunctionSignature is_not_distinct_from_sig(result, {arg, arg},
+                                             FN_NOT_DISTINCT);
+  std::vector<std::unique_ptr<const ResolvedExpr>> args;
+  args.push_back(std::move(left_expr));
+  args.push_back(std::move(right_expr));
+
+  return ResolvedFunctionCallBuilder()
+      .set_type(result.type())
+      .set_function(is_not_distinct_from_fn)
+      .set_signature(is_not_distinct_from_sig)
+      .set_argument_list(std::move(args))
+      .set_error_mode(ResolvedFunctionCall::DEFAULT_ERROR_MODE)
+      .set_function_call_info(std::make_shared<ResolvedFunctionCallInfo>())
+      .Build();
+}
 }  // namespace zetasql

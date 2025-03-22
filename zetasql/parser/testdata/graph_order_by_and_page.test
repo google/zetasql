@@ -1,0 +1,1609 @@
+###
+### Standalone ORDER BY + PAGE statement handling.
+###
+
+# Standalone ORDER BY statement.
+[default reserve_graph_table]
+[default language_features=V_1_4_SQL_GRAPH]
+[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+
+select gt.* from
+graph_table(aml
+  MATCH (a)
+  ORDER BY a.degree
+  RETURN *
+) gt
+--
+QueryStatement [0-80] [select gt....RETURN * ) gt]
+  Query [0-80] [select gt....RETURN * ) gt]
+    Select [0-80] [select gt....RETURN * ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-80] [from graph_table...TURN * ) gt]
+        GraphTableQuery [17-80] [graph_table...RETURN * ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-75] [MATCH (a)...RETURN *]
+            GqlOperatorList [35-75] [MATCH (a)...RETURN *]
+              GqlMatch [35-44] [MATCH (a)]
+                GraphPattern [41-44] [(a)]
+                  GraphPathPattern [41-44] [(a)]
+                    GraphNodePattern [41-44] [(a)]
+                      GraphElementPatternFiller [42-43] [a]
+                        Identifier(a) [42-43] [a]
+              GqlOrderByAndPage [47-64] [ORDER BY a.degree]
+                OrderBy [47-64] [ORDER BY a.degree]
+                  OrderingExpression(ASC) [56-64] [a.degree]
+                    PathExpression [56-64] [a.degree]
+                      Identifier(a) [56-57] [a]
+                      Identifier(degree) [58-64] [degree]
+              GqlReturn [67-75] [RETURN *]
+                Select [73-75] [*]
+                  SelectList [74-75] [*]
+                    SelectColumn [74-75] [*]
+                      Star(*) [74-75] [*]
+          Alias [78-80] [gt]
+            Identifier(gt) [78-80] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+    ORDER BY a.degree
+    RETURN
+      *
+  ) AS gt
+==
+
+
+# Standalone ORDER BY statement: multiple ordering expressions.
+[default reserve_graph_table]
+[default language_features=V_1_4_SQL_GRAPH]
+[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+
+select gt.* from
+graph_table(aml
+  MATCH (a)-(b)
+  ORDER BY a.degree, b.color desc
+  RETURN *
+) gt
+--
+QueryStatement [0-98] [select gt....RETURN * ) gt]
+  Query [0-98] [select gt....RETURN * ) gt]
+    Select [0-98] [select gt....RETURN * ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-98] [from graph_table...TURN * ) gt]
+        GraphTableQuery [17-98] [graph_table...RETURN * ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-93] [MATCH (a)-...RETURN *]
+            GqlOperatorList [35-93] [MATCH (a)-...RETURN *]
+              GqlMatch [35-48] [MATCH (a)-(b)]
+                GraphPattern [41-48] [(a)-(b)]
+                  GraphPathPattern [41-48] [(a)-(b)]
+                    GraphNodePattern [41-44] [(a)]
+                      GraphElementPatternFiller [42-43] [a]
+                        Identifier(a) [42-43] [a]
+                    GraphEdgePattern [44-45] [-]
+                    GraphNodePattern [45-48] [(b)]
+                      GraphElementPatternFiller [46-47] [b]
+                        Identifier(b) [46-47] [b]
+              GqlOrderByAndPage [51-82] [ORDER BY a...color desc]
+                OrderBy [51-82] [ORDER BY a...color desc]
+                  OrderingExpression(ASC) [60-68] [a.degree]
+                    PathExpression [60-68] [a.degree]
+                      Identifier(a) [60-61] [a]
+                      Identifier(degree) [62-68] [degree]
+                  OrderingExpression(DESC) [70-82] [b.color desc]
+                    PathExpression [70-77] [b.color]
+                      Identifier(b) [70-71] [b]
+                      Identifier(color) [72-77] [color]
+              GqlReturn [85-93] [RETURN *]
+                Select [91-93] [*]
+                  SelectList [92-93] [*]
+                    SelectColumn [92-93] [*]
+                      Star(*) [92-93] [*]
+          Alias [96-98] [gt]
+            Identifier(gt) [96-98] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+      -
+      (b)
+    ORDER BY a.degree, b.color DESC
+    RETURN
+      *
+  ) AS gt
+==
+
+
+# Standalone ORDER BY statement: accepts GQL keywords ASCENDING / DESCENDING.
+[default reserve_graph_table]
+[default language_features=V_1_4_SQL_GRAPH]
+[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+
+select gt.* from
+graph_table(aml
+  MATCH (a)-(b)
+  ORDER BY a.degree ascending, b.color descending
+  RETURN *
+) gt
+--
+QueryStatement [0-114] [select gt....RETURN * ) gt]
+  Query [0-114] [select gt....RETURN * ) gt]
+    Select [0-114] [select gt....RETURN * ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-114] [from graph_table...TURN * ) gt]
+        GraphTableQuery [17-114] [graph_table...RETURN * ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-109] [MATCH (a)-...RETURN *]
+            GqlOperatorList [35-109] [MATCH (a)-...RETURN *]
+              GqlMatch [35-48] [MATCH (a)-(b)]
+                GraphPattern [41-48] [(a)-(b)]
+                  GraphPathPattern [41-48] [(a)-(b)]
+                    GraphNodePattern [41-44] [(a)]
+                      GraphElementPatternFiller [42-43] [a]
+                        Identifier(a) [42-43] [a]
+                    GraphEdgePattern [44-45] [-]
+                    GraphNodePattern [45-48] [(b)]
+                      GraphElementPatternFiller [46-47] [b]
+                        Identifier(b) [46-47] [b]
+              GqlOrderByAndPage [51-98] [ORDER BY a...descending]
+                OrderBy [51-98] [ORDER BY a...descending]
+                  OrderingExpression(ASC EXPLICITLY) [60-78] [a.degree ascending]
+                    PathExpression [60-68] [a.degree]
+                      Identifier(a) [60-61] [a]
+                      Identifier(degree) [62-68] [degree]
+                  OrderingExpression(DESC) [80-98] [b.color descending]
+                    PathExpression [80-87] [b.color]
+                      Identifier(b) [80-81] [b]
+                      Identifier(color) [82-87] [color]
+              GqlReturn [101-109] [RETURN *]
+                Select [107-109] [*]
+                  SelectList [108-109] [*]
+                    SelectColumn [108-109] [*]
+                      Star(*) [108-109] [*]
+          Alias [112-114] [gt]
+            Identifier(gt) [112-114] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+      -
+      (b)
+    ORDER BY a.degree ASC, b.color DESC
+    RETURN
+      *
+  ) AS gt
+==
+
+
+# Standalone ORDER BY statement: accepts COLLATE and NULLS order clauses.
+[default reserve_graph_table]
+[default language_features=V_1_4_SQL_GRAPH]
+[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+
+select gt.* from
+graph_table(aml
+  MATCH (a)-(b)
+  ORDER BY a.color collate "en_US" nulls first, b.degree desc nulls last
+  RETURN *
+) gt
+--
+QueryStatement [0-137] [select gt....RETURN * ) gt]
+  Query [0-137] [select gt....RETURN * ) gt]
+    Select [0-137] [select gt....RETURN * ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-137] [from graph_table...TURN * ) gt]
+        GraphTableQuery [17-137] [graph_table...RETURN * ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-132] [MATCH (a)-...RETURN *]
+            GqlOperatorList [35-132] [MATCH (a)-...RETURN *]
+              GqlMatch [35-48] [MATCH (a)-(b)]
+                GraphPattern [41-48] [(a)-(b)]
+                  GraphPathPattern [41-48] [(a)-(b)]
+                    GraphNodePattern [41-44] [(a)]
+                      GraphElementPatternFiller [42-43] [a]
+                        Identifier(a) [42-43] [a]
+                    GraphEdgePattern [44-45] [-]
+                    GraphNodePattern [45-48] [(b)]
+                      GraphElementPatternFiller [46-47] [b]
+                        Identifier(b) [46-47] [b]
+              GqlOrderByAndPage [51-121] [ORDER BY a...nulls last]
+                OrderBy [51-121] [ORDER BY a...nulls last]
+                  OrderingExpression(ASC) [60-95] [a.color collate...nulls first]
+                    PathExpression [60-67] [a.color]
+                      Identifier(a) [60-61] [a]
+                      Identifier(color) [62-67] [color]
+                    Collate [68-83] [collate "en_US"]
+                      StringLiteral [76-83] ["en_US"]
+                        StringLiteralComponent("en_US") [76-83] ["en_US"]
+                    NullOrder(NULLS FIRST) [84-95] [nulls first]
+                  OrderingExpression(DESC) [97-121] [b.degree desc nulls last]
+                    PathExpression [97-105] [b.degree]
+                      Identifier(b) [97-98] [b]
+                      Identifier(degree) [99-105] [degree]
+                    NullOrder(NULLS LAST) [111-121] [nulls last]
+              GqlReturn [124-132] [RETURN *]
+                Select [130-132] [*]
+                  SelectList [131-132] [*]
+                    SelectColumn [131-132] [*]
+                      Star(*) [131-132] [*]
+          Alias [135-137] [gt]
+            Identifier(gt) [135-137] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+      -
+      (b)
+    ORDER BY a.color COLLATE "en_US" NULLS FIRST, b.degree DESC NULLS LAST
+    RETURN
+      *
+  ) AS gt
+==
+
+
+# Standalone ORDER BY statement with LIMIT and OFFSET clauses.
+# Note: This is parsed as a single standalone statement.
+[default reserve_graph_table]
+[default language_features=V_1_4_SQL_GRAPH]
+[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+
+select gt.* from
+graph_table(aml
+  MATCH (a)
+  ORDER BY a offset 10 limit 20
+  RETURN *
+) gt
+--
+QueryStatement [0-92] [select gt....RETURN * ) gt]
+  Query [0-92] [select gt....RETURN * ) gt]
+    Select [0-92] [select gt....RETURN * ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-92] [from graph_table...TURN * ) gt]
+        GraphTableQuery [17-92] [graph_table...RETURN * ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-87] [MATCH (a)...RETURN *]
+            GqlOperatorList [35-87] [MATCH (a)...RETURN *]
+              GqlMatch [35-44] [MATCH (a)]
+                GraphPattern [41-44] [(a)]
+                  GraphPathPattern [41-44] [(a)]
+                    GraphNodePattern [41-44] [(a)]
+                      GraphElementPatternFiller [42-43] [a]
+                        Identifier(a) [42-43] [a]
+              GqlOrderByAndPage [47-57] [ORDER BY a]
+                OrderBy [47-57] [ORDER BY a]
+                  OrderingExpression(ASC) [56-57] [a]
+                    PathExpression [56-57] [a]
+                      Identifier(a) [56-57] [a]
+              GqlOrderByAndPage [58-76] [offset 10 limit 20]
+                GqlPage [58-76] [offset 10 limit 20]
+                  GqlPageOffset [58-67] [offset 10]
+                    IntLiteral(10) [65-67] [10]
+                  GqlPageLimit [68-76] [limit 20]
+                    IntLiteral(20) [74-76] [20]
+              GqlReturn [79-87] [RETURN *]
+                Select [85-87] [*]
+                  SelectList [86-87] [*]
+                    SelectColumn [86-87] [*]
+                      Star(*) [86-87] [*]
+          Alias [90-92] [gt]
+            Identifier(gt) [90-92] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+    ORDER BY a
+    OFFSET 10 LIMIT 20
+    RETURN
+      *
+  ) AS gt
+==
+
+# Standalone ORDER BY statement with LIMIT and SKIP clauses.
+# Note: This is parsed as a single standalone statement.
+[default reserve_graph_table]
+[default language_features=V_1_4_SQL_GRAPH]
+[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+
+select gt.* from
+graph_table(aml
+  MATCH (a)
+  ORDER BY a skip 10 limit 20
+  RETURN *
+) gt
+--
+QueryStatement [0-90] [select gt....RETURN * ) gt]
+  Query [0-90] [select gt....RETURN * ) gt]
+    Select [0-90] [select gt....RETURN * ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-90] [from graph_table...TURN * ) gt]
+        GraphTableQuery [17-90] [graph_table...RETURN * ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-85] [MATCH (a)...RETURN *]
+            GqlOperatorList [35-85] [MATCH (a)...RETURN *]
+              GqlMatch [35-44] [MATCH (a)]
+                GraphPattern [41-44] [(a)]
+                  GraphPathPattern [41-44] [(a)]
+                    GraphNodePattern [41-44] [(a)]
+                      GraphElementPatternFiller [42-43] [a]
+                        Identifier(a) [42-43] [a]
+              GqlOrderByAndPage [47-57] [ORDER BY a]
+                OrderBy [47-57] [ORDER BY a]
+                  OrderingExpression(ASC) [56-57] [a]
+                    PathExpression [56-57] [a]
+                      Identifier(a) [56-57] [a]
+              GqlOrderByAndPage [58-74] [skip 10 limit 20]
+                GqlPage [58-74] [skip 10 limit 20]
+                  GqlPageOffset [58-65] [skip 10]
+                    IntLiteral(10) [63-65] [10]
+                  GqlPageLimit [66-74] [limit 20]
+                    IntLiteral(20) [72-74] [20]
+              GqlReturn [77-85] [RETURN *]
+                Select [83-85] [*]
+                  SelectList [84-85] [*]
+                    SelectColumn [84-85] [*]
+                      Star(*) [84-85] [*]
+          Alias [88-90] [gt]
+            Identifier(gt) [88-90] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+    ORDER BY a
+    OFFSET 10 LIMIT 20
+    RETURN
+      *
+  ) AS gt
+==
+
+
+# Standalone ORDER BY statement with LIMIT and OFFSET clauses.
+# Note: This is parsed as two standalone statements. We consider such statements
+# as errors after parsing in order to prevent confusion, since in non-graph SQL 
+# queries, "ORDER BY/LIMIT/OFFSET" statements would have different semantics.
+[default reserve_graph_table]
+[default language_features=V_1_4_SQL_GRAPH]
+[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+
+select gt.* from
+graph_table(aml
+  MATCH (a)
+  ORDER BY a limit 20 offset 10
+  RETURN *
+) gt
+--
+QueryStatement [0-92] [select gt....RETURN * ) gt]
+  Query [0-92] [select gt....RETURN * ) gt]
+    Select [0-92] [select gt....RETURN * ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-92] [from graph_table...TURN * ) gt]
+        GraphTableQuery [17-92] [graph_table...RETURN * ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-87] [MATCH (a)...RETURN *]
+            GqlOperatorList [35-87] [MATCH (a)...RETURN *]
+              GqlMatch [35-44] [MATCH (a)]
+                GraphPattern [41-44] [(a)]
+                  GraphPathPattern [41-44] [(a)]
+                    GraphNodePattern [41-44] [(a)]
+                      GraphElementPatternFiller [42-43] [a]
+                        Identifier(a) [42-43] [a]
+              GqlOrderByAndPage [47-57] [ORDER BY a]
+                OrderBy [47-57] [ORDER BY a]
+                  OrderingExpression(ASC) [56-57] [a]
+                    PathExpression [56-57] [a]
+                      Identifier(a) [56-57] [a]
+              GqlOrderByAndPage [58-66] [limit 20]
+                GqlPage [58-66] [limit 20]
+                  GqlPageLimit [58-66] [limit 20]
+                    IntLiteral(20) [64-66] [20]
+              GqlOrderByAndPage [67-76] [offset 10]
+                GqlPage [67-76] [offset 10]
+                  GqlPageOffset [67-76] [offset 10]
+                    IntLiteral(10) [74-76] [10]
+              GqlReturn [79-87] [RETURN *]
+                Select [85-87] [*]
+                  SelectList [86-87] [*]
+                    SelectColumn [86-87] [*]
+                      Star(*) [86-87] [*]
+          Alias [90-92] [gt]
+            Identifier(gt) [90-92] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+    ORDER BY a
+    LIMIT 20
+    OFFSET 10
+    RETURN
+      *
+  ) AS gt
+==
+
+
+# Consecutive standalone ORDER BY statements. The first is redundant.
+[default reserve_graph_table]
+[default language_features=V_1_4_SQL_GRAPH]
+[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+
+select gt.* from
+graph_table(aml
+  MATCH (a)-(b)
+  ORDER BY a
+  ORDER BY b
+  RETURN *
+) gt
+--
+QueryStatement [0-90] [select gt....RETURN * ) gt]
+  Query [0-90] [select gt....RETURN * ) gt]
+    Select [0-90] [select gt....RETURN * ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-90] [from graph_table...TURN * ) gt]
+        GraphTableQuery [17-90] [graph_table...RETURN * ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-85] [MATCH (a)-...RETURN *]
+            GqlOperatorList [35-85] [MATCH (a)-...RETURN *]
+              GqlMatch [35-48] [MATCH (a)-(b)]
+                GraphPattern [41-48] [(a)-(b)]
+                  GraphPathPattern [41-48] [(a)-(b)]
+                    GraphNodePattern [41-44] [(a)]
+                      GraphElementPatternFiller [42-43] [a]
+                        Identifier(a) [42-43] [a]
+                    GraphEdgePattern [44-45] [-]
+                    GraphNodePattern [45-48] [(b)]
+                      GraphElementPatternFiller [46-47] [b]
+                        Identifier(b) [46-47] [b]
+              GqlOrderByAndPage [51-61] [ORDER BY a]
+                OrderBy [51-61] [ORDER BY a]
+                  OrderingExpression(ASC) [60-61] [a]
+                    PathExpression [60-61] [a]
+                      Identifier(a) [60-61] [a]
+              GqlOrderByAndPage [64-74] [ORDER BY b]
+                OrderBy [64-74] [ORDER BY b]
+                  OrderingExpression(ASC) [73-74] [b]
+                    PathExpression [73-74] [b]
+                      Identifier(b) [73-74] [b]
+              GqlReturn [77-85] [RETURN *]
+                Select [83-85] [*]
+                  SelectList [84-85] [*]
+                    SelectColumn [84-85] [*]
+                      Star(*) [84-85] [*]
+          Alias [88-90] [gt]
+            Identifier(gt) [88-90] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+      -
+      (b)
+    ORDER BY a
+    ORDER BY b
+    RETURN
+      *
+  ) AS gt
+==
+
+
+# Consecutive standalone ORDER BY statements. The first is not redundant.
+[default reserve_graph_table]
+[default language_features=V_1_4_SQL_GRAPH]
+[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+
+select gt.* from
+graph_table(aml
+  MATCH (a)-(b)
+  ORDER BY a LIMIT 10
+  ORDER BY b
+  RETURN *
+) gt
+--
+QueryStatement [0-99] [select gt....RETURN * ) gt]
+  Query [0-99] [select gt....RETURN * ) gt]
+    Select [0-99] [select gt....RETURN * ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-99] [from graph_table...TURN * ) gt]
+        GraphTableQuery [17-99] [graph_table...RETURN * ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-94] [MATCH (a)-...RETURN *]
+            GqlOperatorList [35-94] [MATCH (a)-...RETURN *]
+              GqlMatch [35-48] [MATCH (a)-(b)]
+                GraphPattern [41-48] [(a)-(b)]
+                  GraphPathPattern [41-48] [(a)-(b)]
+                    GraphNodePattern [41-44] [(a)]
+                      GraphElementPatternFiller [42-43] [a]
+                        Identifier(a) [42-43] [a]
+                    GraphEdgePattern [44-45] [-]
+                    GraphNodePattern [45-48] [(b)]
+                      GraphElementPatternFiller [46-47] [b]
+                        Identifier(b) [46-47] [b]
+              GqlOrderByAndPage [51-61] [ORDER BY a]
+                OrderBy [51-61] [ORDER BY a]
+                  OrderingExpression(ASC) [60-61] [a]
+                    PathExpression [60-61] [a]
+                      Identifier(a) [60-61] [a]
+              GqlOrderByAndPage [62-70] [LIMIT 10]
+                GqlPage [62-70] [LIMIT 10]
+                  GqlPageLimit [62-70] [LIMIT 10]
+                    IntLiteral(10) [68-70] [10]
+              GqlOrderByAndPage [73-83] [ORDER BY b]
+                OrderBy [73-83] [ORDER BY b]
+                  OrderingExpression(ASC) [82-83] [b]
+                    PathExpression [82-83] [b]
+                      Identifier(b) [82-83] [b]
+              GqlReturn [86-94] [RETURN *]
+                Select [92-94] [*]
+                  SelectList [93-94] [*]
+                    SelectColumn [93-94] [*]
+                      Star(*) [93-94] [*]
+          Alias [97-99] [gt]
+            Identifier(gt) [97-99] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+      -
+      (b)
+    ORDER BY a
+    LIMIT 10
+    ORDER BY b
+    RETURN
+      *
+  ) AS gt
+==
+
+
+# Standalone OFFSET/LIMIT statement.
+[default reserve_graph_table]
+[default language_features=V_1_4_SQL_GRAPH]
+[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+
+select gt.* from
+graph_table(aml
+  MATCH (a)
+  OFFSET 10 LIMIT 20
+  RETURN *
+) gt
+--
+QueryStatement [0-81] [select gt....RETURN * ) gt]
+  Query [0-81] [select gt....RETURN * ) gt]
+    Select [0-81] [select gt....RETURN * ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-81] [from graph_table...TURN * ) gt]
+        GraphTableQuery [17-81] [graph_table...RETURN * ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-76] [MATCH (a)...RETURN *]
+            GqlOperatorList [35-76] [MATCH (a)...RETURN *]
+              GqlMatch [35-44] [MATCH (a)]
+                GraphPattern [41-44] [(a)]
+                  GraphPathPattern [41-44] [(a)]
+                    GraphNodePattern [41-44] [(a)]
+                      GraphElementPatternFiller [42-43] [a]
+                        Identifier(a) [42-43] [a]
+              GqlOrderByAndPage [47-65] [OFFSET 10 LIMIT 20]
+                GqlPage [47-65] [OFFSET 10 LIMIT 20]
+                  GqlPageOffset [47-56] [OFFSET 10]
+                    IntLiteral(10) [54-56] [10]
+                  GqlPageLimit [57-65] [LIMIT 20]
+                    IntLiteral(20) [63-65] [20]
+              GqlReturn [68-76] [RETURN *]
+                Select [74-76] [*]
+                  SelectList [75-76] [*]
+                    SelectColumn [75-76] [*]
+                      Star(*) [75-76] [*]
+          Alias [79-81] [gt]
+            Identifier(gt) [79-81] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+    OFFSET 10 LIMIT 20
+    RETURN
+      *
+  ) AS gt
+==
+
+
+# Standalone OFFSET statement.
+[default reserve_graph_table]
+[default language_features=V_1_4_SQL_GRAPH]
+[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+
+select gt.* from
+graph_table(aml
+  MATCH (a)
+  OFFSET 10
+  RETURN *
+) gt
+--
+QueryStatement [0-72] [select gt....RETURN * ) gt]
+  Query [0-72] [select gt....RETURN * ) gt]
+    Select [0-72] [select gt....RETURN * ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-72] [from graph_table...TURN * ) gt]
+        GraphTableQuery [17-72] [graph_table...RETURN * ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-67] [MATCH (a)...RETURN *]
+            GqlOperatorList [35-67] [MATCH (a)...RETURN *]
+              GqlMatch [35-44] [MATCH (a)]
+                GraphPattern [41-44] [(a)]
+                  GraphPathPattern [41-44] [(a)]
+                    GraphNodePattern [41-44] [(a)]
+                      GraphElementPatternFiller [42-43] [a]
+                        Identifier(a) [42-43] [a]
+              GqlOrderByAndPage [47-56] [OFFSET 10]
+                GqlPage [47-56] [OFFSET 10]
+                  GqlPageOffset [47-56] [OFFSET 10]
+                    IntLiteral(10) [54-56] [10]
+              GqlReturn [59-67] [RETURN *]
+                Select [65-67] [*]
+                  SelectList [66-67] [*]
+                    SelectColumn [66-67] [*]
+                      Star(*) [66-67] [*]
+          Alias [70-72] [gt]
+            Identifier(gt) [70-72] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+    OFFSET 10
+    RETURN
+      *
+  ) AS gt
+==
+
+
+# Standalone LIMIT statement.
+[default reserve_graph_table]
+[default language_features=V_1_4_SQL_GRAPH]
+[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+
+select gt.* from
+graph_table(aml
+  MATCH (a)
+  LIMIT 10
+  RETURN *
+) gt
+--
+QueryStatement [0-71] [select gt....RETURN * ) gt]
+  Query [0-71] [select gt....RETURN * ) gt]
+    Select [0-71] [select gt....RETURN * ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-71] [from graph_table...TURN * ) gt]
+        GraphTableQuery [17-71] [graph_table...RETURN * ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-66] [MATCH (a)...RETURN *]
+            GqlOperatorList [35-66] [MATCH (a)...RETURN *]
+              GqlMatch [35-44] [MATCH (a)]
+                GraphPattern [41-44] [(a)]
+                  GraphPathPattern [41-44] [(a)]
+                    GraphNodePattern [41-44] [(a)]
+                      GraphElementPatternFiller [42-43] [a]
+                        Identifier(a) [42-43] [a]
+              GqlOrderByAndPage [47-55] [LIMIT 10]
+                GqlPage [47-55] [LIMIT 10]
+                  GqlPageLimit [47-55] [LIMIT 10]
+                    IntLiteral(10) [53-55] [10]
+              GqlReturn [58-66] [RETURN *]
+                Select [64-66] [*]
+                  SelectList [65-66] [*]
+                    SelectColumn [65-66] [*]
+                      Star(*) [65-66] [*]
+          Alias [69-71] [gt]
+            Identifier(gt) [69-71] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+    LIMIT 10
+    RETURN
+      *
+  ) AS gt
+==
+
+
+# Two consecutive standalone LIMIT and OFFSET statements.
+# Note: They are parsed as two different statements. We do not consider these
+# an error.
+[default reserve_graph_table]
+[default language_features=V_1_4_SQL_GRAPH]
+[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+
+select gt.* from
+graph_table(aml
+  MATCH (a)
+  LIMIT 10
+  OFFSET 20
+  RETURN *
+) gt
+--
+QueryStatement [0-83] [select gt....RETURN * ) gt]
+  Query [0-83] [select gt....RETURN * ) gt]
+    Select [0-83] [select gt....RETURN * ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-83] [from graph_table...TURN * ) gt]
+        GraphTableQuery [17-83] [graph_table...RETURN * ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-78] [MATCH (a)...RETURN *]
+            GqlOperatorList [35-78] [MATCH (a)...RETURN *]
+              GqlMatch [35-44] [MATCH (a)]
+                GraphPattern [41-44] [(a)]
+                  GraphPathPattern [41-44] [(a)]
+                    GraphNodePattern [41-44] [(a)]
+                      GraphElementPatternFiller [42-43] [a]
+                        Identifier(a) [42-43] [a]
+              GqlOrderByAndPage [47-55] [LIMIT 10]
+                GqlPage [47-55] [LIMIT 10]
+                  GqlPageLimit [47-55] [LIMIT 10]
+                    IntLiteral(10) [53-55] [10]
+              GqlOrderByAndPage [58-67] [OFFSET 20]
+                GqlPage [58-67] [OFFSET 20]
+                  GqlPageOffset [58-67] [OFFSET 20]
+                    IntLiteral(20) [65-67] [20]
+              GqlReturn [70-78] [RETURN *]
+                Select [76-78] [*]
+                  SelectList [77-78] [*]
+                    SelectColumn [77-78] [*]
+                      Star(*) [77-78] [*]
+          Alias [81-83] [gt]
+            Identifier(gt) [81-83] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+    LIMIT 10
+    OFFSET 20
+    RETURN
+      *
+  ) AS gt
+==
+
+
+
+
+
+
+###
+### ORDER BY + PAGE statement handling after RETURN statements.
+###
+
+
+# ORDER BY statement after RETURN statement.
+[default reserve_graph_table]
+[default language_features=V_1_4_SQL_GRAPH]
+[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+
+select gt.* from
+graph_table(aml
+  MATCH (a)
+  RETURN *
+  ORDER BY a.degree
+) gt
+--
+QueryStatement [0-80] [select gt....degree ) gt]
+  Query [0-80] [select gt....degree ) gt]
+    Select [0-80] [select gt....degree ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-80] [from graph_table...degree ) gt]
+        GraphTableQuery [17-80] [graph_table...degree ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-75] [MATCH (a)...BY a.degree]
+            GqlOperatorList [35-75] [MATCH (a)...BY a.degree]
+              GqlMatch [35-44] [MATCH (a)]
+                GraphPattern [41-44] [(a)]
+                  GraphPathPattern [41-44] [(a)]
+                    GraphNodePattern [41-44] [(a)]
+                      GraphElementPatternFiller [42-43] [a]
+                        Identifier(a) [42-43] [a]
+              GqlReturn [47-75] [RETURN *   ORDER BY a.degree]
+                Select [53-55] [*]
+                  SelectList [54-55] [*]
+                    SelectColumn [54-55] [*]
+                      Star(*) [54-55] [*]
+                GqlOrderByAndPage [58-75] [ORDER BY a.degree]
+                  OrderBy [58-75] [ORDER BY a.degree]
+                    OrderingExpression(ASC) [67-75] [a.degree]
+                      PathExpression [67-75] [a.degree]
+                        Identifier(a) [67-68] [a]
+                        Identifier(degree) [69-75] [degree]
+          Alias [78-80] [gt]
+            Identifier(gt) [78-80] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+    RETURN
+      *
+    ORDER BY a.degree
+  ) AS gt
+==
+
+
+# ORDER BY statement after RETURN statement: multiple ordering expressions.
+[default reserve_graph_table]
+[default language_features=V_1_4_SQL_GRAPH]
+[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+
+select gt.* from
+graph_table(aml
+  MATCH (a)-(b)
+  RETURN *
+  ORDER BY a.degree, b.color desc
+) gt
+--
+QueryStatement [0-98] [select gt....desc ) gt]
+  Query [0-98] [select gt....desc ) gt]
+    Select [0-98] [select gt....desc ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-98] [from graph_table...desc ) gt]
+        GraphTableQuery [17-98] [graph_table...desc ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-93] [MATCH (a)-...color desc]
+            GqlOperatorList [35-93] [MATCH (a)-...color desc]
+              GqlMatch [35-48] [MATCH (a)-(b)]
+                GraphPattern [41-48] [(a)-(b)]
+                  GraphPathPattern [41-48] [(a)-(b)]
+                    GraphNodePattern [41-44] [(a)]
+                      GraphElementPatternFiller [42-43] [a]
+                        Identifier(a) [42-43] [a]
+                    GraphEdgePattern [44-45] [-]
+                    GraphNodePattern [45-48] [(b)]
+                      GraphElementPatternFiller [46-47] [b]
+                        Identifier(b) [46-47] [b]
+              GqlReturn [51-93] [RETURN *...color desc]
+                Select [57-59] [*]
+                  SelectList [58-59] [*]
+                    SelectColumn [58-59] [*]
+                      Star(*) [58-59] [*]
+                GqlOrderByAndPage [62-93] [ORDER BY a...color desc]
+                  OrderBy [62-93] [ORDER BY a...color desc]
+                    OrderingExpression(ASC) [71-79] [a.degree]
+                      PathExpression [71-79] [a.degree]
+                        Identifier(a) [71-72] [a]
+                        Identifier(degree) [73-79] [degree]
+                    OrderingExpression(DESC) [81-93] [b.color desc]
+                      PathExpression [81-88] [b.color]
+                        Identifier(b) [81-82] [b]
+                        Identifier(color) [83-88] [color]
+          Alias [96-98] [gt]
+            Identifier(gt) [96-98] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+      -
+      (b)
+    RETURN
+      *
+    ORDER BY a.degree, b.color DESC
+  ) AS gt
+==
+
+
+# ORDER BY statement after RETURN statement:
+#   accepts GQL keywords ASCENDING / DESCENDING.
+[default reserve_graph_table]
+[default language_features=V_1_4_SQL_GRAPH]
+[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+
+select gt.* from
+graph_table(aml
+  MATCH (a)-(b)
+  RETURN *
+  ORDER BY a.degree ascending, b.color descending
+) gt
+--
+QueryStatement [0-114] [select gt....descending ) gt]
+  Query [0-114] [select gt....descending ) gt]
+    Select [0-114] [select gt....descending ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-114] [from graph_table...ending ) gt]
+        GraphTableQuery [17-114] [graph_table...descending ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-109] [MATCH (a)-...descending]
+            GqlOperatorList [35-109] [MATCH (a)-...descending]
+              GqlMatch [35-48] [MATCH (a)-(b)]
+                GraphPattern [41-48] [(a)-(b)]
+                  GraphPathPattern [41-48] [(a)-(b)]
+                    GraphNodePattern [41-44] [(a)]
+                      GraphElementPatternFiller [42-43] [a]
+                        Identifier(a) [42-43] [a]
+                    GraphEdgePattern [44-45] [-]
+                    GraphNodePattern [45-48] [(b)]
+                      GraphElementPatternFiller [46-47] [b]
+                        Identifier(b) [46-47] [b]
+              GqlReturn [51-109] [RETURN *...descending]
+                Select [57-59] [*]
+                  SelectList [58-59] [*]
+                    SelectColumn [58-59] [*]
+                      Star(*) [58-59] [*]
+                GqlOrderByAndPage [62-109] [ORDER BY a...descending]
+                  OrderBy [62-109] [ORDER BY a...descending]
+                    OrderingExpression(ASC EXPLICITLY) [71-89] [a.degree ascending]
+                      PathExpression [71-79] [a.degree]
+                        Identifier(a) [71-72] [a]
+                        Identifier(degree) [73-79] [degree]
+                    OrderingExpression(DESC) [91-109] [b.color descending]
+                      PathExpression [91-98] [b.color]
+                        Identifier(b) [91-92] [b]
+                        Identifier(color) [93-98] [color]
+          Alias [112-114] [gt]
+            Identifier(gt) [112-114] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+      -
+      (b)
+    RETURN
+      *
+    ORDER BY a.degree ASC, b.color DESC
+  ) AS gt
+==
+
+
+# ORDER BY statement after RETURN statement:
+#   accepts COLLATE and NULLS order clauses.
+[default reserve_graph_table]
+[default language_features=V_1_4_SQL_GRAPH]
+[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+
+select gt.* from
+graph_table(aml
+  MATCH (a)-(b)
+  RETURN *
+  ORDER BY a.color collate "en_US" nulls first, b.degree desc nulls last
+) gt
+--
+QueryStatement [0-137] [select gt....last ) gt]
+  Query [0-137] [select gt....last ) gt]
+    Select [0-137] [select gt....last ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-137] [from graph_table...last ) gt]
+        GraphTableQuery [17-137] [graph_table...last ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-132] [MATCH (a)-...nulls last]
+            GqlOperatorList [35-132] [MATCH (a)-...nulls last]
+              GqlMatch [35-48] [MATCH (a)-(b)]
+                GraphPattern [41-48] [(a)-(b)]
+                  GraphPathPattern [41-48] [(a)-(b)]
+                    GraphNodePattern [41-44] [(a)]
+                      GraphElementPatternFiller [42-43] [a]
+                        Identifier(a) [42-43] [a]
+                    GraphEdgePattern [44-45] [-]
+                    GraphNodePattern [45-48] [(b)]
+                      GraphElementPatternFiller [46-47] [b]
+                        Identifier(b) [46-47] [b]
+              GqlReturn [51-132] [RETURN *...nulls last]
+                Select [57-59] [*]
+                  SelectList [58-59] [*]
+                    SelectColumn [58-59] [*]
+                      Star(*) [58-59] [*]
+                GqlOrderByAndPage [62-132] [ORDER BY a...nulls last]
+                  OrderBy [62-132] [ORDER BY a...nulls last]
+                    OrderingExpression(ASC) [71-106] [a.color collate...nulls first]
+                      PathExpression [71-78] [a.color]
+                        Identifier(a) [71-72] [a]
+                        Identifier(color) [73-78] [color]
+                      Collate [79-94] [collate "en_US"]
+                        StringLiteral [87-94] ["en_US"]
+                          StringLiteralComponent("en_US") [87-94] ["en_US"]
+                      NullOrder(NULLS FIRST) [95-106] [nulls first]
+                    OrderingExpression(DESC) [108-132] [b.degree desc nulls last]
+                      PathExpression [108-116] [b.degree]
+                        Identifier(b) [108-109] [b]
+                        Identifier(degree) [110-116] [degree]
+                      NullOrder(NULLS LAST) [122-132] [nulls last]
+          Alias [135-137] [gt]
+            Identifier(gt) [135-137] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+      -
+      (b)
+    RETURN
+      *
+    ORDER BY a.color COLLATE "en_US" NULLS FIRST, b.degree DESC NULLS LAST
+  ) AS gt
+==
+
+
+# ORDER BY statement after RETURN statement with LIMIT and OFFSET clauses.
+[default reserve_graph_table]
+[default language_features=V_1_4_SQL_GRAPH]
+[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+
+select gt.* from
+graph_table(aml
+  MATCH (a)
+  RETURN *
+  ORDER BY a offset 10 limit 20
+) gt
+--
+QueryStatement [0-92] [select gt....limit 20 ) gt]
+  Query [0-92] [select gt....limit 20 ) gt]
+    Select [0-92] [select gt....limit 20 ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-92] [from graph_table...mit 20 ) gt]
+        GraphTableQuery [17-92] [graph_table...limit 20 ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-87] [MATCH (a)...10 limit 20]
+            GqlOperatorList [35-87] [MATCH (a)...10 limit 20]
+              GqlMatch [35-44] [MATCH (a)]
+                GraphPattern [41-44] [(a)]
+                  GraphPathPattern [41-44] [(a)]
+                    GraphNodePattern [41-44] [(a)]
+                      GraphElementPatternFiller [42-43] [a]
+                        Identifier(a) [42-43] [a]
+              GqlReturn [47-87] [RETURN *...10 limit 20]
+                Select [53-55] [*]
+                  SelectList [54-55] [*]
+                    SelectColumn [54-55] [*]
+                      Star(*) [54-55] [*]
+                GqlOrderByAndPage [58-87] [ORDER BY a offset 10 limit 20]
+                  OrderBy [58-68] [ORDER BY a]
+                    OrderingExpression(ASC) [67-68] [a]
+                      PathExpression [67-68] [a]
+                        Identifier(a) [67-68] [a]
+                  GqlPage [69-87] [offset 10 limit 20]
+                    GqlPageOffset [69-78] [offset 10]
+                      IntLiteral(10) [76-78] [10]
+                    GqlPageLimit [79-87] [limit 20]
+                      IntLiteral(20) [85-87] [20]
+          Alias [90-92] [gt]
+            Identifier(gt) [90-92] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+    RETURN
+      *
+    ORDER BY a OFFSET 10 LIMIT 20
+  ) AS gt
+==
+
+
+# ORDER BY statement after RETURN statement with LIMIT and SKIP clauses.
+[default reserve_graph_table]
+[default language_features=V_1_4_SQL_GRAPH]
+[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+
+select gt.* from
+graph_table(aml
+  MATCH (a)
+  RETURN *
+  ORDER BY a skip 10 limit 20
+) gt
+--
+
+QueryStatement [0-90] [select gt....limit 20 ) gt]
+  Query [0-90] [select gt....limit 20 ) gt]
+    Select [0-90] [select gt....limit 20 ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-90] [from graph_table...mit 20 ) gt]
+        GraphTableQuery [17-90] [graph_table...limit 20 ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-85] [MATCH (a)...10 limit 20]
+            GqlOperatorList [35-85] [MATCH (a)...10 limit 20]
+              GqlMatch [35-44] [MATCH (a)]
+                GraphPattern [41-44] [(a)]
+                  GraphPathPattern [41-44] [(a)]
+                    GraphNodePattern [41-44] [(a)]
+                      GraphElementPatternFiller [42-43] [a]
+                        Identifier(a) [42-43] [a]
+              GqlReturn [47-85] [RETURN *...10 limit 20]
+                Select [53-55] [*]
+                  SelectList [54-55] [*]
+                    SelectColumn [54-55] [*]
+                      Star(*) [54-55] [*]
+                GqlOrderByAndPage [58-85] [ORDER BY a skip 10 limit 20]
+                  OrderBy [58-68] [ORDER BY a]
+                    OrderingExpression(ASC) [67-68] [a]
+                      PathExpression [67-68] [a]
+                        Identifier(a) [67-68] [a]
+                  GqlPage [69-85] [skip 10 limit 20]
+                    GqlPageOffset [69-76] [skip 10]
+                      IntLiteral(10) [74-76] [10]
+                    GqlPageLimit [77-85] [limit 20]
+                      IntLiteral(20) [83-85] [20]
+          Alias [88-90] [gt]
+            Identifier(gt) [88-90] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+    RETURN
+      *
+    ORDER BY a OFFSET 10 LIMIT 20
+  ) AS gt
+==
+
+
+
+# ORDER BY statement after RETURN statement with LIMIT and OFFSET clauses.
+# This is an error because there cannot be more than one order+page statements
+# after RETURN.
+[default reserve_graph_table]
+[default language_features=V_1_4_SQL_GRAPH]
+[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+
+select gt.* from
+graph_table(aml
+  MATCH (a)
+  RETURN *
+  ORDER BY a limit 20 offset 10
+) gt
+--
+ERROR: Syntax error: Expected ")" or keyword NEXT but got keyword OFFSET [at 5:23]
+  ORDER BY a limit 20 offset 10
+                      ^
+==
+
+
+# Consecutive ORDER BY statements after RETURN statement. This is an error.
+[default reserve_graph_table]
+[default language_features=V_1_4_SQL_GRAPH]
+[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+
+select gt.* from
+graph_table(aml
+  MATCH (a)-(b)
+  RETURN *
+  ORDER BY a LIMIT 10
+  ORDER BY b
+) gt
+--
+ERROR: Syntax error: Expected ")" or keyword NEXT but got keyword ORDER [at 6:3]
+  ORDER BY b
+  ^
+==
+
+
+# Consecutive ORDER BY statements after RETURN statement separated by NEXT.
+[default reserve_graph_table]
+[default language_features=V_1_4_SQL_GRAPH]
+[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+
+select gt.* from
+graph_table(aml
+  MATCH (a)-(b)
+  RETURN *
+  ORDER BY a LIMIT 10
+  NEXT
+  ORDER BY b
+  RETURN *
+) gt
+--
+QueryStatement [0-117] [select gt....RETURN * ) gt]
+  Query [0-117] [select gt....RETURN * ) gt]
+    Select [0-117] [select gt....RETURN * ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-117] [from graph_table...TURN * ) gt]
+        GraphTableQuery [17-117] [graph_table...RETURN * ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-112] [MATCH (a)-...RETURN *]
+            GqlOperatorList [35-81] [MATCH (a)-...a LIMIT 10]
+              GqlMatch [35-48] [MATCH (a)-(b)]
+                GraphPattern [41-48] [(a)-(b)]
+                  GraphPathPattern [41-48] [(a)-(b)]
+                    GraphNodePattern [41-44] [(a)]
+                      GraphElementPatternFiller [42-43] [a]
+                        Identifier(a) [42-43] [a]
+                    GraphEdgePattern [44-45] [-]
+                    GraphNodePattern [45-48] [(b)]
+                      GraphElementPatternFiller [46-47] [b]
+                        Identifier(b) [46-47] [b]
+              GqlReturn [51-81] [RETURN *   ORDER BY a LIMIT 10]
+                Select [57-59] [*]
+                  SelectList [58-59] [*]
+                    SelectColumn [58-59] [*]
+                      Star(*) [58-59] [*]
+                GqlOrderByAndPage [62-81] [ORDER BY a LIMIT 10]
+                  OrderBy [62-72] [ORDER BY a]
+                    OrderingExpression(ASC) [71-72] [a]
+                      PathExpression [71-72] [a]
+                        Identifier(a) [71-72] [a]
+                  GqlPage [73-81] [LIMIT 10]
+                    GqlPageLimit [73-81] [LIMIT 10]
+                      IntLiteral(10) [79-81] [10]
+            GqlOperatorList [91-112] [ORDER BY b   RETURN *]
+              GqlOrderByAndPage [91-101] [ORDER BY b]
+                OrderBy [91-101] [ORDER BY b]
+                  OrderingExpression(ASC) [100-101] [b]
+                    PathExpression [100-101] [b]
+                      Identifier(b) [100-101] [b]
+              GqlReturn [104-112] [RETURN *]
+                Select [110-112] [*]
+                  SelectList [111-112] [*]
+                    SelectColumn [111-112] [*]
+                      Star(*) [111-112] [*]
+          Alias [115-117] [gt]
+            Identifier(gt) [115-117] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+      -
+      (b)
+    RETURN
+      *
+    ORDER BY a LIMIT 10
+    NEXT
+    ORDER BY b
+    RETURN
+      *
+  ) AS gt
+==
+
+
+# OFFSET/LIMIT statement after RETURN statement.
+[default reserve_graph_table]
+[default language_features=V_1_4_SQL_GRAPH]
+[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+
+select gt.* from
+graph_table(aml
+  MATCH (a)
+  RETURN *
+  OFFSET 10 LIMIT 20
+) gt
+--
+QueryStatement [0-81] [select gt....LIMIT 20 ) gt]
+  Query [0-81] [select gt....LIMIT 20 ) gt]
+    Select [0-81] [select gt....LIMIT 20 ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-81] [from graph_table...MIT 20 ) gt]
+        GraphTableQuery [17-81] [graph_table...LIMIT 20 ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-76] [MATCH (a)...10 LIMIT 20]
+            GqlOperatorList [35-76] [MATCH (a)...10 LIMIT 20]
+              GqlMatch [35-44] [MATCH (a)]
+                GraphPattern [41-44] [(a)]
+                  GraphPathPattern [41-44] [(a)]
+                    GraphNodePattern [41-44] [(a)]
+                      GraphElementPatternFiller [42-43] [a]
+                        Identifier(a) [42-43] [a]
+              GqlReturn [47-76] [RETURN *   OFFSET 10 LIMIT 20]
+                Select [53-55] [*]
+                  SelectList [54-55] [*]
+                    SelectColumn [54-55] [*]
+                      Star(*) [54-55] [*]
+                GqlOrderByAndPage [55-76] [OFFSET 10 LIMIT 20]
+                  GqlPage [58-76] [OFFSET 10 LIMIT 20]
+                    GqlPageOffset [58-67] [OFFSET 10]
+                      IntLiteral(10) [65-67] [10]
+                    GqlPageLimit [68-76] [LIMIT 20]
+                      IntLiteral(20) [74-76] [20]
+          Alias [79-81] [gt]
+            Identifier(gt) [79-81] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+    RETURN
+      *
+    OFFSET 10 LIMIT 20
+  ) AS gt
+==
+
+
+# OFFSET statement after RETURN statement.
+[default reserve_graph_table]
+[default language_features=V_1_4_SQL_GRAPH]
+[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+
+select gt.* from
+graph_table(aml
+  MATCH (a)
+  RETURN *
+  OFFSET 10
+) gt
+--
+QueryStatement [0-72] [select gt....OFFSET 10 ) gt]
+  Query [0-72] [select gt....OFFSET 10 ) gt]
+    Select [0-72] [select gt....OFFSET 10 ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-72] [from graph_table...SET 10 ) gt]
+        GraphTableQuery [17-72] [graph_table...OFFSET 10 ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-67] [MATCH (a)...OFFSET 10]
+            GqlOperatorList [35-67] [MATCH (a)...OFFSET 10]
+              GqlMatch [35-44] [MATCH (a)]
+                GraphPattern [41-44] [(a)]
+                  GraphPathPattern [41-44] [(a)]
+                    GraphNodePattern [41-44] [(a)]
+                      GraphElementPatternFiller [42-43] [a]
+                        Identifier(a) [42-43] [a]
+              GqlReturn [47-67] [RETURN *   OFFSET 10]
+                Select [53-55] [*]
+                  SelectList [54-55] [*]
+                    SelectColumn [54-55] [*]
+                      Star(*) [54-55] [*]
+                GqlOrderByAndPage [55-67] [OFFSET 10]
+                  GqlPage [58-67] [OFFSET 10]
+                    GqlPageOffset [58-67] [OFFSET 10]
+                      IntLiteral(10) [65-67] [10]
+          Alias [70-72] [gt]
+            Identifier(gt) [70-72] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+    RETURN
+      *
+    OFFSET 10
+  ) AS gt
+==
+
+
+# LIMIT statement after RETURN statement.
+[default reserve_graph_table]
+[default language_features=V_1_4_SQL_GRAPH]
+[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+
+select gt.* from
+graph_table(aml
+  MATCH (a)
+  RETURN *
+  LIMIT 10
+) gt
+--
+QueryStatement [0-71] [select gt....LIMIT 10 ) gt]
+  Query [0-71] [select gt....LIMIT 10 ) gt]
+    Select [0-71] [select gt....LIMIT 10 ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-71] [from graph_table...MIT 10 ) gt]
+        GraphTableQuery [17-71] [graph_table...LIMIT 10 ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-66] [MATCH (a)...LIMIT 10]
+            GqlOperatorList [35-66] [MATCH (a)...LIMIT 10]
+              GqlMatch [35-44] [MATCH (a)]
+                GraphPattern [41-44] [(a)]
+                  GraphPathPattern [41-44] [(a)]
+                    GraphNodePattern [41-44] [(a)]
+                      GraphElementPatternFiller [42-43] [a]
+                        Identifier(a) [42-43] [a]
+              GqlReturn [47-66] [RETURN *   LIMIT 10]
+                Select [53-55] [*]
+                  SelectList [54-55] [*]
+                    SelectColumn [54-55] [*]
+                      Star(*) [54-55] [*]
+                GqlOrderByAndPage [55-66] [LIMIT 10]
+                  GqlPage [58-66] [LIMIT 10]
+                    GqlPageLimit [58-66] [LIMIT 10]
+                      IntLiteral(10) [64-66] [10]
+          Alias [69-71] [gt]
+            Identifier(gt) [69-71] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+    RETURN
+      *
+    LIMIT 10
+  ) AS gt
+==
+
+
+# Two consecutive LIMIT and OFFSET statements after RETURN statement.
+# Note: This is a parsing error.
+[default reserve_graph_table]
+[default language_features=V_1_4_SQL_GRAPH]
+[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+
+select gt.* from
+graph_table(aml
+  MATCH (a)
+  RETURN *
+  LIMIT 10
+  OFFSET 20
+) gt
+--
+ERROR: Syntax error: Expected ")" or keyword NEXT but got keyword OFFSET [at 6:3]
+  OFFSET 20
+  ^

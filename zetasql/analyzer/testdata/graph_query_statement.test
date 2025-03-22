@@ -1,6 +1,5 @@
 [default language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
 [default no_test_extract_table_names]
-[default no_run_unparser]
 
 # top level graph query statement resolves to query statement with
 # GraphTableScan as query input which is semantically equivalent to
@@ -18,7 +17,7 @@ QueryStmt
 +-query=
   +-GraphTableScan
     +-column_list=$graph_table.[name#2, number#3, concat_str#4]
-    +-property_graph=sample_catalog.aml
+    +-property_graph=aml
     +-input_scan=
       +-GraphLinearScan
         +-column_list=$graph_table.[name#2, number#3, concat_str#4]
@@ -43,7 +42,7 @@ QueryStmt
               | |   |   |       +-op=NOT
               | |   |   |       +-operand_list=
               | |   |   |         +-GraphWildCardLabel
-              | |   |   +-target_element_table_list=[sample_catalog.aml.Account,sample_catalog.aml.Person,sample_catalog.aml.Syndicate]
+              | |   |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
               | |   +-head=$element_table.n#1
               | |   +-tail=$element_table.n#1
               | +-input_scan=
@@ -76,3 +75,13 @@ graph aml match (n) return n
 ERROR: Returning graph-typed column is not supported [at 1:28]
 graph aml match (n) return n
                            ^
+==
+
+# Regression test on non-existing property `score` of a static element.
+GRAPH aml
+MATCH (n:Person)
+RETURN n.score as s
+--
+ERROR: Property score is not exposed by element type GRAPH_NODE(aml)<age UINT32, birthday DATE, data BYTES, id INT64, name STRING> [at 3:10]
+RETURN n.score as s
+         ^

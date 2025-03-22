@@ -151,3 +151,30 @@ RIGHT OUTER JOIN (
 GROUP BY int64_val;
 --
 ERROR: generic::invalid_argument: Lower bound cannot be greater than upper bound.
+==
+# Per-aggregation epsilon overconsumption with all epsilon named-arguments set on aggregations.
+[name=differential_privacy_per_aggregation_epsilon_overconsumption_all_epsilon]
+[required_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,DIFFERENTIAL_PRIVACY_PER_AGGREGATION_BUDGET]
+[labels=differential_privacy]
+SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1.1, delta=1.0, group_selection_epsilon = 1.2)
+  int64_val,
+  COUNT(*, epsilon => 1.3),
+FROM TestTableWithUid
+GROUP BY int64_val;
+--
+
+ERROR: generic::out_of_range: Epsilon overconsumption: the sum of all `epsilon` arguments cannot exceed the `epsilon` option in SELECT WITH DIFFERENTIAL_PRIVACY scans
+==
+# Per-aggregation epsilon overconsumption with some epsilon named-arguments set on aggregations.
+[name=differential_privacy_per_aggregation_epsilon_overconsumption_some_epsilon]
+[required_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,DIFFERENTIAL_PRIVACY_PER_AGGREGATION_BUDGET]
+[labels=differential_privacy]
+SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1.1, delta=1.0, group_selection_epsilon = 1.2)
+  int64_val,
+  COUNT(*, epsilon => 1.3),
+  SUM(double_val),
+FROM TestTableWithUid
+GROUP BY int64_val;
+--
+
+ERROR: generic::out_of_range: Epsilon overconsumption: the sum of all `epsilon` arguments cannot exceed the `epsilon` option in SELECT WITH DIFFERENTIAL_PRIVACY scans

@@ -71,7 +71,7 @@ Note: all GQL examples in the GQL reference use the
 **Definitions**
 
 + `OR REPLACE`: Replaces any property graph with the same name if it exists.
-  If the property graph does not exist, creates the property graph. Can't
+  If the property graph doesn't exist, creates the property graph. Can't
   appear with `IF NOT EXISTS`.
 + `IF NOT EXISTS`: If any property graph exists with the same name, the
   `CREATE` statement has no effect. Can't appear with `OR REPLACE`.
@@ -89,7 +89,7 @@ Note: all GQL examples in the GQL reference use the
   The following example represents three node definitions:
   `Account`, `Customer`, and `GeoLocation`.
 
-  ```sql
+  ```zetasql
   NODE TABLES (
     Account,
     Customer
@@ -107,7 +107,7 @@ Note: all GQL examples in the GQL reference use the
   The following example represents two edge definitions:
   `Own` and `Transfer`.
 
-  ```sql
+  ```zetasql
   EDGE TABLES (
     Own
       SOURCE KEY (cid) REFERENCES Customer (cid)
@@ -147,12 +147,18 @@ Note: all GQL examples in the GQL reference use the
   KEY <span class="var">column_name_list</span>
 
 <span class="var">source_key</span>:
-  SOURCE KEY <span class="var">column_name_list</span>
-  REFERENCES <span class="var">element_alias_reference</span> [ <span class="var">column_name_list</span> ]
+  SOURCE KEY <span class="var">edge_column_name_list</span>
+  REFERENCES <span class="var">element_alias_reference</span> [ <span class="var">node_column_name_list</span> ]
 
 <span class="var">destination_key</span>:
-  DESTINATION KEY <span class="var">column_name_list</span>
-  REFERENCES <span class="var">element_alias_reference</span> [ <span class="var">column_name_list</span> ]
+  DESTINATION KEY <span class="var">edge_column_name_list</span>
+  REFERENCES <span class="var">element_alias_reference</span> [ <span class="var">node_column_name_list</span> ]
+
+<span class="var">edge_column_name_list</span>:
+  <span class="var">column_name_list</span>
+
+<span class="var">node_column_name_list</span>:
+  <span class="var">column_name_list</span>
 
 <span class="var">column_name_list</span>:
   (<span class="var">column_name</span>[, ...])
@@ -162,7 +168,7 @@ Note: all GQL examples in the GQL reference use the
 
 Adds an element definition to the property graph. For example:
 
-```sql
+```zetasql
 Customer
   LABEL Client
     PROPERTIES (cid, name)
@@ -191,44 +197,47 @@ rules:
   
 + `node_element_key`: The element key for a node.
 
-  ```sql
+  ```zetasql
   KEY (item1_column, item2_column)
   ```
 + `edge_element_keys`: The element key, source key, and destination key
   for an edge.
 
-  ```sql
+  ```zetasql
   KEY (item1_column, item2_column)
   SOURCE KEY (item1_column) REFERENCES item_node (item_node_column)
   DESTINATION KEY (item2_column) REFERENCES item_node (item_node_column)
   ```
 + `element_key`: The key that identifies the node or edge element.
 
-  ```sql
+  ```zetasql
   KEY (item1_column, item2_column)
   ```
 + `source_key`: The key for the source node of the edge.
 
-  ```sql
+  ```zetasql
   SOURCE KEY (item1_column) REFERENCES item_node (item_node_column)
   ```
 + `destination_key`: The key for the destination node of the edge.
 
-  ```sql
+  ```zetasql
   DESTINATION KEY (item2_column) REFERENCES item_node (item_node_column)
   ```
 + `column_name_list`: One or more columns to assign to a key.
 
   In `column_name_list`, column names must be unique.
++ Reference column name lists:
 
-  If `column_name_list` is used in `REFERENCES` of `source_key` or
-  `destination_key`, the columns they reference must exist in the corresponding
-  node tables.
+  * `node_column_name_list`: One or more columns referenced from the node tables.
 
-  If `column_name_list` is absent in `REFERENCES` of `source_key` or
-  `destination_key`, a foreign key constraint must exist on the edge table's
-  `SOURCE KEY` columns or `DESTINATION KEY` columns to their corresponding node
-  tables.
+  * `edge_column_name_list`: One or more columns referenced from the edge tables.
+
+  Referenced columns must exist in the corresponding node or edge table.
+
+  If `node_column_name_list` doesn't exist in `source_key` or
+  `destination_key`, then the `element_keys` of the referenced node are used.
+  In this case, the column order in the `element_keys` must match the column
+  order in the `edge_column_name_list`.
 + `element_alias_reference`: The alias of another element to reference.
 + `label_and_property_list`: The list of labels and properties to add to
   an element. For more information, see
@@ -262,14 +271,14 @@ Adds a list of labels and properties to an element.
 + `label_and_properties`: The label to add to the element and the properties
   exposed by that label. For example:
 
-  ```sql
+  ```zetasql
   LABEL Tourist PROPERTIES (home_city, home_country)
   ```
 
-  When `label_and_properties` is not specified, the following is
+  When `label_and_properties` isn't specified, the following is
   applied implicitly:
 
-  ```sql
+  ```zetasql
   DEFAULT LABEL PROPERTIES ARE ALL COLUMNS
   ```
 
@@ -319,25 +328,25 @@ Adds properties associated with a label.
   If you don't include this definition, all columns are included by
   default, and the following definition is applied implicitly:
 
-  ```sql
+  ```zetasql
   PROPERTIES ARE ALL COLUMNS
   ```
 
   In the following examples, all columns in a table are included as
   element properties:
 
-  ```sql
+  ```zetasql
   PROPERTIES ARE ALL COLUMNS
   ```
 
-  ```sql
+  ```zetasql
   PROPERTIES ALL COLUMNS
   ```
 
   In the following example, all columns in a table except for `home_city` and
   `home_country` are included as element properties:
 
-  ```sql
+  ```zetasql
   PROPERTIES ARE ALL COLUMNS EXCEPT (home_city, home_country)
   ```
 + `column_name_list`: A list of columns to exclude as element properties.
@@ -351,7 +360,7 @@ Adds properties associated with a label.
   properties. Additionally, the result of the `salary + bonus` expression are
   included as the `income` property:
 
-  ```sql
+  ```zetasql
   PROPERTIES (id, name, salary + bonus AS income)
   ```
 
@@ -380,7 +389,7 @@ definitions (`Account` and `Person`) and two edge definitions
 Note: all GQL examples in the GQL reference use the
 [`FinGraph`][fin-graph] property graph example.
 
-```sql
+```zetasql
 CREATE OR REPLACE PROPERTY GRAPH FinGraph
   NODE TABLES (
     Account,
@@ -402,7 +411,7 @@ Once the property graph is created, you can use it in [GQL][gql] queries. For
 example, the following query matches all nodes labeled `Person` and then returns
 the `name` values in the results.
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (p:Person)
 RETURN p.name
@@ -447,7 +456,7 @@ Deletes a property graph.
 
 **Example**
 
-```sql
+```zetasql
 DROP PROPERTY GRAPH FinGraph;
 ```
 

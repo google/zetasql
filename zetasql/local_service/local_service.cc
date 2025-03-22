@@ -1522,7 +1522,7 @@ absl::Status ZetaSqlLocalServiceImpl::Parse(const ParseRequest& request,
 
   ParserOptions parser_options = ParserOptions(
       /*id_string_pool=*/nullptr, /*arena=*/nullptr,
-      language_options.get() ? *language_options.get() : LanguageOptions());
+      language_options ? *language_options : LanguageOptions());
 
   if (request.allow_script()) {
     return ParseScriptImpl(request, response, parser_options);

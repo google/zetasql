@@ -30,6 +30,7 @@
 #include "zetasql/base/atomic_sequence_num.h"
 #include "zetasql/analyzer/query_resolver_helper.h"
 #include "zetasql/public/analyzer.h"  // For QueryParametersMap
+#include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/function_signature.h"
 #include "zetasql/public/options.pb.h"
@@ -144,6 +145,15 @@ struct CopyableState {
   // ResolvedRecursiveRefScan node must refer to the query at the top of the
   // stack.
   std::stack<RecursiveQueryInfo> recursive_query_info;
+
+  // MATCH_RECOGNIZE state, in order to convert back access to internal columns
+  // to calls to special functions, e.g. MATCH_NUMBER().
+  struct MatchRecognizeState {
+    ResolvedColumn match_number_column;
+    ResolvedColumn match_row_number_column;
+    ResolvedColumn classifier_column;
+  };
+  std::optional<MatchRecognizeState> match_recognize_state;
 };
 
 // SQLBuilder takes the ZetaSQL Resolved ASTs and generates its equivalent SQL
@@ -168,6 +178,9 @@ struct CopyableState {
 // should not ask SQLBuilder to generate SQL.
 class SQLBuilder : public ResolvedASTVisitor {
  public:
+  using SQLAliasPairList = QueryExpression::SQLAliasPairList;
+  using TargetSyntaxMode = QueryExpression::TargetSyntaxMode;
+
   // Options to use when generating SQL.
   struct SQLBuilderOptions {
     SQLBuilderOptions() {
@@ -222,13 +235,19 @@ class SQLBuilder : public ResolvedASTVisitor {
     //    found, which is an indication it isn't fully supported.
     Catalog* catalog = nullptr;
 
+    // Controls the target syntax mode of the SQLBuilder.
+    // Warning: support for Pipe SQL target syntax is in-developed and not fully
+    // tested, and is not guaranteed to produce correct results in some cases.
+    // TODO: b/357999315 - Once all testing is added, remove this warning.
+    TargetSyntaxMode target_syntax_mode = TargetSyntaxMode::kStandard;
+
     // Records syntax hint against specific Resolved AST node to decide what
     // SQL syntax to restore. The syntax hint is particularly useful when
     // multiple SQL syntaxes are possible.
     // WARNING: This map should only be populated by ZetaSQL resolver and RQG.
     // It's an advanced feature with specific intended use cases and misusing it
     // can cause the SQLBuilder to misbehave.
-    TargetSyntaxMap target_syntax;
+    TargetSyntaxMap target_syntax_map;
 
     // Setting to true will return FLOAT32 as the type name for TYPE_FLOAT,
     // for PRODUCT_EXTERNAL mode.
@@ -363,6 +382,9 @@ class SQLBuilder : public ResolvedASTVisitor {
   absl::Status VisitResolvedQueryStmt(const ResolvedQueryStmt* node) override;
   absl::Status VisitResolvedGeneralizedQueryStmt(
       const ResolvedGeneralizedQueryStmt* node) override;
+  absl::Status VisitResolvedMultiStmt(const ResolvedMultiStmt* node) override;
+  absl::Status VisitResolvedCreateWithEntryStmt(
+      const ResolvedCreateWithEntryStmt* node) override;
   absl::Status VisitResolvedExplainStmt(
       const ResolvedExplainStmt* node) override;
   absl::Status VisitResolvedCreateConnectionStmt(
@@ -383,6 +405,8 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedCreateSnapshotTableStmt* node) override;
   absl::Status VisitResolvedCreateTableAsSelectStmt(
       const ResolvedCreateTableAsSelectStmt* node) override;
+  absl::Status VisitResolvedCreateTableAsSelectStmtImpl(
+      const ResolvedCreateTableAsSelectStmt* node, bool generate_as_pipe);
   absl::Status VisitResolvedCreateViewStmt(
       const ResolvedCreateViewStmt* node) override;
   absl::Status VisitResolvedCreateMaterializedViewStmt(
@@ -411,6 +435,8 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedCloneDataStmt* node) override;
   absl::Status VisitResolvedExportDataStmt(
       const ResolvedExportDataStmt* node) override;
+  absl::Status VisitResolvedExportDataStmtImpl(
+      const ResolvedExportDataStmt* node, bool generate_as_pipe);
   absl::Status VisitResolvedExportModelStmt(
       const ResolvedExportModelStmt* node) override;
   absl::Status VisitResolvedExportMetadataStmt(
@@ -454,6 +480,8 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedTruncateStmt* node) override;
   absl::Status VisitResolvedUpdateStmt(const ResolvedUpdateStmt* node) override;
   absl::Status VisitResolvedInsertStmt(const ResolvedInsertStmt* node) override;
+  absl::Status VisitResolvedInsertStmtImpl(const ResolvedInsertStmt* node,
+                                           bool generate_as_pipe);
   absl::Status VisitResolvedMergeStmt(const ResolvedMergeStmt* node) override;
   absl::Status VisitResolvedMergeWhen(const ResolvedMergeWhen* node) override;
   absl::Status VisitResolvedGrantStmt(const ResolvedGrantStmt* node) override;
@@ -482,6 +510,8 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedAlterMaterializedViewStmt* node) override;
   absl::Status VisitResolvedAlterApproxViewStmt(
       const ResolvedAlterApproxViewStmt* node) override;
+  absl::Status VisitResolvedAlterIndexStmt(
+      const ResolvedAlterIndexStmt* node) override;
   absl::Status VisitResolvedAlterModelStmt(
       const ResolvedAlterModelStmt* node) override;
   absl::Status VisitResolvedRenameStmt(const ResolvedRenameStmt* node) override;
@@ -603,6 +633,8 @@ class SQLBuilder : public ResolvedASTVisitor {
   absl::Status VisitResolvedWithRefScan(
       const ResolvedWithRefScan* node) override;
   absl::Status VisitResolvedSampleScan(const ResolvedSampleScan* node) override;
+  absl::StatusOr<std::string> GetSqlForSample(const ResolvedSampleScan* node,
+                                              bool is_gql);
   absl::Status VisitResolvedSingleRowScan(
       const ResolvedSingleRowScan* node) override;
   absl::Status VisitResolvedMatchRecognizeScan(
@@ -621,8 +653,14 @@ class SQLBuilder : public ResolvedASTVisitor {
   absl::Status VisitResolvedPipeIfScan(const ResolvedPipeIfScan* node) override;
   absl::Status VisitResolvedPipeForkScan(
       const ResolvedPipeForkScan* node) override;
+  absl::Status VisitResolvedPipeTeeScan(
+      const ResolvedPipeTeeScan* node) override;
   absl::Status VisitResolvedPipeExportDataScan(
       const ResolvedPipeExportDataScan* node) override;
+  absl::Status VisitResolvedPipeCreateTableScan(
+      const ResolvedPipeCreateTableScan* node) override;
+  absl::Status VisitResolvedPipeInsertScan(
+      const ResolvedPipeInsertScan* node) override;
   absl::Status VisitResolvedBarrierScan(
       const ResolvedBarrierScan* node) override;
   absl::Status VisitResolvedSubpipeline(
@@ -647,6 +685,8 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedAlterEntityStmt* node) override;
   absl::Status VisitResolvedAuxLoadDataStmt(
       const ResolvedAuxLoadDataStmt* node) override;
+  absl::Status VisitResolvedUpdateConstructor(
+      const ResolvedUpdateConstructor* node) override;
 
   absl::Status VisitResolvedLockMode(const ResolvedLockMode* node) override;
 
@@ -681,8 +721,7 @@ class SQLBuilder : public ResolvedASTVisitor {
       absl::Span<const ResolvedColumn> column_list,
       absl::Span<const std::unique_ptr<const ResolvedComputedColumn>>
           shape_expr_list,
-      const std::string& table_alias,
-      std::vector<std::pair<std::string, std::string>>* select_list,
+      const std::string& table_alias, SQLAliasPairList* select_list,
       std::string* sql);
   absl::Status ProcessGqlSubquery(const ResolvedSubqueryExpr* node,
                                   std::string& output_sql);
@@ -720,7 +759,11 @@ class SQLBuilder : public ResolvedASTVisitor {
                                         std::string& output_sql);
   absl::Status ProcessResolvedGqlLetOp(const ResolvedProjectScan* node,
                                        std::string& output_sql);
+  absl::Status ProcessResolvedGqlLetOp(const ResolvedAnalyticScan* node,
+                                       std::string& output_sql);
   absl::Status ProcessResolvedGqlFilterOp(const ResolvedFilterScan* node,
+                                          std::string& output_sql);
+  absl::Status ProcessResolvedGqlSampleOp(const ResolvedSampleScan* node,
                                           std::string& output_sql);
   // Used for operations such as GQL's LET, which may have an
   // AnalyticScan (or a ProjScan whose input is an AnalyticScan) as their input.
@@ -767,6 +810,19 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedGraphElementScan* node, absl::string_view prefix,
       absl::string_view suffix);
 
+  // Helper method to append element tables SQL strings to `sql`.
+  absl::Status AppendElementTables(
+      absl::Span<const std::unique_ptr<const ResolvedGraphElementTable>> tables,
+      const absl::flat_hash_map<std::string, const ResolvedGraphElementLabel*>&
+          name_to_label,
+      std::string& sql);
+  // Helper method to append a single element table's SQL string to `sql`.
+  absl::Status VisitResolvedGraphElementTableInternal(
+      const std::unique_ptr<const ResolvedGraphElementTable>& node,
+      const absl::flat_hash_map<std::string, const ResolvedGraphElementLabel*>&
+          name_to_label,
+      std::string& sql);
+
   // Helper method to take an output column list and convert it to its
   // SQL representation, computing column aliases when necessary.
   // `column_alias_to_sql` is a map that will replace the WITH clause item
@@ -798,6 +854,17 @@ class SQLBuilder : public ResolvedASTVisitor {
   absl::Status AppendPathMode(const ResolvedGraphPathMode* path_mode,
                               std::string& sql);
 
+  // Helper method to append a search prefix to the SQL string.
+  absl::Status AppendSearchPrefix(const ResolvedGraphPathSearchPrefix* prefix,
+                                  std::string& text);
+
+  // Pushes a placeholder RecursiveQueryInfo with query_name = `query_name` and
+  // scan = nullptr to `state_.recursive_query_info`.
+  //
+  // The placeholder scan will be updated to the real recursive scan when the
+  // ResolvedRecursiveScan itself is visited.
+  void AddPlaceholderRecursiveScan(const std::string& query_name);
+
  public:
   absl::Status DefaultVisit(const ResolvedNode* node) override;
 
@@ -809,12 +876,24 @@ class SQLBuilder : public ResolvedASTVisitor {
   // QueryExpression for scan nodes.
   struct QueryFragment {
     explicit QueryFragment(const ResolvedNode* node, std::string text)
-        : node(node), text(std::move(text)) {}
+        : node(node),
+          target_syntax_mode(TargetSyntaxMode::kStandard),
+          text(std::move(text)) {}
+
+    explicit QueryFragment(const ResolvedNode* node,
+                           TargetSyntaxMode target_syntax_mode,
+                           std::string text)
+        : node(node),
+          target_syntax_mode(target_syntax_mode),
+          text(std::move(text)) {}
 
     // Takes ownership of the <query_expression>.
     explicit QueryFragment(const ResolvedNode* node,
+                           TargetSyntaxMode target_syntax_mode,
                            QueryExpression* query_expression)
-        : node(node), query_expression(query_expression) {}
+        : node(node),
+          target_syntax_mode(target_syntax_mode),
+          query_expression(query_expression) {}
 
     QueryFragment(const QueryFragment&) = delete;
     QueryFragment operator=(const QueryFragment&) = delete;
@@ -823,6 +902,8 @@ class SQLBuilder : public ResolvedASTVisitor {
 
     // Associated resolved node tree for the QueryFragment.
     const ResolvedNode* node = nullptr;
+
+    TargetSyntaxMode target_syntax_mode;
 
     // Populated if QueryFragment is created from a QueryExpression.
     std::unique_ptr<QueryExpression> query_expression;
@@ -865,12 +946,12 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedColumnList& column_list,
       const std::map<int64_t, const ResolvedExpr*>& col_to_expr_map,
       const ResolvedScan* parent_scan, QueryExpression* query_expression,
-      std::vector<std::pair<std::string, std::string>>* select_list);
+      SQLAliasPairList* select_list);
   // This overload does not expects a <col_to_expr_map> which is needed only
   // when select expressions are present in the column_list.
-  absl::Status GetSelectList(
-      const ResolvedColumnList& column_list, QueryExpression* query_expression,
-      std::vector<std::pair<std::string, std::string>>* select_list);
+  absl::Status GetSelectList(const ResolvedColumnList& column_list,
+                             QueryExpression* query_expression,
+                             SQLAliasPairList* select_list);
 
   // Adds select_list for columns present in <column_list> inside the
   // <query_expression>, if not present.
@@ -927,9 +1008,9 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedScan* scan, absl::flat_hash_map<int, std::vector<int>>&
                                     right_to_left_column_id_mapping);
 
-  // Returns wrapper sql text for a JOIN with USING(...) expression for the
-  // right side of the join to ensure that columns within the USING(...)
-  // expression have the same alias.
+  // Returns a list of pairs of column names and aliases for a JOIN with
+  // USING(...) expression for the right side of the join to ensure that columns
+  // within the USING(...) expression have the same alias.
   //
   // The following query fragment
   //
@@ -951,10 +1032,10 @@ class SQLBuilder : public ResolvedASTVisitor {
   // `vector<int>` in the case that there are duplicate columns in the
   // USING(...) expression on the right side of the join.
   //
-  // We do not support deparsing USING(...) with duplicate left columns.
+  // We do not support unparsing USING(...) with duplicate left columns.
   // If there is a duplicate left column then the sql_builder will build JOIN
   // ON.
-  absl::StatusOr<std::string> GetUsingWrapper(
+  absl::StatusOr<SQLAliasPairList> GetUsingWrapper(
       absl::string_view scan_alias, const ResolvedColumnList& column_list,
       absl::flat_hash_map<int, std::vector<int>>&
           right_to_left_column_id_mapping);
@@ -1053,7 +1134,7 @@ class SQLBuilder : public ResolvedASTVisitor {
   // corresponding QueryExpression. Also ensures that the query produces columns
   // matching the order and aliases in <output_column_list>.
   // Caller owns the returned QueryExpression.
-  absl::StatusOr<QueryExpression*> ProcessQuery(
+  absl::StatusOr<std::unique_ptr<QueryExpression>> ProcessQuery(
       const ResolvedScan* query,
       const std::vector<std::unique_ptr<const ResolvedOutputColumn>>&
           output_column_list);
@@ -1224,11 +1305,19 @@ class SQLBuilder : public ResolvedASTVisitor {
  private:
   CopyableState state_;
 
+  bool IsPipeSyntaxTargetMode() {
+    return options_.target_syntax_mode == TargetSyntaxMode::kPipe;
+  }
+
+  bool IsStandardSyntaxTargetMode() {
+    return options_.target_syntax_mode == TargetSyntaxMode::kStandard;
+  }
+
   // Helper function to perform operation on value table's column for
   // ResolvedTableScan.
   virtual absl::Status AddValueTableAliasForVisitResolvedTableScan(
       absl::string_view table_alias, const ResolvedColumn& column,
-      std::vector<std::pair<std::string, std::string>>* select_list);
+      SQLAliasPairList* select_list);
 
   // Returns a ZetaSQL identifier literal for a table's name.
   // The output will be quoted (with backticks) and escaped if necessary.

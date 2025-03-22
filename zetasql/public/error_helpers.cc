@@ -41,6 +41,7 @@
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/str_replace.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
@@ -377,34 +378,184 @@ static std::string PartiallyRedactIdentifier(absl::string_view identifier) {
   return absl::AsciiStrToUpper(colon_parts.back());
 }
 
-static std::string GetRedactedErrorMessage(
-    const absl::Status& status, bool enable_partial_error_redaction) {
-  if (!enable_partial_error_redaction) {
-    // Full redaction
-    return "SQL ERROR";
+struct ErrorRedaction {
+  // UPPER_SNAKE_CASE stable message to use in the redacted message for this
+  // error (excluding arguments).
+  //
+  // It is acceptable for multiple redaction entries to have the same name.
+  absl::string_view error_name;
+
+  // Regex that must match a portion of the error message for this redaction to
+  // apply. Within the regex, capture groups represent the names of identifiers
+  // to be included (after more redaction) in the redacted output.
+  //
+  // Within the regexp, the substring "<id>" is replaced with the content
+  // of kIdRegexp.
+  absl::string_view regex;
+
+  // Template string for the redacted error, when this redaction applies.
+  // This string is used as a format string for absl::Substitute(); use $0 for
+  // the 'name' field, $1, $2, etc. for captured arguments.
+  absl::string_view redacted_template = "$0";
+
+  // Number of arguments to be captured. This must match the number of capture
+  // groups in the above regex.
+  //
+  // Currently limited to a maximum of 3; to increase, a case must be added to
+  // the switch statement in GetEnhancedRedactedErrorMessage(), below.
+  int num_arguments = 0;
+};
+
+// Regexp representing an identifier in an error message. The string "<id>" in
+// regexes below is replaced with this. The results of substrings that match
+// this regexp are captured and redacted using the PartiallyRedactIdentifier()
+// function, above.
+//
+// Note that the last character is specifically disallowed from being "." so
+// that a period at the end of the sentence doesn't get treated by the redaction
+// code as an empty identifier part.
+constexpr absl::string_view kIdRegexp =
+    R"re([A-Za-z0-9_\.\:\`]*[A-Za-z0-9_\`])re";
+
+constexpr ErrorRedaction kRedactions[] = {
+    {"FUNCTION_SIGNATURE_MISMATCH",
+     R"re(No\s+matching\s+signature\s+for\s+(?:aggregate\s+function\s|analytic\s+function\s|function\s|)\s*(<id>))re",
+     "$0: $1", 1},
+    {"FUNCTION_SIGNATURE_MISMATCH",
+     R"re(Number of arguments does not match for\s+(?:aggregate\s+function\s|analytic\s+function\s|function\s|)\s*(<id>))re",
+     "$0: $1", 1},
+    {"FUNCTION_WITH_LANGUAGE_AND_SQL_BODY",
+     "Function cannot specify a LANGUAGE and include a SQL body"},
+
+    {"INCORRECT_RETURN_TYPE",
+     R"re(Function declared to return (<id>) but the function body produces incompatible type (<id>))re",
+     "$0: $1 vs. $2", 2},
+
+    {"FUNCTION_ARG_MUST_HAVE_NAME_AND_TYPE",
+     "Parameters in function declarations must include both name and type"},
+
+    {"TYPE_NOT_FOUND", R"re(Type not found: (<id>))re", "$0: $1", 1},
+
+    {"NONSQL_FN_MISSING_RETURN_TYPE",
+     "Non-SQL functions must specify a return type"},
+
+    {"PUBLIC_OR_PRIVATE_FUNCTION_NOT_SUPPORTED",
+     "CREATE FUNCTION with PUBLIC or PRIVATE modifiers"},
+
+    {"STATEMENT_NOT_SUPPORTED", "Statement not supported"},
+
+    {"TABLE_FUNCTION_NOT_SUPPORTED",
+     "Creating table-valued functions is not supported"},
+
+    {"TABLE_FUNCTION_BAD_SYNTAX", "To write SQL table-valued functions,"},
+
+    {"TVF_COLUMN_INCOMPATIBLE_TYPE",
+     R"re(Column (<id>) for the output table of a CREATE TABLE FUNCTION statement has type (<id>), but the SQL body provides incompatible type ([A-Za-z0-9_\.\:]*) for this column)re",
+     "$0: column $1 ($2 vs. $3)", 3},
+    {"CONNECTION_DEFAULT_NOT_SUPPORTED", "CONNECTION DEFAULT is not supported"},
+
+    /////////////////////
+    {"SYNTAX_ERROR", "Syntax error\\:"},
+
+    {"TABLE_NOT_FOUND", R"re(Table not found: (<id>))re", "$0: $1", 1},
+
+    {"PARAMETERS_NOT_SUPPORTED", "Parameters are not supported"},
+
+    {"FUNCTION_NOT_FOUND", R"re(Function not found: (<id>))re", "$0: $1", 1},
+
+    {"TABLE_PARAMETERS_NOT_ALLOWED_IN_CREATE_FUNCTION_STATEMENT",
+     "TABLE parameters are not allowed in CREATE FUNCTION statement"},
+
+    {"ANALYSIS_OF_FUNCTION_FAILED",
+     R"re(Analysis of (?:table-valued )?function (<id>) failed)re", "$0: $1",
+     1},
+
+    {"INVALID_FUNCTION", R"re(Invalid (?:table-valued )?function (<id>))re",
+     "$0: $1", 1},
+
+    {"TABLE_VALUED_FUNCTION_NOT_FOUND",
+     R"re(Table-valued function not found: (<id>))re", "$0: $1", 1},
+
+    {"INVALID_TABLE_VALUED_FUNCTION_BODY",
+     R"re(Table-valued function SQL body without a RETURNS TABLE clause is missing one or more explicit output column names)re"},
+
+    {"QUERY_PARAMETER_IN_FUNCTION_BODY",
+     R"re(Query parameter is not allowed in the body of SQL function)re"},
+
+    {"REQUIRED_COLUMN_RETURNED_MULTIPLE_TIMES",
+     R"re(Required column name (<id>) returned multiple times from SQL body of CREATE TABLE FUNCTION statement)re",
+     "$0: $1", 1},
+
+    {"COLLATION_NOT_ALLOWED",
+     R"re(Collation .* on argument of TVF call is not allowed)re"},
+
+    {"ARG_MUST_BE_LITERAL_OR_QUERY_PARAM",
+     R"re((?:The argument|Argument (?:\d+)) to (<id>) must be a literal or query parameter)re",
+     "$0: $1", 1},
+
+    {"ORDER_BY_IN_ARG_NOT_SUPPORTED",
+     R"re(Aggregate function (<id>) does not support ORDER BY in arguments)re",
+     "$0: $1", 1},
+    {"LIMIT_IN_ARG_NOT_SUPPORTED",
+     R"re(Aggregate function (<id>) does not support LIMIT in arguments)re",
+     "$0: $1", 1},
+    {"TABLE_VALUED_FUNCTION_NOT_EXPECTED_HERE",
+     R"re(Table-valued function is not expected here: (<id>))re", "$0: $1", 1}};
+
+static std::string GetEnhancedRedactedErrorMessage(const absl::Status& status) {
+  std::string arg1, arg2, arg3;
+  for (const ErrorRedaction& redaction : kRedactions) {
+    RE2 regex(absl::StrReplaceAll(redaction.regex, {{"<id>", kIdRegexp}}));
+    switch (redaction.num_arguments) {
+      case 0:
+        if (RE2::PartialMatch(status.message(), regex)) {
+          return absl::Substitute(redaction.redacted_template,
+                                  redaction.error_name);
+        }
+        break;
+      case 1:
+        if (RE2::PartialMatch(status.message(), regex, &arg1)) {
+          return absl::Substitute(redaction.redacted_template,
+                                  redaction.error_name,
+                                  PartiallyRedactIdentifier(arg1));
+        }
+        break;
+      case 2:
+        if (RE2::PartialMatch(status.message(), regex, &arg1, &arg2)) {
+          return absl::Substitute(
+              redaction.redacted_template, redaction.error_name,
+              PartiallyRedactIdentifier(arg1), PartiallyRedactIdentifier(arg2));
+        }
+        break;
+      case 3:
+        if (RE2::PartialMatch(status.message(), regex, &arg1, &arg2, &arg3)) {
+          return absl::Substitute(
+              redaction.redacted_template, redaction.error_name,
+              PartiallyRedactIdentifier(arg1), PartiallyRedactIdentifier(arg2),
+              PartiallyRedactIdentifier(arg3));
+        }
+        break;
+      default:
+        ABSL_DCHECK(false) << "Redaction: " << redaction.error_name << " has "
+                      << redaction.num_arguments
+                      << " arguments, but only 0-3 arguments are supported";
+    }
   }
-  std::string function_name;
-  if (RE2::PartialMatch(
-          status.message(),
-          R"re(No\s+matching\s+signature\s+for\s+(?:(?:aggregate|analytic)\s+)?function ([A-Za-z0-9_\.\:]*))re",
-          &function_name)) {
-    return absl::Substitute("FUNCTION_SIGNATURE_MISMATCH: $0",
-                            PartiallyRedactIdentifier(function_name));
-  }
-  if (absl::StrContains(status.message(), "FUNCTION_SIGNATURE_MISMATCH")) {
-    // Sometimes, we are asked to redact a message that has already been
-    // redacted; just return it as is.
-    return std::string(status.message());
-  }
+
+  // Unable to redact. Return a string to indicate this, but crash in debug
+  // builds to ensure that the unredacted message inside the "unable to redact"
+  // error string does not accidentally leak into test output.
   std::string message =
       absl::StrCat("Unable to redact unknown error: ", status.message());
-  // In debug builds, crash if we see a message we don't know how to redact in
-  // order to ensure that the string we return does not accidentally leak into
-  // the expected output of engine tests, which would cause breakage if any
-  // new error messages get supported here in the future.
   ABSL_DCHECK(false) << message;
-
   return message;
+}
+
+static std::string GetRedactedErrorMessage(
+    const absl::Status& status, bool enable_enhanced_error_redaction) {
+
+  // Full redaction
+  return "SQL ERROR";
 }
 
 // Returns a status with the same payloads, but the message changed if needed
@@ -470,9 +621,13 @@ static absl::Status ApplyErrorMessageStabilityMode(
         default:
           return status;
       }
-      ZETASQL_RET_CHECK_FAIL() << "Must return from within the switch on status code.";
+      ZETASQL_RET_CHECK_FAIL() << "Must return from within the switch on status code. "
+                          "Status code: "
+                       << status.code();
   }
-  ZETASQL_RET_CHECK_FAIL() << "Must return from within the switch on mode";
+  ZETASQL_RET_CHECK_FAIL() << "Must return from within the switch on mode. "
+                      "Stability mode: "
+                   << stability_mode << ". Status code: " << status.code();
 }
 
 absl::Status MaybeUpdateErrorFromPayload(ErrorMessageOptions options,
@@ -524,7 +679,7 @@ absl::Status UpdateErrorLocationPayloadWithFilenameIfNotPresent(
 
 absl::Status ConvertInternalErrorLocationToExternal(
     absl::Status status, absl::string_view query, int input_start_line_offset,
-    int input_start_column_offset) {
+    int input_start_column_offset, int input_start_byte_offset) {
   if (!internal::HasPayloadWithType<InternalErrorLocation>(status)) {
     // Nothing to do.
     return status;
@@ -532,8 +687,11 @@ absl::Status ConvertInternalErrorLocationToExternal(
   const InternalErrorLocation internal_error_location =
       internal::GetPayload<InternalErrorLocation>(status);
 
-  const ParseLocationPoint error_point =
+  // Make the point's offset relative to `query` to point to the correct text.
+  ParseLocationPoint error_point =
       ParseLocationPoint::FromInternalErrorLocation(internal_error_location);
+  error_point.SetByteOffset(error_point.GetByteOffset() -
+                            input_start_byte_offset);
 
   ParseLocationTranslator location_translator(query);
 

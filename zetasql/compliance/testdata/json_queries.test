@@ -825,3 +825,19 @@ ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>[known order:"a", "a.b"]}]
 SELECT JSON_KEYS(JSON '{"a":{"b":1}}', ABS(2))
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>[known order:"a", "a.b"]}]
+==
+[name=json_empty_json_path_nonmatching]
+[required_features=JSON_TYPE]
+SELECT attributes
+FROM ( SELECT JSON '{"key": "value"}' as attributes )
+WHERE attributes[''] IS NOT NULL;
+--
+ARRAY<STRUCT<attributes JSON>>[]
+==
+[name=json_empty_json_path_matching]
+[required_features=JSON_TYPE]
+SELECT attributes
+FROM ( SELECT JSON '{"": "value"}' as attributes )
+WHERE attributes[''] IS NOT NULL;
+--
+ARRAY<STRUCT<attributes JSON>>[{{"":"value"}}]

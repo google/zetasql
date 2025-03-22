@@ -1,0 +1,1030 @@
+[default reserve_graph_table]
+[default language_features=V_1_4_SQL_GRAPH]
+
+select gt.* from
+graph_table(aml
+  match (n)
+  let age = DATE_DIFF(CURRENT_DATE, n.birthday, YEAR)
+  TABLESAMPLE 
+    {{|bernoulli}} (
+      5 percent
+      {{|partition by (element_id(n))}}
+    )
+    {{|with weight as w}}
+    {{|repeatable(1234)}}
+  return n.name, 1 AS number
+) gt
+
+--
+ALTERNATION GROUPS:
+    <empty>
+    repeatable(1234)
+    with weight as w,
+    with weight as w,repeatable(1234)
+    partition by (element_id(n)),,
+    partition by (element_id(n)),,repeatable(1234)
+    partition by (element_id(n)),with weight as w,
+    partition by (element_id(n)),with weight as w,repeatable(1234)
+--
+ERROR: Syntax error: Unexpected "(" [at 6:6]
+     (
+     ^
+--
+ALTERNATION GROUP: bernoulli,,,
+--
+QueryStatement [0-202] [select gt....number ) gt]
+  Query [0-202] [select gt....number ) gt]
+    Select [0-202] [select gt....number ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-202] [from graph_table...number ) gt]
+        GraphTableQuery [17-202] [graph_table...number ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-197] [match (n)...AS number]
+            GqlOperatorList [35-197] [match (n)...AS number]
+              GqlMatch [35-44] [match (n)]
+                GraphPattern [41-44] [(n)]
+                  GraphPathPattern [41-44] [(n)]
+                    GraphNodePattern [41-44] [(n)]
+                      GraphElementPatternFiller [42-43] [n]
+                        Identifier(n) [42-43] [n]
+              GqlLet [47-98] [let age =...birthday, YEAR)]
+                GqlLetVariableDefinitionList [51-98] [age = DATE_DIFF...thday, YEAR)]
+                  GqlLetVariableDefinition [51-98] [age = DATE_DIFF...thday, YEAR)]
+                    Identifier(age) [51-54] [age]
+                    FunctionCall [57-98] [DATE_DIFF(...birthday, YEAR)]
+                      PathExpression [57-66] [DATE_DIFF]
+                        Identifier(DATE_DIFF) [57-66] [DATE_DIFF]
+                      FunctionCall [67-79] [CURRENT_DATE]
+                        PathExpression [67-79] [CURRENT_DATE]
+                          Identifier(`CURRENT_DATE`) [67-79] [CURRENT_DATE]
+                      PathExpression [81-91] [n.birthday]
+                        Identifier(n) [81-82] [n]
+                        Identifier(birthday) [83-91] [birthday]
+                      PathExpression [93-97] [YEAR]
+                        Identifier(YEAR) [93-97] [YEAR]
+              GqlSample [101-158] [TABLESAMPLE...)]
+                SampleClause [101-158] [TABLESAMPLE...)]
+                  Identifier(bernoulli) [118-127] [bernoulli]
+                  SampleSize [136-145] [5 percent]
+                    IntLiteral(5) [136-137] [5]
+              GqlReturn [171-197] [return n.name, 1 AS number]
+                Select [177-197] [n.name, 1 AS number]
+                  SelectList [178-197] [n.name, 1 AS number]
+                    SelectColumn [178-184] [n.name]
+                      PathExpression [178-184] [n.name]
+                        Identifier(n) [178-179] [n]
+                        Identifier(name) [180-184] [name]
+                    SelectColumn [186-197] [1 AS number]
+                      IntLiteral(1) [186-187] [1]
+                      Alias [188-197] [AS number]
+                        Identifier(number) [191-197] [number]
+          Alias [200-202] [gt]
+            Identifier(gt) [200-202] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (n)
+    LET
+      age = DATE_DIFF(`CURRENT_DATE`(), n.birthday, YEAR)
+    TABLESAMPLE bernoulli(5 PERCENT)
+    RETURN
+      n.name,
+      1 AS number
+  ) AS gt
+--
+ALTERNATION GROUP: bernoulli,,,repeatable(1234)
+--
+QueryStatement [0-218] [select gt....number ) gt]
+  Query [0-218] [select gt....number ) gt]
+    Select [0-218] [select gt....number ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-218] [from graph_table...number ) gt]
+        GraphTableQuery [17-218] [graph_table...number ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-213] [match (n)...AS number]
+            GqlOperatorList [35-213] [match (n)...AS number]
+              GqlMatch [35-44] [match (n)]
+                GraphPattern [41-44] [(n)]
+                  GraphPathPattern [41-44] [(n)]
+                    GraphNodePattern [41-44] [(n)]
+                      GraphElementPatternFiller [42-43] [n]
+                        Identifier(n) [42-43] [n]
+              GqlLet [47-98] [let age =...birthday, YEAR)]
+                GqlLetVariableDefinitionList [51-98] [age = DATE_DIFF...thday, YEAR)]
+                  GqlLetVariableDefinition [51-98] [age = DATE_DIFF...thday, YEAR)]
+                    Identifier(age) [51-54] [age]
+                    FunctionCall [57-98] [DATE_DIFF(...birthday, YEAR)]
+                      PathExpression [57-66] [DATE_DIFF]
+                        Identifier(DATE_DIFF) [57-66] [DATE_DIFF]
+                      FunctionCall [67-79] [CURRENT_DATE]
+                        PathExpression [67-79] [CURRENT_DATE]
+                          Identifier(`CURRENT_DATE`) [67-79] [CURRENT_DATE]
+                      PathExpression [81-91] [n.birthday]
+                        Identifier(n) [81-82] [n]
+                        Identifier(birthday) [83-91] [birthday]
+                      PathExpression [93-97] [YEAR]
+                        Identifier(YEAR) [93-97] [YEAR]
+              GqlSample [101-184] [TABLESAMPLE...repeatable(1234)]
+                SampleClause [101-184] [TABLESAMPLE...repeatable(1234)]
+                  Identifier(bernoulli) [118-127] [bernoulli]
+                  SampleSize [136-145] [5 percent]
+                    IntLiteral(5) [136-137] [5]
+                  SampleSuffix [168-184] [repeatable(1234)]
+                    RepeatableClause [168-184] [repeatable(1234)]
+                      IntLiteral(1234) [179-183] [1234]
+              GqlReturn [187-213] [return n.name, 1 AS number]
+                Select [193-213] [n.name, 1 AS number]
+                  SelectList [194-213] [n.name, 1 AS number]
+                    SelectColumn [194-200] [n.name]
+                      PathExpression [194-200] [n.name]
+                        Identifier(n) [194-195] [n]
+                        Identifier(name) [196-200] [name]
+                    SelectColumn [202-213] [1 AS number]
+                      IntLiteral(1) [202-203] [1]
+                      Alias [204-213] [AS number]
+                        Identifier(number) [207-213] [number]
+          Alias [216-218] [gt]
+            Identifier(gt) [216-218] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (n)
+    LET
+      age = DATE_DIFF(`CURRENT_DATE`(), n.birthday, YEAR)
+    TABLESAMPLE bernoulli(5 PERCENT) REPEATABLE (1234)
+    RETURN
+      n.name,
+      1 AS number
+  ) AS gt
+--
+ALTERNATION GROUP: bernoulli,,with weight as w,
+--
+QueryStatement [0-218] [select gt....number ) gt]
+  Query [0-218] [select gt....number ) gt]
+    Select [0-218] [select gt....number ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-218] [from graph_table...number ) gt]
+        GraphTableQuery [17-218] [graph_table...number ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-213] [match (n)...AS number]
+            GqlOperatorList [35-213] [match (n)...AS number]
+              GqlMatch [35-44] [match (n)]
+                GraphPattern [41-44] [(n)]
+                  GraphPathPattern [41-44] [(n)]
+                    GraphNodePattern [41-44] [(n)]
+                      GraphElementPatternFiller [42-43] [n]
+                        Identifier(n) [42-43] [n]
+              GqlLet [47-98] [let age =...birthday, YEAR)]
+                GqlLetVariableDefinitionList [51-98] [age = DATE_DIFF...thday, YEAR)]
+                  GqlLetVariableDefinition [51-98] [age = DATE_DIFF...thday, YEAR)]
+                    Identifier(age) [51-54] [age]
+                    FunctionCall [57-98] [DATE_DIFF(...birthday, YEAR)]
+                      PathExpression [57-66] [DATE_DIFF]
+                        Identifier(DATE_DIFF) [57-66] [DATE_DIFF]
+                      FunctionCall [67-79] [CURRENT_DATE]
+                        PathExpression [67-79] [CURRENT_DATE]
+                          Identifier(`CURRENT_DATE`) [67-79] [CURRENT_DATE]
+                      PathExpression [81-91] [n.birthday]
+                        Identifier(n) [81-82] [n]
+                        Identifier(birthday) [83-91] [birthday]
+                      PathExpression [93-97] [YEAR]
+                        Identifier(YEAR) [93-97] [YEAR]
+              GqlSample [101-179] [TABLESAMPLE...weight as w]
+                SampleClause [101-179] [TABLESAMPLE...weight as w]
+                  Identifier(bernoulli) [118-127] [bernoulli]
+                  SampleSize [136-145] [5 percent]
+                    IntLiteral(5) [136-137] [5]
+                  SampleSuffix [163-179] [with weight as w]
+                    WithWeight [163-179] [with weight as w]
+                      Alias [175-179] [as w]
+                        Identifier(w) [178-179] [w]
+              GqlReturn [187-213] [return n.name, 1 AS number]
+                Select [193-213] [n.name, 1 AS number]
+                  SelectList [194-213] [n.name, 1 AS number]
+                    SelectColumn [194-200] [n.name]
+                      PathExpression [194-200] [n.name]
+                        Identifier(n) [194-195] [n]
+                        Identifier(name) [196-200] [name]
+                    SelectColumn [202-213] [1 AS number]
+                      IntLiteral(1) [202-203] [1]
+                      Alias [204-213] [AS number]
+                        Identifier(number) [207-213] [number]
+          Alias [216-218] [gt]
+            Identifier(gt) [216-218] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (n)
+    LET
+      age = DATE_DIFF(`CURRENT_DATE`(), n.birthday, YEAR)
+    TABLESAMPLE bernoulli(5 PERCENT) WITH WEIGHT AS w
+    RETURN
+      n.name,
+      1 AS number
+  ) AS gt
+--
+ALTERNATION GROUP: bernoulli,,with weight as w,repeatable(1234)
+--
+QueryStatement [0-234] [select gt....number ) gt]
+  Query [0-234] [select gt....number ) gt]
+    Select [0-234] [select gt....number ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-234] [from graph_table...number ) gt]
+        GraphTableQuery [17-234] [graph_table...number ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-229] [match (n)...AS number]
+            GqlOperatorList [35-229] [match (n)...AS number]
+              GqlMatch [35-44] [match (n)]
+                GraphPattern [41-44] [(n)]
+                  GraphPathPattern [41-44] [(n)]
+                    GraphNodePattern [41-44] [(n)]
+                      GraphElementPatternFiller [42-43] [n]
+                        Identifier(n) [42-43] [n]
+              GqlLet [47-98] [let age =...birthday, YEAR)]
+                GqlLetVariableDefinitionList [51-98] [age = DATE_DIFF...thday, YEAR)]
+                  GqlLetVariableDefinition [51-98] [age = DATE_DIFF...thday, YEAR)]
+                    Identifier(age) [51-54] [age]
+                    FunctionCall [57-98] [DATE_DIFF(...birthday, YEAR)]
+                      PathExpression [57-66] [DATE_DIFF]
+                        Identifier(DATE_DIFF) [57-66] [DATE_DIFF]
+                      FunctionCall [67-79] [CURRENT_DATE]
+                        PathExpression [67-79] [CURRENT_DATE]
+                          Identifier(`CURRENT_DATE`) [67-79] [CURRENT_DATE]
+                      PathExpression [81-91] [n.birthday]
+                        Identifier(n) [81-82] [n]
+                        Identifier(birthday) [83-91] [birthday]
+                      PathExpression [93-97] [YEAR]
+                        Identifier(YEAR) [93-97] [YEAR]
+              GqlSample [101-200] [TABLESAMPLE...repeatable(1234)]
+                SampleClause [101-200] [TABLESAMPLE...repeatable(1234)]
+                  Identifier(bernoulli) [118-127] [bernoulli]
+                  SampleSize [136-145] [5 percent]
+                    IntLiteral(5) [136-137] [5]
+                  SampleSuffix [163-200] [with weight...repeatable(1234)]
+                    WithWeight [163-200] [with weight...repeatable(1234)]
+                      Alias [175-179] [as w]
+                        Identifier(w) [178-179] [w]
+                    RepeatableClause [184-200] [repeatable(1234)]
+                      IntLiteral(1234) [195-199] [1234]
+              GqlReturn [203-229] [return n.name, 1 AS number]
+                Select [209-229] [n.name, 1 AS number]
+                  SelectList [210-229] [n.name, 1 AS number]
+                    SelectColumn [210-216] [n.name]
+                      PathExpression [210-216] [n.name]
+                        Identifier(n) [210-211] [n]
+                        Identifier(name) [212-216] [name]
+                    SelectColumn [218-229] [1 AS number]
+                      IntLiteral(1) [218-219] [1]
+                      Alias [220-229] [AS number]
+                        Identifier(number) [223-229] [number]
+          Alias [232-234] [gt]
+            Identifier(gt) [232-234] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (n)
+    LET
+      age = DATE_DIFF(`CURRENT_DATE`(), n.birthday, YEAR)
+    TABLESAMPLE bernoulli(5 PERCENT) WITH WEIGHT AS w REPEATABLE (1234)
+    RETURN
+      n.name,
+      1 AS number
+  ) AS gt
+--
+ALTERNATION GROUP: bernoulli,partition by (element_id(n)),,
+--
+QueryStatement [0-230] [select gt....number ) gt]
+  Query [0-230] [select gt....number ) gt]
+    Select [0-230] [select gt....number ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-230] [from graph_table...number ) gt]
+        GraphTableQuery [17-230] [graph_table...number ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-225] [match (n)...AS number]
+            GqlOperatorList [35-225] [match (n)...AS number]
+              GqlMatch [35-44] [match (n)]
+                GraphPattern [41-44] [(n)]
+                  GraphPathPattern [41-44] [(n)]
+                    GraphNodePattern [41-44] [(n)]
+                      GraphElementPatternFiller [42-43] [n]
+                        Identifier(n) [42-43] [n]
+              GqlLet [47-98] [let age =...birthday, YEAR)]
+                GqlLetVariableDefinitionList [51-98] [age = DATE_DIFF...thday, YEAR)]
+                  GqlLetVariableDefinition [51-98] [age = DATE_DIFF...thday, YEAR)]
+                    Identifier(age) [51-54] [age]
+                    FunctionCall [57-98] [DATE_DIFF(...birthday, YEAR)]
+                      PathExpression [57-66] [DATE_DIFF]
+                        Identifier(DATE_DIFF) [57-66] [DATE_DIFF]
+                      FunctionCall [67-79] [CURRENT_DATE]
+                        PathExpression [67-79] [CURRENT_DATE]
+                          Identifier(`CURRENT_DATE`) [67-79] [CURRENT_DATE]
+                      PathExpression [81-91] [n.birthday]
+                        Identifier(n) [81-82] [n]
+                        Identifier(birthday) [83-91] [birthday]
+                      PathExpression [93-97] [YEAR]
+                        Identifier(YEAR) [93-97] [YEAR]
+              GqlSample [101-186] [TABLESAMPLE...(n))     )]
+                SampleClause [101-186] [TABLESAMPLE...(n))     )]
+                  Identifier(bernoulli) [118-127] [bernoulli]
+                  SampleSize [136-180] [5 percent...element_id(n))]
+                    IntLiteral(5) [136-137] [5]
+                    PartitionBy [152-180] [partition by (element_id(n))]
+                      FunctionCall [166-179] [element_id(n)]
+                        PathExpression [166-176] [element_id]
+                          Identifier(element_id) [166-176] [element_id]
+                        PathExpression [177-178] [n]
+                          Identifier(n) [177-178] [n]
+              GqlReturn [199-225] [return n.name, 1 AS number]
+                Select [205-225] [n.name, 1 AS number]
+                  SelectList [206-225] [n.name, 1 AS number]
+                    SelectColumn [206-212] [n.name]
+                      PathExpression [206-212] [n.name]
+                        Identifier(n) [206-207] [n]
+                        Identifier(name) [208-212] [name]
+                    SelectColumn [214-225] [1 AS number]
+                      IntLiteral(1) [214-215] [1]
+                      Alias [216-225] [AS number]
+                        Identifier(number) [219-225] [number]
+          Alias [228-230] [gt]
+            Identifier(gt) [228-230] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (n)
+    LET
+      age = DATE_DIFF(`CURRENT_DATE`(), n.birthday, YEAR)
+    TABLESAMPLE bernoulli(5 PERCENT PARTITION BY (element_id(n)))
+    RETURN
+      n.name,
+      1 AS number
+  ) AS gt
+--
+ALTERNATION GROUP: bernoulli,partition by (element_id(n)),,repeatable(1234)
+--
+QueryStatement [0-246] [select gt....number ) gt]
+  Query [0-246] [select gt....number ) gt]
+    Select [0-246] [select gt....number ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-246] [from graph_table...number ) gt]
+        GraphTableQuery [17-246] [graph_table...number ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-241] [match (n)...AS number]
+            GqlOperatorList [35-241] [match (n)...AS number]
+              GqlMatch [35-44] [match (n)]
+                GraphPattern [41-44] [(n)]
+                  GraphPathPattern [41-44] [(n)]
+                    GraphNodePattern [41-44] [(n)]
+                      GraphElementPatternFiller [42-43] [n]
+                        Identifier(n) [42-43] [n]
+              GqlLet [47-98] [let age =...birthday, YEAR)]
+                GqlLetVariableDefinitionList [51-98] [age = DATE_DIFF...thday, YEAR)]
+                  GqlLetVariableDefinition [51-98] [age = DATE_DIFF...thday, YEAR)]
+                    Identifier(age) [51-54] [age]
+                    FunctionCall [57-98] [DATE_DIFF(...birthday, YEAR)]
+                      PathExpression [57-66] [DATE_DIFF]
+                        Identifier(DATE_DIFF) [57-66] [DATE_DIFF]
+                      FunctionCall [67-79] [CURRENT_DATE]
+                        PathExpression [67-79] [CURRENT_DATE]
+                          Identifier(`CURRENT_DATE`) [67-79] [CURRENT_DATE]
+                      PathExpression [81-91] [n.birthday]
+                        Identifier(n) [81-82] [n]
+                        Identifier(birthday) [83-91] [birthday]
+                      PathExpression [93-97] [YEAR]
+                        Identifier(YEAR) [93-97] [YEAR]
+              GqlSample [101-212] [TABLESAMPLE...repeatable(1234)]
+                SampleClause [101-212] [TABLESAMPLE...repeatable(1234)]
+                  Identifier(bernoulli) [118-127] [bernoulli]
+                  SampleSize [136-180] [5 percent...element_id(n))]
+                    IntLiteral(5) [136-137] [5]
+                    PartitionBy [152-180] [partition by (element_id(n))]
+                      FunctionCall [166-179] [element_id(n)]
+                        PathExpression [166-176] [element_id]
+                          Identifier(element_id) [166-176] [element_id]
+                        PathExpression [177-178] [n]
+                          Identifier(n) [177-178] [n]
+                  SampleSuffix [196-212] [repeatable(1234)]
+                    RepeatableClause [196-212] [repeatable(1234)]
+                      IntLiteral(1234) [207-211] [1234]
+              GqlReturn [215-241] [return n.name, 1 AS number]
+                Select [221-241] [n.name, 1 AS number]
+                  SelectList [222-241] [n.name, 1 AS number]
+                    SelectColumn [222-228] [n.name]
+                      PathExpression [222-228] [n.name]
+                        Identifier(n) [222-223] [n]
+                        Identifier(name) [224-228] [name]
+                    SelectColumn [230-241] [1 AS number]
+                      IntLiteral(1) [230-231] [1]
+                      Alias [232-241] [AS number]
+                        Identifier(number) [235-241] [number]
+          Alias [244-246] [gt]
+            Identifier(gt) [244-246] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (n)
+    LET
+      age = DATE_DIFF(`CURRENT_DATE`(), n.birthday, YEAR)
+    TABLESAMPLE bernoulli(5 PERCENT PARTITION BY (element_id(n))) REPEATABLE (1234)
+    RETURN
+      n.name,
+      1 AS number
+  ) AS gt
+--
+ALTERNATION GROUP: bernoulli,partition by (element_id(n)),with weight as w,
+--
+QueryStatement [0-246] [select gt....number ) gt]
+  Query [0-246] [select gt....number ) gt]
+    Select [0-246] [select gt....number ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-246] [from graph_table...number ) gt]
+        GraphTableQuery [17-246] [graph_table...number ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-241] [match (n)...AS number]
+            GqlOperatorList [35-241] [match (n)...AS number]
+              GqlMatch [35-44] [match (n)]
+                GraphPattern [41-44] [(n)]
+                  GraphPathPattern [41-44] [(n)]
+                    GraphNodePattern [41-44] [(n)]
+                      GraphElementPatternFiller [42-43] [n]
+                        Identifier(n) [42-43] [n]
+              GqlLet [47-98] [let age =...birthday, YEAR)]
+                GqlLetVariableDefinitionList [51-98] [age = DATE_DIFF...thday, YEAR)]
+                  GqlLetVariableDefinition [51-98] [age = DATE_DIFF...thday, YEAR)]
+                    Identifier(age) [51-54] [age]
+                    FunctionCall [57-98] [DATE_DIFF(...birthday, YEAR)]
+                      PathExpression [57-66] [DATE_DIFF]
+                        Identifier(DATE_DIFF) [57-66] [DATE_DIFF]
+                      FunctionCall [67-79] [CURRENT_DATE]
+                        PathExpression [67-79] [CURRENT_DATE]
+                          Identifier(`CURRENT_DATE`) [67-79] [CURRENT_DATE]
+                      PathExpression [81-91] [n.birthday]
+                        Identifier(n) [81-82] [n]
+                        Identifier(birthday) [83-91] [birthday]
+                      PathExpression [93-97] [YEAR]
+                        Identifier(YEAR) [93-97] [YEAR]
+              GqlSample [101-207] [TABLESAMPLE...weight as w]
+                SampleClause [101-207] [TABLESAMPLE...weight as w]
+                  Identifier(bernoulli) [118-127] [bernoulli]
+                  SampleSize [136-180] [5 percent...element_id(n))]
+                    IntLiteral(5) [136-137] [5]
+                    PartitionBy [152-180] [partition by (element_id(n))]
+                      FunctionCall [166-179] [element_id(n)]
+                        PathExpression [166-176] [element_id]
+                          Identifier(element_id) [166-176] [element_id]
+                        PathExpression [177-178] [n]
+                          Identifier(n) [177-178] [n]
+                  SampleSuffix [191-207] [with weight as w]
+                    WithWeight [191-207] [with weight as w]
+                      Alias [203-207] [as w]
+                        Identifier(w) [206-207] [w]
+              GqlReturn [215-241] [return n.name, 1 AS number]
+                Select [221-241] [n.name, 1 AS number]
+                  SelectList [222-241] [n.name, 1 AS number]
+                    SelectColumn [222-228] [n.name]
+                      PathExpression [222-228] [n.name]
+                        Identifier(n) [222-223] [n]
+                        Identifier(name) [224-228] [name]
+                    SelectColumn [230-241] [1 AS number]
+                      IntLiteral(1) [230-231] [1]
+                      Alias [232-241] [AS number]
+                        Identifier(number) [235-241] [number]
+          Alias [244-246] [gt]
+            Identifier(gt) [244-246] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (n)
+    LET
+      age = DATE_DIFF(`CURRENT_DATE`(), n.birthday, YEAR)
+    TABLESAMPLE bernoulli(5 PERCENT PARTITION BY (element_id(n))) WITH WEIGHT AS w
+    RETURN
+      n.name,
+      1 AS number
+  ) AS gt
+--
+ALTERNATION GROUP: bernoulli,partition by (element_id(n)),with weight as w,repeatable(1234)
+--
+QueryStatement [0-262] [select gt....number ) gt]
+  Query [0-262] [select gt....number ) gt]
+    Select [0-262] [select gt....number ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-262] [from graph_table...number ) gt]
+        GraphTableQuery [17-262] [graph_table...number ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-257] [match (n)...AS number]
+            GqlOperatorList [35-257] [match (n)...AS number]
+              GqlMatch [35-44] [match (n)]
+                GraphPattern [41-44] [(n)]
+                  GraphPathPattern [41-44] [(n)]
+                    GraphNodePattern [41-44] [(n)]
+                      GraphElementPatternFiller [42-43] [n]
+                        Identifier(n) [42-43] [n]
+              GqlLet [47-98] [let age =...birthday, YEAR)]
+                GqlLetVariableDefinitionList [51-98] [age = DATE_DIFF...thday, YEAR)]
+                  GqlLetVariableDefinition [51-98] [age = DATE_DIFF...thday, YEAR)]
+                    Identifier(age) [51-54] [age]
+                    FunctionCall [57-98] [DATE_DIFF(...birthday, YEAR)]
+                      PathExpression [57-66] [DATE_DIFF]
+                        Identifier(DATE_DIFF) [57-66] [DATE_DIFF]
+                      FunctionCall [67-79] [CURRENT_DATE]
+                        PathExpression [67-79] [CURRENT_DATE]
+                          Identifier(`CURRENT_DATE`) [67-79] [CURRENT_DATE]
+                      PathExpression [81-91] [n.birthday]
+                        Identifier(n) [81-82] [n]
+                        Identifier(birthday) [83-91] [birthday]
+                      PathExpression [93-97] [YEAR]
+                        Identifier(YEAR) [93-97] [YEAR]
+              GqlSample [101-228] [TABLESAMPLE...repeatable(1234)]
+                SampleClause [101-228] [TABLESAMPLE...repeatable(1234)]
+                  Identifier(bernoulli) [118-127] [bernoulli]
+                  SampleSize [136-180] [5 percent...element_id(n))]
+                    IntLiteral(5) [136-137] [5]
+                    PartitionBy [152-180] [partition by (element_id(n))]
+                      FunctionCall [166-179] [element_id(n)]
+                        PathExpression [166-176] [element_id]
+                          Identifier(element_id) [166-176] [element_id]
+                        PathExpression [177-178] [n]
+                          Identifier(n) [177-178] [n]
+                  SampleSuffix [191-228] [with weight...repeatable(1234)]
+                    WithWeight [191-228] [with weight...repeatable(1234)]
+                      Alias [203-207] [as w]
+                        Identifier(w) [206-207] [w]
+                    RepeatableClause [212-228] [repeatable(1234)]
+                      IntLiteral(1234) [223-227] [1234]
+              GqlReturn [231-257] [return n.name, 1 AS number]
+                Select [237-257] [n.name, 1 AS number]
+                  SelectList [238-257] [n.name, 1 AS number]
+                    SelectColumn [238-244] [n.name]
+                      PathExpression [238-244] [n.name]
+                        Identifier(n) [238-239] [n]
+                        Identifier(name) [240-244] [name]
+                    SelectColumn [246-257] [1 AS number]
+                      IntLiteral(1) [246-247] [1]
+                      Alias [248-257] [AS number]
+                        Identifier(number) [251-257] [number]
+          Alias [260-262] [gt]
+            Identifier(gt) [260-262] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (n)
+    LET
+      age = DATE_DIFF(`CURRENT_DATE`(), n.birthday, YEAR)
+    TABLESAMPLE bernoulli(5 PERCENT PARTITION BY (element_id(n))) WITH WEIGHT AS w REPEATABLE (1234)
+    RETURN
+      n.name,
+      1 AS number
+  ) AS gt
+==
+
+select gt.* from
+graph_table(aml
+  match (n)
+  let age = DATE_DIFF(CURRENT_DATE, n.birthday, YEAR)
+  return n.name, age, 1 AS number
+  next
+  TABLESAMPLE bernoulli(5 PERCENT)
+  return name, age
+) gt
+--
+QueryStatement [0-198] [select gt...., age ) gt]
+  Query [0-198] [select gt...., age ) gt]
+    Select [0-198] [select gt...., age ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-198] [from graph_table..., age ) gt]
+        GraphTableQuery [17-198] [graph_table..., age ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-193] [match (n)...name, age]
+            GqlOperatorList [35-132] [match (n)...AS number]
+              GqlMatch [35-44] [match (n)]
+                GraphPattern [41-44] [(n)]
+                  GraphPathPattern [41-44] [(n)]
+                    GraphNodePattern [41-44] [(n)]
+                      GraphElementPatternFiller [42-43] [n]
+                        Identifier(n) [42-43] [n]
+              GqlLet [47-98] [let age =...birthday, YEAR)]
+                GqlLetVariableDefinitionList [51-98] [age = DATE_DIFF...thday, YEAR)]
+                  GqlLetVariableDefinition [51-98] [age = DATE_DIFF...thday, YEAR)]
+                    Identifier(age) [51-54] [age]
+                    FunctionCall [57-98] [DATE_DIFF(...birthday, YEAR)]
+                      PathExpression [57-66] [DATE_DIFF]
+                        Identifier(DATE_DIFF) [57-66] [DATE_DIFF]
+                      FunctionCall [67-79] [CURRENT_DATE]
+                        PathExpression [67-79] [CURRENT_DATE]
+                          Identifier(`CURRENT_DATE`) [67-79] [CURRENT_DATE]
+                      PathExpression [81-91] [n.birthday]
+                        Identifier(n) [81-82] [n]
+                        Identifier(birthday) [83-91] [birthday]
+                      PathExpression [93-97] [YEAR]
+                        Identifier(YEAR) [93-97] [YEAR]
+              GqlReturn [101-132] [return n.name...AS number]
+                Select [107-132] [n.name, age, 1 AS number]
+                  SelectList [108-132] [n.name, age, 1 AS number]
+                    SelectColumn [108-114] [n.name]
+                      PathExpression [108-114] [n.name]
+                        Identifier(n) [108-109] [n]
+                        Identifier(name) [110-114] [name]
+                    SelectColumn [116-119] [age]
+                      PathExpression [116-119] [age]
+                        Identifier(age) [116-119] [age]
+                    SelectColumn [121-132] [1 AS number]
+                      IntLiteral(1) [121-122] [1]
+                      Alias [123-132] [AS number]
+                        Identifier(number) [126-132] [number]
+            GqlOperatorList [142-193] [TABLESAMPLE...name, age]
+              GqlSample [142-174] [TABLESAMPLE...5 PERCENT)]
+                SampleClause [142-174] [TABLESAMPLE...5 PERCENT)]
+                  Identifier(bernoulli) [154-163] [bernoulli]
+                  SampleSize [164-173] [5 PERCENT]
+                    IntLiteral(5) [164-165] [5]
+              GqlReturn [177-193] [return name, age]
+                Select [183-193] [name, age]
+                  SelectList [184-193] [name, age]
+                    SelectColumn [184-188] [name]
+                      PathExpression [184-188] [name]
+                        Identifier(name) [184-188] [name]
+                    SelectColumn [190-193] [age]
+                      PathExpression [190-193] [age]
+                        Identifier(age) [190-193] [age]
+          Alias [196-198] [gt]
+            Identifier(gt) [196-198] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (n)
+    LET
+      age = DATE_DIFF(`CURRENT_DATE`(), n.birthday, YEAR)
+    RETURN
+      n.name,
+      age,
+      1 AS number
+    NEXT
+    TABLESAMPLE bernoulli(5 PERCENT)
+    RETURN
+      name,
+      age
+  ) AS gt
+==
+
+# SAMPLE as first statement
+select gt.* from
+graph_table(aml
+  TABLESAMPLE bernoulli(5 PERCENT)
+  return n.name
+) gt
+--
+QueryStatement [0-88] [select gt.....name ) gt]
+  Query [0-88] [select gt.....name ) gt]
+    Select [0-88] [select gt.....name ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-88] [from graph_table....name ) gt]
+        GraphTableQuery [17-88] [graph_table....name ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-83] [TABLESAMPLE...return n.name]
+            GqlOperatorList [35-83] [TABLESAMPLE...return n.name]
+              GqlSample [35-67] [TABLESAMPLE...5 PERCENT)]
+                SampleClause [35-67] [TABLESAMPLE...5 PERCENT)]
+                  Identifier(bernoulli) [47-56] [bernoulli]
+                  SampleSize [57-66] [5 PERCENT]
+                    IntLiteral(5) [57-58] [5]
+              GqlReturn [70-83] [return n.name]
+                Select [76-83] [n.name]
+                  SelectList [77-83] [n.name]
+                    SelectColumn [77-83] [n.name]
+                      PathExpression [77-83] [n.name]
+                        Identifier(n) [77-78] [n]
+                        Identifier(name) [79-83] [name]
+          Alias [86-88] [gt]
+            Identifier(gt) [86-88] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    TABLESAMPLE bernoulli(5 PERCENT)
+    RETURN
+      n.name
+  ) AS gt
+==
+
+# Test that SAMPLE fails when it is written after a return (and before a next)
+select gt.* from
+graph_table(aml
+  match (n)
+  let age = DATE_DIFF(CURRENT_DATE, n.birthday, YEAR)
+  return n.name, age
+  TABLESAMPLE bernoulli(5 PERCENT)
+) gt
+--
+ERROR: Syntax error: Expected ")" or keyword NEXT but got keyword TABLESAMPLE [at 6:3]
+  TABLESAMPLE bernoulli(5 PERCENT)
+  ^
+==
+
+# WITH WEIGHT at the end parses correctly as a continuation of TABLESAMPLE, not
+# a new WITH op
+SELECT * FROM GRAPH_TABLE(aml
+  match (weight)
+  TABLESAMPLE bernoulli(5 PERCENT)
+  WITH weight {{|w|AS w|}} {{|REPEATABLE (1234)}}
+  RETURN *
+  ) AS gt
+--
+ALTERNATION GROUPS:
+    <empty>
+    <empty>
+--
+QueryStatement [0-118] [SELECT * FROM...) AS gt]
+  Query [0-118] [SELECT * FROM...) AS gt]
+    Select [0-118] [SELECT * FROM...) AS gt]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-118] [FROM GRAPH_TABLE...) AS gt]
+        GraphTableQuery [14-118] [GRAPH_TABLE...) AS gt]
+          PathExpression [26-29] [aml]
+            Identifier(aml) [26-29] [aml]
+          GqlOperatorList [32-108] [match (weight...RETURN *]
+            GqlOperatorList [32-108] [match (weight...RETURN *]
+              GqlMatch [32-46] [match (weight)]
+                GraphPattern [38-46] [(weight)]
+                  GraphPathPattern [38-46] [(weight)]
+                    GraphNodePattern [38-46] [(weight)]
+                      GraphElementPatternFiller [39-45] [weight]
+                        Identifier(weight) [39-45] [weight]
+              GqlSample [49-95] [TABLESAMPLE...WITH weight]
+                SampleClause [49-95] [TABLESAMPLE...WITH weight]
+                  Identifier(bernoulli) [61-70] [bernoulli]
+                  SampleSize [71-80] [5 PERCENT]
+                    IntLiteral(5) [71-72] [5]
+                  SampleSuffix [84-95] [WITH weight]
+                    WithWeight [84-95] [WITH weight]
+              GqlReturn [100-108] [RETURN *]
+                Select [106-108] [*]
+                  SelectList [107-108] [*]
+                    SelectColumn [107-108] [*]
+                      Star(*) [107-108] [*]
+          Alias [113-118] [AS gt]
+            Identifier(gt) [116-118] [gt]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (weight)
+    TABLESAMPLE bernoulli(5 PERCENT) WITH WEIGHT
+    RETURN
+      *
+  ) AS gt
+--
+ALTERNATION GROUPS:
+    REPEATABLE (1234)
+    REPEATABLE (1234)
+--
+QueryStatement [0-135] [SELECT * FROM...) AS gt]
+  Query [0-135] [SELECT * FROM...) AS gt]
+    Select [0-135] [SELECT * FROM...) AS gt]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-135] [FROM GRAPH_TABLE...) AS gt]
+        GraphTableQuery [14-135] [GRAPH_TABLE...) AS gt]
+          PathExpression [26-29] [aml]
+            Identifier(aml) [26-29] [aml]
+          GqlOperatorList [32-125] [match (weight...RETURN *]
+            GqlOperatorList [32-125] [match (weight...RETURN *]
+              GqlMatch [32-46] [match (weight)]
+                GraphPattern [38-46] [(weight)]
+                  GraphPathPattern [38-46] [(weight)]
+                    GraphNodePattern [38-46] [(weight)]
+                      GraphElementPatternFiller [39-45] [weight]
+                        Identifier(weight) [39-45] [weight]
+              GqlSample [49-114] [TABLESAMPLE...EPEATABLE (1234)]
+                SampleClause [49-114] [TABLESAMPLE...EPEATABLE (1234)]
+                  Identifier(bernoulli) [61-70] [bernoulli]
+                  SampleSize [71-80] [5 PERCENT]
+                    IntLiteral(5) [71-72] [5]
+                  SampleSuffix [84-114] [WITH weight  REPEATABLE (1234)]
+                    WithWeight [84-114] [WITH weight  REPEATABLE (1234)]
+                    RepeatableClause [97-114] [REPEATABLE (1234)]
+                      IntLiteral(1234) [109-113] [1234]
+              GqlReturn [117-125] [RETURN *]
+                Select [123-125] [*]
+                  SelectList [124-125] [*]
+                    SelectColumn [124-125] [*]
+                      Star(*) [124-125] [*]
+          Alias [130-135] [AS gt]
+            Identifier(gt) [133-135] [gt]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (weight)
+    TABLESAMPLE bernoulli(5 PERCENT) WITH WEIGHT REPEATABLE (1234)
+    RETURN
+      *
+  ) AS gt
+--
+ALTERNATION GROUP: w,
+--
+ERROR: Syntax error: Unexpected identifier "w" [at 4:15]
+  WITH weight w 
+              ^
+--
+ALTERNATION GROUP: w,REPEATABLE (1234)
+--
+ERROR: Syntax error: Unexpected identifier "w" [at 4:15]
+  WITH weight w REPEATABLE (1234)
+              ^
+--
+ALTERNATION GROUP: AS w,
+--
+QueryStatement [0-122] [SELECT * FROM...) AS gt]
+  Query [0-122] [SELECT * FROM...) AS gt]
+    Select [0-122] [SELECT * FROM...) AS gt]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-122] [FROM GRAPH_TABLE...) AS gt]
+        GraphTableQuery [14-122] [GRAPH_TABLE...) AS gt]
+          PathExpression [26-29] [aml]
+            Identifier(aml) [26-29] [aml]
+          GqlOperatorList [32-112] [match (weight...RETURN *]
+            GqlOperatorList [32-112] [match (weight...RETURN *]
+              GqlMatch [32-46] [match (weight)]
+                GraphPattern [38-46] [(weight)]
+                  GraphPathPattern [38-46] [(weight)]
+                    GraphNodePattern [38-46] [(weight)]
+                      GraphElementPatternFiller [39-45] [weight]
+                        Identifier(weight) [39-45] [weight]
+              GqlSample [49-100] [TABLESAMPLE...weight AS w]
+                SampleClause [49-100] [TABLESAMPLE...weight AS w]
+                  Identifier(bernoulli) [61-70] [bernoulli]
+                  SampleSize [71-80] [5 PERCENT]
+                    IntLiteral(5) [71-72] [5]
+                  SampleSuffix [84-100] [WITH weight AS w]
+                    WithWeight [84-100] [WITH weight AS w]
+                      Alias [96-100] [AS w]
+                        Identifier(w) [99-100] [w]
+              GqlReturn [104-112] [RETURN *]
+                Select [110-112] [*]
+                  SelectList [111-112] [*]
+                    SelectColumn [111-112] [*]
+                      Star(*) [111-112] [*]
+          Alias [117-122] [AS gt]
+            Identifier(gt) [120-122] [gt]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (weight)
+    TABLESAMPLE bernoulli(5 PERCENT) WITH WEIGHT AS w
+    RETURN
+      *
+  ) AS gt
+--
+ALTERNATION GROUP: AS w,REPEATABLE (1234)
+--
+QueryStatement [0-139] [SELECT * FROM...) AS gt]
+  Query [0-139] [SELECT * FROM...) AS gt]
+    Select [0-139] [SELECT * FROM...) AS gt]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-139] [FROM GRAPH_TABLE...) AS gt]
+        GraphTableQuery [14-139] [GRAPH_TABLE...) AS gt]
+          PathExpression [26-29] [aml]
+            Identifier(aml) [26-29] [aml]
+          GqlOperatorList [32-129] [match (weight...RETURN *]
+            GqlOperatorList [32-129] [match (weight...RETURN *]
+              GqlMatch [32-46] [match (weight)]
+                GraphPattern [38-46] [(weight)]
+                  GraphPathPattern [38-46] [(weight)]
+                    GraphNodePattern [38-46] [(weight)]
+                      GraphElementPatternFiller [39-45] [weight]
+                        Identifier(weight) [39-45] [weight]
+              GqlSample [49-118] [TABLESAMPLE...EPEATABLE (1234)]
+                SampleClause [49-118] [TABLESAMPLE...EPEATABLE (1234)]
+                  Identifier(bernoulli) [61-70] [bernoulli]
+                  SampleSize [71-80] [5 PERCENT]
+                    IntLiteral(5) [71-72] [5]
+                  SampleSuffix [84-118] [WITH weight...EPEATABLE (1234)]
+                    WithWeight [84-118] [WITH weight...EPEATABLE (1234)]
+                      Alias [96-100] [AS w]
+                        Identifier(w) [99-100] [w]
+                    RepeatableClause [101-118] [REPEATABLE (1234)]
+                      IntLiteral(1234) [113-117] [1234]
+              GqlReturn [121-129] [RETURN *]
+                Select [127-129] [*]
+                  SelectList [128-129] [*]
+                    SelectColumn [128-129] [*]
+                      Star(*) [128-129] [*]
+          Alias [134-139] [AS gt]
+            Identifier(gt) [137-139] [gt]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (weight)
+    TABLESAMPLE bernoulli(5 PERCENT) WITH WEIGHT AS w REPEATABLE (1234)
+    RETURN
+      *
+  ) AS gt

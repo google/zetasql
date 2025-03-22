@@ -23,8 +23,11 @@ single row.
 
 You can create a SQL UDF using the following syntax:
 
-```sql
-CREATE [ { TEMPORARY | TEMP } ] FUNCTION
+```zetasql
+CREATE
+  [ OR REPLACE ]
+  [ { TEMPORARY | TEMP } ] FUNCTION
+  [ IF NOT EXISTS ]
   function_name ( [ function_parameter [, ...] ] )
   [ RETURNS data_type ]
   AS ( function_body )
@@ -40,11 +43,15 @@ This syntax consists of the following components:
 + `CREATE ... FUNCTION`: Creates a new function. A function
   can have zero or more function parameters.
 
-    + `TEMPORARY` or `TEMP`: Indicates that the function is temporary; that is,
-      it exists for the lifetime of the session. A temporary function can have
-      the same name as a built-in function. If this happens, the
+    + `TEMPORARY` or `TEMP`: Indicates that the function is temporary, meaning
+      that it exists for the lifetime of the session. A temporary function can
+      have the same name as a built-in function. If this happens, the
       temporary function hides the built-in function for the duration of the
       temporary function's lifetime.
++ `OR REPLACE`: Replaces any function with the same name if it exists.
+      Can't appear with `IF NOT EXISTS`.
++ `IF NOT EXISTS`: If any function exists with the same name, the `CREATE`
+      statement has no effect. Can't appear with `OR REPLACE`.
 + `function_name`: The name of the function.
 + `function_parameter`: A parameter for the function.
 
@@ -55,7 +62,7 @@ This syntax consists of the following components:
     
     + `ANY TYPE`: The function will accept an argument of any type for this
       function parameter. If more than one parameter includes `ANY TYPE`,
-      a relationship is not enforced between these parameters when the function
+      a relationship isn't enforced between these parameters when the function
       is defined. However, if the type of argument passed into the function at
       call time is incompatible with the function definition, this will
       result in an error.
@@ -64,7 +71,7 @@ This syntax consists of the following components:
     
 
     
-    + `DEFAULT default_value`: If an argument is not provided for a function
+    + `DEFAULT default_value`: If an argument isn't provided for a function
       parameter, `default_value` is used. `default_value` must be a literal
       or `NULL` value. All function parameters following this one
       must also have default values.
@@ -88,7 +95,7 @@ For details, see [Function calls][function-calls].
 
 The following example shows a UDF that employs a SQL function.
 
-```sql
+```zetasql
 CREATE TEMP FUNCTION AddFourAndDivide(x INT64, y INT64)
 RETURNS DOUBLE
 AS (
@@ -119,7 +126,7 @@ The following example shows a SQL UDF that uses the
 templated function parameter, `ANY TYPE`. The resulting function accepts
 arguments of various types.
 
-```sql
+```zetasql
 CREATE TEMP FUNCTION AddFourAndDivideAny(x ANY TYPE, y ANY TYPE)
 AS (
   (x + 4) / y
@@ -140,7 +147,7 @@ The following example shows a SQL UDF that uses the
 templated function parameter, `ANY TYPE`, to return the last element of an
 array of any type.
 
-```sql
+```zetasql
 CREATE TEMP FUNCTION LastArrayElement(arr ANY TYPE)
 AS (
   arr[ORDINAL(ARRAY_LENGTH(arr))]
@@ -173,8 +180,9 @@ result as a single value.
 
 You can create a JavaScript UDF using the following syntax:
 
-```sql
-CREATE [ { TEMPORARY | TEMP } ] FUNCTION
+```zetasql
+CREATE
+  [ { TEMPORARY | TEMP } ] FUNCTION
   function_name ( [ function_parameter [, ...] ] )
   RETURNS data_type
   [ determinism_specifier ]
@@ -194,9 +202,9 @@ This syntax consists of the following components:
 + `CREATE ... FUNCTION`: Creates a new function. A function
   can have zero or more function parameters.
 
-    + `TEMPORARY` or `TEMP`: Indicates that the function is temporary; that is,
-      it exists for the lifetime of the session. A temporary function can have
-      the same name as a built-in function. If this happens, the
+    + `TEMPORARY` or `TEMP`: Indicates that the function is temporary, meaning
+      that it exists for the lifetime of the session. A temporary function can
+      have the same name as a built-in function. If this happens, the
       temporary function hides the built-in function for the duration of the
       temporary function's lifetime.
 + `function_name`: The name of the function.
@@ -211,7 +219,7 @@ This syntax consists of the following components:
     
     + `ANY TYPE`: The function will accept an argument of any type for this
       function parameter. If more than one parameter includes `ANY TYPE`,
-      a relationship is not enforced between these parameters when the function
+      a relationship isn't enforced between these parameters when the function
       is defined. However, if the type of argument passed into the function at
       call time is incompatible with the function definition, this will
       result in an error.
@@ -220,7 +228,7 @@ This syntax consists of the following components:
     
 
     
-    + `DEFAULT default_value`: If an argument is not provided for a function
+    + `DEFAULT default_value`: If an argument isn't provided for a function
       parameter, `default_value` is used. `default_value` must be a literal
       or `NULL` value. All function parameters following this one
       must also have default values.
@@ -234,11 +242,11 @@ This syntax consists of the following components:
       result when passed the same arguments. For example, if the function
       `add_one(i)` always returns `i + 1`, the function is deterministic.
 
-    + `NOT DETERMINISTIC`: The function does not always return the same result
+    + `NOT DETERMINISTIC`: The function doesn't always return the same result
       when passed the same arguments. The `VOLATILE` and `STABLE` keywords are
       subcategories of `NOT DETERMINISTIC`.
 
-    + `VOLATILE`: The function does not always return the same result when
+    + `VOLATILE`: The function doesn't always return the same result when
       passed the same arguments, even within the same run of a query
       statement. For example if `add_random(i)` returns `i + rand()`, the
       function is volatile, because every call to the function can return a
@@ -285,7 +293,7 @@ function. For details, see [Function calls][function-calls].
       <td>ARRAY</td>
       <td>Array</td>
       <td>
-        An array of arrays is not supported. To get around this
+        An array of arrays isn't supported. To get around this
         limitation, use
         JavaScript <code>Array&lt;Object&lt;Array&gt;&gt;</code> and
         ZetaSQL <code>ARRAY&lt;STRUCT&lt;ARRAY&gt;&gt;</code>.
@@ -331,8 +339,8 @@ function. For details, see [Function calls][function-calls].
       <td>
         If a NUMERIC value can be represented exactly as an
         <a href="https://en.wikipedia.org/wiki/Floating-point_arithmetic#IEEE_754:_floating_point_in_modern_computers">IEEE 754 floating-point</a>
-        value and has no fractional part, it is encoded as a Number. These values
-        are in the range [-2<sup>53</sup>, 2<sup>53</sup>]. Otherwise, it is
+        value and has no fractional part, it's encoded as a Number. These values
+        are in the range [-2<sup>53</sup>, 2<sup>53</sup>]. Otherwise, it's
         encoded as a String.
       </td>
     </tr>
@@ -402,7 +410,7 @@ function. For details, see [Function calls][function-calls].
       <td>Object</td>
       <td>
         Object where each STRUCT field is a named property in the Object.
-        Unnamed field in STRUCT is not supported.
+        Unnamed field in STRUCT isn't supported.
       </td>
     </tr>
     
@@ -428,9 +436,9 @@ function. For details, see [Function calls][function-calls].
 </table>
 
 Some ZetaSQL types have a direct mapping to JavaScript types, but
-others do not.
+others don't.
 
-For example, because JavaScript does not support a 64-bit integer type,
+For example, because JavaScript doesn't support a 64-bit integer type,
 `INT64` is unsupported as an input type for JavaScript UDFs. Instead,
 use `DOUBLE` to represent integer values as a number,
 or `STRING` to represent integer values as a string.
@@ -453,10 +461,10 @@ The following example illustrates a simple JavaScript UDF with a
 regular expression. Because there is a regular expression in the
 function body, the function body needs to be a [raw string][quoted-literals].
 
-Note: If you are not sure which quoting style to use for the function body,
+Note: If you aren't sure which quoting style to use for the function body,
 a raw string provides the most consistent results.
 
-```sql
+```zetasql
 CREATE TEMP FUNCTION ExtractLetters(x STRING)
 RETURNS STRING
 LANGUAGE js
@@ -478,11 +486,11 @@ FROM UNNEST(['ab-c', 'd_e', '!']) AS val;
 ```
 
 The following example illustrates a single-statement JavaScript UDF.
-Because the function body does not contain
+Because the function body doesn't contain
 [escape sequences][escape-sequences] or [regular expressions][quoted-literals],
 it can be a quoted or triple-quoted string literal.
 
-```sql
+```zetasql
 CREATE TEMP FUNCTION PlusOne(x DOUBLE)
 RETURNS DOUBLE
 LANGUAGE js
@@ -502,7 +510,7 @@ FROM UNNEST([1, 2, 3]) AS val;
 
 The following example illustrates a more complex multi-statement JavaScript UDF.
 
-```sql
+```zetasql
 CREATE TEMP FUNCTION CustomGreeting(a STRING)
 RETURNS STRING
 LANGUAGE js
@@ -529,7 +537,7 @@ FROM UNNEST(["Hannah", "Max", "Jakob"]) AS names;
 
 The following example creates a persistent JavaScript UDF.
 
-```sql
+```zetasql
 CREATE FUNCTION MultiplyInputs(x DOUBLE, y DOUBLE)
 RETURNS DOUBLE
 LANGUAGE js
@@ -557,7 +565,7 @@ FROM numbers;
 
 The following example creates a temporary JavaScript UDF.
 
-```sql
+```zetasql
 CREATE TEMP FUNCTION MultiplyInputs(x DOUBLE, y DOUBLE)
 RETURNS DOUBLE
 LANGUAGE js
@@ -585,7 +593,7 @@ FROM numbers;
 
 You can create multiple JavaScript UDFs before a query. For example:
 
-```sql
+```zetasql
 CREATE TEMP FUNCTION MultiplyInputs(x DOUBLE, y DOUBLE)
 RETURNS DOUBLE
 LANGUAGE js
@@ -625,7 +633,7 @@ FROM numbers;
 You can pass the result of a JavaScript UDF as input to another UDF.
 For example:
 
-```sql
+```zetasql
 CREATE TEMP FUNCTION MultiplyInputs(x DOUBLE, y DOUBLE)
 RETURNS DOUBLE
 LANGUAGE js
@@ -663,7 +671,7 @@ FROM numbers;
 The following example shows how you can use a JavaScript UDF with
 default values.
 
-```sql
+```zetasql
 CREATE TEMP FUNCTION AddValues(x INT64, y INT64 DEFAULT 50, z INT64 DEFAULT 100)
 RETURNS INT64
 LANGUAGE js
@@ -685,7 +693,7 @@ SELECT AddValues(1, 2) AS result;
 The following example sums the values of all
 fields named `foo` in the given JSON string.
 
-```sql
+```zetasql
 CREATE TEMP FUNCTION SumFieldsNamedFoo(json_row STRING)
 RETURNS FLOAT64
 LANGUAGE js
@@ -743,8 +751,9 @@ single value.
 
 You can create a Lua UDF using the following syntax:
 
-```sql
-CREATE [ { TEMPORARY | TEMP } ] FUNCTION
+```zetasql
+CREATE
+  [ { TEMPORARY | TEMP } ] FUNCTION
   function_name ( [ function_parameter [, ...] ] )
   RETURNS data_type
   [ determinism_specifier ]
@@ -764,9 +773,9 @@ This syntax consists of the following components:
 + `CREATE ... FUNCTION`: Creates a new function. A function
   can have zero or more function parameters.
 
-    + `TEMPORARY` or `TEMP`: Indicates that the function is temporary; that is,
-      it exists for the lifetime of the session. A temporary function can have
-      the same name as a built-in function. If this happens, the
+    + `TEMPORARY` or `TEMP`: Indicates that the function is temporary, meaning
+      that it exists for the lifetime of the session. A temporary function can
+      have the same name as a built-in function. If this happens, the
       temporary function hides the built-in function for the duration of the
       temporary function's lifetime.
 + `function_name`: The name of the function.
@@ -779,7 +788,7 @@ This syntax consists of the following components:
     
     + `ANY TYPE`: The function will accept an argument of any type for this
       function parameter. If more than one parameter includes `ANY TYPE`,
-      a relationship is not enforced between these parameters when the function
+      a relationship isn't enforced between these parameters when the function
       is defined. However, if the type of argument passed into the function at
       call time is incompatible with the function definition, this will
       result in an error.
@@ -788,7 +797,7 @@ This syntax consists of the following components:
     
 
     
-    + `DEFAULT default_value`: If an argument is not provided for a function
+    + `DEFAULT default_value`: If an argument isn't provided for a function
       parameter, `default_value` is used. `default_value` must be a literal
       or `NULL` value. All function parameters following this one
       must also have default values.
@@ -802,11 +811,11 @@ This syntax consists of the following components:
       result when passed the same arguments. For example, if the function
       `add_one(i)` always returns `i + 1`, the function is deterministic.
 
-    + `NOT DETERMINISTIC`: The function does not always return the same result
+    + `NOT DETERMINISTIC`: The function doesn't always return the same result
       when passed the same arguments. The `VOLATILE` and `STABLE` keywords are
       subcategories of `NOT DETERMINISTIC`.
 
-    + `VOLATILE`: The function does not always return the same result when
+    + `VOLATILE`: The function doesn't always return the same result when
       passed the same arguments, even within the same run of a query
       statement. For example if `add_random(i)` returns `i + rand()`, the
       function is volatile, because every call to the function can return a
@@ -842,10 +851,10 @@ The following example illustrates a simple Lua UDF with some
 Lua escape sequences. Because there is a Lua escape sequence in the
 function body, the function body needs to be a [raw string][quoted-literals].
 
-Note: If you are not sure which quoting style to use for the function body,
+Note: If you aren't sure which quoting style to use for the function body,
 a raw string provides the most consistent results.
 
-```sql
+```zetasql
 CREATE TEMP FUNCTION Alphabet()
 RETURNS STRING
 LANGUAGE lua
@@ -865,11 +874,11 @@ SELECT Alphabet() AS characters;
 ```
 
 The following example illustrates a single-statement Lua UDF.
-Because the function body does not contain
+Because the function body doesn't contain
 [escape sequences][escape-sequences] or [regular expressions][quoted-literals],
 it can be a quoted or triple-quoted string literal.
 
-```sql
+```zetasql
 CREATE TEMP FUNCTION PlusOne(x DOUBLE)
 RETURNS DOUBLE
 LANGUAGE lua
@@ -889,7 +898,7 @@ FROM UNNEST([1, 2, 3]) AS val;
 
 The following example illustrates a multi-statement Lua UDF.
 
-```sql
+```zetasql
 CREATE TEMP FUNCTION CustomGreeting(i INT32)
 RETURNS STRING
 LANGUAGE lua
@@ -912,7 +921,7 @@ SELECT CustomGreeting(13) AS message;
 
 The following example creates a persistent Lua UDF.
 
-```sql
+```zetasql
 CREATE FUNCTION MultiplyInputs(x DOUBLE, y DOUBLE)
 RETURNS DOUBLE
 LANGUAGE lua
@@ -940,7 +949,7 @@ FROM numbers;
 
 The following example creates a temporary Lua UDF.
 
-```sql
+```zetasql
 CREATE TEMP FUNCTION MultiplyInputs(x DOUBLE, y DOUBLE)
 RETURNS DOUBLE
 LANGUAGE lua
@@ -968,7 +977,7 @@ FROM numbers;
 
 You can create multiple Lua UDFs before a query. For example:
 
-```sql
+```zetasql
 CREATE TEMP FUNCTION MultiplyInputs(x DOUBLE, y DOUBLE)
 RETURNS DOUBLE
 LANGUAGE lua
@@ -1008,7 +1017,7 @@ FROM numbers;
 You can pass the result of a Lua UDF as input to another UDF.
 For example:
 
-```sql
+```zetasql
 CREATE TEMP FUNCTION MultiplyInputs(x DOUBLE, y DOUBLE)
 RETURNS DOUBLE
 LANGUAGE lua
@@ -1046,7 +1055,7 @@ FROM numbers;
 The following example shows how you can use a Lua UDF with
 default values.
 
-```sql
+```zetasql
 CREATE TEMP FUNCTION AddValues(x INT64, y INT64 DEFAULT 50, z INT64 DEFAULT 100)
 RETURNS INT64
 LANGUAGE lua

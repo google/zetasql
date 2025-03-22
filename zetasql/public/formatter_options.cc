@@ -48,6 +48,12 @@ FormatterOptions::FormatterOptions(const FormatterOptionsProto& proto)
   if (proto.has_enforce_single_quotes()) {
     enforce_single_quotes_ = proto.enforce_single_quotes();
   }
+  if (proto.has_format_structured_strings()) {
+    format_structured_strings_ = proto.format_structured_strings();
+  }
+  if (proto.has_format_comments()) {
+    format_comments_ = proto.format_comments();
+  }
 }
 
 }  // namespace zetasql

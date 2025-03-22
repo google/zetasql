@@ -25,14 +25,17 @@
 #include <string>
 #include <vector>
 
+#include "zetasql/common/internal_value.h"
+#include "zetasql/public/types/value_equality_check_options.h"
+#include "zetasql/public/value.h"
 #include "zetasql/reference_impl/tuple.h"
+#include "zetasql/reference_impl/variable_id.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/types/span.h"
 #include "zetasql/base/ret_check.h"
-#include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {

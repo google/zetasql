@@ -217,26 +217,26 @@ and [`TIMESTAMP` range][data-types-link-to-timestamp_type].
 
 ## `CURRENT_TIMESTAMP`
 
-```sql
+```zetasql
 CURRENT_TIMESTAMP()
 ```
 
-```sql
+```zetasql
 CURRENT_TIMESTAMP
 ```
 
 **Description**
 
 Returns the current date and time as a timestamp object. The timestamp is
-continuous, non-ambiguous, has exactly 60 seconds per minute and does not repeat
+continuous, non-ambiguous, has exactly 60 seconds per minute and doesn't repeat
 values over the leap second. Parentheses are optional.
 
 This function handles leap seconds by smearing them across a window of 20 hours
 around the inserted leap second.
 
-The current date and time is recorded at the start of the query
-statement which contains this function, not when this specific function is
-evaluated.
+The current timestamp value is set at the start of the query statement that
+contains this function. All invocations of `CURRENT_TIMESTAMP()` within a query
+statement yield the same value.
 
 **Supported Input Types**
 
@@ -248,7 +248,7 @@ Not applicable
 
 **Examples**
 
-```sql
+```zetasql
 SELECT CURRENT_TIMESTAMP() AS now;
 
 /*---------------------------------------------*
@@ -262,7 +262,7 @@ SELECT CURRENT_TIMESTAMP() AS now;
 
 ## `EXTRACT`
 
-```sql
+```zetasql
 EXTRACT(part FROM timestamp_expression [AT TIME ZONE time_zone])
 ```
 
@@ -321,7 +321,7 @@ seconds, `EXTRACT` truncates the millisecond and microsecond values.
 In the following example, `EXTRACT` returns a value corresponding to the `DAY`
 time part.
 
-```sql
+```zetasql
 SELECT
   EXTRACT(
     DAY
@@ -342,7 +342,7 @@ SELECT
 In the following examples, `EXTRACT` returns values corresponding to different
 time parts from a column of type `TIMESTAMP`.
 
-```sql
+```zetasql
 SELECT
   EXTRACT(ISOYEAR FROM TIMESTAMP("2005-01-03 12:34:56+00")) AS isoyear,
   EXTRACT(ISOWEEK FROM TIMESTAMP("2005-01-03 12:34:56+00")) AS isoweek,
@@ -358,7 +358,7 @@ SELECT
  *---------+---------+------+------*/
 ```
 
-```sql
+```zetasql
 SELECT
   TIMESTAMP("2007-12-31 12:00:00+00") AS timestamp_value,
   EXTRACT(ISOYEAR FROM TIMESTAMP("2007-12-31 12:00:00+00")) AS isoyear,
@@ -375,7 +375,7 @@ SELECT
  *---------+---------+------+------*/
 ```
 
-```sql
+```zetasql
 SELECT
   TIMESTAMP("2009-01-01 12:00:00+00") AS timestamp_value,
   EXTRACT(ISOYEAR FROM TIMESTAMP("2009-01-01 12:00:00+00")) AS isoyear,
@@ -392,7 +392,7 @@ SELECT
  *---------+---------+------+------*/
 ```
 
-```sql
+```zetasql
 SELECT
   TIMESTAMP("2009-12-31 12:00:00+00") AS timestamp_value,
   EXTRACT(ISOYEAR FROM TIMESTAMP("2009-12-31 12:00:00+00")) AS isoyear,
@@ -409,7 +409,7 @@ SELECT
  *---------+---------+------+------*/
 ```
 
-```sql
+```zetasql
 SELECT
   TIMESTAMP("2017-01-02 12:00:00+00") AS timestamp_value,
   EXTRACT(ISOYEAR FROM TIMESTAMP("2017-01-02 12:00:00+00")) AS isoyear,
@@ -426,7 +426,7 @@ SELECT
  *---------+---------+------+------*/
 ```
 
-```sql
+```zetasql
 SELECT
   TIMESTAMP("2017-05-26 12:00:00+00") AS timestamp_value,
   EXTRACT(ISOYEAR FROM TIMESTAMP("2017-05-26 12:00:00+00")) AS isoyear,
@@ -447,7 +447,7 @@ In the following example, `timestamp_expression` falls on a Monday. `EXTRACT`
 calculates the first column using weeks that begin on Sunday, and it calculates
 the second column using weeks that begin on Monday.
 
-```sql
+```zetasql
 SELECT
   EXTRACT(WEEK(SUNDAY) FROM TIMESTAMP("2017-11-06 00:00:00+00")) AS week_sunday,
   EXTRACT(WEEK(MONDAY) FROM TIMESTAMP("2017-11-06 00:00:00+00")) AS week_monday
@@ -469,7 +469,7 @@ SELECT
 
 ## `FORMAT_TIMESTAMP`
 
-```sql
+```zetasql
 FORMAT_TIMESTAMP(format_string, timestamp_expr[, time_zone])
 ```
 
@@ -493,7 +493,7 @@ Formats a `TIMESTAMP` value according to the specified format string.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT FORMAT_TIMESTAMP("%c", TIMESTAMP "2050-12-25 15:30:55+00", "UTC")
   AS formatted;
 
@@ -504,7 +504,7 @@ SELECT FORMAT_TIMESTAMP("%c", TIMESTAMP "2050-12-25 15:30:55+00", "UTC")
  *--------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT FORMAT_TIMESTAMP("%b-%d-%Y", TIMESTAMP "2050-12-25 15:30:55+00")
   AS formatted;
 
@@ -515,7 +515,7 @@ SELECT FORMAT_TIMESTAMP("%b-%d-%Y", TIMESTAMP "2050-12-25 15:30:55+00")
  *-------------*/
 ```
 
-```sql
+```zetasql
 SELECT FORMAT_TIMESTAMP("%b %Y", TIMESTAMP "2050-12-25 15:30:55+00")
   AS formatted;
 
@@ -526,7 +526,7 @@ SELECT FORMAT_TIMESTAMP("%b %Y", TIMESTAMP "2050-12-25 15:30:55+00")
  *-------------*/
 ```
 
-```sql
+```zetasql
 SELECT FORMAT_TIMESTAMP("%Y-%m-%dT%H:%M:%SZ", TIMESTAMP "2050-12-25 15:30:55", "UTC")
   AS formatted;
 
@@ -543,7 +543,7 @@ SELECT FORMAT_TIMESTAMP("%Y-%m-%dT%H:%M:%SZ", TIMESTAMP "2050-12-25 15:30:55", "
 
 ## `PARSE_TIMESTAMP`
 
-```sql
+```zetasql
 PARSE_TIMESTAMP(format_string, timestamp_string[, time_zone])
 ```
 
@@ -566,7 +566,7 @@ Each element in `timestamp_string` must have a corresponding element in
 `format_string`. The location of each element in `format_string` must match the
 location of each element in `timestamp_string`.
 
-```sql
+```zetasql
 -- This works because elements on both sides match.
 SELECT PARSE_TIMESTAMP("%a %b %e %I:%M:%S %Y", "Thu Dec 25 07:30:00 2008");
 
@@ -580,7 +580,8 @@ SELECT PARSE_TIMESTAMP("%a %b %e %I:%M:%S", "Thu Dec 25 07:30:00 2008");
 SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008");
 ```
 
-When using `PARSE_TIMESTAMP`, keep the following in mind:
+The following additional considerations apply when using the `PARSE_TIMESTAMP`
+function:
 
 + Unspecified fields. Any unspecified field is initialized from `1970-01-01
   00:00:00.0`. This initialization value uses the time zone specified by the
@@ -592,12 +593,27 @@ When using `PARSE_TIMESTAMP`, keep the following in mind:
 + Whitespace. One or more consecutive white spaces in the format string
   matches zero or more consecutive white spaces in the timestamp string. In
   addition, leading and trailing white spaces in the timestamp string are always
-  allowed, even if they are not in the format string.
+  allowed, even if they aren't in the format string.
 + Format precedence. When two (or more) format elements have overlapping
   information (for example both `%F` and `%Y` affect the year), the last one
   generally overrides any earlier ones, with some exceptions (see the
   descriptions of `%s`, `%C`, and `%y`).
 + Format divergence. `%p` can be used with `am`, `AM`, `pm`, and `PM`.
++   Mixed ISO and non-ISO elements. The ISO format elements are `%G`, `%g`,
+    `%J`, and `%V`. When these ISO elements are used together with other non-ISO
+    elements, the ISO elements are ignored, resulting in different values. For
+    example, the function arguments `('%g %J', '8405')` return a value with the
+    year `1984`, whereas the arguments `('%g %j', '8405')` return a value with
+    the year `1970` because the ISO element `%g` is ignored.
++   Numeric values after `%G` input values. Any input string value that
+    corresponds to the `%G` format element requires a whitespace or non-digit
+    character as a separator from numeric values that follow. This is a known
+    issue in ZetaSQL. For example, the function arguments `('%G
+    %V','2020 50')` or `('%G-%V','2020-50')` work, but not `('%G%V','202050')`.
+    For input values before the corresponding `%G` value, no separator is
+    needed. For example, the arguments `('%V%G','502020')` work. The separator
+    after the `%G` values identifies the end of the specified ISO year value so
+    that the function can parse properly.
 
 **Return Data Type**
 
@@ -605,7 +621,7 @@ When using `PARSE_TIMESTAMP`, keep the following in mind:
 
 **Example**
 
-```sql
+```zetasql
 SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008") AS parsed;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
@@ -624,7 +640,7 @@ SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008") AS parsed;
 
 ## `STRING`
 
-```sql
+```zetasql
 STRING(timestamp_expression[, time_zone])
 ```
 
@@ -641,7 +657,7 @@ on how to specify a time zone.
 
 **Example**
 
-```sql
+```zetasql
 SELECT STRING(TIMESTAMP "2008-12-25 15:30:00+00", "UTC") AS string;
 
 /*-------------------------------*
@@ -655,7 +671,7 @@ SELECT STRING(TIMESTAMP "2008-12-25 15:30:00+00", "UTC") AS string;
 
 ## `TIMESTAMP`
 
-```sql
+```zetasql
 TIMESTAMP(string_expression[, time_zone])
 TIMESTAMP(date_expression[, time_zone])
 TIMESTAMP(datetime_expression[, time_zone])
@@ -666,8 +682,8 @@ TIMESTAMP(datetime_expression[, time_zone])
 +  `string_expression[, time_zone]`: Converts a string to a
    timestamp. `string_expression` must include a
    timestamp literal.
-   If `string_expression` includes a time zone in the timestamp literal, do
-   not include an explicit `time_zone`
+   If `string_expression` includes a time zone in the timestamp literal,
+   don't include an explicit `time_zone`
    argument.
 +  `date_expression[, time_zone]`: Converts a date to a timestamp.
    The value returned is the earliest timestamp that falls within
@@ -686,7 +702,7 @@ is used.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT TIMESTAMP("2008-12-25 15:30:00+00") AS timestamp_str;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
@@ -697,7 +713,7 @@ SELECT TIMESTAMP("2008-12-25 15:30:00+00") AS timestamp_str;
  *---------------------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT TIMESTAMP("2008-12-25 15:30:00", "America/Los_Angeles") AS timestamp_str;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
@@ -708,7 +724,7 @@ SELECT TIMESTAMP("2008-12-25 15:30:00", "America/Los_Angeles") AS timestamp_str;
  *---------------------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT TIMESTAMP("2008-12-25 15:30:00 UTC") AS timestamp_str;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
@@ -719,7 +735,7 @@ SELECT TIMESTAMP("2008-12-25 15:30:00 UTC") AS timestamp_str;
  *---------------------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT TIMESTAMP(DATETIME "2008-12-25 15:30:00") AS timestamp_datetime;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
@@ -730,7 +746,7 @@ SELECT TIMESTAMP(DATETIME "2008-12-25 15:30:00") AS timestamp_datetime;
  *---------------------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT TIMESTAMP(DATE "2008-12-25") AS timestamp_date;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
@@ -747,7 +763,7 @@ SELECT TIMESTAMP(DATE "2008-12-25") AS timestamp_date;
 
 ## `TIMESTAMP_ADD`
 
-```sql
+```zetasql
 TIMESTAMP_ADD(timestamp_expression, INTERVAL int64_expression date_part)
 ```
 
@@ -773,7 +789,7 @@ any time zone.
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   TIMESTAMP("2008-12-25 15:30:00+00") AS original,
   TIMESTAMP_ADD(TIMESTAMP "2008-12-25 15:30:00+00", INTERVAL 10 MINUTE) AS later;
@@ -788,7 +804,7 @@ SELECT
 
 ## `TIMESTAMP_DIFF`
 
-```sql
+```zetasql
 TIMESTAMP_DIFF(end_timestamp, start_timestamp, granularity)
 ```
 
@@ -832,7 +848,7 @@ behaves like `DATE_DIFF(DATE, DATE, PART)`.
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   TIMESTAMP("2010-07-07 10:20:00+00") AS later_timestamp,
   TIMESTAMP("2008-12-25 15:30:00+00") AS earlier_timestamp,
@@ -849,7 +865,7 @@ SELECT
 In the following example, the first timestamp occurs before the
 second timestamp, resulting in a negative output.
 
-```sql
+```zetasql
 SELECT TIMESTAMP_DIFF(TIMESTAMP "2018-08-14", TIMESTAMP "2018-10-14", DAY) AS negative_diff;
 
 /*---------------*
@@ -862,7 +878,7 @@ SELECT TIMESTAMP_DIFF(TIMESTAMP "2018-08-14", TIMESTAMP "2018-10-14", DAY) AS ne
 In this example, the result is 0 because only the number of whole specified
 `HOUR` intervals are included.
 
-```sql
+```zetasql
 SELECT TIMESTAMP_DIFF("2001-02-01 01:00:00", "2001-02-01 00:00:01", HOUR) AS diff;
 
 /*---------------*
@@ -874,11 +890,11 @@ SELECT TIMESTAMP_DIFF("2001-02-01 01:00:00", "2001-02-01 00:00:01", HOUR) AS dif
 
 ## `TIMESTAMP_FROM_UNIX_MICROS`
 
-```sql
+```zetasql
 TIMESTAMP_FROM_UNIX_MICROS(int64_expression)
 ```
 
-```sql
+```zetasql
 TIMESTAMP_FROM_UNIX_MICROS(timestamp_expression)
 ```
 
@@ -894,7 +910,7 @@ the same timestamp is returned.
 
 **Example**
 
-```sql
+```zetasql
 SELECT TIMESTAMP_FROM_UNIX_MICROS(1230219000000000) AS timestamp_value;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
@@ -907,11 +923,11 @@ SELECT TIMESTAMP_FROM_UNIX_MICROS(1230219000000000) AS timestamp_value;
 
 ## `TIMESTAMP_FROM_UNIX_MILLIS`
 
-```sql
+```zetasql
 TIMESTAMP_FROM_UNIX_MILLIS(int64_expression)
 ```
 
-```sql
+```zetasql
 TIMESTAMP_FROM_UNIX_MILLIS(timestamp_expression)
 ```
 
@@ -927,7 +943,7 @@ the same timestamp is returned.
 
 **Example**
 
-```sql
+```zetasql
 SELECT TIMESTAMP_FROM_UNIX_MILLIS(1230219000000) AS timestamp_value;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
@@ -940,11 +956,11 @@ SELECT TIMESTAMP_FROM_UNIX_MILLIS(1230219000000) AS timestamp_value;
 
 ## `TIMESTAMP_FROM_UNIX_SECONDS`
 
-```sql
+```zetasql
 TIMESTAMP_FROM_UNIX_SECONDS(int64_expression)
 ```
 
-```sql
+```zetasql
 TIMESTAMP_FROM_UNIX_SECONDS(timestamp_expression)
 ```
 
@@ -960,7 +976,7 @@ the same timestamp is returned.
 
 **Example**
 
-```sql
+```zetasql
 SELECT TIMESTAMP_FROM_UNIX_SECONDS(1230219000) AS timestamp_value;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
@@ -973,7 +989,7 @@ SELECT TIMESTAMP_FROM_UNIX_SECONDS(1230219000) AS timestamp_value;
 
 ## `TIMESTAMP_MICROS`
 
-```sql
+```zetasql
 TIMESTAMP_MICROS(int64_expression)
 ```
 
@@ -988,7 +1004,7 @@ Interprets `int64_expression` as the number of microseconds since 1970-01-01
 
 **Example**
 
-```sql
+```zetasql
 SELECT TIMESTAMP_MICROS(1230219000000000) AS timestamp_value;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
@@ -1001,7 +1017,7 @@ SELECT TIMESTAMP_MICROS(1230219000000000) AS timestamp_value;
 
 ## `TIMESTAMP_MILLIS`
 
-```sql
+```zetasql
 TIMESTAMP_MILLIS(int64_expression)
 ```
 
@@ -1016,7 +1032,7 @@ Interprets `int64_expression` as the number of milliseconds since 1970-01-01
 
 **Example**
 
-```sql
+```zetasql
 SELECT TIMESTAMP_MILLIS(1230219000000) AS timestamp_value;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
@@ -1029,7 +1045,7 @@ SELECT TIMESTAMP_MILLIS(1230219000000) AS timestamp_value;
 
 ## `TIMESTAMP_SECONDS`
 
-```sql
+```zetasql
 TIMESTAMP_SECONDS(int64_expression)
 ```
 
@@ -1044,7 +1060,7 @@ UTC and returns a timestamp.
 
 **Example**
 
-```sql
+```zetasql
 SELECT TIMESTAMP_SECONDS(1230219000) AS timestamp_value;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
@@ -1057,7 +1073,7 @@ SELECT TIMESTAMP_SECONDS(1230219000) AS timestamp_value;
 
 ## `TIMESTAMP_SUB`
 
-```sql
+```zetasql
 TIMESTAMP_SUB(timestamp_expression, INTERVAL int64_expression date_part)
 ```
 
@@ -1083,7 +1099,7 @@ independent of any time zone.
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   TIMESTAMP("2008-12-25 15:30:00+00") AS original,
   TIMESTAMP_SUB(TIMESTAMP "2008-12-25 15:30:00+00", INTERVAL 10 MINUTE) AS earlier;
@@ -1098,11 +1114,11 @@ SELECT
 
 ## `TIMESTAMP_TRUNC`
 
-```sql
+```zetasql
 TIMESTAMP_TRUNC(timestamp_value, timestamp_granularity[, time_zone])
 ```
 
-```sql
+```zetasql
 TIMESTAMP_TRUNC(datetime_value, datetime_granularity)
 ```
 
@@ -1128,7 +1144,7 @@ Truncates a `TIMESTAMP` or `DATETIME` value at a particular granularity.
     and subtracts the minutes and seconds (when truncating to `HOUR`) or the
     seconds (when truncating to `MINUTE`) from that timestamp.
     While this provides intuitive results in most cases, the result is
-    non-intuitive near daylight savings transitions that are not hour-aligned.
+    non-intuitive near daylight savings transitions that aren't hour-aligned.
 + `datetime_value`: A `DATETIME` value to truncate.
 + `datetime_granularity`: The truncation granularity for a `DATETIME` value.
   [Date granularities][timestamp-trunc-granularity-date] and
@@ -1218,7 +1234,7 @@ The same data type as the first argument passed into this function.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT
   TIMESTAMP_TRUNC(TIMESTAMP "2008-12-25 15:30:00+00", DAY, "UTC") AS utc,
   TIMESTAMP_TRUNC(TIMESTAMP "2008-12-25 15:30:00+00", DAY, "America/Los_Angeles") AS la;
@@ -1241,7 +1257,7 @@ argument 'Pacific/Auckland'. Here, the function truncates the
 `timestamp_expression` using New Zealand Daylight Time, where it falls on a
 Monday.
 
-```sql
+```zetasql
 SELECT
   timestamp_value AS timestamp_value,
   TIMESTAMP_TRUNC(timestamp_value, WEEK(MONDAY), "UTC") AS utc_truncated,
@@ -1264,7 +1280,7 @@ the Gregorian calendar year. The first Thursday of the 2015 calendar year was
 Therefore the ISO year boundary preceding the `timestamp_expression`
 2015-06-15 00:00:00+00 is 2014-12-29.
 
-```sql
+```zetasql
 SELECT
   TIMESTAMP_TRUNC("2015-06-15 00:00:00+00", ISOYEAR) AS isoyear_boundary,
   EXTRACT(ISOYEAR FROM TIMESTAMP "2015-06-15 00:00:00+00") AS isoyear_number;
@@ -1287,7 +1303,7 @@ SELECT
 
 ## `UNIX_MICROS`
 
-```sql
+```zetasql
 UNIX_MICROS(timestamp_expression)
 ```
 
@@ -1303,7 +1319,7 @@ rounding down to the beginning of the microsecond.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT UNIX_MICROS(TIMESTAMP "2008-12-25 15:30:00+00") AS micros;
 
 /*------------------*
@@ -1313,7 +1329,7 @@ SELECT UNIX_MICROS(TIMESTAMP "2008-12-25 15:30:00+00") AS micros;
  *------------------*/
 ```
 
-```sql
+```zetasql
 SELECT UNIX_MICROS(TIMESTAMP "1970-01-01 00:00:00.0000018+00") AS micros;
 
 /*------------------*
@@ -1325,7 +1341,7 @@ SELECT UNIX_MICROS(TIMESTAMP "1970-01-01 00:00:00.0000018+00") AS micros;
 
 ## `UNIX_MILLIS`
 
-```sql
+```zetasql
 UNIX_MILLIS(timestamp_expression)
 ```
 
@@ -1340,7 +1356,7 @@ higher levels of precision by rounding down to the beginning of the millisecond.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT UNIX_MILLIS(TIMESTAMP "2008-12-25 15:30:00+00") AS millis;
 
 /*---------------*
@@ -1350,7 +1366,7 @@ SELECT UNIX_MILLIS(TIMESTAMP "2008-12-25 15:30:00+00") AS millis;
  *---------------*/
 ```
 
-```sql
+```zetasql
 SELECT UNIX_MILLIS(TIMESTAMP "1970-01-01 00:00:00.0018+00") AS millis;
 
 /*---------------*
@@ -1362,7 +1378,7 @@ SELECT UNIX_MILLIS(TIMESTAMP "1970-01-01 00:00:00.0018+00") AS millis;
 
 ## `UNIX_SECONDS`
 
-```sql
+```zetasql
 UNIX_SECONDS(timestamp_expression)
 ```
 
@@ -1377,7 +1393,7 @@ levels of precision by rounding down to the beginning of the second.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT UNIX_SECONDS(TIMESTAMP "2008-12-25 15:30:00+00") AS seconds;
 
 /*------------*
@@ -1387,7 +1403,7 @@ SELECT UNIX_SECONDS(TIMESTAMP "2008-12-25 15:30:00+00") AS seconds;
  *------------*/
 ```
 
-```sql
+```zetasql
 SELECT UNIX_SECONDS(TIMESTAMP "1970-01-01 00:00:01.8+00") AS seconds;
 
 /*------------*
@@ -1403,11 +1419,11 @@ SELECT UNIX_SECONDS(TIMESTAMP "1970-01-01 00:00:01.8+00") AS seconds;
 <a id="timezone_definitions"></a>
 
 A timestamp represents an absolute point in time, independent of any time
-zone. However, when a timestamp value is displayed, it is usually converted to
+zone. However, when a timestamp value is displayed, it's usually converted to
 a human-readable format consisting of a civil date and time
 (YYYY-MM-DD HH:MM:SS)
-and a time zone. This is not the internal representation of the
-`TIMESTAMP`; it is only a human-understandable way to describe the point in time
+and a time zone. This isn't the internal representation of the
+`TIMESTAMP`; it's only a human-understandable way to describe the point in time
 that the timestamp represents.
 
 Some timestamp functions have a time zone argument. A time zone is needed to

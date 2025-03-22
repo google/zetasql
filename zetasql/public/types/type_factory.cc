@@ -34,6 +34,7 @@
 #include "zetasql/public/annotation.pb.h"
 #include "zetasql/public/functions/array_find_mode.pb.h"
 #include "zetasql/public/functions/array_zip_mode.pb.h"
+#include "zetasql/public/functions/bitwise_agg_mode.pb.h"
 #include "zetasql/public/functions/datetime.pb.h"
 #include "zetasql/public/functions/differential_privacy.pb.h"
 #include "zetasql/public/functions/normalize_mode.pb.h"
@@ -60,6 +61,7 @@
 #include "zetasql/public/types/type_deserializer.h"
 #include "absl/algorithm/container.h"
 #include "absl/base/attributes.h"
+#include "absl/base/nullability.h"
 #include "absl/base/optimization.h"
 #include "absl/cleanup/cleanup.h"
 #include "absl/container/flat_hash_map.h"
@@ -91,92 +93,6 @@ ABSL_FLAG(int32_t, zetasql_type_factory_nesting_depth_limit,
 namespace zetasql {
 
 namespace internal {
-
-TypeStore::TypeStore(bool keep_alive_while_referenced_from_value)
-    : keep_alive_while_referenced_from_value_(
-          keep_alive_while_referenced_from_value) {}
-
-TypeStore::~TypeStore() {
-  // Need to delete these in a loop because the destructor is only visible
-  // via friend declaration on Type.
-  for (const Type* type : owned_types_) {
-    delete type;
-  }
-  for (const AnnotationMap* annotation_map : owned_annotation_maps_) {
-    delete annotation_map;
-  }
-  if (!factories_depending_on_this_.empty()) {
-    ABSL_LOG(ERROR) << "Destructing TypeFactory " << this
-                << " is unsafe because TypeFactory "
-                << *factories_depending_on_this_.begin()
-                << " depends on it staying alive.\n"
-                << "Using --vmodule=type=2 may aid debugging.\n"
-                ;
-    // Avoid crashing on the TypeFactory dependency reference itself.
-    for (const TypeStore* other : factories_depending_on_this_) {
-      absl::MutexLock l(&other->mutex_);
-      other->depends_on_factories_.erase(this);
-    }
-  }
-
-  for (const TypeStore* other : depends_on_factories_) {
-    bool need_to_unref = false;
-    {
-      absl::MutexLock l(&other->mutex_);
-      if (other->factories_depending_on_this_.erase(this) != 0) {
-        need_to_unref = other->keep_alive_while_referenced_from_value_;
-      }
-    }
-    if (need_to_unref) {
-      other->Unref();
-    }
-  }
-}
-
-void TypeStore::Ref() const {
-  ref_count_.fetch_add(1, std::memory_order_relaxed);
-}
-
-void TypeStore::Unref() const {
-  if (ref_count_.fetch_sub(1, std::memory_order_acq_rel) == 1) {
-    delete this;
-  }
-}
-
-void TypeStoreHelper::RefFromValue(const TypeStore* store) {
-  ABSL_DCHECK(store);
-
-  // We still do TypeStore reference counting in debug mode regardless of
-  // whether keep_alive_while_referenced_from_value_ is true or not: this is
-  // done to check that no values that reference types from this TypeStore are
-  // alive when TypeFactore gets released. In release mode (NDEBUG), we do
-  // refcounting only if keep_alive_while_referenced_from_value_ is true.
-#ifdef NDEBUG
-  if (!store->keep_alive_while_referenced_from_value_) return;
-#endif
-
-  store->Ref();
-}
-
-void TypeStoreHelper::UnrefFromValue(const TypeStore* store) {
-  ABSL_DCHECK(store);
-
-#ifdef NDEBUG
-  if (!store->keep_alive_while_referenced_from_value_) return;
-#endif
-
-  store->Unref();
-}
-
-const TypeStore* TypeStoreHelper::GetTypeStore(const TypeFactory* factory) {
-  ABSL_DCHECK(factory);
-  return factory->store_;
-}
-
-int64_t TypeStoreHelper::Test_GetRefCount(const TypeStore* store) {
-  ABSL_DCHECK(store);
-  return store->ref_count_.load(std::memory_order_seq_cst);
-}
 
 absl::Status TypeFactoryHelper::MakeOpaqueEnumType(
     TypeFactory* type_factory, const google::protobuf::EnumDescriptor* enum_descriptor,
@@ -223,7 +139,7 @@ static TypeFactory* s_type_factory() {
 }
 
 TypeFactory::TypeFactory(const TypeFactoryOptions& options)
-    : store_(new internal::TypeStore(
+    : TypeFactoryBase(new internal::TypeStore(
           options.keep_alive_while_referenced_from_value)),
       nesting_depth_limit_(options.nesting_depth_limit),
       estimated_memory_used_by_types_(0) {
@@ -664,7 +580,8 @@ absl::Status TypeFactory::MakeGraphElementType(
     const GraphElementType** result) {
   return MakeGraphElementTypeFromVector(
       graph_reference, element_kind,
-      {property_types.begin(), property_types.end()}, result);
+      {property_types.begin(), property_types.end()},
+      result);
 }
 
 absl::Status TypeFactory::MakeGraphElementTypeFromVector(
@@ -706,7 +623,8 @@ absl::Status TypeFactory::MakeGraphElementTypeFromVector(
       FindOrCreateCatalogName(graph_reference);
   *result = TakeOwnershipLocked(new GraphElementType(
       cached_graph_reference, element_kind, this, std::move(property_type_set),
-      max_nesting_depth + 1));
+      max_nesting_depth + 1
+      ));
   return absl::OkStatus();
 }
 
@@ -1288,6 +1206,18 @@ static const EnumType* GetRangeSessionizeModeEnumType() {
   return s_range_sessionize_option_enum_type;
 }
 
+static const EnumType* GetBitwiseAggModeEnumType() {
+  static const EnumType* s_bitwise_agg_mode_enum_type = [] {
+    const EnumType* enum_type;
+    ZETASQL_CHECK_OK(internal::TypeFactoryHelper::MakeOpaqueEnumType(  // Crash OK
+        s_type_factory(),
+        functions::BitwiseAggEnums::BitwiseAggMode_descriptor(), &enum_type,
+        /*catalog_name_path=*/{}));
+    return enum_type;
+  }();
+  return s_bitwise_agg_mode_enum_type;
+}
+
 static const StructType* s_empty_struct_type() {
   static const StructType* s_empty_struct_type = [] {
     const StructType* type;
@@ -1625,6 +1555,8 @@ const ArrayType* ArrayTypeFromSimpleTypeKind(TypeKind type_kind) {
 
 const EnumType* ArrayZipModeEnumType() { return GetArrayZipModeEnumType(); }
 
+const EnumType* BitwiseAggModeEnumType() { return GetBitwiseAggModeEnumType(); }
+
 static const RangeType* MakeRangeType(const Type* element_type) {
   const RangeType* range_type;
   absl::Status status =
@@ -1674,7 +1606,8 @@ const RangeType* RangeTypeFromSimpleTypeKind(TypeKind type_kind) {
 
 }  // namespace types
 
-void TypeFactory::AddDependency(const Type* other_type) {
+void TypeFactory::AddDependency(absl::Nonnull<const Type*> other_type) {
+  ABSL_DCHECK_NE(other_type, nullptr);
   const internal::TypeStore* other_store = other_type->type_store_;
 
   // Do not add a dependency if the other factory is the same as this factory or

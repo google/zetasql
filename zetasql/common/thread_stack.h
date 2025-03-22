@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <limits>
+#include <optional>
 #include <ostream>
 #include <string>
 #include <string_view>
@@ -111,6 +112,7 @@ ABSL_MUST_USE_RESULT ThreadStackStats& GetCurrentThreadStackStats();
 //
 std::string CurrentStackTrace();
 
+std::optional<pthread_t> ThreadStackDumperThread();
 }  // namespace zetasql
 
 #endif  // ZETASQL_COMMON_THREAD_STACK_H_

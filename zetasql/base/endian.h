@@ -19,6 +19,7 @@
 #define THIRD_PARTY_ZETASQL_ZETASQL_BASE_ENDIAN_H_
 
 // The following guarantees declaration of the byte swap functions
+#include <sys/types.h>
 #ifdef _MSC_VER
 #include <stdlib.h>  // NOLINT(build/include)
 #elif defined(__APPLE__)
@@ -323,11 +324,106 @@ class BigEndian {
   }
 
 #ifdef ABSL_IS_LITTLE_ENDIAN
+  static uint16_t ToHost16(uint16_t x) { return gbswap_16(x); }
+  static uint16_t FromHost16(uint16_t x) { return gbswap_16(x); }
+  static uint32_t ToHost32(uint32_t x) { return gbswap_32(x); }
+  static uint32_t FromHost32(uint32_t x) { return gbswap_32(x); }
   static uint64_t ToHost64(uint64_t x) { return gbswap_64(x); }
+  static uint64_t FromHost64(uint64_t x) { return gbswap_64(x); }
 #elif defined ABSL_IS_BIG_ENDIAN
+  static uint16_t ToHost16(uint16_t x) { return x; }
+  static uint16_t FromHost16(uint16_t x) { return x; }
+  static uint32_t ToHost32(uint32_t x) { return x; }
+  static uint32_t FromHost32(uint32_t x) { return x; }
   static uint64_t ToHost64(uint64_t x) { return x; }
+  static uint64_t FromHost64(uint64_t x) { return x; }
 #endif
+
+  // Functions to do unaligned loads and stores in big-endian order.
+  static uint16_t Load16(const void* p) {
+    return ToHost16(ZETASQL_INTERNAL_UNALIGNED_LOAD16(p));
+  }
+
+  static void Store16(void* p, uint16_t v) {
+    ZETASQL_INTERNAL_UNALIGNED_STORE16(p, FromHost16(v));
+  }
+
+  static uint32_t Load32(const void* p) {
+    return ToHost32(ZETASQL_INTERNAL_UNALIGNED_LOAD32(p));
+  }
+
+  static void Store32(void* p, uint32_t v) {
+    ZETASQL_INTERNAL_UNALIGNED_STORE32(p, FromHost32(v));
+  }
+
+  static uint64_t Load64(const void* p) {
+    return ToHost64(ZETASQL_INTERNAL_UNALIGNED_LOAD64(p));
+  }
+
+  static void Store64(void* p, uint64_t v) {
+    ZETASQL_INTERNAL_UNALIGNED_STORE64(p, FromHost64(v));
+  }
+
+  // Unified BigEndian::Load/Store<T> API.
+
+  // Returns the T value encoded by the leading bytes of 'p', interpreted
+  // according to the format specified below. 'p' has no alignment restrictions.
+  //
+  // Type              Format
+  // ----------------  -------------------------------------------------------
+  // uint{8,16,32,64}  Big-endian binary representation.
+  // int{8,16,32,64}   Big-endian twos-complement binary representation.
+  // float,double      Big-endian IEEE-754 format.
+  // char              The raw byte.
+  // bool              A byte. 0 maps to false; all other values map to true.
+  template <typename T>
+  static T Load(const char* p);
+
+  // Encodes 'value' in the format corresponding to T. Supported types are
+  // described in Load<T>(). 'p' has no alignment restrictions. In-place Store
+  // is safe (that is, it is safe to call
+  // Store(x, reinterpret_cast<char*>(&x))).
+  template <typename T>
+  static void Store(T value, char* p);
 };
+
+namespace endian_internal {
+// Integer helper methods for the unified Load/Store APIs.
+
+// Which branch of the 'case' to use is decided at compile time, so despite the
+// apparent size of this function, it compiles into efficient code.
+template <typename EndianClass, typename T>
+inline T LoadInteger(const char* p) {
+  if constexpr (sizeof(T) == sizeof(uint8_t)) {
+    return *reinterpret_cast<const T*>(p);
+  } else if constexpr (sizeof(T) == sizeof(uint16_t)) {
+    return EndianClass::ToHost16(ZETASQL_INTERNAL_UNALIGNED_LOAD16(p));
+  } else if constexpr (sizeof(T) == sizeof(uint32_t)) {
+    return EndianClass::ToHost32(ZETASQL_INTERNAL_UNALIGNED_LOAD32(p));
+  } else {
+    static_assert(sizeof(T) == sizeof(uint64_t),
+                  "T must be 8, 16, 32, or 64 bits");
+    return EndianClass::ToHost64(ZETASQL_INTERNAL_UNALIGNED_LOAD64(p));
+  }
+}
+
+// Which branch of the 'case' to use is decided at compile time, so despite the
+// apparent size of this function, it compiles into efficient code.
+template <typename EndianClass, typename T>
+inline void StoreInteger(T value, char* p) {
+  if constexpr (sizeof(T) == sizeof(uint8_t)) {
+    *reinterpret_cast<T*>(p) = value;
+  } else if constexpr (sizeof(T) == sizeof(uint16_t)) {
+    ZETASQL_INTERNAL_UNALIGNED_STORE16(p, EndianClass::FromHost16(value));
+  } else if constexpr (sizeof(T) == sizeof(uint32_t)) {
+    ZETASQL_INTERNAL_UNALIGNED_STORE32(p, EndianClass::FromHost32(value));
+  } else {
+    static_assert(sizeof(T) == sizeof(uint64_t),
+                  "T must be 8, 16, 32, or 64 bits");
+    ZETASQL_INTERNAL_UNALIGNED_STORE64(p, EndianClass::FromHost64(value));
+  }
+}
+}  // namespace endian_internal
 
 //////////////////////////////////////////////////////////////////////
 // Implementation details: Clients can stop reading here.
@@ -422,48 +518,26 @@ class GeneralFormatConverter<absl::uint128> {
   }
 };
 
-// Which branch of the 'case' to use is decided at compile time, so despite the
-// apparent size of this function, it compiles into efficient code.
+// Load/Store for integral values.
+
 template<typename T>
 inline T LittleEndian::Load(const char* p) {
-  static_assert(sizeof(T) <= 8 && std::is_integral<T>::value,
-                "T needs to be an integral type with size <= 8.");
-  switch (sizeof(T)) {
-    case 1: return *reinterpret_cast<const T*>(p);
-    case 2:
-      return LittleEndian::ToHost16(ZETASQL_INTERNAL_UNALIGNED_LOAD16(p));
-    case 4:
-      return LittleEndian::ToHost32(ZETASQL_INTERNAL_UNALIGNED_LOAD32(p));
-    case 8:
-      return LittleEndian::ToHost64(ZETASQL_INTERNAL_UNALIGNED_LOAD64(p));
-    default: {
-      ABSL_LOG(FATAL) << "Not reached!";
-      return 0;
-    }
-  }
+  return endian_internal::LoadInteger<LittleEndian, T>(p);
 }
 
-// Which branch of the 'case' to use is decided at compile time, so despite the
-// apparent size of this function, it compiles into efficient code.
 template<typename T>
 inline void LittleEndian::Store(T value, char* p) {
-  static_assert(sizeof(T) <= 8 && std::is_integral<T>::value,
-                "T needs to be an integral type with size <= 8.");
-  switch (sizeof(T)) {
-    case 1: *reinterpret_cast<T*>(p) = value; break;
-    case 2:
-      LittleEndian::Store16(p, value);
-      break;
-    case 4:
-      LittleEndian::Store32(p, value);
-      break;
-    case 8:
-      LittleEndian::Store64(p, value);
-      break;
-    default: {
-      ABSL_LOG(FATAL) << "Not reached!";
-    }
-  }
+  endian_internal::StoreInteger<LittleEndian, T>(value, p);
+}
+
+template <typename T>
+inline T BigEndian::Load(const char* p) {
+  return endian_internal::LoadInteger<BigEndian, T>(p);
+}
+
+template <typename T>
+inline void BigEndian::Store(T value, char* p) {
+  endian_internal::StoreInteger<BigEndian, T>(value, p);
 }
 
 }  // namespace zetasql_base

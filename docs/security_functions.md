@@ -21,7 +21,7 @@ ZetaSQL supports the following security functions.
   <td><a href="https://github.com/google/zetasql/blob/master/docs/security_functions.md#session_user"><code>SESSION_USER</code></a>
 </td>
   <td>
-    Get the email address or principal identifier of the user that is running
+    Get the email address or principal identifier of the user that's running
     the query.
   </td>
 </tr>
@@ -37,11 +37,11 @@ SESSION_USER()
 
 **Description**
 
-For first-party users, returns the email address of the user that is running the
+For first-party users, returns the email address of the user that's running the
 query.
 For third-party users, returns the
 [principal identifier](https://cloud.google.com/iam/docs/principal-identifiers)
-of the user that is running the query.
+of the user that's running the query.
 For more information about identities, see
 [Principals](https://cloud.google.com/docs/authentication#principal).
 
@@ -51,7 +51,7 @@ For more information about identities, see
 
 **Example**
 
-```sql
+```zetasql
 SELECT SESSION_USER() as user;
 
 /*----------------------*

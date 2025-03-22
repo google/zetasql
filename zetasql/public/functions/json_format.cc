@@ -118,6 +118,11 @@ const std::string& TimestampFormatForScale(TimestampScale scale) {
           new std::string("%E4Y-%m-%dT%H:%M:%E9SZ");
       return *kNanoSecondsFormat;
     }
+    case kPicoseconds: {
+      static const std::string* kPicoSecondsFormat =
+          new std::string("%E4Y-%m-%dT%H:%M:%E12SZ");
+      return *kPicoSecondsFormat;
+    }
   }
 }
 
@@ -145,6 +150,11 @@ std::string DatetimeFormatForScale(TimestampScale scale) {
           new std::string("%E4Y-%m-%dT%H:%M:%E9S");
       return *kNanoSecondsFormat;
     }
+    case kPicoseconds: {
+      static const std::string* kPicoSecondsFormat =
+          new std::string("%E4Y-%m-%dT%H:%M:%E12S");
+      return *kPicoSecondsFormat;
+    }
   }
 }
 
@@ -170,6 +180,11 @@ std::string TimeFormatForScale(TimestampScale scale) {
       static const std::string* kNanoSecondsFormat =
           new std::string("%H:%M:%E9S");
       return *kNanoSecondsFormat;
+    }
+    case kPicoseconds: {
+      static const std::string* kPicoSecondsFormat =
+          new std::string("%H:%M:%E12S");
+      return *kPicoSecondsFormat;
     }
   }
 }

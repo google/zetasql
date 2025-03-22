@@ -191,6 +191,9 @@ class ParseLocationRange {
 
   // Identify whether `following_location` immediately follows this range
   // with no space (white space, comment, another token) in between.
+  // When the full location stack is available from expansion, these checks
+  // should also verify the rest of the layers to ensure they always originated
+  // together.
   bool IsAdjacentlyFollowedBy(
       const ParseLocationRange& following_location) const {
     if (!IsValid() || !following_location.IsValid()) {

@@ -19,13 +19,14 @@
 
 #include <optional>
 #include <string>
-#include <vector>
 
+#include "zetasql/resolved_ast/sql_builder.h"
 #include "zetasql/tools/execute_query/execute_query_tool.h"
 #include "zetasql/tools/execute_query/execute_query_writer.h"
 #include "zetasql/tools/execute_query/web/embedded_resources.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/functional/any_invocable.h"
+#include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 
@@ -36,16 +37,20 @@ using ModeSet = absl::flat_hash_set<ExecuteQueryConfig::ToolMode>;
 // Encapsulates request parameters.
 class ExecuteQueryWebRequest {
  public:
-  ExecuteQueryWebRequest(absl::Span<const std::string> str_modes,
-                         std::optional<ExecuteQueryConfig::SqlMode> sql_mode,
-                         std::string query, std::string catalog,
-                         std::string enabled_language_features,
-                         std::string enabled_ast_rewrites);
+  ExecuteQueryWebRequest(
+      absl::Span<const std::string> str_modes,
+      std::optional<ExecuteQueryConfig::SqlMode> sql_mode,
+      std::optional<SQLBuilder::TargetSyntaxMode> target_syntax_mode,
+      std::string query, std::string catalog,
+      std::string enabled_language_features, std::string enabled_ast_rewrites);
 
   const std::string& query() const { return query_; }
   const ModeSet& modes() const { return modes_; }
   std::optional<ExecuteQueryConfig::SqlMode> sql_mode() const {
     return sql_mode_;
+  }
+  SQLBuilder::TargetSyntaxMode target_syntax_mode() const {
+    return target_syntax_mode_;
   }
   const std::string& catalog() const { return catalog_; }
 
@@ -57,9 +62,12 @@ class ExecuteQueryWebRequest {
     return enabled_ast_rewrites_;
   }
 
+  std::string DebugString() const;
+
  private:
   ModeSet modes_;
   std::optional<ExecuteQueryConfig::SqlMode> sql_mode_;
+  SQLBuilder::TargetSyntaxMode target_syntax_mode_;
   std::string query_;
   std::string catalog_;
   std::string enabled_language_features_;

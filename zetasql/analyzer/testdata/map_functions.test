@@ -435,43 +435,34 @@ SELECT MAP_ENTRIES_UNSORTED(MAP_FROM_ARRAY([("a", "b")]), "extra_arg")
 ==
 
 [default language_features=V_1_4_MAP_TYPE,V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
-[no_run_unparser]
-# Unparser explicit casting causes issues, so we must disable it.
-
 select MAP_FROM_ARRAY([(a, 1)]) from graph_table(
   aml
   match (a IS Person) -[e]-> (b IS Account)
 )
 --
-ERROR: Returning expressions of type GRAPH_ELEMENT is not allowed [at 3:1]
+ERROR: Returning expressions of type GRAPH_ELEMENT is not allowed [at 1:1]
 select MAP_FROM_ARRAY([(a, 1)]) from graph_table(
 ^
 ==
 
 [default language_features=V_1_4_MAP_TYPE,V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
-[no_run_unparser]
-# Unparser explicit casting causes issues, so we must disable it.
-
 select MAP_ENTRIES_SORTED(MAP_FROM_ARRAY([(a, 1)])) from graph_table(
   aml
   match (a IS Person) -[e]-> (b IS Account)
 )
 --
-ERROR: MAP_ENTRIES_SORTED map key type must be orderable, but was not: GRAPH_ELEMENT is not orderable [at 3:8]
+ERROR: MAP_ENTRIES_SORTED map key type must be orderable, but was not: GRAPH_ELEMENT is not orderable [at 1:8]
 select MAP_ENTRIES_SORTED(MAP_FROM_ARRAY([(a, 1)])) from graph_table(
        ^
 ==
 
 [default language_features=V_1_4_MAP_TYPE,V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
-[no_run_unparser]
-# Unparser explicit casting causes issues, so we must disable it.
-
 select MAP_ENTRIES_UNSORTED(MAP_FROM_ARRAY([(a, 1)])) from graph_table(
   aml
   match (a IS Person) -[e]-> (b IS Account)
 )
 --
-ERROR: Returning expressions of type GRAPH_ELEMENT is not allowed [at 3:1]
+ERROR: Returning expressions of type GRAPH_ELEMENT is not allowed [at 1:1]
 select MAP_ENTRIES_UNSORTED(MAP_FROM_ARRAY([(a, 1)])) from graph_table(
 ^
 ==

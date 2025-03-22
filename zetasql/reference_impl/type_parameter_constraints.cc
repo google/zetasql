@@ -16,12 +16,23 @@
 
 #include "zetasql/reference_impl/type_parameter_constraints.h"
 
+#include <cstdint>
 #include <limits>
 #include <string>
 #include <vector>
 
 #include "zetasql/public/functions/string.h"
+#include "zetasql/public/numeric_value.h"
+#include "zetasql/public/options.pb.h"
+#include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/type_parameters.h"
+#include "zetasql/public/value.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 

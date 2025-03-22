@@ -24,7 +24,6 @@
 #include <ostream>
 #include <queue>
 #include <string>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -175,7 +174,8 @@ bool IsChainableOperator(const Token& token) {
   // "=" can be either comparison or assignment.
   if (token.IsOneOf({Token::Type::CLOSE_BRACKET, Token::Type::OPEN_BRACKET,
                      Token::Type::ASSIGNMENT_OPERATOR,
-                     Token::Type::UNARY_OPERATOR})) {
+                     Token::Type::UNARY_OPERATOR,
+                     Token::Type::COMPLEX_TOKEN_START})) {
     return false;
   }
   if (token.Is(Token::Type::COMPARISON_OPERATOR)) {
@@ -206,8 +206,8 @@ bool CanBeUnaryOperator(absl::string_view keyword) {
 // "max + min + offset" or "date AND time").
 bool CanBePartOfExpression(const Token& token) {
   static const auto* forbidden = new zetasql_base::flat_set<absl::string_view>(
-      {";", ",", "BY", "DEFAULT", "DEFINE", "CASE", "ELSE", "INTERVAL", "ON",
-       "THEN", "WHEN"});
+      {"}", ";", ",", "BY", "DEFAULT", "DEFINE", "CASE", "ELSE", "INTERVAL",
+       "ON", "THEN", "WHEN"});
   return !IsTopLevelClauseKeyword(token) &&
          !forbidden->contains(token.GetKeyword());
 }
@@ -340,13 +340,15 @@ bool Chunk::SpaceBetweenTokens(const Token& token_before,
     return false;
   }
   // Map constructor:
-  // Always have space after ':' and after '{'
+  // Always have space after ':'
   // e.g.: "field1: { a: 1 ..."
-  if (token_before.Is(Token::Type::BRACED_CONSTR_COLON) ||
-      (token_before.Is(Token::Type::BRACED_CONSTR_OPEN_BRACKET) &&
-       token_before.GetKeyword() == "{")) {
+  if (token_before.Is(Token::Type::BRACED_CONSTR_COLON)) {
     return true;
-    // Always have space before '}'.
+    // Always have space after '{' unless it is empty message '{}'.
+  } else if (token_before.Is(Token::Type::BRACED_CONSTR_OPEN_BRACKET) &&
+             token_before.GetKeyword() == "{") {
+    return !(token_after.GetKeyword() == "}");
+    // Otherwise, add space before '}'.
   } else if (token_after.Is(Token::Type::BRACED_CONSTR_CLOSE_BRACKET) &&
              token_after.GetKeyword() == "}") {
     return true;
@@ -584,7 +586,7 @@ bool Chunk::IsTopLevelClauseChunk() const {
 }
 
 bool Chunk::IsSetOperator() const {
-  return !Empty() && IsSetOperatorToken(FirstToken());
+  return !Empty() && FirstToken().Is(Token::Type::SET_OPERATOR_START);
 }
 
 bool Chunk::LastKeywordsAre(absl::string_view k1, absl::string_view k2) const {
@@ -1243,7 +1245,7 @@ bool IsPartOfSameChunk(const Chunk& chunk, const std::vector<Token*>& tokens,
   //    multiline
   //    string"""
   if (current_token->IsValue() && current_token->IsMultiline()) {
-    return true;
+    return !IsTopLevelClauseKeyword(*previous_token);
   }
 
   // AS is another multi-purpose keyword. It can be used to rename, change type
@@ -2253,7 +2255,8 @@ void MarkAllDdlKeywords(const TokensView& tokens_view) {
 
 // Marks all slashed identifiers supported by ZetaSQL grammar for table names.
 // The slashed identifier always starts with '/' and may contain dashes ('-'),
-// colons (':') and dots.
+// colons (':') and dots. The dashed identifiers might start with 'something-'
+// and then are allowed to have more dots or dashes.
 void MarkAllSlashedIdentifiers(const TokensView& tokens_view) {
   const std::vector<Token*>& tokens = tokens_view.WithoutComments();
   // We consider a slashed identifier something that has at least 4 tokens:
@@ -2265,8 +2268,11 @@ void MarkAllSlashedIdentifiers(const TokensView& tokens_view) {
   }
   static const auto* allowed_separators =
       new zetasql_base::flat_set<absl::string_view>({":", "-", "/", "."});
+
+  int start;
   for (int t = 0; t < tokens.size() - 3; ++t) {
-    // The identifier should start with '/' and there should be some other
+    start = -1;
+    // The identifier can start with '/' and there should be some other
     // separator after the first path part.
     if (tokens[t]->GetKeyword() == "/" &&
         allowed_separators->contains(tokens[t + 2]->GetKeyword()) &&
@@ -2274,25 +2280,45 @@ void MarkAllSlashedIdentifiers(const TokensView& tokens_view) {
         // operand of the divide operator at tokens[t].
         (t == 0 || !CanBePartOfExpression(*tokens[t - 1]) ||
          tokens[t - 1]->GetKeyword() == "(")) {
-      // Find the end of identifier. Look only for tokens that don't have any
-      // spaces in between in the original input.
-      int end = t + 1;
-      while (end < tokens.size() &&
-             !SpaceBetweenTokensInInput(*tokens[end - 1], *tokens[end]) &&
-             (tokens[end]->MayBeIdentifier() ||
-              tokens[end]->IsNonPunctuationKeyword() ||
-              // A part of path expression could be an integer, e.g. '/path-1'.
-              (tokens[end]->IsValue() &&
-               tokens[end]->GetValue().type_kind() != zetasql::TYPE_STRING) ||
-              allowed_separators->contains(tokens[end]->GetKeyword()))) {
-        ++end;
-      }
-      if (end >= t + 3) {
-        for (int i = t + 1; i < end; ++i) {
-          tokens[i]->SetType(Token::Type::COMPLEX_TOKEN_CONTINUATION);
-        }
-      }
+      start = t;
+      // or identifier can start with 'something-something' - in this case, the
+      // start is previous token to '-'.
+    } else if (t > 0 && tokens[t]->GetKeyword() == "-" &&
+               tokens[t - 1]->MayBeIdentifier() &&
+               allowed_separators->contains(tokens[t + 2]->GetKeyword()) &&
+               // Previous token shouldn't be something that indicates we are in
+               // the middle of an expression.
+               (t == 1 || !IsRepeatableOperator(*tokens[t - 2]))) {
+      start = t - 1;
     }
+    if (start < 0) {
+      continue;
+    }
+
+    // Find the end of identifier. Look only for tokens that don't have any
+    // spaces in between in the original input.
+    int end = start + 1;
+    while (end < tokens.size() &&
+           !SpaceBetweenTokensInInput(*tokens[end - 1], *tokens[end]) &&
+           (tokens[end]->MayBeIdentifier() ||
+            tokens[end]->IsNonPunctuationKeyword() ||
+            // A part of path expression could be an integer, e.g. '/path-1'.
+            (tokens[end]->IsValue() &&
+             tokens[end]->GetValue().type_kind() != zetasql::TYPE_STRING) ||
+            allowed_separators->contains(tokens[end]->GetKeyword()))) {
+      ++end;
+    }
+    if (end <= start + 3) {
+      // The smallest path should be at least 3 tokens long
+      continue;
+    }
+    if (tokens[start]->Is(Token::Type::UNKNOWN)) {
+      tokens[start]->SetType(Token::Type::COMPLEX_TOKEN_START);
+    }
+    for (int i = start + 1; i < end; ++i) {
+      tokens[i]->SetType(Token::Type::COMPLEX_TOKEN_CONTINUATION);
+    }
+    t = end - 1;
   }
 }
 
@@ -2591,15 +2617,13 @@ ChunkBlock::ChunkBlock(ChunkBlockFactory* block_factory)
       parent_(nullptr),
       chunk_(nullptr) {}
 
-ChunkBlock::ChunkBlock(ChunkBlockFactory* block_factory, ChunkBlock* parent,
-                       int offset)
+ChunkBlock::ChunkBlock(ChunkBlockFactory* block_factory, ChunkBlock* parent)
     : block_factory_(ABSL_DIE_IF_NULL(block_factory)),
       parent_(ABSL_DIE_IF_NULL(parent)),
       chunk_(nullptr) {
-  if (offset == 0) {
-    offset = block_factory_->IndentationSpaces();
-  }
-  level_ = parent->IsTopLevel() ? 0 : parent->Level() + offset;
+  level_ = parent->IsTopLevel()
+               ? 0
+               : parent->level_ + block_factory_->IndentationSpaces();
 }
 
 ChunkBlock::ChunkBlock(ChunkBlockFactory* block_factory, ChunkBlock* parent,
@@ -2607,7 +2631,8 @@ ChunkBlock::ChunkBlock(ChunkBlockFactory* block_factory, ChunkBlock* parent,
     : block_factory_(ABSL_DIE_IF_NULL(block_factory)),
       parent_(ABSL_DIE_IF_NULL(parent)),
       chunk_(ABSL_DIE_IF_NULL(chunk)) {
-  level_ = parent->IsTopLevel() ? 0 : parent->Level();
+  level_ = parent->IsTopLevel() ? 0 : parent->level_;
+  extra_offset_ = parent->extra_offset_;
   chunk->SetChunkBlock(this);
 }
 
@@ -2645,106 +2670,108 @@ class Chunk* ChunkBlock::LastChunkUnder() const {
   return nullptr;
 }
 
-void ChunkBlock::AddSameLevelChunk(class Chunk* chunk) {
+ChunkBlock* ChunkBlock::AddSameLevelChunk(class Chunk* chunk) {
   if (IsTopLevel()) {
     // For top, there is no same level. There is only indented block.
-    AddIndentedChunk(chunk);
+    return AddIndentedChunk(chunk);
   } else {
-    parent_->AddChildChunk(chunk);
+    return parent_->AddChildChunk(chunk);
   }
 }
 
-void ChunkBlock::AddSameLevelCousinChunk(class Chunk* chunk) {
+ChunkBlock* ChunkBlock::AddSameLevelCousinChunk(class Chunk* chunk) {
   if (IsTopLevel()) {
     // For top, there is no same level. There is only indented block.
-    AddIndentedChunk(chunk);
+    return AddIndentedChunk(chunk);
   } else {
-    parent_->AddIndentedChunk(chunk);
+    return parent_->AddIndentedChunk(chunk);
   }
 }
 
-void ChunkBlock::AddIndentedChunk(class Chunk* chunk, int offset) {
+ChunkBlock* ChunkBlock::AddIndentedChunk(class Chunk* chunk) {
   if (IsTopLevel()) {
     // Top is a bit special, because it never contains chunks directly and
     // doesn't have a parent. The operation is the same, but we don't perform it
     // on the parent, but rather the node itself.
-    AddChildBlockWithGrandchildChunk(chunk, offset);
+    return AddChildBlockWithGrandchildChunk(chunk);
   } else {
-    parent_->AddChildBlockWithGrandchildChunk(chunk, offset);
+    return parent_->AddChildBlockWithGrandchildChunk(chunk);
   }
 }
 
-void ChunkBlock::AddSameLevelChunkImmediatelyBefore(class Chunk* chunk) {
+ChunkBlock* ChunkBlock::AddSameLevelChunkImmediatelyBefore(class Chunk* chunk) {
   if (IsTopLevel()) {
     // This doesn't make any sense for top, since it has no before.
-    AddIndentedChunk(chunk);
+    return AddIndentedChunk(chunk);
   } else {
-    parent_->AddChunkBefore(chunk, this);
+    return parent_->AddChunkBefore(chunk, this);
   }
 }
 
-void ChunkBlock::AddIndentedChunkImmediatelyBefore(class Chunk* chunk) {
+ChunkBlock* ChunkBlock::AddIndentedChunkImmediatelyBefore(class Chunk* chunk) {
   if (IsTopLevel()) {
     // This doesn't make any sense for top, since it has no before.
-    AddIndentedChunk(chunk);
+    return AddIndentedChunk(chunk);
   } else {
-    parent_->AddIndentedChunkBefore(chunk, this);
+    return parent_->AddIndentedChunkBefore(chunk, this);
   }
 }
 
-void ChunkBlock::AddChildChunk(class Chunk* chunk) {
+ChunkBlock* ChunkBlock::AddChildChunk(class Chunk* chunk) {
   if (IsTopLevel()) {
     // For top, all children are indented.
-    AddIndentedChunk(chunk);
+    return AddIndentedChunk(chunk);
   } else {
-    children_.push_back(block_factory_->NewChunkBlock(this, chunk));
+    ChunkBlock* new_block = block_factory_->NewChunkBlock(this, chunk);
+    children_.push_back(new_block);
+    return new_block;
   }
 }
 
-void ChunkBlock::AddChildBlockWithGrandchildChunk(class Chunk* chunk,
-                                                  int offset) {
-  ChunkBlock* new_block = block_factory_->NewChunkBlock(this, offset);
+ChunkBlock* ChunkBlock::AddChildBlockWithGrandchildChunk(class Chunk* chunk) {
+  ChunkBlock* new_block = block_factory_->NewChunkBlock(this);
   children_.push_back(new_block);
-  new_block->AddChildChunk(chunk);
+  return new_block->AddChildChunk(chunk);
 }
 
-void ChunkBlock::AddChunkBefore(class Chunk* chunk, ChunkBlock* block) {
+ChunkBlock* ChunkBlock::AddChunkBefore(class Chunk* chunk, ChunkBlock* block) {
   if (IsTopLevel()) {
-    AddIndentedChunk(chunk);
-  } else {
-    for (auto it = children_.begin(); it != children_.end(); ++it) {
-      if (*it == block) {
-        children_.insert(it, block_factory_->NewChunkBlock(this, chunk));
-        return;
-      }
-    }
-    ABSL_DLOG(FATAL) << "Given block is not a child of this chunk block.\n"
-                   "*this:\n"
-                << DebugString() << "\nblock:\n"
-                << block->DebugString();
+    return AddIndentedChunk(chunk);
   }
-}
 
-void ChunkBlock::AddIndentedChunkBefore(class Chunk* chunk, ChunkBlock* block) {
   for (auto it = children_.begin(); it != children_.end(); ++it) {
     if (*it == block) {
-      Children::iterator new_block =
-          children_.insert(it, block_factory_->NewChunkBlock(this));
-      (*new_block)->AddChildChunk(chunk);
-      return;
+      return *children_.insert(it, block_factory_->NewChunkBlock(this, chunk));
     }
   }
   ABSL_DLOG(FATAL) << "Given block is not a child of this chunk block.\n"
                  "*this:\n"
               << DebugString() << "\nblock:\n"
               << block->DebugString();
+  return nullptr;
+}
+
+ChunkBlock* ChunkBlock::AddIndentedChunkBefore(class Chunk* chunk,
+                                               ChunkBlock* block) {
+  for (auto it = children_.begin(); it != children_.end(); ++it) {
+    if (*it == block) {
+      Children::iterator new_block =
+          children_.insert(it, block_factory_->NewChunkBlock(this));
+      return (*new_block)->AddChildChunk(chunk);
+    }
+  }
+  ABSL_DLOG(FATAL) << "Given block is not a child of this chunk block.\n"
+                 "*this:\n"
+              << DebugString() << "\nblock:\n"
+              << block->DebugString();
+  return nullptr;
 }
 
 void ChunkBlock::AdoptChildBlock(ChunkBlock* block) {
   block->parent_ = this;
 
   // Fix the levels of all children. Avoid recursion for stack protection.
-  int level_offset = Level() - block->Level();
+  int level_offset = level_ - block->level_;
   if (!block->IsLeaf()) {
     level_offset += block_factory_->IndentationSpaces();
   }
@@ -2817,6 +2844,19 @@ ChunkBlock* ChunkBlock::FindPreviousSiblingBlock() const {
   return nullptr;
 }
 
+void ChunkBlock::SetMinOffset(int min_offset) {
+  // Minimal offset can be set only for leaf blocks (with chunks) that already
+  // have non-0 offset.
+  if (IsTopLevel() || !IsLeaf() || level_ == 0) {
+    return;
+  }
+  const int current_offset = level_ - parent_->parent_->level_;
+  if (current_offset < min_offset) {
+    extra_offset_ = min_offset - current_offset;
+  }
+  parent_->extra_offset_ = extra_offset_;
+}
+
 std::string ChunkBlock::DebugString(int indent) const {
   std::string padding;
   padding.append(indent * 2, ' ');
@@ -2870,9 +2910,9 @@ ChunkBlock* ChunkBlockFactory::NewChunkBlock() {
   return blocks_.back().get();
 }
 
-ChunkBlock* ChunkBlockFactory::NewChunkBlock(ChunkBlock* parent, int offset) {
+ChunkBlock* ChunkBlockFactory::NewChunkBlock(ChunkBlock* parent) {
   // Using `new` to access a non-public constructor.
-  blocks_.emplace_back(absl::WrapUnique(new ChunkBlock(this, parent, offset)));
+  blocks_.emplace_back(absl::WrapUnique(new ChunkBlock(this, parent)));
   return blocks_.back().get();
 }
 

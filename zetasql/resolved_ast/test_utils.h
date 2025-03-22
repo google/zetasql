@@ -22,7 +22,14 @@
 #include <utility>
 #include <vector>
 
+#include "zetasql/public/catalog.h"
+#include "zetasql/public/function.h"
+#include "zetasql/public/id_string.h"
+#include "zetasql/public/types/type.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 
 namespace zetasql {
 namespace testing {

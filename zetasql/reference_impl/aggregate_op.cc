@@ -30,6 +30,7 @@
 #include "zetasql/common/thread_stack.h"
 #include "zetasql/public/collator.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/type.pb.h"
 #include "zetasql/public/value.h"
 #include "zetasql/reference_impl/common.h"
 #include "zetasql/reference_impl/evaluation.h"
@@ -41,6 +42,7 @@
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_collation.h"
 #include "absl/cleanup/cleanup.h"
+#include "absl/container/btree_map.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/flags/flag.h"
@@ -52,7 +54,6 @@
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
-#include "absl/types/optional.h"
 #include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
@@ -2452,8 +2453,10 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> RowsForUdaOp::CreateIterator(
 // GraphPathSearchOp
 // -------------------------------------------------------
 
-GraphPathSearchOp::GraphPathSearchOp(std::unique_ptr<RelationalOp> path_op) {
+GraphPathSearchOp::GraphPathSearchOp(std::unique_ptr<RelationalOp> path_op,
+                                     std::unique_ptr<ValueExpr> path_count) {
   SetArg(kInput, std::make_unique<RelationalArg>(std::move(path_op)));
+  path_count_ = std::move(path_count);
 }
 
 std::string GraphPathSearchOp::IteratorDebugString() const {
@@ -2467,7 +2470,11 @@ std::unique_ptr<TupleSchema> GraphPathSearchOp::CreateOutputSchema() const {
 
 absl::Status GraphPathSearchOp::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> params_schemas) {
-  return mutable_input()->SetSchemasForEvaluation(params_schemas);
+  ZETASQL_RETURN_IF_ERROR(mutable_input()->SetSchemasForEvaluation(params_schemas));
+  if (path_count_ != nullptr) {
+    ZETASQL_RETURN_IF_ERROR(path_count_->SetSchemasForEvaluation(params_schemas));
+  }
+  return absl::OkStatus();
 }
 
 const RelationalOp* GraphPathSearchOp::input() const {
@@ -2537,8 +2544,27 @@ absl::StatusOr<std::unique_ptr<TupleIterator>>
 GraphPathSearchOp::CreateIterator(absl::Span<const TupleData* const> params,
                                   int num_extra_slots,
                                   EvaluationContext* context) const {
+  // By default, if no path count is specified, we return 1 path from each
+  // partition.
+  int64_t path_count_value = 1;
+  if (path_count_ != nullptr) {
+    TupleSlot bound_slot;
+    absl::Status status;
+    ZETASQL_RET_CHECK(path_count_->EvalSimple(params, context, &bound_slot, &status))
+        << status;
+    if (bound_slot.value().is_null()) {
+      return absl::Status(absl::StatusCode::kOutOfRange,
+                          "Path count must not be null");
+    }
+    ZETASQL_RET_CHECK(bound_slot.value().type_kind() == TYPE_INT64);
+    path_count_value = bound_slot.value().int64_value();
+    if (path_count_value < 0) {
+      return absl::Status(absl::StatusCode::kOutOfRange,
+                          "Path count must be 0 or greater");
+    }
+  }
   // The key's memory is owned by the <group_keys_memory> defined below.
-  absl::flat_hash_map<TupleDataPtr, SelectedPathInGroup>
+  absl::flat_hash_map<TupleDataPtr, SelectedPathsInPartition>
       group_key_to_selected_path;
   std::vector<std::unique_ptr<TupleData>> group_keys_memory;
   ZETASQL_ASSIGN_OR_RETURN(
@@ -2546,7 +2572,8 @@ GraphPathSearchOp::CreateIterator(absl::Span<const TupleData* const> params,
       input()->CreateIterator(params, /*num_extra_slots*/ 0, context));
 
   // Read all input.
-  while (true) {
+  // Skip processing if path_count_value is 0.
+  while (path_count_value > 0) {
     const TupleData* next_input = input_iter->Next();
     if (next_input == nullptr) {
       ZETASQL_RETURN_IF_ERROR(input_iter->Status());
@@ -2554,36 +2581,49 @@ GraphPathSearchOp::CreateIterator(absl::Span<const TupleData* const> params,
     }
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<TupleData> group_key,
                      BuildHeadAndTailAsGroupKey(next_input));
-    SelectedPathInGroup* found_selected_path = zetasql_base::FindOrNull(
+    SelectedPathsInPartition* found_selected_path = zetasql_base::FindOrNull(
         group_key_to_selected_path, TupleDataPtr(group_key.get()));
     if (found_selected_path == nullptr) {
-      // Create a new SelectedPathInGroup and insert it into the map.
+      // Create a new SelectedPathsInPartition and insert it into the map.
       ZETASQL_ASSIGN_OR_RETURN(const int path_len, GetPathLength(next_input));
       auto copied_path = std::make_unique<TupleData>(next_input->slots());
+      std::vector<std::unique_ptr<TupleData>> copied_path_vector;
+      copied_path_vector.push_back(std::move(copied_path));
+      absl::btree_map<int, std::vector<std::unique_ptr<TupleData>>>
+          path_length_to_paths;
+      path_length_to_paths.emplace(path_len, std::move(copied_path_vector));
       group_key_to_selected_path.emplace(
           TupleDataPtr(group_key.get()),
-          SelectedPathInGroup{std::move(copied_path), path_len,
-                              /*tie_count=*/1});
+          SelectedPathsInPartition{std::move(path_length_to_paths),
+                                   /*path_count=*/1,
+                                   /*detected_tie=*/false});
       group_keys_memory.push_back(std::move(group_key));
     } else {
-      ZETASQL_RETURN_IF_ERROR(
-          MaybeUpdateSelectedPath(*found_selected_path, next_input, context));
+      ZETASQL_RETURN_IF_ERROR(MaybeUpdateSelectedPath(*found_selected_path, next_input,
+                                              context, path_count_value));
     }
   }
 
   // Build the tuples for return.
   auto tuples = std::make_unique<TupleDataDeque>(context->memory_accountant());
-  for (auto& [unused_key, selected_path] : group_key_to_selected_path) {
-    if (selected_path.tie_count > 1) {
-      // There can be >1 correct results when ties exist , so mark the result as
-      // non-deterministic.
+  for (auto& [unused_key, selected_paths_in_partition] :
+       group_key_to_selected_path) {
+    if (selected_paths_in_partition.detected_tie) {
       context->SetNonDeterministicOutput();
     }
-    selected_path.path->AddSlots(num_extra_slots);
-    absl::Status status;
-    if (!tuples->PushBack(std::move(selected_path.path), &status)) {
-      return status;
+    int64_t num_paths_processed = 0;
+    for (auto& [unused_path_len, paths] :
+         selected_paths_in_partition.path_length_to_paths) {
+      for (auto& path : paths) {
+        path->AddSlots(num_extra_slots);
+        absl::Status status;
+        if (!tuples->PushBack(std::move(path), &status)) {
+          return status;
+        }
+        ++num_paths_processed;
+      }
     }
+    ZETASQL_RET_CHECK_LE(num_paths_processed, path_count_value);
   }
   group_keys_memory.clear();
   group_key_to_selected_path.clear();
@@ -2603,24 +2643,47 @@ std::string GraphPathSearchOp::DebugInternalHelper(
 }
 
 absl::StatusOr<std::unique_ptr<GraphPathSearchOp>>
-GraphShortestPathSearchOp::Create(std::unique_ptr<RelationalOp> path_op) {
-  return absl::WrapUnique(new GraphShortestPathSearchOp(std::move(path_op)));
+GraphShortestPathSearchOp::Create(std::unique_ptr<RelationalOp> path_op,
+                                  std::unique_ptr<ValueExpr> path_count) {
+  if (path_count != nullptr) {
+    ZETASQL_RET_CHECK(path_count->output_type()->IsInt64());
+  }
+  return absl::WrapUnique(
+      new GraphShortestPathSearchOp(std::move(path_op), std::move(path_count)));
 }
 
 absl::Status GraphShortestPathSearchOp::MaybeUpdateSelectedPath(
-    GraphPathSearchOp::SelectedPathInGroup& selected_path,
-    const TupleData* next_input, EvaluationContext* context) const {
-  ZETASQL_ASSIGN_OR_RETURN(const int next_input_len, GetPathLength(next_input));
-  if (next_input_len > selected_path.path_len) {
-    return absl::OkStatus();
+    GraphPathSearchOp::SelectedPathsInPartition& selected_paths,
+    const TupleData* next_input, EvaluationContext* context,
+    int64_t max_path_count) const {
+  if (selected_paths.path_count >= max_path_count) {
+    int prev_max_len = selected_paths.path_length_to_paths.rbegin()->first;
+    ZETASQL_ASSIGN_OR_RETURN(const int next_input_len, GetPathLength(next_input));
+    if (next_input_len < prev_max_len) {
+      // Push new path only if it is shorter than the current longest path,
+      // then we know it must be in the shortest K.
+      selected_paths.path_length_to_paths[next_input_len].push_back(
+          std::make_unique<TupleData>(next_input->slots()));
+      // Remove one of the current longest paths.
+      ZETASQL_RET_CHECK_GT(selected_paths.path_length_to_paths[prev_max_len].size(), 0);
+      selected_paths.path_length_to_paths[prev_max_len].pop_back();
+      if (selected_paths.path_length_to_paths[prev_max_len].empty()) {
+        selected_paths.path_length_to_paths.erase(prev_max_len);
+        selected_paths.detected_tie = false;
+      } else {
+        selected_paths.detected_tie = true;
+      }
+    } else if (next_input_len == prev_max_len) {
+      // Don't replace the path, but note that we have a tie.
+      selected_paths.detected_tie = true;
+    }
+  } else {
+    ++selected_paths.path_count;
+    ZETASQL_ASSIGN_OR_RETURN(const int next_input_len, GetPathLength(next_input));
+    auto copied_path = std::make_unique<TupleData>(next_input->slots());
+    selected_paths.path_length_to_paths[next_input_len].push_back(
+        std::move(copied_path));
   }
-  if (next_input_len == selected_path.path_len) {
-    ++selected_path.tie_count;
-    return absl::OkStatus();
-  }
-  selected_path.path = std::make_unique<TupleData>(next_input->slots());
-  selected_path.path_len = next_input_len;
-  selected_path.tie_count = 1;
   return absl::OkStatus();
 }
 
@@ -2630,14 +2693,28 @@ std::string GraphShortestPathSearchOp::DebugInternal(const std::string& indent,
 }
 
 absl::StatusOr<std::unique_ptr<GraphPathSearchOp>> GraphAnyPathSearchOp::Create(
-    std::unique_ptr<RelationalOp> path_op) {
-  return absl::WrapUnique(new GraphAnyPathSearchOp(std::move(path_op)));
+    std::unique_ptr<RelationalOp> path_op,
+    std::unique_ptr<ValueExpr> path_count) {
+  if (path_count != nullptr) {
+    ZETASQL_RET_CHECK(path_count->output_type()->IsInt64());
+  }
+  return absl::WrapUnique(
+      new GraphAnyPathSearchOp(std::move(path_op), std::move(path_count)));
 }
 
 absl::Status GraphAnyPathSearchOp::MaybeUpdateSelectedPath(
-    GraphPathSearchOp::SelectedPathInGroup& selected_path,
-    const TupleData* next_input, EvaluationContext* context) const {
-  ++selected_path.tie_count;
+    GraphPathSearchOp::SelectedPathsInPartition& selected_paths,
+    const TupleData* next_input, EvaluationContext* context,
+    int64_t max_path_count) const {
+  if (selected_paths.path_count >= max_path_count) {
+    selected_paths.detected_tie = true;
+  } else {
+    ++selected_paths.path_count;
+    ZETASQL_ASSIGN_OR_RETURN(const int next_input_len, GetPathLength(next_input));
+    auto copied_path = std::make_unique<TupleData>(next_input->slots());
+    selected_paths.path_length_to_paths[next_input_len].push_back(
+        std::move(copied_path));
+  }
   return absl::OkStatus();
 }
 

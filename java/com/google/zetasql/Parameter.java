@@ -19,14 +19,12 @@ package com.google.zetasql;
 
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableMap;
-import com.google.errorprone.annotations.CheckReturnValue;
 import java.util.Map;
 
 /**
  * Class containing utility methods for processing the parameters used in prepared expressions,
  * queries or modify statements
  */
-@CheckReturnValue // see (broken link)
 final class Parameter {
 
   private Parameter() {}

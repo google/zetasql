@@ -349,7 +349,7 @@ alter table foo-123.bar ADD constraint a_is_positive check(a>0);
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `foo-123.bar` [at 1:13]
+ERROR: Syntax error: Table name contains '-' character. The dashed identifier part of the table name needs to be quoted: `foo-123` [at 1:13]
 alter table foo-123.bar ADD constraint a_is_positive check(a>0);
             ^
 --

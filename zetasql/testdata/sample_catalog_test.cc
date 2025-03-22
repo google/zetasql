@@ -16,6 +16,10 @@
 
 #include "zetasql/testdata/sample_catalog.h"
 
+#include <string>
+#include <utility>
+#include <vector>
+
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/function.h"

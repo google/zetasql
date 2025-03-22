@@ -1,3 +1,4 @@
+
 CREATE CONNECTION foo
 --
 CreateConnectionStmt(name_path=foo)
@@ -65,7 +66,7 @@ CREATE TEMP CONNECTION foo OPTIONS(x=1)
             ^
 ==
 
-[show_unparsed]
+[show_sqlbuilder_output]
 CREATE CONNECTION foo OPTIONS(x=1)
 --
 CreateConnectionStmt
@@ -73,11 +74,16 @@ CreateConnectionStmt
 +-option_list=
   +-x := Literal(type=INT64, value=1)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+CREATE CONNECTION foo OPTIONS(x = 1);
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 CREATE CONNECTION foo OPTIONS(x = 1);
 ==
 
-[show_unparsed]
+[show_sqlbuilder_output]
 CREATE OR REPLACE CONNECTION foo OPTIONS(x=1)
 --
 CreateConnectionStmt
@@ -86,11 +92,16 @@ CreateConnectionStmt
 +-option_list=
   +-x := Literal(type=INT64, value=1)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+CREATE OR REPLACE CONNECTION foo OPTIONS(x = 1);
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 CREATE OR REPLACE CONNECTION foo OPTIONS(x = 1);
 ==
 
-[show_unparsed]
+[show_sqlbuilder_output]
 CREATE CONNECTION IF NOT EXISTS foo OPTIONS(x=1)
 --
 CreateConnectionStmt
@@ -99,5 +110,10 @@ CreateConnectionStmt
 +-option_list=
   +-x := Literal(type=INT64, value=1)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+CREATE CONNECTION IF NOT EXISTS foo OPTIONS(x = 1);
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 CREATE CONNECTION IF NOT EXISTS foo OPTIONS(x = 1);

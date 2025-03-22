@@ -591,7 +591,7 @@ canonical equivalence.
 
 ## `ASCII`
 
-```sql
+```zetasql
 ASCII(value)
 ```
 
@@ -607,7 +607,7 @@ or byte.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT ASCII('abcd') as A, ASCII('a') as B, ASCII('') as C, ASCII(NULL) as D;
 
 /*-------+-------+-------+-------*
@@ -619,7 +619,7 @@ SELECT ASCII('abcd') as A, ASCII('a') as B, ASCII('') as C, ASCII(NULL) as D;
 
 ## `BYTE_LENGTH`
 
-```sql
+```zetasql
 BYTE_LENGTH(value)
 ```
 
@@ -634,7 +634,7 @@ regardless of whether the value is a `STRING` or `BYTES` type.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT BYTE_LENGTH('абвгд') AS string_example;
 
 /*----------------*
@@ -644,7 +644,7 @@ SELECT BYTE_LENGTH('абвгд') AS string_example;
  *----------------*/
 ```
 
-```sql
+```zetasql
 SELECT BYTE_LENGTH(b'абвгд') AS bytes_example;
 
 /*----------------*
@@ -656,7 +656,7 @@ SELECT BYTE_LENGTH(b'абвгд') AS bytes_example;
 
 ## `CHAR_LENGTH`
 
-```sql
+```zetasql
 CHAR_LENGTH(value)
 ```
 
@@ -670,7 +670,7 @@ Gets the number of characters in a `STRING` value.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT CHAR_LENGTH('абвгд') AS char_length;
 
 /*-------------*
@@ -682,7 +682,7 @@ SELECT CHAR_LENGTH('абвгд') AS char_length;
 
 ## `CHARACTER_LENGTH`
 
-```sql
+```zetasql
 CHARACTER_LENGTH(value)
 ```
 
@@ -696,7 +696,7 @@ Synonym for [CHAR_LENGTH][string-link-to-char-length].
 
 **Examples**
 
-```sql
+```zetasql
 SELECT
   'абвгд' AS characters,
   CHARACTER_LENGTH('абвгд') AS char_length_example
@@ -712,7 +712,7 @@ SELECT
 
 ## `CHR`
 
-```sql
+```zetasql
 CHR(value)
 ```
 
@@ -733,7 +733,7 @@ To work with an array of Unicode code points, see
 
 **Examples**
 
-```sql
+```zetasql
 SELECT CHR(65) AS A, CHR(255) AS B, CHR(513) AS C, CHR(1024)  AS D;
 
 /*-------+-------+-------+-------*
@@ -743,7 +743,7 @@ SELECT CHR(65) AS A, CHR(255) AS B, CHR(513) AS C, CHR(1024)  AS D;
  *-------+-------+-------+-------*/
 ```
 
-```sql
+```zetasql
 SELECT CHR(97) AS A, CHR(0xF9B5) AS B, CHR(0) AS C, CHR(NULL) AS D;
 
 /*-------+-------+-------+-------*
@@ -759,7 +759,7 @@ SELECT CHR(97) AS A, CHR(0xF9B5) AS B, CHR(0) AS C, CHR(NULL) AS D;
 
 ## `CODE_POINTS_TO_BYTES`
 
-```sql
+```zetasql
 CODE_POINTS_TO_BYTES(ascii_code_points)
 ```
 
@@ -780,7 +780,7 @@ To convert from `BYTES` to an array of code points, see
 
 The following is a basic example using `CODE_POINTS_TO_BYTES`.
 
-```sql
+```zetasql
 SELECT CODE_POINTS_TO_BYTES([65, 98, 67, 100]) AS bytes;
 
 /*----------*
@@ -793,7 +793,7 @@ SELECT CODE_POINTS_TO_BYTES([65, 98, 67, 100]) AS bytes;
 The following example uses a rotate-by-13 places (ROT13) algorithm to encode a
 string.
 
-```sql
+```zetasql
 SELECT CODE_POINTS_TO_BYTES(ARRAY_AGG(
   (SELECT
       CASE
@@ -823,7 +823,7 @@ FROM UNNEST(TO_CODE_POINTS(b'Test String!')) code WITH OFFSET;
 
 ## `CODE_POINTS_TO_STRING`
 
-```sql
+```zetasql
 CODE_POINTS_TO_STRING(unicode_code_points)
 ```
 
@@ -843,7 +843,7 @@ To convert from a string to an array of code points, see
 
 The following are basic examples using `CODE_POINTS_TO_STRING`.
 
-```sql
+```zetasql
 SELECT CODE_POINTS_TO_STRING([65, 255, 513, 1024]) AS string;
 
 /*--------*
@@ -853,7 +853,7 @@ SELECT CODE_POINTS_TO_STRING([65, 255, 513, 1024]) AS string;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT CODE_POINTS_TO_STRING([97, 0, 0xF9B5]) AS string;
 
 /*--------*
@@ -863,7 +863,7 @@ SELECT CODE_POINTS_TO_STRING([97, 0, 0xF9B5]) AS string;
  *--------*/
 ```
 
-```sql
+```zetasql
 SELECT CODE_POINTS_TO_STRING([65, 255, NULL, 1024]) AS string;
 
 /*--------*
@@ -875,7 +875,7 @@ SELECT CODE_POINTS_TO_STRING([65, 255, NULL, 1024]) AS string;
 
 The following example computes the frequency of letters in a set of words.
 
-```sql
+```zetasql
 WITH Words AS (
   SELECT word
   FROM UNNEST(['foo', 'bar', 'baz', 'giraffe', 'llama']) AS word
@@ -911,7 +911,7 @@ ORDER BY 2 DESC;
 
 ## `COLLATE`
 
-```sql
+```zetasql
 COLLATE(value, collate_specification)
 ```
 
@@ -936,7 +936,7 @@ and sorted. To learn more, see
 In this example, the weight of `a` is less than the weight of `Z`. This
 is because the collate specification, `und:ci` assigns more weight to `Z`.
 
-```sql
+```zetasql
 WITH Words AS (
   SELECT
     COLLATE('a', 'und:ci') AS char1,
@@ -955,7 +955,7 @@ FROM Words;
 In this example, the weight of `a` is greater than the weight of `Z`. This
 is because the default collate specification assigns more weight to `a`.
 
-```sql
+```zetasql
 WITH Words AS (
   SELECT
     'a' AS char1,
@@ -977,7 +977,7 @@ FROM Words;
 
 ## `CONCAT`
 
-```sql
+```zetasql
 CONCAT(value1[, ...])
 ```
 
@@ -998,7 +998,7 @@ values into a string.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT CONCAT('T.P.', ' ', 'Bar') as author;
 
 /*---------------------*
@@ -1008,7 +1008,7 @@ SELECT CONCAT('T.P.', ' ', 'Bar') as author;
  *---------------------*/
 ```
 
-```sql
+```zetasql
 SELECT CONCAT('Summer', ' ', 1923) as release_date;
 
 /*---------------------*
@@ -1018,7 +1018,7 @@ SELECT CONCAT('Summer', ' ', 1923) as release_date;
  *---------------------*/
 ```
 
-```sql
+```zetasql
 
 With Employees AS
   (SELECT
@@ -1051,7 +1051,7 @@ FROM Employees;
 
 ## `EDIT_DISTANCE`
 
-```sql
+```zetasql
 EDIT_DISTANCE(
   value1,
   value2,
@@ -1068,7 +1068,7 @@ Computes the [Levenshtein distance][l-distance] between two `STRING` or
 
 +   `value1`: The first `STRING` or `BYTES` value to compare.
 +   `value2`: The second `STRING` or `BYTES` value to compare.
-+   `max_distance`: A named argument with a `INT64` value that is greater than
++   `max_distance`: A named argument with a `INT64` value that's greater than
     or equal to zero. Represents the maximum distance between the two values
     to compute.
 
@@ -1090,7 +1090,7 @@ You can only compare values of the same type. Otherwise, an error is produced.
 
 In the following example, the first character in both strings is different:
 
-```sql
+```zetasql
 SELECT EDIT_DISTANCE('a', 'b') AS results;
 
 /*---------*
@@ -1103,7 +1103,7 @@ SELECT EDIT_DISTANCE('a', 'b') AS results;
 In the following example, the first and second characters in both strings are
 different:
 
-```sql
+```zetasql
 SELECT EDIT_DISTANCE('aa', 'b') AS results;
 
 /*---------*
@@ -1116,7 +1116,7 @@ SELECT EDIT_DISTANCE('aa', 'b') AS results;
 In the following example, only the first character in both strings is
 different:
 
-```sql
+```zetasql
 SELECT EDIT_DISTANCE('aa', 'ba') AS results;
 
 /*---------*
@@ -1130,7 +1130,7 @@ In the following example, the last six characters are different, but because
 the maximum distance is `2`, this function exits early and returns `2`, the
 maximum distance:
 
-```sql
+```zetasql
 SELECT EDIT_DISTANCE('abcdefg', 'a', max_distance => 2) AS results;
 
 /*---------*
@@ -1144,7 +1144,7 @@ SELECT EDIT_DISTANCE('abcdefg', 'a', max_distance => 2) AS results;
 
 ## `ENDS_WITH`
 
-```sql
+```zetasql
 ENDS_WITH(value, suffix)
 ```
 
@@ -1163,7 +1163,7 @@ This function supports specifying [collation][collation].
 
 **Examples**
 
-```sql
+```zetasql
 SELECT ENDS_WITH('apple', 'e') as example
 
 /*---------*
@@ -1176,7 +1176,7 @@ SELECT ENDS_WITH('apple', 'e') as example
 ## `FORMAT` 
 <a id="format_string"></a>
 
-```sql
+```zetasql
 FORMAT(format_string_expression, data_type_expression[, ...])
 ```
 
@@ -1190,7 +1190,7 @@ FORMAT(format_string_expression, data_type_expression[, ...])
   In general, this is a one-to-one mapping, except when the `*` specifier is
   present. For example, `%.*i` maps to two arguments&mdash;a length argument
   and a signed integer argument.  If the number of arguments related to the
-  format specifiers is not the same as the number of arguments, an error occurs.
+  format specifiers isn't the same as the number of arguments, an error occurs.
 + `data_type_expression`: The value to format as a string. This can be any
   ZetaSQL data type.
 
@@ -1251,14 +1251,14 @@ America/Los_Angeles')</td>
 </tr>
 </table>
 
-The `FORMAT()` function does not provide fully customizable formatting for all
-types and values, nor formatting that is sensitive to locale.
+The `FORMAT()` function doesn't provide fully customizable formatting for all
+types and values, nor formatting that's sensitive to locale.
 
 If custom formatting is necessary for a type, you must first format it using
 type-specific format functions, such as `FORMAT_DATE()` or `FORMAT_TIMESTAMP()`.
 For example:
 
-```sql
+```zetasql
 SELECT FORMAT('date: %s!', FORMAT_DATE('%B %d, %Y', date '2015-01-02'));
 ```
 
@@ -1519,7 +1519,7 @@ month: 10
  <tr>
     <td><code>T</code></td>
     <td>
-      Produces a string that is a valid ZetaSQL constant with a
+      Produces a string that's a valid ZetaSQL constant with a
       similar type to the value's type (maybe wider, or maybe string).
       See <a href="#t_and_t_behavior">%t and %T behavior</a>.
     </td>
@@ -1604,8 +1604,8 @@ value</td>
  </tr>
 </table>
 
-Flags may be specified in any order. Duplicate flags are not an error. When
-flags are not relevant for some element type, they are ignored.
+Flags may be specified in any order. Duplicate flags aren't an error. When
+flags aren't relevant for some element type, they are ignored.
 
 ##### Width 
 <a id="width"></a>
@@ -1620,13 +1620,13 @@ flags are not relevant for some element type, they are ignored.
     <td>
       Minimum number of characters to be printed. If the value to be printed
       is shorter than this number, the result is padded with blank spaces.
-      The value is not truncated even if the result is larger
+      The value isn't truncated even if the result is larger
     </td>
   </tr>
   <tr>
     <td><code>*</code></td>
     <td>
-      The width is not specified in the format string, but as an additional
+      The width isn't specified in the format string, but as an additional
       integer value argument preceding the argument that has to be formatted
     </td>
   </tr>
@@ -1648,7 +1648,7 @@ flags are not relevant for some element type, they are ignored.
           precision specifies the
           minimum number of digits to be written. If the value to be written is
           shorter than this number, the result is padded with trailing zeros.
-          The value is not truncated even if the result is longer. A precision
+          The value isn't truncated even if the result is longer. A precision
           of 0 means that no character is written for the value 0.</li>
       <li>For specifiers `%a`, `%A`, `%e`, `%E`, `%f`, and `%F`: this is the
           number of digits to be printed after the decimal point. The default
@@ -1662,7 +1662,7 @@ flags are not relevant for some element type, they are ignored.
  <tr>
     <td><code>.*</code></td>
     <td>
-      The precision is not specified in the format string, but as an
+      The precision isn't specified in the format string, but as an
       additional integer value argument preceding the argument that has to be
       formatted
    </td>
@@ -1928,15 +1928,15 @@ The `STRING` is formatted as follows:
 ##### Error conditions 
 <a id="error_format_specifiers"></a>
 
-If a format specifier is invalid, or is not compatible with the related
+If a format specifier is invalid, or isn't compatible with the related
 argument type, or the wrong number or arguments are provided, then an error is
 produced.  For example, the following `<format_string>` expressions are invalid:
 
-```sql
+```zetasql
 FORMAT('%s', 1)
 ```
 
-```sql
+```zetasql
 FORMAT('%')
 ```
 
@@ -1955,13 +1955,13 @@ However, there are some exceptions: if the format specifier is %t or %T
 semantics), a `NULL` value produces 'NULL' (without the quotes) in the result
 `STRING`. For example, the function:
 
-```sql
+```zetasql
 FORMAT('00-%t-00', NULL_expression);
 ```
 
 Returns
 
-```sql
+```zetasql
 00-NULL-00
 ```
 
@@ -2002,7 +2002,7 @@ representations.
 
 ## `FROM_BASE32`
 
-```sql
+```zetasql
 FROM_BASE32(string_expr)
 ```
 
@@ -2017,7 +2017,7 @@ Converts the base32-encoded input `string_expr` into `BYTES` format. To convert
 
 **Example**
 
-```sql
+```zetasql
 SELECT FROM_BASE32('MFRGGZDF74======') AS byte_data;
 
 /*-----------*
@@ -2031,7 +2031,7 @@ SELECT FROM_BASE32('MFRGGZDF74======') AS byte_data;
 
 ## `FROM_BASE64`
 
-```sql
+```zetasql
 FROM_BASE64(string_expr)
 ```
 
@@ -2040,7 +2040,7 @@ FROM_BASE64(string_expr)
 Converts the base64-encoded input `string_expr` into
 `BYTES` format. To convert
 `BYTES` to a base64-encoded `STRING`,
-use [TO_BASE64][string-link-to-base64].
+use [TO_BASE64][string-link-to-to-base64].
 
 There are several base64 encodings in common use that vary in exactly which
 alphabet of 65 ASCII characters are used to encode the 64 digits and padding.
@@ -2053,7 +2053,7 @@ function expects the alphabet `[A-Za-z0-9+/=]`.
 
 **Example**
 
-```sql
+```zetasql
 SELECT FROM_BASE64('/+A=') AS byte_data;
 
 /*-----------*
@@ -2069,7 +2069,7 @@ compose `FROM_BASE64` with the `REPLACE` function. For instance, the
 uses `-_=` as the last characters rather than `+/=`. To decode a
 `base64url`-encoded string, replace `-` and `_` with `+` and `/` respectively.
 
-```sql
+```zetasql
 SELECT FROM_BASE64(REPLACE(REPLACE('_-A=', '-', '+'), '_', '/')) AS binary;
 
 /*-----------*
@@ -2081,11 +2081,11 @@ SELECT FROM_BASE64(REPLACE(REPLACE('_-A=', '-', '+'), '_', '/')) AS binary;
 
 [RFC-4648]: https://tools.ietf.org/html/rfc4648#section-4
 
-[string-link-to-from-base64]: #from_base64
+[string-link-to-to-base64]: #to_base64
 
 ## `FROM_HEX`
 
-```sql
+```zetasql
 FROM_HEX(string)
 ```
 
@@ -2093,7 +2093,7 @@ FROM_HEX(string)
 
 Converts a hexadecimal-encoded `STRING` into `BYTES` format. Returns an error
 if the input `STRING` contains characters outside the range
-`(0..9, A..F, a..f)`. The lettercase of the characters does not matter. If the
+`(0..9, A..F, a..f)`. The lettercase of the characters doesn't matter. If the
 input `STRING` has an odd number of characters, the function acts as if the
 input has an additional leading `0`. To convert `BYTES` to a hexadecimal-encoded
 `STRING`, use [TO_HEX][string-link-to-to-hex].
@@ -2104,7 +2104,7 @@ input has an additional leading `0`. To convert `BYTES` to a hexadecimal-encoded
 
 **Example**
 
-```sql
+```zetasql
 WITH Input AS (
   SELECT '00010203aaeeefff' AS hex_str UNION ALL
   SELECT '0AF' UNION ALL
@@ -2126,7 +2126,7 @@ FROM Input;
 
 ## `INITCAP`
 
-```sql
+```zetasql
 INITCAP(value[, delimiters])
 ```
 
@@ -2136,8 +2136,8 @@ Takes a `STRING` and returns it with the first character in each word in
 uppercase and all other characters in lowercase. Non-alphabetic characters
 remain the same.
 
-`delimiters` is an optional string argument that is used to override the default
-set of characters used to separate words. If `delimiters` is not specified, it
+`delimiters` is an optional string argument that's used to override the default
+set of characters used to separate words. If `delimiters` isn't specified, it
 defaults to the following characters: \
 `<whitespace> [ ] ( ) { } / | \ < > ! ? @ " ^ # $ & ~ _ , . : ; * % + -`
 
@@ -2149,7 +2149,7 @@ If `value` or `delimiters` is `NULL`, the function returns `NULL`.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT
   'Hello World-everyone!' AS value,
   INITCAP('Hello World-everyone!') AS initcap_value
@@ -2161,7 +2161,7 @@ SELECT
  *-------------------------------+-------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   'Apples1oranges2pears' as value,
   '12' AS delimiters,
@@ -2176,7 +2176,7 @@ SELECT
 
 ## `INSTR`
 
-```sql
+```zetasql
 INSTR(value, subvalue[, position[, occurrence]])
 ```
 
@@ -2190,7 +2190,7 @@ If `position` is specified, the search starts at this position in
 `value`, otherwise it starts at `1`, which is the beginning of
 `value`. If `position` is negative, the function searches backwards
 from the end of `value`, with `-1` indicating the last character.
-`position` is of type `INT64` and cannot be `0`.
+`position` is of type `INT64` and can't be `0`.
 
 If `occurrence` is specified, the search returns the position of a specific
 instance of `subvalue` in `value`. If not specified, `occurrence`
@@ -2223,7 +2223,7 @@ Returns an error if:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT
   'banana' AS value, 'an' AS subvalue, 1 AS position, 1 AS occurrence,
   INSTR('banana', 'an', 1, 1) AS instr;
@@ -2235,7 +2235,7 @@ SELECT
  *--------------+--------------+----------+------------+-------*/
 ```
 
-```sql
+```zetasql
 SELECT
   'banana' AS value, 'an' AS subvalue, 1 AS position, 2 AS occurrence,
   INSTR('banana', 'an', 1, 2) AS instr;
@@ -2247,7 +2247,7 @@ SELECT
  *--------------+--------------+----------+------------+-------*/
 ```
 
-```sql
+```zetasql
 SELECT
   'banana' AS value, 'an' AS subvalue, 1 AS position, 3 AS occurrence,
   INSTR('banana', 'an', 1, 3) AS instr;
@@ -2259,7 +2259,7 @@ SELECT
  *--------------+--------------+----------+------------+-------*/
 ```
 
-```sql
+```zetasql
 SELECT
   'banana' AS value, 'an' AS subvalue, 3 AS position, 1 AS occurrence,
   INSTR('banana', 'an', 3, 1) AS instr;
@@ -2271,7 +2271,7 @@ SELECT
  *--------------+--------------+----------+------------+-------*/
 ```
 
-```sql
+```zetasql
 SELECT
   'banana' AS value, 'an' AS subvalue, -1 AS position, 1 AS occurrence,
   INSTR('banana', 'an', -1, 1) AS instr;
@@ -2283,7 +2283,7 @@ SELECT
  *--------------+--------------+----------+------------+-------*/
 ```
 
-```sql
+```zetasql
 SELECT
   'banana' AS value, 'an' AS subvalue, -3 AS position, 1 AS occurrence,
   INSTR('banana', 'an', -3, 1) AS instr;
@@ -2295,7 +2295,7 @@ SELECT
  *--------------+--------------+----------+------------+-------*/
 ```
 
-```sql
+```zetasql
 SELECT
   'banana' AS value, 'ann' AS subvalue, 1 AS position, 1 AS occurrence,
   INSTR('banana', 'ann', 1, 1) AS instr;
@@ -2307,7 +2307,7 @@ SELECT
  *--------------+--------------+----------+------------+-------*/
 ```
 
-```sql
+```zetasql
 SELECT
   'helloooo' AS value, 'oo' AS subvalue, 1 AS position, 1 AS occurrence,
   INSTR('helloooo', 'oo', 1, 1) AS instr;
@@ -2319,7 +2319,7 @@ SELECT
  *--------------+--------------+----------+------------+-------*/
 ```
 
-```sql
+```zetasql
 SELECT
   'helloooo' AS value, 'oo' AS subvalue, 1 AS position, 2 AS occurrence,
   INSTR('helloooo', 'oo', 1, 2) AS instr;
@@ -2333,7 +2333,7 @@ SELECT
 
 ## `LEFT`
 
-```sql
+```zetasql
 LEFT(value, length)
 ```
 
@@ -2357,7 +2357,7 @@ will be returned.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT LEFT('banana', 3) AS results
 
 /*---------*
@@ -2367,7 +2367,7 @@ SELECT LEFT('banana', 3) AS results
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT LEFT(b'\xab\xcd\xef\xaa\xbb', 3) AS results
 
 /*--------------*
@@ -2379,7 +2379,7 @@ SELECT LEFT(b'\xab\xcd\xef\xaa\xbb', 3) AS results
 
 ## `LENGTH`
 
-```sql
+```zetasql
 LENGTH(value)
 ```
 
@@ -2395,7 +2395,7 @@ argument.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT
   LENGTH('абвгд') AS string_example,
   LENGTH(CAST('абвгд' AS BYTES)) AS bytes_example;
@@ -2409,7 +2409,7 @@ SELECT
 
 ## `LOWER`
 
-```sql
+```zetasql
 LOWER(value)
 ```
 
@@ -2430,7 +2430,7 @@ greater than 127 left intact.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT
   LOWER('FOO BAR BAZ') AS example
 FROM items;
@@ -2446,7 +2446,7 @@ FROM items;
 
 ## `LPAD`
 
-```sql
+```zetasql
 LPAD(original_value, return_length[, pattern])
 ```
 
@@ -2480,7 +2480,7 @@ This function returns an error if:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT FORMAT('%T', LPAD('c', 5)) AS results
 
 /*---------*
@@ -2490,7 +2490,7 @@ SELECT FORMAT('%T', LPAD('c', 5)) AS results
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT LPAD('b', 5, 'a') AS results
 
 /*---------*
@@ -2500,7 +2500,7 @@ SELECT LPAD('b', 5, 'a') AS results
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT LPAD('abc', 10, 'ghd') AS results
 
 /*------------*
@@ -2510,7 +2510,7 @@ SELECT LPAD('abc', 10, 'ghd') AS results
  *------------*/
 ```
 
-```sql
+```zetasql
 SELECT LPAD('abc', 2, 'd') AS results
 
 /*---------*
@@ -2520,7 +2520,7 @@ SELECT LPAD('abc', 2, 'd') AS results
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT FORMAT('%T', LPAD(b'abc', 10, b'ghd')) AS results
 
 /*---------------*
@@ -2532,7 +2532,7 @@ SELECT FORMAT('%T', LPAD(b'abc', 10, b'ghd')) AS results
 
 ## `LTRIM`
 
-```sql
+```zetasql
 LTRIM(value1[, value2])
 ```
 
@@ -2546,7 +2546,7 @@ Identical to [TRIM][string-link-to-trim], but only removes leading characters.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT CONCAT('#', LTRIM('   apple   '), '#') AS example
 
 /*-------------*
@@ -2556,7 +2556,7 @@ SELECT CONCAT('#', LTRIM('   apple   '), '#') AS example
  *-------------*/
 ```
 
-```sql
+```zetasql
 SELECT LTRIM('***apple***', '*') AS example
 
 /*-----------*
@@ -2566,7 +2566,7 @@ SELECT LTRIM('***apple***', '*') AS example
  *-----------*/
 ```
 
-```sql
+```zetasql
 SELECT LTRIM('xxxapplexxx', 'xyz') AS example
 
 /*-----------*
@@ -2580,13 +2580,13 @@ SELECT LTRIM('xxxapplexxx', 'xyz') AS example
 
 ## `NORMALIZE`
 
-```sql
+```zetasql
 NORMALIZE(value[, normalization_mode])
 ```
 
 **Description**
 
-Takes a string value and returns it as a normalized string. If you do not
+Takes a string value and returns it as a normalized string. If you don't
 provide a normalization mode, `NFC` is used.
 
 [Normalization][string-link-to-normalization-wikipedia] is used to ensure that
@@ -2611,7 +2611,7 @@ points.
 
 The following example normalizes different language characters:
 
-```sql
+```zetasql
 SELECT
   NORMALIZE('\u00ea') as a,
   NORMALIZE('\u0065\u0302') as b,
@@ -2625,7 +2625,7 @@ SELECT
 ```
 The following examples normalize different space characters:
 
-```sql
+```zetasql
 SELECT NORMALIZE('Raha\u2004Mahan', NFKC) AS normalized_name
 
 /*-----------------*
@@ -2635,7 +2635,7 @@ SELECT NORMALIZE('Raha\u2004Mahan', NFKC) AS normalized_name
  *-----------------*/
 ```
 
-```sql
+```zetasql
 SELECT NORMALIZE('Raha\u2005Mahan', NFKC) AS normalized_name
 
 /*-----------------*
@@ -2645,7 +2645,7 @@ SELECT NORMALIZE('Raha\u2005Mahan', NFKC) AS normalized_name
  *-----------------*/
 ```
 
-```sql
+```zetasql
 SELECT NORMALIZE('Raha\u2006Mahan', NFKC) AS normalized_name
 
 /*-----------------*
@@ -2655,7 +2655,7 @@ SELECT NORMALIZE('Raha\u2006Mahan', NFKC) AS normalized_name
  *-----------------*/
 ```
 
-```sql
+```zetasql
 SELECT NORMALIZE('Raha Mahan', NFKC) AS normalized_name
 
 /*-----------------*
@@ -2669,13 +2669,13 @@ SELECT NORMALIZE('Raha Mahan', NFKC) AS normalized_name
 
 ## `NORMALIZE_AND_CASEFOLD`
 
-```sql
+```zetasql
 NORMALIZE_AND_CASEFOLD(value[, normalization_mode])
 ```
 
 **Description**
 
-Takes a string value and returns it as a normalized string. If you do not
+Takes a string value and returns it as a normalized string. If you don't
 provide a normalization mode, `NFC` is used.
 
 [Normalization][string-link-to-normalization-wikipedia] is used to ensure that
@@ -2684,7 +2684,7 @@ two strings render the same on the screen but have different Unicode code
 points.
 
 [Case folding][string-link-to-case-folding-wikipedia] is used for the caseless
-comparison of strings. If you need to compare strings and case should not be
+comparison of strings. If you need to compare strings and case shouldn't be
 considered, use `NORMALIZE_AND_CASEFOLD`, otherwise use
 [`NORMALIZE`][string-link-to-normalize].
 
@@ -2703,7 +2703,7 @@ considered, use `NORMALIZE_AND_CASEFOLD`, otherwise use
 
 **Examples**
 
-```sql
+```zetasql
 SELECT
   NORMALIZE('The red barn') = NORMALIZE('The Red Barn') AS normalized,
   NORMALIZE_AND_CASEFOLD('The red barn')
@@ -2716,7 +2716,7 @@ SELECT
  *------------+------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   '\u2168' AS a,
   'IX' AS b,
@@ -2732,7 +2732,7 @@ SELECT
  *---+----+-------+-------+------+------*/
 ```
 
-```sql
+```zetasql
 SELECT
   '\u0041\u030A' AS a,
   '\u00C5' AS b,
@@ -2756,7 +2756,7 @@ SELECT
 
 ## `OCTET_LENGTH`
 
-```sql
+```zetasql
 OCTET_LENGTH(value)
 ```
 
@@ -2766,7 +2766,7 @@ Alias for [`BYTE_LENGTH`][byte-length].
 
 ## `REGEXP_CONTAINS`
 
-```sql
+```zetasql
 REGEXP_CONTAINS(value, regexp)
 ```
 
@@ -2778,7 +2778,7 @@ Returns `TRUE` if `value` is a partial match for the regular expression,
 If the `regexp` argument is invalid, the function returns an error.
 
 You can search for a full match by using `^` (beginning of text) and `$` (end of
-text). Due to regular expression operator precedence, it is good practice to use
+text). Due to regular expression operator precedence, it's good practice to use
 parentheses around everything between `^` and `$`.
 
 Note: ZetaSQL provides regular expression support using the
@@ -2793,7 +2793,7 @@ regular expression syntax.
 
 The following queries check to see if an email is valid:
 
-```sql
+```zetasql
 SELECT
   'foo@example.com' AS email,
   REGEXP_CONTAINS('foo@example.com', r'@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+') AS is_valid
@@ -2805,7 +2805,7 @@ SELECT
  *-----------------+----------*/
  ```
 
- ```sql
+ ```zetasql
 SELECT
   'www.example.net' AS email,
   REGEXP_CONTAINS('www.example.net', r'@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+') AS is_valid
@@ -2819,10 +2819,10 @@ SELECT
 
 The following queries check to see if an email is valid. They
 perform a full match, using `^` and `$`. Due to regular expression operator
-precedence, it is good practice to use parentheses around everything between `^`
+precedence, it's good practice to use parentheses around everything between `^`
 and `$`.
 
-```sql
+```zetasql
 SELECT
   'a@foo.com' AS email,
   REGEXP_CONTAINS('a@foo.com', r'^([\w.+-]+@foo\.com|[\w.+-]+@bar\.org)$') AS valid_email_address,
@@ -2835,7 +2835,7 @@ SELECT
  *----------------+---------------------+---------------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   'a@foo.computer' AS email,
   REGEXP_CONTAINS('a@foo.computer', r'^([\w.+-]+@foo\.com|[\w.+-]+@bar\.org)$') AS valid_email_address,
@@ -2848,7 +2848,7 @@ SELECT
  *----------------+---------------------+---------------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   'b@bar.org' AS email,
   REGEXP_CONTAINS('b@bar.org', r'^([\w.+-]+@foo\.com|[\w.+-]+@bar\.org)$') AS valid_email_address,
@@ -2861,7 +2861,7 @@ SELECT
  *----------------+---------------------+---------------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   '!b@bar.org' AS email,
   REGEXP_CONTAINS('!b@bar.org', r'^([\w.+-]+@foo\.com|[\w.+-]+@bar\.org)$') AS valid_email_address,
@@ -2874,7 +2874,7 @@ SELECT
  *----------------+---------------------+---------------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   'c@buz.net' AS email,
   REGEXP_CONTAINS('c@buz.net', r'^([\w.+-]+@foo\.com|[\w.+-]+@bar\.org)$') AS valid_email_address,
@@ -2891,7 +2891,7 @@ SELECT
 
 ## `REGEXP_EXTRACT`
 
-```sql
+```zetasql
 REGEXP_EXTRACT(value, regexp[, position[, occurrence]])
 ```
 
@@ -2907,7 +2907,7 @@ are multiple matches for a capturing group, the first match is returned.
 
 If `position` is specified, the search starts at this
 position in `value`, otherwise it starts at the beginning of `value`. The
-`position` must be a positive integer and cannot be 0. If `position` is greater
+`position` must be a positive integer and can't be 0. If `position` is greater
 than the length of `value`, `NULL` is returned.
 
 If `occurrence` is specified, the search returns a specific occurrence of the
@@ -2920,8 +2920,8 @@ Returns an error if:
 
 + The regular expression is invalid
 + The regular expression has more than one capturing group
-+ The `position` is not a positive integer
-+ The `occurrence` is not a positive integer
++ The `position` isn't a positive integer
++ The `occurrence` isn't a positive integer
 
 **Return type**
 
@@ -2929,7 +2929,7 @@ Returns an error if:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT REGEXP_EXTRACT('foo@example.com', r'^[a-zA-Z0-9_.+-]+') AS user_name
 
 /*-----------*
@@ -2939,7 +2939,7 @@ SELECT REGEXP_EXTRACT('foo@example.com', r'^[a-zA-Z0-9_.+-]+') AS user_name
  *-----------*/
 ```
 
-```sql
+```zetasql
 SELECT REGEXP_EXTRACT('foo@example.com', r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.([a-zA-Z0-9-.]+$)')
 
 /*------------------*
@@ -2949,7 +2949,7 @@ SELECT REGEXP_EXTRACT('foo@example.com', r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.([a-
  *------------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   REGEXP_EXTRACT('ab', '.b') AS result_a,
   REGEXP_EXTRACT('ab', '(.)b') AS result_b,
@@ -2963,7 +2963,7 @@ SELECT
  *-------------------------------------------*/
 ```
 
-```sql
+```zetasql
 WITH example AS
 (SELECT 'Hello Helloo and Hellooo' AS value, 'H?ello+' AS regex, 1 as position,
 1 AS occurrence UNION ALL
@@ -3002,7 +3002,7 @@ position, occurrence) AS regexp_value FROM example;
 
 ## `REGEXP_EXTRACT_ALL`
 
-```sql
+```zetasql
 REGEXP_EXTRACT_ALL(value, regexp)
 ```
 
@@ -3030,7 +3030,7 @@ Returns an error if:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT REGEXP_EXTRACT_ALL('Try `func(x)` or `func(y)`', '`(.+?)`') AS example
 
 /*--------------------*
@@ -3044,7 +3044,7 @@ SELECT REGEXP_EXTRACT_ALL('Try `func(x)` or `func(y)`', '`(.+?)`') AS example
 
 ## `REGEXP_INSTR`
 
-```sql
+```zetasql
 REGEXP_INSTR(source_value, regexp [, position[, occurrence, [occurrence_position]]])
 ```
 
@@ -3098,7 +3098,7 @@ Returns an error if:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT
   REGEXP_INSTR('ab@cd-ef',  '@[^-]*') AS instr_a,
   REGEXP_INSTR('ab@d-ef',   '@[^-]*') AS instr_b,
@@ -3112,7 +3112,7 @@ SELECT
  *---------------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   REGEXP_INSTR('a@cd-ef b@cd-ef', '@[^-]*', 1) AS instr_a,
   REGEXP_INSTR('a@cd-ef b@cd-ef', '@[^-]*', 2) AS instr_b,
@@ -3126,7 +3126,7 @@ SELECT
  *---------------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   REGEXP_INSTR('a@cd-ef b@cd-ef c@cd-ef', '@[^-]*', 1, 1) AS instr_a,
   REGEXP_INSTR('a@cd-ef b@cd-ef c@cd-ef', '@[^-]*', 1, 2) AS instr_b,
@@ -3139,7 +3139,7 @@ SELECT
  *-----------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   REGEXP_INSTR('a@cd-ef', '@[^-]*', 1, 1, 0) AS instr_a,
   REGEXP_INSTR('a@cd-ef', '@[^-]*', 1, 1, 1) AS instr_b
@@ -3154,7 +3154,7 @@ SELECT
 ## `REGEXP_MATCH` (Deprecated) 
 <a id="regexp_match"></a>
 
-```sql
+```zetasql
 REGEXP_MATCH(value, regexp)
 ```
 
@@ -3178,7 +3178,7 @@ regular expression syntax.
 
 **Examples**
 
-```sql
+```zetasql
 WITH email_addresses AS
   (SELECT 'foo@example.com' as email
   UNION ALL
@@ -3208,7 +3208,7 @@ FROM email_addresses;
 
 ## `REGEXP_REPLACE`
 
-```sql
+```zetasql
 REGEXP_REPLACE(value, regexp, replacement)
 ```
 
@@ -3230,7 +3230,7 @@ The `REGEXP_REPLACE` function only replaces non-overlapping matches. For
 example, replacing `ana` within `banana` results in only one replacement, not
 two.
 
-If the `regexp` argument is not a valid regular expression, this function
+If the `regexp` argument isn't a valid regular expression, this function
 returns an error.
 
 Note: ZetaSQL provides regular expression support using the
@@ -3243,7 +3243,7 @@ regular expression syntax.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT REGEXP_REPLACE('# Heading', r'^# ([a-zA-Z0-9\s]+$)', '<h1>\\1</h1>') AS html
 
 /*--------------------------*
@@ -3259,7 +3259,7 @@ SELECT REGEXP_REPLACE('# Heading', r'^# ([a-zA-Z0-9\s]+$)', '<h1>\\1</h1>') AS h
 
 ## `REGEXP_SUBSTR`
 
-```sql
+```zetasql
 REGEXP_SUBSTR(value, regexp[, position[, occurrence]])
 ```
 
@@ -3273,7 +3273,7 @@ Synonym for [REGEXP_EXTRACT][string-link-to-regex].
 
 **Examples**
 
-```sql
+```zetasql
 WITH example AS
 (SELECT 'Hello World Helloo' AS value, 'H?ello+' AS regex, 1 AS position, 1 AS
 occurrence
@@ -3292,7 +3292,7 @@ position, occurrence) AS regexp_value FROM example;
 
 ## `REPEAT`
 
-```sql
+```zetasql
 REPEAT(original_value, repetitions)
 ```
 
@@ -3311,7 +3311,7 @@ This function returns an error if the `repetitions` value is negative.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT REPEAT('abc', 3) AS results
 
 /*-----------*
@@ -3321,7 +3321,7 @@ SELECT REPEAT('abc', 3) AS results
  *-----------*/
 ```
 
-```sql
+```zetasql
 SELECT REPEAT('abc', NULL) AS results
 
 /*---------*
@@ -3331,7 +3331,7 @@ SELECT REPEAT('abc', NULL) AS results
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT REPEAT(NULL, 3) AS results
 
 /*---------*
@@ -3343,7 +3343,7 @@ SELECT REPEAT(NULL, 3) AS results
 
 ## `REPLACE`
 
-```sql
+```zetasql
 REPLACE(original_value, from_pattern, to_pattern)
 ```
 
@@ -3362,7 +3362,7 @@ This function supports specifying [collation][collation].
 
 **Examples**
 
-```sql
+```zetasql
 WITH desserts AS
   (SELECT 'apple pie' as dessert
   UNION ALL
@@ -3385,7 +3385,7 @@ FROM desserts;
 
 ## `REVERSE`
 
-```sql
+```zetasql
 REVERSE(value)
 ```
 
@@ -3399,7 +3399,7 @@ Returns the reverse of the input `STRING` or `BYTES`.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT REVERSE('abc') AS results
 
 /*---------*
@@ -3409,7 +3409,7 @@ SELECT REVERSE('abc') AS results
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT FORMAT('%T', REVERSE(b'1a3')) AS results
 
 /*---------*
@@ -3421,7 +3421,7 @@ SELECT FORMAT('%T', REVERSE(b'1a3')) AS results
 
 ## `RIGHT`
 
-```sql
+```zetasql
 RIGHT(value, length)
 ```
 
@@ -3445,7 +3445,7 @@ will be returned.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT 'apple' AS example, RIGHT('apple', 3) AS right_example
 
 /*---------+---------------*
@@ -3455,7 +3455,7 @@ SELECT 'apple' AS example, RIGHT('apple', 3) AS right_example
  *---------+---------------*/
 ```
 
-```sql
+```zetasql
 SELECT b'apple' AS example, RIGHT(b'apple', 3) AS right_example
 
 /*----------------------+---------------*
@@ -3467,7 +3467,7 @@ SELECT b'apple' AS example, RIGHT(b'apple', 3) AS right_example
 
 ## `RPAD`
 
-```sql
+```zetasql
 RPAD(original_value, return_length[, pattern])
 ```
 
@@ -3502,7 +3502,7 @@ This function returns an error if:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT FORMAT('%T', RPAD('c', 5)) AS results
 
 /*---------*
@@ -3512,7 +3512,7 @@ SELECT FORMAT('%T', RPAD('c', 5)) AS results
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT RPAD('b', 5, 'a') AS results
 
 /*---------*
@@ -3522,7 +3522,7 @@ SELECT RPAD('b', 5, 'a') AS results
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT RPAD('abc', 10, 'ghd') AS results
 
 /*------------*
@@ -3532,7 +3532,7 @@ SELECT RPAD('abc', 10, 'ghd') AS results
  *------------*/
 ```
 
-```sql
+```zetasql
 SELECT RPAD('abc', 2, 'd') AS results
 
 /*---------*
@@ -3542,7 +3542,7 @@ SELECT RPAD('abc', 2, 'd') AS results
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT FORMAT('%T', RPAD(b'abc', 10, b'ghd')) AS results
 
 /*---------------*
@@ -3554,7 +3554,7 @@ SELECT FORMAT('%T', RPAD(b'abc', 10, b'ghd')) AS results
 
 ## `RTRIM`
 
-```sql
+```zetasql
 RTRIM(value1[, value2])
 ```
 
@@ -3568,7 +3568,7 @@ Identical to [TRIM][string-link-to-trim], but only removes trailing characters.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT RTRIM('***apple***', '*') AS example
 
 /*-----------*
@@ -3578,7 +3578,7 @@ SELECT RTRIM('***apple***', '*') AS example
  *-----------*/
 ```
 
-```sql
+```zetasql
 SELECT RTRIM('applexxz', 'xyz') AS example
 
 /*---------*
@@ -3592,7 +3592,7 @@ SELECT RTRIM('applexxz', 'xyz') AS example
 
 ## `SAFE_CONVERT_BYTES_TO_STRING`
 
-```sql
+```zetasql
 SAFE_CONVERT_BYTES_TO_STRING(value)
 ```
 
@@ -3609,13 +3609,13 @@ replaced with the Unicode replacement character, `U+FFFD`.
 
 The following statement returns the Unicode replacement character, &#65533;.
 
-```sql
+```zetasql
 SELECT SAFE_CONVERT_BYTES_TO_STRING(b'\xc2') as safe_convert;
 ```
 
 ## `SOUNDEX`
 
-```sql
+```zetasql
 SOUNDEX(value)
 ```
 
@@ -3625,7 +3625,7 @@ Returns a `STRING` that represents the
 [Soundex][string-link-to-soundex-wikipedia] code for `value`.
 
 SOUNDEX produces a phonetic representation of a string. It indexes words by
-sound, as pronounced in English. It is typically used to help determine whether
+sound, as pronounced in English. It's typically used to help determine whether
 two strings, such as the family names _Levine_ and _Lavine_, or the words _to_
 and _too_, have similar English-language pronunciation.
 
@@ -3639,7 +3639,7 @@ non-Latin characters, an empty `STRING` is returned.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT 'Ashcraft' AS value, SOUNDEX('Ashcraft') AS soundex
 
 /*----------------------+---------*
@@ -3653,7 +3653,7 @@ SELECT 'Ashcraft' AS value, SOUNDEX('Ashcraft') AS soundex
 
 ## `SPLIT`
 
-```sql
+```zetasql
 SPLIT(value[, delimiter])
 ```
 
@@ -3684,7 +3684,7 @@ This function supports specifying [collation][collation].
 
 **Examples**
 
-```sql
+```zetasql
 WITH letters AS
   (SELECT '' as letter_group
   UNION ALL
@@ -3706,7 +3706,7 @@ FROM letters;
 
 ## `SPLIT_SUBSTR`
 
-```sql
+```zetasql
 SPLIT_SUBSTR(value, delimiter, start_split[, count])
 ```
 
@@ -3767,7 +3767,7 @@ This function supports specifying [collation][collation].
 
 The following example returns an empty string because `count` is `0`:
 
-```sql
+```zetasql
 SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", 1, 0) AS example
 
 /*---------*
@@ -3779,7 +3779,7 @@ SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", 1, 0) AS example
 
 The following example returns two splits starting with the first split:
 
-```sql
+```zetasql
 SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", 1, 2) AS example
 
 /*---------*
@@ -3791,7 +3791,7 @@ SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", 1, 2) AS example
 
 The following example returns one split starting with the first split:
 
-```sql
+```zetasql
 SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", 1, 1) AS example
 
 /*---------*
@@ -3804,7 +3804,7 @@ SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", 1, 1) AS example
 The following example returns splits from the right because `start_split` is a
 negative value:
 
-```sql
+```zetasql
 SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", -1, 1) AS example
 
 /*---------*
@@ -3817,7 +3817,7 @@ SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", -1, 1) AS example
 The following example returns a substring with three splits, starting with the
 first split:
 
-```sql
+```zetasql
 SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", 1, 3) AS example
 
 /*-------------*
@@ -3830,7 +3830,7 @@ SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", 1, 3) AS example
 If `start_split` is zero, then it's treated as if it's `1`. The following
 example returns three substrings starting with the first split:
 
-```sql
+```zetasql
 SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", 0, 3) AS example
 
 /*-------------*
@@ -3843,7 +3843,7 @@ SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", 0, 3) AS example
 If `start_split` is greater than the number of splits, then an empty string is
 returned:
 
-```sql
+```zetasql
 SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", 5, 3) AS example
 
 /*---------*
@@ -3856,7 +3856,7 @@ SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", 5, 3) AS example
 In the following example, the `start_split` value (`-5`) is less than the
 negative of the number of splits (`-4`), so `start_split` is treated as `1`:
 
-```sql
+```zetasql
 SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", -5, 3) AS example
 
 /*-------------*
@@ -3869,7 +3869,7 @@ SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", -5, 3) AS example
 In the following example, the substring from `start_split` to the end of the
 string is returned because `count` isn't specified:
 
-```sql
+```zetasql
 SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", 3) AS example
 
 /*---------*
@@ -3884,7 +3884,7 @@ multi-character delimiter that has overlapping matches in the input string. In
 each example, the input string contains instances of three asterisks in a row
 (`***`) and the delimiter is two asterisks (`**`).
 
-```sql
+```zetasql
 SELECT SPLIT_SUBSTR('aaa***bbb***ccc', '**', 1, 2) AS example
 
 /*-----------*
@@ -3894,7 +3894,7 @@ SELECT SPLIT_SUBSTR('aaa***bbb***ccc', '**', 1, 2) AS example
  *----------*/
 ```
 
-```sql
+```zetasql
 SELECT SPLIT_SUBSTR('aaa***bbb***ccc', '**', 2, 2) AS example
 
 /*------------*
@@ -3906,7 +3906,7 @@ SELECT SPLIT_SUBSTR('aaa***bbb***ccc', '**', 2, 2) AS example
 
 ## `STARTS_WITH`
 
-```sql
+```zetasql
 STARTS_WITH(value, prefix)
 ```
 
@@ -3925,7 +3925,7 @@ This function supports specifying [collation][collation].
 
 **Examples**
 
-```sql
+```zetasql
 SELECT STARTS_WITH('bar', 'b') AS example
 
 /*---------*
@@ -3937,14 +3937,14 @@ SELECT STARTS_WITH('bar', 'b') AS example
 
 ## `STRPOS`
 
-```sql
+```zetasql
 STRPOS(value, subvalue)
 ```
 
 **Description**
 
 Takes two `STRING` or `BYTES` values. Returns the 1-based position of the first
-occurrence of `subvalue` inside `value`. Returns `0` if `subvalue` is not found.
+occurrence of `subvalue` inside `value`. Returns `0` if `subvalue` isn't found.
 
 This function supports specifying [collation][collation].
 
@@ -3956,7 +3956,7 @@ This function supports specifying [collation][collation].
 
 **Examples**
 
-```sql
+```zetasql
 SELECT STRPOS('foo@example.com', '@') AS example
 
 /*---------*
@@ -3968,7 +3968,7 @@ SELECT STRPOS('foo@example.com', '@') AS example
 
 ## `SUBSTR`
 
-```sql
+```zetasql
 SUBSTR(value, position[, length])
 ```
 
@@ -3990,7 +3990,7 @@ substring.
 The `length` argument specifies the maximum number of characters or bytes to
 return.
 
-+ If `length` is not specified, the function produces a substring that starts
++ If `length` isn't specified, the function produces a substring that starts
   at the specified position and ends at the last character or byte of `value`.
 + If `length` is `0`, the function produces an empty substring.
 + If `length` is negative, the function produces an error.
@@ -4004,7 +4004,7 @@ return.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT SUBSTR('apple', 2) AS example
 
 /*---------*
@@ -4014,7 +4014,7 @@ SELECT SUBSTR('apple', 2) AS example
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT SUBSTR('apple', 2, 2) AS example
 
 /*---------*
@@ -4024,7 +4024,7 @@ SELECT SUBSTR('apple', 2, 2) AS example
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT SUBSTR('apple', -2) AS example
 
 /*---------*
@@ -4034,7 +4034,7 @@ SELECT SUBSTR('apple', -2) AS example
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT SUBSTR('apple', 1, 123) AS example
 
 /*---------*
@@ -4044,7 +4044,7 @@ SELECT SUBSTR('apple', 1, 123) AS example
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT SUBSTR('apple', 123) AS example
 
 /*---------*
@@ -4054,7 +4054,7 @@ SELECT SUBSTR('apple', 123) AS example
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT SUBSTR('apple', 123, 5) AS example
 
 /*---------*
@@ -4066,7 +4066,7 @@ SELECT SUBSTR('apple', 123, 5) AS example
 
 ## `SUBSTRING`
 
-```sql
+```zetasql
 SUBSTRING(value, position[, length])
 ```
 
@@ -4076,7 +4076,7 @@ Alias for [`SUBSTR`][substr].
 
 ## `TO_BASE32`
 
-```sql
+```zetasql
 TO_BASE32(bytes_expr)
 ```
 
@@ -4091,7 +4091,7 @@ base32-encoded `STRING` into `BYTES`, use [FROM_BASE32][string-link-to-from-base
 
 **Example**
 
-```sql
+```zetasql
 SELECT TO_BASE32(b'abcde\xFF') AS base32_string;
 
 /*------------------*
@@ -4105,7 +4105,7 @@ SELECT TO_BASE32(b'abcde\xFF') AS base32_string;
 
 ## `TO_BASE64`
 
-```sql
+```zetasql
 TO_BASE64(bytes_expr)
 ```
 
@@ -4125,7 +4125,7 @@ function adds padding and uses the alphabet `[A-Za-z0-9+/=]`.
 
 **Example**
 
-```sql
+```zetasql
 SELECT TO_BASE64(b'\377\340') AS base64_string;
 
 /*---------------*
@@ -4141,7 +4141,7 @@ compose `TO_BASE64` with the `REPLACE` function. For instance, the
 uses `-_=` as the last characters rather than `+/=`. To encode a
 `base64url`-encoded string, replace `+` and `/` with `-` and `_` respectively.
 
-```sql
+```zetasql
 SELECT REPLACE(REPLACE(TO_BASE64(b'\377\340'), '+', '-'), '/', '_') as websafe_base64;
 
 /*----------------*
@@ -4157,7 +4157,7 @@ SELECT REPLACE(REPLACE(TO_BASE64(b'\377\340'), '+', '-'), '/', '_') as websafe_b
 
 ## `TO_CODE_POINTS`
 
-```sql
+```zetasql
 TO_CODE_POINTS(value)
 ```
 
@@ -4185,7 +4185,7 @@ To convert from an array of code points to a `STRING` or `BYTES`, see
 The following examples get the code points for each element in an array of
 words.
 
-```sql
+```zetasql
 SELECT
   'foo' AS word,
   TO_CODE_POINTS('foo') AS code_points
@@ -4197,7 +4197,7 @@ SELECT
  *---------+------------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   'bar' AS word,
   TO_CODE_POINTS('bar') AS code_points
@@ -4209,7 +4209,7 @@ SELECT
  *---------+------------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   'baz' AS word,
   TO_CODE_POINTS('baz') AS code_points
@@ -4221,7 +4221,7 @@ SELECT
  *---------+------------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   'giraffe' AS word,
   TO_CODE_POINTS('giraffe') AS code_points
@@ -4233,7 +4233,7 @@ SELECT
  *---------+------------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   'llama' AS word,
   TO_CODE_POINTS('llama') AS code_points
@@ -4248,7 +4248,7 @@ SELECT
 The following examples convert integer representations of `BYTES` to their
 corresponding ASCII character values.
 
-```sql
+```zetasql
 SELECT
   b'\x66\x6f\x6f' AS bytes_value,
   TO_CODE_POINTS(b'\x66\x6f\x6f') AS bytes_value_as_integer
@@ -4260,7 +4260,7 @@ SELECT
  *------------------+------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   b'\x00\x01\x10\xff' AS bytes_value,
   TO_CODE_POINTS(b'\x00\x01\x10\xff') AS bytes_value_as_integer
@@ -4278,7 +4278,7 @@ Unicode sequence. As a result, the `BYTES` version of `TO_CODE_POINTS` returns
 an array with two elements, while the `STRING` version returns an array with a
 single element.
 
-```sql
+```zetasql
 SELECT TO_CODE_POINTS(b'Ā') AS b_result, TO_CODE_POINTS('Ā') AS s_result;
 
 /*------------+----------*
@@ -4296,7 +4296,7 @@ SELECT TO_CODE_POINTS(b'Ā') AS b_result, TO_CODE_POINTS('Ā') AS s_result;
 
 ## `TO_HEX`
 
-```sql
+```zetasql
 TO_HEX(bytes)
 ```
 
@@ -4313,7 +4313,7 @@ in the `STRING` as two hexadecimal characters in the range
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   b'\x00\x01\x02\x03\xAA\xEE\xEF\xFF' AS byte_string,
   TO_HEX(b'\x00\x01\x02\x03\xAA\xEE\xEF\xFF') AS hex_string
@@ -4329,7 +4329,7 @@ SELECT
 
 ## `TRANSLATE`
 
-```sql
+```zetasql
 TRANSLATE(expression, source_characters, target_characters)
 ```
 
@@ -4340,7 +4340,7 @@ corresponding character in `target_characters`. All inputs must be the same
 type, either `STRING` or `BYTES`.
 
 + Each character in `expression` is translated at most once.
-+ A character in `expression` that is not present in `source_characters` is left
++ A character in `expression` that isn't present in `source_characters` is left
   unchanged in `expression`.
 + A character in `source_characters` without a corresponding character in
   `target_characters` is omitted from the result.
@@ -4352,7 +4352,7 @@ type, either `STRING` or `BYTES`.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT TRANSLATE('This is a cookie', 'sco', 'zku') AS translate
 
 /*------------------*
@@ -4364,7 +4364,7 @@ SELECT TRANSLATE('This is a cookie', 'sco', 'zku') AS translate
 
 ## `TRIM`
 
-```sql
+```zetasql
 TRIM(value_to_trim[, set_of_characters_to_remove])
 ```
 
@@ -4374,7 +4374,7 @@ Takes a `STRING` or `BYTES` value to trim.
 
 If the value to trim is a `STRING`, removes from this value all leading and
 trailing Unicode code points in `set_of_characters_to_remove`.
-The set of code points is optional. If it is not specified, all
+The set of code points is optional. If it isn't specified, all
 whitespace characters are removed from the beginning and end of the
 value to trim.
 
@@ -4389,9 +4389,9 @@ trailing bytes in `set_of_characters_to_remove`. The set of bytes is required.
 **Examples**
 
 In the following example, all leading and trailing whitespace characters are
-removed from `item` because `set_of_characters_to_remove` is not specified.
+removed from `item` because `set_of_characters_to_remove` isn't specified.
 
-```sql
+```zetasql
 SELECT CONCAT('#', TRIM( '   apple   '), '#') AS example
 
 /*----------*
@@ -4404,7 +4404,7 @@ SELECT CONCAT('#', TRIM( '   apple   '), '#') AS example
 In the following example, all leading and trailing `*` characters are removed
 from '***apple***'.
 
-```sql
+```zetasql
 SELECT TRIM('***apple***', '*') AS example
 
 /*---------*
@@ -4417,7 +4417,7 @@ SELECT TRIM('***apple***', '*') AS example
 In the following example, all leading and trailing `x`, `y`, and `z` characters
 are removed from 'xzxapplexxy'.
 
-```sql
+```zetasql
 SELECT TRIM('xzxapplexxy', 'xyz') as example
 
 /*---------*
@@ -4432,7 +4432,7 @@ Unicode code-points. If your trailing character set contains a combining
 diacritic mark over a particular letter, `TRIM` might strip the
 same diacritic mark from a different letter.
 
-```sql
+```zetasql
 SELECT
   TRIM('abaW̊', 'Y̊') AS a,
   TRIM('W̊aba', 'Y̊') AS b,
@@ -4449,7 +4449,7 @@ SELECT
 In the following example, all leading and trailing `b'n'`, `b'a'`, `b'\xab'`
 bytes are removed from `item`.
 
-```sql
+```zetasql
 SELECT b'apple', TRIM(b'apple', b'na\xab') AS example
 
 /*----------------------+------------------*
@@ -4461,7 +4461,7 @@ SELECT b'apple', TRIM(b'apple', b'na\xab') AS example
 
 ## `UNICODE`
 
-```sql
+```zetasql
 UNICODE(value)
 ```
 
@@ -4477,7 +4477,7 @@ point is `0`.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT UNICODE('âbcd') as A, UNICODE('â') as B, UNICODE('') as C, UNICODE(NULL) as D;
 
 /*-------+-------+-------+-------*
@@ -4491,7 +4491,7 @@ SELECT UNICODE('âbcd') as A, UNICODE('â') as B, UNICODE('') as C, UNICODE(NULL
 
 ## `UPPER`
 
-```sql
+```zetasql
 UPPER(value)
 ```
 
@@ -4512,7 +4512,7 @@ greater than 127 left intact.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT UPPER('foo') AS example
 
 /*---------*

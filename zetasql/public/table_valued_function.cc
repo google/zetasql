@@ -21,27 +21,35 @@
 #include <memory>
 #include <optional>
 #include <string>
-#include <unordered_set>
 #include <utility>
 #include <vector>
 
 #include "zetasql/common/function_utils.h"
 #include "zetasql/proto/function.pb.h"
+#include "zetasql/public/catalog.h"
 #include "zetasql/public/function.h"
+#include "zetasql/public/function.pb.h"
+#include "zetasql/public/function_signature.h"
+#include "zetasql/public/input_argument_type.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
 #include "zetasql/public/signature_match_result.h"
 #include "zetasql/public/simple_table.pb.h"
 #include "zetasql/public/strings.h"
-#include "zetasql/base/case.h"
+#include "zetasql/public/types/annotation.h"
+#include "zetasql/public/types/type.h"
+#include "zetasql/public/types/type_deserializer.h"
+#include "zetasql/public/types/type_factory.h"
 #include "absl/container/flat_hash_set.h"
-#include "absl/memory/memory.h"
+#include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
-#include "absl/strings/ascii.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
+#include "google/protobuf/descriptor.h"
+#include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
@@ -143,21 +151,7 @@ std::string TableValuedFunction::GetSignatureUserFacingText(
       argument_texts.push_back(arg_type_string);
     }
   }
-  return absl::StrCat(
-      this->tvf_options_.uses_upper_case_sql_name ?
-          absl::AsciiStrToUpper(FullName()) :
-          FullName(),
-      "(", absl::StrJoin(argument_texts, ", "), ")");
-}
-
-std::string TableValuedFunction::GetSQL(
-    std::vector<std::string> inputs, const FunctionSignature* signature) const {
-  UpdateArgsForGetSQL(signature, &inputs);
-  std::string name = FullName();
-  if (this->tvf_options_.uses_upper_case_sql_name) {
-    absl::AsciiStrToUpper(&name);
-  }
-  return absl::StrCat(name, "(", absl::StrJoin(inputs, ", "), ")");
+  return absl::StrCat(SQLName(), "(", absl::StrJoin(argument_texts, ", "), ")");
 }
 
 std::string TableValuedFunction::DebugString() const {
@@ -221,6 +215,9 @@ absl::Status TableValuedFunction::Serialize(
       anonymization_info_proto.add_userid_column_name(name);
     }
     *proto->mutable_anonymization_info() = anonymization_info_proto;
+  }
+  if (statement_context() != CONTEXT_DEFAULT) {
+    proto->set_statement_context(statement_context());
   }
   return absl::OkStatus();
 }
@@ -465,6 +462,7 @@ absl::Status FixedOutputSchemaTVF::Deserialize(
         (*result)->GetAs<FixedOutputSchemaTVF>()->SetUserIdColumnNamePath(
             userid_column_name_path));
   }
+  (*result)->set_statement_context(proto.statement_context());
   return absl::OkStatus();
 }
 
@@ -514,6 +512,7 @@ absl::Status ForwardInputSchemaToOutputSchemaTVF::Deserialize(
 
   *result = std::make_unique<ForwardInputSchemaToOutputSchemaTVF>(
       path, *signature, *options);
+  (*result)->set_statement_context(proto.statement_context());
   return absl::OkStatus();
 }
 
@@ -653,6 +652,7 @@ absl::Status ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF::Deserialize(
   *result =
       std::make_unique<ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF>(
           path, *signature, extra_columns, *options);
+  (*result)->set_statement_context(proto.statement_context());
   return absl::OkStatus();
 }
 

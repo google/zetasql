@@ -1948,7 +1948,7 @@ QueryStmt
               +-WithRefScan(column_list=tvf_templated_select_relation_arg_using_select_star.[a#3, b#4], with_query_name="t")
 ==
 
-[no_run_unparser]
+[no_run_sqlbuilder]
 SELECT * FROM DefinerRightsView;
 --
 QueryStmt
@@ -1988,7 +1988,7 @@ QueryStmt
         +-original_inlined_tvf=<null>
 ==
 
-[no_run_unparser]
+[no_run_sqlbuilder]
 SELECT * FROM UnspecifiedRightsView;
 --
 QueryStmt

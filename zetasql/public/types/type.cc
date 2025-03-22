@@ -20,6 +20,7 @@
 #include <stdlib.h>
 
 #include <array>
+#include <atomic>
 #include <cstdint>
 #include <map>
 #include <memory>
@@ -34,16 +35,17 @@
 #include "google/protobuf/descriptor.pb.h"
 #include "google/protobuf/descriptor.h"
 #include "zetasql/common/errors.h"
+#include "zetasql/common/thread_stack.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/array_type.h"
 #include "zetasql/public/types/map_type.h"
 #include "zetasql/public/types/measure_type.h"
 #include "zetasql/public/types/range_type.h"
 #include "zetasql/public/types/simple_type.h"
 #include "zetasql/public/types/struct_type.h"
-#include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/types/type_parameters.h"
 #include "zetasql/public/value.pb.h"
 #include "zetasql/public/value_content.h"
@@ -55,13 +57,105 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
+#include "absl/synchronization/mutex.h"
 #include "absl/types/variant.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
+namespace internal {
+
+TypeStore::TypeStore(bool keep_alive_while_referenced_from_value)
+    : keep_alive_while_referenced_from_value_(
+          keep_alive_while_referenced_from_value) {}
+
+TypeStore::~TypeStore() {
+  // Need to delete these in a loop because the destructor is only visible
+  // via friend declaration on Type.
+  for (const Type* type : owned_types_) {
+    delete type;
+  }
+  for (const AnnotationMap* annotation_map : owned_annotation_maps_) {
+    delete annotation_map;
+  }
+  if (!factories_depending_on_this_.empty()) {
+    ABSL_LOG(ERROR) << "Destructing TypeFactory " << this
+                << " is unsafe because TypeFactory "
+                << *factories_depending_on_this_.begin()
+                << " depends on it staying alive.\n"
+                << "Using --vmodule=type=2 may aid debugging.\n"
+                ;
+    // Avoid crashing on the TypeFactory dependency reference itself.
+    for (const TypeStore* other : factories_depending_on_this_) {
+      absl::MutexLock l(&other->mutex_);
+      other->depends_on_factories_.erase(this);
+    }
+  }
+
+  for (const TypeStore* other : depends_on_factories_) {
+    bool need_to_unref = false;
+    {
+      absl::MutexLock l(&other->mutex_);
+      if (other->factories_depending_on_this_.erase(this) != 0) {
+        need_to_unref = other->keep_alive_while_referenced_from_value_;
+      }
+    }
+    if (need_to_unref) {
+      other->Unref();
+    }
+  }
+}
+
+void TypeStore::Ref() const {
+  ref_count_.fetch_add(1, std::memory_order_relaxed);
+}
+
+void TypeStore::Unref() const {
+  if (ref_count_.fetch_sub(1, std::memory_order_acq_rel) == 1) {
+    delete this;
+  }
+}
+
+void TypeStoreHelper::RefFromValue(const TypeStore* store) {
+  ABSL_DCHECK(store);
+
+  // We still do TypeStore reference counting in debug mode regardless of
+  // whether keep_alive_while_referenced_from_value_ is true or not: this is
+  // done to check that no values that reference types from this TypeStore are
+  // alive when TypeFactore gets released. In release mode (NDEBUG), we do
+  // refcounting only if keep_alive_while_referenced_from_value_ is true.
+#ifdef NDEBUG
+  if (!store->keep_alive_while_referenced_from_value_) return;
+#endif
+
+  store->Ref();
+}
+
+void TypeStoreHelper::UnrefFromValue(const TypeStore* store) {
+  ABSL_DCHECK(store);
+
+#ifdef NDEBUG
+  if (!store->keep_alive_while_referenced_from_value_) return;
+#endif
+
+  store->Unref();
+}
+
+const TypeStore* TypeStoreHelper::GetTypeStore(const TypeFactoryBase* factory) {
+  ABSL_DCHECK(factory);
+  return factory->store_;
+}
+
+int64_t TypeStoreHelper::Test_GetRefCount(const TypeStore* store) {
+  ABSL_DCHECK(store);
+  return store->ref_count_.load(std::memory_order_seq_cst);
+}
+
+}  // namespace internal
+
 namespace {
+
 struct TypeKindInfo {
   // Nonexisting type kinds have NULL name pointer.
   const char* name = nullptr;
@@ -308,7 +402,7 @@ const TypeKindInfo* FindTypeKindInfo(TypeKind kind) {
 
 }  // namespace
 
-Type::Type(const TypeFactory* factory, TypeKind kind)
+Type::Type(const TypeFactoryBase* factory, TypeKind kind)
     : type_store_(internal::TypeStoreHelper::GetTypeStore(factory)),
       kind_(kind) {}
 
@@ -319,13 +413,6 @@ bool Type::IsSimpleType(TypeKind kind) {
     return info->simple;
   }
   return false;
-}
-
-bool Type::IsSupportedSimpleTypeKind(TypeKind kind,
-                                     const LanguageOptions& language_options) {
-  ABSL_DCHECK(IsSimpleType(kind));
-  const zetasql::Type* type = types::TypeFromSimpleTypeKind(kind);
-  return type->IsSupportedType(language_options);
 }
 
 TypeKind Type::ResolveBuiltinTypeNameToKindIfSimple(absl::string_view type_name,
@@ -537,95 +624,6 @@ std::string Type::DebugString(bool details) const {
   return debug_string;
 }
 
-std::string Type::CapitalizedName() const {
-  switch (kind()) {
-    case TYPE_INT32:
-      return "Int32";
-    case TYPE_INT64:
-      return "Int64";
-    case TYPE_UINT32:
-      return "Uint32";
-    case TYPE_UINT64:
-      return "Uint64";
-    case TYPE_BOOL:
-      return "Bool";
-    case TYPE_FLOAT:
-      return "Float";
-    case TYPE_DOUBLE:
-      return "Double";
-    case TYPE_STRING:
-      return "String";
-    case TYPE_BYTES:
-      return "Bytes";
-    case TYPE_DATE:
-      return "Date";
-    case TYPE_TIMESTAMP:
-      return "Timestamp";
-    case TYPE_TIMESTAMP_PICOS:
-      return "Timestamp_picos";
-    case TYPE_TIME:
-      return "Time";
-    case TYPE_DATETIME:
-      return "Datetime";
-    case TYPE_INTERVAL:
-      return "Interval";
-    case TYPE_GEOGRAPHY:
-      return "Geography";
-    case TYPE_NUMERIC:
-      return "Numeric";
-    case TYPE_BIGNUMERIC:
-      return "BigNumeric";
-    case TYPE_JSON:
-      return "Json";
-    case TYPE_TOKENLIST:
-      return "TokenList";
-    case TYPE_RANGE:
-      // TODO: Consider moving to the types library and audit use of
-      // DebugString.
-      // TODO: Add tests for this logic after implementing range
-      // in zetasql::Value.
-      return absl::StrCat("Range<",
-                          this->AsRange()->element_type()->DebugString(), ">");
-    case TYPE_MAP:
-      return absl::StrCat("Map<", GetMapKeyType(this)->CapitalizedName(), ", ",
-                          GetMapValueType(this)->CapitalizedName(), ">");
-    case TYPE_ENUM: {
-      if (AsEnum()->IsOpaque()) {
-        return AsEnum()->ShortTypeName(ProductMode::PRODUCT_EXTERNAL);
-      } else {
-        return absl::StrCat("Enum<", AsEnum()->enum_descriptor()->full_name(),
-                            ">");
-      }
-    }
-    case TYPE_ARRAY:
-      // TODO: Consider moving to the types library and audit use of
-      // DebugString.
-      return absl::StrCat("Array<",
-                          this->AsArray()->element_type()->DebugString(), ">");
-    case TYPE_STRUCT:
-      return "Struct";
-    case TYPE_PROTO:
-      ABSL_CHECK(AsProto()->descriptor() != nullptr);
-      return absl::StrCat("Proto<", AsProto()->descriptor()->full_name(), ">");
-    case TYPE_GRAPH_ELEMENT:
-      return AsGraphElement()->IsNode() ? "GraphNode" : "GraphEdge";
-    case TYPE_GRAPH_PATH:
-      return "GraphPath";
-    case TYPE_UUID:
-      return "Uuid";
-    case TYPE_MEASURE:
-      return absl::StrCat("Measure<",
-                          AsMeasure()->result_type()->CapitalizedName(), ">");
-    case TYPE_EXTENDED:
-      // TODO: move this logic into an appropriate function of
-      // Type's interface.
-      return ShortTypeName(ProductMode::PRODUCT_EXTERNAL);
-    case TYPE_UNKNOWN:
-    case __TypeKind__switch_must_have_a_default__:
-      ABSL_LOG(FATAL) << "Unexpected type kind expected internally only: " << kind();
-  }
-}
-
 bool Type::SupportsGrouping(const LanguageOptions& language_options,
                             std::string* type_description) const {
   const Type* no_grouping_type;
@@ -759,6 +757,9 @@ bool Type::SupportsReturning(const LanguageOptions& language_options,
       // TODO: b/350555383 - We probably want to allow returning Measure in some
       // places which are disallowed when SupportsReturning() is false, for
       // example in the output column list from a TVF or View.
+      if (type_description != nullptr) {
+        *type_description = "MEASURE";
+      }
       return false;
     default:
       return true;
@@ -770,11 +771,10 @@ void Type::CopyValueContent(const ValueContent& from, ValueContent* to) const {
 }
 
 absl::HashState Type::Hash(absl::HashState state) const {
-  // Hash a type's kind.
-  state = absl::HashState::combine(std::move(state), kind());
-
   // Hash a type's parameter.
-  return HashTypeParameter(std::move(state));
+  state = HashTypeParameter(std::move(state));
+  // Hash a type's kind.
+  return absl::HashState::combine(std::move(state), kind());
 }
 
 absl::Status Type::TypeMismatchError(const ValueProto& value_proto) const {

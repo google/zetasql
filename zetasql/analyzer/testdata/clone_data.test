@@ -1,3 +1,4 @@
+
 CLONE DATA INTO ds.tbl
 FROM ds.src
 --
@@ -118,6 +119,16 @@ FROM KeyValueReadTimeIgnored UNION ALL KeyValue2
                                        ^
 ==
 
+# Subquery as source is not supported.
+[default language_features=CLONE_DATA]
+CLONE DATA INTO KeyValue
+FROM (SELECT 1, 2)
+--
+ERROR: Syntax error: Unexpected "(" [at 2:6]
+FROM (SELECT 1, 2)
+     ^
+==
+
 # Simplest form.
 [default language_features=CLONE_DATA]
 CLONE DATA INTO KeyValue
@@ -128,6 +139,44 @@ CloneDataStmt
 | +-TableScan(table=KeyValue)
 +-clone_from=
   +-TableScan(table=AnotherKeyValue)
+==
+
+
+[language_features=CLONE_DATA]
+CLONE DATA INTO KeyValue FROM AnotherKeyValue
+WHERE (select 1) = 1
+--
+CloneDataStmt
++-target_table=
+| +-TableScan(table=KeyValue)
++-clone_from=
+  +-FilterScan
+    +-input_scan=
+    | +-TableScan(table=AnotherKeyValue)
+    +-filter_expr=
+      +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        +-SubqueryExpr
+        | +-type=INT64
+        | +-subquery_type=SCALAR
+        | +-subquery=
+        |   +-ProjectScan
+        |     +-column_list=[$expr_subquery.$col1#5]
+        |     +-expr_list=
+        |     | +-$col1#5 := Literal(type=INT64, value=1)
+        |     +-input_scan=
+        |       +-SingleRowScan
+        +-Literal(type=INT64, value=1)
+==
+
+# Group by is not supported.
+[default language_features=CLONE_DATA]
+CLONE DATA INTO KeyValue
+FROM AnotherKeyValue
+GROUP BY KEY
+--
+ERROR: Syntax error: Expected end of input but got keyword GROUP [at 3:1]
+GROUP BY KEY
+^
 ==
 
 # Clone from multiple tables.

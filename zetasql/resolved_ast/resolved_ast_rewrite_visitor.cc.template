@@ -35,22 +35,7 @@
 
 namespace zetasql {
 
-template <typename ResolvedNodeT>
-absl::StatusOr<std::vector<std::unique_ptr<const ResolvedNodeT>>>
-ResolvedASTRewriteVisitor::DispatchNodeList(
-    std::vector<std::unique_ptr<const ResolvedNodeT>> nodes) {
-  for (std::unique_ptr<const ResolvedNodeT>& node : nodes) {
-    absl::StatusOr<std::unique_ptr<const ResolvedNodeT>> result =
-        Dispatch<ResolvedNodeT>(std::move(node));
-    if (!result.ok()) {
-      return std::move(result).status();
-    }
-    node = *std::move(result);
-  }
-  return nodes;
-}
-
-# for node in nodes if not node.is_abstract
+# for node in nodes | is_in_shard if not node.is_abstract
 absl::StatusOr<std::unique_ptr<const ResolvedNode>>
 ResolvedASTRewriteVisitor::DefaultVisit(
     std::unique_ptr<const {{node.name}}> node) {
@@ -118,10 +103,12 @@ ResolvedASTRewriteVisitor::DefaultVisit(
 
 # endfor
 
+# if shard_num == 1
 absl::StatusOr<ResolvedColumn>
 ResolvedASTRewriteVisitor::DefaultVisit(ResolvedColumn column) {
   ZETASQL_RETURN_IF_ERROR(PreVisitResolvedColumn(column));
   return PostVisitResolvedColumn(std::move(column));
 }
+# endif
 
 }  // namespace zetasql

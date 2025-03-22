@@ -76,9 +76,9 @@ absl::StatusOr<std::unique_ptr<ResolvedExpr>> ResolveFunctionCall(
 
   std::unique_ptr<const ResolvedExpr> result;
   absl::Status status = resolver->ResolveFunctionCallWithResolvedArguments(
-      &dummy_ast_function, dummy_arg_locations, function_name,
-      std::move(arguments), std::move(named_arguments), &expr_resolution_info,
-      &result);
+      &dummy_ast_function, dummy_arg_locations,
+      /*match_internal_signatures=*/true, function_name, std::move(arguments),
+      std::move(named_arguments), &expr_resolution_info, &result);
 
   // We expect that the caller passes valid/coercible arguments. An error only
   // occurs if that contract is violated, so this is an internal error.

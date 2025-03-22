@@ -16,11 +16,16 @@
 
 #include "zetasql/common/graph_element_utils.h"
 
+#include <vector>
+
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/public/functions/json.h"
+#include "zetasql/public/json_value.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/types/span.h"
 
 namespace zetasql {
 namespace {
@@ -74,5 +79,29 @@ TEST(GraphElementUtilsTest, IsOrContainsGraphElementTest) {
   ASSERT_THAT(struct_type, NotNull());
   ASSERT_TRUE(TypeIsOrContainsGraphElement(struct_type));
 }
+
+TEST(GraphElementUtilsTest, MakePropertiesJsonValueTest) {
+  const LanguageOptions language_options = LanguageOptions::MaximumFeatures();
+  const Value p1_value = Value::Bool(true);
+  const Value p2_value = Value::Double(3.14);
+  std::vector<Value::Property> properties = {{"p1", p1_value},
+                                             {"p2", p2_value}};
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      JSONValue json_value,
+      MakePropertiesJsonValue(absl::MakeSpan(properties), language_options));
+  EXPECT_EQ(json_value.GetConstRef().GetMembers().size(), 2);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const bool p1,
+      functions::ConvertJsonToBool(json_value.GetConstRef().GetMember("p1")));
+  EXPECT_EQ(p1, p1_value.bool_value());
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const double p2,
+      functions::ConvertJsonToDouble(json_value.GetConstRef().GetMember("p2"),
+                                     functions::WideNumberMode::kExact,
+                                     ProductMode::PRODUCT_INTERNAL));
+  EXPECT_EQ(p2, p2_value.double_value());
+}
+
 }  // namespace
 }  // namespace zetasql

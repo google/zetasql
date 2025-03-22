@@ -21,16 +21,21 @@
 #include <vector>
 
 #include "zetasql/common/options_utils.h"
-#include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/testing/test_case_options_util.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/struct_type.h"
 #include "zetasql/testdata/test_schema.pb.h"
+#include "absl/container/flat_hash_set.h"
+#include "zetasql/base/check.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_split.h"
+#include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 #include "file_based_test_driver/test_case_options.h"
 #include "google/protobuf/text_format.h"
+#include "zetasql/base/ret_check.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
@@ -53,12 +58,12 @@ const char* const kCreateNewColumnForEachProjectedOutput =
 const char* const kParseMultiple = "parse_multiple";
 const char* const kDefaultTimezone = "default_timezone";
 const char* const kDefaultAnonKappaValue = "default_anon_kappa_value";
-const char* const kRunUnparser = "run_unparser";
-const char* const kUnparserPositionalParameterMode =
-    "unparser_positional_parameter_mode";
-const char* const kShowUnparsed = "show_unparsed";
-const char* const kShowUnparsedResolvedASTDiff =
-    "show_unparsed_resolved_ast_diff";
+const char* const kRunSqlBuilder = "run_sqlbuilder";
+const char* const kSqlBuilderPositionalParameterMode =
+    "sqlbuilder_positional_parameter_mode";
+const char* const kShowSqlBuilderOutput = "show_sqlbuilder_output";
+const char* const kShowSqlBuilderResolvedASTDiff =
+    "show_sqlbuilder_resolved_ast_diff";
 const char* const kInScopeExpressionColumnName =
     "in_scope_expression_column_name";
 const char* const kInScopeExpressionColumnType =
@@ -107,6 +112,12 @@ const char* const kRewriteOptions = "rewrite_options";
 const char* const kShowReferencedPropertyGraphs =
     "show_referenced_property_graphs";
 const char* const kPruneUnusedColumns = "prune_unused_columns";
+const char* const kEnhancedErrorRedaction = "enhanced_error_redaction";
+const char* const kSqlBuilderTargetSyntaxMode =
+    "sql_builder_target_syntax_mode";
+const char* const kSqlBuilderTargetSyntaxModePipe = "pipe";
+const char* const kSqlBuilderTargetSyntaxModeStandard = "standard";
+const char* const kSqlBuilderTargetSyntaxModeBoth = "both";
 
 void RegisterAnalyzerTestOptions(
     file_based_test_driver::TestCaseOptions* test_case_options) {
@@ -133,11 +144,11 @@ void RegisterAnalyzerTestOptions(
   test_case_options->RegisterBool(kParseMultiple, false);
   test_case_options->RegisterString(kDefaultTimezone, "");
   test_case_options->RegisterInt64(kDefaultAnonKappaValue, 0);
-  test_case_options->RegisterBool(kRunUnparser, true);
-  test_case_options->RegisterString(kUnparserPositionalParameterMode,
+  test_case_options->RegisterBool(kRunSqlBuilder, true);
+  test_case_options->RegisterString(kSqlBuilderPositionalParameterMode,
                                     "question_mark");
-  test_case_options->RegisterBool(kShowUnparsed, false);
-  test_case_options->RegisterBool(kShowUnparsedResolvedASTDiff, false);
+  test_case_options->RegisterBool(kShowSqlBuilderOutput, false);
+  test_case_options->RegisterBool(kShowSqlBuilderResolvedASTDiff, false);
   test_case_options->RegisterString(kLanguageFeatures, "");
   test_case_options->RegisterString(kInScopeExpressionColumnName, "");
   test_case_options->RegisterString(kInScopeExpressionColumnType,
@@ -178,6 +189,9 @@ void RegisterAnalyzerTestOptions(
   // once all engines are updated.
   test_case_options->RegisterBool(kPruneUnusedColumns, true);
   test_case_options->RegisterBool(kAllowAggregateStandaloneExpression, false);
+  test_case_options->RegisterBool(kEnhancedErrorRedaction, false);
+  test_case_options->RegisterString(kSqlBuilderTargetSyntaxMode,
+                                    kSqlBuilderTargetSyntaxModeBoth);
 }
 
 std::vector<std::pair<std::string, const zetasql::Type*>> GetQueryParameters(

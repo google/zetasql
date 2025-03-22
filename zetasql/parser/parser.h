@@ -26,6 +26,7 @@
 #include "zetasql/base/arena.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/parser/ast_node_kind.h"
+#include "zetasql/parser/bison_parser_mode.h"
 #include "zetasql/parser/macros/macro_catalog.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parser_runtime_info.h"
@@ -59,6 +60,8 @@ class ParserOptions {
 
   explicit ParserOptions(
       LanguageOptions language_options,
+      parser::MacroExpansionMode macro_expansion_mode =
+          parser::MacroExpansionMode::kNone,
       const parser::macros::MacroCatalog* macro_catalog = nullptr);
 
   // This will make a _copy_ of language_options. It is not referenced after
@@ -74,6 +77,8 @@ class ParserOptions {
   ParserOptions(std::shared_ptr<IdStringPool> id_string_pool,
                 std::shared_ptr<zetasql_base::UnsafeArena> arena,
                 LanguageOptions language_options = {},
+                parser::MacroExpansionMode macro_expansion_mode =
+                    parser::MacroExpansionMode::kNone,
                 const parser::macros::MacroCatalog* macro_catalog = nullptr);
   ~ParserOptions();
 
@@ -109,8 +114,13 @@ class ParserOptions {
   }
 
   const LanguageOptions& language_options() const { return language_options_; }
+
   const parser::macros::MacroCatalog* macro_catalog() const {
     return macro_catalog_;
+  }
+
+  parser::MacroExpansionMode macro_expansion_mode() const {
+    return macro_expansion_mode_;
   }
 
  private:
@@ -123,6 +133,7 @@ class ParserOptions {
   std::shared_ptr<IdStringPool> id_string_pool_;
 
   LanguageOptions language_options_;
+  parser::MacroExpansionMode macro_expansion_mode_;
   const parser::macros::MacroCatalog* macro_catalog_ = nullptr;
 };
 
@@ -326,9 +337,18 @@ std::string Unparse(const ASTNode* root);
 // returns -1.
 // <*statement_is_ctas> will be set to true iff the query is CREATE
 // TABLE AS SELECT, and false otherwise.
-ASTNodeKind ParseStatementKind(absl::string_view input,
-                               const LanguageOptions& language_options,
-                               bool* statement_is_ctas);
+ASTNodeKind ParseStatementKind(
+    absl::string_view input, const LanguageOptions& language_options,
+    parser::MacroExpansionMode macro_expansion_mode,
+    const parser::macros::MacroCatalog* macro_catalog, bool* statement_is_ctas);
+
+inline ASTNodeKind ParseStatementKind(absl::string_view input,
+                                      const LanguageOptions& language_options,
+                                      bool* statement_is_ctas) {
+  return ParseStatementKind(input, language_options,
+                            parser::MacroExpansionMode::kNone,
+                            /*macro_catalog=*/nullptr, statement_is_ctas);
+}
 
 // Similar to ParseStatementKind, but determines the statement kind for the next
 // statement starting from <resume_location>.
@@ -337,9 +357,20 @@ ASTNodeKind ParseStatementKind(absl::string_view input,
 //
 // <statement_is_ctas> cannot null; its content will be set to true iff
 // the query is CREATE TABLE AS SELECT.
-ASTNodeKind ParseNextStatementKind(const ParseResumeLocation& resume_location,
-                                   const LanguageOptions& language_options,
-                                   bool* next_statement_is_ctas);
+ASTNodeKind ParseNextStatementKind(
+    const ParseResumeLocation& resume_location,
+    const LanguageOptions& language_options,
+    parser::MacroExpansionMode macro_expansion_mode,
+    const parser::macros::MacroCatalog* macro_catalog,
+    bool* next_statement_is_ctas);
+
+inline ASTNodeKind ParseNextStatementKind(
+    const ParseResumeLocation& resume_location,
+    const LanguageOptions& language_options, bool* next_statement_is_ctas) {
+  return ParseNextStatementKind(
+      resume_location, language_options, parser::MacroExpansionMode::kNone,
+      /*macro_catalog=*/nullptr, next_statement_is_ctas);
+}
 
 // Parse the first few keywords from <resume_location> (ignoring whitespace
 // and comments), to determine basic statement properties.

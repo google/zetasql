@@ -16,10 +16,13 @@
 
 #include "zetasql/common/match_recognize/nfa.h"
 
+#include <memory>
 #include <string>
 #include <vector>
 
 #include "absl/container/flat_hash_set.h"
+#include "zetasql/base/check.h"
+#include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
@@ -29,9 +32,44 @@
 
 namespace zetasql::functions::match_recognize {
 
+absl::StatusOr<std::unique_ptr<NFA>> NFA::Create(int num_pattern_variables) {
+  ZETASQL_RET_CHECK(num_pattern_variables > 0);
+  return absl::WrapUnique(new NFA(num_pattern_variables));
+}
+
+NFA::NFA(int num_pattern_variables)
+    : num_pattern_variables_(num_pattern_variables) {
+  ABSL_DCHECK_GT(num_pattern_variables, 0);
+}
+
+std::unique_ptr<NFA> NFA::CreateEmptyNFA() const {
+  return absl::WrapUnique(new NFA(num_pattern_variables_));
+}
+
 NFAState NFA::NewState() {
   edges_.emplace_back();
   return NFAState(static_cast<int>(edges_.size()) - 1);
+}
+
+absl::Status NFA::AddEdge(NFAState state, const NFAEdge& edge) {
+  ZETASQL_RET_CHECK(state.IsValid());
+  ZETASQL_RET_CHECK_LT(state.value(), num_states());
+  ZETASQL_RET_CHECK(edge.target.IsValid());
+  ZETASQL_RET_CHECK_LT(edge.target.value(), num_states());
+
+  if (edge.pattern_var.has_value()) {
+    ZETASQL_RET_CHECK_LT(edge.pattern_var->value(), num_pattern_variables_);
+  }
+
+  if (edge_count_ >= kMaxSupportedEdges) {
+    return absl::OutOfRangeError(
+        "MATCH_RECOGNIZE pattern is too complex. This can happen if the "
+        "pattern is too long, quantifier bounds are too large, or if bounded "
+        "quantifiers are too deeply nested");
+  }
+  ++edge_count_;
+  edges_[state.value()].push_back(edge);
+  return absl::OkStatus();
 }
 
 absl::Status NFA::Validate(ValidationMode mode) const {
@@ -74,6 +112,7 @@ absl::Status ValidateAllStatesReachable(const NFA& nfa) {
 }
 
 absl::Status NFA::ValidateInternal(ValidationMode mode) const {
+  ZETASQL_RET_CHECK_GT(num_pattern_variables_, 0);
   ZETASQL_RET_CHECK(start_state().IsValid());
   ZETASQL_RET_CHECK(final_state().IsValid());
   ZETASQL_RET_CHECK_LT(start_state().value(), num_states());
@@ -97,6 +136,7 @@ absl::Status NFA::ValidateInternal(ValidationMode mode) const {
 
       if (edge.pattern_var.has_value()) {
         ZETASQL_RET_CHECK(edge.pattern_var->IsValid());
+        ZETASQL_RET_CHECK_LT(edge.pattern_var->value(), num_pattern_variables_);
 
         ZETASQL_RET_CHECK(edge.target != final_state())
             << "Non-Epsilon edge from " << absl::StrCat(state)

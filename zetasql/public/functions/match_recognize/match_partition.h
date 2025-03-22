@@ -27,9 +27,7 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 
-namespace zetasql {
-namespace functions {
-namespace match_recognize {
+namespace zetasql::functions::match_recognize {
 
 // Options to control matching behavior, corresponding to various elements in
 // the MATCH_RECOGNIZE clause.
@@ -45,17 +43,6 @@ struct MatchOptions {
   std::function<absl::StatusOr<Value>(
       std::variant<int, absl::string_view> param_name_or_index)>
       parameter_evaluator;
-
-  // Optional hint from the engine to the matcher of the total number of rows
-  // that will be passed to AddRow() before Finalize(). This can be used by the
-  // matcher for optimizations, for example, the matcher can halt matching early
-  // upon determining that there are insufficient remaining rows to produce any
-  // more matches.
-  //
-  // If specified, this value must exactly match the number times that AddRow()
-  // is called before Finalize() (with the exception that matching may end
-  // immediately, once additional_matches_possible is false in a MatchResult).
-  std::optional<int> total_row_count;
 };
 
 struct Match {
@@ -89,18 +76,8 @@ struct MatchResult {
   // variables have been fully determined, sometimes, the reporting of a match
   // may be delayed until several rows after the match actually ends. The caller
   // should be prepared for this, and should not expect matches to end at the
-  // current row. The only guarantee on the bounds of a reported match is that
-  // a match may not start at any row index prior to the value of
-  // `total_rows_fully_processed` on the previous AddRow() call.
+  // current row.
   std::vector<Match> new_matches;
-
-  // Specifies the total number of rows for which the full set of
-  // matches that the row belongs to has been fully determined.
-  //
-  // All matches reported by subsequent AddRow() or Finalize() calls are
-  // guaranteed to have a `start_row_index` at least the value of
-  // `total_rows_fully_processed` in this MatchResult.
-  int total_rows_fully_processed = 0;
 };
 
 // Represents a partition which contains a row sequence used to match against
@@ -125,8 +102,6 @@ struct MatchResult {
 //        // aggregate the MEASURES expressions, using the `pattern_vars_by_row`
 //        // field to determine which rows apply to which aggregations.
 //     }
-//     <remove all saved rows up through row index
-//      `match_result.total_rows_fully_processed`>.
 //   }
 //
 class MatchPartition {
@@ -161,7 +136,5 @@ class MatchPartition {
   // Returns a string describing the internal state of the match window.
   virtual std::string DebugString() const = 0;
 };
-}  // namespace match_recognize
-}  // namespace functions
-}  // namespace zetasql
+}  // namespace zetasql::functions::match_recognize
 #endif  // ZETASQL_PUBLIC_FUNCTIONS_MATCH_RECOGNIZE_MATCH_PARTITION_H_

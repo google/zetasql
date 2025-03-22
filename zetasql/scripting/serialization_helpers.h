@@ -21,9 +21,18 @@
 #include <variant>
 #include <vector>
 
+#include "zetasql/public/evaluator.h"
+#include "zetasql/public/id_string.h"
+#include "zetasql/public/types/type.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/scripting/script_executor.h"
+#include "zetasql/scripting/script_executor_state.pb.h"
+#include "zetasql/scripting/type_aliases.h"
 #include "zetasql/scripting/variable.pb.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "google/protobuf/descriptor.h"
+#include "google/protobuf/repeated_ptr_field.h"
 namespace zetasql {
 
 using VariableProto = Variable;

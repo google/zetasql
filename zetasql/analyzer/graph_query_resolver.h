@@ -17,11 +17,13 @@
 #ifndef ZETASQL_ANALYZER_GRAPH_QUERY_RESOLVER_H_
 #define ZETASQL_ANALYZER_GRAPH_QUERY_RESOLVER_H_
 
+#include <functional>
 #include <memory>
 #include <set>
+#include <tuple>
+#include <utility>
 #include <vector>
 
-#include "zetasql/analyzer/graph_label_expr_resolver.h"
 #include "zetasql/analyzer/name_scope.h"
 #include "zetasql/analyzer/resolver.h"
 #include "zetasql/analyzer/set_operation_resolver_base.h"
@@ -39,6 +41,7 @@
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 
 namespace zetasql {
@@ -64,9 +67,11 @@ using PropertySet = std::set<const GraphPropertyDeclaration*,
 using ElementTableSet =
     std::set<const GraphElementTable*, CompareByName<GraphElementTable>>;
 
-// Returns a set of properties exposed by <element_tables>.
-absl::StatusOr<PropertySet> GetPropertySet(
-    const ElementTableSet& element_tables);
+// Returns a set of static properties exposed by <element_tables>.
+absl::Status GetPropertySet(
+    const ElementTableSet& element_tables,
+    PropertySet& static_properties
+);
 
 // Returns a set of tables satisfying <label_expr> and which have
 // the specified element_kind (node or edge).
@@ -103,9 +108,8 @@ class QueryResolutionInfo;
 // - <b> is a singleton in <elem_scope>;
 // - However they are all group variables in the scope of <outer_scope>.
 struct GraphTableNamedVariables {
- public:
   // Describes the context which outputs GraphTableNamedVariables.
-  const ASTNode* const ast_node;
+  const ASTNode* ast_node;
   // Contains all the singleton variables for this 'ast_node'
   std::shared_ptr<NameList> singleton_name_list = std::make_shared<NameList>();
   // Contains all the group variables for this 'ast_node'
@@ -171,20 +175,18 @@ class GraphTableQueryResolver {
   absl::StatusOr<CleanupGraphRefCb> HandleGraphReference(const ASTNode* query);
 
   // Creates an empty GraphTableNamedVariables.
-  static std::unique_ptr<const GraphTableNamedVariables>
-  CreateEmptyGraphNameLists(const ASTNode* node);
+  static GraphTableNamedVariables CreateEmptyGraphNameLists(
+      const ASTNode* node);
 
   // Creates a GraphTableNamedVariables object with a singleton namelist only.
-  absl::StatusOr<std::unique_ptr<const GraphTableNamedVariables>>
-  CreateGraphNameListsSingletonOnly(
+  absl::StatusOr<GraphTableNamedVariables> CreateGraphNameListsSingletonOnly(
       const ASTNode* node, std::shared_ptr<NameList> singleton_name_list);
 
   // Creates a GraphTableNamedVariables object with both singleton and group
   // namelists.
-  absl::StatusOr<std::unique_ptr<const GraphTableNamedVariables>>
-  CreateGraphNameLists(const ASTNode* node,
-                       std::shared_ptr<NameList> singleton_name_list,
-                       std::shared_ptr<NameList> group_name_list);
+  absl::StatusOr<GraphTableNamedVariables> CreateGraphNameLists(
+      const ASTNode* node, std::shared_ptr<NameList> singleton_name_list,
+      std::shared_ptr<NameList> group_name_list);
 
   // Merges <child_namelist> and <parent_namelist> and outputs a new merged
   // graph namelist and a list of GraphMakeArrayVariables that record
@@ -194,19 +196,17 @@ class GraphTableQueryResolver {
   //
   // A composite pattern builds its GraphTableNamedVariables from merging
   // outputs from sub patterns.
-  absl::StatusOr<std::unique_ptr<const GraphTableNamedVariables>>
-  MergeGraphNameLists(
-      std::unique_ptr<const GraphTableNamedVariables> parent_namelist,
-      std::unique_ptr<const GraphTableNamedVariables> child_namelist,
+  absl::StatusOr<GraphTableNamedVariables> MergeGraphNameLists(
+      GraphTableNamedVariables parent_namelist,
+      GraphTableNamedVariables child_namelist,
       std::vector<std::unique_ptr<const ResolvedGraphMakeArrayVariable>>&
           new_group_variables);
 
   // Same as the previous MergeGraphNameLists but can only be used in a
   // non-quantified context.
-  absl::StatusOr<std::unique_ptr<const GraphTableNamedVariables>>
-  MergeGraphNameLists(
-      std::unique_ptr<const GraphTableNamedVariables> parent_namelist,
-      std::unique_ptr<const GraphTableNamedVariables> child_namelist);
+  absl::StatusOr<GraphTableNamedVariables> MergeGraphNameLists(
+      GraphTableNamedVariables parent_namelist,
+      GraphTableNamedVariables child_namelist);
 
   // Validates that 'graph_namelists' obeys the following:
   //  - No group variable is multiply declared
@@ -237,7 +237,7 @@ class GraphTableQueryResolver {
     // The output resolved node produced by the call.
     std::unique_ptr<NodeType> resolved_node;
     // The output graph namelists produced by the call.
-    std::unique_ptr<const GraphTableNamedVariables> graph_name_lists;
+    GraphTableNamedVariables graph_name_lists;
   };
 
   // Copy the graph input scan. The `input` can only be a SingleRowScan or a
@@ -256,7 +256,7 @@ class GraphTableQueryResolver {
     // Filter expression applied across the paths.
     std::unique_ptr<const ResolvedExpr> filter_expr;
     // Output name lists produced.
-    std::unique_ptr<const GraphTableNamedVariables> graph_name_lists;
+    GraphTableNamedVariables graph_name_lists;
   };
 
   // Helper function to construct the filter_expr for a 'graph_pattern' clause.
@@ -278,21 +278,26 @@ class GraphTableQueryResolver {
       const NameListPtr& input_name_list);
 
   // Resolves an expression that may have a horizontal aggregate.
-  absl::StatusOr<std::unique_ptr<const ResolvedExpr>>
-  ResolveHorizontalAggregateExpr(const ASTExpression* expr,
-                                 const NameScope* local_scope,
-                                 QueryResolutionInfo* query_resolution_info,
-                                 bool allow_analytic,
-                                 const char* clause_name) const;
+  absl::StatusOr<std::unique_ptr<const ResolvedExpr>> ResolveExpr(
+      const ASTExpression* expr, const NameScope* local_scope,
+      QueryResolutionInfo* query_resolution_info, bool allow_analytic,
+      bool allow_horizontal_aggregate, const char* clause_name) const;
 
   // Resolves a GqlOperator by delegating to resolver functions of the
-  // derived class. `input_graph_name_lists` holds the current working
-  // namelists
+  // derived class. `inputs` holds the current working table and namelists.
+  //
+  // `current_scan_list` holds the scans in the current list of linear
+  // operators. This is useful for scans like FILTER <analytic>, which needs
+  // to place the new columns on a project scan because FilterScan does not
+  // create any new columns.
   //  of the GQL query, it is read as input and modified as output.
+  // TODO: simplify this function by just passing the current list, instead of
+  // passing the last scan separately.
   absl::StatusOr<ResolvedGraphWithNameList<const ResolvedScan>>
-  ResolveGqlOperator(const ASTGqlOperator* gql_op,
-                     const NameScope* external_scope,
-                     ResolvedGraphWithNameList<const ResolvedScan> inputs);
+  ResolveGqlOperator(
+      const ASTGqlOperator* gql_op, const NameScope* external_scope,
+      std::vector<std::unique_ptr<const ResolvedScan>>& current_scan_list,
+      ResolvedGraphWithNameList<const ResolvedScan> inputs);
 
   // Verifies that the sequence of linear query ops in `primitive_ops` is valid.
   absl::Status CheckGqlLinearQuery(
@@ -302,9 +307,9 @@ class GraphTableQueryResolver {
   // `out_name_list` should start as an empty namelist, and would be updated by
   // this function.
   absl::StatusOr<ResolvedGraphWithNameList<const ResolvedGraphLinearScan>>
-  ResolveGqlLinearQueryList(
-      const ASTGqlOperatorList& gql_ops_list, const NameScope* external_scope,
-      std::unique_ptr<const GraphTableNamedVariables> input_graph_name_lists);
+  ResolveGqlLinearQueryList(const ASTGqlOperatorList& gql_ops_list,
+                            const NameScope* external_scope,
+                            GraphTableNamedVariables input_graph_name_lists);
 
   // Resolves a GraphLinearScan with primitive gql operations (MATCH, RETURN) as
   // children. `input_graph_name_lists`s namelists are consumed for the current
@@ -340,16 +345,17 @@ class GraphTableQueryResolver {
   // corresponding to variable definitions in the LET statement. Also returns
   // those names to the return namelist.
   absl::StatusOr<ResolvedGraphWithNameList<const ResolvedScan>> ResolveGqlLet(
-      const ASTGqlLet& let_op, const NameScope* external_scope,
+      const ASTGqlLet& let_op, const NameScope* local_scope,
       ResolvedGraphWithNameList<const ResolvedScan> inputs);
 
   // Resolves a FILTER operator in a GQL-dialect graph query and builds
   // a FilterScan on `input_scan` with the condition expressed in
   // `filter_op`. The `working_name_list` is left unmodified.
   absl::StatusOr<ResolvedGraphWithNameList<const ResolvedScan>>
-  ResolveGqlFilter(const ASTGqlFilter& filter_op,
-                   const NameScope* external_scope,
-                   ResolvedGraphWithNameList<const ResolvedScan> inputs);
+  ResolveGqlFilter(
+      const ASTGqlFilter& filter_op, const NameScope* local_scope,
+      std::vector<std::unique_ptr<const ResolvedScan>>& current_scan_list,
+      ResolvedGraphWithNameList<const ResolvedScan> inputs);
 
   // Resolves a GQL query's ORDER BY PAGE operator.
   absl::StatusOr<ResolvedGraphWithNameList<const ResolvedScan>>
@@ -360,20 +366,19 @@ class GraphTableQueryResolver {
 
   // Resolves a GQL query's WITH operator.
   absl::StatusOr<ResolvedGraphWithNameList<const ResolvedScan>> ResolveGqlWith(
-      const ASTGqlWith& with_op, const NameScope* external_scope,
+      const ASTGqlWith& with_op, const NameScope* local_scope,
       ResolvedGraphWithNameList<const ResolvedScan> inputs);
 
   // Resolves a GQL query's FOR operator.
   absl::StatusOr<ResolvedGraphWithNameList<const ResolvedScan>> ResolveGqlFor(
-      const ASTGqlFor& for_op, const NameScope* external_scope,
+      const ASTGqlFor& for_op, const NameScope* local_scope,
       ResolvedGraphWithNameList<const ResolvedScan> inputs);
 
   // Builds a ProjectScan from GqlReturnOp. `working_name_list` is consumed as
   // the namelist of the current input scan. Updates `working_name_list` as the
   // namelist of the resulting scan.
   absl::StatusOr<ResolvedGraphWithNameList<const ResolvedScan>>
-  ResolveGqlReturn(const ASTGqlReturn& return_op,
-                   const NameScope* external_scope,
+  ResolveGqlReturn(const ASTGqlReturn& return_op, const NameScope* local_scope,
                    ResolvedGraphWithNameList<const ResolvedScan> inputs);
 
   // Builds a SetOperationScan from GqlSetOperation. `inputs.graph_name_lists`
@@ -383,10 +388,17 @@ class GraphTableQueryResolver {
                          const NameScope* external_scope,
                          ResolvedGraphWithNameList<const ResolvedScan> inputs);
 
+  // Resolves a GQL query's SAMPLE operator.
+  absl::StatusOr<ResolvedGraphWithNameList<const ResolvedScan>>
+  ResolveGqlSample(const ASTGqlSample& sample_op,
+                   const NameScope* external_scope,
+                   ResolvedGraphWithNameList<const ResolvedScan> input);
+
   // Builds a graph element type for <table_kind> and <properties>.
   absl::StatusOr<const GraphElementType*> MakeGraphElementType(
       GraphElementTable::Kind table_kind, const PropertySet& properties,
-      TypeFactory* type_factory);
+      TypeFactory* type_factory
+  );
 
   // Resolves the graph reference in graph_table_query_.
   absl::Status ResolveGraphReference(const ASTPathExpression* graph_ref);
@@ -409,15 +421,28 @@ class GraphTableQueryResolver {
   // - An edge pattern is similar besides the type is edge and also has an
   //   orientation specified by <ast_element_pattern>.
   absl::StatusOr<ResolvedGraphWithNameList<const ResolvedGraphElementScan>>
-  ResolveElementPattern(
-      const ASTGraphElementPattern& ast_element_pattern,
-      const NameScope* input_scope,
-      std::unique_ptr<const GraphTableNamedVariables> input_graph_name_lists);
+  ResolveElementPattern(const ASTGraphElementPattern& ast_element_pattern,
+                        const NameScope* input_scope,
+                        GraphTableNamedVariables input_graph_name_lists);
 
   // Resolves path mode, which is a means to restrict the sequence of nodes and
   // edges in a path.
   absl::StatusOr<std::unique_ptr<const ResolvedGraphPathMode>> ResolvePathMode(
       const ASTGraphPathMode* ast_path_mode);
+
+  // Resolves path search prefix, which partitions the underlying paths
+  // by head and tail and selects a number of paths from each partition.
+  absl::StatusOr<std::unique_ptr<const ResolvedGraphPathSearchPrefix>>
+  ResolvePathSearchPrefix(
+      const ASTGraphPathSearchPrefix* ast_path_search_prefix,
+      const NameScope* name_scope);
+
+  // Resolves the expression `ast_search_prefix_path_count` into a
+  // ResolvedExpr.
+  absl::Status GetSearchPrefixPathCountExpr(
+      const ASTExpression* ast_search_prefix_path_count,
+      const NameScope* input_scope,
+      std::unique_ptr<const ResolvedExpr>* resolved_expr_out) const;
 
   // Generates a path column from the columns in `path_scan_column_list`. If the
   // path is user specified (`ast_path_name` is not null), it is inserted into
@@ -425,7 +450,7 @@ class GraphTableQueryResolver {
   absl::StatusOr<ResolvedColumn> GeneratePathColumn(
       const ASTIdentifier* ast_path_name,
       const ResolvedColumnList& path_scan_column_list,
-      const GraphTableNamedVariables* multiply_decl_namelists);
+      GraphTableNamedVariables multiply_decl_namelists);
 
   // Resolves path pattern:
   // A path pattern produces a stream of rows representing a stream of paths.
@@ -441,8 +466,7 @@ class GraphTableQueryResolver {
   absl::StatusOr<ResolvedGraphWithNameList<const ResolvedGraphPathScan>>
   ResolvePathPattern(
       const ASTGraphPathPattern& ast_path_pattern, const NameScope* input_scope,
-      std::unique_ptr<const GraphTableNamedVariables> input_graph_name_lists,
-      bool create_path_column,
+      GraphTableNamedVariables input_graph_name_lists, bool create_path_column,
       IdStringHashMapCase<const ASTGraphPathPattern* const>*
           out_multiply_decl_forbidden_names_to_err_location = nullptr);
 
@@ -459,17 +483,15 @@ class GraphTableQueryResolver {
   // pattern list, and then resolves the graph pattern where clause with the
   // namescope of path patterns (and correlated names).
   //
-  // `update_multiply_declared_names` indicates whether multiply-declared names
-  // should be updated to map to the resolved column version from the patten,
-  // instead of keeping the column from the incoming working table.
-  // This is always the case except for OPTIONAL MATCH, where the incoming
-  // column from the working table is kept.
+  // The caller is responsible for restoring multiply-declared names to map to
+  // the column from the incoming working table, instead of the resolved column
+  // version from the pattern. This is the case for OPTIONAL MATCH (and OPTIONAL
+  // CALL) where the incoming column from the working table is kept.
   // The column choice matters as it dictates the available properties.
   absl::StatusOr<ResolvedGraphWithNameList<const ResolvedGraphScan>>
-  ResolveGraphPattern(
-      const ASTGraphPattern& ast_graph_pattern, const NameScope* input_scope,
-      std::unique_ptr<const GraphTableNamedVariables> input_graph_name_lists,
-      bool update_multiply_declared_names);
+  ResolveGraphPattern(const ASTGraphPattern& ast_graph_pattern,
+                      const NameScope* input_scope,
+                      GraphTableNamedVariables input_graph_name_lists);
 
   // Given a `input_graph_name_lists`:
   // For the multiply-declared graph element singleton variable name targets
@@ -518,10 +540,13 @@ class GraphTableQueryResolver {
       std::vector<std::unique_ptr<const ResolvedComputedColumn>>* expr_list)
       const;
 
+  // Resolves the property specification for a graph element variable.
   absl::StatusOr<std::unique_ptr<const ResolvedExpr>>
   ResolveGraphElementPropertySpecification(
       const ASTGraphPropertySpecification* ast_graph_property_specification,
-      const NameScope* input_scope, const ResolvedColumn& element_column) const;
+      const NameScope* input_scope,
+      const ResolvedColumn& element_column
+  ) const;
 
   // Resolves a single <ast_select_column> using <expr_resolotuion_info>. Adds
   // new name(s) and column(s) produced to <output_name/column_list>. For each
@@ -539,7 +564,8 @@ class GraphTableQueryResolver {
   // returns an empty ResolvedExpr.
   absl::StatusOr<std::unique_ptr<const ResolvedExpr>> ResolveWhereClause(
       const ASTWhereClause* ast_where_clause, const NameScope* input_scope,
-      QueryResolutionInfo* query_resolution_info, bool allow_analytic) const;
+      QueryResolutionInfo* query_resolution_info, bool allow_analytic,
+      bool allow_horizontal_aggregate) const;
 
   // Examines all path scans in `path_scans`, and for each one, records all
   // columns that are required for implementing path modes. Specifically,
@@ -626,7 +652,7 @@ class GraphTableQueryResolver {
 
   // Resolves the ASTGqlPage segment of a GQL query's OrderByAndPage operator.
   absl::StatusOr<ResolvedGraphWithNameList<const ResolvedScan>>
-  ResolveGqlPageClauses(const ASTGqlPage* page, const NameScope* external_scope,
+  ResolveGqlPageClauses(const ASTGqlPage* page, const NameScope* local_scope,
                         ResolvedGraphWithNameList<const ResolvedScan> inputs);
 
   // Resolves the expression `ast_quantifier_bound` into a ResolvedExpr.

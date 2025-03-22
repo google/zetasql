@@ -1489,15 +1489,7 @@ select COUNT(*)
 from KeyValue
 GROUP BY key AS alias
 --
-ALTERNATION GROUP: PIPES
---
-ERROR: GROUP BY does not support aliases [at 3:14]
-GROUP BY key AS alias
-             ^
---
-ALTERNATION GROUP: <empty>
---
-ERROR: Syntax error: GROUP BY does not support aliases [at 3:14]
+ERROR: Syntax error: Expected end of input but got keyword AS [at 3:14]
 GROUP BY key AS alias
              ^
 ==

@@ -14,6 +14,7 @@ ERROR: TABLESAMPLE not supported [at 2:4]
 ==
 
 [default language_features=PIPES,TABLESAMPLE,STRATIFIED_RESERVOIR_TABLESAMPLE]
+
 from TestTable
 |> TABLESAMPLE BERNOULLI (10.5 PERCENT)
 |> TABLESAMPLE RESERVOIR (10 ROWS)
@@ -318,7 +319,7 @@ QueryStmt
 ==
 
 # Test for SQLBuilder, of a TABLESAMPLE operator after unusual preceding scans.
-[show_unparsed]
+[show_sqlbuilder_output]
 FROM TestTable
 |> AGGREGATE COUNT(*) c GROUP BY key
 |> {{LIMIT 10|EXTEND 123}}
@@ -352,7 +353,8 @@ QueryStmt
     | +-Literal(type=INT64, value=10)
     +-unit=ROWS
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   limitoffsetscan_5.a_3 AS key,
   limitoffsetscan_5.a_4 AS c
@@ -371,6 +373,25 @@ FROM
     GROUP BY 1
     LIMIT 10
   ) AS limitoffsetscan_5 TABLESAMPLE bernoulli(10 ROWS);
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  TestTable
+|> SELECT
+     TestTable.key AS a_1
+|> AS testtable_2
+|> EXTEND
+     testtable_2.a_1 AS a_3
+|> AGGREGATE
+     COUNT(*) AS a_4
+   GROUP BY a_3
+|> LIMIT 10
+|> AS limitoffsetscan_5
+|> TABLESAMPLE bernoulli(10 ROWS)
+|> SELECT
+     limitoffsetscan_5.a_3 AS key,
+     limitoffsetscan_5.a_4 AS c;
 --
 ALTERNATION GROUP: LIMIT 10, WITH WEIGHT ww
 --
@@ -403,7 +424,8 @@ QueryStmt
     +-weight_column=
       +-ColumnHolder(column=$sample_weight.ww#6)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   limitoffsetscan_5.a_3 AS key,
   limitoffsetscan_5.a_4 AS c,
@@ -423,6 +445,26 @@ FROM
     GROUP BY 1
     LIMIT 10
   ) AS limitoffsetscan_5 TABLESAMPLE bernoulli(10 ROWS) WITH WEIGHT AS a_6;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  TestTable
+|> SELECT
+     TestTable.key AS a_1
+|> AS testtable_2
+|> EXTEND
+     testtable_2.a_1 AS a_3
+|> AGGREGATE
+     COUNT(*) AS a_4
+   GROUP BY a_3
+|> LIMIT 10
+|> AS limitoffsetscan_5
+|> TABLESAMPLE bernoulli(10 ROWS) WITH WEIGHT AS a_6
+|> SELECT
+     limitoffsetscan_5.a_3 AS key,
+     limitoffsetscan_5.a_4 AS c,
+     a_6 AS ww;
 --
 ALTERNATION GROUP: EXTEND 123,
 --
@@ -453,7 +495,8 @@ QueryStmt
     | +-Literal(type=INT64, value=10)
     +-unit=ROWS
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   projectscan_7.a_3 AS key,
   projectscan_7.a_4 AS c,
@@ -479,6 +522,30 @@ FROM
         GROUP BY 1
       ) AS aggregatescan_5
   ) AS projectscan_7 TABLESAMPLE bernoulli(10 ROWS);
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  TestTable
+|> SELECT
+     TestTable.key AS a_1
+|> AS testtable_2
+|> EXTEND
+     testtable_2.a_1 AS a_3
+|> AGGREGATE
+     COUNT(*) AS a_4
+   GROUP BY a_3
+|> AS aggregatescan_5
+|> SELECT
+     aggregatescan_5.a_3 AS a_3,
+     aggregatescan_5.a_4 AS a_4,
+     123 AS a_6
+|> AS projectscan_7
+|> TABLESAMPLE bernoulli(10 ROWS)
+|> SELECT
+     projectscan_7.a_3 AS key,
+     projectscan_7.a_4 AS c,
+     projectscan_7.a_6 AS a_6;
 --
 ALTERNATION GROUP: EXTEND 123, WITH WEIGHT ww
 --
@@ -512,7 +579,8 @@ QueryStmt
     +-weight_column=
       +-ColumnHolder(column=$sample_weight.ww#7)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   projectscan_7.a_3 AS key,
   projectscan_7.a_4 AS c,
@@ -539,3 +607,28 @@ FROM
         GROUP BY 1
       ) AS aggregatescan_5
   ) AS projectscan_7 TABLESAMPLE bernoulli(10 ROWS) WITH WEIGHT AS a_8;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  TestTable
+|> SELECT
+     TestTable.key AS a_1
+|> AS testtable_2
+|> EXTEND
+     testtable_2.a_1 AS a_3
+|> AGGREGATE
+     COUNT(*) AS a_4
+   GROUP BY a_3
+|> AS aggregatescan_5
+|> SELECT
+     aggregatescan_5.a_3 AS a_3,
+     aggregatescan_5.a_4 AS a_4,
+     123 AS a_6
+|> AS projectscan_7
+|> TABLESAMPLE bernoulli(10 ROWS) WITH WEIGHT AS a_8
+|> SELECT
+     projectscan_7.a_3 AS key,
+     projectscan_7.a_4 AS c,
+     projectscan_7.a_6 AS a_6,
+     a_8 AS ww;

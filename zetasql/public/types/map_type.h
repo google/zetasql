@@ -70,6 +70,8 @@ class MapType : public ContainerType {
                                  /*use_external_float32=*/false);
   }
 
+  std::string CapitalizedName() const override;
+
   bool SupportsOrdering(const LanguageOptions& language_options,
                         std::string* type_description) const override;
   bool SupportsEquality() const override;
@@ -97,7 +99,7 @@ class MapType : public ContainerType {
   }
 
  private:
-  MapType(const TypeFactory* factory, const Type* key_type,
+  MapType(const TypeFactoryBase* factory, const Type* key_type,
           const Type* value_type);
   ~MapType() override;
 

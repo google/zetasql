@@ -50,8 +50,7 @@ approximate and compact representation of a particular input property, such as
 cardinality, that you can store, merge (or re-aggregate), and query for
 near-exact results. In the previous example, you can estimate the number of
 distinct users for Product A and Product B by creating and merging
-(re-aggregating) the sketches for each product. You can also estimate the median
-visit duration with quantile sketches that you can likewise merge and query.
+(re-aggregating) the sketches for each product.
 
 Because a sketch has lossy compression of the original data, it introduces a
 statistical error that's represented by an error bound or confidence interval
@@ -89,25 +88,9 @@ can merge sketches to create a roll-up of an
 sketch summarizes data along one or more specific dimensions of the cube. OLAP
 roll-ups aren't possible with true distinct counts.
 
-## Sketch integration
+### Estimate cardinality
 
-You can integrate sketches with other systems. For example, you can build
-sketches in external applications, like [Dataflow][dataflow]{: .external},
-[Apache Spark][spark]{: .external}, and [ZetaSketch][zetasketch]{: .external}
-and then consume them in ZetaSQL or vice versa.
-
-In addition to ZetaSQL, you can use sketches with the following
-coding languages:
-
-+ C++
-+ Go
-+ Java
-+ Python
-
-### Estimate cardinality without deletions
-
-If you need to estimate [cardinality][cardinality]{: .external} and you don't need
-the ability to delete items from the sketch, use an [HLL++ sketch][hll-sketch].
+If you need to estimate [cardinality][cardinality]{: .external}, use an [HLL++ sketch][hll-sketch].
 
 For example, to get the number of unique users who actively used a product in a
 given month (MAU or 28DAU metrics), use an HLL++ sketch.
@@ -166,6 +149,16 @@ You can't delete values from an HLL++ sketch.
 For a list of functions that you can use with HLL++ sketches, see
 [HLL++ functions][hll-functions].
 
+### Sketch integration
+
+You can integrate HLL++ sketches with other systems. For example, you can build
+sketches in external applications, like [Dataflow][dataflow]{: .external},
+[Apache Spark][spark]{: .external}, and [ZetaSketch][zetasketch]{: .external}
+and then consume them in ZetaSQL or vice versa.
+
+In addition to ZetaSQL, you can use HLL++ sketches
+with [Java][java-zetasketch]{: .external}.
+
 ## Approximate aggregate functions 
 <a id="approx_functions"></a>
 
@@ -195,6 +188,8 @@ sketch-based approximation, see
 [olap]: https://en.wikipedia.org/wiki/OLAP_cube
 
 [zetasketch]: https://github.com/google/zetasketch
+
+[java-zetasketch]: https://github.com/google/zetasketch/blob/master/java/com/google/zetasketch/HyperLogLogPlusPlus.java
 
 [hll]: https://research.google.com/pubs/archive/40671.pdf
 

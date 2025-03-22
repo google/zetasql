@@ -17,12 +17,14 @@
 #include "zetasql/parser/macros/standalone_macro_expansion.h"
 
 #include <cctype>
+#include <cstddef>
 #include <string>
 #include <vector>
 
 #include "zetasql/parser/macros/token_splicing_utils.h"
 #include "zetasql/parser/tm_token.h"
 #include "zetasql/parser/token_with_location.h"
+#include "absl/container/btree_map.h"
 #include "zetasql/base/check.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
@@ -96,20 +98,42 @@ static bool TokensRequireExplicitSeparation(
   return false;
 }
 
-std::string TokensToString(absl::Span<const TokenWithLocation> tokens) {
+void AppendTokenWithWhitespace(
+    std::string& expanded_sql, absl::string_view token_text,
+    absl::string_view whitespace, int token_index,
+    absl::btree_map<size_t, int>* location_to_token_index) {
+  absl::StrAppend(&expanded_sql, whitespace, token_text);
+  if (location_to_token_index != nullptr) {
+    location_to_token_index->insert({expanded_sql.size(), token_index});
+  }
+}
+
+void AppendToken(std::string& expanded_sql, absl::string_view token_text,
+                 int token_index,
+                 absl::btree_map<size_t, int>* location_to_token_index) {
+  AppendTokenWithWhitespace(expanded_sql, token_text, /*whitespace=*/"",
+                            token_index, location_to_token_index);
+}
+
+std::string TokensToString(
+    absl::Span<const TokenWithLocation> tokens,
+    absl::btree_map<size_t, int>* location_to_token_index) {
   std::string expanded_sql;
-  for (auto it = tokens.begin(); it != tokens.end(); ++it) {
+  int index = 0;
+  for (auto it = tokens.begin(); it != tokens.end(); ++it, ++index) {
     const auto& current_token = *it;
     absl::string_view whitespace = current_token.preceding_whitespaces;
     if (it == tokens.begin()) {
-      absl::StrAppend(&expanded_sql, whitespace, current_token.text);
+      AppendTokenWithWhitespace(expanded_sql, current_token.text, whitespace,
+                                index, location_to_token_index);
       continue;
     }
     const TokenWithLocation& previous_token = *(it - 1);
     if (previous_token.AdjacentlyPrecedes(current_token)) {
       // Do not insert spaces between adjacent tokens. For example, two adjacent
       // ">" tokens should not become "> >".
-      absl::StrAppend(&expanded_sql, current_token.text);
+      AppendToken(expanded_sql, current_token.text, index,
+                  location_to_token_index);
       continue;
     }
     if (whitespace.empty() &&
@@ -117,7 +141,8 @@ std::string TokensToString(absl::Span<const TokenWithLocation> tokens) {
       // Prevent token splicing by forcing an extra space.
       whitespace = " ";
     }
-    absl::StrAppend(&expanded_sql, whitespace, current_token.text);
+    AppendTokenWithWhitespace(expanded_sql, current_token.text, whitespace,
+                              index, location_to_token_index);
   }
   return expanded_sql;
 }

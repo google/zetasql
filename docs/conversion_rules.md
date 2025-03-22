@@ -5,7 +5,7 @@
 # Conversion rules
 
 ZetaSQL supports conversion.
-Conversion includes, but is not limited to, casting, coercion, and
+Conversion includes, but isn't limited to, casting, coercion, and
 supertyping.
 
 + Casting is explicit conversion and uses the
@@ -16,7 +16,7 @@ supertyping.
 
 There are also conversions that have their own function names, such as
 `PARSE_DATE()`. To learn more about these functions, see
-[Conversion functions][con-rules-link-to-conversion-functions-other].
+[Conversion functions][con-rules-link-to-conversion-functions].
 
 ### Comparison of casting and coercion 
 <a id="comparison_chart"></a>
@@ -350,9 +350,9 @@ string literal `"2014-09-27"` is coerced to
 `DATE`.
 
 Literal conversion is evaluated at analysis time, and gives an error if the
-input literal cannot be converted successfully to the target type.
+input literal can't be converted successfully to the target type.
 
-Note: String literals do not coerce to numeric types.
+Note: String literals don't coerce to numeric types.
 
 #### Parameter coercion
 
@@ -419,7 +419,7 @@ ZetaSQL supports the following parameter coercions:
   </tbody>
 </table>
 
-If the parameter value cannot be coerced successfully to the target type, an
+If the parameter value can't be coerced successfully to the target type, an
 error is provided.
 
 ### Supertypes
@@ -695,7 +695,7 @@ the most specific type is the type with the most restrictive domain.
       <td>Error</td>
       <td>
         If you apply supertyping to <code>INT64</code> and <code>BOOL</code>,
-        supertyping fails because they do not share a common supertype.
+        supertyping fails because they don't share a common supertype.
       </td>
     </tr>
   </tbody>
@@ -947,8 +947,6 @@ when the input set of types includes types related to literals:
 [con-rules-link-to-conversion-functions]: https://github.com/google/zetasql/blob/master/docs/conversion_functions.md
 
 [con-rules-link-to-cast]: https://github.com/google/zetasql/blob/master/docs/conversion_functions.md#cast
-
-[con-rules-link-to-conversion-functions-other]: https://github.com/google/zetasql/blob/master/docs/conversion_functions.md#other_conv_functions
 
 <!-- mdlint on -->
 

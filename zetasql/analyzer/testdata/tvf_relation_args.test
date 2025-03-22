@@ -6133,7 +6133,7 @@ QueryStmt
 # Test with a optional table before a mandatory named string with default value.
 # TODO: SQLBuilder turned off due to lack of support for mandatory
 # argument names.
-[no_run_unparser]
+[no_run_sqlbuilder]
 [language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
 select * from tvf_optional_table_default_mandatory_string((select 'a'),
                                                           foobar=>(select 'b'))
@@ -6178,7 +6178,7 @@ QueryStmt
 # Test with a optional table before a mandatory named string with default value.
 # TODO: SQLBuilder turned off due to lack of support for mandatory
 # argument names.
-[no_run_unparser]
+[no_run_sqlbuilder]
 [language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
 select * from tvf_optional_table_default_mandatory_string((select 'a'))
 --
@@ -6213,7 +6213,7 @@ QueryStmt
 # Test with a required, mandatory, optional and named tables.
 # TODO: SQLBuilder turned off due to lack of support for mandatory
 # argument names.
-[no_run_unparser]
+[no_run_sqlbuilder]
 [language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
 select * from tvf_required_named_optional_required_tables((select '1'),
                                                           table2=>(select '2'),
@@ -6276,7 +6276,7 @@ QueryStmt
 # naming them in the wrong order, which should still work.
 # TODO: SQLBuilder turned off due to lack of support for mandatory
 # argument names.
-[no_run_unparser]
+[no_run_sqlbuilder]
 [language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
 select * from tvf_required_named_optional_required_tables((select '1'),
                                                           table4=>(select '4'),
@@ -6374,7 +6374,7 @@ FROM tvf_two_named_only_tables(table2=>(select 2 x))
 # Call a TVF that only takes named-only table args, with two tables.
 # TODO: SQLBuilder turned off due to lack of support for mandatory
 # argument names.
-[no_run_unparser]
+[no_run_sqlbuilder]
 [language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
 SELECT *
 FROM tvf_two_named_only_tables(table2=>(select 2 x), table1=>(select 1 x))
@@ -6786,7 +6786,7 @@ ERROR: Invalid type STRING for column "uint64 UINT64" of argument 1 of TVF_TWO_R
 select * from tvf_one_relation_arg_int64_input_value_table(
     (select key, key from KeyValue))
 --
-ERROR: Expected value table of type INT64 for argument 1 of TVF_ONE_RELATION_ARG_INT64_INPUT_VALUE_TABLE(TABLE<INT64>) [at 2:5]
+ERROR: Expected value table of type INT64 for argument 1; got TABLE<key INT64, key INT64> of TVF_ONE_RELATION_ARG_INT64_INPUT_VALUE_TABLE(TABLE<INT64>) [at 2:5]
     (select key, key from KeyValue))
     ^
 ==
@@ -7484,7 +7484,7 @@ select * from tvf_named_proto_named_table(barfoo=>(select 1))
 # NULL for missing arguments without defaults.
 # TODO: SQLBuilder turned off due to lack of support for mandatory
 # argument names.
-[no_run_unparser]
+[no_run_sqlbuilder]
 [language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
 select * from tvf_optional_table_default_mandatory_string()
 --
@@ -7508,7 +7508,7 @@ select * from tvf_optional_table_default_mandatory_string()
 # NULL for missing arguments without defaults.
 # TODO: SQLBuilder turned off due to lack of support for mandatory
 # argument names.
-[no_run_unparser]
+[no_run_sqlbuilder]
 [language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
 select * from tvf_required_named_optional_required_tables((select '1'),
                                                           table2=>(select '2'),
@@ -7534,7 +7534,7 @@ select * from tvf_required_named_optional_required_tables((select '1'),
 # NULL for missing arguments without defaults.
 # TODO: SQLBuilder turned off due to lack of support for mandatory
 # argument names.
-[no_run_unparser]
+[no_run_sqlbuilder]
 [language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
 select * from tvf_required_named_optional_required_tables((select '1'),
                                                           table2=>(select '2'))

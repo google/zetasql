@@ -26,17 +26,24 @@
 #include <vector>
 
 #include "zetasql/public/analyzer_options.h"
+#include "zetasql/public/catalog.h"
 #include "zetasql/public/function_signature.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/table_valued_function.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
 #include "zetasql/resolved_ast/resolved_column.h"
+#include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/base/case.h"
+#include "gtest/gtest_prod.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
+#include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
+#include "google/protobuf/descriptor.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
 namespace zetasql {
@@ -76,9 +83,18 @@ class Validator {
   absl::Status ValidateStandaloneResolvedExpr(const ResolvedExpr* expr);
 
  private:
+
+  // Validate a statement.
+  // `in_multi_stmt` indicates this is a sub-statement inside a
+  // ResolvedMultiStmt.
+  absl::Status ValidateResolvedStatement(const ResolvedStatement* statement,
+                                         bool in_multi_stmt);
+
   // Called at the end of each entry point, ValidateResolvedStatement() and
   // ValidateStandaloneExpr().
-  absl::Status ValidateFinalState();
+  // `in_multi_stmt` indicates this is being called for a sub-statement inside a
+  // ResolvedMultiStmt, where some partial state should remain.
+  absl::Status ValidateFinalState(bool in_multi_stmt = false);
 
   // Statements.
   absl::Status ValidateResolvedStatementInternal(
@@ -90,6 +106,9 @@ class Validator {
       const ResolvedGeneralizedQuerySubpipeline* subpipeline,
       const ResolvedScan* input_scan,
       const std::set<ResolvedColumn>& visible_parameters);
+  absl::Status ValidateResolvedMultiStmt(const ResolvedMultiStmt* multi);
+  absl::Status ValidateCreateWithEntryStmt(
+      const ResolvedCreateWithEntryStmt* stmt);
   absl::Status ValidateResolvedCreateDatabaseStmt(
       const ResolvedCreateDatabaseStmt* stmt);
   absl::Status ValidateResolvedIndexStmt(const ResolvedCreateIndexStmt* stmt);
@@ -107,7 +126,8 @@ class Validator {
       const ResolvedColumnDefinition* column_definition,
       const std::set<ResolvedColumn>& visible_columns);
   absl::Status ValidateResolvedCreateTableAsSelectStmt(
-      const ResolvedCreateTableAsSelectStmt* stmt);
+      const ResolvedCreateTableAsSelectStmt* stmt,
+      const std::set<ResolvedColumn>& pipe_visible_parameters = {});
   absl::Status ValidateResolvedCreateViewBase(
       const ResolvedCreateViewBase* stmt);
   absl::Status ValidateResolvedCreateViewStmt(
@@ -139,7 +159,7 @@ class Validator {
   absl::Status ValidateResolvedCloneDataStmt(const ResolvedCloneDataStmt* stmt);
   absl::Status ValidateResolvedExportDataStmt(
       const ResolvedExportDataStmt* stmt,
-      const ResolvedScan* pipe_input_scan = nullptr);
+      const std::set<ResolvedColumn>& pipe_visible_parameters = {});
   absl::Status ValidateResolvedExportModelStmt(
       const ResolvedExportModelStmt* stmt);
   absl::Status ValidateResolvedExportMetadataStmt(
@@ -184,6 +204,8 @@ class Validator {
       const ResolvedAlterAllRowAccessPoliciesStmt* stmt);
   absl::Status ValidateResolvedAlterTableSetOptionsStmt(
       const ResolvedAlterTableSetOptionsStmt* stmt);
+  absl::Status ValidateResolvedAlterIndexStmt(
+      const ResolvedAlterIndexStmt* stmt);
   absl::Status ValidateResolvedRenameStmt(const ResolvedRenameStmt* stmt);
   absl::Status ValidateResolvedImportStmt(const ResolvedImportStmt* stmt);
   absl::Status ValidateResolvedModuleStmt(const ResolvedModuleStmt* stmt);
@@ -198,7 +220,8 @@ class Validator {
   absl::Status ValidateResolvedInsertStmt(
       const ResolvedInsertStmt* stmt,
       const std::set<ResolvedColumn>* outer_visible_columns = nullptr,
-      const ResolvedColumn* array_element_column = nullptr);
+      const ResolvedColumn* array_element_column = nullptr,
+      const std::set<ResolvedColumn>& pipe_visible_parameters = {});
   absl::Status ValidateResolvedDeleteStmt(
       const ResolvedDeleteStmt* stmt,
       const std::set<ResolvedColumn>* outer_visible_columns = nullptr,
@@ -536,6 +559,12 @@ class Validator {
   absl::Status ValidateResolvedParameter(
       const ResolvedParameter* resolved_param);
 
+  absl::Status ValidateResolvedArgumentRef(
+      const zetasql::ResolvedArgumentRef* arg_ref);
+
+  absl::Status ValidateResolvedExpressionColumn(
+      const ResolvedExpressionColumn* expression_column);
+
   absl::Status ValidateResolvedFunctionArgument(
       const std::set<ResolvedColumn>& visible_columns,
       const std::set<ResolvedColumn>& visible_parameters,
@@ -628,6 +657,8 @@ class Validator {
 
   absl::Status ValidateResolvedAlterAction(const ResolvedAlterAction* action);
 
+  absl::Status ValidateAlterIndexActions(const ResolvedAlterObjectStmt* stmt);
+
   absl::Status ValidateResolvedExecuteImmediateStmt(
       const ResolvedExecuteImmediateStmt* stmt);
 
@@ -688,8 +719,20 @@ class Validator {
       const ResolvedPipeForkScan* scan,
       const std::set<ResolvedColumn>& visible_parameters);
 
+  absl::Status ValidateResolvedPipeTeeScan(
+      const ResolvedPipeTeeScan* scan,
+      const std::set<ResolvedColumn>& visible_parameters);
+
   absl::Status ValidateResolvedPipeExportDataScan(
       const ResolvedPipeExportDataScan* scan,
+      const std::set<ResolvedColumn>& visible_parameters);
+
+  absl::Status ValidateResolvedPipeCreateTableScan(
+      const ResolvedPipeCreateTableScan* scan,
+      const std::set<ResolvedColumn>& visible_parameters);
+
+  absl::Status ValidateResolvedPipeInsertScan(
+      const ResolvedPipeInsertScan* scan,
       const std::set<ResolvedColumn>& visible_parameters);
 
   absl::Status ValidateResolvedSubpipeline(
@@ -867,6 +910,11 @@ class Validator {
       const ResolvedBarrierScan* scan,
       const std::set<ResolvedColumn>& visible_parameters);
 
+  absl::Status ValidateResolvedUpdateConstructor(
+      const std::set<ResolvedColumn>& visible_columns,
+      const std::set<ResolvedColumn>& visible_parameters,
+      const ResolvedUpdateConstructor* update_constructor);
+
   // Validates that <expr> is a valid expression of bool type.
   absl::Status ValidateBoolExpr(
       const std::set<ResolvedColumn>& visible_columns,
@@ -954,6 +1002,17 @@ class Validator {
       const FunctionArgumentTypeList& argument_type_list,
       absl::string_view statement_type);
 
+  // Validates that the <proto_field_path> is a valid path for a proto starting
+  // with <base_proto_name>.
+  absl::Status ValidateProtoFieldPath(
+      absl::string_view base_proto_name,
+      const std::vector<const google::protobuf::FieldDescriptor*>& proto_field_path);
+
+  // Validates that the aggregate scan has no multi-level aggregates. Used for
+  // Anonymized / Differential Privacy / Aggregation Threshold aggregate scans.
+  absl::Status ValidateAggregateScanHasNoMultiLevelAggregates(
+      const ResolvedAggregateScanBase* scan);
+
   // Replacement for ::zetasql_base::InternalErrorBuilder(), which also records the
   // context of the error for use in the tree dump.
   zetasql_base::StatusBuilder InternalErrorBuilder() {
@@ -963,8 +1022,15 @@ class Validator {
 
   std::string RecordContext();
 
+  // Certain scans (e.g. ResolvedAggregateScan) are not allowed to emit MEASURE
+  // typed columns. Return an error if `scan` is not allowed to emit MEASURE
+  // typed and a MEASURE typed column is found in its `column_list`.
+  absl::Status ValidateScanCanEmitMeasureColumns(const ResolvedScan* scan);
+
   // Clears internal Validator state from prior validation.
-  void Reset();
+  // `in_multi_stmt` indicates this is being called for a sub-statement inside a
+  // ResolvedMultiStmt, where we want only a partial reset.
+  void Reset(bool in_multi_stmt = false);
 
   // Which ArgumentKinds are allowed in the current expression.
   // Set using scoped VarSetters.
@@ -1060,6 +1126,10 @@ class Validator {
   // The node at the top of the stack is the innermost node being validated.
   std::vector<const ResolvedNode*> context_stack_;
 
+  // The list of WITH definitions that are currently visible.
+  // Later definitions (in inner scopes) are added on the end of the vector.
+  std::vector<const ResolvedWithEntry*> visible_with_entries_;
+
   // If validation fails, this is set to the innermost element being validated
   // (context_stack_.back()) at the point of the error. This allows the record
   // of the node that caused the error to be retained, even as various helper
@@ -1075,6 +1145,27 @@ class Validator {
   // linear scan.
   std::vector<const ResolvedScan*>
       current_input_scan_in_graph_linear_scan_stack_;
+
+  // If true, disallow references to AGGREGATE ResolvedArgumentRefs.
+  // This is set to true when validating arguments to a multi-level aggregate
+  // function call, or the ORDER BY clause of a multi-level aggregate function
+  // call.
+  bool disallow_aggregate_resolved_arg_refs_ = false;
+
+  // If true, disallow ExpressionColumns.
+  // This is set to true when validating arguments to a multi-level aggregate
+  // function call, or the ORDER BY clause of a multi-level aggregate function
+  // call.
+  bool disallow_expression_columns_ = false;
+
+  // MATCH_RECOGNIZE state, in order to convert back access to internal columns
+  // to calls to special functions, e.g. MATCH_NUMBER().
+  struct MatchRecognizeState {
+    ResolvedColumn match_number_column;
+    ResolvedColumn match_row_number_column;
+    ResolvedColumn classifier_column;
+  };
+  std::optional<MatchRecognizeState> match_recognize_state_;
 };
 
 }  // namespace zetasql

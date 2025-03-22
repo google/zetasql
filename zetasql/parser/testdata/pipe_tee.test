@@ -1,0 +1,215 @@
+[default language_features=PIPES]
+
+from t
+|> tee ()
+|> tee ( |> select 1 ),
+        ( |> select 2+tee   # TEE as an identifier
+          |> select 3 )
+--
+QueryStatement [0-115] [from t |>...select 3 )]
+  Query [0-115] [from t |>...select 3 )]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeTee [7-16] [|> tee ()]
+      Subpipeline [14-16] [()]
+    PipeTee [17-115] [|> tee ( |...select 3 )]
+      Subpipeline [24-39] [( |> select 1 )]
+        PipeSelect [26-37] [|> select 1]
+          Select [29-37] [select 1]
+            SelectList [36-37] [1]
+              SelectColumn [36-37] [1]
+                IntLiteral(1) [36-37] [1]
+      Subpipeline [49-115] [( |> select...select 3 )]
+        PipeSelect [51-66] [|> select 2+tee]
+          Select [54-66] [select 2+tee]
+            SelectList [61-66] [2+tee]
+              SelectColumn [61-66] [2+tee]
+                BinaryExpression(+) [61-66] [2+tee]
+                  IntLiteral(2) [61-62] [2]
+                  PathExpression [63-66] [tee]
+                    Identifier(tee) [63-66] [tee]
+        PipeSelect [102-113] [|> select 3]
+          Select [105-113] [select 3]
+            SelectList [112-113] [3]
+              SelectColumn [112-113] [3]
+                IntLiteral(3) [112-113] [3]
+--
+FROM
+  t
+|> TEE ()
+|> TEE (
+     |> SELECT
+          1
+   ), (
+     |> SELECT
+          2 + tee
+     |> SELECT
+          3
+   )
+==
+
+# Trailing commas
+from t
+|> tee ( |> where true ),
+|> tee ( |> where 1 ),
+        (),
+--
+QueryStatement [0-67] [from t |>...(),]
+  Query [0-67] [from t |>...(),]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeTee [7-32] [|> tee ( |> where true ),]
+      Subpipeline [14-31] [( |> where true )]
+        PipeWhere [16-29] [|> where true]
+          WhereClause [19-29] [where true]
+            BooleanLiteral(true) [25-29] [true]
+    PipeTee [33-67] [|> tee ( |...(),]
+      Subpipeline [40-54] [( |> where 1 )]
+        PipeWhere [42-52] [|> where 1]
+          WhereClause [45-52] [where 1]
+            IntLiteral(1) [51-52] [1]
+      Subpipeline [64-66] [()]
+--
+FROM
+  t
+|> TEE (
+     |> WHERE
+          true
+   )
+|> TEE (
+     |> WHERE
+          1
+   ), ()
+==
+
+# TEE with no arguments is allowed.
+from t
+|> tee
+|> tee
+--
+QueryStatement [0-20] [from t |> tee |> tee]
+  Query [0-20] [from t |> tee |> tee]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeTee [7-13] [|> tee]
+    PipeTee [14-20] [|> tee]
+--
+FROM
+  t
+|> TEE 
+|> TEE 
+==
+
+from t
+|> tee ,
+--
+ERROR: Syntax error: Expected end of input but got "," [at 2:8]
+|> tee ,
+       ^
+==
+
+from t
+|> tee (select 5)
+--
+ERROR: Syntax error: Expected subpipeline starting with |>, not a subquery [at 2:9]
+|> tee (select 5)
+        ^
+==
+
+from t
+|> tee (from t2)
+--
+ERROR: Syntax error: Expected subpipeline starting with |>, not a subquery [at 2:9]
+|> tee (from t2)
+        ^
+==
+
+# For common reserved pipe operator names, plus non-reserved keyword
+# names, we're able to give an error saying "Expected subpipeline".
+# We don't cover all of them - e.g. AS.
+FROM t
+|> TEE ({{WHERE|SELECT|AS|AGGREGATE|abc}} xyz)
+--
+ALTERNATION GROUP: WHERE
+--
+ERROR: Syntax error: Expected subpipeline starting with |> [at 2:9]
+|> TEE (WHERE xyz)
+        ^
+--
+ALTERNATION GROUP: SELECT
+--
+ERROR: Syntax error: Expected subpipeline starting with |>, not a subquery [at 2:9]
+|> TEE (SELECT xyz)
+        ^
+--
+ALTERNATION GROUP: AS
+--
+ERROR: Syntax error: Expected ")" but got keyword AS [at 2:9]
+|> TEE (AS xyz)
+        ^
+--
+ALTERNATION GROUP: AGGREGATE
+--
+ERROR: Syntax error: Expected subpipeline starting with |> [at 2:9]
+|> TEE (AGGREGATE xyz)
+        ^
+--
+ALTERNATION GROUP: abc
+--
+ERROR: Syntax error: Expected subpipeline starting with |> [at 2:9]
+|> TEE (abc xyz)
+        ^
+==
+
+FROM t
+|> TEE (
+--
+ERROR: Syntax error: Expected ")" but got end of statement [at 2:9]
+|> TEE (
+        ^
+==
+
+from t
+|> tee @{hint=1} ( |> where true )
+--
+QueryStatement [0-41] [from t |>...where true )]
+  Query [0-41] [from t |>...where true )]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeTee [7-41] [|> tee @{hint...where true )]
+      Hint [14-23] [@{hint=1}]
+        HintEntry [16-22] [hint=1]
+          Identifier(hint) [16-20] [hint]
+          IntLiteral(1) [21-22] [1]
+      Subpipeline [24-41] [( |> where true )]
+        PipeWhere [26-39] [|> where true]
+          WhereClause [29-39] [where true]
+            BooleanLiteral(true) [35-39] [true]
+--
+FROM
+  t
+|> TEE @{ hint = 1 }(
+     |> WHERE
+          true
+   )
+==
+
+# Unclosed paren
+from t
+|> tee ( |> where true
+--
+ERROR: Syntax error: Expected ")" but got end of statement [at 2:23]
+|> tee ( |> where true
+                      ^

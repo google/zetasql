@@ -34,10 +34,9 @@ namespace zetasql {
 namespace {
 
 absl::StatusOr<std::string> FormatParsedFile(
-    const formatter::internal::ParsedFile& parsed_file,
-    const FormatterOptions& options) {
+    const formatter::internal::ParsedFile& parsed_file) {
   ZETASQL_ASSIGN_OR_RETURN(auto layout, formatter::internal::FileLayout::FromParsedFile(
-                                    parsed_file, options));
+                                    parsed_file));
   layout->BestLayout();
   return layout->PrintableString();
 }
@@ -48,7 +47,7 @@ absl::Status LenientFormatSql(absl::string_view sql, std::string* formatted_sql,
                               const FormatterOptions& options) {
   ZETASQL_ASSIGN_OR_RETURN(auto parsed_file,
                    formatter::internal::ParsedFile::ParseFrom(sql, options));
-  ZETASQL_ASSIGN_OR_RETURN(*formatted_sql, FormatParsedFile(*parsed_file, options));
+  ZETASQL_ASSIGN_OR_RETURN(*formatted_sql, FormatParsedFile(*parsed_file));
   return absl::OkStatus();
 }
 
@@ -56,7 +55,7 @@ absl::StatusOr<std::string> LenientFormatSql(absl::string_view sql,
                                              const FormatterOptions& options) {
   ZETASQL_ASSIGN_OR_RETURN(auto parsed_file,
                    formatter::internal::ParsedFile::ParseFrom(sql, options));
-  return FormatParsedFile(*parsed_file, options);
+  return FormatParsedFile(*parsed_file);
 }
 
 absl::StatusOr<std::string> LenientFormatSqlByteRanges(
@@ -65,7 +64,7 @@ absl::StatusOr<std::string> LenientFormatSqlByteRanges(
   ZETASQL_ASSIGN_OR_RETURN(auto parsed_file,
                    formatter::internal::ParsedFile::ParseByteRanges(
                        sql, byte_ranges, options));
-  return FormatParsedFile(*parsed_file, options);
+  return FormatParsedFile(*parsed_file);
 }
 
 absl::StatusOr<std::string> LenientFormatSqlLines(
@@ -74,7 +73,7 @@ absl::StatusOr<std::string> LenientFormatSqlLines(
   ZETASQL_ASSIGN_OR_RETURN(auto parsed_file,
                    formatter::internal::ParsedFile::ParseLineRanges(
                        sql, line_ranges, options));
-  return FormatParsedFile(*parsed_file, options);
+  return FormatParsedFile(*parsed_file);
 }
 
 }  // namespace zetasql

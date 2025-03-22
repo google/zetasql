@@ -19,19 +19,38 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
+#include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/public/function.pb.h"
+#include "zetasql/public/function_signature.h"
+#include "zetasql/public/functions/differential_privacy.pb.h"
+#include "zetasql/public/id_string.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
+#include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_column.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
 
 namespace zetasql {
 namespace anonymization {
-
 namespace {
+
+using ::testing::DoubleEq;
+using ::testing::Eq;
+using ::testing::HasSubstr;
+using ::testing::Optional;
+using ::zetasql_base::testing::IsOk;
+using ::zetasql_base::testing::StatusIs;
+
 constexpr int64_t kint64min = std::numeric_limits<int64_t>::lowest();
 constexpr int64_t kint64max = std::numeric_limits<int64_t>::max();
 
@@ -43,7 +62,6 @@ constexpr double kDoubleMin = std::numeric_limits<double>::lowest();
 constexpr double kDoubleMinPos = std::numeric_limits<double>::min();
 
 constexpr double kCalcDeltaTestDefaultTolerance = 1e-03;
-}  // namespace
 
 struct ComputeDeltaTest {
   ComputeDeltaTest(double epsilon_in, int64_t k_threshold_in,
@@ -593,5 +611,267 @@ TEST(ComputeAnonymizationUtilsTest, RoundTripDeltaTests) {
   }
 }
 
+class FunctionEpsilonAssignerTest : public ::testing::Test {
+ public:
+  std::unique_ptr<const ResolvedAggregateFunctionCall>
+  MakeFakeAggregateFunctionWithEpsilon(Value epsilon_value) {
+    FunctionArgumentTypeOptions epsilon_argument_options;
+    epsilon_argument_options.set_argument_name(
+        "epsilon", FunctionEnums::NAMED_ARGUMENT_KIND_UNSPECIFIED);
+
+    std::vector<std::unique_ptr<const ResolvedExpr>> argument_list;
+    argument_list.emplace_back(MakeResolvedLiteral(epsilon_value));
+
+    return MakeResolvedAggregateFunctionCall(
+        /*type=*/nullptr,
+        /*function=*/nullptr,
+        /*signature=*/
+        FunctionSignature(
+            /*result_type=*/FunctionArgumentType(types::DoubleType()),
+            /*arguments=*/
+            {FunctionArgumentType(epsilon_value.type(),
+                                  epsilon_argument_options)},
+            /*context_ptr=*/nullptr),
+        /*argument_list=*/std::move(argument_list),
+        /*error_mode=*/ResolvedFunctionCallBase::DEFAULT_ERROR_MODE,
+        /*distinct=*/false,
+        /*null_handling_modifier=*/
+        ResolvedNonScalarFunctionCallBase::DEFAULT_NULL_HANDLING,
+        /*having_modifier=*/nullptr,
+        /*order_by_item_list=*/{},
+        /*limit=*/nullptr);
+  }
+
+  std::unique_ptr<ResolvedDifferentialPrivacyAggregateScan>
+  MakeFakeDpAggregateScan(
+      std::vector<std::unique_ptr<const ResolvedAggregateFunctionCall>>&
+          function_calls,
+      Value option_epsilon,
+      std::optional<Value> option_group_selection_epsilon = std::nullopt,
+      std::unique_ptr<const ResolvedAggregateFunctionCall>
+          group_selection_call = nullptr) {
+    std::vector<std::unique_ptr<const ResolvedOption>> option_list;
+    option_list.emplace_back(MakeResolvedOption(
+        /*qualifier=*/"",
+        /*name=*/"epsilon", MakeResolvedLiteral(option_epsilon)));
+    option_list.emplace_back(MakeResolvedOption(
+        /*qualifier=*/"",
+        /*name=*/"delta", MakeResolvedLiteral(Value::Double(1e-3))));
+    if (option_group_selection_epsilon.has_value()) {
+      option_list.emplace_back(MakeResolvedOption(
+          /*qualifier=*/"",
+          /*name=*/"group_selection_epsilon",
+          MakeResolvedLiteral(option_group_selection_epsilon.value())));
+    }
+    if (group_selection_call == nullptr) {
+      option_list.emplace_back(MakeResolvedOption(
+          /*qualifier=*/"",
+          /*name=*/"group_selection_strategy",
+          MakeResolvedLiteral(Value::Enum(
+              types::DifferentialPrivacyGroupSelectionStrategyEnumType(),
+              functions::DifferentialPrivacyEnums::PUBLIC_GROUPS,
+              /*allow_unknown_enum_values=*/false))));
+    }
+
+    std::vector<std::unique_ptr<const ResolvedComputedColumnBase>>
+        aggregate_list;
+    for (auto& function_call : function_calls) {
+      aggregate_list.emplace_back(MakeResolvedComputedColumn(
+          /*column=*/ResolvedColumn(
+              /*column_id=*/next_column_id_++,
+              /*table_name=*/id_string_pool_.Make("testtable"),
+              /*name=*/id_string_pool_.Make("testname"),
+              /*type=*/types::DoubleType()),
+          /*expr=*/std::move(function_call)));
+    }
+
+    std::unique_ptr<const ResolvedExpr> group_selection_threshold_expr;
+    if (group_selection_call != nullptr) {
+      const int group_selection_column_id = next_column_id_++;
+      aggregate_list.emplace_back(MakeResolvedComputedColumn(
+          /*column=*/ResolvedColumn(
+              /*column_id=*/group_selection_column_id,
+              /*table_name=*/id_string_pool_.Make("testtable"),
+              /*name=*/id_string_pool_.Make("testname"),
+              /*type=*/types::DoubleType()),
+          /*expr=*/std::move(group_selection_call)));
+      group_selection_threshold_expr = MakeResolvedColumnRef(
+          /*type=*/types::DoubleType(),
+          /*column=*/
+          ResolvedColumn(
+              /*column_id=*/group_selection_column_id,
+              /*table_name=*/id_string_pool_.Make("testtable"),
+              /*name=*/id_string_pool_.Make("testname"),
+              /*type=*/types::DoubleType()),
+          /*is_correlated=*/false);
+    }
+
+    return MakeResolvedDifferentialPrivacyAggregateScan(
+        /*column_list=*/{},
+        /*input_scan=*/nullptr,
+        /*group_by_list=*/{},
+        /*aggregate_list=*/std::move(aggregate_list),
+        /*grouping_set_list=*/{},
+        /*rollup_column_list=*/{},
+        /*group_selection_threshold_expr=*/
+        std::move(group_selection_threshold_expr),
+        /*option_list=*/std::move(option_list));
+  }
+
+ private:
+  IdStringPool id_string_pool_;
+  int next_column_id_ = 1;
+};
+
+TEST_F(FunctionEpsilonAssignerTest,
+       CreateFromScanWhenSumFunctionEpsilonLargerOptionReturnsOverconsumption) {
+  std::vector<std::unique_ptr<const ResolvedAggregateFunctionCall>>
+      function_calls;
+  function_calls.emplace_back(
+      MakeFakeAggregateFunctionWithEpsilon(Value::Double(1.1)));
+  function_calls.emplace_back(
+      MakeFakeAggregateFunctionWithEpsilon(Value::Double(1.1)));
+  function_calls.emplace_back(
+      MakeFakeAggregateFunctionWithEpsilon(Value::Double(1.1)));
+
+  std::unique_ptr<ResolvedDifferentialPrivacyAggregateScan> dp_scan =
+      MakeFakeDpAggregateScan(function_calls, Value::Double(3.0));
+
+  EXPECT_THAT(
+      FunctionEpsilonAssigner::CreateFromScan(dp_scan.get()),
+      StatusIs(absl::StatusCode::kOutOfRange, HasSubstr("overconsumption")));
+}
+
+TEST_F(FunctionEpsilonAssignerTest,
+       CreateFromScanWhenFullySpecifiedWithoutEpsilonOptionsReturnsOk) {
+  std::vector<std::unique_ptr<const ResolvedAggregateFunctionCall>>
+      function_calls;
+  function_calls.emplace_back(
+      MakeFakeAggregateFunctionWithEpsilon(Value::Double(1.1)));
+  function_calls.emplace_back(
+      MakeFakeAggregateFunctionWithEpsilon(Value::Double(1.1)));
+  function_calls.emplace_back(
+      MakeFakeAggregateFunctionWithEpsilon(Value::Double(1.1)));
+
+  std::unique_ptr<ResolvedDifferentialPrivacyAggregateScan> dp_scan =
+      MakeFakeDpAggregateScan(function_calls, Value::NullDouble());
+
+  EXPECT_THAT(FunctionEpsilonAssigner::CreateFromScan(dp_scan.get()), IsOk());
+}
+
+TEST_F(FunctionEpsilonAssignerTest,
+       CreateFromScanWhenPartiallySpecifiedWithoutEpsilonOptionReturnsError) {
+  std::vector<std::unique_ptr<const ResolvedAggregateFunctionCall>>
+      function_calls;
+  function_calls.emplace_back(
+      MakeFakeAggregateFunctionWithEpsilon(Value::Double(1.1)));
+  function_calls.emplace_back(
+      MakeFakeAggregateFunctionWithEpsilon(Value::Double(1.1)));
+  function_calls.emplace_back(
+      MakeFakeAggregateFunctionWithEpsilon(Value::NullDouble()));
+
+  std::unique_ptr<ResolvedDifferentialPrivacyAggregateScan> dp_scan =
+      MakeFakeDpAggregateScan(function_calls, Value::NullDouble());
+
+  EXPECT_THAT(FunctionEpsilonAssigner::CreateFromScan(dp_scan.get()),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("EPSILON must be set")));
+}
+
+TEST_F(FunctionEpsilonAssignerTest,
+       CreateFromScanWhenPartiallySpecifiedWith0RemainingEpsilonReturnsError) {
+  std::vector<std::unique_ptr<const ResolvedAggregateFunctionCall>>
+      function_calls;
+  function_calls.emplace_back(
+      MakeFakeAggregateFunctionWithEpsilon(Value::Double(1.1)));
+  function_calls.emplace_back(
+      MakeFakeAggregateFunctionWithEpsilon(Value::Double(1.1)));
+  function_calls.emplace_back(
+      MakeFakeAggregateFunctionWithEpsilon(Value::NullDouble()));
+
+  std::unique_ptr<ResolvedDifferentialPrivacyAggregateScan> dp_scan =
+      MakeFakeDpAggregateScan(function_calls, Value::Double(2.2));
+
+  EXPECT_THAT(
+      FunctionEpsilonAssigner::CreateFromScan(dp_scan.get()),
+      StatusIs(absl::StatusCode::kOutOfRange, HasSubstr("overconsumption")));
+}
+
+TEST_F(FunctionEpsilonAssignerTest,
+       GetGroupSelectionEpsilonReturnsValueFromOptions) {
+  std::vector<std::unique_ptr<const ResolvedAggregateFunctionCall>>
+      function_calls;
+  function_calls.emplace_back(
+      MakeFakeAggregateFunctionWithEpsilon(Value::Double(1.1)));
+  function_calls.emplace_back(
+      MakeFakeAggregateFunctionWithEpsilon(Value::NullDouble()));
+  std::unique_ptr<ResolvedDifferentialPrivacyAggregateScan> dp_scan =
+      MakeFakeDpAggregateScan(
+          function_calls, /*option_epsilon=*/Value::Double(2.2),
+          /*option_group_selection_epsilon=*/Value::Double(0.3));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<FunctionEpsilonAssigner> assigner,
+                       FunctionEpsilonAssigner::CreateFromScan(dp_scan.get()));
+
+  EXPECT_THAT(assigner->GetGroupSelectionEpsilon(), Optional(DoubleEq(0.3)));
+}
+
+TEST_F(FunctionEpsilonAssignerTest,
+       GetGroupSelectionEpsilonReturnsValueFromGroupSelectionAggregation) {
+  std::vector<std::unique_ptr<const ResolvedAggregateFunctionCall>>
+      function_calls;
+  function_calls.emplace_back(
+      MakeFakeAggregateFunctionWithEpsilon(Value::Double(1.1)));
+  function_calls.emplace_back(
+      MakeFakeAggregateFunctionWithEpsilon(Value::Double(1.3)));
+  std::unique_ptr<ResolvedDifferentialPrivacyAggregateScan> dp_scan =
+      MakeFakeDpAggregateScan(
+          function_calls, /*option_epsilon=*/Value::Double(5.2),
+          /*option_group_selection_epsilon=*/std::nullopt,
+          /*group_selection_call=*/
+          MakeFakeAggregateFunctionWithEpsilon(Value::Double(0.9)));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<FunctionEpsilonAssigner> assigner,
+                       FunctionEpsilonAssigner::CreateFromScan(dp_scan.get()));
+
+  EXPECT_THAT(assigner->GetGroupSelectionEpsilon(), Optional(DoubleEq(0.9)));
+}
+
+TEST_F(FunctionEpsilonAssignerTest,
+       GetGroupSelectionEpsilonReturnsShareForEvenBudgetSplitting) {
+  std::vector<std::unique_ptr<const ResolvedAggregateFunctionCall>>
+      function_calls;
+  function_calls.emplace_back(
+      MakeFakeAggregateFunctionWithEpsilon(Value::Double(1.1)));
+  function_calls.emplace_back(
+      MakeFakeAggregateFunctionWithEpsilon(Value::NullDouble()));
+  std::unique_ptr<ResolvedDifferentialPrivacyAggregateScan> dp_scan =
+      MakeFakeDpAggregateScan(
+          function_calls, /*option_epsilon=*/Value::Double(5.1),
+          /*option_group_selection_epsilon=*/std::nullopt,
+          /*group_selection_call=*/
+          MakeFakeAggregateFunctionWithEpsilon(Value::NullDouble()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<FunctionEpsilonAssigner> assigner,
+                       FunctionEpsilonAssigner::CreateFromScan(dp_scan.get()));
+
+  EXPECT_THAT(assigner->GetGroupSelectionEpsilon(), Optional(DoubleEq(2.0)));
+}
+
+TEST_F(FunctionEpsilonAssignerTest,
+       GetGroupSelectionEpsilonReturnsNulloptWhenNoGroupSelectionSet) {
+  std::vector<std::unique_ptr<const ResolvedAggregateFunctionCall>>
+      function_calls;
+  function_calls.emplace_back(
+      MakeFakeAggregateFunctionWithEpsilon(Value::Double(1.1)));
+  function_calls.emplace_back(
+      MakeFakeAggregateFunctionWithEpsilon(Value::NullDouble()));
+  std::unique_ptr<ResolvedDifferentialPrivacyAggregateScan> dp_scan =
+      MakeFakeDpAggregateScan(function_calls,
+                              /*option_epsilon=*/Value::Double(5.1));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<FunctionEpsilonAssigner> assigner,
+                       FunctionEpsilonAssigner::CreateFromScan(dp_scan.get()));
+
+  EXPECT_THAT(assigner->GetGroupSelectionEpsilon(), Eq(std::nullopt));
+}
+
+}  // namespace
 }  // namespace anonymization
 }  // namespace zetasql

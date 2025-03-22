@@ -21,6 +21,10 @@
 
 #include "zetasql/parser/parse_tree_visitor.h"
 #include "zetasql/parser/visit_result.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "zetasql/base/ret_check.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 

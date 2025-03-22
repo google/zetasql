@@ -23,7 +23,6 @@
 #include "zetasql/parser/flex_istream.h"
 #include "zetasql/parser/tm_lexer.h"
 #include "zetasql/parser/tm_token.h"
-#include "zetasql/parser/token_codes.h"
 #include "zetasql/public/parse_location.h"
 #include "absl/flags/flag.h"
 #include "zetasql/base/check.h"
@@ -96,9 +95,12 @@ TextMapperTokenizer::TextMapperTokenizer(absl::string_view filename,
 
 ZetaSqlTokenizer::ZetaSqlTokenizer(absl::string_view filename,
                                        absl::string_view input,
-                                       int start_offset)
-    : filename_(filename), input_(input), start_offset_(start_offset) {
-  if (absl::GetFlag(FLAGS_use_textmapper_lexer)) {
+                                       int start_offset, bool force_flex)
+    : filename_(filename),
+      input_(input),
+      start_offset_(start_offset),
+      force_flex_(force_flex) {
+  if (!force_flex_ && absl::GetFlag(FLAGS_use_textmapper_lexer)) {
     text_mapper_tokenizer_ =
         std::make_unique<TextMapperTokenizer>(filename, input, start_offset);
   } else {
@@ -132,7 +134,7 @@ constexpr absl::string_view kTokenOutOfSyncError =
 
 absl::StatusOr<Token> ZetaSqlTokenizer::GetNextToken(
     ParseLocationRange* location) {
-  if (absl::GetFlag(FLAGS_use_textmapper_lexer)) {
+  if (!force_flex_ && absl::GetFlag(FLAGS_use_textmapper_lexer)) {
     return text_mapper_tokenizer_->GetNextToken(location);
   }
   absl::StatusOr<Token> flex_token = flex_tokenizer_->GetNextToken(location);

@@ -16,10 +16,14 @@
 
 #include "zetasql/resolved_ast/resolved_column.h"
 
-#include <memory>
 #include <string>
 
+#include "zetasql/public/id_string.h"
+#include "zetasql/public/types/annotation.h"
+#include "zetasql/public/types/type.h"
+#include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/serialization.pb.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "zetasql/base/status_macros.h"

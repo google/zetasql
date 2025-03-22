@@ -603,9 +603,6 @@ std::vector<FunctionTestCall> GetFunctionTestsRegexp2(
        Bytes("abcz")},
   };
 
-  // TODO: b/328210654 - Gate these tests on the
-  // FEATURE_LEGACY_TRUNCATION_FOR_REGEXP_WITH_POSITION_ARGS feature once the
-  // default behavior is updated.
   std::vector<FunctionTestCall> legacy_position_arg_behavior_tests = {
       {"regexp_extract", {"xyzabc", "^abc", 4ll}, "abc"},
       {"regexp_extract", {"xyzabc-abcz", "^abc", 4ll, 1ll}, "abc"},
@@ -1001,9 +998,6 @@ std::vector<FunctionTestCall> GetFunctionTestsRegexpInstr() {
        8ll},
   };
 
-  // TODO: b/328210654 - Gate these tests on the
-  // FEATURE_LEGACY_TRUNCATION_FOR_REGEXP_WITH_POSITION_ARGS feature once the
-  // default behavior is updated.
   std::vector<FunctionTestCall> legacy_position_arg_behavior_tests = {
       {"regexp_instr", {"xyzabc", "^abc", 4ll}, 4ll},
       {"regexp_instr", {"xyzabc-abcz", "^abc.", 4ll, 1ll}, 4ll},

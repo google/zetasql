@@ -32,9 +32,11 @@
 #include "zetasql/resolved_ast/resolved_ast.pb.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/resolved_ast/serialization.pb.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
+#include "google/protobuf/descriptor.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {
@@ -410,6 +412,23 @@ class ResolvedNode {
 
   std::unique_ptr<ParseLocationRange> parse_location_range_;  // May be NULL.
 };
+
+// Downcast a unique_ptr<const ResolvedNode> to a
+// unique_ptr<const ResolvedNodeSubtype>.
+//
+// This is like node->GetAs<ResolvedNodeSubtype> but for nodes in unique_ptrs.
+//
+// Example:
+//   std::unique_ptr<const ResolvedScan> scan = ...;
+//   ZETASQL_RET_CHECK_EQ(scan->node_kind(), RESOLVED_FILTER_SCAN);
+//   std::unique_ptr<const ResolvedFilterScan> filter_scan =
+//       GetAsResolvedNode<ResolvedFilterScan>(std::move(scan));
+template <typename SUBTYPE, typename TYPE>
+std::unique_ptr<const SUBTYPE> GetAsResolvedNode(
+    std::unique_ptr<const TYPE> node) {
+  return absl::WrapUnique<const SUBTYPE>(
+      node.release()->template GetAs<SUBTYPE>());
+}
 
 }  // namespace zetasql
 

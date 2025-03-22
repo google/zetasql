@@ -25,7 +25,6 @@
 #include <ostream>
 #include <queue>
 #include <string>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -78,31 +77,6 @@ class FileLayoutBuilder : public ParsedFileVisitor {
  private:
   FileLayout* layout_;
 };
-
-// Detects the type of newlines used in <input>. If input contains more than one
-// type of newlines, the first type is returned. If input doesn't contain any
-// newlines, then "\n" is returned.
-std::string DetectNewlineType(absl::string_view input) {
-  std::string newline = "\n";
-  for (int i = 0; i < input.size(); ++i) {
-    if (input[i] == '\n') {
-      if (i + 1 < input.size() && input[i + 1] == '\r') {
-        newline = "\n\r";
-      } else {
-        newline = "\n";
-      }
-      break;
-    } else if (input[i] == '\r') {
-      if (i + 1 < input.size() && input[i + 1] == '\n') {
-        newline = "\r\n";
-      } else {
-        newline = "\r";
-      }
-      break;
-    }
-  }
-  return newline;
-}
 
 // Function returns locations of the chunks that satisfy all following
 // requirements:
@@ -473,23 +447,11 @@ absl::btree_set<int> StmtLayout::LineBreaksInInput(const Line& line) const {
 }
 
 absl::StatusOr<std::unique_ptr<FileLayout>> FileLayout::FromParsedFile(
-    const ParsedFile& file, const class FormatterOptions& options) {
-  auto layout = std::make_unique<FileLayout>(file.Sql(), options);
+    const ParsedFile& file) {
+  auto layout = std::make_unique<FileLayout>(file.GetOptions());
   FileLayoutBuilder layout_builder(layout.get());
   ZETASQL_RETURN_IF_ERROR(file.Accept(&layout_builder));
   return layout;
-}
-
-FileLayout::FileLayout(absl::string_view sql,
-                       const class FormatterOptions& options)
-    : options_(options) {
-  if (options_.IsLineTypeDetectionEnabled()) {
-    options_.SetNewLineType(DetectNewlineType(sql));
-  }
-  if (options_.LineLengthLimit() <= 0) {
-    options_.SetLineLengthLimit(
-        ::zetasql::FormatterOptions().LineLengthLimit());
-  }
 }
 
 void FileLayout::AddPart(std::unique_ptr<Layout> layout_part) {

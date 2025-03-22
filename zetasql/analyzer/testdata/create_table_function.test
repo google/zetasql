@@ -2812,6 +2812,40 @@ FROM tvf_one_relation_arg_with_fixed_output(TABLE KeyValue);
 [zetasql.DeprecationWarning] { kind: TABLE_SYNTAX_ARGUMENT_RESOLUTION_ORDER }
 ==
 
+# `TABLE KeyValue` is correctly resolved to the function argument `KeyValue`,
+# even when table `KeyValue` exists in the catalog.
+[language_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION]
+CREATE TABLE FUNCTION foo_tvf(KeyValue TABLE<Key INT64, Value INT64>) AS
+SELECT count(*) AS count_star
+FROM tvf_one_relation_arg_with_fixed_output(TABLE KeyValue);
+--
+CreateTableFunctionStmt
++-name_path=foo_tvf
++-argument_name_list=[KeyValue]
++-signature=(TABLE<Key INT64, Value INT64> KeyValue) -> TABLE<count_star INT64>
++-language="SQL"
++-code="SELECT count(*) AS count_star\nFROM tvf_one_relation_arg_with_fixed_output(TABLE KeyValue)"
++-query=
+| +-ProjectScan
+|   +-column_list=[$aggregate.count_star#5]
+|   +-input_scan=
+|     +-AggregateScan
+|       +-column_list=[$aggregate.count_star#5]
+|       +-input_scan=
+|       | +-TVFScan
+|       |   +-tvf=tvf_one_relation_arg_with_fixed_output((ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+|       |   +-signature=(TABLE<Key INT64, Value INT64>) -> TABLE<column_bool BOOL, column_bytes BYTES>
+|       |   +-argument_list=
+|       |     +-FunctionArgument
+|       |       +-scan=
+|       |       | +-RelationArgumentScan(column_list=KeyValue.[Key#1, Value#2], name="KeyValue")
+|       |       +-argument_column_list=KeyValue.[Key#1, Value#2]
+|       +-aggregate_list=
+|         +-count_star#5 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
++-output_column_list=
+  +-$aggregate.count_star#5 AS count_star [INT64]
+==
+
 # Function has a single table argument that is scanned twice
 create temporary table function maketable(t table<x int64, y string>)
   returns table<x int64, y string> as
@@ -2877,6 +2911,151 @@ CreateTableFunctionStmt
 +-output_column_list=
   +-t.x#1 AS x [INT64]
   +-t.y#4 AS y [STRING]
+==
+
+[language_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,V_1_4_MULTILEVEL_AGGREGATION,TEMPLATE_FUNCTIONS]
+CREATE TABLE FUNCTION TvfMultiAggGroupingConstants(TwoIntsTableArg {{TABLE<first INT64, second INT64>|ANY TABLE}}, int64_arg {{INT64|ANY TYPE}}) AS
+SELECT
+  SUM(first + int64_arg GROUP BY first) AS result
+FROM TwoIntsTableArg
+--
+ALTERNATION GROUP: TABLE<first INT64, second INT64>,INT64
+--
+CreateTableFunctionStmt
++-name_path=TvfMultiAggGroupingConstants
++-argument_name_list=[TwoIntsTableArg, int64_arg]
++-signature=(TABLE<first INT64, second INT64> TwoIntsTableArg, INT64 int64_arg) -> TABLE<result INT64>
++-language="SQL"
++-code="SELECT\n  SUM(first + int64_arg GROUP BY first) AS result\nFROM TwoIntsTableArg"
++-query=
+| +-ProjectScan
+|   +-column_list=[$aggregate.result#4]
+|   +-input_scan=
+|     +-AggregateScan
+|       +-column_list=[$aggregate.result#4]
+|       +-input_scan=
+|       | +-RelationArgumentScan(column_list=[TwoIntsTableArg.first#1], name="TwoIntsTableArg")
+|       +-aggregate_list=
+|         +-result#4 :=
+|           +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+|             +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+|               +-ColumnRef(type=INT64, column=$group_by_list.$groupbymod#3)
+|               +-ArgumentRef(type=INT64, name="int64_arg")
+|             +-group_by_list=
+|               +-$groupbymod#3 := ColumnRef(type=INT64, column=TwoIntsTableArg.first#1)
++-output_column_list=
+  +-$aggregate.result#4 AS result [INT64]
+--
+ALTERNATION GROUP: TABLE<first INT64, second INT64>,ANY TYPE
+--
+CreateTableFunctionStmt(name_path=TvfMultiAggGroupingConstants, argument_name_list=[TwoIntsTableArg, int64_arg], signature=(TABLE<first INT64, second INT64> TwoIntsTableArg, ANY TYPE int64_arg) -> ANY TABLE, language="SQL", code="SELECT\n  SUM(first + int64_arg GROUP BY first) AS result\nFROM TwoIntsTableArg")
+--
+ALTERNATION GROUP: ANY TABLE,INT64
+--
+CreateTableFunctionStmt(name_path=TvfMultiAggGroupingConstants, argument_name_list=[TwoIntsTableArg, int64_arg], signature=(ANY TABLE TwoIntsTableArg, INT64 int64_arg) -> ANY TABLE, language="SQL", code="SELECT\n  SUM(first + int64_arg GROUP BY first) AS result\nFROM TwoIntsTableArg")
+--
+ALTERNATION GROUP: ANY TABLE,ANY TYPE
+--
+CreateTableFunctionStmt(name_path=TvfMultiAggGroupingConstants, argument_name_list=[TwoIntsTableArg, int64_arg], signature=(ANY TABLE TwoIntsTableArg, ANY TYPE int64_arg) -> ANY TABLE, language="SQL", code="SELECT\n  SUM(first + int64_arg GROUP BY first) AS result\nFROM TwoIntsTableArg")
+==
+
+[language_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,V_1_4_MULTILEVEL_AGGREGATION,TEMPLATE_FUNCTIONS]
+# `second` is not a grouping const for the multi-level aggregate.
+CREATE TABLE FUNCTION TvfMultiAggGroupingConstantsFailure(TwoIntsTableArg {{TABLE<first INT64, second INT64>|ANY TABLE}}, int64_arg {{INT64|ANY TYPE}}) AS
+SELECT
+  SUM(second + int64_arg GROUP BY first) AS result
+FROM TwoIntsTableArg
+--
+ALTERNATION GROUP: TABLE<first INT64, second INT64>,INT64
+--
+ERROR: multi-level aggregate expression references column second which is neither grouped nor aggregated [at 4:7]
+  SUM(second + int64_arg GROUP BY first) AS result
+      ^
+--
+ALTERNATION GROUP: TABLE<first INT64, second INT64>,ANY TYPE
+--
+CreateTableFunctionStmt(name_path=TvfMultiAggGroupingConstantsFailure, argument_name_list=[TwoIntsTableArg, int64_arg], signature=(TABLE<first INT64, second INT64> TwoIntsTableArg, ANY TYPE int64_arg) -> ANY TABLE, language="SQL", code="SELECT\n  SUM(second + int64_arg GROUP BY first) AS result\nFROM TwoIntsTableArg")
+--
+ALTERNATION GROUP: ANY TABLE,INT64
+--
+CreateTableFunctionStmt(name_path=TvfMultiAggGroupingConstantsFailure, argument_name_list=[TwoIntsTableArg, int64_arg], signature=(ANY TABLE TwoIntsTableArg, INT64 int64_arg) -> ANY TABLE, language="SQL", code="SELECT\n  SUM(second + int64_arg GROUP BY first) AS result\nFROM TwoIntsTableArg")
+--
+ALTERNATION GROUP: ANY TABLE,ANY TYPE
+--
+CreateTableFunctionStmt(name_path=TvfMultiAggGroupingConstantsFailure, argument_name_list=[TwoIntsTableArg, int64_arg], signature=(ANY TABLE TwoIntsTableArg, ANY TYPE int64_arg) -> ANY TABLE, language="SQL", code="SELECT\n  SUM(second + int64_arg GROUP BY first) AS result\nFROM TwoIntsTableArg")
+==
+
+[language_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,V_1_4_MULTILEVEL_AGGREGATION]
+CREATE TABLE FUNCTION TvfComplexMultiAgg(TwoIntsTable TABLE<first INT64, second INT64>, int64_arg INT64) AS
+SELECT
+  SUM(int64_arg + S.int64 GROUP BY int64_arg) AS result_1,
+  (
+    SELECT
+      SUM(AVG(first) + second + S.int64 GROUP BY second)
+    FROM TwoIntsTable
+  )  AS result_2
+FROM SimpleTypes AS S
+GROUP BY S.int64;
+--
+CreateTableFunctionStmt
++-name_path=TvfComplexMultiAgg
++-argument_name_list=[TwoIntsTable, int64_arg]
++-signature=(TABLE<first INT64, second INT64> TwoIntsTable, INT64 int64_arg) -> TABLE<result_1 INT64, result_2 DOUBLE>
++-language="SQL"
++-code="SELECT\n  SUM(int64_arg + S.int64 GROUP BY int64_arg) AS result_1,\n  (\n    SELECT\n      SUM(AVG(first) + second + S.int64 GROUP BY second)\n    FROM TwoIntsTable\n  )  AS result_2\nFROM SimpleTypes AS S\nGROUP BY S.int64"
++-query=
+| +-ProjectScan
+|   +-column_list=[$aggregate.result_1#28, $query.result_2#34]
+|   +-expr_list=
+|   | +-result_2#34 :=
+|   |   +-SubqueryExpr
+|   |     +-type=DOUBLE
+|   |     +-subquery_type=SCALAR
+|   |     +-parameter_list=
+|   |     | +-ColumnRef(type=INT64, column=$groupby.int64#25)
+|   |     +-subquery=
+|   |       +-ProjectScan
+|   |         +-column_list=[$aggregate.$agg1#33]
+|   |         +-input_scan=
+|   |           +-AggregateScan
+|   |             +-column_list=[$aggregate.$agg1#33]
+|   |             +-input_scan=
+|   |             | +-RelationArgumentScan(column_list=TwoIntsTable.[first#29, second#30], name="TwoIntsTable")
+|   |             +-aggregate_list=
+|   |               +-$agg1#33 :=
+|   |                 +-AggregateFunctionCall(ZetaSQL:sum(DOUBLE) -> DOUBLE)
+|   |                   +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+|   |                     +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+|   |                     | +-ColumnRef(type=DOUBLE, column=$aggregate.$agg1#32)
+|   |                     | +-Cast(INT64 -> DOUBLE)
+|   |                     |   +-ColumnRef(type=INT64, column=$group_by_list.$groupbymod#31)
+|   |                     +-Cast(INT64 -> DOUBLE)
+|   |                       +-ColumnRef(type=INT64, column=$groupby.int64#25, is_correlated=TRUE)
+|   |                   +-group_by_list=
+|   |                   | +-$groupbymod#31 := ColumnRef(type=INT64, column=TwoIntsTable.second#30)
+|   |                   +-group_by_aggregate_list=
+|   |                     +-$agg1#32 :=
+|   |                       +-AggregateFunctionCall(ZetaSQL:avg(INT64) -> DOUBLE)
+|   |                         +-ColumnRef(type=INT64, column=TwoIntsTable.first#29)
+|   +-input_scan=
+|     +-AggregateScan
+|       +-column_list=[$groupby.int64#25, $aggregate.result_1#28]
+|       +-input_scan=
+|       | +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1], alias="S")
+|       +-group_by_list=
+|       | +-int64#25 := ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+|       +-aggregate_list=
+|         +-result_1#28 :=
+|           +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+|             +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+|               +-ArgumentRef(type=INT64, name="int64_arg")
+|               +-ColumnRef(type=INT64, column=$group_by_list.$groupbymod#26)
+|             +-group_by_list=
+|               +-$groupbymod#26 := ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+|               +-$groupbymod#27 := ArgumentRef(type=INT64, name="int64_arg")
++-output_column_list=
+  +-$aggregate.result_1#28 AS result_1 [INT64]
+  +-$query.result_2#34 AS result_2 [DOUBLE]
 ==
 
 ################################################################################

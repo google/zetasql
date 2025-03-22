@@ -16,15 +16,14 @@
 
 #include "zetasql/reference_impl/tuple_comparator.h"
 
+#include <cmath>
 #include <cstdint>
 #include <memory>
-#include <string>
 #include <utility>
 #include <vector>
 
 #include "zetasql/base/logging.h"
-#include "google/protobuf/message.h"
-#include "zetasql/common/graph_element_utils.h"
+#include "zetasql/common/float_margin.h"
 #include "zetasql/public/collator.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.h"
@@ -36,10 +35,10 @@
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/match.h"
 #include "absl/strings/string_view.h"
-#include "zetasql/base/source_location.h"
+#include "absl/types/span.h"
 #include "zetasql/base/ret_check.h"
-#include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -121,6 +120,15 @@ absl::StatusOr<std::unique_ptr<TupleComparator>> TupleComparator::Create(
 
 bool TupleComparator::operator()(const TupleData& t1,
                                  const TupleData& t2) const {
+  return Compare(t1, t2, /*compare_floating_point_approximately=*/false,
+                 nullptr);
+}
+
+// compare_floating_point_approximately and has_approximate_comparison are used
+// in IsUniquelyOrdered only. See comments at IsUniquelyOrdered below.
+bool TupleComparator::Compare(const TupleData& t1, const TupleData& t2,
+                              bool compare_floating_point_approximately,
+                              bool* has_approximate_comparison) const {
   for (int i = 0; i < keys_.size(); ++i) {
     const KeyArg* key = keys_[i];
     const ZetaSqlCollator* collator = (*collators_)[i].get();
@@ -160,13 +168,25 @@ bool TupleComparator::operator()(const TupleData& t1,
           return result < 0;  // v1 < v2
         }
       }
-    } else {
-      if (!v1.Equals(v2)) {
+    } else if (compare_floating_point_approximately &&
+               key->type()->IsFloatingPoint() &&
+               !key->value_expr()->IsConstant()) {
+      double v1_double = v1.ToDouble();
+      if (!kDefaultFloatMargin.Equal(v1_double, v2.ToDouble())) {
         if (key->is_descending()) {
           return v2.LessThan(v1);
         } else {
           return v1.LessThan(v2);
         }
+      } else if (std::isfinite(v1_double) &&
+                 has_approximate_comparison != nullptr) {
+        *has_approximate_comparison = true;
+      }
+    } else if (!v1.Equals(v2)) {
+      if (key->is_descending()) {
+        return v2.LessThan(v1);
+      } else {
+        return v1.LessThan(v2);
       }
     }
   }
@@ -193,6 +213,38 @@ bool TupleComparator::operator()(const TupleData& t1,
   return false;
 }
 
+// If there is a floating point key, when 2 rows have approximately equal values
+// in this key, a computational error can flip the equality and change the row
+// order.
+//
+// Example query 1: SELECT f(x) AS k, v FROM T ORDER BY 1;
+// Row number     k                     v
+//          1     1.0                   "a"
+//          2     1.000000000000001     "b"
+// The rows appear to have unique ordering, but if the difference between the
+// key values is caused by computational error in f(x), the row order is not
+// reliable.
+//
+// Example query 2: SELECT f(x) AS k1, k2 FROM T ORDER BY 1, 2;
+// Row number     k1                    k2
+//          1     1.0                   "a"
+//          2     1.000000000000001     "b"
+// This case is similar to case 1, but we cannot rely on slot_idxs_for_values
+// (which is empty) to determine unique ordering.
+//
+// Example query 3: SELECT f(x) AS k1, k2, v FROM T ORDER BY 1, 2;
+// Row number     k1      k2     v
+//          1     1.0     "a"    "a"
+//          2     1.0     "b"    "b"
+// A computational error in f(x) can cause the first row to have a larger k1
+// value than the second row and flip the output row order.
+//
+// To catch the above cases, IsUniquelyOrdered compares floating point keys
+// approximately. If two rows have approximately equal values in all keys,
+// compare the non-key column values (this handles case 1). If two rows do not
+// have approximately equal values in all keys, but at least one floating point
+// key was compared and has approximately equal values, IsUniquelyOrdered
+// returns false (this handles case 2 and 3).
 bool TupleComparator::IsUniquelyOrdered(
     absl::Span<const TupleData* const> tuples,
     absl::Span<const int> slot_idxs_for_values) const {
@@ -200,24 +252,25 @@ bool TupleComparator::IsUniquelyOrdered(
     const TupleData* a = tuples[i - 1];
     const TupleData* b = tuples[i];
 
-    if ((*this)(*a, *b)) {
+    bool has_approximate_comparison = false;
+    bool unequal =
+        Compare(*a, *b, /*compare_floating_point_approximately=*/true,
+                &has_approximate_comparison);
+    if (unequal) {
+      if (has_approximate_comparison) {
+        return false;
+      }
       continue;
     }
 
-    bool equal = true;
     for (const int slot_idx : slot_idxs_for_values) {
       if (!a->slot(slot_idx).value().Equals(b->slot(slot_idx).value())) {
-        equal = false;
-        break;
+        // 'a' and 'b' are unequal when all their values are considered, but
+        // this comparator does not yield 'a' < 'b'. Therefore, 'tuples' is
+        // either not sorted or the sort order is not unique because 'a' and 'b'
+        // can be reversed.
+        return false;
       }
-    }
-
-    if (!equal) {
-      // 'a' and 'b' are unequal when all their values are considered, but this
-      // comparator does not yield 'a' < 'b'. Therefore, 'tuples' is either not
-      // sorted or the sort order is not unique because 'a' and 'b' can be
-      // reversed.
-      return false;
     }
   }
   return true;

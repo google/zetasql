@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <string>
 #include <string_view>
 
 #include "zetasql/base/testing/status_matchers.h"

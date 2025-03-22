@@ -318,23 +318,40 @@ CREATE SUPPORTED_ENTITY
        ^
 ==
 
-# Unless the ALLOW_MISSING_PATH_EXPRESSION_IN_ALTER_DDL flag is set genericALTER
-# ALTER statements must generate a parser error when missing a path expression.
+# If ALLOW_MISSING_PATH_EXPRESSION_IN_ALTER_DDL flag is not set, the parser
+# is still able to parse generic ALTER statements but the analyzer will produce
+# an error.
 [supported_generic_entity_types=PROJECT,ORGANIZATION]
 
 ALTER {{PROJECT|ORGANIZATION}} SET OPTIONS (a=b)
 --
 ALTERNATION GROUP: PROJECT
 --
-ERROR: Syntax error: Unexpected keyword SET [at 1:15]
-ALTER PROJECT SET OPTIONS (a=b)
-              ^
+AlterEntityStatement [0-31] [ALTER PROJECT...OPTIONS (a=b)]
+  Identifier(PROJECT) [6-13] [PROJECT]
+  AlterActionList [14-31] [SET OPTIONS (a=b)]
+    SetOptionsAction [14-31] [SET OPTIONS (a=b)]
+      OptionsList [26-31] [(a=b)]
+        OptionsEntry [27-30] [a=b]
+          Identifier(a) [27-28] [a]
+          PathExpression [29-30] [b]
+            Identifier(b) [29-30] [b]
+--
+ALTER PROJECT SET OPTIONS(a = b)
 --
 ALTERNATION GROUP: ORGANIZATION
 --
-ERROR: Syntax error: Unexpected keyword SET [at 1:20]
-ALTER ORGANIZATION SET OPTIONS (a=b)
-                   ^
+AlterEntityStatement [0-36] [ALTER ORGANIZATIO...IONS (a=b)]
+  Identifier(ORGANIZATION) [6-18] [ORGANIZATION]
+  AlterActionList [19-36] [SET OPTIONS (a=b)]
+    SetOptionsAction [19-36] [SET OPTIONS (a=b)]
+      OptionsList [31-36] [(a=b)]
+        OptionsEntry [32-35] [a=b]
+          Identifier(a) [32-33] [a]
+          PathExpression [34-35] [b]
+            Identifier(b) [34-35] [b]
+--
+ALTER ORGANIZATION SET OPTIONS(a = b)
 ==
 
 # When ALLOW_MISSING_PATH_EXPRESSION_IN_ALTER_DDL flag is set generic ALTER

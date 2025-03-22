@@ -876,6 +876,10 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   absl::Status AddFunctions(absl::Span<const std::string> create_function_stmts,
                             bool cache_stmts = false);
 
+  // Apply the current CREATE TABLE FUNCTION statement and add the function to
+  // the Database.
+  void AddTVF();
+
   // Add and remove labels to the code-based label set. Duplicated labels are
   // allowed. Labels will be added in the specified order, and be removed in
   // the reverse order. When removing labels, validates the to-be removed

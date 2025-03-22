@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "zetasql/base/logging.h"
+#include "absl/base/attributes.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"

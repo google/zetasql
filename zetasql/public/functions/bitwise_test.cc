@@ -23,6 +23,7 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/compliance/functions_testlib.h"
+#include "zetasql/public/functions/bitwise_agg_mode.pb.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/value.h"
 #include "zetasql/testing/test_function.h"
@@ -104,11 +105,17 @@ INSTANTIATE_TEST_SUITE_P(BitwiseNot, BitwiseNotTemplateTest,
                          testing::ValuesIn(GetFunctionTestsBitwiseNot()));
 
 template <typename T1, typename T2, typename Result>
+using BinaryFunc = bool (*)(T1, T2, Result*, absl::Status*);
+
+template <typename T1, typename T2, typename Result>
+using BinaryFuncWithMode = bool (*)(T1, T2, BitwiseAggEnums::BitwiseAggMode,
+                                    Result*, absl::Status*);
+
+template <typename T1, typename T2, typename Result>
 // Note: defining fn as std::function would confuse the compiler in template
 // argument inference.
-void TestBitwiseBinaryOp(bool (*fn)(T1, T2, Result*, absl::Status*),
-                         const Value& in1, const Value& in2,
-                         const Value& expected,
+void TestBitwiseBinaryOp(BinaryFunc<T1, T2, Result> fn, const Value& in1,
+                         const Value& in2, const Value& expected,
                          const absl::Status& expected_status) {
   Result out = GetDummyValue<Result>();
   absl::Status status;  // actual status
@@ -121,8 +128,23 @@ void TestBitwiseBinaryOp(bool (*fn)(T1, T2, Result*, absl::Status*),
   }
 }
 
+// Same as TestBitwiseBinaryOp, but with a mode parameter.
 template <typename T1, typename T2, typename Result>
-using BinaryFunc = bool (*)(T1, T2, Result*, absl::Status*);
+void TestBitwiseBinaryOpWithMode(BinaryFuncWithMode<T1, T2, Result> fn,
+                                 const Value& in1, const Value& in2,
+                                 const BitwiseAggEnums::BitwiseAggMode& mode,
+                                 const Value& expected,
+                                 const absl::Status& expected_status) {
+  Result out = GetDummyValue<Result>();
+  absl::Status status;  // actual status
+  fn(GetValue<T1>(in1), GetValue<T2>(in2), mode, &out, &status);
+  if (expected_status.ok()) {
+    EXPECT_EQ(absl::OkStatus(), status);
+    EXPECT_EQ(GetValue<T1>(expected), out);
+  } else {
+    EXPECT_NE(absl::OkStatus(), status) << "Unexpected value: " << out;
+  }
+}
 
 struct BitwiseOrTraits {
   template <typename T>
@@ -133,8 +155,12 @@ struct BitwiseOrTraits {
   GetBytesFunction() {
     return &BitwiseBinaryOpBytes<std::bit_or>;
   }
+  static BinaryFuncWithMode<absl::string_view, absl::string_view, std::string>
+  GetBytesWithModeFunction() {
+    return &BitwiseBinaryOpBytesWithMode<std::bit_or>;
+  }
   static std::vector<QueryParamsWithResult> GetTests() {
-    return GetFunctionTestsBitwiseOr();
+    return GetFunctionTestsBitwiseOr(/*with_mode_tests=*/true);
   }
 };
 
@@ -147,8 +173,12 @@ struct BitwiseXorTraits {
   GetBytesFunction() {
     return &BitwiseBinaryOpBytes<std::bit_xor>;
   }
+  static BinaryFuncWithMode<absl::string_view, absl::string_view, std::string>
+  GetBytesWithModeFunction() {
+    return &BitwiseBinaryOpBytesWithMode<std::bit_xor>;
+  }
   static std::vector<QueryParamsWithResult> GetTests() {
-    return GetFunctionTestsBitwiseXor();
+    return GetFunctionTestsBitwiseXor(/*with_mode_tests=*/true);
   }
 };
 
@@ -161,8 +191,12 @@ struct BitwiseAndTraits {
   GetBytesFunction() {
     return &BitwiseBinaryOpBytes<std::bit_and>;
   }
+  static BinaryFuncWithMode<absl::string_view, absl::string_view, std::string>
+  GetBytesWithModeFunction() {
+    return &BitwiseBinaryOpBytesWithMode<std::bit_and>;
+  }
   static std::vector<QueryParamsWithResult> GetTests() {
-    return GetFunctionTestsBitwiseAnd();
+    return GetFunctionTestsBitwiseAnd(/*with_mode_tests=*/true);
   }
 };
 
@@ -174,6 +208,10 @@ struct BitwiseLeftShiftTraits {
   static BinaryFunc<absl::string_view, int64_t, std::string>
   GetBytesFunction() {
     return &BitwiseLeftShiftBytes;
+  }
+  static BinaryFuncWithMode<absl::string_view, int64_t, std::string>
+  GetBytesWithModeFunction() {
+    return nullptr;  // Not implemented
   }
   static std::vector<QueryParamsWithResult> GetTests() {
     return GetFunctionTestsBitwiseLeftShift();
@@ -188,6 +226,10 @@ struct BitwiseRightShiftTraits {
   static BinaryFunc<absl::string_view, int64_t, std::string>
   GetBytesFunction() {
     return &BitwiseRightShiftBytes;
+  }
+  static BinaryFuncWithMode<absl::string_view, int64_t, std::string>
+  GetBytesWithModeFunction() {
+    return nullptr;  // Not implemented
   }
   static std::vector<QueryParamsWithResult> GetTests() {
     return GetFunctionTestsBitwiseRightShift();
@@ -206,7 +248,7 @@ TYPED_TEST_SUITE(BitwiseBinaryTest, BitwiseBinaryTestTypes);
 TYPED_TEST(BitwiseBinaryTest, Testlib) {
   for (const QueryParamsWithResult& param : TypeParam::GetTests()) {
     SCOPED_TRACE(param);
-    ASSERT_EQ(2, param.num_params());
+    ASSERT_LE(param.num_params(), 3);
     const Value& input1 = param.param(0);
     const Value& input2 = param.param(1);
     const Value& expected = param.result();
@@ -230,10 +272,24 @@ TYPED_TEST(BitwiseBinaryTest, Testlib) {
         TestBitwiseBinaryOp(TypeParam::template GetIntFunction<uint64_t>(),
                             input1, input2, expected, param.status());
         break;
-      case TYPE_BYTES:
-        TestBitwiseBinaryOp(TypeParam::GetBytesFunction(), input1, input2,
-                            expected, param.status());
-        break;
+      case TYPE_BYTES: {
+        if (param.num_params() > 2) {
+          const auto& fn = TypeParam::GetBytesWithModeFunction();
+          // Mode argument is not implemented for BitwiseLeftShift and
+          // BitwiseRightShift
+          if (fn == nullptr) {
+            FAIL() << "Mode argument is not implemented for this function";
+          }
+          const BitwiseAggEnums::BitwiseAggMode& mode =
+              static_cast<BitwiseAggEnums::BitwiseAggMode>(
+                  param.param(2).enum_value());
+          TestBitwiseBinaryOpWithMode(fn, input1, input2, mode, expected,
+                                      param.status());
+        } else {
+          TestBitwiseBinaryOp(TypeParam::GetBytesFunction(), input1, input2,
+                              expected, param.status());
+        }
+      } break;
       default:
         FAIL() << "This op is not tested here: " << param;
     }

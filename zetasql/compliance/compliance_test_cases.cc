@@ -221,6 +221,12 @@ std::vector<FunctionTestCall> WrapFeatureAdditionalStringFunctions(
                                      FEATURE_V_1_3_ADDITIONAL_STRING_FUNCTIONS);
 }
 
+std::vector<FunctionTestCall> WrapFeatureAliasesForStringAndDateFunctions(
+    absl::Span<const FunctionTestCall> tests) {
+  return WrapFunctionTestWithFeature(
+      tests, FEATURE_V_1_4_ALIASES_FOR_STRING_AND_DATE_FUNCTIONS);
+}
+
 std::vector<FunctionTestCall> WrapFeatureLastDay(
     absl::Span<const FunctionTestCall> tests) {
   std::vector<FunctionTestCall> wrapped_tests;
@@ -2107,6 +2113,18 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestDateMathOperators, 1) {
       Shard(GetFunctionTestsDateArithmetics(GetFunctionTestsDateSub())),
       "@p0 - @p1");
 }
+SHARDED_TEST_F(ComplianceCodebasedTests, TestDateAliasFunctions, 1) {
+  const auto& add_tests =
+      GetFunctionTestsDateArithmetics(GetFunctionTestsAddDate());
+  SetNamePrefix("TestDateMathOperators_Add");
+  RunStatementTests(Shard(add_tests), "@p0 + @p1");
+  SetNamePrefix("TestDateMathOperators_Add_Reverse");
+  RunStatementTests(Shard(add_tests), "@p1 + @p0");
+  SetNamePrefix("TestDateMathOperators_Sub");
+  RunStatementTests(
+      Shard(GetFunctionTestsDateArithmetics(GetFunctionTestsSubDate())),
+      "@p0 - @p1");
+}
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestFromProto3Conversions, 1) {
   RunFunctionCalls(Shard(GetFunctionTestsFromProto()));
@@ -2337,6 +2355,17 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestStringSubstringFunctions, 1) {
   // No need to set PREFIX, RunFunctionCalls() will do it.
   RunFunctionCalls(
       Shard(WrapFeatureAdditionalStringFunctions(GetFunctionTestsSubstring())));
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestStringLcaseFunctions, 1) {
+  // No need to set PREFIX, RunFunctionCalls() will do it.
+  RunFunctionCalls(Shard(
+      WrapFeatureAliasesForStringAndDateFunctions(GetFunctionTestsLcase())));
+}
+SHARDED_TEST_F(ComplianceCodebasedTests, TestStringUcaseFunctions, 1) {
+  // No need to set PREFIX, RunFunctionCalls() will do it.
+  RunFunctionCalls(Shard(
+      WrapFeatureAliasesForStringAndDateFunctions(GetFunctionTestsUcase())));
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestStringSoundexFunctions, 1) {
@@ -2579,6 +2608,21 @@ SHARDED_TEST_F(ComplianceCodebasedTests, JustifyInterval, 1) {
     return absl::Substitute("CAST($0(@p0) AS STRING)", f.function_name);
   };
   RunFunctionTestsCustom(Shard(GetFunctionTestsJustifyInterval()), fn);
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, ToSecondsInterval, 1) {
+  SetNamePrefix("ToSecondsInterval");
+  auto fn = [](const FunctionTestCall& f) {
+    // Test cases expect result to be an interval converted to a string to
+    // compare exact datetime parts.
+    return absl::Substitute("CAST($0(@p0) AS STRING)", f.function_name);
+  };
+  RunFunctionTestsCustom(Shard(GetFunctionTestsToSecondsInterval()), fn);
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestsFromProtoDuration, 1) {
+  SetNamePrefix("FromProtoDuration");
+  RunFunctionCalls(Shard(GetFunctionTestsFromProtoDuration()));
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestsCosineDistance, 1) {
@@ -3574,9 +3618,10 @@ class ComplianceFilebasedTests : public SQLTestBase {
       return {};
     }
     std::vector<std::string> test_filenames;
-    std::string file_path = zetasql_base::JoinPath(
-        getenv("TEST_SRCDIR"), "com_google_zetasql/zetasql/compliance/testdata",
-        absl::GetFlag(FLAGS_file_pattern));
+    std::string file_path =
+        zetasql_base::JoinPath(absl::NullSafeStringView(getenv("TEST_SRCDIR")),
+                       "com_google_zetasql/zetasql/compliance/testdata",
+                       absl::GetFlag(FLAGS_file_pattern));
     ZETASQL_CHECK_OK(zetasql::internal::Match(file_path, &test_filenames));
     ABSL_CHECK(!test_filenames.empty()) << "No test files found at " << file_path;
     return test_filenames;

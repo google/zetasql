@@ -18,6 +18,7 @@
 
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "zetasql/examples/tpch/catalog/tpch_catalog.h"
@@ -26,6 +27,7 @@
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/testdata/sample_catalog_impl.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
@@ -35,33 +37,38 @@
 
 namespace zetasql {
 
-// Get an initialized SampleCatalogImpl or an error.
-static absl::StatusOr<std::unique_ptr<SampleCatalogImpl>> GetSampleCatalog() {
-  auto catalog = std::make_unique<SampleCatalogImpl>();
-  ZETASQL_RETURN_IF_ERROR(catalog->LoadCatalogImpl(
-      ZetaSQLBuiltinFunctionOptions(LanguageOptions())));
-  return catalog;
-}
+namespace {
 
 static std::vector<SelectableCatalog*>* InitSelectableCatalogsVector() {
   auto catalogs = std::make_unique<std::vector<SelectableCatalog*>>();
 
-  catalogs->push_back(new SelectableCatalog("none", "Empty catalog", [] {
-    static auto catalog = new SimpleCatalog("simple_catalog");
-    return catalog;
-  }));
-
   catalogs->push_back(new SelectableCatalog(
-      "sample", "Analyzer-test schema", []() -> absl::StatusOr<Catalog*> {
-        static auto* catalog =
-            new absl::StatusOr<std::unique_ptr<SampleCatalogImpl>>(
-                GetSampleCatalog());
-        ZETASQL_RETURN_IF_ERROR(catalog->status());
-        return catalog->value()->catalog();
+      "none", "Empty catalog", [](const LanguageOptions&) {
+        static auto catalog = new SimpleCatalog("simple_catalog");
+        return catalog;
       }));
 
   catalogs->push_back(new SelectableCatalog(
-      "tpch", "TPCH tables (1MB)", []() -> absl::StatusOr<Catalog*> {
+      "sample", "Analyzer-test schema",
+      [](const LanguageOptions& language_options) -> absl::StatusOr<Catalog*> {
+        static auto* sample_catalog_map =
+            new absl::flat_hash_map<LanguageOptions,
+                                    std::unique_ptr<SampleCatalogImpl>>();
+        if (sample_catalog_map->contains(language_options)) {
+          return (*sample_catalog_map)[language_options]->catalog();
+        }
+
+        auto sample_catalog = std::make_unique<SampleCatalogImpl>();
+        ZETASQL_RETURN_IF_ERROR(sample_catalog->LoadCatalogImpl(
+            BuiltinFunctionOptions(language_options)));
+        Catalog* catalog = sample_catalog->catalog();
+        (*sample_catalog_map)[language_options] = std::move(sample_catalog);
+        return catalog;
+      }));
+
+  catalogs->push_back(new SelectableCatalog(
+      "tpch", "TPCH tables (1MB)",
+      [](const LanguageOptions&) -> absl::StatusOr<Catalog*> {
         static auto* catalog =
             new absl::StatusOr<std::unique_ptr<Catalog>>(MakeTpchCatalog());
 
@@ -77,11 +84,26 @@ const std::vector<SelectableCatalog*>& GetSelectableCatalogs() {
   return *catalogs;
 }
 
+}  // namespace
+
+const std::vector<SelectableCatalogInfo>& GetSelectableCatalogsInfo() {
+  static const std::vector<SelectableCatalogInfo>* catalogs_info = [] {
+    auto* catalogs_info = new std::vector<SelectableCatalogInfo>();
+    for (const SelectableCatalog* catalog : GetSelectableCatalogs()) {
+      catalogs_info->push_back(
+          {.name = catalog->name(), .description = catalog->description()});
+    }
+    return catalogs_info;
+  }();
+  return *catalogs_info;
+}
+
 std::string GetSelectableCatalogDescriptionsForFlag() {
   std::vector<std::string> values;
-  for (const SelectableCatalog* catalog : GetSelectableCatalogs()) {
+  for (const SelectableCatalogInfo& catalog_info :
+       GetSelectableCatalogsInfo()) {
     values.push_back(
-        absl::StrCat(catalog->name(), ": ", catalog->description()));
+        absl::StrCat(catalog_info.name, ": ", catalog_info.description));
   }
   return absl::StrJoin(values, "\n");
 }

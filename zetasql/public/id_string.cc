@@ -24,6 +24,7 @@
 #include "zetasql/base/logging.h"
 #include "zetasql/common/unicode_utils.h"
 #include "zetasql/base/case.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/synchronization/mutex.h"
 #include "zetasql/base/map_util.h"
 
@@ -34,7 +35,7 @@ namespace zetasql {
 absl::Mutex IdStringPool::global_mutex_;
 
 // Initialize lazily in IdStringPool::AllocatePoolId when first pool is created.
-std::unordered_set<int64_t>* IdStringPool::live_pool_ids_ = nullptr;
+absl::flat_hash_set<int64_t>* IdStringPool::live_pool_ids_ = nullptr;
 
 int64_t IdStringPool::max_pool_id_ = 0;
 
@@ -42,7 +43,7 @@ int64_t IdStringPool::max_pool_id_ = 0;
 void IdStringPool::CheckPoolIdAlive(int64_t pool_id) {
   absl::MutexLock l(&global_mutex_);
   ABSL_DCHECK(live_pool_ids_ != nullptr);
-  if (!zetasql_base::ContainsKey(*live_pool_ids_, pool_id)) {
+  if (!live_pool_ids_->contains(pool_id)) {
     ABSL_LOG(FATAL) << "IdString was accessed after its IdStringPool ("
                << pool_id << ") was destructed";
   }
@@ -79,8 +80,9 @@ IdStringPool::~IdStringPool() {
 #ifndef NDEBUG
 int64_t IdStringPool::AllocatePoolId() {
   absl::MutexLock l(&global_mutex_);
-  if (live_pool_ids_ == nullptr)
-    live_pool_ids_ = new std::unordered_set<int64_t>;
+  if (live_pool_ids_ == nullptr) {
+    live_pool_ids_ = new absl::flat_hash_set<int64_t>;
+  }
   int64_t pool_id = ++max_pool_id_;
   zetasql_base::InsertOrDie(live_pool_ids_, pool_id);
   return pool_id;

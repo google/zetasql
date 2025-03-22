@@ -17,11 +17,13 @@
 #ifndef ZETASQL_PARSER_MACROS_STANDALONE_MACRO_EXPANSION_H_
 #define ZETASQL_PARSER_MACROS_STANDALONE_MACRO_EXPANSION_H_
 
+#include <cstddef>
 #include <string>
 #include <vector>
 
 #include "zetasql/parser/token_with_location.h"
 #include "absl/base/macros.h"
+#include "absl/container/btree_map.h"
 #include "absl/types/span.h"
 
 namespace zetasql {
@@ -42,7 +44,13 @@ namespace macros {
 // Note however, if two tokens are adjacent, i.e. `token1.AdjacentlyPrecedes(
 // token2)` returns true, no spaces will be inserted in between even if they
 // belong to the cases mentioned above.
-std::string TokensToString(absl::Span<const TokenWithLocation> tokens);
+//
+// If `location_to_token_index` is not null, it will be populated with a mapping
+// of currently expanded string size to the index of the token that was used
+// during that iteration.
+std::string TokensToString(
+    absl::Span<const TokenWithLocation> tokens,
+    absl::btree_map<size_t, int>* location_to_token_index = nullptr);
 
 }  // namespace macros
 }  // namespace parser

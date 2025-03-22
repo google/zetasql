@@ -20,7 +20,6 @@
 #include <functional>
 #include <memory>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include "zetasql/analyzer/expr_resolver_helper.h"
@@ -30,7 +29,9 @@
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/coercer.h"
+#include "zetasql/public/error_helpers.h"
 #include "zetasql/public/function.h"
+#include "zetasql/public/function_signature.h"
 #include "zetasql/public/input_argument_type.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/signature_match_result.h"
@@ -40,6 +41,7 @@
 #include "zetasql/public/types/type_parameters.h"
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "absl/base/attributes.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
@@ -62,28 +64,30 @@ class FunctionResolver {
   FunctionResolver(const FunctionResolver&) = delete;
   FunctionResolver& operator=(const FunctionResolver&) = delete;
 
-  // Resolves the function call given the <function>, <arguments> expressions,
-  // <expected_result_type> and creates a ResolvedFunctionCall.  No special
+  // Resolves the function call given the `function`, `arguments` expressions,
+  // `expected_result_type` and creates a ResolvedFunctionCall.  No special
   // handling is done for aggregate functions - they are resolved exactly like
-  // scalar functions. <is_analytic> indicates whether an OVER clause follows
-  // this function call.
-  // Lambda arguments should have a nullptr placeholder in <arguments> and are
+  // scalar functions.
+  // `match_internal_signatures` indicates whether attempts to match an internal
+  // signature will be made.
+  // `is_analytic` indicates whether an OVER clause follows this function call.
+  // Lambda arguments should have a nullptr placeholder in `arguments` and are
   // resolved during signature matching.
-  // * Takes ownership of the ResolvedExprs in <arguments>.
-  // * <named_arguments> is a vector of any named arguments passed into this
+  // * Takes ownership of the ResolvedExprs in `arguments`.
+  // * `named_arguments` is a vector of any named arguments passed into this
   //   function call along with each one's zero-based index of that argument as
-  //   resolved in <arguments>. The function resolver refers to them when
+  //   resolved in `arguments`. The function resolver refers to them when
   //   matching against function signatures as needed. These parse nodes
-  //   should correspond to a subset of <arguments>.
-  // * <expected_result_type> is optional and when specified should match the
+  //   should correspond to a subset of `arguments`.
+  // * `expected_result_type` is optional and when specified should match the
   //   result_type of the function signature while resolving. Otherwise there is
   //   no match.
-  // * <name_scope> is used to resolve lambda.
+  // * `name_scope` is used to resolve lambda.
   absl::Status ResolveGeneralFunctionCall(
       const ASTNode* ast_location,
       const std::vector<const ASTNode*>& arg_locations,
-      const Function* function, ResolvedFunctionCallBase::ErrorMode error_mode,
-      bool is_analytic,
+      bool match_internal_signatures, const Function* function,
+      ResolvedFunctionCallBase::ErrorMode error_mode, bool is_analytic,
       std::vector<std::unique_ptr<const ResolvedExpr>> arguments,
       std::vector<NamedArgumentInfo> named_arguments,
       const Type* expected_result_type, const NameScope* name_scope,
@@ -95,7 +99,8 @@ class FunctionResolver {
   absl::Status ResolveGeneralFunctionCall(
       const ASTNode* ast_location,
       const std::vector<const ASTNode*>& arg_locations,
-      absl::string_view function_name, bool is_analytic,
+      bool match_internal_signatures, absl::string_view function_name,
+      bool is_analytic,
       std::vector<std::unique_ptr<const ResolvedExpr>> arguments,
       std::vector<NamedArgumentInfo> named_arguments,
       const Type* expected_result_type,
@@ -103,6 +108,7 @@ class FunctionResolver {
   absl::Status ResolveGeneralFunctionCall(
       const ASTNode* ast_location,
       const std::vector<const ASTNode*>& arg_locations,
+      bool match_internal_signatures,
       const std::vector<std::string>& function_name_path, bool is_analytic,
       std::vector<std::unique_ptr<const ResolvedExpr>> arguments,
       std::vector<NamedArgumentInfo> named_arguments,
@@ -243,8 +249,8 @@ class FunctionResolver {
   static absl::Status CheckCreateAggregateFunctionProperties(
       const ResolvedExpr& resolved_expr,
       const ASTNode* sql_function_body_location,
-      const ExprResolutionInfo* expr_info,
-      QueryResolutionInfo* query_info);
+      const ExprResolutionInfo* expr_info, QueryResolutionInfo* query_info,
+      const LanguageOptions& language_options);
 
   // Iterates through <arg_locations> and <named_arguments> and compares them
   // against <signature> to match the order of the arguments in the signature,
@@ -374,32 +380,35 @@ class FunctionResolver {
   // a concrete FunctionSignature if found.  If not found, returns NULL.
   // The caller takes ownership of the returned FunctionSignature.
   //
-  // The <ast_location> and <arg_locations> identify the function call and
-  // argument locations for use in error messages. The <named_arguments>
-  // optionally identify a list of named arguments provided as part of the
-  // function call which may be used to help identify the signature. The pair in
-  // each of <named_arguments> comprises a pointer to the ASTNamedArgument
-  // object that the parser produced for this named argument reference and also
-  // an integer identifying the corresponding argument type by indexing into
-  // the passed-in list in <input_arguments>.
-  // <name_scope> is used to resolve lambda. Resolved lambdas are put in
-  // <arg_overrides>. See
-  // <CheckResolveLambdaTypeAndCollectTemplatedArguments> about how lambda is
-  // resolved.
-  // <input_arguments> is an in-out parameter. As an input, it represents the
+  // The `ast_location` and `arg_locations` identify the function call and
+  // argument locations for use in error messages.
+  // If `match_internal_signatures` is false and the function signature is
+  // internal, do not attempt signature matching and do not generate a
+  // user-facing error message.
+  // The `named_arguments` optionally identify a list of named arguments
+  // provided as part of the function call which may be used to help identify
+  // the signature. The pair in each of `named_arguments` comprises a pointer to
+  // the ASTNamedArgument object that the parser produced for this named
+  // argument reference and also an integer identifying the corresponding
+  // argument type by indexing into the passed-in list in `input_arguments`.
+  // `name_scope` is used to resolve lambda. Resolved lambdas are put in
+  // `arg_overrides`. See `CheckResolveLambdaTypeAndCollectTemplatedArguments`
+  // for how lambda is resolved.
+  // `input_arguments` is an in-out parameter. As an input, it represents the
   // arguments provided to the function call to be resolved. As an output, it
   // contains the argument list reordered to match the returned signature. For
   // any optional arguments whose values are not provided (either positionally
   // or named) elements are also injected into this list.
-  // <arg_index_mapping> is the output of
-  // GetFunctionArgumentIndexMappingPerSignature against the matching signature,
-  // so that the caller can reorder the input argument list representations
-  // accordingly.
-  // If <mismatch_errors> is non-null, it triggers generating detailed signature
+  // `arg_index_mapping` is the output of
+  // `GetFunctionArgumentIndexMappingPerSignature` against the matching
+  // signature, so that the caller can reorder the input argument list
+  // representations accordingly.
+  // If `mismatch_errors` is non-null, it triggers generating detailed signature
   // mismatch message.
   absl::StatusOr<const FunctionSignature*> FindMatchingSignature(
       const Function* function, const ASTNode* ast_location,
       const std::vector<const ASTNode*>& arg_locations,
+      bool match_internal_signatures,
       absl::Span<const NamedArgumentInfo> named_arguments,
       const NameScope* name_scope,
       std::vector<InputArgumentType>* input_arguments,

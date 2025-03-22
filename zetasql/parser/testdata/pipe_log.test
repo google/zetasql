@@ -1,0 +1,76 @@
+[default language_features=PIPES]
+
+from t
+|> LOG
+|> LOG ()
+|> LOG (|> WHERE true)
+|> LOG ( |> WHERE false )
+|> LOG (
+     |> WHERE x=y
+     |> AGGREGATE COUNT(*)
+   )
+--
+QueryStatement [0-131] [from t |>...COUNT(*)    )]
+  Query [0-131] [from t |>...COUNT(*)    )]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeLog [7-13] [|> LOG]
+    PipeLog [14-23] [|> LOG ()]
+      Subpipeline [21-23] [()]
+    PipeLog [24-46] [|> LOG (|> WHERE true)]
+      Subpipeline [31-46] [(|> WHERE true)]
+        PipeWhere [32-45] [|> WHERE true]
+          WhereClause [35-45] [WHERE true]
+            BooleanLiteral(true) [41-45] [true]
+    PipeLog [47-72] [|> LOG ( |> WHERE false )]
+      Subpipeline [54-72] [( |> WHERE false )]
+        PipeWhere [56-70] [|> WHERE false]
+          WhereClause [59-70] [WHERE false]
+            BooleanLiteral(false) [65-70] [false]
+    PipeLog [73-131] [|> LOG (...COUNT(*)    )]
+      Subpipeline [80-131] [(      |>...COUNT(*)    )]
+        PipeWhere [87-99] [|> WHERE x=y]
+          WhereClause [90-99] [WHERE x=y]
+            BinaryExpression(=) [96-99] [x=y]
+              PathExpression [96-97] [x]
+                Identifier(x) [96-97] [x]
+              PathExpression [98-99] [y]
+                Identifier(y) [98-99] [y]
+        PipeAggregate [105-126] [|> AGGREGATE COUNT(*)]
+          Select [108-126] [AGGREGATE COUNT(*)]
+            SelectList [118-126] [COUNT(*)]
+              SelectColumn [118-126] [COUNT(*)]
+                FunctionCall [118-126] [COUNT(*)]
+                  PathExpression [118-123] [COUNT]
+                    Identifier(COUNT) [118-123] [COUNT]
+                  Star(*) [124-125] [*]
+--
+FROM
+  t
+|> LOG
+|> LOG  ()
+|> LOG  (
+     |> WHERE
+          true
+   )
+|> LOG  (
+     |> WHERE
+          false
+   )
+|> LOG  (
+     |> WHERE
+          x = y
+     |> AGGREGATE
+          COUNT(*)
+   )
+==
+
+from t
+|> LOG (select 1)
+--
+ERROR: Syntax error: Expected subpipeline starting with |>, not a subquery [at 2:9]
+|> LOG (select 1)
+        ^

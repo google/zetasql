@@ -23,6 +23,7 @@
 #include <utility>
 #include <vector>
 
+#include "google/protobuf/duration.pb.h"
 #include "google/protobuf/timestamp.pb.h"
 #include "google/protobuf/wrappers.pb.h"
 #include "google/type/date.pb.h"
@@ -171,13 +172,27 @@ void GetStringFunctions(TypeFactory* type_factory,
                    FunctionSignatureOptions().set_uses_operation_collation()},
                   {int64_type, {bytes_type, bytes_type}, FN_STRPOS_BYTES}});
 
+  FunctionOptions lower_options;
+  if (options.language_options.LanguageFeatureEnabled(
+          FEATURE_V_1_4_ALIASES_FOR_STRING_AND_DATE_FUNCTIONS)) {
+    lower_options.set_alias_name("lcase");
+  }
+
   InsertSimpleFunction(functions, options, "lower", SCALAR,
                        {{string_type, {string_type}, FN_LOWER_STRING},
-                        {bytes_type, {bytes_type}, FN_LOWER_BYTES}});
+                        {bytes_type, {bytes_type}, FN_LOWER_BYTES}},
+                       lower_options);
+
+  FunctionOptions upper_options;
+  if (options.language_options.LanguageFeatureEnabled(
+          FEATURE_V_1_4_ALIASES_FOR_STRING_AND_DATE_FUNCTIONS)) {
+    upper_options.set_alias_name("ucase");
+  }
 
   InsertSimpleFunction(functions, options, "upper", SCALAR,
                        {{string_type, {string_type}, FN_UPPER_STRING},
-                        {bytes_type, {bytes_type}, FN_UPPER_BYTES}});
+                        {bytes_type, {bytes_type}, FN_UPPER_BYTES}},
+                       upper_options);
 
   InsertSimpleFunction(functions, options, "length", SCALAR,
                        {{int64_type, {string_type}, FN_LENGTH_STRING},
@@ -571,6 +586,11 @@ absl::Status GetProto3ConversionFunctions(
   const Type* date_type = type_factory->get_date();
   const Type* string_type = type_factory->get_string();
   const Type* bytes_type = type_factory->get_bytes();
+  const Type* timestamp_type = type_factory->get_timestamp();
+  const Type* time_type = type_factory->get_time();
+  const Type* float_type = type_factory->get_float();
+  const Type* interval_type = type_factory->get_interval();
+
   const Type* proto_timestamp_type = nullptr;
   ZETASQL_RETURN_IF_ERROR(type_factory->MakeProtoType(
       google::protobuf::Timestamp::descriptor(), &proto_timestamp_type));
@@ -607,9 +627,9 @@ absl::Status GetProto3ConversionFunctions(
   const Type* proto_bytes_wrapper = nullptr;
   ZETASQL_RETURN_IF_ERROR(type_factory->MakeProtoType(
       google::protobuf::BytesValue::descriptor(), &proto_bytes_wrapper));
-  const Type* timestamp_type = type_factory->get_timestamp();
-  const Type* time_type = type_factory->get_time();
-  const Type* float_type = type_factory->get_float();
+  const Type* proto_duration_type = nullptr;
+  ZETASQL_RETURN_IF_ERROR(type_factory->MakeProtoType(
+      google::protobuf::Duration::descriptor(), &proto_duration_type));
 
   std::initializer_list<FunctionSignatureProxy> from_proto_signature_proxies{
       {timestamp_type, {proto_timestamp_type}, FN_FROM_PROTO_TIMESTAMP},
@@ -691,6 +711,14 @@ absl::Status GetProto3ConversionFunctions(
     to_proto_signatures.push_back({proto_time_of_day_type,
                                    {proto_time_of_day_type},
                                    FN_TO_PROTO_IDEMPOTENT_TIME_OF_DAY});
+  }
+  if (options.language_options.LanguageFeatureEnabled(FEATURE_INTERVAL_TYPE) &&
+      options.language_options.LanguageFeatureEnabled(
+          FEATURE_V_1_4_FROM_PROTO_DURATION)) {
+    from_proto_signatures.push_back(
+        {interval_type, {proto_duration_type}, FN_FROM_PROTO_DURATION});
+    from_proto_signatures.push_back(
+        {interval_type, {interval_type}, FN_FROM_PROTO_IDEMPOTENT_INTERVAL});
   }
   InsertFunction(functions, options, "from_proto", SCALAR,
                  from_proto_signatures,
@@ -1806,6 +1834,13 @@ absl::Status GetJSONFunctions(TypeFactory* type_factory,
       FunctionOptions()
           .AddRequiredLanguageFeature(FEATURE_JSON_TYPE)
           .AddRequiredLanguageFeature(FEATURE_JSON_MUTATOR_FUNCTIONS));
+
+  InsertFunction(
+      functions, options, "json_contains", SCALAR,
+      {{bool_type, {json_type, json_type}, FN_JSON_CONTAINS}},
+      FunctionOptions()
+          .AddRequiredLanguageFeature(FEATURE_JSON_TYPE)
+          .AddRequiredLanguageFeature(FEATURE_JSON_CONTAINS_FUNCTION));
 
   InsertFunction(
       functions, options, "json_keys", SCALAR,

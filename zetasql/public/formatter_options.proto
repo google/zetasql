@@ -51,6 +51,16 @@ message FormatterOptionsProto {
 
   // If true, formatter capitalizes reserved ZetaSQL builtin functions.
   optional bool capitalize_functions = 9;
+
+  // If true, formatter attempts to format the contents of annotated string
+  // literals with structured content. Supported annotations:
+  // /*sql*/ - for embedded SQL strings,
+  // /*proto*/, /*txtpb*/ - for embedded textproto.
+  optional bool format_structured_strings = 10;
+
+  // If true, formatter fixes comments: adds space after comment symbol and
+  // trims trailing whitespaces.
+  optional bool format_comments = 11;
 }
 
 // Represents a byte range [start, end) in the input to be formatted.

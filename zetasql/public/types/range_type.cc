@@ -29,7 +29,6 @@
 #include "zetasql/public/types/collation.h"
 #include "zetasql/public/types/list_backed_type.h"
 #include "zetasql/public/types/type.h"
-#include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/types/type_modifiers.h"
 #include "zetasql/public/types/type_parameters.h"
 #include "zetasql/public/types/value_equality_check_options.h"
@@ -40,7 +39,6 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
-#include "zetasql/base/compact_reference_counted.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
@@ -75,6 +73,12 @@ absl::StatusOr<std::string> RangeType::TypeNameWithModifiers(
   return absl::StrCat("RANGE<", element_type_name, ">");
 }
 
+std::string RangeType::CapitalizedName() const {
+  ABSL_CHECK_EQ(kind(), TYPE_RANGE);  // Crash OK
+  // TODO: Audit use of DebugString. Should this use CapitalizedName?
+  return absl::StrCat("Range<", element_type_->DebugString(), ">");
+}
+
 bool RangeType::IsSupportedType(const LanguageOptions& language_options) const {
   if (!language_options.LanguageFeatureEnabled(FEATURE_RANGE_TYPE)) {
     return false;
@@ -84,7 +88,7 @@ bool RangeType::IsSupportedType(const LanguageOptions& language_options) const {
          element_type_->IsSupportedType(language_options);
 }
 
-RangeType::RangeType(const TypeFactory* factory, const Type* element_type)
+RangeType::RangeType(const TypeFactoryBase* factory, const Type* element_type)
     : ListBackedType(factory, TYPE_RANGE), element_type_(element_type) {
   // Also blocked in TypeFactory::MakeRangeType.
   ABSL_DCHECK(IsValidElementType(element_type_));

@@ -118,7 +118,7 @@ To learn about the syntax for aggregate function calls, see
 </tr>
 
 <tr>
-  <td><a href="https://github.com/google/zetasql/blob/master/docs/bit_functions.md#bit_or"><code>BIT_OR</code></a>
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#bit_or"><code>BIT_OR</code></a>
 </td>
   <td>
     Performs a bitwise OR operation on an expression.
@@ -127,7 +127,7 @@ To learn about the syntax for aggregate function calls, see
 </tr>
 
 <tr>
-  <td><a href="https://github.com/google/zetasql/blob/master/docs/bit_functions.md#bit_xor"><code>BIT_XOR</code></a>
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#bit_xor"><code>BIT_XOR</code></a>
 </td>
   <td>
     Performs a bitwise XOR operation on an expression.
@@ -383,7 +383,7 @@ To learn about the syntax for aggregate function calls, see
 
 ## `ANY_VALUE`
 
-```sql
+```zetasql
 ANY_VALUE(
   expression
   [ HAVING { MAX | MIN } expression2 ]
@@ -410,7 +410,7 @@ or `expression2` is
 `NULL` for all rows in the group.
 
 `ANY_VALUE` behaves as if `IGNORE NULLS` is specified;
-rows for which `expression` is `NULL` are not considered and won't be
+rows for which `expression` is `NULL` aren't considered and won't be
 selected.
 
 To learn more about the optional aggregate clauses that you can pass
@@ -442,7 +442,7 @@ Matches the input data type.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT ANY_VALUE(fruit) as any_value
 FROM UNNEST(["apple", "banana", "pear"]) as fruit;
 
@@ -453,7 +453,7 @@ FROM UNNEST(["apple", "banana", "pear"]) as fruit;
  *-----------*/
 ```
 
-```sql
+```zetasql
 SELECT
   fruit,
   ANY_VALUE(fruit) OVER (ORDER BY LENGTH(fruit) ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS any_value
@@ -468,7 +468,7 @@ FROM UNNEST(["apple", "banana", "pear"]) as fruit;
  *--------+-----------*/
 ```
 
-```sql
+```zetasql
 WITH
   Store AS (
     SELECT 20 AS sold, "apples" AS fruit
@@ -488,7 +488,7 @@ SELECT ANY_VALUE(fruit HAVING MAX sold) AS a_highest_selling_fruit FROM Store;
  *-------------------------*/
 ```
 
-```sql
+```zetasql
 WITH
   Store AS (
     SELECT 20 AS sold, "apples" AS fruit
@@ -510,7 +510,7 @@ SELECT ANY_VALUE(fruit HAVING MIN sold) AS a_lowest_selling_fruit FROM Store;
 
 ## `ARRAY_AGG`
 
-```sql
+```zetasql
 ARRAY_AGG(
   [ DISTINCT ]
   expression
@@ -567,7 +567,7 @@ If there are zero input rows, this function returns `NULL`.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT ARRAY_AGG(x) AS array_agg FROM UNNEST([2, 1,-2, 3, -2, 1, 2]) AS x;
 
 /*-------------------------*
@@ -577,7 +577,7 @@ SELECT ARRAY_AGG(x) AS array_agg FROM UNNEST([2, 1,-2, 3, -2, 1, 2]) AS x;
  *-------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_AGG(DISTINCT x) AS array_agg
 FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
 
@@ -588,7 +588,7 @@ FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
  *---------------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_AGG(x IGNORE NULLS) AS array_agg
 FROM UNNEST([NULL, 1, -2, 3, -2, 1, NULL]) AS x;
 
@@ -599,7 +599,7 @@ FROM UNNEST([NULL, 1, -2, 3, -2, 1, NULL]) AS x;
  *-------------------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_AGG(x ORDER BY ABS(x)) AS array_agg
 FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
 
@@ -610,7 +610,7 @@ FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
  *-------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_AGG(x LIMIT 5) AS array_agg
 FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
 
@@ -621,7 +621,7 @@ FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
  *-------------------*/
 ```
 
-```sql
+```zetasql
 WITH vals AS
   (
     SELECT 1 x UNION ALL
@@ -640,7 +640,7 @@ FROM vals;
  *------------*/
 ```
 
-```sql
+```zetasql
 WITH vals AS
   (
     SELECT 1 x, 'a' y UNION ALL
@@ -660,7 +660,7 @@ GROUP BY x;
  *---------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   x,
   ARRAY_AGG(x) OVER (ORDER BY ABS(x)) AS array_agg
@@ -681,7 +681,7 @@ FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
 
 ## `ARRAY_CONCAT_AGG`
 
-```sql
+```zetasql
 ARRAY_CONCAT_AGG(
   expression
   [ HAVING { MAX | MIN } expression2 ]
@@ -719,7 +719,7 @@ into this function, see
 
 **Examples**
 
-```sql
+```zetasql
 SELECT ARRAY_CONCAT_AGG(x) AS array_concat_agg FROM (
   SELECT [NULL, 1, 2, 3, 4] AS x
   UNION ALL SELECT NULL
@@ -734,7 +734,7 @@ SELECT ARRAY_CONCAT_AGG(x) AS array_concat_agg FROM (
  *-----------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_CONCAT_AGG(x ORDER BY ARRAY_LENGTH(x)) AS array_concat_agg FROM (
   SELECT [1, 2, 3, 4] AS x
   UNION ALL SELECT [5, 6]
@@ -748,7 +748,7 @@ SELECT ARRAY_CONCAT_AGG(x ORDER BY ARRAY_LENGTH(x)) AS array_concat_agg FROM (
  *-----------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_CONCAT_AGG(x LIMIT 2) AS array_concat_agg FROM (
   SELECT [1, 2, 3, 4] AS x
   UNION ALL SELECT [5, 6]
@@ -762,7 +762,7 @@ SELECT ARRAY_CONCAT_AGG(x LIMIT 2) AS array_concat_agg FROM (
  *--------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT ARRAY_CONCAT_AGG(x ORDER BY ARRAY_LENGTH(x) LIMIT 2) AS array_concat_agg FROM (
   SELECT [1, 2, 3, 4] AS x
   UNION ALL SELECT [5, 6]
@@ -778,7 +778,7 @@ SELECT ARRAY_CONCAT_AGG(x ORDER BY ARRAY_LENGTH(x) LIMIT 2) AS array_concat_agg 
 
 ## `AVG`
 
-```sql
+```zetasql
 AVG(
   [ DISTINCT ]
   expression
@@ -842,7 +842,7 @@ Caveats:
 
 [floating-point-types]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_types
 
-[non-deterministic]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating-point-semantics
+[non-deterministic]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Supported Argument Types**
 
@@ -866,7 +866,7 @@ Caveats:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT AVG(x) as avg
 FROM UNNEST([0, 2, 4, 4, 5]) as x;
 
@@ -877,7 +877,7 @@ FROM UNNEST([0, 2, 4, 4, 5]) as x;
  *-----*/
 ```
 
-```sql
+```zetasql
 SELECT AVG(DISTINCT x) AS avg
 FROM UNNEST([0, 2, 4, 4, 5]) AS x;
 
@@ -888,7 +888,7 @@ FROM UNNEST([0, 2, 4, 4, 5]) AS x;
  *------*/
 ```
 
-```sql
+```zetasql
 SELECT
   x,
   AVG(x) OVER (ORDER BY x ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS avg
@@ -910,7 +910,7 @@ FROM UNNEST([0, 2, NULL, 4, 4, 5]) AS x;
 
 ## `BIT_AND`
 
-```sql
+```zetasql
 BIT_AND(
   [ DISTINCT ]
   expression
@@ -945,7 +945,7 @@ INT64
 
 **Examples**
 
-```sql
+```zetasql
 SELECT BIT_AND(x) as bit_and FROM UNNEST([0xF001, 0x00A1]) as x;
 
 /*---------*
@@ -957,7 +957,7 @@ SELECT BIT_AND(x) as bit_and FROM UNNEST([0xF001, 0x00A1]) as x;
 
 ## `BIT_OR`
 
-```sql
+```zetasql
 BIT_OR(
   [ DISTINCT ]
   expression
@@ -992,7 +992,7 @@ INT64
 
 **Examples**
 
-```sql
+```zetasql
 SELECT BIT_OR(x) as bit_or FROM UNNEST([0xF001, 0x00A1]) as x;
 
 /*--------*
@@ -1004,7 +1004,7 @@ SELECT BIT_OR(x) as bit_or FROM UNNEST([0xF001, 0x00A1]) as x;
 
 ## `BIT_XOR`
 
-```sql
+```zetasql
 BIT_XOR(
   [ DISTINCT ]
   expression
@@ -1039,7 +1039,7 @@ INT64
 
 **Examples**
 
-```sql
+```zetasql
 SELECT BIT_XOR(x) AS bit_xor FROM UNNEST([5678, 1234]) AS x;
 
 /*---------*
@@ -1049,7 +1049,7 @@ SELECT BIT_XOR(x) AS bit_xor FROM UNNEST([5678, 1234]) AS x;
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT BIT_XOR(x) AS bit_xor FROM UNNEST([1234, 5678, 1234]) AS x;
 
 /*---------*
@@ -1059,7 +1059,7 @@ SELECT BIT_XOR(x) AS bit_xor FROM UNNEST([1234, 5678, 1234]) AS x;
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT BIT_XOR(DISTINCT x) AS bit_xor FROM UNNEST([1234, 5678, 1234]) AS x;
 
 /*---------*
@@ -1071,12 +1071,12 @@ SELECT BIT_XOR(DISTINCT x) AS bit_xor FROM UNNEST([1234, 5678, 1234]) AS x;
 
 ## `COUNT`
 
-```sql
+```zetasql
 COUNT(*)
 [ OVER over_clause ]
 ```
 
-```sql
+```zetasql
 COUNT(
   [ DISTINCT ]
   expression
@@ -1139,7 +1139,7 @@ expression evaluated to any value other than `NULL`.
 To count the number of distinct values of an expression for which a
 certain condition is satisfied, you can use the following recipe:
 
-```sql
+```zetasql
 COUNT(DISTINCT IF(condition, expression, NULL))
 ```
 
@@ -1168,7 +1168,7 @@ This function with <code>DISTINCT</code> supports specifying [collation][collati
 You can use the `COUNT` function to return the number of rows in a table or the
 number of distinct values of an expression. For example:
 
-```sql
+```zetasql
 SELECT
   COUNT(*) AS count_star,
   COUNT(DISTINCT x) AS count_dist_x
@@ -1181,7 +1181,7 @@ FROM UNNEST([1, 4, 4, 5]) AS x;
  *------------+--------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   x,
   COUNT(*) OVER (PARTITION BY MOD(x, 3)) AS count_star,
@@ -1198,7 +1198,7 @@ FROM UNNEST([1, 4, 4, 5]) AS x;
  *------+------------+--------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   x,
   COUNT(*) OVER (PARTITION BY MOD(x, 3)) AS count_star,
@@ -1218,7 +1218,7 @@ FROM UNNEST([1, 4, NULL, 4, 5]) AS x;
 
 The following query counts the number of distinct positive values of `x`:
 
-```sql
+```zetasql
 SELECT COUNT(DISTINCT IF(x > 0, x, NULL)) AS distinct_positive
 FROM UNNEST([1, -2, 4, 1, -5, 4, 1, 3, -6, 1]) AS x;
 
@@ -1232,7 +1232,7 @@ FROM UNNEST([1, -2, 4, 1, -5, 4, 1, 3, -6, 1]) AS x;
 The following query counts the number of distinct dates on which a certain kind
 of event occurred:
 
-```sql
+```zetasql
 WITH Events AS (
   SELECT DATE '2021-01-01' AS event_date, 'SUCCESS' AS event_type
   UNION ALL
@@ -1261,7 +1261,7 @@ FROM Events;
 The following query counts the number of distinct `id`s that exist in both
 the `customers` and `vendor` tables:
 
-```sql
+```zetasql
 WITH
   customers AS (
     SELECT 1934 AS id, 'a' AS team UNION ALL
@@ -1290,7 +1290,7 @@ FROM vendors;
 
 ## `COUNTIF`
 
-```sql
+```zetasql
 COUNTIF(
   [ DISTINCT ]
   expression
@@ -1355,7 +1355,7 @@ information, see the [`COUNT`][count] function.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT COUNTIF(x<0) AS num_negative, COUNTIF(x>0) AS num_positive
 FROM UNNEST([5, -2, 3, 6, -10, -7, 4, 0]) AS x;
 
@@ -1366,7 +1366,7 @@ FROM UNNEST([5, -2, 3, 6, -10, -7, 4, 0]) AS x;
  *--------------+--------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   x,
   COUNTIF(x<0) OVER (ORDER BY ABS(x) ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING) AS num_negative
@@ -1391,7 +1391,7 @@ FROM UNNEST([5, -2, 3, 6, -10, NULL, -7, 4, 0]) AS x;
 
 ## `GROUPING`
 
-```sql
+```zetasql
 GROUPING(groupable_value)
 ```
 
@@ -1442,7 +1442,7 @@ Pay close attention to what's in the `product_type_agg` and
 0                  | 0                  | Rows are grouped by `product_type` and `product_name`.
 1                  | 1                  | Grand total row.
 
-```sql
+```zetasql
 WITH
   Products AS (
     SELECT 'shirt' AS product_type, 't-shirt' AS product_name, 3 AS product_count UNION ALL
@@ -1479,7 +1479,7 @@ determine what type of `NULL` is being produced. If
 `product_type_is_aggregated` is `1`, the `NULL` value for
 the `product_type` column is a `NULL` placeholder.
 
-```sql
+```zetasql
 WITH
   Products AS (
     SELECT 'shirt' AS product_type, 't-shirt' AS product_name, 3 AS product_count UNION ALL
@@ -1512,7 +1512,7 @@ ORDER BY product_name;
 
 ## `LOGICAL_AND`
 
-```sql
+```zetasql
 LOGICAL_AND(
   expression
   [ HAVING { MAX | MIN } expression2 ]
@@ -1572,7 +1572,7 @@ To learn more about the `OVER` clause and how to use it, see
 `LOGICAL_AND` returns `FALSE` because not all of the values in the array are
 less than 3.
 
-```sql
+```zetasql
 SELECT LOGICAL_AND(x < 3) AS logical_and FROM UNNEST([1, 2, 4]) AS x;
 
 /*-------------*
@@ -1584,7 +1584,7 @@ SELECT LOGICAL_AND(x < 3) AS logical_and FROM UNNEST([1, 2, 4]) AS x;
 
 ## `LOGICAL_OR`
 
-```sql
+```zetasql
 LOGICAL_OR(
   expression
   [ HAVING { MAX | MIN } expression2 ]
@@ -1644,7 +1644,7 @@ To learn more about the `OVER` clause and how to use it, see
 `LOGICAL_OR` returns `TRUE` because at least one of the values in the array is
 less than 3.
 
-```sql
+```zetasql
 SELECT LOGICAL_OR(x < 3) AS logical_or FROM UNNEST([1, 2, 4]) AS x;
 
 /*------------*
@@ -1656,7 +1656,7 @@ SELECT LOGICAL_OR(x < 3) AS logical_or FROM UNNEST([1, 2, 4]) AS x;
 
 ## `MAX`
 
-```sql
+```zetasql
 MAX(
   expression
   [ HAVING { MAX | MIN } expression2 ]
@@ -1717,7 +1717,7 @@ The data type of the input values.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT MAX(x) AS max
 FROM UNNEST([8, 37, 55, 4]) AS x;
 
@@ -1728,7 +1728,7 @@ FROM UNNEST([8, 37, 55, 4]) AS x;
  *-----*/
 ```
 
-```sql
+```zetasql
 SELECT x, MAX(x) OVER (PARTITION BY MOD(x, 2)) AS max
 FROM UNNEST([8, NULL, 37, 55, NULL, 4]) AS x;
 
@@ -1748,7 +1748,7 @@ FROM UNNEST([8, NULL, 37, 55, NULL, 4]) AS x;
 
 ## `MIN`
 
-```sql
+```zetasql
 MIN(
   expression
   [ HAVING { MAX | MIN } expression2 ]
@@ -1809,7 +1809,7 @@ The data type of the input values.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT MIN(x) AS min
 FROM UNNEST([8, 37, 4, 55]) AS x;
 
@@ -1820,7 +1820,7 @@ FROM UNNEST([8, 37, 4, 55]) AS x;
  *-----*/
 ```
 
-```sql
+```zetasql
 SELECT x, MIN(x) OVER (PARTITION BY MOD(x, 2)) AS min
 FROM UNNEST([8, NULL, 37, 4, NULL, 55]) AS x;
 
@@ -1840,7 +1840,7 @@ FROM UNNEST([8, NULL, 37, 4, NULL, 55]) AS x;
 
 ## `STRING_AGG`
 
-```sql
+```zetasql
 STRING_AGG(
   [ DISTINCT ]
   expression [, delimiter]
@@ -1899,7 +1899,7 @@ Either `STRING` or `BYTES`.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT STRING_AGG(fruit) AS string_agg
 FROM UNNEST(["apple", NULL, "pear", "banana", "pear"]) AS fruit;
 
@@ -1910,7 +1910,7 @@ FROM UNNEST(["apple", NULL, "pear", "banana", "pear"]) AS fruit;
  *------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT STRING_AGG(fruit, " & ") AS string_agg
 FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit;
 
@@ -1921,7 +1921,7 @@ FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit;
  *------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT STRING_AGG(DISTINCT fruit, " & ") AS string_agg
 FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit;
 
@@ -1932,7 +1932,7 @@ FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit;
  *-----------------------*/
 ```
 
-```sql
+```zetasql
 SELECT STRING_AGG(fruit, " & " ORDER BY LENGTH(fruit)) AS string_agg
 FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit;
 
@@ -1943,7 +1943,7 @@ FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit;
  *------------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT STRING_AGG(fruit, " & " LIMIT 2) AS string_agg
 FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit;
 
@@ -1954,7 +1954,7 @@ FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit;
  *--------------*/
 ```
 
-```sql
+```zetasql
 SELECT STRING_AGG(DISTINCT fruit, " & " ORDER BY fruit DESC LIMIT 2) AS string_agg
 FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit;
 
@@ -1965,7 +1965,7 @@ FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit;
  *---------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   fruit,
   STRING_AGG(fruit, " & ") OVER (ORDER BY LENGTH(fruit)) AS string_agg
@@ -1984,7 +1984,7 @@ FROM UNNEST(["apple", NULL, "pear", "banana", "pear"]) AS fruit;
 
 ## `SUM`
 
-```sql
+```zetasql
 SUM(
   [ DISTINCT ]
   expression
@@ -2048,7 +2048,7 @@ Caveats:
 
 [floating-point-types]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_types
 
-[non-deterministic]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating-point-semantics
+[non-deterministic]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Supported Argument Types**
 
@@ -2072,7 +2072,7 @@ Caveats:
 
 **Examples**
 
-```sql
+```zetasql
 SELECT SUM(x) AS sum
 FROM UNNEST([1, 2, 3, 4, 5, 4, 3, 2, 1]) AS x;
 
@@ -2083,7 +2083,7 @@ FROM UNNEST([1, 2, 3, 4, 5, 4, 3, 2, 1]) AS x;
  *-----*/
 ```
 
-```sql
+```zetasql
 SELECT SUM(DISTINCT x) AS sum
 FROM UNNEST([1, 2, 3, 4, 5, 4, 3, 2, 1]) AS x;
 
@@ -2094,7 +2094,7 @@ FROM UNNEST([1, 2, 3, 4, 5, 4, 3, 2, 1]) AS x;
  *-----*/
 ```
 
-```sql
+```zetasql
 SELECT
   x,
   SUM(x) OVER (PARTITION BY MOD(x, 3)) AS sum
@@ -2115,7 +2115,7 @@ FROM UNNEST([1, 2, 3, 4, 5, 4, 3, 2, 1]) AS x;
  *---+-----*/
 ```
 
-```sql
+```zetasql
 SELECT
   x,
   SUM(DISTINCT x) OVER (PARTITION BY MOD(x, 3)) AS sum
@@ -2136,7 +2136,7 @@ FROM UNNEST([1, 2, 3, 4, 5, 4, 3, 2, 1]) AS x;
  *---+-----*/
 ```
 
-```sql
+```zetasql
 SELECT SUM(x) AS sum
 FROM UNNEST([]) AS x;
 

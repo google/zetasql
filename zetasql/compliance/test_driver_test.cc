@@ -55,6 +55,7 @@ TEST(TestDriverTest, ClassAndProtoSize) {
     std::set<std::string> enum_names;
     std::map<std::string, TestTable> tables;
     std::map<std::string, std::string> graph_defs;
+    std::map<std::string, std::string> tvfs;
   };
   struct MockTestTestTableOptions {
     int expected_table_size_min;
@@ -72,7 +73,7 @@ TEST(TestDriverTest, ClassAndProtoSize) {
                 "Please change SerializeTestDatabase (test_driver.cc) and "
                 "TestDatabaseProto (test_driver.proto) tests if TestDatabase "
                 "is modified.");
-  EXPECT_EQ(TestDatabaseProto::descriptor()->field_count(), 6);
+  EXPECT_EQ(TestDatabaseProto::descriptor()->field_count(), 7);
   EXPECT_EQ(7, TestTableOptionsProto::descriptor()->field_count());
   EXPECT_EQ(3, TestTableProto::descriptor()->field_count());
 }

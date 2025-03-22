@@ -643,6 +643,32 @@ inline std::unique_ptr<ResolvedArrayScan> MakeResolvedArrayScan(
 }
 
 // Special overload for backward compatibility purposes.
+inline std::unique_ptr<ResolvedAnalyticFunctionCall> MakeResolvedAnalyticFunctionCall(
+      const Type* type,
+      const Function* function,
+      const FunctionSignature& signature,
+      std::vector<std::unique_ptr<const ResolvedExpr>> argument_list,
+      std::vector<std::unique_ptr<const ResolvedFunctionArgument>> generic_argument_list,
+      ResolvedFunctionCallBase::ErrorMode error_mode,
+      bool distinct,
+      ResolvedNonScalarFunctionCallBase::NullHandlingModifier null_handling_modifier,
+      std::unique_ptr<const ResolvedWindowFrame> window_frame
+  ) {
+  return MakeResolvedAnalyticFunctionCall(
+    type,
+    function,
+    signature,
+    std::move(argument_list),
+    std::move(generic_argument_list),
+    error_mode,
+    distinct,
+    null_handling_modifier,
+    /*where_expr=*/nullptr,
+    std::move(window_frame)
+  );
+}
+
+// Special overload for backward compatibility purposes.
 inline std::unique_ptr<ResolvedAggregateFunctionCall> MakeResolvedAggregateFunctionCall(
   const Type* type,
   const Function* function,
@@ -665,12 +691,50 @@ inline std::unique_ptr<ResolvedAggregateFunctionCall> MakeResolvedAggregateFunct
       error_mode,
       distinct,
       null_handling_modifier,
+      /*where_expr=*/nullptr,
       std::move(having_modifier),
       std::move(order_by_item_list),
       std::move(limit),
       function_call_info,
       /*group_by_list=*/{},
-      /*group_by_aggregate_list=*/{}
+      /*group_by_aggregate_list=*/{},
+      /*having_expr=*/nullptr
+    );
+}
+
+// Special overload for backward compatibility purposes.
+inline std::unique_ptr<ResolvedAggregateFunctionCall> MakeResolvedAggregateFunctionCall(
+  const Type* type,
+  const Function* function,
+  const FunctionSignature& signature,
+  std::vector<std::unique_ptr<const ResolvedExpr>> argument_list,
+  std::vector<std::unique_ptr<const ResolvedFunctionArgument>> generic_argument_list,
+  ResolvedFunctionCallBase::ErrorMode error_mode,
+  bool distinct,
+  ResolvedNonScalarFunctionCallBase::NullHandlingModifier null_handling_modifier,
+  std::unique_ptr<const ResolvedAggregateHavingModifier> having_modifier,
+  std::vector<std::unique_ptr<const ResolvedOrderByItem>> order_by_item_list,
+  std::unique_ptr<const ResolvedExpr> limit,
+  const std::shared_ptr<ResolvedFunctionCallInfo>& function_call_info,
+  std::vector<std::unique_ptr<const ResolvedComputedColumn>> group_by_list,
+  std::vector<std::unique_ptr<const ResolvedComputedColumnBase>> group_by_aggregate_list) {
+    return MakeResolvedAggregateFunctionCall(
+      type,
+      function,
+      signature,
+      std::move(argument_list),
+      std::move(generic_argument_list),
+      error_mode,
+      distinct,
+      null_handling_modifier,
+      /*where_expr=*/nullptr,
+      std::move(having_modifier),
+      std::move(order_by_item_list),
+      std::move(limit),
+      function_call_info,
+      std::move(group_by_list),
+      std::move(group_by_aggregate_list),
+      /*having_expr=*/nullptr
     );
 }
 

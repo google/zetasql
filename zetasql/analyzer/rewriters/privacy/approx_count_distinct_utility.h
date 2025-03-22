@@ -18,7 +18,6 @@
 #define ZETASQL_ANALYZER_REWRITERS_PRIVACY_APPROX_COUNT_DISTINCT_UTILITY_H_
 
 #include <memory>
-#include <vector>
 
 #include "zetasql/analyzer/query_resolver_helper.h"
 #include "zetasql/analyzer/resolver.h"
@@ -44,6 +43,7 @@
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/base/check.h"
 #include "absl/status/statusor.h"
+#include "absl/types/span.h"
 
 namespace zetasql {
 namespace differential_privacy {
@@ -62,7 +62,7 @@ ReplaceApproxCountDistinctOfPrivacyIdCallsBySimplerAggregations(
 // Returns true if `aggregate_list` contains a DP approx_count_distinct call.
 // False otherwise.
 absl::StatusOr<bool> HasApproxCountDistinctAggregation(
-    const std::vector<std::unique_ptr<const ResolvedComputedColumnBase>>&
+    absl::Span<const std::unique_ptr<const ResolvedComputedColumnBase>>
         aggregate_list);
 
 // Performs the rewrites specified in

@@ -40,7 +40,10 @@ QueryStatement [0-37] [SELECT STRUCT..., bar: 3 }]
                   IntLiteral(3) [34-35] [3]
 --
 SELECT
-  STRUCT { foo : "blah", bar : 3 }
+  STRUCT {
+    foo : "blah",
+    bar : 3
+  }
 ==
 
 # Leading comma is syntax error
@@ -76,7 +79,10 @@ QueryStatement [0-37] [SELECT STRUCT...bar: 3, }]
                   IntLiteral(3) [33-34] [3]
 --
 SELECT
-  STRUCT { foo : "blah", bar : 3 }
+  STRUCT {
+    foo : "blah",
+    bar : 3
+  }
 ==
 
 # Error syntax to use whitespace instead of comma to separate fields.
@@ -104,7 +110,10 @@ QueryStatement [0-23] [SELECT STRUCT {a:1 b:2}]
                   IntLiteral(2) [21-22] [2]
 --
 SELECT
-  STRUCT { a : 1 b : 2 }
+  STRUCT {
+    a : 1
+    b : 2
+  }
 ==
 
 # Error syntax to use both whitespace and comma separate fields.
@@ -138,7 +147,11 @@ QueryStatement [0-28] [SELECT STRUCT {a:1 b:2, c:3}]
                   IntLiteral(3) [26-27] [3]
 --
 SELECT
-  STRUCT { a : 1 b : 2, c : 3 }
+  STRUCT {
+    a : 1
+    b : 2,
+    c : 3
+  }
 ==
 
 # Error syntax to use whitespace instead of colon to separate field and value for submessage.
@@ -170,7 +183,11 @@ QueryStatement [0-38] [SELECT STRUCT...: 1    } }]
                         IntLiteral(1) [30-31] [1]
 --
 SELECT
-  STRUCT { a  { b : 1 } }
+  STRUCT {
+    a  {
+      b : 1
+    }
+  }
 ==
 
 # Error syntax to use both whitespace and colon to separate field and value for submessage.
@@ -217,7 +234,14 @@ QueryStatement [0-59] [SELECT STRUCT...: 1    } }]
                         IntLiteral(1) [51-52] [1]
 --
 SELECT
-  STRUCT { a  { b : 1 }, c : { d : 1 } }
+  STRUCT {
+    a  {
+      b : 1
+    },
+    c : {
+      d : 1
+    }
+  }
 ==
 
 # Nested message (with colon) and array field.
@@ -266,7 +290,13 @@ QueryStatement [0-79] [SELECT STRUCT...[1,2,3] }]
                     IntLiteral(3) [75-76] [3]
 --
 SELECT
-  STRUCT { foo : { monkey : "blah" } bar : 3 int_array : ARRAY[1, 2, 3] }
+  STRUCT {
+    foo : {
+      monkey : "blah"
+    }
+    bar : 3
+    int_array : ARRAY[1, 2, 3]
+  }
 ==
 
 # Sub-message array.
@@ -316,7 +346,14 @@ QueryStatement [0-101] [SELECT STRUCT...abc"   }] }]
                             StringLiteralComponent("abc") [89-94] ["abc"]
 --
 SELECT
-  STRUCT { int_field : 1 submessage_array : ARRAY[{ monkey : "blah" }, { baz : "abc" }] }
+  STRUCT {
+    int_field : 1
+    submessage_array : ARRAY[{
+      monkey : "blah"
+    }, {
+      baz : "abc"
+    }]
+  }
 ==
 
 # At parse-time map fields are just like repeated sub-message fields.
@@ -380,7 +417,16 @@ QueryStatement [0-117] [SELECT STRUCT...: 2   }] }]
                           IntLiteral(2) [109-110] [2]
 --
 SELECT
-  STRUCT { int_field : 1 map_field : ARRAY[{ key : "blah" value : 1 }, { key : "abc" value : 2 }] }
+  STRUCT {
+    int_field : 1
+    map_field : ARRAY[{
+      key : "blah"
+      value : 1
+    }, {
+      key : "abc"
+      value : 2
+    }]
+  }
 ==
 
 # Nested STRUCT constructor
@@ -420,7 +466,12 @@ QueryStatement [0-65] [SELECT STRUCT...bar: 3 }]
                   IntLiteral(3) [62-63] [3]
 --
 SELECT
-  STRUCT { foo : STRUCT { monkey : "blah" } bar : 3 }
+  STRUCT {
+    foo : STRUCT {
+      monkey : "blah"
+    }
+    bar : 3
+  }
 ==
 
 SELECT STRUCT {
@@ -459,14 +510,16 @@ QueryStatement [0-58] [SELECT STRUCT...t.a = 1) }]
                             IntLiteral(1) [54-55] [1]
 --
 SELECT
-  STRUCT { foo : (
-    SELECT
-      t.*
-    FROM
-      t
-    WHERE
-      t.a = 1
-  ) }
+  STRUCT {
+    foo : (
+      SELECT
+        t.*
+      FROM
+        t
+      WHERE
+        t.a = 1
+    )
+  }
 ==
 
 SELECT STRUCT {
@@ -490,7 +543,9 @@ QueryStatement [0-30] [SELECT STRUCT {   foo: 3 + 5 }]
                     IntLiteral(5) [27-28] [5]
 --
 SELECT
-  STRUCT { foo : 3 + 5 }
+  STRUCT {
+    foo : 3 + 5
+  }
 ==
 
 # Error syntax to use extension.
@@ -524,7 +579,11 @@ QueryStatement [0-58] [SELECT STRUCT...value: 1   } }]
                         IntLiteral(1) [51-52] [1]
 --
 SELECT
-  STRUCT {(path.`to`.extension)  { value : 1 } }
+  STRUCT {
+    (path.`to`.extension)  {
+      value : 1
+    }
+  }
 ==
 
 # Function expression.
@@ -553,7 +612,9 @@ QueryStatement [0-46] [SELECT STRUCT..."bar"), }]
                       StringLiteralComponent("bar") [37-42] ["bar"]
 --
 SELECT
-  STRUCT { foo : CONCAT("foo", "bar") }
+  STRUCT {
+    foo : CONCAT("foo", "bar")
+  }
 ==
 
 # Aggregation expression.
@@ -588,12 +649,14 @@ QueryStatement [0-57] [SELECT STRUCT...table_foo) }]
                               Identifier(table_foo) [45-54] [table_foo]
 --
 SELECT
-  STRUCT { foo : (
-    SELECT
-      count(*)
-    FROM
-      table_foo
-  ) }
+  STRUCT {
+    foo : (
+      SELECT
+        count(*)
+      FROM
+        table_foo
+    )
+  }
 ==
 
 # No trailing "}".
@@ -656,7 +719,9 @@ QueryStatement [0-31] [SELECT STRUCT...: FORK() }]
                       Identifier(FORK) [23-27] [FORK]
 --
 SELECT
-  STRUCT { field : FORK() }
+  STRUCT {
+    field : FORK()
+  }
 ==
 
 # Explicit type
@@ -683,4 +748,6 @@ QueryStatement [0-29] [SELECT STRUCT<a INT64> {a: 1}]
                   IntLiteral(1) [27-28] [1]
 --
 SELECT
-  STRUCT< a INT64 > { a : 1 }
+  STRUCT< a INT64 > {
+    a : 1
+  }

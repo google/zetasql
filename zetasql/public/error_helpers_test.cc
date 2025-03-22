@@ -1340,27 +1340,6 @@ TEST(ErrorHelpersTest, RedactedModeReturnsRedactedMessages) {
             Not(StatusHasPayload<InternalErrorLocation>())));
 }
 
-TEST(ErrorHelpersTest, EnhancedRedaction) {
-  EXPECT_THAT(UpdateWithEnhancedRedaction(
-                  absl::Status(absl::StatusCode::kNotFound,
-                               "No matching signature for function foo"),
-                  ""),
-              AllOf(StatusIs(absl::StatusCode::kNotFound,
-                             Eq("FUNCTION_SIGNATURE_MISMATCH: FOO")),
-                    Not(StatusHasPayload<InternalErrorLocation>())));
-}
-
-TEST(ErrorHelpersTest, EnhancedRedactionFailure) {
-  EXPECT_DEBUG_DEATH(
-      UpdateWithEnhancedRedaction(
-          absl::Status(
-              absl::StatusCode::kNotFound,
-              "Error message which does not support enhanced redaction"),
-          "")
-          .IgnoreError(),
-      "Unable to redact");
-}
-
 TEST(Errors, RedactedModeDoesNotHideSystemErrors) {
   // Dummy query that can be used to resolve all lines and columns in
   // InternalErrorLocations in this test.

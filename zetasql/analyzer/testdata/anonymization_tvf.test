@@ -13,6 +13,7 @@
 [default language_features=ANONYMIZATION,TABLE_VALUED_FUNCTIONS]
 [default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 [parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
+
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
 from tvf_no_args();
 --

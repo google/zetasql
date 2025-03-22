@@ -74,8 +74,17 @@ absl::StatusOr<std::string> MeasureType::TypeNameWithModifiers(
   return absl::StrCat("MEASURE<", result_type_name, ">");
 }
 
+std::string MeasureType::CapitalizedName() const {
+  ABSL_CHECK_EQ(kind(), TYPE_MEASURE);  // Crash OK
+  return absl::StrCat("Measure<", AsMeasure()->result_type()->CapitalizedName(),
+                      ">");
+}
+
 bool MeasureType::SupportsOrdering(const LanguageOptions& language_options,
                                    std::string* type_description) const {
+  if (type_description != nullptr) {
+    *type_description = "MEASURE";
+  }
   return false;
 }
 

@@ -1,22 +1,32 @@
-[default show_unparsed]
+[default show_sqlbuilder_output]
 [default no_show_resolved_ast]
 [default language_features=V_1_4_FOR_UPDATE]
 
 # Just a FROM clause with FOR UPDATE.
 select key from KeyValue for update
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   KeyValue.Key AS key
 FROM
   KeyValue
 FOR UPDATE;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  KeyValue
+FOR UPDATE
+|> SELECT
+     KeyValue.Key AS key;
 ==
 
 # FROM and WHERE clause with FOR UPDATE.
 select key from KeyValue where key > 0 for update
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   KeyValue.Key AS key
 FROM
@@ -24,18 +34,37 @@ FROM
 WHERE
   (KeyValue.Key) > 0
 FOR UPDATE;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  KeyValue
+FOR UPDATE
+|> WHERE
+     (KeyValue.Key) > 0
+|> SELECT
+     KeyValue.Key AS key;
 ==
 
 # No FOR UPDATE clause in unparsed query as there are no TableScan nodes in the
 # AST.
 select * from unnest ([10,20,30]) as numbers with offset for update
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   a_1 AS numbers,
   a_2 AS offset
 FROM
   UNNEST(ARRAY< INT64 >[10, 20, 30]) AS a_1 WITH OFFSET AS a_2;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  UNNEST(ARRAY< INT64 >[10, 20, 30]) AS a_1 WITH OFFSET AS a_2
+|> SELECT
+     a_1 AS numbers,
+     a_2 AS offset;
 ==
 
 # FOR UPDATE is not propagated to expression subquery in UNNEST even though its
@@ -46,7 +75,8 @@ from
   unnest(ARRAY(select key from KeyValue))
 for update
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   a_2 AS a_2
 FROM
@@ -56,6 +86,18 @@ FROM
     FROM
       KeyValue
   )) AS a_2;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  UNNEST(ARRAY(
+    FROM
+      KeyValue
+    |> SELECT
+         KeyValue.Key AS a_1
+  )) AS a_2
+|> SELECT
+     a_2 AS a_2;
 ==
 
 # FOR UPDATE is not propagated to expression subquery in UNNEST even though its
@@ -67,7 +109,8 @@ from
   unnest(ARRAY(select key from TestTable where KeyValue.key = TestTable.key))
 for update
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   keyvalue_3.a_1 AS Key,
   keyvalue_3.a_2 AS Value,
@@ -90,12 +133,36 @@ FROM
     WHERE
       (keyvalue_3.a_1) = CAST(TestTable.key AS INT64)
   )) AS a_5;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  KeyValue
+FOR UPDATE
+|> SELECT
+     KeyValue.Key AS a_1,
+     KeyValue.Value AS a_2
+|> AS keyvalue_3
+|> JOIN
+   UNNEST(ARRAY(
+     FROM
+       TestTable
+     |> WHERE
+          (keyvalue_3.a_1) = CAST(TestTable.key AS INT64)
+     |> SELECT
+          TestTable.key AS a_4
+   )) AS a_5
+|> SELECT
+     keyvalue_3.a_1 AS Key,
+     keyvalue_3.a_2 AS Value,
+     a_5 AS a_5;
 ==
 
 # FOR UPDATE with GROUP BY
 select key, value from KeyValue group by key, value for update
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   keyvalue_3.a_1 AS key,
   keyvalue_3.a_2 AS value
@@ -109,6 +176,25 @@ FROM
     FOR UPDATE
   ) AS keyvalue_3
 GROUP BY 1, 2;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  KeyValue
+FOR UPDATE
+|> SELECT
+     KeyValue.Key AS a_1,
+     KeyValue.Value AS a_2
+|> AS keyvalue_3
+|> EXTEND
+     keyvalue_3.a_1 AS a_4,
+     keyvalue_3.a_2 AS a_5
+|> AGGREGATE
+   GROUP BY a_4, a_5
+|> AS aggregatescan_6
+|> SELECT
+     aggregatescan_6.a_4 AS key,
+     aggregatescan_6.a_5 AS value;
 ==
 
 # FOR UPDATE with GROUB BY and HAVING
@@ -117,7 +203,8 @@ from KeyValue group by key
 having values > 10
 for update;
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   aggregatescan_6.a_4 AS key,
   aggregatescan_6.a_5 AS values
@@ -139,6 +226,27 @@ FROM
   ) AS aggregatescan_6
 WHERE
   (aggregatescan_6.a_5) > 10;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  KeyValue
+FOR UPDATE
+|> SELECT
+     KeyValue.Key AS a_1,
+     KeyValue.Value AS a_2
+|> AS keyvalue_3
+|> EXTEND
+     keyvalue_3.a_1 AS a_4
+|> AGGREGATE
+     SUM(CAST(keyvalue_3.a_2 AS INT64)) AS a_5
+   GROUP BY a_4
+|> AS aggregatescan_6
+|> WHERE
+     (aggregatescan_6.a_5) > 10
+|> SELECT
+     aggregatescan_6.a_4 AS key,
+     aggregatescan_6.a_5 AS values;
 ==
 
 # Comma and non-comma CROSS JOIN with FOR UPDATE in query.
@@ -146,7 +254,8 @@ select kv1.key, kv2.key
 from KeyValue kv1{{,| cross join}} KeyValue kv2
 for update
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   keyvalue_2.a_1 AS key,
   keyvalue_4.a_3 AS key
@@ -166,6 +275,27 @@ FROM
       KeyValue
     FOR UPDATE
   ) AS keyvalue_4;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  KeyValue
+FOR UPDATE
+|> SELECT
+     KeyValue.Key AS a_1
+|> AS keyvalue_2
+|> CROSS JOIN
+   (
+     FROM
+       KeyValue
+     FOR UPDATE
+     |> SELECT
+          KeyValue.Key AS a_3
+     |> AS keyvalue_4
+   )
+|> SELECT
+     keyvalue_2.a_1 AS key,
+     keyvalue_4.a_3 AS key;
 ==
 
 # Joins with condition and FOR UPDATE in query.
@@ -180,7 +310,8 @@ for update
 --
 ALTERNATION GROUP: join
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   keyvalue_2.a_1 AS key
 FROM
@@ -200,10 +331,32 @@ FROM
     FOR UPDATE
   ) AS keyvalue_4
   ON (keyvalue_2.a_1) = (keyvalue_4.a_3);
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  KeyValue
+FOR UPDATE
+|> SELECT
+     KeyValue.Key AS a_1
+|> AS keyvalue_2
+|> INNER JOIN
+   (
+     FROM
+       KeyValue
+     FOR UPDATE
+     |> SELECT
+          KeyValue.Key AS a_3
+     |> AS keyvalue_4
+   )
+   ON (keyvalue_2.a_1) = (keyvalue_4.a_3)
+|> SELECT
+     keyvalue_2.a_1 AS key;
 --
 ALTERNATION GROUP: left join
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   keyvalue_2.a_1 AS key
 FROM
@@ -223,10 +376,32 @@ FROM
     FOR UPDATE
   ) AS keyvalue_4
   ON (keyvalue_2.a_1) = (keyvalue_4.a_3);
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  KeyValue
+FOR UPDATE
+|> SELECT
+     KeyValue.Key AS a_1
+|> AS keyvalue_2
+|> LEFT JOIN
+   (
+     FROM
+       KeyValue
+     FOR UPDATE
+     |> SELECT
+          KeyValue.Key AS a_3
+     |> AS keyvalue_4
+   )
+   ON (keyvalue_2.a_1) = (keyvalue_4.a_3)
+|> SELECT
+     keyvalue_2.a_1 AS key;
 --
 ALTERNATION GROUP: right join
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   keyvalue_2.a_1 AS key
 FROM
@@ -246,10 +421,32 @@ FROM
     FOR UPDATE
   ) AS keyvalue_4
   ON (keyvalue_2.a_1) = (keyvalue_4.a_3);
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  KeyValue
+FOR UPDATE
+|> SELECT
+     KeyValue.Key AS a_1
+|> AS keyvalue_2
+|> RIGHT JOIN
+   (
+     FROM
+       KeyValue
+     FOR UPDATE
+     |> SELECT
+          KeyValue.Key AS a_3
+     |> AS keyvalue_4
+   )
+   ON (keyvalue_2.a_1) = (keyvalue_4.a_3)
+|> SELECT
+     keyvalue_2.a_1 AS key;
 --
 ALTERNATION GROUP: full join
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   keyvalue_2.a_1 AS key
 FROM
@@ -269,12 +466,34 @@ FROM
     FOR UPDATE
   ) AS keyvalue_4
   ON (keyvalue_2.a_1) = (keyvalue_4.a_3);
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  KeyValue
+FOR UPDATE
+|> SELECT
+     KeyValue.Key AS a_1
+|> AS keyvalue_2
+|> FULL JOIN
+   (
+     FROM
+       KeyValue
+     FOR UPDATE
+     |> SELECT
+          KeyValue.Key AS a_3
+     |> AS keyvalue_4
+   )
+   ON (keyvalue_2.a_1) = (keyvalue_4.a_3)
+|> SELECT
+     keyvalue_2.a_1 AS key;
 ==
 
 # FOR UPDATE on a query with ORDER BY.
 select key, value from KeyValue order by key for update
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   keyvalue_3.a_1 AS key,
   keyvalue_3.a_2 AS value
@@ -288,12 +507,27 @@ FROM
     FOR UPDATE
   ) AS keyvalue_3
 ORDER BY keyvalue_3.a_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  KeyValue
+FOR UPDATE
+|> SELECT
+     KeyValue.Key AS a_1,
+     KeyValue.Value AS a_2
+|> AS keyvalue_3
+|> ORDER BY keyvalue_3.a_1
+|> SELECT
+     keyvalue_3.a_1 AS key,
+     keyvalue_3.a_2 AS value;
 ==
 
 # FOR UPDATE on a query with LIMIT.
 select key, value from KeyValue limit 3 for update
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   KeyValue.Key AS key,
   KeyValue.Value AS value
@@ -301,12 +535,23 @@ FROM
   KeyValue
 LIMIT 3
 FOR UPDATE;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  KeyValue
+FOR UPDATE
+|> SELECT
+     KeyValue.Key AS key,
+     KeyValue.Value AS value
+|> LIMIT 3;
 ==
 
 # FOR UPDATE on a query with LIMIT and OFFSET.
 select key, value from KeyValue limit 3 offset 1 for update
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   KeyValue.Key AS key,
   KeyValue.Value AS value
@@ -314,6 +559,16 @@ FROM
   KeyValue
 LIMIT 3 OFFSET 1
 FOR UPDATE;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  KeyValue
+FOR UPDATE
+|> SELECT
+     KeyValue.Key AS key,
+     KeyValue.Value AS value
+|> LIMIT 3 OFFSET 1;
 ==
 
 # FOR UPDATE on a query with LIMIT, OFFSET and ORDER BY.
@@ -323,7 +578,8 @@ order by key
 limit 3 offset 1
 for update
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   keyvalue_3.a_1 AS key,
   keyvalue_3.a_2 AS value
@@ -338,6 +594,21 @@ FROM
   ) AS keyvalue_3
 ORDER BY keyvalue_3.a_1
 LIMIT 3 OFFSET 1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  KeyValue
+FOR UPDATE
+|> SELECT
+     KeyValue.Key AS a_1,
+     KeyValue.Value AS a_2
+|> AS keyvalue_3
+|> ORDER BY keyvalue_3.a_1
+|> SELECT
+     keyvalue_3.a_1 AS key,
+     keyvalue_3.a_2 AS value
+|> LIMIT 3 OFFSET 1;
 ==
 
 # Set operation with FOR UPDATE in LHS query.
@@ -345,7 +616,8 @@ LIMIT 3 OFFSET 1;
 union all
 select key from KeyValue kv2
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 (
 SELECT
   KeyValue.Key AS key
@@ -357,6 +629,21 @@ SELECT
 FROM
   KeyValue
 );
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+(
+FROM
+  KeyValue
+FOR UPDATE
+|> SELECT
+     KeyValue.Key AS key
+) UNION ALL(
+FROM
+  KeyValue
+|> SELECT
+     KeyValue.Key AS a_2
+);
 ==
 
 # Set operation with FOR UPDATE in RHS query.
@@ -364,7 +651,8 @@ select key from KeyValue kv1
 union all
 (select key from KeyValue kv2 for update)
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 (
 SELECT
   KeyValue.Key AS key
@@ -376,6 +664,21 @@ SELECT
 FROM
   KeyValue
 FOR UPDATE);
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+(
+FROM
+  KeyValue
+|> SELECT
+     KeyValue.Key AS key
+) UNION ALL(
+FROM
+  KeyValue
+FOR UPDATE
+|> SELECT
+     KeyValue.Key AS a_2
+);
 ==
 
 # Set operation with FOR UPDATE binding to outer query that contains the set
@@ -384,7 +687,8 @@ select key from KeyValue kv1
 union all select key from KeyValue kv2
 for update
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 (
 SELECT
   KeyValue.Key AS key
@@ -396,6 +700,22 @@ SELECT
 FROM
   KeyValue
 FOR UPDATE);
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+(
+FROM
+  KeyValue
+FOR UPDATE
+|> SELECT
+     KeyValue.Key AS key
+) UNION ALL(
+FROM
+  KeyValue
+FOR UPDATE
+|> SELECT
+     KeyValue.Key AS a_2
+);
 ==
 
 # Equivalent to previous query but with explicit paranthesis.
@@ -406,7 +726,8 @@ FOR UPDATE);
 )
 for update
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 (
 SELECT
   KeyValue.Key AS key
@@ -418,6 +739,22 @@ SELECT
 FROM
   KeyValue
 FOR UPDATE);
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+(
+FROM
+  KeyValue
+FOR UPDATE
+|> SELECT
+     KeyValue.Key AS key
+) UNION ALL(
+FROM
+  KeyValue
+FOR UPDATE
+|> SELECT
+     KeyValue.Key AS a_2
+);
 ==
 
 # FOR UPDATE binding to the outer query representing the set operation but also
@@ -429,7 +766,8 @@ order by key
 limit 5
 for update
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   setoperationscan_3.a_1 AS key
 FROM
@@ -447,6 +785,27 @@ FROM
   ) AS setoperationscan_3
 ORDER BY setoperationscan_3.a_1
 LIMIT 5;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+(
+FROM
+  KeyValue
+FOR UPDATE
+|> SELECT
+     KeyValue.Key AS a_1
+) UNION ALL(
+FROM
+  KeyValue
+FOR UPDATE
+|> SELECT
+     KeyValue.Key AS a_2
+)
+|> AS setoperationscan_3
+|> ORDER BY setoperationscan_3.a_1
+|> SELECT
+     setoperationscan_3.a_1 AS key
+|> LIMIT 5;
 ==
 
 # FOR UPDATE binding to the outer query representing three set operations.
@@ -457,7 +816,8 @@ union all
 select key from TestTable
 for update
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 (
 SELECT
   KeyValue.Key AS key
@@ -480,6 +840,31 @@ FROM
     FOR UPDATE
   ) AS projectscan_4
 );
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+(
+FROM
+  KeyValue
+FOR UPDATE
+|> SELECT
+     KeyValue.Key AS key
+) UNION ALL(
+FROM
+  KeyValue
+FOR UPDATE
+|> SELECT
+     KeyValue.Key AS a_2
+) UNION ALL(
+FROM
+  TestTable
+FOR UPDATE
+|> SELECT
+     TestTable.key AS a_3
+|> AS projectscan_4
+|> SELECT
+     CAST(projectscan_4.a_3 AS INT64) AS a_5
+);
 ==
 
 # FOR UPDATE binding to the outer query representing three set operations but
@@ -492,7 +877,8 @@ except all
 select key from TestTable
 for update
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 ((
 SELECT
   KeyValue.Key AS key
@@ -515,6 +901,31 @@ FROM
     FOR UPDATE
   ) AS projectscan_4
 );
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+((
+FROM
+  KeyValue
+FOR UPDATE
+|> SELECT
+     KeyValue.Key AS key
+) UNION ALL(
+FROM
+  KeyValue
+FOR UPDATE
+|> SELECT
+     KeyValue.Key AS a_2
+)) EXCEPT ALL(
+FROM
+  TestTable
+FOR UPDATE
+|> SELECT
+     TestTable.key AS a_3
+|> AS projectscan_4
+|> SELECT
+     CAST(projectscan_4.a_3 AS INT64) AS a_5
+);
 ==
 
 # FOR UPDATE binding to the parenthesized query of set operations.
@@ -528,7 +939,8 @@ FROM
 except all
 select key from TestTable
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 ((
 SELECT
   KeyValue.Key AS key
@@ -550,6 +962,30 @@ FROM
       TestTable
   ) AS projectscan_4
 );
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+((
+FROM
+  KeyValue
+FOR UPDATE
+|> SELECT
+     KeyValue.Key AS key
+) UNION ALL(
+FROM
+  KeyValue
+FOR UPDATE
+|> SELECT
+     KeyValue.Key AS a_2
+)) EXCEPT ALL(
+FROM
+  TestTable
+|> SELECT
+     TestTable.key AS a_3
+|> AS projectscan_4
+|> SELECT
+     CAST(projectscan_4.a_3 AS INT64) AS a_5
+);
 ==
 
 # FOR UPDATE on a query that joins a table to the output of a set operation.
@@ -564,7 +1000,8 @@ from
   KeyValue as kv4
 for update
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   keyvalue_5.a_4 AS key,
   setoperationscan_3.a_1 AS key
@@ -589,6 +1026,35 @@ FROM
       KeyValue
     FOR UPDATE
   ) AS keyvalue_5;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+(
+FROM
+  KeyValue
+FOR UPDATE
+|> SELECT
+     KeyValue.Key AS a_1
+) UNION ALL(
+FROM
+  KeyValue
+FOR UPDATE
+|> SELECT
+     KeyValue.Key AS a_2
+)
+|> AS setoperationscan_3
+|> CROSS JOIN
+   (
+     FROM
+       KeyValue
+     FOR UPDATE
+     |> SELECT
+          KeyValue.Key AS a_4
+     |> AS keyvalue_5
+   )
+|> SELECT
+     keyvalue_5.a_4 AS key,
+     setoperationscan_3.a_1 AS key;
 ==
 
 # FOR UPDATE scoped to correlated subquery.
@@ -598,7 +1064,8 @@ where key >= (
   select key from KeyValue where key = kv.key for update
 )
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   KeyValue.Key AS key,
   KeyValue.Value AS value
@@ -613,6 +1080,24 @@ WHERE
     WHERE
       (KeyValue.Key) = (KeyValue.Key)
     FOR UPDATE);
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  KeyValue
+|> WHERE
+     (KeyValue.Key) >= (
+       FROM
+         KeyValue
+       FOR UPDATE
+       |> WHERE
+            (KeyValue.Key) = (KeyValue.Key)
+       |> SELECT
+            KeyValue.Key AS a_3
+     )
+|> SELECT
+     KeyValue.Key AS key,
+     KeyValue.Value AS value;
 ==
 
 # FOR UPDATE on the outer query with a correlated subquery.
@@ -621,7 +1106,8 @@ from KeyValue as kv
 where key >= (select key from KeyValue where key = kv.key)
 for update
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   KeyValue.Key AS key,
   KeyValue.Value AS value
@@ -637,6 +1123,24 @@ WHERE
       (KeyValue.Key) = (KeyValue.Key)
   )
 FOR UPDATE;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  KeyValue
+FOR UPDATE
+|> WHERE
+     (KeyValue.Key) >= (
+       FROM
+         KeyValue
+       |> WHERE
+            (KeyValue.Key) = (KeyValue.Key)
+       |> SELECT
+            KeyValue.Key AS a_3
+     )
+|> SELECT
+     KeyValue.Key AS key,
+     KeyValue.Value AS value;
 ==
 
 # FOR UPDATE scoped to a subquery of a FROM clause.
@@ -645,7 +1149,8 @@ from (
   select * from KeyValue for update
   ) as kv
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   projectscan_3.a_1 AS key
 FROM
@@ -657,6 +1162,18 @@ FROM
       KeyValue
     FOR UPDATE
   ) AS projectscan_3;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  KeyValue
+FOR UPDATE
+|> SELECT
+     KeyValue.Key AS a_1,
+     KeyValue.Value AS a_2
+|> AS projectscan_3
+|> SELECT
+     projectscan_3.a_1 AS key;
 ==
 
 # FOR UPDATE scoped to the outer query with a subquery.
@@ -664,7 +1181,8 @@ select key
 from (select * from KeyValue) as kv
 for update
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   projectscan_3.a_1 AS key
 FROM
@@ -676,6 +1194,18 @@ FROM
       KeyValue
     FOR UPDATE
   ) AS projectscan_3;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  KeyValue
+FOR UPDATE
+|> SELECT
+     KeyValue.Key AS a_1,
+     KeyValue.Value AS a_2
+|> AS projectscan_3
+|> SELECT
+     projectscan_3.a_1 AS key;
 ==
 
 # FOR UPDATE on the outer query should apply to outer TableScan and
@@ -690,7 +1220,8 @@ from
   keyValue kv2
 for update
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   projectscan_2.a_1 AS key,
   keyvalue_4.a_3 AS key
@@ -710,6 +1241,27 @@ FROM
       KeyValue
     FOR UPDATE
   ) AS keyvalue_4;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  KeyValue
+FOR UPDATE
+|> SELECT
+     KeyValue.Key AS a_1
+|> AS projectscan_2
+|> CROSS JOIN
+   (
+     FROM
+       KeyValue
+     FOR UPDATE
+     |> SELECT
+          KeyValue.Key AS a_3
+     |> AS keyvalue_4
+   )
+|> SELECT
+     projectscan_2.a_1 AS key,
+     keyvalue_4.a_3 AS key;
 ==
 
 # FOR UPDATE is scoped to an expression subquery.
@@ -719,7 +1271,8 @@ where key = (
   select key from TestTable where key > 10 for update
 )
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   KeyValue.Key AS Key,
   KeyValue.Value AS Value
@@ -734,6 +1287,24 @@ WHERE
     WHERE
       (TestTable.key) > CAST(10 AS INT32)
     FOR UPDATE) AS INT64);
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  KeyValue
+|> WHERE
+     (KeyValue.Key) = CAST((
+       FROM
+         TestTable
+       FOR UPDATE
+       |> WHERE
+            (TestTable.key) > CAST(10 AS INT32)
+       |> SELECT
+            TestTable.key AS a_3
+     ) AS INT64)
+|> SELECT
+     KeyValue.Key AS Key,
+     KeyValue.Value AS Value;
 ==
 
 # FOR UPDATE is scoped to the outer query with an expression subquery.
@@ -744,7 +1315,8 @@ where key = (
 )
 for update
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   KeyValue.Key AS Key,
   KeyValue.Value AS Value
@@ -760,6 +1332,24 @@ WHERE
       (TestTable.key) > CAST(10 AS INT32)
   ) AS INT64)
 FOR UPDATE;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  KeyValue
+FOR UPDATE
+|> WHERE
+     (KeyValue.Key) = CAST((
+       FROM
+         TestTable
+       |> WHERE
+            (TestTable.key) > CAST(10 AS INT32)
+       |> SELECT
+            TestTable.key AS a_3
+     ) AS INT64)
+|> SELECT
+     KeyValue.Key AS Key,
+     KeyValue.Value AS Value;
 ==
 
 # FOR UPDATE in outer query shouldn't propagate to expression subquery SELECT
@@ -771,7 +1361,8 @@ from
   KeyValue
 for update
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   keyvalue_3.a_1 AS key,
   (
@@ -791,6 +1382,26 @@ FROM
       KeyValue
     FOR UPDATE
   ) AS keyvalue_3;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  KeyValue
+FOR UPDATE
+|> SELECT
+     KeyValue.Key AS a_1,
+     KeyValue.Value AS a_2
+|> AS keyvalue_3
+|> SELECT
+     keyvalue_3.a_1 AS key,
+     (
+       FROM
+         TestTable
+       |> WHERE
+            CAST(TestTable.key AS INT64) = (keyvalue_3.a_1)
+       |> SELECT
+            keyvalue_3.a_2 AS a_6
+     ) AS value;
 ==
 
 # FOR UPDATE in the CTE subquery.
@@ -799,7 +1410,8 @@ with t as (
 )
 select * from t
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 WITH
   t AS (
     SELECT
@@ -812,6 +1424,21 @@ SELECT
   withrefscan_2.a_1 AS key
 FROM
   t AS withrefscan_2;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+WITH
+  t AS (
+    FROM
+      KeyValue
+    FOR UPDATE
+    |> SELECT
+         KeyValue.Key AS a_1
+  )
+FROM
+  t AS withrefscan_2
+|> SELECT
+     withrefscan_2.a_1 AS key;
 ==
 
 # FOR UPDATE in the outer query doesn't propagate down to TableScan nodes so
@@ -823,7 +1450,8 @@ select *
 from t
 for update
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 WITH
   t AS (
     SELECT
@@ -835,6 +1463,20 @@ SELECT
   withrefscan_2.a_1 AS key
 FROM
   t AS withrefscan_2;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+WITH
+  t AS (
+    FROM
+      KeyValue
+    |> SELECT
+         KeyValue.Key AS a_1
+  )
+FROM
+  t AS withrefscan_2
+|> SELECT
+     withrefscan_2.a_1 AS key;
 ==
 
 # FOR UPDATE in the CTE query and outer query is equivalent to not having FOR
@@ -846,7 +1488,8 @@ select *
 from t
 for update
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 WITH
   t AS (
     SELECT
@@ -859,6 +1502,21 @@ SELECT
   withrefscan_2.a_1 AS key
 FROM
   t AS withrefscan_2;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+WITH
+  t AS (
+    FROM
+      KeyValue
+    FOR UPDATE
+    |> SELECT
+         KeyValue.Key AS a_1
+  )
+FROM
+  t AS withrefscan_2
+|> SELECT
+     withrefscan_2.a_1 AS key;
 ==
 
 # FOR UPDATE should apply to kv2 TableScan but not to the TableScan in the CTE
@@ -874,7 +1532,8 @@ from
   on kv1.key = kv2.key
 for update
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 WITH
   kv1 AS (
     SELECT
@@ -900,6 +1559,33 @@ FROM
       kv1 AS withrefscan_4
   ) AS withrefscan_4
   ON (withrefscan_4.a_1) = (keyvalue_3.a_2);
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+WITH
+  kv1 AS (
+    FROM
+      KeyValue
+    |> SELECT
+         KeyValue.Key AS a_1
+  )
+FROM
+  KeyValue
+FOR UPDATE
+|> SELECT
+     KeyValue.Key AS a_2
+|> AS keyvalue_3
+|> INNER JOIN
+   (
+     FROM
+       kv1 AS withrefscan_4
+     |> SELECT
+          withrefscan_4.a_1 AS a_1
+     |> AS withrefscan_4
+   )
+   ON (withrefscan_4.a_1) = (keyvalue_3.a_2)
+|> SELECT
+     withrefscan_4.a_1 AS key;
 ==
 
 # FOR UPDATE doesn't need to appear in the unparsed query as it shouldn't
@@ -914,7 +1600,8 @@ from (
 )
 for update
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 WITH
   kv1 AS (
     SELECT
@@ -926,4 +1613,17 @@ SELECT
   withrefscan_2.a_1 AS key
 FROM
   kv1 AS withrefscan_2;
-==
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+WITH
+  kv1 AS (
+    FROM
+      KeyValue
+    |> SELECT
+         KeyValue.Key AS a_1
+  )
+FROM
+  kv1 AS withrefscan_2
+|> SELECT
+     withrefscan_2.a_1 AS key;

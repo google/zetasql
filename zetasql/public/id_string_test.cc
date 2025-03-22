@@ -17,6 +17,7 @@
 #include "zetasql/public/id_string.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <set>
 #include <string>
 #include <unordered_set>
@@ -508,4 +509,18 @@ TEST(IdString, Static) {
 }
 
 }  // namespace
+
+TEST(IdString, SharedSizeAlignment) {
+  // If the size of Shared changes, make sure that the changed size is
+  // reasonable and then update this test.
+  EXPECT_EQ(64, sizeof(IdString::Shared));
+
+  // The Shared struct and the strings within Shared are placed within an
+  // arena-allocated buffer, and the strings are placed right after the Shared
+  // struct. It is important that the size of Shared is a multiple of 8 so
+  // that the string data is aligned.
+  size_t padded_size = (sizeof(IdString::Shared) + 7) & ~7;
+  EXPECT_EQ(padded_size, sizeof(IdString::Shared));
+}
+
 }  // namespace zetasql

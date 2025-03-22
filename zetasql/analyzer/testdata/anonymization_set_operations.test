@@ -2,6 +2,7 @@
 [default language_features=ANONYMIZATION,NUMERIC_TYPE]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 [parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
+
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
 from (select 1 union all select 2);
 --

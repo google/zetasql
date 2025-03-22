@@ -1,0 +1,984 @@
+[default reserve_graph_table]
+[default language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+
+### GRAPH_TABLE syntax ###
+
+# In GQL, set operator has to have op_type and all_or_distinct at the same time.
+SELECT *
+FROM GRAPH_TABLE(aml
+  MATCH (a)
+  RETURN a
+  UNION
+  MATCH (a)
+  RETURN a
+)
+--
+ERROR: Syntax error: Expected keyword ALL or keyword DISTINCT but got keyword MATCH [at 9:3]
+  MATCH (a)
+  ^
+==
+
+# In GQL, hints are not allowed on set operator.
+SELECT *
+FROM GRAPH_TABLE(aml
+  MATCH (a)
+  RETURN a
+  UNION @{ key = 5 } ALL
+  MATCH (a)
+  RETURN a
+)
+--
+ERROR: Syntax error: Expected keyword ALL or keyword DISTINCT but got "@" [at 5:9]
+  UNION @{ key = 5 } ALL
+        ^
+==
+
+# In GQL, CORRESPONDING related syntax is not allowed on set operator.
+SELECT *
+FROM GRAPH_TABLE(aml
+  MATCH (a)
+  RETURN a
+  UNION ALL {{STRICT|}} CORRESPONDING
+  MATCH (a)
+  RETURN a
+)
+--
+ALTERNATION GROUP: STRICT
+--
+ERROR: Syntax error: Unexpected keyword STRICT [at 5:13]
+  UNION ALL STRICT CORRESPONDING
+            ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Unexpected keyword CORRESPONDING [at 5:14]
+  UNION ALL  CORRESPONDING
+             ^
+==
+
+# In GQL, CORRESPONDING related syntax is not allowed on set operator.
+SELECT *
+FROM GRAPH_TABLE(aml
+  MATCH (a)
+  RETURN a
+  FULL UNION ALL CORRESPONDING
+  MATCH (a)
+  RETURN a
+)
+--
+ERROR: Syntax error: Expected ")" or keyword NEXT but got keyword FULL [at 5:3]
+  FULL UNION ALL CORRESPONDING
+  ^
+==
+
+SELECT *
+FROM GRAPH_TABLE(aml
+  MATCH (a)
+  RETURN a
+  UNION {{ALL|DISTINCT}}
+  MATCH (a)
+  RETURN a
+)
+--
+ALTERNATION GROUP: ALL
+--
+QueryStatement [0-89] [SELECT * FROM...RETURN a )]
+  Query [0-89] [SELECT * FROM...RETURN a )]
+    Select [0-89] [SELECT * FROM...RETURN a )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-89] [FROM GRAPH_TABLE...RETURN a )]
+        GraphTableQuery [14-89] [GRAPH_TABLE...RETURN a )]
+          PathExpression [26-29] [aml]
+            Identifier(aml) [26-29] [aml]
+          GqlOperatorList [32-87] [MATCH (a)...RETURN a]
+            GqlSetOperation [32-87] [MATCH (a)...RETURN a]
+              SetOperationMetadataList [55-64] [UNION ALL]
+                SetOperationMetadata [55-64] [UNION ALL]
+                  SetOperationType [55-60] [UNION]
+                  SetOperationAllOrDistinct [61-64] [ALL]
+              GqlOperatorList [32-52] [MATCH (a)   RETURN a]
+                GqlMatch [32-41] [MATCH (a)]
+                  GraphPattern [38-41] [(a)]
+                    GraphPathPattern [38-41] [(a)]
+                      GraphNodePattern [38-41] [(a)]
+                        GraphElementPatternFiller [39-40] [a]
+                          Identifier(a) [39-40] [a]
+                GqlReturn [44-52] [RETURN a]
+                  Select [50-52] [a]
+                    SelectList [51-52] [a]
+                      SelectColumn [51-52] [a]
+                        PathExpression [51-52] [a]
+                          Identifier(a) [51-52] [a]
+              GqlOperatorList [67-87] [MATCH (a)   RETURN a]
+                GqlMatch [67-76] [MATCH (a)]
+                  GraphPattern [73-76] [(a)]
+                    GraphPathPattern [73-76] [(a)]
+                      GraphNodePattern [73-76] [(a)]
+                        GraphElementPatternFiller [74-75] [a]
+                          Identifier(a) [74-75] [a]
+                GqlReturn [79-87] [RETURN a]
+                  Select [85-87] [a]
+                    SelectList [86-87] [a]
+                      SelectColumn [86-87] [a]
+                        PathExpression [86-87] [a]
+                          Identifier(a) [86-87] [a]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+    RETURN
+      a
+    UNION ALL
+    MATCH
+      (a)
+    RETURN
+      a
+  )
+--
+ALTERNATION GROUP: DISTINCT
+--
+QueryStatement [0-94] [SELECT * FROM...RETURN a )]
+  Query [0-94] [SELECT * FROM...RETURN a )]
+    Select [0-94] [SELECT * FROM...RETURN a )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-94] [FROM GRAPH_TABLE...RETURN a )]
+        GraphTableQuery [14-94] [GRAPH_TABLE...RETURN a )]
+          PathExpression [26-29] [aml]
+            Identifier(aml) [26-29] [aml]
+          GqlOperatorList [32-92] [MATCH (a)...RETURN a]
+            GqlSetOperation [32-92] [MATCH (a)...RETURN a]
+              SetOperationMetadataList [55-69] [UNION DISTINCT]
+                SetOperationMetadata [55-69] [UNION DISTINCT]
+                  SetOperationType [55-60] [UNION]
+                  SetOperationAllOrDistinct [61-69] [DISTINCT]
+              GqlOperatorList [32-52] [MATCH (a)   RETURN a]
+                GqlMatch [32-41] [MATCH (a)]
+                  GraphPattern [38-41] [(a)]
+                    GraphPathPattern [38-41] [(a)]
+                      GraphNodePattern [38-41] [(a)]
+                        GraphElementPatternFiller [39-40] [a]
+                          Identifier(a) [39-40] [a]
+                GqlReturn [44-52] [RETURN a]
+                  Select [50-52] [a]
+                    SelectList [51-52] [a]
+                      SelectColumn [51-52] [a]
+                        PathExpression [51-52] [a]
+                          Identifier(a) [51-52] [a]
+              GqlOperatorList [72-92] [MATCH (a)   RETURN a]
+                GqlMatch [72-81] [MATCH (a)]
+                  GraphPattern [78-81] [(a)]
+                    GraphPathPattern [78-81] [(a)]
+                      GraphNodePattern [78-81] [(a)]
+                        GraphElementPatternFiller [79-80] [a]
+                          Identifier(a) [79-80] [a]
+                GqlReturn [84-92] [RETURN a]
+                  Select [90-92] [a]
+                    SelectList [91-92] [a]
+                      SelectColumn [91-92] [a]
+                        PathExpression [91-92] [a]
+                          Identifier(a) [91-92] [a]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+    RETURN
+      a
+    UNION DISTINCT
+    MATCH
+      (a)
+    RETURN
+      a
+  )
+==
+
+SELECT *
+FROM GRAPH_TABLE(aml
+  MATCH (a)
+  RETURN a
+  INTERSECT {{ALL|DISTINCT}}
+  MATCH (a)
+  RETURN a
+)
+--
+
+ALTERNATION GROUP: ALL
+--
+QueryStatement [0-93] [SELECT * FROM...RETURN a )]
+  Query [0-93] [SELECT * FROM...RETURN a )]
+    Select [0-93] [SELECT * FROM...RETURN a )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-93] [FROM GRAPH_TABLE...RETURN a )]
+        GraphTableQuery [14-93] [GRAPH_TABLE...RETURN a )]
+          PathExpression [26-29] [aml]
+            Identifier(aml) [26-29] [aml]
+          GqlOperatorList [32-91] [MATCH (a)...RETURN a]
+            GqlSetOperation [32-91] [MATCH (a)...RETURN a]
+              SetOperationMetadataList [55-68] [INTERSECT ALL]
+                SetOperationMetadata [55-68] [INTERSECT ALL]
+                  SetOperationType [55-64] [INTERSECT]
+                  SetOperationAllOrDistinct [65-68] [ALL]
+              GqlOperatorList [32-52] [MATCH (a)   RETURN a]
+                GqlMatch [32-41] [MATCH (a)]
+                  GraphPattern [38-41] [(a)]
+                    GraphPathPattern [38-41] [(a)]
+                      GraphNodePattern [38-41] [(a)]
+                        GraphElementPatternFiller [39-40] [a]
+                          Identifier(a) [39-40] [a]
+                GqlReturn [44-52] [RETURN a]
+                  Select [50-52] [a]
+                    SelectList [51-52] [a]
+                      SelectColumn [51-52] [a]
+                        PathExpression [51-52] [a]
+                          Identifier(a) [51-52] [a]
+              GqlOperatorList [71-91] [MATCH (a)   RETURN a]
+                GqlMatch [71-80] [MATCH (a)]
+                  GraphPattern [77-80] [(a)]
+                    GraphPathPattern [77-80] [(a)]
+                      GraphNodePattern [77-80] [(a)]
+                        GraphElementPatternFiller [78-79] [a]
+                          Identifier(a) [78-79] [a]
+                GqlReturn [83-91] [RETURN a]
+                  Select [89-91] [a]
+                    SelectList [90-91] [a]
+                      SelectColumn [90-91] [a]
+                        PathExpression [90-91] [a]
+                          Identifier(a) [90-91] [a]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+    RETURN
+      a
+    INTERSECT ALL
+    MATCH
+      (a)
+    RETURN
+      a
+  )
+--
+ALTERNATION GROUP: DISTINCT
+--
+QueryStatement [0-98] [SELECT * FROM...RETURN a )]
+  Query [0-98] [SELECT * FROM...RETURN a )]
+    Select [0-98] [SELECT * FROM...RETURN a )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-98] [FROM GRAPH_TABLE...RETURN a )]
+        GraphTableQuery [14-98] [GRAPH_TABLE...RETURN a )]
+          PathExpression [26-29] [aml]
+            Identifier(aml) [26-29] [aml]
+          GqlOperatorList [32-96] [MATCH (a)...RETURN a]
+            GqlSetOperation [32-96] [MATCH (a)...RETURN a]
+              SetOperationMetadataList [55-73] [INTERSECT DISTINCT]
+                SetOperationMetadata [55-73] [INTERSECT DISTINCT]
+                  SetOperationType [55-64] [INTERSECT]
+                  SetOperationAllOrDistinct [65-73] [DISTINCT]
+              GqlOperatorList [32-52] [MATCH (a)   RETURN a]
+                GqlMatch [32-41] [MATCH (a)]
+                  GraphPattern [38-41] [(a)]
+                    GraphPathPattern [38-41] [(a)]
+                      GraphNodePattern [38-41] [(a)]
+                        GraphElementPatternFiller [39-40] [a]
+                          Identifier(a) [39-40] [a]
+                GqlReturn [44-52] [RETURN a]
+                  Select [50-52] [a]
+                    SelectList [51-52] [a]
+                      SelectColumn [51-52] [a]
+                        PathExpression [51-52] [a]
+                          Identifier(a) [51-52] [a]
+              GqlOperatorList [76-96] [MATCH (a)   RETURN a]
+                GqlMatch [76-85] [MATCH (a)]
+                  GraphPattern [82-85] [(a)]
+                    GraphPathPattern [82-85] [(a)]
+                      GraphNodePattern [82-85] [(a)]
+                        GraphElementPatternFiller [83-84] [a]
+                          Identifier(a) [83-84] [a]
+                GqlReturn [88-96] [RETURN a]
+                  Select [94-96] [a]
+                    SelectList [95-96] [a]
+                      SelectColumn [95-96] [a]
+                        PathExpression [95-96] [a]
+                          Identifier(a) [95-96] [a]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+    RETURN
+      a
+    INTERSECT DISTINCT
+    MATCH
+      (a)
+    RETURN
+      a
+  )
+==
+
+SELECT *
+FROM GRAPH_TABLE(aml
+  MATCH (a)
+  RETURN a
+  EXCEPT {{ALL|DISTINCT}}
+  MATCH (a)
+  RETURN a
+)
+--
+
+ALTERNATION GROUP: ALL
+--
+QueryStatement [0-90] [SELECT * FROM...RETURN a )]
+  Query [0-90] [SELECT * FROM...RETURN a )]
+    Select [0-90] [SELECT * FROM...RETURN a )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-90] [FROM GRAPH_TABLE...RETURN a )]
+        GraphTableQuery [14-90] [GRAPH_TABLE...RETURN a )]
+          PathExpression [26-29] [aml]
+            Identifier(aml) [26-29] [aml]
+          GqlOperatorList [32-88] [MATCH (a)...RETURN a]
+            GqlSetOperation [32-88] [MATCH (a)...RETURN a]
+              SetOperationMetadataList [55-65] [EXCEPT ALL]
+                SetOperationMetadata [55-65] [EXCEPT ALL]
+                  SetOperationType [55-61] [EXCEPT]
+                  SetOperationAllOrDistinct [62-65] [ALL]
+              GqlOperatorList [32-52] [MATCH (a)   RETURN a]
+                GqlMatch [32-41] [MATCH (a)]
+                  GraphPattern [38-41] [(a)]
+                    GraphPathPattern [38-41] [(a)]
+                      GraphNodePattern [38-41] [(a)]
+                        GraphElementPatternFiller [39-40] [a]
+                          Identifier(a) [39-40] [a]
+                GqlReturn [44-52] [RETURN a]
+                  Select [50-52] [a]
+                    SelectList [51-52] [a]
+                      SelectColumn [51-52] [a]
+                        PathExpression [51-52] [a]
+                          Identifier(a) [51-52] [a]
+              GqlOperatorList [68-88] [MATCH (a)   RETURN a]
+                GqlMatch [68-77] [MATCH (a)]
+                  GraphPattern [74-77] [(a)]
+                    GraphPathPattern [74-77] [(a)]
+                      GraphNodePattern [74-77] [(a)]
+                        GraphElementPatternFiller [75-76] [a]
+                          Identifier(a) [75-76] [a]
+                GqlReturn [80-88] [RETURN a]
+                  Select [86-88] [a]
+                    SelectList [87-88] [a]
+                      SelectColumn [87-88] [a]
+                        PathExpression [87-88] [a]
+                          Identifier(a) [87-88] [a]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+    RETURN
+      a
+    EXCEPT ALL
+    MATCH
+      (a)
+    RETURN
+      a
+  )
+--
+ALTERNATION GROUP: DISTINCT
+--
+QueryStatement [0-95] [SELECT * FROM...RETURN a )]
+  Query [0-95] [SELECT * FROM...RETURN a )]
+    Select [0-95] [SELECT * FROM...RETURN a )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-95] [FROM GRAPH_TABLE...RETURN a )]
+        GraphTableQuery [14-95] [GRAPH_TABLE...RETURN a )]
+          PathExpression [26-29] [aml]
+            Identifier(aml) [26-29] [aml]
+          GqlOperatorList [32-93] [MATCH (a)...RETURN a]
+            GqlSetOperation [32-93] [MATCH (a)...RETURN a]
+              SetOperationMetadataList [55-70] [EXCEPT DISTINCT]
+                SetOperationMetadata [55-70] [EXCEPT DISTINCT]
+                  SetOperationType [55-61] [EXCEPT]
+                  SetOperationAllOrDistinct [62-70] [DISTINCT]
+              GqlOperatorList [32-52] [MATCH (a)   RETURN a]
+                GqlMatch [32-41] [MATCH (a)]
+                  GraphPattern [38-41] [(a)]
+                    GraphPathPattern [38-41] [(a)]
+                      GraphNodePattern [38-41] [(a)]
+                        GraphElementPatternFiller [39-40] [a]
+                          Identifier(a) [39-40] [a]
+                GqlReturn [44-52] [RETURN a]
+                  Select [50-52] [a]
+                    SelectList [51-52] [a]
+                      SelectColumn [51-52] [a]
+                        PathExpression [51-52] [a]
+                          Identifier(a) [51-52] [a]
+              GqlOperatorList [73-93] [MATCH (a)   RETURN a]
+                GqlMatch [73-82] [MATCH (a)]
+                  GraphPattern [79-82] [(a)]
+                    GraphPathPattern [79-82] [(a)]
+                      GraphNodePattern [79-82] [(a)]
+                        GraphElementPatternFiller [80-81] [a]
+                          Identifier(a) [80-81] [a]
+                GqlReturn [85-93] [RETURN a]
+                  Select [91-93] [a]
+                    SelectList [92-93] [a]
+                      SelectColumn [92-93] [a]
+                        PathExpression [92-93] [a]
+                          Identifier(a) [92-93] [a]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+    RETURN
+      a
+    EXCEPT DISTINCT
+    MATCH
+      (a)
+    RETURN
+      a
+  )
+==
+
+SELECT *
+FROM GRAPH_TABLE(aml
+  MATCH (a)
+  RETURN a
+  UNION ALL
+  MATCH (a)
+  RETURN a
+)
+--
+
+QueryStatement [0-89] [SELECT * FROM...RETURN a )]
+  Query [0-89] [SELECT * FROM...RETURN a )]
+    Select [0-89] [SELECT * FROM...RETURN a )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-89] [FROM GRAPH_TABLE...RETURN a )]
+        GraphTableQuery [14-89] [GRAPH_TABLE...RETURN a )]
+          PathExpression [26-29] [aml]
+            Identifier(aml) [26-29] [aml]
+          GqlOperatorList [32-87] [MATCH (a)...RETURN a]
+            GqlSetOperation [32-87] [MATCH (a)...RETURN a]
+              SetOperationMetadataList [55-64] [UNION ALL]
+                SetOperationMetadata [55-64] [UNION ALL]
+                  SetOperationType [55-60] [UNION]
+                  SetOperationAllOrDistinct [61-64] [ALL]
+              GqlOperatorList [32-52] [MATCH (a)   RETURN a]
+                GqlMatch [32-41] [MATCH (a)]
+                  GraphPattern [38-41] [(a)]
+                    GraphPathPattern [38-41] [(a)]
+                      GraphNodePattern [38-41] [(a)]
+                        GraphElementPatternFiller [39-40] [a]
+                          Identifier(a) [39-40] [a]
+                GqlReturn [44-52] [RETURN a]
+                  Select [50-52] [a]
+                    SelectList [51-52] [a]
+                      SelectColumn [51-52] [a]
+                        PathExpression [51-52] [a]
+                          Identifier(a) [51-52] [a]
+              GqlOperatorList [67-87] [MATCH (a)   RETURN a]
+                GqlMatch [67-76] [MATCH (a)]
+                  GraphPattern [73-76] [(a)]
+                    GraphPathPattern [73-76] [(a)]
+                      GraphNodePattern [73-76] [(a)]
+                        GraphElementPatternFiller [74-75] [a]
+                          Identifier(a) [74-75] [a]
+                GqlReturn [79-87] [RETURN a]
+                  Select [85-87] [a]
+                    SelectList [86-87] [a]
+                      SelectColumn [86-87] [a]
+                        PathExpression [86-87] [a]
+                          Identifier(a) [86-87] [a]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+    RETURN
+      a
+    UNION ALL
+    MATCH
+      (a)
+    RETURN
+      a
+  )
+==
+
+# In GQL, set operators in the same operation have to be the same. But this is
+# rejected in the resolver.
+SELECT *
+FROM GRAPH_TABLE(aml
+  MATCH (a)
+  RETURN a
+  UNION ALL
+  MATCH (a)
+  RETURN a
+  UNION DISTINCT
+  MATCH (a)
+  RETURN a
+)
+--
+QueryStatement [0-129] [SELECT * FROM...RETURN a )]
+  Query [0-129] [SELECT * FROM...RETURN a )]
+    Select [0-129] [SELECT * FROM...RETURN a )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-129] [FROM GRAPH_TABLE...RETURN a )]
+        GraphTableQuery [14-129] [GRAPH_TABLE...RETURN a )]
+          PathExpression [26-29] [aml]
+            Identifier(aml) [26-29] [aml]
+          GqlOperatorList [32-127] [MATCH (a)...RETURN a]
+            GqlSetOperation [32-127] [MATCH (a)...RETURN a]
+              SetOperationMetadataList [55-104] [UNION ALL...UNION DISTINCT]
+                SetOperationMetadata [55-64] [UNION ALL]
+                  SetOperationType [55-60] [UNION]
+                  SetOperationAllOrDistinct [61-64] [ALL]
+                SetOperationMetadata [90-104] [UNION DISTINCT]
+                  SetOperationType [90-95] [UNION]
+                  SetOperationAllOrDistinct [96-104] [DISTINCT]
+              GqlOperatorList [32-52] [MATCH (a)   RETURN a]
+                GqlMatch [32-41] [MATCH (a)]
+                  GraphPattern [38-41] [(a)]
+                    GraphPathPattern [38-41] [(a)]
+                      GraphNodePattern [38-41] [(a)]
+                        GraphElementPatternFiller [39-40] [a]
+                          Identifier(a) [39-40] [a]
+                GqlReturn [44-52] [RETURN a]
+                  Select [50-52] [a]
+                    SelectList [51-52] [a]
+                      SelectColumn [51-52] [a]
+                        PathExpression [51-52] [a]
+                          Identifier(a) [51-52] [a]
+              GqlOperatorList [67-87] [MATCH (a)   RETURN a]
+                GqlMatch [67-76] [MATCH (a)]
+                  GraphPattern [73-76] [(a)]
+                    GraphPathPattern [73-76] [(a)]
+                      GraphNodePattern [73-76] [(a)]
+                        GraphElementPatternFiller [74-75] [a]
+                          Identifier(a) [74-75] [a]
+                GqlReturn [79-87] [RETURN a]
+                  Select [85-87] [a]
+                    SelectList [86-87] [a]
+                      SelectColumn [86-87] [a]
+                        PathExpression [86-87] [a]
+                          Identifier(a) [86-87] [a]
+              GqlOperatorList [107-127] [MATCH (a)   RETURN a]
+                GqlMatch [107-116] [MATCH (a)]
+                  GraphPattern [113-116] [(a)]
+                    GraphPathPattern [113-116] [(a)]
+                      GraphNodePattern [113-116] [(a)]
+                        GraphElementPatternFiller [114-115] [a]
+                          Identifier(a) [114-115] [a]
+                GqlReturn [119-127] [RETURN a]
+                  Select [125-127] [a]
+                    SelectList [126-127] [a]
+                      SelectColumn [126-127] [a]
+                        PathExpression [126-127] [a]
+                          Identifier(a) [126-127] [a]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+    RETURN
+      a
+    UNION ALL
+    MATCH
+      (a)
+    RETURN
+      a
+    UNION DISTINCT
+    MATCH
+      (a)
+    RETURN
+      a
+  )
+==
+
+# In GQL, all inputs to the same set operation see the same working table, so
+# NEXT seperates different set operations.
+SELECT *
+FROM GRAPH_TABLE(aml
+  MATCH (a)
+  RETURN a
+  UNION ALL
+  MATCH (a)
+  RETURN a
+  UNION ALL
+  MATCH (a) -> (b)
+  RETURN a
+
+  NEXT
+
+  MATCH(a)
+  RETURN a
+  UNION DISTINCT
+  MATCH (a)
+  RETURN a
+)
+--
+
+QueryStatement [0-202] [SELECT * FROM...RETURN a )]
+  Query [0-202] [SELECT * FROM...RETURN a )]
+    Select [0-202] [SELECT * FROM...RETURN a )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-202] [FROM GRAPH_TABLE...RETURN a )]
+        GraphTableQuery [14-202] [GRAPH_TABLE...RETURN a )]
+          PathExpression [26-29] [aml]
+            Identifier(aml) [26-29] [aml]
+          GqlOperatorList [32-200] [MATCH (a)...RETURN a]
+            GqlSetOperation [32-129] [MATCH (a)...RETURN a]
+              SetOperationMetadataList [55-99] [UNION ALL...UNION ALL]
+                SetOperationMetadata [55-64] [UNION ALL]
+                  SetOperationType [55-60] [UNION]
+                  SetOperationAllOrDistinct [61-64] [ALL]
+                SetOperationMetadata [90-99] [UNION ALL]
+                  SetOperationType [90-95] [UNION]
+                  SetOperationAllOrDistinct [96-99] [ALL]
+              GqlOperatorList [32-52] [MATCH (a)   RETURN a]
+                GqlMatch [32-41] [MATCH (a)]
+                  GraphPattern [38-41] [(a)]
+                    GraphPathPattern [38-41] [(a)]
+                      GraphNodePattern [38-41] [(a)]
+                        GraphElementPatternFiller [39-40] [a]
+                          Identifier(a) [39-40] [a]
+                GqlReturn [44-52] [RETURN a]
+                  Select [50-52] [a]
+                    SelectList [51-52] [a]
+                      SelectColumn [51-52] [a]
+                        PathExpression [51-52] [a]
+                          Identifier(a) [51-52] [a]
+              GqlOperatorList [67-87] [MATCH (a)   RETURN a]
+                GqlMatch [67-76] [MATCH (a)]
+                  GraphPattern [73-76] [(a)]
+                    GraphPathPattern [73-76] [(a)]
+                      GraphNodePattern [73-76] [(a)]
+                        GraphElementPatternFiller [74-75] [a]
+                          Identifier(a) [74-75] [a]
+                GqlReturn [79-87] [RETURN a]
+                  Select [85-87] [a]
+                    SelectList [86-87] [a]
+                      SelectColumn [86-87] [a]
+                        PathExpression [86-87] [a]
+                          Identifier(a) [86-87] [a]
+              GqlOperatorList [102-129] [MATCH (a) -> (b)   RETURN a]
+                GqlMatch [102-118] [MATCH (a) -> (b)]
+                  GraphPattern [108-118] [(a) -> (b)]
+                    GraphPathPattern [108-118] [(a) -> (b)]
+                      GraphNodePattern [108-111] [(a)]
+                        GraphElementPatternFiller [109-110] [a]
+                          Identifier(a) [109-110] [a]
+                      GraphEdgePattern [112-114] [->]
+                      GraphNodePattern [115-118] [(b)]
+                        GraphElementPatternFiller [116-117] [b]
+                          Identifier(b) [116-117] [b]
+                GqlReturn [121-129] [RETURN a]
+                  Select [127-129] [a]
+                    SelectList [128-129] [a]
+                      SelectColumn [128-129] [a]
+                        PathExpression [128-129] [a]
+                          Identifier(a) [128-129] [a]
+            GqlSetOperation [141-200] [MATCH(a)...RETURN a]
+              SetOperationMetadataList [163-177] [UNION DISTINCT]
+                SetOperationMetadata [163-177] [UNION DISTINCT]
+                  SetOperationType [163-168] [UNION]
+                  SetOperationAllOrDistinct [169-177] [DISTINCT]
+              GqlOperatorList [141-160] [MATCH(a)   RETURN a]
+                GqlMatch [141-149] [MATCH(a)]
+                  GraphPattern [146-149] [(a)]
+                    GraphPathPattern [146-149] [(a)]
+                      GraphNodePattern [146-149] [(a)]
+                        GraphElementPatternFiller [147-148] [a]
+                          Identifier(a) [147-148] [a]
+                GqlReturn [152-160] [RETURN a]
+                  Select [158-160] [a]
+                    SelectList [159-160] [a]
+                      SelectColumn [159-160] [a]
+                        PathExpression [159-160] [a]
+                          Identifier(a) [159-160] [a]
+              GqlOperatorList [180-200] [MATCH (a)   RETURN a]
+                GqlMatch [180-189] [MATCH (a)]
+                  GraphPattern [186-189] [(a)]
+                    GraphPathPattern [186-189] [(a)]
+                      GraphNodePattern [186-189] [(a)]
+                        GraphElementPatternFiller [187-188] [a]
+                          Identifier(a) [187-188] [a]
+                GqlReturn [192-200] [RETURN a]
+                  Select [198-200] [a]
+                    SelectList [199-200] [a]
+                      SelectColumn [199-200] [a]
+                        PathExpression [199-200] [a]
+                          Identifier(a) [199-200] [a]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+    RETURN
+      a
+    UNION ALL
+    MATCH
+      (a)
+    RETURN
+      a
+    UNION ALL
+    MATCH
+      (a)
+      ->
+      (b)
+    RETURN
+      a
+    NEXT
+    MATCH
+      (a)
+    RETURN
+      a
+    UNION DISTINCT
+    MATCH
+      (a)
+    RETURN
+      a
+  )
+==
+
+[default no_test_get_parse_tokens]
+### Top level graph query statement ###
+
+GRAPH my.graph.name
+MATCH (n:Person) -[e1]-> (m:Person)
+WHERE n.id = 1
+LET score = e.val
+RETURN m, score
+
+UNION ALL
+
+MATCH (a)
+RETURN a
+
+NEXT
+
+MATCH (m) -[e2]-> (k:Person)
+LET score2 = score + e2.val
+FILTER score2 > 100
+RETURN k.id, score2
+
+INTERSECT DISTINCT
+
+MATCH (a)
+RETURN a
+--
+
+QueryStatement [41-320] [GRAPH my.graph...) RETURN a]
+  Query [41-320] [GRAPH my.graph...) RETURN a]
+    GqlQuery [41-320] [GRAPH my.graph...) RETURN a]
+      GraphTableQuery [41-320] [GRAPH my.graph...) RETURN a]
+        PathExpression [47-60] [my.graph.name]
+          Identifier(my) [47-49] [my]
+          Identifier(graph) [50-55] [graph]
+          Identifier(name) [56-60] [name]
+        GqlOperatorList [61-320] [MATCH (n:Person...) RETURN a]
+          GqlSetOperation [61-176] [MATCH (n:Person...) RETURN a]
+            SetOperationMetadataList [147-156] [UNION ALL]
+              SetOperationMetadata [147-156] [UNION ALL]
+                SetOperationType [147-152] [UNION]
+                SetOperationAllOrDistinct [153-156] [ALL]
+            GqlOperatorList [61-145] [MATCH (n:Person...URN m, score]
+              GqlMatch [61-111] [MATCH (n:Person...ERE n.id = 1]
+                GraphPattern [67-111] [(n:Person)...WHERE n.id = 1]
+                  GraphPathPattern [67-96] [(n:Person) -[e1]-> (m:Person)]
+                    GraphNodePattern [67-77] [(n:Person)]
+                      GraphElementPatternFiller [68-76] [n:Person]
+                        Identifier(n) [68-69] [n]
+                        GraphLabelFilter [69-76] [:Person]
+                          GraphElementLabel [70-76] [Person]
+                            Identifier(Person) [70-76] [Person]
+                    GraphEdgePattern [78-85] [-[e1]->]
+                      GraphElementPatternFiller [80-82] [e1]
+                        Identifier(e1) [80-82] [e1]
+                    GraphNodePattern [86-96] [(m:Person)]
+                      GraphElementPatternFiller [87-95] [m:Person]
+                        Identifier(m) [87-88] [m]
+                        GraphLabelFilter [88-95] [:Person]
+                          GraphElementLabel [89-95] [Person]
+                            Identifier(Person) [89-95] [Person]
+                  WhereClause [97-111] [WHERE n.id = 1]
+                    BinaryExpression(=) [103-111] [n.id = 1]
+                      PathExpression [103-107] [n.id]
+                        Identifier(n) [103-104] [n]
+                        Identifier(id) [105-107] [id]
+                      IntLiteral(1) [110-111] [1]
+              GqlLet [112-129] [LET score = e.val]
+                GqlLetVariableDefinitionList [116-129] [score = e.val]
+                  GqlLetVariableDefinition [116-129] [score = e.val]
+                    Identifier(score) [116-121] [score]
+                    PathExpression [124-129] [e.val]
+                      Identifier(e) [124-125] [e]
+                      Identifier(val) [126-129] [val]
+              GqlReturn [130-145] [RETURN m, score]
+                Select [136-145] [m, score]
+                  SelectList [137-145] [m, score]
+                    SelectColumn [137-138] [m]
+                      PathExpression [137-138] [m]
+                        Identifier(m) [137-138] [m]
+                    SelectColumn [140-145] [score]
+                      PathExpression [140-145] [score]
+                        Identifier(score) [140-145] [score]
+            GqlOperatorList [158-176] [MATCH (a) RETURN a]
+              GqlMatch [158-167] [MATCH (a)]
+                GraphPattern [164-167] [(a)]
+                  GraphPathPattern [164-167] [(a)]
+                    GraphNodePattern [164-167] [(a)]
+                      GraphElementPatternFiller [165-166] [a]
+                        Identifier(a) [165-166] [a]
+              GqlReturn [168-176] [RETURN a]
+                Select [174-176] [a]
+                  SelectList [175-176] [a]
+                    SelectColumn [175-176] [a]
+                      PathExpression [175-176] [a]
+                        Identifier(a) [175-176] [a]
+          GqlSetOperation [184-320] [MATCH (m)...) RETURN a]
+            SetOperationMetadataList [282-300] [INTERSECT DISTINCT]
+              SetOperationMetadata [282-300] [INTERSECT DISTINCT]
+                SetOperationType [282-291] [INTERSECT]
+                SetOperationAllOrDistinct [292-300] [DISTINCT]
+            GqlOperatorList [184-280] [MATCH (m)...id, score2]
+              GqlMatch [184-212] [MATCH (m) -[e2]-> (k:Person)]
+                GraphPattern [190-212] [(m) -[e2]-> (k:Person)]
+                  GraphPathPattern [190-212] [(m) -[e2]-> (k:Person)]
+                    GraphNodePattern [190-193] [(m)]
+                      GraphElementPatternFiller [191-192] [m]
+                        Identifier(m) [191-192] [m]
+                    GraphEdgePattern [194-201] [-[e2]->]
+                      GraphElementPatternFiller [196-198] [e2]
+                        Identifier(e2) [196-198] [e2]
+                    GraphNodePattern [202-212] [(k:Person)]
+                      GraphElementPatternFiller [203-211] [k:Person]
+                        Identifier(k) [203-204] [k]
+                        GraphLabelFilter [204-211] [:Person]
+                          GraphElementLabel [205-211] [Person]
+                            Identifier(Person) [205-211] [Person]
+              GqlLet [213-240] [LET score2 = score + e2.val]
+                GqlLetVariableDefinitionList [217-240] [score2 = score + e2.val]
+                  GqlLetVariableDefinition [217-240] [score2 = score + e2.val]
+                    Identifier(score2) [217-223] [score2]
+                    BinaryExpression(+) [226-240] [score + e2.val]
+                      PathExpression [226-231] [score]
+                        Identifier(score) [226-231] [score]
+                      PathExpression [234-240] [e2.val]
+                        Identifier(e2) [234-236] [e2]
+                        Identifier(val) [237-240] [val]
+              GqlFilter [241-260] [FILTER score2 > 100]
+                WhereClause [241-260] [FILTER score2 > 100]
+                  BinaryExpression(>) [248-260] [score2 > 100]
+                    PathExpression [248-254] [score2]
+                      Identifier(score2) [248-254] [score2]
+                    IntLiteral(100) [257-260] [100]
+              GqlReturn [261-280] [RETURN k.id, score2]
+                Select [267-280] [k.id, score2]
+                  SelectList [268-280] [k.id, score2]
+                    SelectColumn [268-272] [k.id]
+                      PathExpression [268-272] [k.id]
+                        Identifier(k) [268-269] [k]
+                        Identifier(id) [270-272] [id]
+                    SelectColumn [274-280] [score2]
+                      PathExpression [274-280] [score2]
+                        Identifier(score2) [274-280] [score2]
+            GqlOperatorList [302-320] [MATCH (a) RETURN a]
+              GqlMatch [302-311] [MATCH (a)]
+                GraphPattern [308-311] [(a)]
+                  GraphPathPattern [308-311] [(a)]
+                    GraphNodePattern [308-311] [(a)]
+                      GraphElementPatternFiller [309-310] [a]
+                        Identifier(a) [309-310] [a]
+              GqlReturn [312-320] [RETURN a]
+                Select [318-320] [a]
+                  SelectList [319-320] [a]
+                    SelectColumn [319-320] [a]
+                      PathExpression [319-320] [a]
+                        Identifier(a) [319-320] [a]
+
+--
+GRAPH my.graph.name
+MATCH
+  (n
+  IS Person)
+  -[e1]->
+  (m
+  IS Person)
+  WHERE
+    n.id = 1
+LET
+  score = e.val
+RETURN
+  m,
+  score
+UNION ALL
+MATCH
+  (a)
+RETURN
+  a
+NEXT
+MATCH
+  (m)
+  -[e2]->
+  (k
+  IS Person)
+LET
+  score2 = score + e2.val
+FILTER
+  WHERE
+    score2 > 100
+RETURN
+  k.id,
+  score2
+INTERSECT DISTINCT
+MATCH
+  (a)
+RETURN
+  a
+==
+

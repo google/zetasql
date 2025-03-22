@@ -75,7 +75,7 @@ Note: The examples in this section reference a property graph called
 In the following query, an array of transfer amounts is produced for each
 `Account` owned by each `Person` node:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (p:Person)-[:Owns]->(account:Account)
 RETURN
@@ -134,14 +134,13 @@ Note: The examples in this section reference a property graph called
 
 [fin-graph]: https://github.com/google/zetasql/blob/master/docs/graph-schema-statements.md#fin_graph
 
-The following query checks whether any `Person` whose name starts with the
-letter `'D'` owns an `Account`. The subquery contains a graph query expression.
+The following query checks whether any person named `"Lee"` owns an
+account. The subquery contains a graph query expression.
 
-```sql
+```zetasql
 GRAPH FinGraph
 RETURN EXISTS {
-  MATCH (p:Person)-[o:Owns]->(a:Account)
-  WHERE p.Name LIKE 'D%'
+  MATCH (p:Person {Name: "Lee"})-[o:Owns]->(a:Account)
   RETURN p.Name
   LIMIT 1
 } AS results;
@@ -157,11 +156,10 @@ You can include a `MATCH` statement or a graph pattern in an `EXISTS`
 subquery. The following examples include two ways to construct the subquery
 and produce similar results:
 
-```sql
+```zetasql
 GRAPH FinGraph
 RETURN EXISTS {
-  MATCH (p:Person)-[o:Owns]->(a:Account)
-  WHERE p.Name LIKE 'D%'
+  MATCH (p:Person {Name: "Lee"})-[o:Owns]->(a:Account)
 } AS results;
 
 /*---------+
@@ -171,10 +169,10 @@ RETURN EXISTS {
  +---------*/
 ```
 
-```sql
+```zetasql
 GRAPH FinGraph
 RETURN EXISTS {
-  (p:Person)-[o:Owns]->(a:Account) WHERE p.Name LIKE 'D%'
+  (p:Person {Name: "Lee"})-[o:Owns]->(a:Account)
 } AS results;
 
 /*---------+
@@ -228,7 +226,7 @@ Note: The examples in this section reference a property graph called
 The following query checks if `'Dana'` is a name of a person who owns an
 account.
 
-```sql
+```zetasql
 GRAPH FinGraph
 RETURN 'Dana' IN {
   MATCH (p:Person)-[o:Owns]->(a:Account)
@@ -277,14 +275,13 @@ Note: The examples in this section reference a property graph called
 
 [fin-graph]: https://github.com/google/zetasql/blob/master/docs/graph-schema-statements.md#fin_graph
 
-The following query returns a the name of any `Person` whose name contains the
-character `'e'`:
+The following query returns the name of any person whose `country` property
+is `"Australia"`:
 
-```sql
+```zetasql
 GRAPH FinGraph
 RETURN VALUE {
-  MATCH (p:Person)
-  WHERE p.name LIKE '%e%'
+  MATCH (p:Person {country: "Australia"})
   RETURN p.name
   LIMIT 1
 } AS results;

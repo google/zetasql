@@ -43,6 +43,11 @@ namespace zetasql {
 
 namespace {
 
+// This visitor implements a subset of what TableNameResolver does.
+// It seems possible to use TableNameResolver instead of this, with some API
+// changes. This may be worthwhile later if significant work updating this
+// visitor is required.
+
 // Helper class for examining table references under a series of "root" nodes,
 // determining which "root" nodes are referenced by other root nodes.
 //   <NodeType> denotes the type of each root node being examined, and must
@@ -432,16 +437,27 @@ absl::StatusOr<bool> IsViewSelfRecursive(
   if (!stmt->recursive()) {
     return false;
   }
+  return ContainsReferenceToTable(stmt->query(),
+                                  stmt->name()->ToIdStringVector());
+}
 
-  using FindViewRefsVisitor = FindTableReferencesVisitor<ASTQuery>;
-  FindViewRefsVisitor::NodeNameMap roots;
-  roots[stmt->query()] = stmt->name()->ToIdStringVector();
+template <typename NodeType>
+absl::StatusOr<bool> ContainsReferenceToTable(
+    const NodeType* node, const std::vector<IdString>& name) {
+  using FindViewRefsVisitor = FindTableReferencesVisitor<NodeType>;
+  using NodeNameMap = typename FindViewRefsVisitor::NodeNameMap;
+  using NodeReferenceMap = typename FindViewRefsVisitor::NodeReferenceMap;
 
-  ZETASQL_ASSIGN_OR_RETURN(FindViewRefsVisitor::NodeReferenceMap references,
+  NodeNameMap roots;
+  roots[node] = name;
+  ZETASQL_ASSIGN_OR_RETURN(NodeReferenceMap references,
                    FindViewRefsVisitor::Run(roots));
   ZETASQL_RET_CHECK_EQ(references.size(), 1);
-  ZETASQL_RET_CHECK(references.contains(stmt->query()));
-  return !references.at(stmt->query()).empty();
+  ZETASQL_RET_CHECK(references.contains(node));
+  return references.at(node).contains(node);
 }
+
+template absl::StatusOr<bool> ContainsReferenceToTable<ASTQueryExpression>(
+    const ASTQueryExpression* node, const std::vector<IdString>& name);
 
 }  // namespace zetasql

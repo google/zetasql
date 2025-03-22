@@ -23,11 +23,15 @@
 #include <optional>
 
 #include "zetasql/public/function_signature.h"
+#include "zetasql/public/functions/differential_privacy.pb.h"
 #include "zetasql/public/type.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_ast_visitor.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/match.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 #include "algorithms/partition-selection.h"
@@ -38,6 +42,20 @@ namespace zetasql {
 namespace anonymization {
 namespace {
 constexpr absl::string_view kArgumentNameEpsilon = "epsilon";
+constexpr absl::string_view kOptionGroupSelectionEpsilon =
+    "group_selection_epsilon";
+constexpr absl::string_view kOptionGroupSelectionStrategy =
+    "group_selection_strategy";
+constexpr absl::string_view kOptionMinPrivacyUnitsPerGroup =
+    "min_privacy_units_per_group";
+
+// The minimum epsilon for even budget splitting.  If the remaining epsilon
+// after subtracting the epsilon parameters is less than this value, then the
+// query will fail.  A value of 1e-12 means that we would add Laplace noise with
+// at least variance ~1.4e12 to the raw value (assuming sensitivity of 1), which
+// leads to very bad utility.  Users can still specify an `epsilon` named
+// argument on the aggregation functions to get around this.
+constexpr double kMinEpsilonForEvenSplitting = 1e-12;
 }  // namespace
 
 absl::StatusOr<Value> ComputeLaplaceThresholdFromDelta(
@@ -78,7 +96,8 @@ absl::StatusOr<Value> ComputeLaplaceThresholdFromDelta(
 
   double_laplace_threshold = ceil(double_laplace_threshold);
   int64_t laplace_threshold;
-  if (double_laplace_threshold >= std::numeric_limits<int64_t>::max()) {
+  if (double_laplace_threshold >=
+      static_cast<double>(std::numeric_limits<int64_t>::max())) {
     laplace_threshold = std::numeric_limits<int64_t>::max();
   } else if (double_laplace_threshold <=
              std::numeric_limits<int64_t>::lowest()) {
@@ -158,8 +177,12 @@ const ResolvedExpr* GetEpsilonArgumentExpr(
 
 class FunctionEpsilonAssignerImpl : public FunctionEpsilonAssigner {
  public:
-  explicit FunctionEpsilonAssignerImpl(double split_remainder_epsilon)
-      : split_remainder_epsilon_(split_remainder_epsilon) {}
+  explicit FunctionEpsilonAssignerImpl(
+      double split_remainder_epsilon, double total_epsilon,
+      std::optional<double> group_selection_epsilon)
+      : split_remainder_epsilon_(split_remainder_epsilon),
+        total_epsilon_(total_epsilon),
+        group_selection_epsilon_(group_selection_epsilon) {}
 
   absl::StatusOr<double> GetEpsilonForFunction(
       const ResolvedFunctionCallBase* function_call) override {
@@ -173,7 +196,15 @@ class FunctionEpsilonAssignerImpl : public FunctionEpsilonAssigner {
     if (epsilon_literal->value().is_null()) {
       return split_remainder_epsilon_;
     }
-    return epsilon_literal->value().double_value();
+    const Value& epsilon_value = epsilon_literal->value();
+    ZETASQL_RET_CHECK(epsilon_value.type()->IsDouble());
+    return epsilon_value.double_value();
+  }
+
+  double GetTotalEpsilon() override { return total_epsilon_; }
+
+  std::optional<double> GetGroupSelectionEpsilon() override {
+    return group_selection_epsilon_;
   }
 
  private:
@@ -181,6 +212,57 @@ class FunctionEpsilonAssignerImpl : public FunctionEpsilonAssigner {
   // number of aggregate functions having a null `epsilon` named argument or do
   // not support such a named argument.
   const double split_remainder_epsilon_;
+
+  // The total epsilon of the query.
+  //
+  // In case some aggregate functions have no `epsilon` named argument, this is
+  // the `epsilon` of the `OPTIONS`.  Otherwise, this is the sum of all
+  // `epsilon` named arguments.
+  const double total_epsilon_;
+
+  // The epsilon for group selection.  In case this is a nullopt, no group
+  // selection is used in this query.
+  const std::optional<double> group_selection_epsilon_;
+};
+
+class EpsilonParameterCollectingVisitor : public ResolvedASTVisitor {
+ public:
+  absl::Status VisitResolvedAggregateFunctionCall(
+      const ResolvedAggregateFunctionCall* node) override {
+    ZETASQL_RET_CHECK(!epsilon_parameter_.has_value());
+    std::optional<int> epsilon_index =
+        GetEpsilonArgumentIndex(node->signature());
+    if (!epsilon_index.has_value()) {
+      return DefaultVisit(node);
+    }
+    const ResolvedExpr* epsilon_expr =
+        node->argument_list(epsilon_index.value());
+    if (epsilon_expr == nullptr) {
+      // Epsilon not set.
+      return absl::OkStatus();
+    }
+    ZETASQL_RET_CHECK_EQ(epsilon_expr->node_kind(), RESOLVED_LITERAL);
+    const Value& epsilon_value =
+        epsilon_expr->GetAs<ResolvedLiteral>()->value();
+    if (!epsilon_value.is_null()) {
+      ZETASQL_RET_CHECK(epsilon_value.type()->IsDouble());
+      epsilon_parameter_ = epsilon_value.double_value();
+    }
+    return absl::OkStatus();
+  }
+
+  std::optional<double> GetEpsilonParameterIfPresent() const {
+    return epsilon_parameter_;
+  }
+
+  absl::Status VisitResolvedDifferentialPrivacyAggregateScan(
+      const ResolvedDifferentialPrivacyAggregateScan* node) override {
+    return absl::UnimplementedError(
+        "Nested differential privacy scans are not supported");
+  }
+
+ private:
+  std::optional<double> epsilon_parameter_;
 };
 
 const ResolvedExpr* GetValueOfOptionOrNull(
@@ -194,10 +276,27 @@ const ResolvedExpr* GetValueOfOptionOrNull(
   return nullptr;
 }
 
+absl::StatusOr<std::optional<double>> GetDoubleValuedOptionIfPresent(
+    const ResolvedDifferentialPrivacyAggregateScan* scan,
+    absl::string_view option_name) {
+  const ResolvedExpr* expr =
+      GetValueOfOptionOrNull(scan->option_list(), option_name);
+  if (expr == nullptr) {
+    return std::nullopt;
+  }
+  ZETASQL_RET_CHECK_EQ(expr->node_kind(), RESOLVED_LITERAL);
+  ZETASQL_RET_CHECK(expr->type()->IsDouble());
+  const ResolvedLiteral* literal = expr->GetAs<ResolvedLiteral>();
+  if (literal->value().is_null()) {
+    return std::nullopt;
+  }
+  return literal->value().double_value();
+}
+
 absl::StatusOr<bool> HasNonNullMinPrivacyUnitsPerGroupOption(
     const ResolvedDifferentialPrivacyAggregateScan* scan) {
   const ResolvedExpr* min_privacy_units_per_group = GetValueOfOptionOrNull(
-      scan->option_list(), "min_privacy_units_per_group");
+      scan->option_list(), kOptionMinPrivacyUnitsPerGroup);
   if (min_privacy_units_per_group == nullptr) {
     return false;
   }
@@ -207,19 +306,114 @@ absl::StatusOr<bool> HasNonNullMinPrivacyUnitsPerGroupOption(
               .is_null();
 }
 
-absl::StatusOr<int> GetNumFunctionsForEvenSplitting(
+absl::Status CheckEpsilonOption(double scan_epsilon,
+                                double parameter_epsilon_sum) {
+  if (!std::isfinite(scan_epsilon) || scan_epsilon <= 0) {
+    // Backwards compatible error message.
+    return absl::InvalidArgumentError(absl::StrCat(
+        "Epsilon must be finite and positive, but is ", scan_epsilon));
+  }
+  const double remaining_epsilon = scan_epsilon - parameter_epsilon_sum;
+  if (remaining_epsilon + std::abs(remaining_epsilon) * 1e-8 < 0) {
+    return absl::OutOfRangeError(
+        "Epsilon overconsumption: the sum of all `epsilon` arguments cannot "
+        "exceed the `epsilon` option in SELECT WITH DIFFERENTIAL_PRIVACY "
+        "scans");
+  }
+  return absl::OkStatus();
+}
+
+class ThresholdExprColumnIdCollector : public ResolvedASTVisitor {
+ public:
+  explicit ThresholdExprColumnIdCollector(
+      absl::flat_hash_set<int>& referenced_column_ids)
+      : referenced_column_ids_(referenced_column_ids) {}
+
+  absl::Status VisitResolvedColumnRef(const ResolvedColumnRef* node) override {
+    referenced_column_ids_.insert(node->column().column_id());
+    return absl::OkStatus();
+  }
+
+ private:
+  absl::flat_hash_set<int>& referenced_column_ids_;  // Not owned.
+};
+
+// Returns the epsilon for group selection.  In case this function returns a
+// nullopt, no group selection is used in this query.  In case this function
+// returns a NullDouble, no epsilon has been set for the group selection, and
+// even budget splitting should be used.
+absl::StatusOr<std::optional<Value>> ExtractGroupSelectionEpsilon(
     const ResolvedDifferentialPrivacyAggregateScan* scan) {
-  int num_functions_even_splitting = 0;
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::optional<double> options_group_selection_epsilon,
+      GetDoubleValuedOptionIfPresent(scan, kOptionGroupSelectionEpsilon));
+  if (options_group_selection_epsilon.has_value()) {
+    return Value::Double(options_group_selection_epsilon.value());
+  }
+
+  // `group_selection_epsilon` was not set in `OPTIONS`.  In this case, we need
+  // to identify the aggregation for the group selection and returns its
+  // `epsilon` argument.  We identify the aggregation for the group selection
+  // via the `group_selection_threshold_expr`, which contains a `ColumnRef`
+  // referring to the group selection aggregation.
+  if (scan->group_selection_threshold_expr() == nullptr) {
+    // No threshold set, we must use public groups.
+    const ResolvedExpr* group_selection_strategy = GetValueOfOptionOrNull(
+        scan->option_list(), kOptionGroupSelectionStrategy);
+    ZETASQL_RET_CHECK(group_selection_strategy != nullptr);
+    ZETASQL_RET_CHECK_EQ(group_selection_strategy->GetAs<ResolvedLiteral>()
+                     ->value()
+                     .enum_value(),
+                 functions::DifferentialPrivacyEnums::PUBLIC_GROUPS)
+        << scan->DebugString();
+    return std::nullopt;
+  }
+  // The `group_selection_threshold_expr` is either a ColumnRef or a
+  // FunctionCall.  The latter is the case when `min_privacy_units_per_group`
+  // is set in the `OPTIONS`.  In both cases, we can follow the ColumnRef column
+  // to find the aggregation that computes it.  There must be at most one
+  // aggregation with an `epsilon` argument.  This `epsilon` argument is the
+  // epsilon for group selection.
+  absl::flat_hash_set<int> referenced_column_ids;
+  ThresholdExprColumnIdCollector collector(referenced_column_ids);
+  ZETASQL_RETURN_IF_ERROR(scan->group_selection_threshold_expr()->Accept(&collector));
+  ZETASQL_RET_CHECK(!referenced_column_ids.empty());
+
+  // Check aggregations with the columns linked in the
+  // `group_selection_threshold_expr`.
+  const ResolvedExpr* group_selection_epsilon_expr = nullptr;
   for (const std::unique_ptr<const ResolvedComputedColumnBase>& aggregate :
        scan->aggregate_list()) {
-    const ResolvedFunctionCallBase* call =
-        aggregate->expr()->GetAs<ResolvedFunctionCallBase>();
-    const ResolvedExpr* epsilon_expr = GetEpsilonArgumentExpr(call);
-    if (epsilon_expr == nullptr ||
-        epsilon_expr->GetAs<ResolvedLiteral>()->value().is_null()) {
-      ++num_functions_even_splitting;
+    if (referenced_column_ids.contains(aggregate->column().column_id())) {
+      ZETASQL_RET_CHECK(aggregate->expr()->Is<ResolvedFunctionCallBase>());
+      const ResolvedExpr* epsilon_expr = GetEpsilonArgumentExpr(
+          aggregate->expr()->GetAs<ResolvedFunctionCallBase>());
+      if (epsilon_expr != nullptr) {
+        ZETASQL_RET_CHECK(group_selection_epsilon_expr == nullptr)
+            << "Expected at most one group selection aggregation with an "
+               "epsilon argument "
+            << scan->DebugString();
+        group_selection_epsilon_expr = epsilon_expr;
+      }
     }
   }
+  if (group_selection_epsilon_expr == nullptr) {
+    // No aggregation with `epsilon` found.  This is okay, e.g., when the
+    // per-aggregation epsilon feature is unset.
+    return Value::NullDouble();
+  }
+  ZETASQL_RET_CHECK_EQ(group_selection_epsilon_expr->node_kind(), RESOLVED_LITERAL);
+  return group_selection_epsilon_expr->GetAs<ResolvedLiteral>()->value();
+}
+
+}  // namespace
+
+absl::StatusOr<std::unique_ptr<FunctionEpsilonAssigner>>
+FunctionEpsilonAssigner::CreateFromScan(
+    const ResolvedDifferentialPrivacyAggregateScan* scan) {
+  double parameter_epsilon_sum = 0;
+  int num_functions_even_splitting = scan->aggregate_list_size();
+  bool has_any_function_with_epsilon_parameter = false;
 
   // If the `min_privacy_units_per_group` option is set, then the rewriter added
   // a column to the aggregate list counting the exact number of distinct users
@@ -228,61 +422,84 @@ absl::StatusOr<int> GetNumFunctionsForEvenSplitting(
   ZETASQL_ASSIGN_OR_RETURN(bool has_non_null_min_privacy_units_per_group_option,
                    HasNonNullMinPrivacyUnitsPerGroupOption(scan));
   if (has_non_null_min_privacy_units_per_group_option) {
-    return num_functions_even_splitting - 1;
+    --num_functions_even_splitting;
   }
-
-  return num_functions_even_splitting;
-}
-
-absl::StatusOr<double> GetRemainingEpsilonForEvenSplitting(
-    const ResolvedDifferentialPrivacyAggregateScan* scan) {
-  const ResolvedExpr* epsilon_expr =
-      GetValueOfOptionOrNull(scan->option_list(), kArgumentNameEpsilon);
-  if (epsilon_expr == nullptr) {
-    return 0;
-  }
-
-  ZETASQL_RET_CHECK_EQ(epsilon_expr->node_kind(), RESOLVED_LITERAL);
-  double remaining_epsilon =
-      epsilon_expr->GetAs<ResolvedLiteral>()->value().double_value();
 
   for (const std::unique_ptr<const ResolvedComputedColumnBase>& aggregate :
        scan->aggregate_list()) {
-    const ResolvedExpr* epsilon_expr = GetEpsilonArgumentExpr(
-        aggregate->expr()->GetAs<ResolvedFunctionCallBase>());
-    if (epsilon_expr == nullptr) {
-      continue;
-    }
-    ZETASQL_RET_CHECK_EQ(epsilon_expr->node_kind(), RESOLVED_LITERAL);
-    const Value& epsilon_value =
-        epsilon_expr->GetAs<ResolvedLiteral>()->value();
-    if (!epsilon_value.is_null()) {
-      remaining_epsilon -= epsilon_value.double_value();
+    EpsilonParameterCollectingVisitor visitor;
+    ZETASQL_RET_CHECK_OK(aggregate->Accept(&visitor));
+    std::optional<double> epsilon_parameter =
+        visitor.GetEpsilonParameterIfPresent();
+    if (epsilon_parameter.has_value()) {
+      parameter_epsilon_sum += epsilon_parameter.value();
+      --num_functions_even_splitting;
+      has_any_function_with_epsilon_parameter = true;
     }
   }
-  return remaining_epsilon;
-}
 
-}  // namespace
+  ZETASQL_ASSIGN_OR_RETURN(std::optional<double> scan_epsilon,
+                   GetDoubleValuedOptionIfPresent(scan, kArgumentNameEpsilon));
+  if (scan_epsilon.has_value()) {
+    ZETASQL_RETURN_IF_ERROR(
+        CheckEpsilonOption(scan_epsilon.value(), parameter_epsilon_sum));
 
-absl::StatusOr<std::unique_ptr<FunctionEpsilonAssigner>>
-FunctionEpsilonAssigner::CreateFromScan(
-    const ResolvedDifferentialPrivacyAggregateScan* scan) {
-  ZETASQL_ASSIGN_OR_RETURN(const int num_functions_even_splitting,
-                   GetNumFunctionsForEvenSplitting(scan));
+    if (num_functions_even_splitting > 0) {
+      const double remaining_epsilon =
+          scan_epsilon.value() - parameter_epsilon_sum;
+      if (remaining_epsilon <= kMinEpsilonForEvenSplitting) {
+        return absl::OutOfRangeError(absl::StrCat(
+            "Epsilon overconsumption: The minimum epsilon for even budget "
+            "splitting is ",
+            kMinEpsilonForEvenSplitting, ", but only ", remaining_epsilon,
+            " was remaining. In case you want to use less epsilon budget, "
+            "please use the `epsilon` named argument on the aggregation "
+            "functions or `group_selection_epsilon` in the `OPTIONS`."));
+      }
+      const double split_remainder_epsilon =
+          remaining_epsilon / num_functions_even_splitting;
+      ZETASQL_ASSIGN_OR_RETURN(std::optional<Value> group_selection_epsilon_value,
+                       ExtractGroupSelectionEpsilon(scan));
+      std::optional<double> group_selection_epsilon;
+      if (group_selection_epsilon_value.has_value()) {
+        if (group_selection_epsilon_value.value().is_null()) {
+          group_selection_epsilon = split_remainder_epsilon;
+        } else {
+          group_selection_epsilon =
+              group_selection_epsilon_value.value().double_value();
+        }
+      }
+      return std::make_unique<FunctionEpsilonAssignerImpl>(
+          split_remainder_epsilon, scan_epsilon.value(),
+          group_selection_epsilon);
+    }
+  }
+
   if (num_functions_even_splitting == 0) {
-    return std::make_unique<FunctionEpsilonAssignerImpl>(0);
+    // All aggregates have an epsilon parameter.  Epsilon in the OPTIONS is
+    // optional in this case.
+    ZETASQL_ASSIGN_OR_RETURN(std::optional<Value> group_selection_epsilon_value,
+                     ExtractGroupSelectionEpsilon(scan));
+    std::optional<double> group_selection_epsilon;
+    if (group_selection_epsilon_value.has_value()) {
+      ZETASQL_RET_CHECK(!group_selection_epsilon_value.value().is_null());
+      group_selection_epsilon =
+          group_selection_epsilon_value.value().double_value();
+    }
+    return std::make_unique<FunctionEpsilonAssignerImpl>(
+        0, parameter_epsilon_sum, group_selection_epsilon);
   }
-  ZETASQL_ASSIGN_OR_RETURN(const double remaining_epsilon,
-                   GetRemainingEpsilonForEvenSplitting(scan));
-  if (remaining_epsilon + std::abs(remaining_epsilon) * 1e-8 < 0) {
+
+  ZETASQL_RET_CHECK(!scan_epsilon.has_value());
+  if (has_any_function_with_epsilon_parameter) {
+    return absl::OutOfRangeError(
+        "Differential privacy option EPSILON must be set and non-NULL if some "
+        "aggregate functions have no EPSILON argument");
+  } else {
+    // Backwards compatible error message.
     return absl::InvalidArgumentError(
-        "Epsilon overconsumption: the sum of all `epsilon` arguments cannot "
-        "exceed the `epsilon` option in SELECT WITH DIFFERENTIAL_PRIVACY "
-        "scans");
+        "Differential privacy option EPSILON must be set and non-NULL");
   }
-  return std::make_unique<FunctionEpsilonAssignerImpl>(
-      remaining_epsilon / num_functions_even_splitting);
 }
 
 }  // namespace anonymization

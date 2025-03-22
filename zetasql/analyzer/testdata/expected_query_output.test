@@ -1,3 +1,6 @@
+# Coercing statement to expected types not implemented yet for Pipe queries.
+[default sql_builder_target_syntax_mode=standard]
+
 [coerced_query_output_types=struct<int64>]
 SELECT 1;
 --

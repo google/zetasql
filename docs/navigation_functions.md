@@ -96,7 +96,7 @@ For all navigation functions, the result data type is the same type as
 
 ## `FIRST_VALUE`
 
-```sql
+```zetasql
 FIRST_VALUE (value_expression [{RESPECT | IGNORE} NULLS])
 OVER over_clause
 
@@ -141,7 +141,7 @@ Same type as `value_expression`.
 
 The following example computes the fastest time for each division.
 
-```sql
+```zetasql
 WITH finishers AS
  (SELECT 'Sophia Liu' as name,
   TIMESTAMP '2016-10-18 2:51:45' as finish_time,
@@ -187,7 +187,7 @@ FROM (
 
 ## `LAG`
 
-```sql
+```zetasql
 LAG (value_expression[, offset [, default_expression]])
 OVER over_clause
 
@@ -237,7 +237,7 @@ Same type as `value_expression`.
 
 The following example illustrates a basic use of the `LAG` function.
 
-```sql
+```zetasql
 WITH finishers AS
  (SELECT 'Sophia Liu' as name,
   TIMESTAMP '2016-10-18 2:51:45' as finish_time,
@@ -276,7 +276,7 @@ FROM finishers;
 
 This next example uses the optional `offset` parameter.
 
-```sql
+```zetasql
 WITH finishers AS
  (SELECT 'Sophia Liu' as name,
   TIMESTAMP '2016-10-18 2:51:45' as finish_time,
@@ -315,7 +315,7 @@ FROM finishers;
 
 The following example replaces NULL values with a default value.
 
-```sql
+```zetasql
 WITH finishers AS
  (SELECT 'Sophia Liu' as name,
   TIMESTAMP '2016-10-18 2:51:45' as finish_time,
@@ -354,7 +354,7 @@ FROM finishers;
 
 ## `LAST_VALUE`
 
-```sql
+```zetasql
 LAST_VALUE (value_expression [{RESPECT | IGNORE} NULLS])
 OVER over_clause
 
@@ -399,7 +399,7 @@ Same type as `value_expression`.
 
 The following example computes the slowest time for each division.
 
-```sql
+```zetasql
 WITH finishers AS
  (SELECT 'Sophia Liu' as name,
   TIMESTAMP '2016-10-18 2:51:45' as finish_time,
@@ -445,7 +445,7 @@ FROM (
 
 ## `LEAD`
 
-```sql
+```zetasql
 LEAD (value_expression[, offset [, default_expression]])
 OVER over_clause
 
@@ -495,7 +495,7 @@ Same type as `value_expression`.
 
 The following example illustrates a basic use of the `LEAD` function.
 
-```sql
+```zetasql
 WITH finishers AS
  (SELECT 'Sophia Liu' as name,
   TIMESTAMP '2016-10-18 2:51:45' as finish_time,
@@ -534,7 +534,7 @@ FROM finishers;
 
 This next example uses the optional `offset` parameter.
 
-```sql
+```zetasql
 WITH finishers AS
  (SELECT 'Sophia Liu' as name,
   TIMESTAMP '2016-10-18 2:51:45' as finish_time,
@@ -573,7 +573,7 @@ FROM finishers;
 
 The following example replaces NULL values with a default value.
 
-```sql
+```zetasql
 WITH finishers AS
  (SELECT 'Sophia Liu' as name,
   TIMESTAMP '2016-10-18 2:51:45' as finish_time,
@@ -612,7 +612,7 @@ FROM finishers;
 
 ## `NTH_VALUE`
 
-```sql
+```zetasql
 NTH_VALUE (value_expression, constant_integer_expression [{RESPECT | IGNORE} NULLS])
 OVER over_clause
 
@@ -659,7 +659,7 @@ Same type as `value_expression`.
 
 **Examples**
 
-```sql
+```zetasql
 WITH finishers AS
  (SELECT 'Sophia Liu' as name,
   TIMESTAMP '2016-10-18 2:51:45' as finish_time,
@@ -709,7 +709,7 @@ FROM (
 
 ## `PERCENTILE_CONT`
 
-```sql
+```zetasql
 PERCENTILE_CONT (value_expression, percentile [{RESPECT | IGNORE} NULLS])
 OVER over_clause
 
@@ -779,7 +779,7 @@ table.
 The following example computes the value for some percentiles from a column of
 values while ignoring nulls.
 
-```sql
+```zetasql
 SELECT
   PERCENTILE_CONT(x, 0) OVER() AS min,
   PERCENTILE_CONT(x, 0.01) OVER() AS percentile1,
@@ -798,7 +798,7 @@ FROM UNNEST([0, 3, NULL, 1, 2]) AS x LIMIT 1;
 The following example computes the value for some percentiles from a column of
 values while respecting nulls.
 
-```sql
+```zetasql
 SELECT
   PERCENTILE_CONT(x, 0 RESPECT NULLS) OVER() AS min,
   PERCENTILE_CONT(x, 0.01 RESPECT NULLS) OVER() AS percentile1,
@@ -818,7 +818,7 @@ FROM UNNEST([0, 3, NULL, 1, 2]) AS x LIMIT 1;
 
 ## `PERCENTILE_DISC`
 
-```sql
+```zetasql
 PERCENTILE_DISC (value_expression, percentile [{RESPECT | IGNORE} NULLS])
 OVER over_clause
 
@@ -868,7 +868,7 @@ Same type as `value_expression`.
 The following example computes the value for some percentiles from a column of
 values while ignoring nulls.
 
-```sql
+```zetasql
 SELECT
   x,
   PERCENTILE_DISC(x, 0) OVER() AS min,
@@ -889,7 +889,7 @@ FROM UNNEST(['c', NULL, 'b', 'a']) AS x;
 The following example computes the value for some percentiles from a column of
 values while respecting nulls.
 
-```sql
+```zetasql
 SELECT
   x,
   PERCENTILE_DISC(x, 0 RESPECT NULLS) OVER() AS min,

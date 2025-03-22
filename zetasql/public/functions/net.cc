@@ -28,8 +28,11 @@
 
 #include "zetasql/public/functions/util.h"
 #include "absl/base/optimization.h"
+#include "absl/functional/function_ref.h"
+#include "absl/status/status.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/net/idn.h"
 #include "zetasql/base/net/ipaddress.h"
 #include "zetasql/base/net/public_suffix.h"

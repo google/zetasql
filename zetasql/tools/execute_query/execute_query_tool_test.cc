@@ -29,6 +29,7 @@
 #include "google/protobuf/text_format.h"
 #include "zetasql/common/options_utils.h"
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/parser/bison_parser_mode.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/builtin_function_options.h"
 #include "zetasql/public/catalog.h"
@@ -466,7 +467,7 @@ TEST(SetDescriptorPoolFromFlags, DescriptorPool) {
 
 static std::string TestDataDir() {
   return zetasql_base::JoinPath(
-      getenv("TEST_SRCDIR"),
+      absl::NullSafeStringView(getenv("TEST_SRCDIR")),
       "com_google_zetasql/zetasql/tools/execute_query/testdata");
 }
 
@@ -704,144 +705,6 @@ TEST(ExecuteQuery, ExecuteQuery) {
 +---+
 
 )");
-}
-
-TEST(ExecuteQuery, ExecuteQueryWithMacroExpansion) {
-  absl::FlagSaver fs;
-  ExecuteQueryConfig config;
-  config.clear_tool_modes();
-  config.add_tool_mode(ToolMode::kExecute);
-  config.mutable_analyzer_options().mutable_language()->EnableLanguageFeature(
-      FEATURE_V_1_4_SQL_MACROS);
-  config.mutable_analyzer_options().set_error_message_mode(
-      ErrorMessageMode::ERROR_MESSAGE_MULTI_LINE_WITH_CARET);
-
-  std::ostringstream output;
-  EXPECT_THAT(
-      ExecuteQuery("define macro", config, output),
-      StatusIs(
-          absl::StatusCode::kInvalidArgument,
-          HasSubstr(
-              "Syntax error: Expected macro name but got end of statement")));
-  EXPECT_EQ(output.str(), "");
-
-  output.str("");
-  ZETASQL_EXPECT_OK(ExecuteQuery("define macro repeat $1, $1, $2, $2", config, output));
-  EXPECT_EQ(output.str(), R"(Macro registered: repeat
-)");
-
-  output.str("");
-  EXPECT_THAT(ExecuteQuery("select $absent", config, output),
-              StatusIs(absl::StatusCode::kInvalidArgument,
-                       HasSubstr("Syntax error: Unexpected \"$absent\"")));
-  EXPECT_EQ(output.str(),
-            R"(Warning: Macro 'absent' not found. [at <filename>:1:8]
-select $absent
-       ^
-)");
-
-  output.str("");
-  ZETASQL_EXPECT_OK(ExecuteQuery("select $repeat(1, (2))", config, output));
-  EXPECT_EQ(output.str(), R"(Expanded SQL:
-select 1, 1, (2), (2)
-+---+---+---+---+
-|   |   |   |   |
-+---+---+---+---+
-| 1 | 1 | 2 | 2 |
-+---+---+---+---+
-
-)");
-
-  // Macros in multi-statement scripts aren't supported, with macros
-  // either first or non-first.
-  output.str("");
-  EXPECT_THAT(
-      ExecuteQuery("define macro abc 123;\n"
-                   "select 123;",
-                   config, output),
-      StatusIs(absl::StatusCode::kInvalidArgument,
-               HasSubstr("Statement not supported: DefineMacroStatement")));
-
-  output.str("");
-  EXPECT_THAT(
-      ExecuteQuery("select 123;\n"
-                   "define macro abc 123;",
-                   config, output),
-      StatusIs(absl::StatusCode::kInvalidArgument,
-               HasSubstr("Statement not supported: DefineMacroStatement")));
-
-  // DefineMacro statements are allowed to parse.
-  config.clear_tool_modes();
-  config.add_tool_mode(ToolMode::kParse);
-  output.str("");
-  ZETASQL_EXPECT_OK(
-      ExecuteQuery("select 123;\n"
-                   "define macro abc 123;",
-                   config, output));
-  EXPECT_EQ(output.str(),
-            R"(QueryStatement [0-10]
-  Query [0-10]
-    Select [0-10]
-      SelectList [7-10]
-        SelectColumn [7-10]
-          IntLiteral(123) [7-10]
-
-DefineMacroStatement [12-32]
-  Identifier(abc) [25-28]
-  MacroBody(123) [29-32]
-
-)");
-
-  // A query without any macros doesn't print Expanded SQL.
-  output.str("");
-  ZETASQL_EXPECT_OK(ExecuteQuery("select 1 a", config, output));
-  EXPECT_EQ(output.str(),
-            R"(QueryStatement [0-10]
-  Query [0-10]
-    Select [0-10]
-      SelectList [7-10]
-        SelectColumn [7-10]
-          IntLiteral(1) [7-8]
-          Alias [9-10]
-            Identifier(a) [9-10]
-
-)");
-}
-
-TEST(ExecuteQuery, ExecuteQueryWithMacroExpansion_StrictMode) {
-  absl::FlagSaver fs;
-  ExecuteQueryConfig config;
-  config.clear_tool_modes();
-  config.add_tool_mode(ToolMode::kExecute);
-  config.mutable_analyzer_options().mutable_language()->EnableLanguageFeature(
-      FEATURE_V_1_4_SQL_MACROS);
-  config.mutable_analyzer_options().mutable_language()->EnableLanguageFeature(
-      FEATURE_V_1_4_ENFORCE_STRICT_MACROS);
-  config.mutable_analyzer_options().set_error_message_mode(
-      ErrorMessageMode::ERROR_MESSAGE_MULTI_LINE_WITH_CARET);
-
-  std::ostringstream output;
-  ZETASQL_EXPECT_OK(ExecuteQuery("define macro abc 123;", config, output));
-  EXPECT_EQ(output.str(), "Macro registered: abc\n");
-  output.str("");
-
-  ZETASQL_EXPECT_OK(ExecuteQuery("select $abc()", config, output));
-  EXPECT_EQ(output.str(), R"(Expanded SQL:
-select 123
-+-----+
-|     |
-+-----+
-| 123 |
-+-----+
-
-)");
-
-  output.str("");
-  EXPECT_THAT(ExecuteQuery("select $abc", config, output),
-              StatusIs(absl::StatusCode::kInvalidArgument,
-                       HasSubstr("Invocation of macro 'abc' missing argument "
-                                 "list. [at <filename>:1:12]")));
-  EXPECT_EQ(output.str(), "");
 }
 
 // This tests invoking ExecuteQuery multiple times with the same Config,

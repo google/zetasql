@@ -1,0 +1,116 @@
+[default language_features=CREATE_AGGREGATE_FUNCTION,TEMPLATE_FUNCTIONS,V_1_4_MULTILEVEL_AGGREGATION,V_1_4_MULTILEVEL_AGGREGATION_IN_UDAS,V_1_4_AGGREGATE_FILTERING]
+[default show_sqlbuilder_output]
+SELECT
+  SumOfAggregateArgs(MAX(int64) WHERE int64 > 10)
+FROM SimpleTypes;
+--
+
+
+ERROR: WHERE modifier can currently only be specified on ZetaSQL built-in functions. [at 2:33]
+  SumOfAggregateArgs(MAX(int64) WHERE int64 > 10)
+                                ^
+==
+
+CREATE AGGREGATE FUNCTION WrappedMultiLevel(e {{INT64|ANY TYPE}}) AS (
+  SUM(e WHERE e > 10)
+);
+--
+
+
+ALTERNATION GROUP: INT64
+--
+ERROR: Function body with aggregate functions with WHERE modifiers are not currently supported [at 2:3]
+  SUM(e WHERE e > 10)
+  ^
+--
+ALTERNATION GROUP: ANY TYPE
+--
+CreateFunctionStmt(name_path=WrappedMultiLevel, return_type=STRUCT<>, argument_name_list=[e], signature=(ANY TYPE e) -> ANY TYPE, is_aggregate=TRUE, language="SQL", code="SUM(e WHERE e > 10)")
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+CREATE AGGREGATE FUNCTION WrappedMultiLevel(e ANY TYPE)
+AS (
+  SUM(e
+    WHERE
+      e > 10)
+);
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+CREATE AGGREGATE FUNCTION WrappedMultiLevel(e ANY TYPE)
+AS (
+  SUM(e
+    WHERE
+      e > 10)
+);
+==
+
+SELECT WrappedAggWithWhereModifier(e) FROM UNNEST([1, 2, 3]) AS e
+--
+ERROR: Invalid function WrappedAggWithWhereModifier [at 1:8]
+SELECT WrappedAggWithWhereModifier(e) FROM UNNEST([1, 2, 3]) AS e
+       ^
+Analysis of function Templated_SQL_Function:WrappedAggWithWhereModifier failed [at 1:1]
+SUM(e WHERE e > 10)
+^
+Analysis of function Templated_SQL_Function:WrappedAggWithWhereModifier failed:
+Function body with aggregate functions with WHERE modifiers are not currently supported
+
+==
+
+# Should error on GROUP BY before HAVING.
+SELECT
+  SumOfAggregateArgs(MAX(int64) GROUP BY bool HAVING COUNT(*) > 10)
+FROM SimpleTypes;
+--
+
+ERROR: GROUP BY modifiers are not yet supported on user-defined functions. [at 2:3]
+  SumOfAggregateArgs(MAX(int64) GROUP BY bool HAVING COUNT(*) > 10)
+  ^
+==
+
+CREATE AGGREGATE FUNCTION WrappedMultiLevel(e {{INT64|ANY TYPE}}) AS (
+  SUM(e GROUP BY e HAVING COUNT(*) > 10)
+);
+--
+ALTERNATION GROUP: INT64
+--
+ERROR: Function body with aggregate functions with HAVING modifiers are not currently supported [at 2:3]
+  SUM(e GROUP BY e HAVING COUNT(*) > 10)
+  ^
+--
+ALTERNATION GROUP: ANY TYPE
+--
+CreateFunctionStmt(name_path=WrappedMultiLevel, return_type=STRUCT<>, argument_name_list=[e], signature=(ANY TYPE e) -> ANY TYPE, is_aggregate=TRUE, language="SQL", code="SUM(e GROUP BY e HAVING COUNT(*) > 10)")
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+CREATE AGGREGATE FUNCTION WrappedMultiLevel(e ANY TYPE)
+AS (
+  SUM(e
+    GROUP BY e
+    HAVING COUNT(*) > 10)
+);
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+CREATE AGGREGATE FUNCTION WrappedMultiLevel(e ANY TYPE)
+AS (
+  SUM(e
+    GROUP BY e
+    HAVING COUNT(*) > 10)
+);
+
+==
+
+SELECT WrappedAggWithHavingModifier(e) FROM UNNEST([1, 2, 3]) AS e
+--
+ERROR: Invalid function WrappedAggWithHavingModifier [at 1:8]
+SELECT WrappedAggWithHavingModifier(e) FROM UNNEST([1, 2, 3]) AS e
+       ^
+Analysis of function Templated_SQL_Function:WrappedAggWithHavingModifier failed [at 1:1]
+SUM(e GROUP BY e HAVING COUNT(*) > 10)
+^
+Analysis of function Templated_SQL_Function:WrappedAggWithHavingModifier failed:
+Function body with aggregate functions with HAVING modifiers are not currently supported

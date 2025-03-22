@@ -24,24 +24,29 @@
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/analyzer_options.h"
+#include "zetasql/public/catalog.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
 #include "zetasql/public/function_signature.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/property_graph.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/simple_property_graph.h"
 #include "zetasql/public/types/graph_element_type.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/make_node_vector.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_builder.h"
+#include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/test_utils.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
@@ -437,10 +442,10 @@ TEST(ValidatorTest, InvalidWithScans) {
               StatusIs(absl::StatusCode::kInternal,
                        HasSubstr("Duplicate column id 2 in column tbl.y#2")));
 
-  std::unique_ptr<const ResolvedStatement> type_missmatch =
+  std::unique_ptr<const ResolvedStatement> type_mismatch =
       MakeWithQuery(pool, WithQueryShape::kColumnTypeMismatch);
   EXPECT_THAT(
-      validator.ValidateResolvedStatement(type_missmatch.get()),
+      validator.ValidateResolvedStatement(type_mismatch.get()),
       StatusIs(
           absl::StatusCode::kInternal,
           HasSubstr(
@@ -551,8 +556,7 @@ TEST(ValidateTest, CreateFunctionStmtWithRemoteAndInvalidLanguage) {
           /*name_path=*/{"foo"},
           /*create_scope=*/ResolvedCreateStatement::CREATE_DEFAULT_SCOPE,
           /*create_mode=*/ResolvedCreateStatement::CREATE_DEFAULT,
-          /*has_explicit_return_type=*/true,
-          types::Int32Type(),
+          /*has_explicit_return_type=*/true, types::Int32Type(),
           /*argument_name_list=*/{},
           /*signature=*/{{types::Int32Type()}, {}, nullptr},
           /*is_aggregate=*/false,
@@ -689,8 +693,7 @@ TEST(ValidateTest, CreateFunctionStmtWithConnectionButNotRemote) {
           /*name_path=*/{"foo"},
           /*create_scope=*/ResolvedCreateStatement::CREATE_DEFAULT_SCOPE,
           /*create_mode=*/ResolvedCreateStatement::CREATE_DEFAULT,
-          /*has_explicit_return_type=*/true,
-          types::Int32Type(),
+          /*has_explicit_return_type=*/true, types::Int32Type(),
           /*argument_name_list=*/{},
           /*signature=*/{{types::Int32Type()}, {}, nullptr},
           /*is_aggregate=*/false,
@@ -702,8 +705,7 @@ TEST(ValidateTest, CreateFunctionStmtWithConnectionButNotRemote) {
           /*sql_security=*/ResolvedCreateStatement::SQL_SECURITY_UNSPECIFIED,
           /*determinism_level=*/
           ResolvedCreateStatement::DETERMINISM_UNSPECIFIED,
-          /*is_remote=*/false,
-          MakeResolvedConnection(&connection));
+          /*is_remote=*/false, MakeResolvedConnection(&connection));
 
   Validator validator;
   ASSERT_THAT(
@@ -717,8 +719,7 @@ TEST(ValidateTest, CreateFunctionStmtWithRemoteLanguageButNotRemote) {
           /*name_path=*/{"foo"},
           /*create_scope=*/ResolvedCreateStatement::CREATE_DEFAULT_SCOPE,
           /*create_mode=*/ResolvedCreateStatement::CREATE_DEFAULT,
-          /*has_explicit_return_type=*/true,
-          types::Int32Type(),
+          /*has_explicit_return_type=*/true, types::Int32Type(),
           /*argument_name_list=*/{},
           /*signature=*/{{types::Int32Type()}, {}, nullptr},
           /*is_aggregate=*/false,
@@ -738,6 +739,73 @@ TEST(ValidateTest, CreateFunctionStmtWithRemoteLanguageButNotRemote) {
       validator.ValidateResolvedStatement(create_function_stmt.get()),
       StatusIs(absl::StatusCode::kInternal,
                HasSubstr("is_remote is true iff language is \"REMOTE\"")));
+}
+
+TEST(ValidateTest, CreateFunctionStmtWithInvalidResolvedArgumentRef) {
+  IdStringPool pool;
+  auto agg_function =
+      std::make_unique<Function>("count", "test_group", Function::AGGREGATE);
+  FunctionSignature sig(FunctionArgumentType(types::Int64Type(), 1), {},
+                        static_cast<int64_t>(1234));
+  ResolvedColumn placeholder_column = ResolvedColumn(
+      1, pool.Make("table_name"), pool.Make("name"), types::Int64Type());
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedComputedColumn> placeholder_computed_column,
+      ResolvedComputedColumnBuilder()
+          .set_column(placeholder_column)
+          .set_expr(MakeResolvedLiteral(types::Int64Type(), Value::Int64(1)))
+          .Build());
+  std::vector<std::unique_ptr<const ResolvedExpr>> argument_list;
+  argument_list.push_back(MakeResolvedArgumentRef(
+      types::Int64Type(), "arg_name", ResolvedArgumentDef::AGGREGATE));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto agg_function_call,
+      ResolvedAggregateFunctionCallBuilder()
+          .set_type(types::Int64Type())
+          .set_function(agg_function.get())
+          .set_signature(sig)
+          .set_argument_list(std::move(argument_list))
+          .add_group_by_list(std::move(placeholder_computed_column))
+          .Build());
+
+  ResolvedColumn agg_column =
+      ResolvedColumn(2, pool.Make("table_name"), pool.Make("agg_col_name"),
+                     types::Int64Type());
+  std::vector<std::unique_ptr<const ResolvedComputedColumn>>
+      aggregate_expression_list;
+  aggregate_expression_list.push_back(
+      MakeResolvedComputedColumn(agg_column, std::move(agg_function_call)));
+
+  std::unique_ptr<ResolvedCreateFunctionStmt> create_function_stmt =
+      MakeResolvedCreateFunctionStmt(
+          /*name_path=*/{"foo"},
+          /*create_scope=*/ResolvedCreateStatement::CREATE_DEFAULT_SCOPE,
+          /*create_mode=*/ResolvedCreateStatement::CREATE_DEFAULT,
+          /*has_explicit_return_type=*/true, types::Int64Type(),
+          /*argument_name_list=*/{},
+          /*signature=*/{{types::Int64Type()}, {}, nullptr},
+          /*is_aggregate=*/true,
+          /*language=*/"SQL",
+          /*code=*/"",
+          /*aggregate_expression_list=*/std::move(aggregate_expression_list),
+          /*function_expression=*/
+          MakeResolvedColumnRef(agg_column.type(), agg_column, false),
+          /*option_list=*/{},
+          /*sql_security=*/ResolvedCreateStatement::SQL_SECURITY_UNSPECIFIED,
+          /*determinism_level=*/
+          ResolvedCreateStatement::DETERMINISM_UNSPECIFIED,
+          /*is_remote=*/false,
+          /*connection=*/nullptr);
+
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(FEATURE_V_1_4_MULTILEVEL_AGGREGATION);
+  Validator validator(language_options);
+  EXPECT_THAT(
+      validator.ValidateResolvedStatement(create_function_stmt.get()),
+      StatusIs(
+          absl::StatusCode::kInternal,
+          HasSubstr("Incorrect reference to argument ArgumentRef(type=INT64, "
+                    "name=\"arg_name\", argument_kind=AGGREGATE)")));
 }
 
 TEST(ValidateTest, CreateProcedureStmtNonSQLFeatureNotEnabled) {
@@ -1674,6 +1742,519 @@ TEST(ValidatorTest, InvalidGraphLabelExpression) {
                        HasSubstr("expr->operand_list_size()")));
 }
 
+struct ResolvedGraphElementTableBuildStrategy {
+  // property declarations errors
+  bool property_declaration_missing_name = false;
+  bool duplicate_property_declaration = false;
+
+  // labels errors
+  bool duplicate_label = false;
+
+  // node table errors
+  bool table_misses_label = false;
+  bool miss_key_column = false;
+  bool introduce_duplicate_key_column = false;
+
+  // edge table errors
+  bool miss_reference_node = false;
+  bool miss_reference_node_column = false;
+  bool miss_reference_edge_column = false;
+};
+
+class ResolvedPropertyGraphStmtBuilder {
+ public:
+  explicit ResolvedPropertyGraphStmtBuilder(
+      const ResolvedGraphElementTableBuildStrategy& strategy)
+      : strategy_(strategy) {}
+
+  absl::StatusOr<std::unique_ptr<const ResolvedCreatePropertyGraphStmt>>
+  Build() {
+    InitTables();
+    ZETASQL_ASSIGN_OR_RETURN(
+        std::unique_ptr<const ResolvedGraphElementTable> node_table,
+        BuildResolvedGraphElementNodeTable());
+    std::vector<std::unique_ptr<const ResolvedGraphElementTable>> node_tables;
+    node_tables.push_back(std::move(node_table));
+
+    ZETASQL_ASSIGN_OR_RETURN(
+        std::unique_ptr<const ResolvedGraphElementTable> edge_table,
+        BuildResolvedGraphElementEdgeTable());
+    std::vector<std::unique_ptr<const ResolvedGraphElementTable>> edge_tables;
+    edge_tables.push_back(std::move(edge_table));
+
+    ZETASQL_ASSIGN_OR_RETURN(
+        std::vector<std::unique_ptr<const ResolvedGraphPropertyDeclaration>>
+            property_declarations,
+        BuildPropertyDeclarations());
+
+    ZETASQL_ASSIGN_OR_RETURN(
+        std::vector<std::unique_ptr<const ResolvedGraphElementLabel>> labels,
+        BuildLabels());
+
+    return ResolvedCreatePropertyGraphStmtBuilder()
+        .set_name_path({kGraphName})
+        .set_create_scope(create_scope_)
+        .set_create_mode(create_mode_)
+        .set_node_table_list(std::move(node_tables))
+        .set_edge_table_list(std::move(edge_tables))
+        .set_property_declaration_list(std::move(property_declarations))
+        .set_label_list(std::move(labels))
+        .Build();
+  }
+
+ private:
+  void InitTables() {
+    std::vector<const Column*> input_node_columns;
+    InitNodeTableColumns();
+    input_node_table_ =
+        std::make_unique<SimpleTable>("input_node", GetNodeTableColumns());
+    InitEdgeTableColumns();
+    input_edge_table_ =
+        std::make_unique<SimpleTable>("input_edge", GetEdgeTableColumns());
+  }
+
+  void InitNodeTableColumns() {
+    const Type* int_type = type_factory_.get_int64();
+    const Type* string_type = type_factory_.get_string();
+    const Type* bool_type = type_factory_.get_bool();
+    std::unique_ptr<Column> col1 =
+        std::make_unique<SimpleColumn>(kNodeName, kColId, int_type);
+    std::unique_ptr<Column> col2 =
+        std::make_unique<SimpleColumn>(kNodeName, kColDescription, string_type);
+    std::unique_ptr<Column> col3 =
+        std::make_unique<SimpleColumn>(kNodeName, kColTrusted, bool_type);
+    input_node_columns_.push_back(std::move(col1));
+    input_node_columns_.push_back(std::move(col2));
+    input_node_columns_.push_back(std::move(col3));
+
+    ResolvedColumn resolved_col_id(
+        next_column_id_++, zetasql::IdString::MakeGlobal(kNodeName),
+        zetasql::IdString::MakeGlobal(kColId), type_factory_.get_int64());
+    ResolvedColumn resolved_col_description(
+        next_column_id_++, zetasql::IdString::MakeGlobal(kNodeName),
+        zetasql::IdString::MakeGlobal(kColDescription),
+        type_factory_.get_string());
+    ResolvedColumn resolved_col_trusted(
+        next_column_id_++, zetasql::IdString::MakeGlobal(kNodeName),
+        zetasql::IdString::MakeGlobal(kColTrusted), type_factory_.get_bool());
+    input_node_resolved_columns_.push_back(resolved_col_id);
+    input_node_resolved_columns_.push_back(resolved_col_description);
+    input_node_resolved_columns_.push_back(resolved_col_trusted);
+  }
+
+  void InitEdgeTableColumns() {
+    const Type* int_type = type_factory_.get_int64();
+    const Type* string_type = type_factory_.get_string();
+    std::unique_ptr<Column> col1 =
+        std::make_unique<SimpleColumn>(kEdgeName, kColId, int_type);
+    std::unique_ptr<Column> col2 =
+        std::make_unique<SimpleColumn>(kEdgeName, kColDstId, int_type);
+    std::unique_ptr<Column> col3 =
+        std::make_unique<SimpleColumn>(kEdgeName, kColDescription, string_type);
+    input_edge_columns_.push_back(std::move(col1));
+    input_edge_columns_.push_back(std::move(col2));
+    input_edge_columns_.push_back(std::move(col3));
+
+    ResolvedColumn resolved_col_id(
+        next_column_id_++, zetasql::IdString::MakeGlobal(kEdgeName),
+        zetasql::IdString::MakeGlobal(kColId), type_factory_.get_int64());
+    ResolvedColumn resolved_col_dst_id(
+        next_column_id_++, zetasql::IdString::MakeGlobal(kEdgeName),
+        zetasql::IdString::MakeGlobal(kColDstId), type_factory_.get_int64());
+    ResolvedColumn resolved_col_description(
+        next_column_id_++, zetasql::IdString::MakeGlobal(kEdgeName),
+        zetasql::IdString::MakeGlobal(kColDescription),
+        type_factory_.get_string());
+    input_edge_resolved_columns_.push_back(resolved_col_id);
+    input_edge_resolved_columns_.push_back(resolved_col_dst_id);
+    input_edge_resolved_columns_.push_back(resolved_col_description);
+  }
+
+  std::vector<const Column*> GetNodeTableColumns() {
+    std::vector<const Column*> input_node_columns;
+    for (const auto& column : input_node_columns_) {
+      input_node_columns.push_back(column.get());
+    }
+    return input_node_columns;
+  }
+
+  std::vector<const Column*> GetEdgeTableColumns() {
+    std::vector<const Column*> input_edge_columns;
+    for (const auto& column : input_edge_columns_) {
+      input_edge_columns.push_back(column.get());
+    }
+    return input_edge_columns;
+  }
+
+  absl::StatusOr<std::vector<std::unique_ptr<const ResolvedGraphElementLabel>>>
+  BuildLabels() {
+    std::vector<std::unique_ptr<const ResolvedGraphElementLabel>> labels;
+    ZETASQL_ASSIGN_OR_RETURN(
+        std::unique_ptr<const ResolvedGraphElementLabel> node_label,
+        ResolvedGraphElementLabelBuilder()
+            .set_name(kNodeName)
+            .set_property_declaration_name_list(
+                {kColId, kColDescription, kColTrusted})
+            .Build());
+    labels.push_back(std::move(node_label));
+
+    ZETASQL_ASSIGN_OR_RETURN(
+        std::unique_ptr<const ResolvedGraphElementLabel> edge_label,
+        ResolvedGraphElementLabelBuilder()
+            .set_name(kEdgeName)
+            .set_property_declaration_name_list(
+                {kColId, kColDstId, kColDescription})
+            .Build());
+    labels.push_back(std::move(edge_label));
+
+    if (strategy_.duplicate_label) {
+      ZETASQL_ASSIGN_OR_RETURN(
+          std::unique_ptr<const ResolvedGraphElementLabel> duplicate_label,
+          ResolvedGraphElementLabelBuilder()
+              .set_name(kNodeName)
+              .set_property_declaration_name_list(
+                  {kColId, kColDescription, kColTrusted})
+              .Build());
+      labels.push_back(std::move(duplicate_label));
+    }
+    return labels;
+  }
+
+  absl::StatusOr<
+      std::vector<std::unique_ptr<const ResolvedGraphPropertyDeclaration>>>
+  BuildPropertyDeclarations() {
+    std::vector<std::unique_ptr<const ResolvedGraphPropertyDeclaration>>
+        property_declarations;
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedGraphPropertyDeclaration>
+                         id_property_declaration,
+                     ResolvedGraphPropertyDeclarationBuilder()
+                         .set_name(kColId)
+                         .set_type(type_factory_.get_int64())
+                         .Build());
+    property_declarations.push_back(std::move(id_property_declaration));
+
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedGraphPropertyDeclaration>
+                         dst_id_property_declaration,
+                     ResolvedGraphPropertyDeclarationBuilder()
+                         .set_name(kColDstId)
+                         .set_type(type_factory_.get_int64())
+                         .Build());
+    property_declarations.push_back(std::move(dst_id_property_declaration));
+
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedGraphPropertyDeclaration>
+                         trusted_property_declaration,
+                     ResolvedGraphPropertyDeclarationBuilder()
+                         .set_name(kColTrusted)
+                         .set_type(type_factory_.get_bool())
+                         .Build());
+    property_declarations.push_back(std::move(trusted_property_declaration));
+
+    ResolvedGraphPropertyDeclarationBuilder description_property_builder;
+    description_property_builder.set_type(type_factory_.get_string());
+    if (strategy_.property_declaration_missing_name) {
+      description_property_builder.set_name("");
+    } else {
+      description_property_builder.set_name(kColDescription);
+    }
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedGraphPropertyDeclaration>
+                         description_property_declaration,
+                     std::move(description_property_builder).Build());
+    property_declarations.push_back(
+        std::move(description_property_declaration));
+
+    if (strategy_.duplicate_property_declaration) {
+      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedGraphPropertyDeclaration>
+                           duplicate_property_declaration,
+                       ResolvedGraphPropertyDeclarationBuilder()
+                           .set_name(kColId)
+                           .set_type(type_factory_.get_int64())
+                           .Build());
+      property_declarations.push_back(
+          std::move(duplicate_property_declaration));
+    }
+    return property_declarations;
+  }
+
+  absl::Status AddPropertyDefinitions(
+      std::vector<std::unique_ptr<const ResolvedGraphPropertyDefinition>>&
+          property_defs,
+      const Column* column, const Type* type,
+      absl::string_view property_declaration_name, absl::string_view sql) {
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> col_resolved_expr,
+                     ResolvedCatalogColumnRefBuilder()
+                         .set_column(column)
+                         .set_type(type)
+                         .Build());
+    ZETASQL_ASSIGN_OR_RETURN(
+        std::unique_ptr<const ResolvedGraphPropertyDefinition> id_property_def,
+        ResolvedGraphPropertyDefinitionBuilder()
+            .set_property_declaration_name(property_declaration_name)
+            .set_sql(sql)
+            .set_expr(std::move(col_resolved_expr))
+            .Build());
+    property_defs.push_back(std::move(id_property_def));
+    return absl::OkStatus();
+  }
+
+  absl::StatusOr<std::unique_ptr<const ResolvedGraphElementTable>>
+  BuildResolvedGraphElementNodeTable() {
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedTableScan> table_scan,
+                     ResolvedTableScanBuilder()
+                         .set_table(input_node_table_.get())
+                         .add_column_list(input_node_resolved_columns_[0])
+                         .add_column_list(input_node_resolved_columns_[1])
+                         .add_column_list(input_node_resolved_columns_[2])
+                         .Build());
+    ResolvedGraphElementTableBuilder node_table_builder;
+    if (!strategy_.miss_key_column) {
+      std::vector<std::unique_ptr<const ResolvedExpr>> key_list;
+      const ResolvedColumn& resolved_col = input_node_resolved_columns_[0];
+      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> key_column,
+                       ResolvedColumnRefBuilder()
+                           .set_type(type_factory_.get_int64())
+                           .set_column(resolved_col)
+                           .set_is_correlated(false)
+                           .Build());
+      key_list.push_back(std::move(key_column));
+      node_table_builder.set_key_list(std::move(key_list));
+    }
+    if (!strategy_.table_misses_label) {
+      node_table_builder.set_label_name_list({kNodeName});
+    }
+    node_table_builder.set_alias(kNodeName).set_input_scan(
+        std::move(table_scan));
+
+    std::vector<std::unique_ptr<const ResolvedGraphPropertyDefinition>>
+        property_defs;
+    ZETASQL_RETURN_IF_ERROR(
+        AddPropertyDefinitions(property_defs, input_node_columns_[0].get(),
+                               type_factory_.get_int64(), kColId, kColId));
+    ZETASQL_RETURN_IF_ERROR(AddPropertyDefinitions(
+        property_defs, input_node_columns_[1].get(), type_factory_.get_string(),
+        kColDescription, kColDescription));
+    ZETASQL_RETURN_IF_ERROR(AddPropertyDefinitions(
+        property_defs, input_node_columns_[2].get(), type_factory_.get_bool(),
+        kColTrusted, kColTrusted));
+    node_table_builder.set_property_definition_list(std::move(property_defs));
+    return std::move(node_table_builder).Build();
+  }
+
+  absl::StatusOr<std::unique_ptr<const ResolvedGraphNodeTableReference>>
+  BuildResolvedNodeTableReference(int64_t edge_ref_column_idx) {
+    ResolvedGraphNodeTableReferenceBuilder node_table_ref_builder;
+    node_table_ref_builder.set_node_table_identifier(kNodeName);
+
+    // Source and destination nodes are both keyed by the Id column.
+    std::vector<std::unique_ptr<const ResolvedExpr>> node_ref_columns;
+    const ResolvedColumn& node_src_col = input_node_resolved_columns_[0];
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> node_ref_column,
+                     ResolvedColumnRefBuilder()
+                         .set_type(type_factory_.get_int64())
+                         .set_column(node_src_col)
+                         .set_is_correlated(false)
+                         .Build());
+    if (!strategy_.miss_reference_node_column) {
+      node_ref_columns.push_back(std::move(node_ref_column));
+    }
+
+    std::vector<std::unique_ptr<const ResolvedExpr>> edge_ref_columns;
+    const ResolvedColumn& edge_src_col =
+        input_edge_resolved_columns_[edge_ref_column_idx];
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> edge_ref_column,
+                     ResolvedColumnRefBuilder()
+                         .set_type(type_factory_.get_int64())
+                         .set_column(edge_src_col)
+                         .set_is_correlated(false)
+                         .Build());
+    if (!strategy_.miss_reference_edge_column) {
+      edge_ref_columns.push_back(std::move(edge_ref_column));
+    }
+    return std::move(node_table_ref_builder)
+        .set_node_table_column_list(std::move(node_ref_columns))
+        .set_edge_table_column_list(std::move(edge_ref_columns))
+        .Build();
+  }
+
+  absl::StatusOr<std::unique_ptr<const ResolvedGraphElementTable>>
+  BuildResolvedGraphElementEdgeTable() {
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedTableScan> table_scan,
+                     ResolvedTableScanBuilder()
+                         .set_table(input_edge_table_.get())
+                         .add_column_list(input_edge_resolved_columns_[0])
+                         .add_column_list(input_edge_resolved_columns_[1])
+                         .add_column_list(input_edge_resolved_columns_[2])
+                         .Build());
+    std::vector<std::unique_ptr<const ResolvedExpr>> key_list;
+    const ResolvedColumn& src_id_col = input_edge_resolved_columns_[0];
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> key_column_src_id,
+                     ResolvedColumnRefBuilder()
+                         .set_type(type_factory_.get_int64())
+                         .set_column(src_id_col)
+                         .set_is_correlated(false)
+                         .Build());
+    key_list.push_back(std::move(key_column_src_id));
+
+    const ResolvedColumn& dst_id_col = input_edge_resolved_columns_[1];
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> key_column_dst_id,
+                     ResolvedColumnRefBuilder()
+                         .set_type(type_factory_.get_int64())
+                         .set_column(dst_id_col)
+                         .set_is_correlated(false)
+                         .Build());
+    key_list.push_back(std::move(key_column_dst_id));
+
+    ResolvedGraphElementTableBuilder edge_table_builder;
+    edge_table_builder.set_alias(kEdgeName)
+        .set_input_scan(std::move(table_scan))
+        .set_key_list(std::move(key_list))
+        .set_label_name_list({kEdgeName});
+
+    std::vector<std::unique_ptr<const ResolvedGraphPropertyDefinition>>
+        property_defs;
+    ZETASQL_RETURN_IF_ERROR(
+        AddPropertyDefinitions(property_defs, input_edge_columns_[0].get(),
+                               type_factory_.get_int64(), kColId, kColId));
+    ZETASQL_RETURN_IF_ERROR(AddPropertyDefinitions(
+        property_defs, input_edge_columns_[1].get(), type_factory_.get_int64(),
+        kColDstId, kColDstId));
+    ZETASQL_RETURN_IF_ERROR(AddPropertyDefinitions(
+        property_defs, input_edge_columns_[2].get(), type_factory_.get_string(),
+        kColDescription, kColDescription));
+    edge_table_builder.set_property_definition_list(std::move(property_defs));
+
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedGraphNodeTableReference>
+                         src_node_table_ref,
+                     BuildResolvedNodeTableReference(0));
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedGraphNodeTableReference>
+                         dst_node_table_ref,
+                     BuildResolvedNodeTableReference(1));
+
+    edge_table_builder.set_source_node_reference(std::move(src_node_table_ref));
+    if (!strategy_.miss_reference_node) {
+      edge_table_builder.set_dest_node_reference(std::move(dst_node_table_ref));
+    }
+    return std::move(edge_table_builder).Build();
+  }
+
+  static constexpr char kGraphName[] = "AML";
+  ResolvedCreateStatement::CreateScope create_scope_ =
+      ResolvedCreateStatement::CREATE_DEFAULT_SCOPE;
+  ResolvedCreateStatement::CreateMode create_mode_ =
+      ResolvedCreateStatement::CREATE_DEFAULT;
+  static constexpr char kNodeName[] = "node_input_table";
+  static constexpr char kEdgeName[] = "edge_input_table";
+  static constexpr char kColId[] = "Id";
+  static constexpr char kColDescription[] = "Description";
+  static constexpr char kColTrusted[] = "Trusted";
+  static constexpr char kColDstId[] = "DstId";
+
+  const ResolvedGraphElementTableBuildStrategy& strategy_;
+
+  // Owned
+  std::unique_ptr<SimpleTable> input_node_table_;
+  std::unique_ptr<SimpleTable> input_edge_table_;
+  std::vector<std::unique_ptr<Column>> input_node_columns_;
+  std::vector<std::unique_ptr<Column>> input_edge_columns_;
+  std::vector<ResolvedColumn> input_node_resolved_columns_ = {};
+  std::vector<ResolvedColumn> input_edge_resolved_columns_ = {};
+  std::vector<std::unique_ptr<const ResolvedGraphPropertyDeclaration>>
+      property_declarations_;
+  int next_column_id_ = 1;
+  TypeFactory type_factory_;
+};
+
+void ExerciseValidatorOnGraphStatement(
+    const ResolvedGraphElementTableBuildStrategy& strategy,
+    absl::string_view expected_error_message, bool expect_ok = false) {
+  ResolvedPropertyGraphStmtBuilder builder(strategy);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedCreatePropertyGraphStmt>
+                           create_property_graph_stmt,
+                       builder.Build());
+
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(FEATURE_V_1_4_SQL_GRAPH);
+  Validator validator(language_options);
+
+  if (expect_ok) {
+    ZETASQL_EXPECT_OK(
+        validator.ValidateResolvedStatement(create_property_graph_stmt.get()));
+  } else {
+    EXPECT_THAT(
+        validator.ValidateResolvedStatement(create_property_graph_stmt.get()),
+        StatusIs(absl::StatusCode::kInternal,
+                 HasSubstr(expected_error_message)));
+  }
+}
+
+TEST(ValidateTest, PropertyDeclarationHappyPath) {
+  ResolvedGraphElementTableBuildStrategy strategy;
+  ResolvedPropertyGraphStmtBuilder builder(strategy);
+  ExerciseValidatorOnGraphStatement(strategy, "", /*expect_ok=*/true);
+}
+
+TEST(ValidateTest, PropertyDeclarationMissingName) {
+  ResolvedGraphElementTableBuildStrategy strategy;
+  strategy.property_declaration_missing_name = true;
+  ResolvedPropertyGraphStmtBuilder builder(strategy);
+  ExerciseValidatorOnGraphStatement(strategy, "!property_dcl->name().empty()");
+}
+
+TEST(ValidateTest, PropertyDeclarationDuplicateName) {
+  ResolvedGraphElementTableBuildStrategy strategy;
+  strategy.duplicate_property_declaration = true;
+  ResolvedPropertyGraphStmtBuilder builder(strategy);
+  ExerciseValidatorOnGraphStatement(
+      strategy, "property_dcl_name_set.insert(property_dcl");
+}
+
+TEST(ValidateTest, GraphContainsDuplicateLabel) {
+  ResolvedGraphElementTableBuildStrategy strategy;
+  strategy.duplicate_label = true;
+  ResolvedPropertyGraphStmtBuilder builder(strategy);
+  ExerciseValidatorOnGraphStatement(
+      strategy, "label_name_set.insert(label->name()).second");
+}
+
+TEST(ValidateTest, GraphNodeMissesLabel) {
+  ResolvedGraphElementTableBuildStrategy strategy;
+  strategy.table_misses_label = true;
+  ResolvedPropertyGraphStmtBuilder builder(strategy);
+  ExerciseValidatorOnGraphStatement(
+      strategy, "!element_table->label_name_list().empty() ");
+}
+
+TEST(ValidateTest, ElementTableKeyColumnMissing) {
+  ResolvedGraphElementTableBuildStrategy strategy;
+  strategy.miss_key_column = true;
+  ResolvedPropertyGraphStmtBuilder builder(strategy);
+  ExerciseValidatorOnGraphStatement(strategy,
+                                    "!element_table->key_list().empty()");
+}
+
+TEST(ValidateTest, EdgeTableMissesDestinationReference) {
+  ResolvedGraphElementTableBuildStrategy strategy;
+  strategy.miss_reference_node = true;
+  ResolvedPropertyGraphStmtBuilder builder(strategy);
+  ExerciseValidatorOnGraphStatement(
+      strategy, "element_table->dest_node_reference() != nullptr");
+}
+
+TEST(ValidateTest, EdgeTableMissingNodeReferenceColumn) {
+  ResolvedGraphElementTableBuildStrategy strategy;
+  strategy.miss_reference_node_column = true;
+  ResolvedPropertyGraphStmtBuilder builder(strategy);
+  ExerciseValidatorOnGraphStatement(
+      strategy, "Node reference node_input_table has no column list");
+}
+
+TEST(ValidateTest, EdgeTableMissingEdgeReferenceColumn) {
+  ResolvedGraphElementTableBuildStrategy strategy;
+  strategy.miss_reference_edge_column = true;
+  ResolvedPropertyGraphStmtBuilder builder(strategy);
+  ExerciseValidatorOnGraphStatement(
+      strategy, "Node reference node_input_table has no edge column list");
+}
+
 TEST(ValidateTest, DifferentialPrivacyAggregateScanSelectWithModes) {
   IdStringPool pool;
   auto dp_function =
@@ -2004,6 +2585,258 @@ TEST(ValidateTest, MultilevelAggregationNotYetSupported) {
   }
 }
 
+TEST(ValidateTest, AggregateFiltering) {
+  LanguageOptions language_options;
+  IdStringPool pool;
+  auto agg_function =
+      std::make_unique<Function>("count", "test_group", Function::AGGREGATE);
+  FunctionSignature sig(FunctionArgumentType(types::Int64Type(), 1), {},
+                        static_cast<int64_t>(1234));
+  ResolvedColumn placeholder_column = ResolvedColumn(
+      1, pool.Make("table_name"), pool.Make("name"), types::Int64Type());
+
+  {
+    // Test valid where_expr is not supported when feature is disabled.
+    language_options.DisableAllLanguageFeatures();
+    Validator validator(language_options);
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        std::unique_ptr<const ResolvedLiteral> placeholder_filter_expr,
+        ResolvedLiteralBuilder()
+            .set_type(types::BoolType())
+            .set_value(Value::Bool(true))
+            .Build());
+    ZETASQL_ASSERT_OK_AND_ASSIGN(auto agg_function_call,
+                         ResolvedAggregateFunctionCallBuilder()
+                             .set_type(types::Int64Type())
+                             .set_function(agg_function.get())
+                             .set_signature(sig)
+                             .set_where_expr(std::move(placeholder_filter_expr))
+                             .Build());
+
+    EXPECT_THAT(
+        validator.ValidateStandaloneResolvedExpr(agg_function_call.get()),
+        StatusIs(
+            absl::StatusCode::kInternal,
+            HasSubstr("Aggregate functions can only have a where_expr when "
+                      "FEATURE_V_1_4_AGGREGATE_FILTERING is enabled")));
+  }
+  {
+    // Test valid having_expr is not supported when feature is disabled.
+    language_options.DisableAllLanguageFeatures();
+    Validator validator(language_options);
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        std::unique_ptr<const ResolvedLiteral> placeholder_having_expr,
+        ResolvedLiteralBuilder()
+            .set_type(types::BoolType())
+            .set_value(Value::Bool(true))
+            .Build());
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        auto agg_function_call,
+        ResolvedAggregateFunctionCallBuilder()
+            .set_type(types::Int64Type())
+            .set_function(agg_function.get())
+            .set_signature(sig)
+            .set_having_expr(std::move(placeholder_having_expr))
+            .Build());
+
+    EXPECT_THAT(
+        validator.ValidateStandaloneResolvedExpr(agg_function_call.get()),
+        StatusIs(
+            absl::StatusCode::kInternal,
+            HasSubstr("Aggregate functions can only have a having_expr when "
+                      "FEATURE_V_1_4_AGGREGATE_FILTERING is enabled")));
+  }
+  {
+    // Test valid where_expr is supported when feature is enabled.
+    language_options.EnableLanguageFeature(FEATURE_V_1_4_AGGREGATE_FILTERING);
+    Validator validator(language_options);
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        std::unique_ptr<const ResolvedLiteral> placeholder_where_expr,
+        ResolvedLiteralBuilder()
+            .set_type(types::BoolType())
+            .set_value(Value::Bool(true))
+            .Build());
+    ZETASQL_ASSERT_OK_AND_ASSIGN(auto agg_function_call,
+                         ResolvedAggregateFunctionCallBuilder()
+                             .set_type(types::Int64Type())
+                             .set_function(agg_function.get())
+                             .set_signature(sig)
+                             .set_where_expr(std::move(placeholder_where_expr))
+                             .Build());
+
+    ZETASQL_EXPECT_OK(
+        validator.ValidateStandaloneResolvedExpr(agg_function_call.get()));
+  }
+  {
+    // Test valid having_expr is supported when feature is enabled.
+    language_options.EnableLanguageFeature(FEATURE_V_1_4_AGGREGATE_FILTERING);
+    language_options.EnableLanguageFeature(
+        FEATURE_V_1_4_MULTILEVEL_AGGREGATION);
+    Validator validator(language_options);
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        std::unique_ptr<const ResolvedComputedColumn>
+            placeholder_computed_column,
+        ResolvedComputedColumnBuilder()
+            .set_column(placeholder_column)
+            .set_expr(MakeResolvedLiteral(types::Int64Type(), Value::Int64(1)))
+            .Build());
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        std::unique_ptr<const ResolvedLiteral> placeholder_having_expr,
+        ResolvedLiteralBuilder()
+            .set_type(types::BoolType())
+            .set_value(Value::Bool(true))
+            .Build());
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        auto agg_function_call,
+        ResolvedAggregateFunctionCallBuilder()
+            .set_type(types::Int64Type())
+            .set_function(agg_function.get())
+            .set_signature(sig)
+            .add_group_by_list(std::move(placeholder_computed_column))
+            .set_having_expr(std::move(placeholder_having_expr))
+            .Build());
+
+    ZETASQL_EXPECT_OK(
+        validator.ValidateStandaloneResolvedExpr(agg_function_call.get()));
+  }
+  {
+    // Test where_expr must be a bool.
+    language_options.EnableLanguageFeature(FEATURE_V_1_4_AGGREGATE_FILTERING);
+    Validator validator(language_options);
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        std::unique_ptr<const ResolvedLiteral> bad_placeholder_where_expr,
+        ResolvedLiteralBuilder()
+            .set_type(types::Int64Type())
+            .set_value(Value::Int64(1))
+            .Build());
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        auto agg_function_call,
+        ResolvedAggregateFunctionCallBuilder()
+            .set_type(types::Int64Type())
+            .set_function(agg_function.get())
+            .set_signature(sig)
+            .set_where_expr(std::move(bad_placeholder_where_expr))
+            .Build());
+    EXPECT_THAT(
+        validator.ValidateStandaloneResolvedExpr(agg_function_call.get()),
+        StatusIs(absl::StatusCode::kInternal,
+                 HasSubstr("Expects BOOL found: INT64")));
+  }
+  {
+    // Test having_expr must be a bool.
+    language_options.EnableLanguageFeature(FEATURE_V_1_4_AGGREGATE_FILTERING);
+    language_options.EnableLanguageFeature(
+        FEATURE_V_1_4_MULTILEVEL_AGGREGATION);
+    Validator validator(language_options);
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        std::unique_ptr<const ResolvedComputedColumn>
+            placeholder_computed_column,
+        ResolvedComputedColumnBuilder()
+            .set_column(placeholder_column)
+            .set_expr(MakeResolvedLiteral(types::Int64Type(), Value::Int64(1)))
+            .Build());
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        std::unique_ptr<const ResolvedLiteral> bad_placeholder_having_expr,
+        ResolvedLiteralBuilder()
+            .set_type(types::Int64Type())
+            .set_value(Value::Int64(1))
+            .Build());
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        auto agg_function_call,
+        ResolvedAggregateFunctionCallBuilder()
+            .set_type(types::Int64Type())
+            .set_function(agg_function.get())
+            .set_signature(sig)
+            .add_group_by_list(std::move(placeholder_computed_column))
+            .set_having_expr(std::move(bad_placeholder_having_expr))
+            .Build());
+    EXPECT_THAT(
+        validator.ValidateStandaloneResolvedExpr(agg_function_call.get()),
+        StatusIs(absl::StatusCode::kInternal,
+                 HasSubstr("Expects BOOL found: INT64")));
+  }
+}
+
+TEST(ValidateTest, AnalyticFilteringRequiresFeature) {
+  LanguageOptions language_options;
+  IdStringPool pool;
+  FunctionOptions options(FunctionOptions::ORDER_OPTIONAL,
+                          /*window_framing_support_in=*/true);
+  auto agg_function = std::make_unique<Function>("count", "test_group",
+                                                 Function::ANALYTIC, options);
+  FunctionSignature sig(FunctionArgumentType(types::Int64Type(), 1), {},
+                        static_cast<int64_t>(1234));
+  ResolvedColumn placeholder_column = ResolvedColumn(
+      1, pool.Make("table_name"), pool.Make("name"), types::Int64Type());
+  {
+    language_options.DisableAllLanguageFeatures();
+    Validator validator(language_options);
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        std::unique_ptr<const ResolvedLiteral> placeholder_filter_expr,
+        ResolvedLiteralBuilder()
+            .set_type(types::BoolType())
+            .set_value(Value::Bool(true))
+            .Build());
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        std::unique_ptr<const ResolvedWindowFrame> placeholder_window_frame,
+        ResolvedWindowFrameBuilder()
+            .set_start_expr(MakeResolvedWindowFrameExpr(
+                ResolvedWindowFrameExpr::UNBOUNDED_PRECEDING,
+                /*expression=*/nullptr))
+            .set_end_expr(MakeResolvedWindowFrameExpr(
+                ResolvedWindowFrameExpr::CURRENT_ROW, /*expression=*/nullptr))
+            .set_frame_unit(ResolvedWindowFrameEnums::ROWS)
+            .Build());
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        auto analytic_function_call,
+        ResolvedAnalyticFunctionCallBuilder()
+            .set_type(types::Int64Type())
+            .set_function(agg_function.get())
+            .set_signature(sig)
+            .set_window_frame(std::move(placeholder_window_frame))
+            .set_where_expr(std::move(placeholder_filter_expr))
+            .Build());
+
+    EXPECT_THAT(
+        validator.ValidateStandaloneResolvedExpr(analytic_function_call.get()),
+        StatusIs(
+            absl::StatusCode::kInternal,
+            HasSubstr("Analytic functions can only have a where_expr when ")));
+  }
+  {
+    language_options.EnableLanguageFeature(FEATURE_V_1_4_AGGREGATE_FILTERING);
+    Validator validator(language_options);
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        std::unique_ptr<const ResolvedLiteral> placeholder_filter_expr,
+        ResolvedLiteralBuilder()
+            .set_type(types::BoolType())
+            .set_value(Value::Bool(true))
+            .Build());
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        std::unique_ptr<const ResolvedWindowFrame> placeholder_window_frame,
+        ResolvedWindowFrameBuilder()
+            .set_start_expr(MakeResolvedWindowFrameExpr(
+                ResolvedWindowFrameExpr::UNBOUNDED_PRECEDING,
+                /*expression=*/nullptr))
+            .set_end_expr(MakeResolvedWindowFrameExpr(
+                ResolvedWindowFrameExpr::CURRENT_ROW, /*expression=*/nullptr))
+            .set_frame_unit(ResolvedWindowFrameEnums::ROWS)
+            .Build());
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        auto analytic_function_call,
+        ResolvedAnalyticFunctionCallBuilder()
+            .set_type(types::Int64Type())
+            .set_function(agg_function.get())
+            .set_signature(sig)
+            .set_window_frame(std::move(placeholder_window_frame))
+            .set_where_expr(std::move(placeholder_filter_expr))
+            .Build());
+
+    ZETASQL_EXPECT_OK(
+        validator.ValidateStandaloneResolvedExpr(analytic_function_call.get()));
+  }
+}
+
 TEST(ValidateTest, ResolvedBarrierScanBasic) {
   IdStringPool pool;
   ResolvedColumn col1(1, pool.Make("table"), pool.Make("col1'"),
@@ -2068,6 +2901,41 @@ TEST(ValidateTest, ResolvedBarrierScanReferencesWrongColumn) {
                                  "visible in scan node")));
 }
 
+// Creates a builder for a ResolvedMatchRecognizeScan with no measures.
+// Assigns column IDs 100, 101 and 102 for the match state columns.
+static ResolvedMatchRecognizeScanBuilder CreateMatchRecognizeScanBuilder(
+    IdStringPool& pool, ResolvedColumn input_col) {
+  return ResolvedMatchRecognizeScanBuilder()
+      .set_input_scan(ResolvedProjectScanBuilder()
+                          .set_input_scan(ResolvedSingleRowScanBuilder())
+                          .add_column_list(input_col)
+                          .add_expr_list(MakeResolvedComputedColumn(
+                              input_col, MakeResolvedLiteral(Value::Int64(1)))))
+      .set_partition_by(nullptr)
+      .set_order_by(ResolvedWindowOrderingBuilder().add_order_by_item_list(
+          ResolvedOrderByItemBuilder().set_column_ref(
+              ResolvedColumnRefBuilder()
+                  .set_column(input_col)
+                  .set_type(input_col.type())
+                  .set_is_correlated(false))))
+      .set_after_match_skip_mode(ResolvedMatchRecognizeScanEnums::END_OF_MATCH)
+      .set_match_number_column(
+          ResolvedColumn(100, pool.Make("$match_recognize"),
+                         pool.Make("$match_number"), types::Int64Type()))
+      .set_match_row_number_column(
+          ResolvedColumn(101, pool.Make("$match_recognize"),
+                         pool.Make("$match_row_number"), types::Int64Type()))
+      .set_classifier_column(ResolvedColumn(102, pool.Make("$match_recognize"),
+                                            pool.Make("$classifier"),
+                                            types::StringType()))
+      .set_pattern(
+          ResolvedMatchRecognizePatternVariableRefBuilder().set_name("A"))
+      .add_pattern_variable_definition_list(
+          ResolvedMatchRecognizeVariableDefinitionBuilder()
+              .set_name("A")
+              .set_predicate(MakeResolvedLiteral(Value::Bool(true))));
+}
+
 // Intended to test pattern variable name validation in MATCH_RECOGNIZE.
 // Creates a minimal MATCH_RECOGNIZE scan with a given singleton pattern (i.e.,
 // one variable) and a single definition with the given name, with the literal
@@ -2076,7 +2944,7 @@ static absl::StatusOr<std::unique_ptr<const ResolvedQueryStmt>>
 MakeMatchRecognizeQuery(IdStringPool& pool, absl::string_view name_in_pattern,
                         absl::string_view name_in_define) {
   ResolvedColumn col0(1, pool.Make("t1"), pool.Make("col1"),
-                      types::DoubleType());
+                      types::Int64Type());
   ResolvedColumn col1(2, pool.Make("$match_recognize_1"),
                       pool.Make("$measure_1"), types::DoubleType());
 
@@ -2084,31 +2952,19 @@ MakeMatchRecognizeQuery(IdStringPool& pool, absl::string_view name_in_pattern,
       .add_output_column_list(
           ResolvedOutputColumnBuilder().set_column(col1).set_name(""))
       .set_query(
-          ResolvedMatchRecognizeScanBuilder()
-              .set_input_scan(
-                  ResolvedProjectScanBuilder()
-                      .set_input_scan(ResolvedSingleRowScanBuilder())
-                      .add_column_list(col0)
-                      .add_expr_list(MakeResolvedComputedColumn(
-                          col0, MakeResolvedLiteral(Value::Double(1.0)))))
+          CreateMatchRecognizeScanBuilder(pool, col0)
               .add_column_list(col1)
-              .set_partition_by(nullptr)
-              .set_order_by(
-                  ResolvedWindowOrderingBuilder().add_order_by_item_list(
-                      ResolvedOrderByItemBuilder().set_column_ref(
-                          ResolvedColumnRefBuilder()
-                              .set_column(col0)
-                              .set_type(col0.type())
-                              .set_is_correlated(false))))
               .add_measure_group_list(
                   ResolvedMeasureGroupBuilder().add_aggregate_list(
                       ResolvedComputedColumnBuilder().set_column(col1).set_expr(
                           MakeResolvedLiteral(Value::Double(1.0)))))
-              .set_after_match_skip_mode(
-                  ResolvedMatchRecognizeScanEnums::END_OF_MATCH)
               .set_pattern(
                   ResolvedMatchRecognizePatternVariableRefBuilder().set_name(
                       name_in_pattern))
+              // Clear definitions from the builder, to put our own
+              .set_pattern_variable_definition_list(
+                  std::vector<std::unique_ptr<
+                      const ResolvedMatchRecognizeVariableDefinition>>{})
               .add_pattern_variable_definition_list(
                   ResolvedMatchRecognizeVariableDefinitionBuilder()
                       .set_name(name_in_define)
@@ -2194,7 +3050,7 @@ TEST(ValidateTest, MatchRecognizeOrderByListCannotBeEmpty) {
 
   IdStringPool pool;
   ResolvedColumn col0(1, pool.Make("t1"), pool.Make("col1"),
-                      types::DoubleType());
+                      types::Int64Type());
   ResolvedColumn col1(2, pool.Make("$match_recognize_1"),
                       pool.Make("$measure_1"), types::DoubleType());
   ZETASQL_ASSERT_OK_AND_ASSIGN(
@@ -2202,27 +3058,15 @@ TEST(ValidateTest, MatchRecognizeOrderByListCannotBeEmpty) {
       ResolvedQueryStmtBuilder()
           .add_output_column_list(
               ResolvedOutputColumnBuilder().set_column(col0).set_name(""))
-          .set_query(
-              ResolvedMatchRecognizeScanBuilder()
-                  .set_input_scan(
-                      ResolvedProjectScanBuilder()
-                          .set_input_scan(ResolvedSingleRowScanBuilder())
-                          .add_column_list(col0)
-                          .add_expr_list(MakeResolvedComputedColumn(
-                              col0, MakeResolvedLiteral(Value::Double(1.0)))))
-                  .add_column_list(col1)
-                  .set_partition_by(nullptr)
-                  .set_order_by(ResolvedWindowOrderingBuilder())
-                  .set_after_match_skip_mode(
-                      ResolvedMatchRecognizeScanEnums::END_OF_MATCH)
-                  .set_pattern(ResolvedMatchRecognizePatternVariableRefBuilder()
-                                   .set_name("A"))
-                  .add_measure_group_list(
-                      ResolvedMeasureGroupBuilder().add_aggregate_list(
-                          ResolvedComputedColumnBuilder()
-                              .set_column(col1)
-                              .set_expr(
-                                  MakeResolvedLiteral(Value::Double(1.0))))))
+          .set_query(CreateMatchRecognizeScanBuilder(pool, col0)
+                         .add_column_list(col1)
+                         .set_order_by(ResolvedWindowOrderingBuilder())
+                         .add_measure_group_list(
+                             ResolvedMeasureGroupBuilder().add_aggregate_list(
+                                 ResolvedComputedColumnBuilder()
+                                     .set_column(col1)
+                                     .set_expr(MakeResolvedLiteral(
+                                         Value::Double(1.0))))))
           .Build());
   EXPECT_THAT(validator.ValidateResolvedStatement(query.get()),
               StatusIs(absl::StatusCode::kInternal,
@@ -2236,7 +3080,7 @@ TEST(ValidateTest, MatchRecognizeDefineListCannotBeEmpty) {
 
   IdStringPool pool;
   ResolvedColumn col0(1, pool.Make("t1"), pool.Make("col1"),
-                      types::DoubleType());
+                      types::Int64Type());
   ResolvedColumn col1(2, pool.Make("$match_recognize_1"),
                       pool.Make("$measure_1"), types::DoubleType());
   ZETASQL_ASSERT_OK_AND_ASSIGN(
@@ -2245,26 +3089,11 @@ TEST(ValidateTest, MatchRecognizeDefineListCannotBeEmpty) {
           .add_output_column_list(
               ResolvedOutputColumnBuilder().set_column(col1).set_name(""))
           .set_query(
-              ResolvedMatchRecognizeScanBuilder()
-                  .set_input_scan(
-                      ResolvedProjectScanBuilder()
-                          .set_input_scan(ResolvedSingleRowScanBuilder())
-                          .add_column_list(col0)
-                          .add_expr_list(MakeResolvedComputedColumn(
-                              col0, MakeResolvedLiteral(Value::Double(1.0)))))
+              CreateMatchRecognizeScanBuilder(pool, col0)
                   .add_column_list(col1)
-                  .set_partition_by(nullptr)
-                  .set_order_by(
-                      ResolvedWindowOrderingBuilder().add_order_by_item_list(
-                          ResolvedOrderByItemBuilder().set_column_ref(
-                              ResolvedColumnRefBuilder()
-                                  .set_column(col0)
-                                  .set_type(col0.type())
-                                  .set_is_correlated(false))))
-                  .set_after_match_skip_mode(
-                      ResolvedMatchRecognizeScanEnums::END_OF_MATCH)
-                  .set_pattern(ResolvedMatchRecognizePatternVariableRefBuilder()
-                                   .set_name("A"))
+                  .set_pattern_variable_definition_list(
+                      std::vector<std::unique_ptr<
+                          const ResolvedMatchRecognizeVariableDefinition>>{})
                   .add_measure_group_list(
                       ResolvedMeasureGroupBuilder().add_aggregate_list(
                           ResolvedComputedColumnBuilder()
@@ -2286,7 +3115,7 @@ TEST(ValidateTest, MatchRecognizeDefineListCannotHaveDuplicates) {
 
   IdStringPool pool;
   ResolvedColumn col0(1, pool.Make("t1"), pool.Make("col1"),
-                      types::DoubleType());
+                      types::Int64Type());
   ResolvedColumn col1(2, pool.Make("$match_recognize_1"),
                       pool.Make("$measure_1"), types::DoubleType());
   ZETASQL_ASSERT_OK_AND_ASSIGN(
@@ -2295,26 +3124,12 @@ TEST(ValidateTest, MatchRecognizeDefineListCannotHaveDuplicates) {
           .add_output_column_list(
               ResolvedOutputColumnBuilder().set_column(col1).set_name(""))
           .set_query(
-              ResolvedMatchRecognizeScanBuilder()
-                  .set_input_scan(
-                      ResolvedProjectScanBuilder()
-                          .set_input_scan(ResolvedSingleRowScanBuilder())
-                          .add_column_list(col0)
-                          .add_expr_list(MakeResolvedComputedColumn(
-                              col0, MakeResolvedLiteral(Value::Double(1.0)))))
+              CreateMatchRecognizeScanBuilder(pool, col0)
                   .add_column_list(col1)
-                  .set_partition_by(nullptr)
-                  .set_order_by(
-                      ResolvedWindowOrderingBuilder().add_order_by_item_list(
-                          ResolvedOrderByItemBuilder().set_column_ref(
-                              ResolvedColumnRefBuilder()
-                                  .set_column(col0)
-                                  .set_type(col0.type())
-                                  .set_is_correlated(false))))
-                  .set_after_match_skip_mode(
-                      ResolvedMatchRecognizeScanEnums::END_OF_MATCH)
-                  .set_pattern(ResolvedMatchRecognizePatternVariableRefBuilder()
-                                   .set_name("A"))
+                  // Clear definitions from the builder, to put our own.
+                  .set_pattern_variable_definition_list(
+                      std::vector<std::unique_ptr<
+                          const ResolvedMatchRecognizeVariableDefinition>>{})
                   .add_pattern_variable_definition_list(
                       ResolvedMatchRecognizeVariableDefinitionBuilder()
                           .set_name("A")
@@ -2346,7 +3161,7 @@ MakeMatchRecognizeQuery(
     IdStringPool& pool,
     std::unique_ptr<const ResolvedMatchRecognizePatternExpr> pattern) {
   ResolvedColumn col0(1, pool.Make("t1"), pool.Make("col1"),
-                      types::DoubleType());
+                      types::Int64Type());
   ResolvedColumn col1(2, pool.Make("$match_recognize_1"),
                       pool.Make("$measure_1"), types::DoubleType());
 
@@ -2354,33 +3169,13 @@ MakeMatchRecognizeQuery(
       .add_output_column_list(
           ResolvedOutputColumnBuilder().set_column(col1).set_name(""))
       .set_query(
-          ResolvedMatchRecognizeScanBuilder()
-              .set_input_scan(
-                  ResolvedProjectScanBuilder()
-                      .set_input_scan(ResolvedSingleRowScanBuilder())
-                      .add_column_list(col0)
-                      .add_expr_list(MakeResolvedComputedColumn(
-                          col0, MakeResolvedLiteral(Value::Double(1.0)))))
+          CreateMatchRecognizeScanBuilder(pool, col0)
               .add_column_list(col1)
-              .set_partition_by(nullptr)
-              .set_order_by(
-                  ResolvedWindowOrderingBuilder().add_order_by_item_list(
-                      ResolvedOrderByItemBuilder().set_column_ref(
-                          ResolvedColumnRefBuilder()
-                              .set_column(col0)
-                              .set_type(col0.type())
-                              .set_is_correlated(false))))
               .add_measure_group_list(
                   ResolvedMeasureGroupBuilder().add_aggregate_list(
                       ResolvedComputedColumnBuilder().set_column(col1).set_expr(
                           MakeResolvedLiteral(Value::Double(1.0)))))
-              .set_pattern(std::move(pattern))
-              .set_after_match_skip_mode(
-                  ResolvedMatchRecognizeScanEnums::END_OF_MATCH)
-              .add_pattern_variable_definition_list(
-                  ResolvedMatchRecognizeVariableDefinitionBuilder()
-                      .set_name("A")
-                      .set_predicate(MakeResolvedLiteral(Value::Bool(true)))))
+              .set_pattern(std::move(pattern)))
       .Build();
 }
 
@@ -2467,54 +3262,24 @@ TEST(ValidateTest, MatchRecognizeDoesNotAllowDuplicateRefsInPartitioning) {
       ResolvedQueryStmtBuilder()
           .add_output_column_list(
               ResolvedOutputColumnBuilder().set_column(col1).set_name(""))
-          .set_query(
-              ResolvedProjectScanBuilder()
-                  .add_column_list(col1)
-                  .add_expr_list(MakeResolvedComputedColumn(
-                      col1, MakeResolvedLiteral(Value::Double(1.0))))
-                  .set_input_scan(
-                      ResolvedMatchRecognizeScanBuilder()
-                          .set_column_list(
-                              std::vector<ResolvedColumn>{col0, col0})
-                          .set_input_scan(
-                              ResolvedProjectScanBuilder()
-                                  .set_input_scan(
-                                      ResolvedSingleRowScanBuilder())
-                                  .add_column_list(col0)
-                                  .add_expr_list(MakeResolvedComputedColumn(
-                                      col0,
-                                      MakeResolvedLiteral(Value::Int64(1)))))
-                          .set_partition_by(
-                              ResolvedWindowPartitioningBuilder()
-                                  .add_partition_by_list(
-                                      ResolvedColumnRefBuilder()
-                                          .set_column(col0)
-                                          .set_type(col0.type())
-                                          .set_is_correlated(false))
-                                  .add_partition_by_list(
-                                      ResolvedColumnRefBuilder()
-                                          .set_column(col0)
-                                          .set_type(col0.type())
-                                          .set_is_correlated(false)))
-                          .set_order_by(
-                              ResolvedWindowOrderingBuilder()
-                                  .add_order_by_item_list(
-                                      ResolvedOrderByItemBuilder()
-                                          .set_column_ref(
-                                              ResolvedColumnRefBuilder()
-                                                  .set_column(col0)
-                                                  .set_type(col0.type())
-                                                  .set_is_correlated(false))))
-                          .set_after_match_skip_mode(
-                              ResolvedMatchRecognizeScanEnums::END_OF_MATCH)
-                          .set_pattern(
-                              ResolvedMatchRecognizePatternVariableRefBuilder()
-                                  .set_name("A"))
-                          .add_pattern_variable_definition_list(
-                              ResolvedMatchRecognizeVariableDefinitionBuilder()
-                                  .set_name("A")
-                                  .set_predicate(
-                                      MakeResolvedLiteral(Value::Bool(true))))))
+          .set_query(ResolvedProjectScanBuilder()
+                         .add_column_list(col1)
+                         .add_expr_list(MakeResolvedComputedColumn(
+                             col1, MakeResolvedLiteral(Value::Double(1.0))))
+                         .set_input_scan(
+                             CreateMatchRecognizeScanBuilder(pool, col0)
+                                 .set_partition_by(
+                                     ResolvedWindowPartitioningBuilder()
+                                         .add_partition_by_list(
+                                             ResolvedColumnRefBuilder()
+                                                 .set_column(col0)
+                                                 .set_type(col0.type())
+                                                 .set_is_correlated(false))
+                                         .add_partition_by_list(
+                                             ResolvedColumnRefBuilder()
+                                                 .set_column(col0)
+                                                 .set_type(col0.type())
+                                                 .set_is_correlated(false)))))
           .Build());
   EXPECT_THAT(validator.ValidateResolvedStatement(query.get()),
               StatusIs(absl::StatusCode::kInternal,
@@ -2536,74 +3301,19 @@ TEST(ValidateTest, MatchRecognizeScanAfterMatchSkipModeMustBeSpecified) {
       ResolvedQueryStmtBuilder()
           .add_output_column_list(
               ResolvedOutputColumnBuilder().set_column(col1).set_name(""))
-          .set_query(
-              ResolvedProjectScanBuilder()
-                  .add_column_list(col1)
-                  .add_expr_list(MakeResolvedComputedColumn(
-                      col1, MakeResolvedLiteral(Value::Double(1.0))))
-                  .set_input_scan(
-                      ResolvedMatchRecognizeScanBuilder()
-                          .set_column_list(
-                              std::vector<ResolvedColumn>{col0, col0})
-                          .set_input_scan(
-                              ResolvedProjectScanBuilder()
-                                  .set_input_scan(
-                                      ResolvedSingleRowScanBuilder())
-                                  .add_column_list(col0)
-                                  .add_expr_list(MakeResolvedComputedColumn(
-                                      col0,
-                                      MakeResolvedLiteral(Value::Int64(1)))))
-                          .set_partition_by(nullptr)
-                          .set_order_by(
-                              ResolvedWindowOrderingBuilder()
-                                  .add_order_by_item_list(
-                                      ResolvedOrderByItemBuilder()
-                                          .set_column_ref(
-                                              ResolvedColumnRefBuilder()
-                                                  .set_column(col0)
-                                                  .set_type(col0.type())
-                                                  .set_is_correlated(false))))
-                          .set_after_match_skip_mode(
-                              ResolvedMatchRecognizeScanEnums::
-                                  AFTER_MATCH_SKIP_MODE_UNSPECIFIED)
-                          .set_pattern(
-                              ResolvedMatchRecognizePatternVariableRefBuilder()
-                                  .set_name("A"))
-                          .add_pattern_variable_definition_list(
-                              ResolvedMatchRecognizeVariableDefinitionBuilder()
-                                  .set_name("A")
-                                  .set_predicate(
-                                      MakeResolvedLiteral(Value::Bool(true))))))
+          .set_query(ResolvedProjectScanBuilder()
+                         .add_column_list(col1)
+                         .add_expr_list(MakeResolvedComputedColumn(
+                             col1, MakeResolvedLiteral(Value::Double(1.0))))
+                         .set_input_scan(
+                             CreateMatchRecognizeScanBuilder(pool, col0)
+                                 .set_after_match_skip_mode(
+                                     ResolvedMatchRecognizeScanEnums::
+                                         AFTER_MATCH_SKIP_MODE_UNSPECIFIED)))
           .Build());
   EXPECT_THAT(validator.ValidateResolvedStatement(query.get()),
               StatusIs(absl::StatusCode::kInternal,
                        HasSubstr("After match skip mode must be specified")));
-}
-
-// Creates a builder for a ResolvedMatchRecognizeScan with no measures.
-static ResolvedMatchRecognizeScanBuilder CreateMatchRecognizeScanBuilder(
-    IdStringPool& pool, ResolvedColumn col0, ResolvedColumn col1) {
-  return ResolvedMatchRecognizeScanBuilder()
-      .set_column_list(std::vector<ResolvedColumn>{col0, col0})
-      .set_input_scan(ResolvedProjectScanBuilder()
-                          .set_input_scan(ResolvedSingleRowScanBuilder())
-                          .add_column_list(col0)
-                          .add_expr_list(MakeResolvedComputedColumn(
-                              col0, MakeResolvedLiteral(Value::Int64(1)))))
-      .set_partition_by(nullptr)
-      .set_order_by(ResolvedWindowOrderingBuilder().add_order_by_item_list(
-          ResolvedOrderByItemBuilder().set_column_ref(
-              ResolvedColumnRefBuilder()
-                  .set_column(col0)
-                  .set_type(col0.type())
-                  .set_is_correlated(false))))
-      .set_after_match_skip_mode(ResolvedMatchRecognizeScanEnums::END_OF_MATCH)
-      .set_pattern(
-          ResolvedMatchRecognizePatternVariableRefBuilder().set_name("A"))
-      .add_pattern_variable_definition_list(
-          ResolvedMatchRecognizeVariableDefinitionBuilder()
-              .set_name("A")
-              .set_predicate(MakeResolvedLiteral(Value::Bool(true))));
 }
 
 TEST(ValidateTest, MeasureGroupCanNeverBeEmpty) {
@@ -2621,14 +3331,14 @@ TEST(ValidateTest, MeasureGroupCanNeverBeEmpty) {
       ResolvedQueryStmtBuilder()
           .add_output_column_list(
               ResolvedOutputColumnBuilder().set_column(col1).set_name(""))
-          .set_query(ResolvedProjectScanBuilder()
-                         .add_column_list(col1)
-                         .add_expr_list(MakeResolvedComputedColumn(
-                             col1, MakeResolvedLiteral(Value::Double(1.0))))
-                         .set_input_scan(
-                             CreateMatchRecognizeScanBuilder(pool, col0, col1)
-                                 .add_measure_group_list(
-                                     ResolvedMeasureGroupBuilder())))
+          .set_query(
+              ResolvedProjectScanBuilder()
+                  .add_column_list(col1)
+                  .add_expr_list(MakeResolvedComputedColumn(
+                      col1, MakeResolvedLiteral(Value::Double(1.0))))
+                  .set_input_scan(CreateMatchRecognizeScanBuilder(pool, col0)
+                                      .add_measure_group_list(
+                                          ResolvedMeasureGroupBuilder())))
           .Build());
   EXPECT_THAT(
       validator.ValidateResolvedStatement(query.get()),
@@ -2664,7 +3374,8 @@ TEST(ValidateTest, MeasureGroupsCanOnlyHaveOneUniversalGroup) {
                   .add_expr_list(MakeResolvedComputedColumn(
                       col1, MakeResolvedLiteral(Value::Double(1.0))))
                   .set_input_scan(
-                      CreateMatchRecognizeScanBuilder(pool, col0, col1)
+                      CreateMatchRecognizeScanBuilder(pool, col0)
+                          .set_column_list({agg_col1, agg_col2})
                           .add_measure_group_list(
                               ResolvedMeasureGroupBuilder().add_aggregate_list(
                                   MakeResolvedComputedColumn(
@@ -2698,7 +3409,8 @@ TEST(ValidateTest, MeasureGroupsMustBeUnique) {
       ResolvedColumn(4, pool.Make("agg"), pool.Make("g2"), types::Int64Type());
 
   auto mr_builder =
-      CreateMatchRecognizeScanBuilder(pool, col0, col1)
+      CreateMatchRecognizeScanBuilder(pool, col0)
+          .set_column_list({agg_col1, agg_col2})
           .add_measure_group_list(
               ResolvedMeasureGroupBuilder()
                   .set_pattern_variable_ref(
@@ -2747,7 +3459,8 @@ TEST(ValidateTest, MeasureGroupVariableMustBeDefined) {
       ResolvedColumn(3, pool.Make("agg"), pool.Make("g1"), types::Int64Type());
 
   auto mr_builder =
-      CreateMatchRecognizeScanBuilder(pool, col0, col1)
+      CreateMatchRecognizeScanBuilder(pool, col0)
+          .set_column_list({agg_col1})
           .add_measure_group_list(
               ResolvedMeasureGroupBuilder()
                   .set_pattern_variable_ref(
@@ -2772,6 +3485,87 @@ TEST(ValidateTest, MeasureGroupVariableMustBeDefined) {
                        HasSubstr("Pattern variable a has no definition.")));
 }
 
+TEST(ValidatorTest, RebuildActionIsNotLastActionReturnsError) {
+  Validator validator;
+
+  std::vector<std::unique_ptr<const ResolvedAlterAction>> alter_action_list;
+  alter_action_list.push_back(MakeResolvedRebuildAction());
+  alter_action_list.push_back(MakeResolvedDropColumnAction(
+      /*is_if_exists=*/false,
+      /*name=*/"Value"));
+
+  ResolvedColumn column;
+  const SimpleTable t1{"i1"};
+  std::unique_ptr<const ResolvedTableScan> table_scan =
+      ResolvedTableScanBuilder()
+          .add_column_list(column)
+          .set_table(&t1)
+          .Build()
+          .value();
+
+  std::unique_ptr<ResolvedAlterIndexStmt> alter_index_stmt =
+      MakeResolvedAlterIndexStmt(
+          /*name_path=*/{"i1"},
+          /*alter_action_list=*/std::move(alter_action_list),
+          /*is_if_exists=*/false,
+          /*table_name_path=*/{"KeyValue"},
+          /*index_type=*/ResolvedAlterIndexStmt::INDEX_SEARCH,
+          std::move(table_scan));
+  EXPECT_THAT(
+      validator.ValidateResolvedStatement(alter_index_stmt.get()),
+      StatusIs(
+          absl::StatusCode::kInternal,
+          HasSubstr("REBUILD action must be the last action in the list")));
+}
+
+TEST(ValidatorTest, UnsupportedAlterActionInAlterIndexStmtReturnsError) {
+  Validator validator;
+
+  std::vector<std::unique_ptr<const ResolvedAlterAction>> alter_action_list;
+  alter_action_list.push_back(
+      MakeResolvedDropPrimaryKeyAction(/*is_if_exists=*/false));
+  ResolvedColumn column;
+  const SimpleTable t1{"i1"};
+  std::unique_ptr<const ResolvedTableScan> table_scan =
+      ResolvedTableScanBuilder()
+          .add_column_list(column)
+          .set_table(&t1)
+          .Build()
+          .value();
+  std::unique_ptr<ResolvedAlterIndexStmt> alter_index_stmt =
+      MakeResolvedAlterIndexStmt(
+          /*name_path=*/{"i1"},
+          /*alter_action_list=*/std::move(alter_action_list),
+          /*is_if_exists=*/false,
+          /*table_name_path=*/{"KeyValue"},
+          /*index_type=*/ResolvedAlterIndexStmt::INDEX_SEARCH,
+          std::move(table_scan));
+  EXPECT_THAT(validator.ValidateResolvedStatement(alter_index_stmt.get()),
+              StatusIs(absl::StatusCode::kInternal,
+                       HasSubstr("Unsupported alter action in ALTER "
+                                 "VECTOR|SEARCH INDEX statement")));
+}
+
+TEST(ValidatorTest, AddColumnIdentifierActionInNonIndexAlterStmtReturnsError) {
+  Validator validator;
+
+  std::vector<std::unique_ptr<const ResolvedAlterAction>> alter_action_list;
+  alter_action_list.push_back(MakeResolvedAddColumnIdentifierAction(
+      /*name=*/"Value",
+      /*options_list=*/{},
+      /*is_if_not_exists=*/false));
+  std::unique_ptr<ResolvedAlterTableStmt> alter_table_stmt =
+      MakeResolvedAlterTableStmt(
+          /*name_path=*/{"KeyValue"},
+          /*alter_action_list=*/std::move(alter_action_list),
+          /*is_if_exists=*/false);
+  EXPECT_THAT(validator.ValidateResolvedStatement(alter_table_stmt.get()),
+              StatusIs(absl::StatusCode::kInternal,
+                       HasSubstr("AddColumnIdentifier action is only supported "
+                                 "in ALTER VECTOR|SEARCH INDEX statement")));
+}
+
 }  // namespace
 }  // namespace testing
+
 }  // namespace zetasql

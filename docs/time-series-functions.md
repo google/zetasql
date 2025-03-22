@@ -46,11 +46,11 @@ ZetaSQL supports the following time series functions.
 
 ## `DATE_BUCKET`
 
-```sql
+```zetasql
 DATE_BUCKET(date_in_bucket, bucket_width)
 ```
 
-```sql
+```zetasql
 DATE_BUCKET(date_in_bucket, bucket_width, bucket_origin_date)
 ```
 
@@ -65,7 +65,7 @@ Gets the lower bound of the date bucket that contains a date.
     a date bucket. A [single interval][interval-single] with
     [date parts][interval-parts] is supported.
 +   `bucket_origin_date`: A `DATE` value that represents a point in time. All
-    buckets expand left and right from this point. If this argument is not set,
+    buckets expand left and right from this point. If this argument isn't set,
     `1950-01-01` is used by default.
 
 **Return type**
@@ -79,7 +79,7 @@ In the following example, the origin is omitted and the default origin,
 and the size of each bucket is two days. The lower bound of the bucket in
 which `my_date` belongs is returned.
 
-```sql
+```zetasql
 WITH some_dates AS (
   SELECT DATE '1949-12-29' AS my_date UNION ALL
   SELECT DATE '1949-12-30' UNION ALL
@@ -117,7 +117,7 @@ and all buckets expand in both directions from this point. The size of each
 bucket is seven days. The lower bound of the bucket in which `my_date` belongs
 is returned:
 
-```sql
+```zetasql
 WITH some_dates AS (
   SELECT DATE '2000-12-20' AS my_date UNION ALL
   SELECT DATE '2000-12-21' UNION ALL
@@ -161,11 +161,11 @@ FROM some_dates;
 
 ## `DATETIME_BUCKET`
 
-```sql
+```zetasql
 DATETIME_BUCKET(datetime_in_bucket, bucket_width)
 ```
 
-```sql
+```zetasql
 DATETIME_BUCKET(datetime_in_bucket, bucket_width, bucket_origin_datetime)
 ```
 
@@ -182,7 +182,7 @@ Gets the lower bound of the datetime bucket that contains a datetime.
     [date and time parts][interval-parts] is supported.
 +   `bucket_origin_datetime`: A `DATETIME` value that represents a point in
     time. All buckets expand left and right from this point. If this argument
-    is not set, `1950-01-01 00:00:00` is used by default.
+    isn't set, `1950-01-01 00:00:00` is used by default.
 
 **Return type**
 
@@ -195,7 +195,7 @@ In the following example, the origin is omitted and the default origin,
 origin, and the size of each bucket is 12 hours. The lower bound of the bucket
 in which `my_datetime` belongs is returned:
 
-```sql
+```zetasql
 WITH some_datetimes AS (
   SELECT DATETIME '1949-12-30 13:00:00' AS my_datetime UNION ALL
   SELECT DATETIME '1949-12-31 00:00:00' UNION ALL
@@ -233,7 +233,7 @@ and all buckets expand in both directions from this point. The size of each
 bucket is seven days. The lower bound of the bucket in which `my_datetime`
 belongs is returned:
 
-```sql
+```zetasql
 WITH some_datetimes AS (
   SELECT DATETIME '2000-12-20 00:00:00' AS my_datetime UNION ALL
   SELECT DATETIME '2000-12-21 00:00:00' UNION ALL
@@ -275,11 +275,11 @@ FROM some_datetimes;
 
 ## `TIMESTAMP_BUCKET`
 
-```sql
+```zetasql
 TIMESTAMP_BUCKET(timestamp_in_bucket, bucket_width)
 ```
 
-```sql
+```zetasql
 TIMESTAMP_BUCKET(timestamp_in_bucket, bucket_width, bucket_origin_timestamp)
 ```
 
@@ -296,7 +296,7 @@ Gets the lower bound of the timestamp bucket that contains a timestamp.
     [date and time parts][interval-parts] is supported.
 +   `bucket_origin_timestamp`: A `TIMESTAMP` value that represents a point in
     time. All buckets expand left and right from this point. If this argument
-    is not set, `1950-01-01 00:00:00` is used by default.
+    isn't set, `1950-01-01 00:00:00` is used by default.
 
 **Return type**
 
@@ -310,7 +310,7 @@ origin, and the size of each bucket is 12 hours. The default time zone,
 which is implementation defined, is included in the results. The lower bound of the
 bucket in which `my_timestamp` belongs is returned:
 
-```sql
+```zetasql
 WITH some_timestamps AS (
   SELECT TIMESTAMP '1949-12-30 13:00:00.00' AS my_timestamp UNION ALL
   SELECT TIMESTAMP '1949-12-31 00:00:00.00' UNION ALL
@@ -351,7 +351,7 @@ bucket is seven days. The default time zone, which is implementation defined, is
 in the results. The lower bound of the bucket in which `my_timestamp`
 belongs is returned:
 
-```sql
+```zetasql
 WITH some_timestamps AS (
   SELECT TIMESTAMP '2000-12-20 00:00:00.00' AS my_timestamp UNION ALL
   SELECT TIMESTAMP '2000-12-21 00:00:00.00' UNION ALL

@@ -17,6 +17,7 @@
 #ifndef ZETASQL_PUBLIC_CIVIL_TIME_H_
 #define ZETASQL_PUBLIC_CIVIL_TIME_H_
 
+#include <compare>
 #include <cstdint>
 #include <string>
 #include <utility>

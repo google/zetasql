@@ -18,33 +18,38 @@
 
 #include <cstdint>
 #include <limits>
-#include <map>
 #include <memory>
 #include <optional>
 #include <ostream>
-#include <set>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "zetasql/base/logging.h"
-#include "google/protobuf/descriptor.h"
-#include "google/protobuf/message.h"
+#include "zetasql/common/graph_element_utils.h"
 #include "zetasql/common/internal_value.h"
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/base/testing/status_matchers.h"
-#include "zetasql/common/testing/testing_proto_util.h"
 #include "zetasql/compliance/functions_testlib.h"
 #include "zetasql/compliance/functions_testlib_common.h"
 #include "zetasql/public/builtin_function.h"
+#include "zetasql/public/builtin_function_options.h"
+#include "zetasql/public/catalog.h"
+#include "zetasql/public/function.h"
 #include "zetasql/public/function_signature.h"
+#include "zetasql/public/id_string.h"
+#include "zetasql/public/json_value.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/property_graph.h"
 #include "zetasql/public/proto_util.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/simple_property_graph.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/graph_element_type.h"
+#include "zetasql/public/types/timestamp_util.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "zetasql/reference_impl/evaluation.h"
 #include "zetasql/reference_impl/function.h"
@@ -58,7 +63,6 @@
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_builder.h"
 #include "zetasql/resolved_ast/resolved_column.h"
-#include "zetasql/resolved_ast/resolved_node_kind.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/testdata/test_schema.pb.h"
 #include "zetasql/testing/test_function.h"
@@ -67,6 +71,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/flags/flag.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
@@ -74,13 +79,11 @@
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
-#include "absl/types/optional.h"
 #include "absl/types/span.h"
 #include "google/protobuf/io/coded_stream.h"
 #include "google/protobuf/io/zero_copy_stream_impl_lite.h"
 #include "google/protobuf/wire_format_lite.h"
 #include "zetasql/base/ret_check.h"
-#include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 
 using ::std::nullopt;
@@ -157,7 +160,7 @@ struct NaryFunctionTemplate {
                        absl::string_view error_message)
       : kind(kind), params(arguments, result, error_message) {}
   NaryFunctionTemplate(FunctionKind kind,
-                       const std::vector<ValueConstructor>& arguments,
+                       absl::Span<const ValueConstructor> arguments,
                        const ValueConstructor& result)
       : kind(kind), params(arguments, result) {}
   NaryFunctionTemplate(FunctionKind kind, const QueryParamsWithResult& params)
@@ -451,7 +454,7 @@ TEST_F(EvalTest, NewArrayExpr) {
   EXPECT_FALSE(
       array_op->EvalSimple(EmptyParams(), &value_size_context, &slot, &status));
   EXPECT_THAT(status,
-              StatusIs(absl::StatusCode::kResourceExhausted,
+              StatusIs(absl::StatusCode::kOutOfRange,
                        HasSubstr("Cannot construct array Value larger than")));
 }
 
@@ -510,7 +513,7 @@ absl::StatusOr<std::unique_ptr<NewGraphElementExpr>> MakeGraphElementOp(
 
   ZETASQL_ASSIGN_OR_RETURN(std::vector<std::unique_ptr<ValueExpr>> key_exprs,
                    MakeValueExprs(key_vals));
-  std::optional<std::vector<std::unique_ptr<ValueExpr>>> src_node_key_exprs,
+  std::vector<std::unique_ptr<ValueExpr>> src_node_key_exprs,
       dst_node_key_exprs;
 
   if (!src_node_key_vals.empty()) {
@@ -524,7 +527,7 @@ absl::StatusOr<std::unique_ptr<NewGraphElementExpr>> MakeGraphElementOp(
       std::unique_ptr<NewGraphElementExpr> new_graph_element_op,
       NewGraphElementExpr::Create(
           MakeGraphElementType({"graph0"},
-                               src_node_key_exprs.has_value()
+                               !src_node_key_vals.empty()
                                    ? GraphElementType::ElementKind::kEdge
                                    : GraphElementType::ElementKind::kNode,
                                property_types),
@@ -545,12 +548,12 @@ TEST_F(EvalTest, NewGraphNodeExpr) {
   EXPECT_EQ(new_graph_element_op->DebugString(),
             "NewGraphElementExpr(\n"
             "  +-type: GRAPH_NODE(graph0)<a INT64, b STRING, c DATE>\n"
-            "  +-table=graph0.node_table1\n"
-            "  +-key=(\n"
+            "  +-table: graph0.node_table1\n"
+            "  +-key: (\n"
             "  +- ConstExpr(1),\n"
             "  +- ConstExpr(\"key\"),\n"
             "  +-)\n"
-            "  +-properties=(\n"
+            "  +-static_properties: (\n"
             "  +- a: ConstExpr(1),\n"
             "  +- b: ConstExpr(\"foo\"),\n"
             "  +- c: ConstExpr(NULL),\n"
@@ -587,20 +590,20 @@ TEST_F(EvalTest, NewGraphEdgeExpr) {
   EXPECT_EQ(edge_op->DebugString(),
             "NewGraphElementExpr(\n"
             "  +-type: GRAPH_EDGE(graph0)<a INT64, b STRING, c DATE>\n"
-            "  +-table=graph0.edge_table1\n"
-            "  +-key=(\n"
+            "  +-table: graph0.edge_table1\n"
+            "  +-key: (\n"
             "  +- ConstExpr(1),\n"
             "  +- ConstExpr(\"ek\"),\n"
             "  +-)\n"
-            "  +-src_node_key=(\n"
+            "  +-src_node_key: (\n"
             "  +- ConstExpr(2),\n"
             "  +- ConstExpr(\"nk2\"),\n"
             "  +-)\n"
-            "  +-dst_node_key=(\n"
+            "  +-dst_node_key: (\n"
             "  +- ConstExpr(3),\n"
             "  +- ConstExpr(\"nk3\"),\n"
             "  +-)\n"
-            "  +-properties=(\n"
+            "  +-static_properties: (\n"
             "  +- a: ConstExpr(1),\n"
             "  +- b: ConstExpr(\"foo\"),\n"
             "  +- c: ConstExpr(NULL),\n"
@@ -645,16 +648,16 @@ TEST_F(EvalTest, GraphElementPropertyAccessTest) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<GraphGetElementPropertyExpr>
                            graph_element_property_access_op,
                        GraphGetElementPropertyExpr::Create(
-                           "b", std::move(new_graph_element_op)));
+                           StringType(), "b", std::move(new_graph_element_op)));
 
   EXPECT_EQ(graph_element_property_access_op->DebugString(),
             "GraphGetElementPropertyExpr(b, NewGraphElementExpr(\n"
             "  +-type: GRAPH_NODE(graph0)<a INT64, b STRING, c DATE>\n"
-            "  +-table=graph0.node_table1\n"
-            "  +-key=(\n"
+            "  +-table: graph0.node_table1\n"
+            "  +-key: (\n"
             "  +- ConstExpr(1),\n"
             "  +-)\n"
-            "  +-properties=(\n"
+            "  +-static_properties: (\n"
             "  +- a: ConstExpr(1),\n"
             "  +- b: ConstExpr(\"foo\"),\n"
             "  +- c: ConstExpr(NULL),\n"
@@ -677,10 +680,11 @@ TEST_F(EvalTest, NullGraphElementPropertyAccessTest) {
       std::unique_ptr<ConstExpr> null_graph_element_op,
       ConstExpr::Create(Value::Null(new_graph_element_op->output_type())));
 
-  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<GraphGetElementPropertyExpr>
-                           graph_element_property_access_op,
-                       GraphGetElementPropertyExpr::Create(
-                           "b", std::move(null_graph_element_op)));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<GraphGetElementPropertyExpr>
+          graph_element_property_access_op,
+      GraphGetElementPropertyExpr::Create(StringType(), "b",
+                                          std::move(null_graph_element_op)));
 
   EXPECT_EQ(graph_element_property_access_op->DebugString(),
             "GraphGetElementPropertyExpr(b, ConstExpr(NULL))");
@@ -2277,7 +2281,7 @@ class ProtoEvalTest : public ::testing::Test {
         ZETASQL_RETURN_IF_ERROR(
             get_proto_field_expr->SetSchemasForEvaluation({&params_schema}));
 
-        std::string field_name = info->field_info.descriptor->name();
+        std::string field_name(info->field_info.descriptor->name());
         if (info->field_info.get_has_bit) {
           field_name = absl::StrCat("has_", field_name);
         }

@@ -66,19 +66,50 @@ select 1
 |> AGGREGATE count(*) as x, count(*) z
    GROUP BY x y, x+y xy
 --
-ERROR: Syntax error: Expected end of input but got identifier "y" [at 3:15]
-   GROUP BY x y, x+y xy
-              ^
-==
-
-# GROUP BY doesn't support aliases without AS
-select 1
-|> AGGREGATE count(*)
-   GROUP BY x y
+QueryStatement [0-71] [select 1 |...y, x+y xy]
+  Query [0-71] [select 1 |...y, x+y xy]
+    Select [0-8] [select 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    PipeAggregate [9-71] [|> AGGREGATE...y, x+y xy]
+      Select [12-71] [AGGREGATE...y, x+y xy]
+        SelectList [22-47] [count(*) as x, count(*) z]
+          SelectColumn [22-35] [count(*) as x]
+            FunctionCall [22-30] [count(*)]
+              PathExpression [22-27] [count]
+                Identifier(count) [22-27] [count]
+              Star(*) [28-29] [*]
+            Alias [31-35] [as x]
+              Identifier(x) [34-35] [x]
+          SelectColumn [37-47] [count(*) z]
+            FunctionCall [37-45] [count(*)]
+              PathExpression [37-42] [count]
+                Identifier(count) [37-42] [count]
+              Star(*) [43-44] [*]
+            Alias [46-47] [z]
+              Identifier(z) [46-47] [z]
+        GroupBy [51-71] [GROUP BY x y, x+y xy]
+          GroupingItem [60-63] [x y]
+            PathExpression [60-61] [x]
+              Identifier(x) [60-61] [x]
+            Alias [62-63] [y]
+              Identifier(y) [62-63] [y]
+          GroupingItem [65-71] [x+y xy]
+            BinaryExpression(+) [65-68] [x+y]
+              PathExpression [65-66] [x]
+                Identifier(x) [65-66] [x]
+              PathExpression [67-68] [y]
+                Identifier(y) [67-68] [y]
+            Alias [69-71] [xy]
+              Identifier(xy) [69-71] [xy]
 --
-ERROR: Syntax error: Expected end of input but got identifier "y" [at 3:15]
-   GROUP BY x y
-              ^
+SELECT
+  1
+|> AGGREGATE
+     count(*) AS x,
+     count(*) AS z
+   GROUP BY x AS y, x + y AS xy
 ==
 
 # GROUPING_SETS, etc, don't support aliases.
@@ -133,46 +164,14 @@ ERROR: Syntax error: Expected ")" or "," but got keyword AS [at 3:34]
 ==
 
 # Now we replicate the same tests as above, in regular SQL syntax,
-# with FEATURE_PIPES turned on or off.  With the feature off, these are
-# rejected immediately in the grammar production.  With the feature on,
-# one case makes it through the parse, but will be rejected during analysis.
-# These tests are also in aggregation.test, without referencing FEATURE_PIPES.
+# with FEATURE_PIPES turned on or off.  Aliases in GROUP BY are
+# always rejected.
 [language_features={{PIPES|}}]
 select COUNT(*)
 from t
 GROUP BY x AS y
 --
-ALTERNATION GROUP: PIPES
---
-QueryStatement [0-38] [select COUNT...BY x AS y]
-  Query [0-38] [select COUNT...BY x AS y]
-    Select [0-38] [select COUNT...BY x AS y]
-      SelectList [7-15] [COUNT(*)]
-        SelectColumn [7-15] [COUNT(*)]
-          FunctionCall [7-15] [COUNT(*)]
-            PathExpression [7-12] [COUNT]
-              Identifier(COUNT) [7-12] [COUNT]
-            Star(*) [13-14] [*]
-      FromClause [16-22] [from t]
-        TablePathExpression [21-22] [t]
-          PathExpression [21-22] [t]
-            Identifier(t) [21-22] [t]
-      GroupBy [23-38] [GROUP BY x AS y]
-        GroupingItem [32-38] [x AS y]
-          PathExpression [32-33] [x]
-            Identifier(x) [32-33] [x]
-          Alias [34-38] [AS y]
-            Identifier(y) [37-38] [y]
---
-SELECT
-  COUNT(*)
-FROM
-  t
-GROUP BY x AS y
---
-ALTERNATION GROUP: <empty>
---
-ERROR: Syntax error: GROUP BY does not support aliases [at 3:12]
+ERROR: Syntax error: Expected end of input but got keyword AS [at 3:12]
 GROUP BY x AS y
            ^
 ==

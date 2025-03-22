@@ -22,6 +22,7 @@
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/id_string.h"
+#include "zetasql/public/type_parameters.pb.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/types/type_parameters.h"
@@ -32,6 +33,7 @@
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/status/statusor.h"
 
 namespace zetasql {
 

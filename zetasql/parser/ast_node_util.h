@@ -18,6 +18,7 @@
 #define ZETASQL_PARSER_AST_NODE_UTIL_H_
 
 #include "zetasql/parser/ast_node.h"
+#include "absl/status/statusor.h"
 
 namespace zetasql {
 // Returns the maximum depth of the parse tree from <node> to any leaf,

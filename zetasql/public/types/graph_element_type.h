@@ -110,6 +110,7 @@ class GraphElementType : public ListBackedType {
   // GraphElementType.
   absl::Span<const std::string> graph_reference() const;
 
+  // Returns a set of static property types.
   absl::Span<const PropertyType> property_types() const {
     return property_types_;
   }
@@ -154,6 +155,8 @@ class GraphElementType : public ListBackedType {
                                  /*use_external_float32=*/false);
   }
 
+  std::string CapitalizedName() const override;
+
   int nesting_depth() const override { return nesting_depth_; }
 
   bool IsSupportedType(const LanguageOptions& language_options) const override;
@@ -173,7 +176,8 @@ class GraphElementType : public ListBackedType {
   GraphElementType(const internal::GraphReference* graph_reference,
                    ElementKind element_kind, const TypeFactory* factory,
                    absl::flat_hash_set<PropertyType> property_types,
-                   int nesting_depth);
+                   int nesting_depth
+  );
 
   // Look up a property type by name.
   // Returns NULL if <name> is not found.
@@ -237,7 +241,7 @@ class GraphElementType : public ListBackedType {
   // Decides whether this is a node type or edge type.
   const ElementKind element_kind_;
 
-  // A set of accessible property types sorted by property type name.
+  // A set of static property types sorted by property type name.
   const std::vector<PropertyType> property_types_;
 
   // The deepest nesting depth in the type tree rooted at this GraphElementType,

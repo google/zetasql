@@ -328,14 +328,6 @@ QueryStmt
               +-$analytic1#6 := AnalyticFunctionCall(ZetaSQL:rank() -> INT64)
 ==
 
-from KeyValue
-|> select count(*) OVER w
---
-ERROR: Cannot reference a named window in pipe SELECT [at 2:25]
-|> select count(*) OVER w
-                        ^
-==
-
 select 1 z
 |> select @{hint1=1} z*2 as z
 |> select @{hint2=1} as struct 1 x, z*2 y

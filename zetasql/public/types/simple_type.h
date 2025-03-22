@@ -37,7 +37,6 @@
 namespace zetasql {
 
 class Value;
-class TypeFactory;
 class TypeModifiers;
 class TypeParameterValue;
 class TypeParameters;
@@ -48,7 +47,7 @@ class ValueProto;
 // except enum).
 class SimpleType : public Type {
  public:
-  SimpleType(const TypeFactory* factory, TypeKind kind);
+  SimpleType(const TypeFactoryBase* factory, TypeKind kind);
 #ifndef SWIG
   SimpleType(const SimpleType&) = delete;
   SimpleType& operator=(const SimpleType&) = delete;
@@ -70,6 +69,8 @@ class SimpleType : public Type {
     return TypeNameWithModifiers(type_modifiers, mode,
                                  /*use_external_float32=*/false);
   }
+
+  std::string CapitalizedName() const override;
 
   bool IsSupportedType(const LanguageOptions& language_options) const override;
 
@@ -165,9 +166,6 @@ class SimpleType : public Type {
   // representing a single token.
   static std::vector<std::string> FormatTokenLines(
       const ValueContent& value, const FormatValueContentOptions& options);
-
-  static void FormatTextToken(std::string& out, const tokens::TextToken& token,
-                              const FormatValueContentOptions& options);
 
   // Used for TYPE_TIMESTAMP.
   static absl::Time GetTimestampValue(const ValueContent& value);

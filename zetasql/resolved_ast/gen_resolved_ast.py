@@ -33,6 +33,7 @@ Example (Note the double quotes around each set of files):
 
 """
 
+import hashlib
 import operator
 import os.path
 import re
@@ -81,6 +82,22 @@ flags.DEFINE_spaceseplist('output_files', None, 'Space-separated list of output'
 
 flags.DEFINE_spaceseplist('data_files', [], 'Space-separated list of data files'
                           ' that templates can reference and load')
+
+_SHARD_NUMS = flags.DEFINE_multi_integer(
+    'shard_nums',
+    None,
+    'Shard numbers corresponding to the output files in the same order.',
+)
+
+_SHARD_COUNT = flags.DEFINE_integer(
+    'shard_count',
+    None,
+    'The number of files to split sharded output files into. The input file '
+    'list should already take this into account (sharded files should already '
+    'be multiplied in the input arguments based on the shard_count and have '
+    'shard_num filled in their names); this value can be used as a modulo '
+    'by templates to split content between shards.',
+)
 
 # Enums indicating whether a field can be ignored without breaking semantics.
 # If a field is not ignorable, and the user doesn't look at the field, then
@@ -297,11 +314,21 @@ SCALAR_MATCH_RECOGNIZE_PATTERN_ANCHOR_MODE = EnumScalarType(
 SCALAR_PROPERTY_GRAPH = ScalarType('const PropertyGraph*',
                                    'PropertyGraphRefProto', 'PropertyGraph')
 SCALAR_GRAPH_PROPERTY_DECLARATION = ScalarType(
-    'const GraphPropertyDeclaration*', 'GraphPropertyDeclarationRefProto',
-    'GraphPropertyDeclaration')
-SCALAR_GRAPH_ELEMENT_LABEL = ScalarType('const GraphElementLabel*',
-                                        'GraphElementLabelRefProto',
-                                        'GraphElementLabel')
+    'const GraphPropertyDeclaration*',
+    'GraphPropertyDeclarationRefProto',
+    'GraphPropertyDeclaration',
+    java_default='null',
+    cpp_default='nullptr',
+    not_serialize_if_default=True,
+)
+SCALAR_GRAPH_ELEMENT_LABEL = ScalarType(
+    'const GraphElementLabel*',
+    'GraphElementLabelRefProto',
+    'GraphElementLabel',
+    java_default='null',
+    cpp_default='nullptr',
+    not_serialize_if_default=True,
+)
 SCALAR_GRAPH_LOGICAL_OP_TYPE = EnumScalarType('GraphLogicalOpType',
                                               'ResolvedGraphLabelNaryExpr')
 SCALAR_EDGE_ORIENTATION = EnumScalarType('EdgeOrientation',
@@ -314,7 +341,11 @@ SCALAR_PATH_SEARCH_PREFIX = EnumScalarType(
     'PathSearchPrefixType', 'ResolvedGraphPathSearchPrefix'
 )
 
-SCALAR_INDEX_TYPE = EnumScalarType('IndexType', 'ResolvedDropIndexStmt')
+SCALAR_DROP_INDEX_TYPE = EnumScalarType('IndexType', 'ResolvedDropIndexStmt')
+SCALAR_ALTER_INDEX_TYPE = EnumScalarType(
+    'AlterIndexType', 'ResolvedAlterIndexStmt'
+)
+
 SCALAR_OPTIONS_ASSIGNMENT_OP = EnumScalarType(
     'AssignmentOp',
     'ResolvedOption',
@@ -326,6 +357,9 @@ SCALAR_LOCK_STRENGTH_TYPE = EnumScalarType(
     'ResolvedLockMode',
     cpp_default='UPDATE',
     java_default='LockStrengthType.UPDATE',
+)
+SCALAR_UPDATE_FIELD_ITEM_OP = EnumScalarType(
+    'Operation', 'ResolvedUpdateFieldItem'
 )
 
 
@@ -587,7 +621,7 @@ def Field(name,
 
 # You can use `tag_id=GetTempTagId()` until doing the final submit.
 # That will avoid merge conflicts when syncing in other changes.
-NEXT_NODE_TAG_ID = 286
+NEXT_NODE_TAG_ID = 298
 
 
 def GetTempTagId():
@@ -677,9 +711,15 @@ class TreeGenerator(object):
                           self.node_map[parent]['fields'])
 
     # Add position-related field members.
+    is_not_ignorable_bitmap = 0
+    is_ignorable_default_bitmap = 0
     for (pos, field) in enumerate(fields):
       field.update({'bitmap': '(1<<%d)' % pos})
       field.update({'builder_bitmap': pos + len(inherited_fields)})
+      if field['is_not_ignorable']:
+        is_not_ignorable_bitmap |= 1 << pos
+      if field['is_ignorable_default']:
+        is_ignorable_default_bitmap |= 1 << pos
 
     proto_type = '%sProto' % name
 
@@ -725,6 +765,8 @@ class TreeGenerator(object):
         'javadoc': JavaDoc(comment, indent=2),
         'fields': fields,
         'inherited_fields': inherited_fields,
+        'is_not_ignorable_bitmap': '%#x' % is_not_ignorable_bitmap,
+        'is_ignorable_default_bitmap': '%#x' % is_ignorable_default_bitmap,
         'extra_enum_defs': extra_enum_defs,
         'extra_defs': JoinSections(extra_enum_decls,
                                    CleanIndent(extra_defs, '  ')),
@@ -856,7 +898,8 @@ class TreeGenerator(object):
       if not node['is_abstract']:
         TraverseToRoot(node)
 
-  def Generate(self, input_file_paths, output_file_paths, data_files):
+  def Generate(self, input_file_paths, output_file_paths, shard_nums,
+               shard_count, data_files):
     """Materialize the templates to generate the output files."""
 
     def ShouldAutoescape(template_name):
@@ -1007,16 +1050,51 @@ class TreeGenerator(object):
         'root_child_nodes': self.root_child_nodes,
         'java_enum_classes': self._JavaEnumClasses(),
         'timestamp': time.ctime(),
+        'shard_count': shard_count,
     }
     assert len(input_file_paths) == len(output_file_paths)
+    assert len(input_file_paths) == len(shard_nums)
 
-    for (in_path, out_path) in zip(input_file_paths, output_file_paths):
-      if (os.path.basename(in_path) !=
-          os.path.basename(out_path) + '.template'):
-        logging.fatal(
-            'Input must match output with ".template" postfix.'
-            'Saw: input=%s output=%s', os.path.basename(in_path),
-            os.path.basename(out_path))
+    for (in_path, out_path, shard_num) in zip(
+        input_file_paths, output_file_paths, shard_nums):
+      if not in_path.endswith('.template'):
+        logging.fatal('Input file name must end with ".template". Saw: '
+                      'input=%s', in_path)
+      # TODO: b/388324854 - Apply with `str.removesuffix()` once ZetaSQL Python
+      # version is updated.
+      in_no_suffix = os.path.basename(in_path)[:-9]
+      in_prefix, in_extension = in_no_suffix.rsplit('.')
+      out_basename = os.path.basename(out_path)
+      if not out_basename.startswith(in_prefix):
+        logging.fatal('Output file name must start with the prefix "%s" from '
+                      'the input file name. Saw: input=%s output=%s', in_prefix,
+                      in_path, out_path)
+      if not out_basename.endswith('.' + in_extension):
+        logging.fatal('Output file name must end with the extension ".%s" from '
+                      'the input file name. Saw: input=%s output=%s',
+                      '.' + in_extension, in_path, out_path)
+
+      # Properties which change for each generated file based on the shard_num.
+      context['shard_num'] = shard_num
+      # Filter the node list to only those that are in the current shard.
+      # Whether a node is in the current shard is determined by
+      # deterministically hashing the node name to bucket into 1..shard_count
+      # shards.
+      # Used in templates like this:
+      #   for node in nodes | is_in_shard
+      def IsInShard(node_list, shard_num=shard_num):
+        if shard_count == 1:
+          return node_list
+        out = []
+        for node in node_list:
+          md5 = hashlib.md5()
+          md5.update(str.encode(node['name']))
+          hash_as_hex = md5.hexdigest()
+          bucket = (int(hash_as_hex, 16) % shard_count) + 1
+          if bucket == shard_num:
+            out.append(node)
+        return out
+      jinja_env.filters['is_in_shard'] = IsInShard
 
       template = jinja_env.get_template(in_path)
       out = open(out_path, 'wt')
@@ -1032,6 +1110,15 @@ def main(unused_argv):
     raise RuntimeError('Must provide an equal number of input and output files')
   if not input_templates:
     raise RuntimeError('Must specify at least one input-output pair')
+  if _SHARD_NUMS.value:
+    shard_nums = _SHARD_NUMS.value
+    if len(_SHARD_NUMS.value) != len(output_files):
+      raise RuntimeError('Must provide a --shard_num for each output file')
+  else:
+    # If not provided, we assume all shards are 1.
+    shard_nums = [1] * len(output_files)
+  if _SHARD_COUNT.value < 1:
+    raise RuntimeError('Must specify a positive --shard_count')
 
   gen = TreeGenerator()
 
@@ -1537,6 +1624,10 @@ def main(unused_argv):
       is_abstract=True,
       comment="""
       Common base class for analytic and aggregate function calls.
+
+      `where_expr` is a scalar filtering expression with standard column
+      visibility rules (columns from the input scan are visible, as are
+      correlated columns).
               """,
       fields=[
           Field(
@@ -1547,7 +1638,8 @@ def main(unused_argv):
               comment="""
               Apply DISTINCT to the stream of input values before calling
               function.
-                      """),
+                      """,
+          ),
           Field(
               'null_handling_modifier',
               SCALAR_NULL_HANDLING_MODIFIER_KIND,
@@ -1556,7 +1648,8 @@ def main(unused_argv):
               comment="""
               Apply IGNORE/RESPECT NULLS filtering to the stream of input
               values.
-                      """),
+                      """,
+          ),
           Field(
               'with_group_rows_subquery',
               'ResolvedScan',
@@ -1589,7 +1682,8 @@ def main(unused_argv):
               refer to correlated columns that are used as aggregation input in
               the immediate outer query. The same rules apply to
               <with_group_rows_parameter_list> as in ResolvedSubqueryExpr.
-                      """),
+                      """,
+          ),
           Field(
               'with_group_rows_parameter_list',
               'ResolvedColumnRef',
@@ -1599,8 +1693,22 @@ def main(unused_argv):
               is_constructor_arg=False,
               comment="""
               Correlated parameters to <with_group_rows_subquery>
-                      """),
-      ])
+                      """,
+          ),
+          Field(
+              'where_expr',
+              'ResolvedExpr',
+              tag_id=6,
+              ignorable=IGNORABLE_DEFAULT,
+              is_optional_constructor_arg=True,
+              comment="""
+              A scalar filtering expression to apply before supplying rows to
+              the function. Allowed only when FEATURE_V_1_4_AGGREGATE_FILTERING
+              is enabled.
+            """,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedAggregateFunctionCall',
@@ -1631,6 +1739,13 @@ def main(unused_argv):
       (e.g. DISTINCT, IGNORE / RESPECT NULLS, LIMIT, ORDER BY). These
       modifiers are applied on the output rows from the initial aggregation,
       as input to the final aggregation.
+
+      FEATURE_V_1_4_AGGREGATE_FILTERING enables aggregate filtering.
+      `where_expr` is applied before other aggregate function modifiers
+      (including any inner grouping specified by the `group_by_list`).
+      `having_expr` can only be present if `group_by_list` is also present,
+      and can only reference columns from the `group_by_list` and
+      `group_by_aggregate_list` (plus any correlated columns).
               """,
       fields=[
           Field(
@@ -1702,6 +1817,18 @@ def main(unused_argv):
               vector=True,
               is_optional_constructor_arg=True,
           ),
+          Field(
+              'having_expr',
+              'ResolvedExpr',
+              tag_id=9,
+              ignorable=IGNORABLE_DEFAULT,
+              is_optional_constructor_arg=True,
+              comment="""
+              A scalar filtering expression applied after computing columns in
+              the `group_by_list` and `group_by_aggregate_list`. Allowed only
+              when FEATURE_V_1_4_AGGREGATE_FILTERING is enabled.
+                      """,
+          ),
       ],
   )
 
@@ -1718,7 +1845,8 @@ def main(unused_argv):
 
       <window_frame> can be NULL.
               """,
-      fields=[Field('window_frame', 'ResolvedWindowFrame', tag_id=2)])
+      fields=[Field('window_frame', 'ResolvedWindowFrame', tag_id=2)],
+  )
 
   gen.AddNode(
       name='ResolvedExtendedCastElement',
@@ -4301,6 +4429,11 @@ value.
       * ResolvedGeneralizedQueryStmt is in SupportedStatementKinds in
         LanguageOptions.
 
+      If REWRITE_GENERALIZED_STMT is enabled, this node will always be replaced
+      with either a single ResolvedStatement (e.g. a ResolvedQueryStmt, a
+      ResolvedCreateTableStmt, etc) or a ResolvedMultiStmt (if the generalized
+      statement expands to multi-statement script, possibly using temp tables).
+
       `output_schema` is nullable, and will be null if the outer `query`
       doesn't return a table.
 
@@ -4311,6 +4444,58 @@ value.
       fields=[
           Field('output_schema', 'ResolvedOutputSchema', tag_id=2),
           Field('query', 'ResolvedScan', tag_id=3),
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedMultiStmt',
+      tag_id=287,
+      parent='ResolvedStatement',
+      comment="""
+      This statement contains a list of statements that execute like a script.
+      This is never produced by the resolver directly.  This is only
+      produced by the REWRITE_GENERALIZED_STMT rewrite which replaces
+      ResolvedGeneralizedQueryStmt with multi-statement expansions.
+
+      This is used because rewriters cannot directly rewrite one statement
+      into multiple statements.  Instead, the rewriter generates this node,
+      which has a list of sub-statements inside it.
+
+      The statements can include ResolvedCreateWithEntryStmts, which store the
+      result of a sub-statement query as a CTE.  It can be referenced in later
+      statements inside this ResolvedMultiStmt using ResolvedWithRefScan.
+
+      Rules:
+      * `statement_list` will contain at least two statements.
+      * `statement_list` cannot contain a nested ResolvedMultiStmt.
+
+      Additional semantics to note:
+      * If contained inside a ResolvedExplainStmt, all contained statements
+        should be explained, either individually or together.
+              """,
+      fields=[
+          Field('statement_list', 'ResolvedStatement', tag_id=2, vector=True),
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedCreateWithEntryStmt',
+      tag_id=288,
+      parent='ResolvedStatement',
+      comment="""
+      This statement creates a CTE (a WITH query definition) inside a
+      ResolvedMultiStmt.  This can only occur inside ResolvedMultiStmt.
+
+      This executes like the definition part of a ResolvedWithScan, without a
+      final query.
+
+      The created CTE is visible in later statements in the ResolvedMultiStmt.
+
+      The CTE can be recursive.  This is indicated by an outer scan of type
+      ResolvedRecursiveScan in the ResolvedWithEntry.
+              """,
+      fields=[
+          Field('with_entry', 'ResolvedWithEntry', tag_id=2),
       ],
   )
 
@@ -4784,6 +4969,12 @@ value.
         [OPTIONS (...)]
         AS SELECT ...
 
+      Also used for the pipe operator
+        |> CREATE [TEMP] TABLE ...
+      which also has the same optional modifiers, but no AS query.
+      This occurs inside ResolvedPipeCreateTableScan, with the pipe
+      input stored in `query`.  All other modifier fields are allowed.
+
       The <output_column_list> matches 1:1 with the <column_definition_list> in
       ResolvedCreateTableStmtBase, and maps ResolvedColumns produced by <query>
       into specific columns of the created table.  The output column names and
@@ -4805,20 +4996,24 @@ value.
               'ResolvedExpr',
               tag_id=5,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'cluster_by_list',
               'ResolvedExpr',
               tag_id=6,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'output_column_list',
               'ResolvedOutputColumn',
               tag_id=2,
-              vector=True),
-          Field('query', 'ResolvedScan', tag_id=3)
-      ])
+              vector=True,
+          ),
+          Field('query', 'ResolvedScan', tag_id=3),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedCreateModelAliasedQuery',
@@ -5217,8 +5412,11 @@ value.
       comment="""
       This statement:
         EXPORT DATA [WITH CONNECTION] <connection> (<option_list>) AS SELECT ...
-      or this pipe operator (without a query, in ResolvedPipeExportDataScan):
+
+      Also used for the pipe operator
         |> EXPORT DATA [WITH CONNECTION] <connection> (<option_list>)
+      This occurs inside ResolvedPipeExportDataScan, with the pipe
+      input stored in `query`.  All other modifier fields are allowed.
 
       This is used to run export a query result somewhere without giving the
       result a table name.
@@ -5580,12 +5778,12 @@ value.
       parent='ResolvedScan',
       comment="""
       Scan the previous iteration of the recursive alias currently being
-      defined, from inside the recursive subquery which defines it. Such nodes
-      can exist only in the recursive term of a ResolvedRecursiveScan node.
-      The column_list produced here will match 1:1 with the column_list produced
-      by the referenced subquery and will be given a new unique name to each
-      column produced for this scan.
-              """,
+      defined, from inside the recursive subquery which defines it. For a
+      ResolvedRecursiveScan node, its corresponding ResolvedRecursiveRefScan
+      appears under its recursive term. The column_list produced here will match
+      1:1 with the column_list produced by the referenced subquery and will be
+      given a new unique name to each column produced for this scan.
+      """,
       fields=[])
 
   gen.AddNode(
@@ -5593,9 +5791,10 @@ value.
       tag_id=256,
       parent='ResolvedArgument',
       comment="""
-        This represents a recursion depth modifier to recursive CTE:
-          WITH DEPTH [ AS <recursion_depth_column> ]
-                     [ BETWEEN <lower_bound> AND <upper_bound> ]
+      This represents a recursion depth modifier to recursive CTE or a pipe
+      RECURSIVE UNION:
+        WITH DEPTH [ AS <recursion_depth_column> ]
+                   [ BETWEEN <lower_bound> AND <upper_bound> ]
 
       <lower_bound> and <upper_bound> represents the range of iterations (both
       side included) whose results are part of CTE's final output.
@@ -5611,7 +5810,7 @@ value.
       <recursion_depth_column> is the column that represents the
       recursion depth semantics: the iteration number that outputs this row;
       it is part of ResolvedRecursiveScan's column list when specified, but
-      there is no corresponding column in the inputs of Recursive CTE.
+      there is no corresponding column in the inputs of Recursive query.
 
       See (broken link):explicit-recursion-depth for details.
       """,
@@ -5641,15 +5840,16 @@ value.
       tag_id=148,
       parent='ResolvedScan',
       comment="""
-      A recursive query inside a WITH RECURSIVE or RECURSIVE VIEW. A
-      ResolvedRecursiveScan may appear in a resolved tree only as a top-level
-      input scan of a ResolvedWithEntry or ResolvedCreateViewBase.
+      A recursive query inside a WITH RECURSIVE, RECURSIVE VIEW, or a pipe
+      RECURSIVE UNION.
 
-      Recursive queries must satisfy the form:
-          <non-recursive-query> UNION [ALL|DISTINCT] <recursive-query>
+      Recursive queries must satisfy one of the following forms:
+        (1) <non-recursive-term> [|> ]UNION [ALL|DISTINCT] <recursive-term>
+        (2) <non-recursive-term> |> RECURSIVE UNION [ALL|DISTINCT]
+            <recursive-term>
 
       where self-references to table being defined are allowed only in the
-      <recursive-query> section.
+      <recursive-term> section.
 
       <column_list> is a set of new ResolvedColumns created by this scan.
       Each input ResolvedSetOperationItem has an <output_column_list> which
@@ -5686,7 +5886,8 @@ value.
         directly references itself; ZetaSQL does not support mutual recursion
         between multiple with-clause elements.
 
-      See (broken link) for details.
+      See (broken link) and (broken link) for
+      details.
       """,
       fields=[
           Field('op_type', SCALAR_RECURSIVE_SET_OPERATION_TYPE, tag_id=2),
@@ -6194,6 +6395,12 @@ value.
       This represents an INSERT statement, or a nested INSERT inside an
       UPDATE statement.
 
+      It's also used for the pipe operator
+        |> INSERT INTO table ...
+      which supports all the same optional modifier fields, but cannot include a
+      query or VALUES.  This occurs inside ResolvedPipeInsertScan, with the
+      pipe input stored in `query`.
+
       For top-level INSERT statements, <table_scan> gives the table to
       scan and creates ResolvedColumns for its columns.  Those columns can be
       referenced in <insert_column_list>.
@@ -6253,7 +6460,8 @@ value.
               'table_scan',
               'ResolvedTableScan',
               tag_id=2,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'insert_mode',
               SCALAR_INSERT_MODE,
@@ -6262,46 +6470,49 @@ value.
               comment="""
               Behavior on duplicate rows (normally defined to mean duplicate
               primary keys).
-                      """),
+                      """,
+          ),
           Field(
               'assert_rows_modified',
               'ResolvedAssertRowsModified',
               tag_id=4,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'returning',
               'ResolvedReturningClause',
               tag_id=10,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'insert_column_list',
               SCALAR_RESOLVED_COLUMN,
               tag_id=5,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'query_parameter_list',
               'ResolvedColumnRef',
               vector=True,
               ignorable=IGNORABLE_DEFAULT,
-              tag_id=9),
-          Field(
-              'query',
-              'ResolvedScan',
-              tag_id=6,
-              ignorable=IGNORABLE_DEFAULT),
+              tag_id=9,
+          ),
+          Field('query', 'ResolvedScan', tag_id=6, ignorable=IGNORABLE_DEFAULT),
           Field(
               'query_output_column_list',
               SCALAR_RESOLVED_COLUMN,
               tag_id=8,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'row_list',
               'ResolvedInsertRow',
               tag_id=7,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'column_access_list',
               SCALAR_OBJECT_ACCESS,
@@ -6309,12 +6520,14 @@ value.
               ignorable=IGNORABLE,
               vector=True,
               is_constructor_arg=False,
-              java_to_string_method='toStringObjectAccess'),
+              java_to_string_method='toStringObjectAccess',
+          ),
           Field(
               'on_conflict_clause',
               'ResolvedOnConflictClause',
               tag_id=16,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'topologically_sorted_generated_column_id_list',
               SCALAR_INT,
@@ -6340,7 +6553,8 @@ value.
                 *  ------------------------------->gen3
               the vector would have corresponding indexes of one of these values
               gen1 gen2 gen3 OR gen1 gen3 gen2.
-              """),
+              """,
+          ),
           Field(
               'generated_column_expr_list',
               'ResolvedExpr',
@@ -6357,11 +6571,13 @@ value.
               from the catalog since these expressions are rewritten to replace
               the ResolvedExpressionColumn for the referred columns in the
               catalog to corresponding ResolvedColumnRef.
-              """)
+              """,
+          ),
       ],
       extra_defs="""
   std::string GetInsertModeString() const;
-  static std::string InsertModeToString(InsertMode boundary_type);""")
+  static std::string InsertModeToString(InsertMode boundary_type);""",
+  )
 
   gen.AddNode(
       name='ResolvedDeleteStmt',
@@ -7076,6 +7292,38 @@ value.
       fields=[])
 
   gen.AddNode(
+      name='ResolvedAlterIndexStmt',
+      tag_id=292,
+      parent='ResolvedAlterObjectStmt',
+      comment="""
+      This statement:
+        ALTER [SEARCH|VECTOR] INDEX [IF EXISTS] <name_path> [ON <table_name_path>] <alter_action_list>
+      (broken link)
+
+      <table_name_path> is the name of table being indexed.
+      <index_type> is the type of index being altered.
+      <table_scan> is a TableScan on the table being indexed.
+
+      Note: ALTER INDEX without SEARCH or VECTOR curerently is not resolved to this node.
+              """,
+      fields=[
+          Field('table_name_path', SCALAR_STRING, tag_id=2, vector=True),
+          Field(
+              'index_type',
+              SCALAR_ALTER_INDEX_TYPE,
+              ignorable=IGNORABLE_DEFAULT,
+              tag_id=3,
+          ),
+          Field(
+              'table_scan', 'ResolvedTableScan', tag_id=4, ignorable=IGNORABLE
+          ),
+      ],
+      extra_defs="""
+  std::string GetAlterIndexTypeString() const;
+  static std::string AlterIndexTypeToString(AlterIndexType index_type);""",
+  )
+
+  gen.AddNode(
       name='ResolvedAlterMaterializedViewStmt',
       tag_id=127,
       parent='ResolvedAlterObjectStmt',
@@ -7297,6 +7545,38 @@ value.
           Field(
               'column_definition', 'ResolvedColumnDefinition', tag_id=3)
       ])
+
+  gen.AddNode(
+      name='ResolvedAddColumnIdentifierAction',
+      tag_id=293,
+      parent='ResolvedAlterAction',
+      comment="""
+      ADD COLUMN action for ALTER VECTOR|SEARCH INDEX statement
+      (broken link)
+
+      Note: Different from ResolvedAddColumnAction, this action is used for
+      adding an existing column in table to an index, so it doesn't need column
+      definition or other fields in ASTAddColumnAction.
+              """,
+      fields=[
+          Field('name', SCALAR_STRING, tag_id=2),
+          Field('options_list', 'ResolvedOption', tag_id=3, vector=True),
+          Field('is_if_not_exists', SCALAR_BOOL, tag_id=4),
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedRebuildAction',
+      tag_id=294,
+      parent='ResolvedAlterAction',
+      comment="""
+      REBUILD action for ALTER VECTOR|SEARCH INDEX statement.
+      (broken link)
+
+      This action has to be the last action in the alter action list.
+      """,
+      fields=[],
+  )
 
   gen.AddNode(
       name='ResolvedAddConstraintAction',
@@ -7781,7 +8061,7 @@ value.
               vector=True),
           Field(
               'index_type',
-              SCALAR_INDEX_TYPE,
+              SCALAR_DROP_INDEX_TYPE,
               ignorable=IGNORABLE_DEFAULT,
               tag_id=5,
           ),
@@ -9399,6 +9679,35 @@ ResolvedArgumentRef(y)
               The outputs as defined in the MEASURES clause.
               """,
           ),
+          Field(
+              'match_number_column',
+              SCALAR_RESOLVED_COLUMN,
+              tag_id=10,
+              comment="""
+              The assigned column for the match number. Always typed as INT64.
+              Visible to the MEASURES clause.
+              """,
+          ),
+          Field(
+              'match_row_number_column',
+              SCALAR_RESOLVED_COLUMN,
+              tag_id=11,
+              comment="""
+              The assigned column for the row's number within the current match.
+              Always typed as INT64.
+              Visible to the MEASURES clause.
+              """,
+          ),
+          Field(
+              'classifier_column',
+              SCALAR_RESOLVED_COLUMN,
+              tag_id=12,
+              comment="""
+              The assigned column for the variable assigned to the current row
+              in the match. Always typed as STRING.
+              Visible to the MEASURES clause.
+              """,
+          ),
       ],
   )
 
@@ -9985,13 +10294,15 @@ ResolvedArgumentRef(y)
           """,
       fields=[
           Field('alias', SCALAR_STRING, tag_id=2),
-          Field('input_scan',
-                'ResolvedScan',
-                tag_id=3,
-                comment="""
+          Field(
+              'input_scan',
+              'ResolvedScan',
+              tag_id=3,
+              comment="""
                 ResolvedScan of the underlying table, view etc for column
                 references in key_list and source/dest_node_reference.
-                        """),
+                        """,
+          ),
           Field(
               'key_list',
               'ResolvedExpr',
@@ -10283,9 +10594,18 @@ ResolvedArgumentRef(y)
         graph pattern match by grouping the resulting paths by their
         endpoints (the first and last vertices) and makes a selection of
         paths from each group.
+        <path_count> is the number of paths to select from each group. It must
+        be a non-negative integer literal or parameter of type INT64. If not
+        specified, only one path is selected from each group.
       """,
       fields=[
           Field('type', SCALAR_PATH_SEARCH_PREFIX, tag_id=2),
+          Field(
+              'path_count',
+              'ResolvedExpr',
+              tag_id=3,
+              ignorable=IGNORABLE_DEFAULT,
+          ),
       ],
   )
 
@@ -10386,13 +10706,17 @@ ResolvedArgumentRef(y)
       tag_id=210,
       parent='ResolvedExpr',
       comment="""
-      Get property <property_name> from the graph element in <expr>. <expr> must
-      be of GraphElementType.
+      Get a property from the graph element in `expr`. `expr` must be of
+      GraphElementType.
               """,
       fields=[
           Field('expr', 'ResolvedExpr', tag_id=2),
           Field(
-              'property', SCALAR_GRAPH_PROPERTY_DECLARATION, tag_id=3),
+              'property',
+              SCALAR_GRAPH_PROPERTY_DECLARATION,
+              tag_id=3,
+              ignorable=IGNORABLE_DEFAULT,
+          ),
       ])
 
   gen.AddNode(
@@ -10445,17 +10769,18 @@ ResolvedArgumentRef(y)
       tag_id=213,
       parent='ResolvedGraphLabelExpr',
       comment="""
-      This represents a single resolved graph label. A label is an element
-      belonging to a property graph that has a unique name identifier and
-      references a set of property declarations. An element table with
-      a given label exposes all the properties declared by that label.
+      This represents a single resolved graph label.
+
+      A label is an element belonging to a property graph that has a unique
+      name identifier.
               """,
       fields=[
           Field(
               'label',
               SCALAR_GRAPH_ELEMENT_LABEL,
               tag_id=2,
-              comment='Points to a label in the catalog')
+              ignorable=IGNORABLE_DEFAULT,
+              comment='Points to a label in the catalog'),
       ])
 
   gen.AddNode(
@@ -10516,12 +10841,13 @@ ResolvedArgumentRef(y)
       tag_id=219,
       parent='ResolvedExpr',
       comment="""
-          Constructs a graph element. <type> is always a GraphElementType.
+      Constructs a graph element.
 
-          <identifier> uniquely identifies a graph element in the graph;
-          <property_list> contains a list of properties and their definitions;
-          <label_list> contains a list of label catalog objects that are exposed
-            by the graph element.
+      `type` is always a GraphElementType.
+      `identifier` uniquely identifies a graph element in the graph.
+      `label_list` contains all static labels.
+      `property_list` contains all static properties and their definitions.
+
       """,
       fields=[
           Field('identifier', 'ResolvedGraphElementIdentifier', tag_id=2),
@@ -10529,11 +10855,13 @@ ResolvedArgumentRef(y)
               'property_list',
               'ResolvedGraphElementProperty',
               tag_id=3,
+              ignorable=IGNORABLE_DEFAULT,
               vector=True),
           Field(
               'label_list',
               SCALAR_GRAPH_ELEMENT_LABEL,
               tag_id=4,
+              ignorable=IGNORABLE_DEFAULT,
               vector=True,
               java_to_string_method='toStringCommaSeparatedForGraphElementLabel'
           ),
@@ -11015,6 +11343,38 @@ ResolvedArgumentRef(y)
 
       This only occurs inside ResolvedGeneralizedQueryStmts, so that statement
       must be enabled in SupportedStatementKinds.
+
+      This terminates the main pipeline.
+      Each subpipeline runs over the result of `input_scan`.
+
+      `subpipeline_list` must have at least one entry.
+      """,
+      fields=[
+          Field('input_scan', 'ResolvedScan', tag_id=2),
+          Field(
+              'subpipeline_list',
+              'ResolvedGeneralizedQuerySubpipeline',
+              tag_id=3,
+              vector=True,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedPipeTeeScan',
+      tag_id=289,
+      parent='ResolvedScan',
+      comment="""
+      This represents the pipe TEE operator, which is controlled by
+      FEATURE_PIPE_TEE.  See (broken link).
+
+      This only occurs inside ResolvedGeneralizedQueryStmts, so that statement
+      must be enabled in SupportedStatementKinds.
+
+      Each subpipeline runs over the result of `input_scan`.
+      Then this scan returns its input table and the main pipeline continues.
+
+      `subpipeline_list` must have at least one entry.
       """,
       fields=[
           Field('input_scan', 'ResolvedScan', tag_id=2),
@@ -11037,13 +11397,72 @@ ResolvedArgumentRef(y)
 
       This only occurs inside ResolvedGeneralizedQueryStmts, so that statement
       must be enabled in SupportedStatementKinds.
+
+      The pipe input is in `export_data_stmt->query`, which must be present.
       """,
       fields=[
-          Field('input_scan', 'ResolvedScan', tag_id=2),
           Field(
               'export_data_stmt',
               'ResolvedExportDataStmt',
-              tag_id=3,
+              tag_id=2,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedPipeCreateTableScan',
+      tag_id=286,
+      parent='ResolvedScan',
+      comment="""
+      This represents the pipe CREATE TABLE operator, which is controlled by
+      FEATURE_PIPE_CREATE_TABLE.
+
+      This only occurs inside ResolvedGeneralizedQueryStmts, so that statement
+      must be enabled in SupportedStatementKinds.
+
+      The pipe input is in `create_table_as_select_stmt->query`, which must be
+      present.
+      """,
+      fields=[
+          Field(
+              'create_table_as_select_stmt',
+              'ResolvedCreateTableAsSelectStmt',
+              tag_id=2,
+              comment="""
+              This uses ResolvedCreateTableAsSelectStmt rather than
+              ResolvedCreateTableStmt even though the SQL doesn't include a
+              query.
+
+              ResolvedCreateTableAsSelectStmt is a more accurate description of
+              what this actually does, and what this Scan can be rewritten into.
+              The node's `query` stores the pipe input query.
+
+              ResolvedCreateTableStmt includes features like COPY and CLONE that
+              don't make senes when there's an input table, including a pipe
+              input table.
+              """,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedPipeInsertScan',
+      tag_id=297,
+      parent='ResolvedScan',
+      comment="""
+      This represents the pipe INSERT operator, which is controlled by
+      FEATURE_PIPE_INSERT.  See (broken link).
+
+      This only occurs inside ResolvedGeneralizedQueryStmts, so that statement
+      must be enabled in SupportedStatementKinds.
+
+      The pipe input is in `insert_stmt->query`, which must be present.
+      """,
+      fields=[
+          Field(
+              'insert_stmt',
+              'ResolvedInsertStmt',
+              tag_id=2,
           ),
       ],
   )
@@ -11106,8 +11525,9 @@ ResolvedArgumentRef(y)
       tag_id=284,
       parent='ResolvedArgument',
       comment="""
-      This represents a subpipeline that is part of a ResolvedGeneralizedQueryStmt
-      and could produce an output table or a statement side-effect.
+      This represents a subpipeline that is part of a
+      ResolvedGeneralizedQueryStmt and could produce an output table or a
+      statement side-effect.
       This node can only occur inside a ResolvedGeneralizedQueryStmt.
 
       These subpipelines occur inside operators like FORK that create
@@ -11203,9 +11623,91 @@ ResolvedArgumentRef(y)
       ],
   )
 
+  gen.AddNode(
+      name='ResolvedUpdateFieldItem',
+      tag_id=295,
+      parent='ResolvedArgument',
+      comment="""
+      Represents the state for a single update operation for an UPDATE
+      constructor.
+      """,
+      fields=[
+          Field(
+              'expr',
+              'ResolvedExpr',
+              tag_id=2,
+              comment="""
+              The value that the final field in <proto_field_path> will be set
+              to.
+
+              If <expr> is NULL, the field will be unset. If <proto_field_path>
+              is a required field, the engine must return an error if it is set
+              to NULL.
+              """,
+          ),
+          Field(
+              'proto_field_path',
+              SCALAR_FIELD_DESCRIPTOR,
+              tag_id=3,
+              vector=True,
+              to_string_method='ToStringVectorFieldDescriptor',
+              java_to_string_method=(
+                  'toStringPeriodSeparatedForFieldDescriptors'
+              ),
+              comment="""
+              A vector of FieldDescriptors that denotes the path to a proto
+              field that will be modified. Detailed semantics of how these work:
+              http://shortn/_54wG2DOuZg.
+              """,
+          ),
+          Field(
+              'operation',
+              SCALAR_UPDATE_FIELD_ITEM_OP,
+              tag_id=4,
+              comment="""
+              The operation that should be used to apply <expr> to
+              <proto_field_path>.
+              """,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedUpdateConstructor',
+      tag_id=296,
+      parent='ResolvedExpr',
+      comment="""
+      Represents an UPDATE constructor node. Details:
+      (broken link).
+      """,
+      fields=[
+          Field(
+              'expr',
+              'ResolvedExpr',
+              tag_id=2,
+              comment="""The protocol buffer to modify.""",
+          ),
+          # TODO: Make alias non-ignorable after implementing name
+          # scoping.
+          Field('alias', SCALAR_STRING, tag_id=3, ignorable=IGNORABLE),
+          Field(
+              'update_field_item_list',
+              'ResolvedUpdateFieldItem',
+              tag_id=4,
+              vector=True,
+              comment="""
+              A vector of field updates that should be applied to the protocol
+              buffer that is being modified.
+              """,
+          ),
+      ],
+  )
+
   gen.Generate(
       input_file_paths=input_templates,
       output_file_paths=output_files,
+      shard_nums=shard_nums,
+      shard_count=_SHARD_COUNT.value,
       data_files=data_files)
 
 if __name__ == '__main__':

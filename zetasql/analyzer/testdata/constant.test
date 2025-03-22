@@ -1,34 +1,3 @@
-# Constants cannot referenced in the LIMIT clause.
-[language_features={{V_1_4_LIMIT_OFFSET_EXPRESSIONS|}}]
-SELECT 1 FROM KeyValue limit TestConstantInt64 OFFSET TestConstantInt64;
---
-ALTERNATION GROUP: V_1_4_LIMIT_OFFSET_EXPRESSIONS
---
-QueryStmt
-+-output_column_list=
-| +-$query.$col1#3 AS `$col1` [INT64]
-+-query=
-  +-LimitOffsetScan
-    +-column_list=[$query.$col1#3]
-    +-input_scan=
-    | +-ProjectScan
-    |   +-column_list=[$query.$col1#3]
-    |   +-expr_list=
-    |   | +-$col1#3 := Literal(type=INT64, value=1)
-    |   +-input_scan=
-    |     +-TableScan(table=KeyValue)
-    +-limit=
-    | +-Constant(TestConstantInt64, type=INT64, value=1)
-    +-offset=
-      +-Constant(TestConstantInt64, type=INT64, value=1)
---
-ALTERNATION GROUP: <empty>
---
-ERROR: LIMIT expects an integer literal or parameter [at 1:30]
-SELECT 1 FROM KeyValue limit TestConstantInt64 OFFSET TestConstantInt64;
-                             ^
-==
-
 # References to known constants resolve correctly.
 SELECT TestConstantInt64;
 --
@@ -797,13 +766,13 @@ SELECT {{tvf_no_args()|tvf_exactly_1_int64_arg(443)}}
 --
 ALTERNATION GROUP: tvf_no_args()
 --
-ERROR: Function not found: tvf_no_args [at 1:8]
+ERROR: Table-valued function is not expected here: tvf_no_args [at 1:8]
 SELECT tvf_no_args()
        ^
 --
 ALTERNATION GROUP: tvf_exactly_1_int64_arg(443)
 --
-ERROR: Function not found: tvf_exactly_1_int64_arg [at 1:8]
+ERROR: Table-valued function is not expected here: tvf_exactly_1_int64_arg [at 1:8]
 SELECT tvf_exactly_1_int64_arg(443)
        ^
 ==
@@ -1128,3 +1097,18 @@ QueryStmt
     |     +-field_idx=0
     +-input_scan=
       +-SingleRowScan
+==
+
+[prepare_database=db]
+create constant local_constant_int64 = 1 + 2 * 3;
+--
+CreateConstantStmt
++-name_path=local_constant_int64
++-expr=
+  +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    +-Literal(type=INT64, value=1)
+    +-FunctionCall(ZetaSQL:$multiply(INT64, INT64) -> INT64)
+      +-Literal(type=INT64, value=2)
+      +-Literal(type=INT64, value=3)
+==
+

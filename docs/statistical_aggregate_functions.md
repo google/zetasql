@@ -105,7 +105,7 @@ To learn about the syntax for aggregate function calls, see
 
 ## `CORR`
 
-```sql
+```zetasql
 CORR(
   X1, X2
   [ HAVING { MAX | MIN } expression2 ]
@@ -173,7 +173,7 @@ To learn more about the `OVER` clause and how to use it, see
 
 **Examples**
 
-```sql
+```zetasql
 SELECT CORR(y, x) AS results
 FROM
   UNNEST(
@@ -189,7 +189,7 @@ FROM
  *--------------------*/
 ```
 
-```sql
+```zetasql
 SELECT CORR(y, x) AS results
 FROM
   UNNEST(
@@ -205,7 +205,7 @@ FROM
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT CORR(y, x) AS results
 FROM UNNEST([STRUCT(1.0 AS y, NULL AS x),(9.0, 3.0)])
 
@@ -216,7 +216,7 @@ FROM UNNEST([STRUCT(1.0 AS y, NULL AS x),(9.0, 3.0)])
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT CORR(y, x) AS results
 FROM UNNEST([STRUCT(1.0 AS y, NULL AS x),(9.0, NULL)])
 
@@ -227,7 +227,7 @@ FROM UNNEST([STRUCT(1.0 AS y, NULL AS x),(9.0, NULL)])
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT CORR(y, x) AS results
 FROM
   UNNEST(
@@ -245,7 +245,7 @@ FROM
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT CORR(x, y) AS results
 FROM
   (
@@ -265,7 +265,7 @@ FROM
 
 ## `COVAR_POP`
 
-```sql
+```zetasql
 COVAR_POP(
   X1, X2
   [ HAVING { MAX | MIN } expression2 ]
@@ -331,7 +331,7 @@ To learn more about the `OVER` clause and how to use it, see
 
 **Examples**
 
-```sql
+```zetasql
 SELECT COVAR_POP(y, x) AS results
 FROM
   UNNEST(
@@ -349,7 +349,7 @@ FROM
  *---------------------*/
 ```
 
-```sql
+```zetasql
 SELECT COVAR_POP(y, x) AS results
 FROM UNNEST([STRUCT(1.0 AS y, NULL AS x),(9.0, 3.0)])
 
@@ -360,7 +360,7 @@ FROM UNNEST([STRUCT(1.0 AS y, NULL AS x),(9.0, 3.0)])
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT COVAR_POP(y, x) AS results
 FROM UNNEST([STRUCT(1.0 AS y, NULL AS x),(9.0, NULL)])
 
@@ -371,7 +371,7 @@ FROM UNNEST([STRUCT(1.0 AS y, NULL AS x),(9.0, NULL)])
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT COVAR_POP(y, x) AS results
 FROM
   UNNEST(
@@ -389,7 +389,7 @@ FROM
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT COVAR_POP(y, x) AS results
 FROM
   UNNEST(
@@ -411,7 +411,7 @@ FROM
 
 ## `COVAR_SAMP`
 
-```sql
+```zetasql
 COVAR_SAMP(
   X1, X2
   [ HAVING { MAX | MIN } expression2 ]
@@ -481,7 +481,7 @@ To learn more about the `OVER` clause and how to use it, see
 
 **Examples**
 
-```sql
+```zetasql
 SELECT COVAR_SAMP(y, x) AS results
 FROM
   UNNEST(
@@ -499,7 +499,7 @@ FROM
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT COVAR_SAMP(y, x) AS results
 FROM
   UNNEST(
@@ -517,7 +517,7 @@ FROM
  *----------------------*/
 ```
 
-```sql
+```zetasql
 SELECT COVAR_SAMP(y, x) AS results
 FROM UNNEST([STRUCT(1.0 AS y, NULL AS x),(9.0, 3.0)])
 
@@ -528,7 +528,7 @@ FROM UNNEST([STRUCT(1.0 AS y, NULL AS x),(9.0, 3.0)])
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT COVAR_SAMP(y, x) AS results
 FROM UNNEST([STRUCT(1.0 AS y, NULL AS x),(9.0, NULL)])
 
@@ -539,7 +539,7 @@ FROM UNNEST([STRUCT(1.0 AS y, NULL AS x),(9.0, NULL)])
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT COVAR_SAMP(y, x) AS results
 FROM
   UNNEST(
@@ -561,7 +561,7 @@ FROM
 
 ## `STDDEV`
 
-```sql
+```zetasql
 STDDEV(
   [ DISTINCT ]
   expression
@@ -588,7 +588,7 @@ An alias of [STDDEV_SAMP][stat-agg-link-to-stddev-samp].
 
 ## `STDDEV_POP`
 
-```sql
+```zetasql
 STDDEV_POP(
   [ DISTINCT ]
   expression
@@ -660,7 +660,7 @@ To learn more about the `OVER` clause and how to use it, see
 
 **Examples**
 
-```sql
+```zetasql
 SELECT STDDEV_POP(x) AS results FROM UNNEST([10, 14, 18]) AS x
 
 /*-------------------*
@@ -670,7 +670,7 @@ SELECT STDDEV_POP(x) AS results FROM UNNEST([10, 14, 18]) AS x
  *-------------------*/
 ```
 
-```sql
+```zetasql
 SELECT STDDEV_POP(x) AS results FROM UNNEST([10, 14, NULL]) AS x
 
 /*---------*
@@ -680,7 +680,7 @@ SELECT STDDEV_POP(x) AS results FROM UNNEST([10, 14, NULL]) AS x
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT STDDEV_POP(x) AS results FROM UNNEST([10, NULL]) AS x
 
 /*---------*
@@ -690,7 +690,7 @@ SELECT STDDEV_POP(x) AS results FROM UNNEST([10, NULL]) AS x
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT STDDEV_POP(x) AS results FROM UNNEST([NULL]) AS x
 
 /*---------*
@@ -700,7 +700,7 @@ SELECT STDDEV_POP(x) AS results FROM UNNEST([NULL]) AS x
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT STDDEV_POP(x) AS results FROM UNNEST([10, 14, CAST('Infinity' as DOUBLE)]) AS x
 
 /*---------*
@@ -714,7 +714,7 @@ SELECT STDDEV_POP(x) AS results FROM UNNEST([10, 14, CAST('Infinity' as DOUBLE)]
 
 ## `STDDEV_SAMP`
 
-```sql
+```zetasql
 STDDEV_SAMP(
   [ DISTINCT ]
   expression
@@ -782,7 +782,7 @@ To learn more about the `OVER` clause and how to use it, see
 
 **Examples**
 
-```sql
+```zetasql
 SELECT STDDEV_SAMP(x) AS results FROM UNNEST([10, 14, 18]) AS x
 
 /*---------*
@@ -792,7 +792,7 @@ SELECT STDDEV_SAMP(x) AS results FROM UNNEST([10, 14, 18]) AS x
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT STDDEV_SAMP(x) AS results FROM UNNEST([10, 14, NULL]) AS x
 
 /*--------------------*
@@ -802,7 +802,7 @@ SELECT STDDEV_SAMP(x) AS results FROM UNNEST([10, 14, NULL]) AS x
  *--------------------*/
 ```
 
-```sql
+```zetasql
 SELECT STDDEV_SAMP(x) AS results FROM UNNEST([10, NULL]) AS x
 
 /*---------*
@@ -812,7 +812,7 @@ SELECT STDDEV_SAMP(x) AS results FROM UNNEST([10, NULL]) AS x
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT STDDEV_SAMP(x) AS results FROM UNNEST([NULL]) AS x
 
 /*---------*
@@ -822,7 +822,7 @@ SELECT STDDEV_SAMP(x) AS results FROM UNNEST([NULL]) AS x
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT STDDEV_SAMP(x) AS results FROM UNNEST([10, 14, CAST('Infinity' as DOUBLE)]) AS x
 
 /*---------*
@@ -834,7 +834,7 @@ SELECT STDDEV_SAMP(x) AS results FROM UNNEST([10, 14, CAST('Infinity' as DOUBLE)
 
 ## `VAR_POP`
 
-```sql
+```zetasql
 VAR_POP(
   [ DISTINCT ]
   expression
@@ -891,7 +891,7 @@ To learn more about the `OVER` clause and how to use it, see
 
 **Examples**
 
-```sql
+```zetasql
 SELECT VAR_POP(x) AS results FROM UNNEST([10, 14, 18]) AS x
 
 /*--------------------*
@@ -901,7 +901,7 @@ SELECT VAR_POP(x) AS results FROM UNNEST([10, 14, 18]) AS x
  *--------------------*/
 ```
 
-```sql
+```zetasql
 SELECT VAR_POP(x) AS results FROM UNNEST([10, 14, NULL]) AS x
 
 /*----------*
@@ -911,7 +911,7 @@ SELECT VAR_POP(x) AS results FROM UNNEST([10, 14, NULL]) AS x
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT VAR_POP(x) AS results FROM UNNEST([10, NULL]) AS x
 
 /*----------*
@@ -921,7 +921,7 @@ SELECT VAR_POP(x) AS results FROM UNNEST([10, NULL]) AS x
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT VAR_POP(x) AS results FROM UNNEST([NULL]) AS x
 
 /*---------*
@@ -931,7 +931,7 @@ SELECT VAR_POP(x) AS results FROM UNNEST([NULL]) AS x
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT VAR_POP(x) AS results FROM UNNEST([10, 14, CAST('Infinity' as DOUBLE)]) AS x
 
 /*---------*
@@ -945,7 +945,7 @@ SELECT VAR_POP(x) AS results FROM UNNEST([10, 14, CAST('Infinity' as DOUBLE)]) A
 
 ## `VAR_SAMP`
 
-```sql
+```zetasql
 VAR_SAMP(
   [ DISTINCT ]
   expression
@@ -1013,7 +1013,7 @@ To learn more about the `OVER` clause and how to use it, see
 
 **Examples**
 
-```sql
+```zetasql
 SELECT VAR_SAMP(x) AS results FROM UNNEST([10, 14, 18]) AS x
 
 /*---------*
@@ -1023,7 +1023,7 @@ SELECT VAR_SAMP(x) AS results FROM UNNEST([10, 14, 18]) AS x
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT VAR_SAMP(x) AS results FROM UNNEST([10, 14, NULL]) AS x
 
 /*---------*
@@ -1033,7 +1033,7 @@ SELECT VAR_SAMP(x) AS results FROM UNNEST([10, 14, NULL]) AS x
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT VAR_SAMP(x) AS results FROM UNNEST([10, NULL]) AS x
 
 /*---------*
@@ -1043,7 +1043,7 @@ SELECT VAR_SAMP(x) AS results FROM UNNEST([10, NULL]) AS x
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT VAR_SAMP(x) AS results FROM UNNEST([NULL]) AS x
 
 /*---------*
@@ -1053,7 +1053,7 @@ SELECT VAR_SAMP(x) AS results FROM UNNEST([NULL]) AS x
  *---------*/
 ```
 
-```sql
+```zetasql
 SELECT VAR_SAMP(x) AS results FROM UNNEST([10, 14, CAST('Infinity' as DOUBLE)]) AS x
 
 /*---------*
@@ -1065,7 +1065,7 @@ SELECT VAR_SAMP(x) AS results FROM UNNEST([10, 14, CAST('Infinity' as DOUBLE)]) 
 
 ## `VARIANCE`
 
-```sql
+```zetasql
 VARIANCE(
   [ DISTINCT ]
   expression

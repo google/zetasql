@@ -1028,3 +1028,45 @@ ARRAY<STRUCT<ARRAY<>>>[
 SELECT ARRAY_SLICE([1, 2], -8869911617074265235, -4)
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[]}]
+==
+[name=array_first_n_basic]
+[required_features=V_1_4_FIRST_AND_LAST_N]
+SELECT ARRAY_FIRST_N([33,22,11], 2);
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[known order:33, 22]}]
+==
+[name=array_first_n_empty_array]
+[required_features=V_1_4_FIRST_AND_LAST_N]
+SELECT ARRAY_FIRST_N([],2);
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[]}]
+==
+[name=array_first_n_explicit_null_input]
+[required_features=V_1_4_FIRST_AND_LAST_N]
+SELECT ARRAY_FIRST_N(NULL,2);
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>(NULL)}]
+==
+[name=array_first_n_explicit_null_array]
+[required_features=V_1_4_FIRST_AND_LAST_N]
+SELECT ARRAY_FIRST_N([NULL],2);
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[NULL]}]
+==
+[name=array_first_n_n_is_null]
+[required_features=V_1_4_FIRST_AND_LAST_N]
+SELECT ARRAY_FIRST_N([33,22,11],NULL);
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>(NULL)}]
+==
+[name=array_first_n_out_of_range_index]
+[required_features=V_1_4_FIRST_AND_LAST_N]
+SELECT ARRAY_FIRST_N([1],3);
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[1]}]
+==
+[name=array_first_n_negative_index]
+[required_features=V_1_4_FIRST_AND_LAST_N]
+SELECT ARRAY_FIRST_N([1,4,5],-3);
+--
+ERROR: generic::out_of_range: The n argument to ARRAY_FIRST_N must not be negative.

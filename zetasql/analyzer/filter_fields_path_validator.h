@@ -20,10 +20,9 @@
 #include <memory>
 #include <vector>
 
-#include "google/protobuf/descriptor.h"
 #include "absl/container/flat_hash_map.h"
-#include "absl/memory/memory.h"
 #include "absl/status/status.h"
+#include "google/protobuf/descriptor.h"
 
 namespace zetasql {
 

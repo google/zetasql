@@ -1431,6 +1431,17 @@ std::string ASTAddColumnAction::GetSQLForAlterAction() const {
   return "ADD COLUMN";
 }
 
+std::string ASTAddColumnIdentifierAction::SingleNodeDebugString() const {
+  return absl::StrCat(ASTNode::SingleNodeDebugString(),
+                      is_if_not_exists() ? "(is_if_not_exists)" : "");
+}
+
+std::string ASTAddColumnIdentifierAction::GetSQLForAlterAction() const {
+  return "ADD COLUMN OPTIONS";
+}
+
+std::string ASTRebuildAction::GetSQLForAlterAction() const { return "REBUILD"; }
+
 std::string ASTColumnPosition::SingleNodeDebugString() const {
   return absl::StrCat(ASTNode::SingleNodeDebugString(),
                       type() == PRECEDING ? "(PRECEDING)" : "(FOLLOWING)");

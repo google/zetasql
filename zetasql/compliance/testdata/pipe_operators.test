@@ -1,0 +1,610 @@
+# This file has at least one test for each pipe operator (that doesn't have its
+# own compliance file).
+#
+# This doesn't test those operators exhaustively since they are the same
+# underlying operators in standard syntax.  This just tests that queries with
+# the operator work.
+
+[prepare_database]
+CREATE TABLE KeyValue
+AS
+SELECT 1 AS key, "value1" AS value
+UNION ALL
+SELECT 2, "value2"
+UNION ALL
+SELECT 3, "value1"
+--
+ARRAY<STRUCT<key INT64, value STRING>>[
+  {1, "value1"},
+  {2, "value2"},
+  {3, "value1"}
+]
+==
+
+[default required_features=PIPES]
+[name=pipe_where]
+FROM KeyValue
+|> WHERE key=2
+--
+ARRAY<STRUCT<key INT64, value STRING>>[{2, "value2"}]
+==
+
+[required_features=PIPES,ANALYTIC_FUNCTIONS]
+[name=pipe_where_window_function]
+FROM KeyValue
+|> WHERE RANK() OVER (ORDER BY key) = 2
+--
+ARRAY<STRUCT<key INT64, value STRING>>[{2, "value2"}]
+==
+
+[name=pipe_having]
+FROM KeyValue
+|> AGGREGATE COUNT(*) c GROUP BY value
+|> WHERE c = 2
+--
+ARRAY<STRUCT<value STRING, c INT64>>[{"value1", 2}]
+==
+
+[required_features=PIPES,ANALYTIC_FUNCTIONS]
+[name=pipe_having_window_function]
+FROM KeyValue
+|> AGGREGATE COUNT(*) c GROUP BY value
+|> WHERE RANK() OVER (ORDER BY c) = 1
+--
+ARRAY<STRUCT<value STRING, c INT64>>[{"value2", 1}]
+==
+
+[name=pipe_select]
+FROM KeyValue
+|> select key, key*10 AS k10, key*100
+--
+ARRAY<STRUCT<key INT64, k10 INT64, INT64>>[unknown order:
+  {2, 20, 200},
+  {1, 10, 100},
+  {3, 30, 300}
+]
+==
+
+[required_features=PIPES,ANALYTIC_FUNCTIONS]
+[name=pipe_select_window_function]
+FROM KeyValue
+|> SELECT key, value, RANK() OVER (ORDER BY value)
+--
+ARRAY<STRUCT<key INT64, value STRING, INT64>>[unknown order:
+  {3, "value1", 1},
+  {1, "value1", 1},
+  {2, "value2", 3}
+]
+==
+
+[required_features=PIPES,V_1_4_PIPE_NAMED_WINDOWS,ANALYTIC_FUNCTIONS]
+[name=pipe_select_named_window]
+FROM KeyValue
+|> SELECT key, value, RANK() OVER w
+   WINDOW w AS (ORDER BY value)
+--
+ARRAY<STRUCT<key INT64, value STRING, INT64>>[unknown order:
+  {3, "value1", 1},
+  {1, "value1", 1},
+  {2, "value2", 3}
+]
+==
+
+[name=pipe_extend]
+FROM KeyValue
+|> EXTEND key*10 AS k10, key*100
+--
+ARRAY<STRUCT<key INT64, value STRING, k10 INT64, INT64>>[unknown order:
+  {2, "value2", 20, 200},
+  {1, "value1", 10, 100},
+  {3, "value1", 30, 300}
+]
+==
+
+[required_features=PIPES,ANALYTIC_FUNCTIONS]
+[name=pipe_extend_window_function]
+FROM KeyValue
+|> EXTEND RANK() OVER (ORDER BY value)
+--
+ARRAY<STRUCT<key INT64, value STRING, INT64>>[unknown order:
+  {3, "value1", 1},
+  {1, "value1", 1},
+  {2, "value2", 3}
+]
+==
+
+[required_features=PIPES,V_1_4_PIPE_NAMED_WINDOWS,ANALYTIC_FUNCTIONS]
+[name=pipe_extend_named_window]
+FROM KeyValue
+|> EXTEND RANK() OVER w, SUM(key) OVER (w2), COUNT(*) OVER (w2)
+   WINDOW w AS (ORDER BY value),
+          w2 AS (ORDER BY key
+                 ROWS BETWEEN UNBOUNDED PRECEDING and CURRENT ROW)
+# TODO Workaround for reference impl incorrectly reporting window
+# function output is ordered.
+|> WHERE true
+--
+ARRAY<STRUCT<key INT64, value STRING, INT64, INT64, INT64>>[unknown order:
+  {1, "value1", 1, 1, 1},
+  {2, "value2", 3, 3, 2},
+  {3, "value1", 1, 6, 3}
+]
+==
+
+[name=pipe_set]
+FROM KeyValue
+|> SET key=key*10, value=5.0
+--
+ARRAY<STRUCT<key INT64, value DOUBLE>>[unknown order:
+  {20, 5},
+  {10, 5},
+  {30, 5}
+]
+==
+
+[required_features=PIPES,ANALYTIC_FUNCTIONS]
+[name=pipe_set_window_function]
+FROM KeyValue
+|> SET value = RANK() OVER (ORDER BY value)
+--
+ARRAY<STRUCT<key INT64, value INT64>>[unknown order:{1, 1}, {3, 1}, {2, 3}]
+==
+
+[name=pipe_drop]
+FROM KeyValue
+|> DROP key
+--
+ARRAY<STRUCT<value STRING>>[unknown order:{"value1"}, {"value2"}, {"value1"}]
+==
+
+[name=pipe_rename]
+FROM KeyValue
+|> RENAME key AS k
+--
+ARRAY<STRUCT<k INT64, value STRING>>[unknown order:
+  {1, "value1"},
+  {2, "value2"},
+  {3, "value1"}
+]
+==
+
+[name=pipe_rename_swap]
+FROM KeyValue
+|> RENAME key AS value, value AS key
+--
+ARRAY<STRUCT<value INT64, key STRING>>[unknown order:
+  {1, "value1"},
+  {2, "value2"},
+  {3, "value1"}
+]
+==
+
+[name=pipe_order_by]
+FROM KeyValue
+|> ORDER BY key desc
+--
+ARRAY<STRUCT<key INT64, value STRING>>[known order:
+  {3, "value1"},
+  {2, "value2"},
+  {1, "value1"}
+]
+==
+
+[required_features=PIPES,ANALYTIC_FUNCTIONS]
+[name=pipe_order_by_window_function]
+FROM KeyValue
+|> ORDER BY RANK() OVER (ORDER BY key DESC)
+--
+ARRAY<STRUCT<key INT64, value STRING>>[known order:
+  {3, "value1"},
+  {2, "value2"},
+  {1, "value1"}
+]
+==
+
+[name=pipe_limit]
+FROM KeyValue
+|> ORDER BY key
+|> LIMIT 1
+--
+ARRAY<STRUCT<key INT64, value STRING>>[{1, "value1"}]
+==
+
+[name=pipe_limit_offset]
+FROM KeyValue
+|> ORDER BY key
+|> LIMIT 1 OFFSET 1
+--
+ARRAY<STRUCT<key INT64, value STRING>>[{2, "value2"}]
+==
+
+[name=pipe_aggregate]
+FROM KeyValue
+|> AGGREGATE COUNT(*), SUM(key)
+--
+ARRAY<STRUCT<INT64, INT64>>[{3, 6}]
+==
+
+[name=pipe_aggregate_group_by]
+FROM KeyValue
+|> AGGREGATE COUNT(*), MIN(key)
+   GROUP BY value
+--
+ARRAY<STRUCT<value STRING, INT64, INT64>>[unknown order:
+  {"value1", 2, 1},
+  {"value2", 1, 2}
+]
+==
+
+[name=pipe_aggregate_group_and_order_by]
+FROM KeyValue
+|> AGGREGATE COUNT(*), MIN(key)
+   GROUP AND ORDER BY value DESC
+--
+ARRAY<STRUCT<value STRING, INT64, INT64>>[known order:
+  {"value2", 1, 2},
+  {"value1", 2, 1}
+]
+==
+
+[name=pipe_aggregate_group_by_ordered]
+FROM KeyValue
+|> AGGREGATE
+   GROUP BY value DESC, key
+--
+ARRAY<STRUCT<value STRING, key INT64>>[unknown order:
+  {"value2", 2},
+  {"value1", 3},
+  {"value1", 1}
+]
+==
+
+[name=pipe_aggregate_group_by_ordered_by_agg]
+FROM KeyValue
+|> AGGREGATE COUNT(*) DESC
+   GROUP BY value
+--
+ARRAY<STRUCT<value STRING, INT64>>[known order:{"value1", 2}, {"value2", 1}]
+==
+
+[name=pipe_distinct]
+FROM KeyValue
+|> DISTINCT
+--
+ARRAY<STRUCT<key INT64, value STRING>>[unknown order:
+  {1, "value1"},
+  {2, "value2"},
+  {3, "value1"}
+]
+==
+
+[name=pipe_distinct2]
+FROM KeyValue
+|> SELECT value
+|> DISTINCT
+--
+ARRAY<STRUCT<value STRING>>[unknown order:{"value1"}, {"value2"}]
+==
+
+[name=pipe_join]
+FROM KeyValue
+|> JOIN KeyValue kv2 USING (key)
+--
+ARRAY<STRUCT<key INT64, value STRING, value STRING>>[unknown order:
+  {2, "value2", "value2"},
+  {1, "value1", "value1"},
+  {3, "value1", "value1"}
+]
+==
+
+[name=pipe_left_join]
+FROM KeyValue kv1
+|> LEFT JOIN KeyValue kv2
+     ON kv2.value = CONCAT('value', cast(kv1.key as string))
+--
+ARRAY<STRUCT<key INT64, value STRING, key INT64, value STRING>>[unknown order:
+  {2, "value2", 2, "value2"},
+  {1, "value1", 1, "value1"},
+  {1, "value1", 3, "value1"},
+  {3, "value1", NULL, NULL}
+]
+==
+
+[name=pipe_left_join_subquery]
+FROM KeyValue kv1
+|> LEFT JOIN (select 1 key, 17777 vvv) USING (key)
+--
+ARRAY<STRUCT<key INT64, value STRING, vvv INT64>>[unknown order:
+  {2, "value2", NULL},
+  {1, "value1", 17777},
+  {3, "value1", NULL}
+]
+==
+
+[name=pipe_union]
+FROM KeyValue kv1
+|> UNION ALL
+   (FROM KeyValue)
+--
+ARRAY<STRUCT<key INT64, value STRING>>[unknown order:
+  {2, "value2"},
+  {1, "value1"},
+  {3, "value1"},
+  {2, "value2"},
+  {1, "value1"},
+  {3, "value1"}
+]
+==
+
+[name=pipe_union_multi]
+FROM KeyValue kv1
+|> UNION ALL
+   (FROM KeyValue),
+   (FROM KeyValue),
+--
+ARRAY<STRUCT<key INT64, value STRING>>[unknown order:
+  {2, "value2"},
+  {1, "value1"},
+  {3, "value1"},
+  {2, "value2"},
+  {1, "value1"},
+  {3, "value1"},
+  {2, "value2"},
+  {1, "value1"},
+  {3, "value1"}
+]
+==
+
+[name=pipe_union_multi_subquery]
+(select 1, 'zz')
+|> UNION ALL
+   (select 5, 'xx'),
+   (select 10, 'yy')
+--
+ARRAY<STRUCT<INT64, STRING>>[unknown order:{1, "zz"}, {5, "xx"}, {10, "yy"}]
+==
+
+[name=pipe_union_distinct]
+FROM KeyValue
+|> UNION DISTINCT
+   (select 2, 'value2'),
+   (select 5, 'value5')
+--
+ARRAY<STRUCT<key INT64, value STRING>>[unknown order:
+  {1, "value1"},
+  {2, "value2"},
+  {3, "value1"},
+  {5, "value5"}
+]
+==
+
+[required_features=PIPES,V_1_4_CORRESPONDING_FULL,V_1_4_BY_NAME]
+[name=pipe_union_by_name]
+FROM KeyValue kv1
+|> UNION ALL BY NAME
+   (SELECT 'abc' value, 17 key)
+--
+ARRAY<STRUCT<key INT64, value STRING>>[unknown order:
+  {2, "value2"},
+  {1, "value1"},
+  {3, "value1"},
+  {17, "abc"}
+]
+==
+
+[required_features=PIPES,V_1_4_CORRESPONDING]
+[name=pipe_union_corresponding]
+FROM KeyValue kv1
+|> EXTEND key*10 k10
+|> UNION ALL CORRESPONDING
+   (SELECT 'abc' value, 17 k10, 111 extra)
+--
+ARRAY<STRUCT<value STRING, k10 INT64>>[unknown order:
+  {"value1", 10},
+  {"value2", 20},
+  {"value1", 30},
+  {"abc", 17}
+]
+==
+
+[name=pipe_intersect]
+FROM KeyValue
+|> INTERSECT ALL
+   (select 2, 'value2')
+--
+ARRAY<STRUCT<key INT64, value STRING>>[{2, "value2"}]
+==
+
+[name=pipe_except]
+FROM KeyValue
+|> EXCEPT ALL
+   (select 2, 'value2'),
+   (select 5, 'value5')
+--
+ARRAY<STRUCT<key INT64, value STRING>>[unknown order:
+  {1, "value1"},
+  {3, "value1"}
+]
+==
+
+# This has ORDER BY because it was incorrectly reported as having a
+# known order otherwise.
+[required_features=PIPES,ANALYTIC_FUNCTIONS]
+[name=pipe_window]
+FROM KeyValue
+|> WINDOW COUNT(*) OVER (), RANK() OVER (ORDER BY key)
+|> ORDER BY key
+--
+ARRAY<STRUCT<key INT64, value STRING, INT64, INT64>>[known order:
+  {1, "value1", 3, 1},
+  {2, "value2", 3, 2},
+  {3, "value1", 3, 3}
+]
+==
+
+[required_features=PIPES,ANALYTIC_FUNCTIONS]
+[name=pipe_window_in_select]
+FROM KeyValue
+|> SELECT key, COUNT(*) OVER (), RANK() OVER (ORDER BY key)
+--
+ARRAY<STRUCT<key INT64, INT64, INT64>>[unknown order:
+  {1, 3, 1},
+  {2, 3, 2},
+  {3, 3, 3}
+]
+==
+
+# This has ORDER BY because it was incorrectly reported as having a
+# known order otherwise.
+[required_features=PIPES,ANALYTIC_FUNCTIONS]
+[name=pipe_window_in_extend]
+FROM KeyValue
+|> EXTEND COUNT(*) OVER (), RANK() OVER (ORDER BY key)
+|> ORDER BY key
+--
+ARRAY<STRUCT<key INT64, value STRING, INT64, INT64>>[known order:
+  {1, "value1", 3, 1},
+  {2, "value2", 3, 2},
+  {3, "value1", 3, 3}
+]
+==
+
+[required_features=PIPES,ANALYTIC_FUNCTIONS]
+[name=pipe_window_in_where]
+FROM KeyValue
+|> WHERE RANK() OVER (ORDER BY key) = 3
+--
+ARRAY<STRUCT<key INT64, value STRING>>[{3, "value1"}]
+==
+
+[required_features=PIPES,ANALYTIC_FUNCTIONS]
+[name=pipe_window_in_set]
+FROM KeyValue
+|> SET key = RANK() OVER (ORDER BY value)
+--
+ARRAY<STRUCT<key INT64, value STRING>>[unknown order:
+  {1, "value1"},
+  {1, "value1"},
+  {3, "value2"}
+]
+==
+
+[required_features=PIPES,ANALYTIC_FUNCTIONS]
+[name=pipe_window_in_order_by]
+FROM KeyValue
+|> ORDER BY RANK() OVER (ORDER BY key) DESC
+--
+ARRAY<STRUCT<key INT64, value STRING>>[known order:
+  {3, "value1"},
+  {2, "value2"},
+  {1, "value1"}
+]
+==
+
+[name=pipe_as]
+FROM KeyValue
+|> AS t
+|> SELECT t, t.key
+--
+ARRAY<STRUCT<
+        t STRUCT<key INT64, value STRING>,
+        key INT64
+      >>
+[unknown order:{{2, "value2"}, 2}, {{1, "value1"}, 1}, {{3, "value1"}, 3}]
+==
+
+[required_features=PIPES,V_1_3_PIVOT]
+[name=pipe_pivot]
+FROM KeyValue
+|> PIVOT (MAX(key) FOR value IN ('value1', 'value2'))
+--
+ARRAY<STRUCT<value1 INT64, value2 INT64>>[{3, 2}]
+==
+
+[required_features=PIPES,V_1_3_UNPIVOT]
+[name=pipe_unpivot]
+WITH animals
+AS (
+  SELECT 2000 AS year, 10 AS dogs, 12 AS cats, 14 AS birds
+  UNION ALL
+  SELECT 2001 AS year, 11 AS dogs, 15 AS cats, 17 AS birds
+  UNION ALL
+  SELECT 2002 AS year, 6 AS dogs, 5 AS cats, 2 AS birds
+)
+FROM animals
+|> UNPIVOT (cnt FOR animal IN (dogs, cats, birds))
+|> ORDER BY year, cnt
+--
+ARRAY<STRUCT<year INT64, cnt INT64, animal STRING>>[known order:
+  {2000, 10, "dogs"},
+  {2000, 12, "cats"},
+  {2000, 14, "birds"},
+  {2001, 11, "dogs"},
+  {2001, 15, "cats"},
+  {2001, 17, "birds"},
+  {2002, 2, "birds"},
+  {2002, 5, "cats"},
+  {2002, 6, "dogs"}
+]
+==
+
+[required_features=PIPES,TABLESAMPLE]
+[name=pipe_tablesample]
+FROM KeyValue
+|> TABLESAMPLE RESERVOIR (2 ROWS)
+|> AGGREGATE COUNT(*)
+--
+ARRAY<STRUCT<INT64>>[{2}]
+
+NOTE: Reference implementation reports non-determinism.
+==
+
+[name=pipe_with]
+[required_features=PIPES,PIPE_WITH]
+select 2 key
+|> WITH kv AS (FROM KeyValue)
+|> JOIN kv USING (key)
+--
+ARRAY<STRUCT<key INT64, value STRING>>[{2, "value2"}]
+==
+
+[name=pipe_with_unused]
+[required_features=PIPES,PIPE_WITH]
+select 2 key
+|> WITH kv AS (FROM KeyValue)
+--
+ARRAY<STRUCT<key INT64>>[{2}]
+==
+
+[name=pipe_with_multi]
+[required_features=PIPES,PIPE_WITH]
+select null
+|> WITH kv AS (FROM KeyValue),
+        kv2 AS (FROM kv |> SET key=key+10)
+|> WITH kv3 AS (FROM kv2 |> SET key=key+100)
+|> WITH kv AS (FROM kv3 |> SET key=key+1000)
+|> CROSS JOIN kv
+--
+ARRAY<STRUCT<INT64, key INT64, value STRING>>[unknown order:
+  {NULL, 1111, "value1"},
+  {NULL, 1112, "value2"},
+  {NULL, 1113, "value1"}
+]
+==
+
+[name=pipe_with_in_subquery]
+[required_features=PIPES,PIPE_WITH]
+select 2 key
+|> WITH kv AS (FROM KeyValue)
+|> JOIN (
+     FROM kv
+     |> WITH kv2 AS (
+          FROM KeyValue
+          |> EXTEND key+1000 AS k2
+        )
+     |> JOIN kv2 USING (key)
+   ) USING (key)
+--
+ARRAY<STRUCT<key INT64, value STRING, value STRING, k2 INT64>>[
+  {2, "value2", "value2", 1002}
+]

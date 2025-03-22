@@ -380,21 +380,6 @@ class ResolvedASTDeepCopyVisitor : public ResolvedASTVisitor {
   }
 
  private:
-  // Copies the WITH GROUP ROWS parameter list from the original node to the
-  // copied node. This is required, as with_group_rows_parameter_list is not a
-  // constructor arg, and the only way to transfer ownership is to explicitly
-  // set it after constructing the copy.
-  template <typename ResolvedNodeType>
-  absl::Status CopyWithGroupRowsParameterList(const ResolvedNodeType* from,
-                                              ResolvedNodeType* to) {
-    for (const std::unique_ptr<const ResolvedColumnRef>& param :
-         from->with_group_rows_parameter_list()) {
-      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedColumnRef> copied_ref,
-                       ProcessNode(param.get()));
-      to->add_with_group_rows_parameter_list(std::move(copied_ref));
-    }
-    return absl::OkStatus();
-  }
 
   // The stack is used for making the recursive copying work:
   // 1. A copied node is pushed to the stack before the VisitX function returns.

@@ -1,0 +1,202 @@
+[default language_features=PIPES]
+
+from t
+|> fork ()
+|> fork ( |> select 1 ),
+        ( |> select 2+fork   # FORK as an identifier
+          |> select 3 )
+--
+QueryStatement [0-119] [from t |>...select 3 )]
+  Query [0-119] [from t |>...select 3 )]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeFork [7-17] [|> fork ()]
+      Subpipeline [15-17] [()]
+    PipeFork [18-119] [|> fork (...select 3 )]
+      Subpipeline [26-41] [( |> select 1 )]
+        PipeSelect [28-39] [|> select 1]
+          Select [31-39] [select 1]
+            SelectList [38-39] [1]
+              SelectColumn [38-39] [1]
+                IntLiteral(1) [38-39] [1]
+      Subpipeline [51-119] [( |> select...select 3 )]
+        PipeSelect [53-69] [|> select 2+fork]
+          Select [56-69] [select 2+fork]
+            SelectList [63-69] [2+fork]
+              SelectColumn [63-69] [2+fork]
+                BinaryExpression(+) [63-69] [2+fork]
+                  IntLiteral(2) [63-64] [2]
+                  PathExpression [65-69] [fork]
+                    Identifier(fork) [65-69] [fork]
+        PipeSelect [106-117] [|> select 3]
+          Select [109-117] [select 3]
+            SelectList [116-117] [3]
+              SelectColumn [116-117] [3]
+                IntLiteral(3) [116-117] [3]
+--
+FROM
+  t
+|> FORK ()
+|> FORK (
+     |> SELECT
+          1
+   ), (
+     |> SELECT
+          2 + fork
+     |> SELECT
+          3
+   )
+==
+
+# Trailing commas
+from t
+|> fork ( |> where true ),
+|> fork ( |> where 1 ),
+        (),
+--
+QueryStatement [0-69] [from t |>...(),]
+  Query [0-69] [from t |>...(),]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeFork [7-33] [|> fork ( |> where true ),]
+      Subpipeline [15-32] [( |> where true )]
+        PipeWhere [17-30] [|> where true]
+          WhereClause [20-30] [where true]
+            BooleanLiteral(true) [26-30] [true]
+    PipeFork [34-69] [|> fork (...(),]
+      Subpipeline [42-56] [( |> where 1 )]
+        PipeWhere [44-54] [|> where 1]
+          WhereClause [47-54] [where 1]
+            IntLiteral(1) [53-54] [1]
+      Subpipeline [66-68] [()]
+--
+FROM
+  t
+|> FORK (
+     |> WHERE
+          true
+   )
+|> FORK (
+     |> WHERE
+          1
+   ), ()
+==
+
+from t
+|> fork
+--
+ERROR: Syntax error: Expected "(" but got end of statement [at 2:8]
+|> fork
+       ^
+==
+
+from t
+|> fork ,
+--
+ERROR: Syntax error: Expected "(" but got "," [at 2:9]
+|> fork ,
+        ^
+==
+
+from t
+|> fork (select 5)
+--
+ERROR: Syntax error: Expected subpipeline starting with |>, not a subquery [at 2:10]
+|> fork (select 5)
+         ^
+==
+
+from t
+|> fork (from t2)
+--
+ERROR: Syntax error: Expected subpipeline starting with |>, not a subquery [at 2:10]
+|> fork (from t2)
+         ^
+==
+
+# For common reserved pipe operator names, plus non-reserved keyword
+# names, we're able to give an error saying "Expected subpipeline".
+# We don't cover all of them - e.g. AS.
+FROM t
+|> FORK ({{WHERE|SELECT|AS|AGGREGATE|abc}} xyz)
+--
+ALTERNATION GROUP: WHERE
+--
+ERROR: Syntax error: Expected subpipeline starting with |> [at 2:10]
+|> FORK (WHERE xyz)
+         ^
+--
+ALTERNATION GROUP: SELECT
+--
+ERROR: Syntax error: Expected subpipeline starting with |>, not a subquery [at 2:10]
+|> FORK (SELECT xyz)
+         ^
+--
+ALTERNATION GROUP: AS
+--
+ERROR: Syntax error: Expected ")" but got keyword AS [at 2:10]
+|> FORK (AS xyz)
+         ^
+--
+ALTERNATION GROUP: AGGREGATE
+--
+ERROR: Syntax error: Expected subpipeline starting with |> [at 2:10]
+|> FORK (AGGREGATE xyz)
+         ^
+--
+ALTERNATION GROUP: abc
+--
+ERROR: Syntax error: Expected subpipeline starting with |> [at 2:10]
+|> FORK (abc xyz)
+         ^
+==
+
+FROM t
+|> FORK (
+--
+ERROR: Syntax error: Expected ")" but got end of statement [at 2:10]
+|> FORK (
+         ^
+==
+
+from t
+|> fork @{hint=1} ( |> where true )
+--
+QueryStatement [0-42] [from t |>...where true )]
+  Query [0-42] [from t |>...where true )]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeFork [7-42] [|> fork @{...where true )]
+      Hint [15-24] [@{hint=1}]
+        HintEntry [17-23] [hint=1]
+          Identifier(hint) [17-21] [hint]
+          IntLiteral(1) [22-23] [1]
+      Subpipeline [25-42] [( |> where true )]
+        PipeWhere [27-40] [|> where true]
+          WhereClause [30-40] [where true]
+            BooleanLiteral(true) [36-40] [true]
+--
+FROM
+  t
+|> FORK @{ hint = 1 }(
+     |> WHERE
+          true
+   )
+==
+
+# Unclosed paren
+from t
+|> fork ( |> where true
+--
+ERROR: Syntax error: Expected ")" but got end of statement [at 2:24]
+|> fork ( |> where true
+                       ^

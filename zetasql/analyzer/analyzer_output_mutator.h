@@ -18,18 +18,18 @@
 #define ZETASQL_ANALYZER_ANALYZER_OUTPUT_MUTATOR_H_
 
 #include <memory>
-#include <optional>
-#include <string>
 #include <utility>
-#include <vector>
 
 #include "zetasql/common/timer_util.h"
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/analyzer_output_properties.h"
 #include "zetasql/public/proto/logging.pb.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
-#include "absl/container/flat_hash_set.h"
+#include "zetasql/resolved_ast/resolved_node.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
+#include "zetasql/base/ret_check.h"
 
 namespace zetasql {
 // Helper to allow mutating AnalyzerOutput.
@@ -42,9 +42,9 @@ class AnalyzerOutputMutator {
 
   // Updates the output with the new ResolvedNode (and new max column id).
   absl::Status Update(std::unique_ptr<const ResolvedNode> node,
-                      zetasql_base::SequenceNumber& column_id_seq_num) {
+                      int max_column_id) {
     ZETASQL_RET_CHECK(node != nullptr);
-    output_.max_column_id_ = static_cast<int>(column_id_seq_num.GetNext() - 1);
+    output_.max_column_id_ = max_column_id;
     if (node->IsStatement()) {
       output_.statement_.reset(node.release()->GetAs<ResolvedStatement>());
       return absl::OkStatus();

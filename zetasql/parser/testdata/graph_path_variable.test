@@ -1,0 +1,745 @@
+[default reserve_graph_table]
+[default language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_PATH_TYPE]
+[default no_test_get_parse_tokens]
+
+# Empty path isn't allowed
+select * from graph_table(aml
+  MATCH p = , (a)
+  RETURN SUM(a.account_id) as col1
+)
+--
+ERROR: Syntax error: Expected "(" or "-" or "<" or -> but got "," [at 3:13]
+  MATCH p = , (a)
+            ^
+
+==
+
+# Simple path variable
+select * from graph_table(aml
+  MATCH p = (a) -> (b)
+  RETURN SUM(a.account_id) as col1
+)
+--
+QueryStatement [0-89] [select * from...as col1 )]
+  Query [0-89] [select * from...as col1 )]
+    Select [0-89] [select * from...as col1 )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-89] [from graph_table...as col1 )]
+        GraphTableQuery [14-89] [graph_table...as col1 )]
+          PathExpression [26-29] [aml]
+            Identifier(aml) [26-29] [aml]
+          GqlOperatorList [32-87] [MATCH p =...ccount_id) as col1]
+            GqlOperatorList [32-87] [MATCH p =...ccount_id) as col1]
+              GqlMatch [32-52] [MATCH p = (a) -> (b)]
+                GraphPattern [38-52] [p = (a) -> (b)]
+                  GraphPathPattern [38-52] [p = (a) -> (b)]
+                    Identifier(p) [38-39] [p]
+                    GraphNodePattern [42-45] [(a)]
+                      GraphElementPatternFiller [43-44] [a]
+                        Identifier(a) [43-44] [a]
+                    GraphEdgePattern [46-48] [->]
+                    GraphNodePattern [49-52] [(b)]
+                      GraphElementPatternFiller [50-51] [b]
+                        Identifier(b) [50-51] [b]
+              GqlReturn [55-87] [RETURN SUM...count_id) as col1]
+                Select [61-87] [SUM(a.account_id) as col1]
+                  SelectList [62-87] [SUM(a.account_id) as col1]
+                    SelectColumn [62-87] [SUM(a.account_id) as col1]
+                      FunctionCall [62-79] [SUM(a.account_id)]
+                        PathExpression [62-65] [SUM]
+                          Identifier(SUM) [62-65] [SUM]
+                        PathExpression [66-78] [a.account_id]
+                          Identifier(a) [66-67] [a]
+                          Identifier(account_id) [68-78] [account_id]
+                      Alias [80-87] [as col1]
+                        Identifier(col1) [83-87] [col1]
+
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      p = (a)
+      ->
+      (b)
+    RETURN
+      SUM(a.account_id) AS col1
+  )
+
+==
+
+# Simple path variable but in parentheses
+select * from graph_table(aml
+  MATCH (p = (a))
+  RETURN 1 as a
+)
+--
+QueryStatement [0-65] [select * from...ETURN 1 as a )]
+  Query [0-65] [select * from...ETURN 1 as a )]
+    Select [0-65] [select * from...ETURN 1 as a )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-65] [from graph_table...RN 1 as a )]
+        GraphTableQuery [14-65] [graph_table...RETURN 1 as a )]
+          PathExpression [26-29] [aml]
+            Identifier(aml) [26-29] [aml]
+          GqlOperatorList [32-63] [MATCH (p =...RETURN 1 as a]
+            GqlOperatorList [32-63] [MATCH (p =...RETURN 1 as a]
+              GqlMatch [32-47] [MATCH (p = (a))]
+                GraphPattern [38-47] [(p = (a))]
+                  ParenthesizedGraphPathPattern [38-47] [(p = (a))]
+                    Identifier(p) [39-40] [p]
+                    GraphNodePattern [43-46] [(a)]
+                      GraphElementPatternFiller [44-45] [a]
+                        Identifier(a) [44-45] [a]
+              GqlReturn [50-63] [RETURN 1 as a]
+                Select [56-63] [1 as a]
+                  SelectList [57-63] [1 as a]
+                    SelectColumn [57-63] [1 as a]
+                      IntLiteral(1) [57-58] [1]
+                      Alias [59-63] [as a]
+                        Identifier(a) [62-63] [a]
+
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (
+        p = (a)
+      )
+    RETURN
+      1 AS a
+  )
+
+==
+
+# Missing path variable is diagnosed
+select * from graph_table(aml
+  MATCH = (a)
+  RETURN 1 as a
+)
+--
+ERROR: Syntax error: Expected "(" or "-" or "<" or -> but got "=" [at 2:9]
+  MATCH = (a)
+        ^
+
+==
+
+# Missing pathensized path variable is diagnosed
+select * from graph_table(aml
+  MATCH (= (a))
+  RETURN 1 as a
+)
+--
+ERROR: Syntax error: Expected "(" or "-" or "<" or -> but got "=" [at 2:10]
+  MATCH (= (a))
+         ^
+
+==
+
+# Nested path variable without parentheses isn't allowed, subpath variables
+# are only allowed in parenthesized graph patterns
+select * from graph_table(aml
+  MATCH p = (a) -> q = (b)
+  RETURN SUM(a.account_id) as col1
+)
+--
+ERROR: Syntax error: Unexpected identifier "q" [at 2:20]
+  MATCH p = (a) -> q = (b)
+                   ^
+
+==
+
+# Nested path variable with parentheses are allowed
+select * from graph_table(aml
+  MATCH p = (a) -> (q = (b))
+  RETURN SUM(a.account_id) as col1
+)
+--
+QueryStatement [0-95] [select * from...as col1 )]
+  Query [0-95] [select * from...as col1 )]
+    Select [0-95] [select * from...as col1 )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-95] [from graph_table...as col1 )]
+        GraphTableQuery [14-95] [graph_table...as col1 )]
+          PathExpression [26-29] [aml]
+            Identifier(aml) [26-29] [aml]
+          GqlOperatorList [32-93] [MATCH p =...ccount_id) as col1]
+            GqlOperatorList [32-93] [MATCH p =...ccount_id) as col1]
+              GqlMatch [32-58] [MATCH p = (a) -> (q = (b))]
+                GraphPattern [38-58] [p = (a) -> (q = (b))]
+                  GraphPathPattern [38-58] [p = (a) -> (q = (b))]
+                    Identifier(p) [38-39] [p]
+                    GraphNodePattern [42-45] [(a)]
+                      GraphElementPatternFiller [43-44] [a]
+                        Identifier(a) [43-44] [a]
+                    GraphEdgePattern [46-48] [->]
+                    ParenthesizedGraphPathPattern [49-58] [(q = (b))]
+                      Identifier(q) [50-51] [q]
+                      GraphNodePattern [54-57] [(b)]
+                        GraphElementPatternFiller [55-56] [b]
+                          Identifier(b) [55-56] [b]
+              GqlReturn [61-93] [RETURN SUM...count_id) as col1]
+                Select [67-93] [SUM(a.account_id) as col1]
+                  SelectList [68-93] [SUM(a.account_id) as col1]
+                    SelectColumn [68-93] [SUM(a.account_id) as col1]
+                      FunctionCall [68-85] [SUM(a.account_id)]
+                        PathExpression [68-71] [SUM]
+                          Identifier(SUM) [68-71] [SUM]
+                        PathExpression [72-84] [a.account_id]
+                          Identifier(a) [72-73] [a]
+                          Identifier(account_id) [74-84] [account_id]
+                      Alias [86-93] [as col1]
+                        Identifier(col1) [89-93] [col1]
+
+
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      p = (a)
+      ->
+      (
+        q = (b)
+      )
+    RETURN
+      SUM(a.account_id) AS col1
+  )
+==
+
+# Simple path variable with parentheses
+select * from graph_table(aml
+  MATCH (p = (a) -> (b))
+  RETURN SUM(a.account_id) as col1
+)
+--
+QueryStatement [0-91] [select * from...as col1 )]
+  Query [0-91] [select * from...as col1 )]
+    Select [0-91] [select * from...as col1 )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-91] [from graph_table...as col1 )]
+        GraphTableQuery [14-91] [graph_table...as col1 )]
+          PathExpression [26-29] [aml]
+            Identifier(aml) [26-29] [aml]
+          GqlOperatorList [32-89] [MATCH (p =...count_id) as col1]
+            GqlOperatorList [32-89] [MATCH (p =...count_id) as col1]
+              GqlMatch [32-54] [MATCH (p = (a) -> (b))]
+                GraphPattern [38-54] [(p = (a) -> (b))]
+                  ParenthesizedGraphPathPattern [38-54] [(p = (a) -> (b))]
+                    Identifier(p) [39-40] [p]
+                    GraphNodePattern [43-46] [(a)]
+                      GraphElementPatternFiller [44-45] [a]
+                        Identifier(a) [44-45] [a]
+                    GraphEdgePattern [47-49] [->]
+                    GraphNodePattern [50-53] [(b)]
+                      GraphElementPatternFiller [51-52] [b]
+                        Identifier(b) [51-52] [b]
+              GqlReturn [57-89] [RETURN SUM...count_id) as col1]
+                Select [63-89] [SUM(a.account_id) as col1]
+                  SelectList [64-89] [SUM(a.account_id) as col1]
+                    SelectColumn [64-89] [SUM(a.account_id) as col1]
+                      FunctionCall [64-81] [SUM(a.account_id)]
+                        PathExpression [64-67] [SUM]
+                          Identifier(SUM) [64-67] [SUM]
+                        PathExpression [68-80] [a.account_id]
+                          Identifier(a) [68-69] [a]
+                          Identifier(account_id) [70-80] [account_id]
+                      Alias [82-89] [as col1]
+                        Identifier(col1) [85-89] [col1]
+
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (
+        p = (a)
+        ->
+        (b)
+      )
+    RETURN
+      SUM(a.account_id) AS col1
+  )
+==
+
+# Nested
+select * from graph_table(aml
+  MATCH (p = (a) -> (q = (b)))
+  RETURN SUM(a.account_id) as col1
+)
+--
+QueryStatement [0-97] [select * from...as col1 )]
+  Query [0-97] [select * from...as col1 )]
+    Select [0-97] [select * from...as col1 )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-97] [from graph_table...as col1 )]
+        GraphTableQuery [14-97] [graph_table...as col1 )]
+          PathExpression [26-29] [aml]
+            Identifier(aml) [26-29] [aml]
+          GqlOperatorList [32-95] [MATCH (p =...count_id) as col1]
+            GqlOperatorList [32-95] [MATCH (p =...count_id) as col1]
+              GqlMatch [32-60] [MATCH (p = (a) -> (q = (b)))]
+                GraphPattern [38-60] [(p = (a) -> (q = (b)))]
+                  ParenthesizedGraphPathPattern [38-60] [(p = (a) -> (q = (b)))]
+                    Identifier(p) [39-40] [p]
+                    GraphNodePattern [43-46] [(a)]
+                      GraphElementPatternFiller [44-45] [a]
+                        Identifier(a) [44-45] [a]
+                    GraphEdgePattern [47-49] [->]
+                    ParenthesizedGraphPathPattern [50-59] [(q = (b))]
+                      Identifier(q) [51-52] [q]
+                      GraphNodePattern [55-58] [(b)]
+                        GraphElementPatternFiller [56-57] [b]
+                          Identifier(b) [56-57] [b]
+              GqlReturn [63-95] [RETURN SUM...count_id) as col1]
+                Select [69-95] [SUM(a.account_id) as col1]
+                  SelectList [70-95] [SUM(a.account_id) as col1]
+                    SelectColumn [70-95] [SUM(a.account_id) as col1]
+                      FunctionCall [70-87] [SUM(a.account_id)]
+                        PathExpression [70-73] [SUM]
+                          Identifier(SUM) [70-73] [SUM]
+                        PathExpression [74-86] [a.account_id]
+                          Identifier(a) [74-75] [a]
+                          Identifier(account_id) [76-86] [account_id]
+                      Alias [88-95] [as col1]
+                        Identifier(col1) [91-95] [col1]
+
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (
+        p = (a)
+        ->
+        (
+          q = (b)
+        )
+      )
+    RETURN
+      SUM(a.account_id) AS col1
+  )
+==
+
+# Larger nested
+
+select * from graph_table(aml
+  MATCH (p = (a) -> (q = (b)<-(c)-[e]->(d)))
+  RETURN SUM(a.account_id) as col1
+)
+--
+QueryStatement [0-111] [select * from...as col1 )]
+  Query [0-111] [select * from...as col1 )]
+    Select [0-111] [select * from...as col1 )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-111] [from graph_table...as col1 )]
+        GraphTableQuery [14-111] [graph_table...as col1 )]
+          PathExpression [26-29] [aml]
+            Identifier(aml) [26-29] [aml]
+          GqlOperatorList [32-109] [MATCH (p =...count_id) as col1]
+            GqlOperatorList [32-109] [MATCH (p =...count_id) as col1]
+              GqlMatch [32-74] [MATCH (p =...[e]->(d)))]
+                GraphPattern [38-74] [(p = (a) -...[e]->(d)))]
+                  ParenthesizedGraphPathPattern [38-74] [(p = (a) -...[e]->(d)))]
+                    Identifier(p) [39-40] [p]
+                    GraphNodePattern [43-46] [(a)]
+                      GraphElementPatternFiller [44-45] [a]
+                        Identifier(a) [44-45] [a]
+                    GraphEdgePattern [47-49] [->]
+                    ParenthesizedGraphPathPattern [50-73] [(q = (b)<-(c)-[e]->(d))]
+                      Identifier(q) [51-52] [q]
+                      GraphNodePattern [55-58] [(b)]
+                        GraphElementPatternFiller [56-57] [b]
+                          Identifier(b) [56-57] [b]
+                      GraphEdgePattern [58-60] [<-]
+                      GraphNodePattern [60-63] [(c)]
+                        GraphElementPatternFiller [61-62] [c]
+                          Identifier(c) [61-62] [c]
+                      GraphEdgePattern [63-69] [-[e]->]
+                        GraphElementPatternFiller [65-66] [e]
+                          Identifier(e) [65-66] [e]
+                      GraphNodePattern [69-72] [(d)]
+                        GraphElementPatternFiller [70-71] [d]
+                          Identifier(d) [70-71] [d]
+              GqlReturn [77-109] [RETURN SUM...count_id) as col1]
+                Select [83-109] [SUM(a.account_id) as col1]
+                  SelectList [84-109] [SUM(a.account_id) as col1]
+                    SelectColumn [84-109] [SUM(a.account_id) as col1]
+                      FunctionCall [84-101] [SUM(a.account_id)]
+                        PathExpression [84-87] [SUM]
+                          Identifier(SUM) [84-87] [SUM]
+                        PathExpression [88-100] [a.account_id]
+                          Identifier(a) [88-89] [a]
+                          Identifier(account_id) [90-100] [account_id]
+                      Alias [102-109] [as col1]
+                        Identifier(col1) [105-109] [col1]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (
+        p = (a)
+        ->
+        (
+          q = (b)
+          <-
+          (c)
+          -[e]->
+          (d)
+        )
+      )
+    RETURN
+      SUM(a.account_id) AS col1
+  )
+==
+
+# Multiple paths
+
+select * from graph_table(aml
+  MATCH p = (a), q = (a)-(b)
+  RETURN 1 as r
+)
+--
+QueryStatement [0-76] [select * from...ETURN 1 as r )]
+  Query [0-76] [select * from...ETURN 1 as r )]
+    Select [0-76] [select * from...ETURN 1 as r )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-76] [from graph_table...RN 1 as r )]
+        GraphTableQuery [14-76] [graph_table...RETURN 1 as r )]
+          PathExpression [26-29] [aml]
+            Identifier(aml) [26-29] [aml]
+          GqlOperatorList [32-74] [MATCH p =...RETURN 1 as r]
+            GqlOperatorList [32-74] [MATCH p =...RETURN 1 as r]
+              GqlMatch [32-58] [MATCH p = (a), q = (a)-(b)]
+                GraphPattern [38-58] [p = (a), q = (a)-(b)]
+                  GraphPathPattern [38-45] [p = (a)]
+                    Identifier(p) [38-39] [p]
+                    GraphNodePattern [42-45] [(a)]
+                      GraphElementPatternFiller [43-44] [a]
+                        Identifier(a) [43-44] [a]
+                  GraphPathPattern [47-58] [q = (a)-(b)]
+                    Identifier(q) [47-48] [q]
+                    GraphNodePattern [51-54] [(a)]
+                      GraphElementPatternFiller [52-53] [a]
+                        Identifier(a) [52-53] [a]
+                    GraphEdgePattern [54-55] [-]
+                    GraphNodePattern [55-58] [(b)]
+                      GraphElementPatternFiller [56-57] [b]
+                        Identifier(b) [56-57] [b]
+              GqlReturn [61-74] [RETURN 1 as r]
+                Select [67-74] [1 as r]
+                  SelectList [68-74] [1 as r]
+                    SelectColumn [68-74] [1 as r]
+                      IntLiteral(1) [68-69] [1]
+                      Alias [70-74] [as r]
+                        Identifier(r) [73-74] [r]
+
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      p = (a),
+      q = (a)
+      -
+      (b)
+    RETURN
+      1 AS r
+  )
+==
+
+# Optional match and path mode. Path variable declaration comes before all path
+# pattern prefixes.
+
+select * from graph_table(aml
+  OPTIONAL MATCH q = TRAIL (a)-(b)
+  RETURN 1 as r
+)
+--
+QueryStatement [0-82] [select * from...ETURN 1 as r )]
+  Query [0-82] [select * from...ETURN 1 as r )]
+    Select [0-82] [select * from...ETURN 1 as r )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-82] [from graph_table...RN 1 as r )]
+        GraphTableQuery [14-82] [graph_table...RETURN 1 as r )]
+          PathExpression [26-29] [aml]
+            Identifier(aml) [26-29] [aml]
+          GqlOperatorList [32-80] [OPTIONAL MATCH...RETURN 1 as r]
+            GqlOperatorList [32-80] [OPTIONAL MATCH...RETURN 1 as r]
+              GqlMatch (optional) [32-64] [OPTIONAL MATCH...TRAIL (a)-(b)]
+                GraphPattern [47-64] [q = TRAIL (a)-(b)]
+                  GraphPathPattern [47-64] [q = TRAIL (a)-(b)]
+                    Identifier(q) [47-48] [q]
+                    GraphPathMode [51-56] [TRAIL]
+                    GraphNodePattern [57-60] [(a)]
+                      GraphElementPatternFiller [58-59] [a]
+                        Identifier(a) [58-59] [a]
+                    GraphEdgePattern [60-61] [-]
+                    GraphNodePattern [61-64] [(b)]
+                      GraphElementPatternFiller [62-63] [b]
+                        Identifier(b) [62-63] [b]
+              GqlReturn [67-80] [RETURN 1 as r]
+                Select [73-80] [1 as r]
+                  SelectList [74-80] [1 as r]
+                    SelectColumn [74-80] [1 as r]
+                      IntLiteral(1) [74-75] [1]
+                      Alias [76-80] [as r]
+                        Identifier(r) [79-80] [r]
+
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    OPTIONAL MATCH
+      q = TRAIL
+      (a)
+      -
+      (b)
+    RETURN
+      1 AS r
+  )
+
+==
+
+# Also add path search prefix
+
+select * from graph_table(aml
+  OPTIONAL MATCH q = ANY SHORTEST (a)-(b),
+    q2 = ANY SHORTEST WALK (a)
+  RETURN 1 as r
+)
+--
+QueryStatement [0-121] [select * from...ETURN 1 as r )]
+  Query [0-121] [select * from...ETURN 1 as r )]
+    Select [0-121] [select * from...ETURN 1 as r )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-121] [from graph_table...RN 1 as r )]
+        GraphTableQuery [14-121] [graph_table...RETURN 1 as r )]
+          PathExpression [26-29] [aml]
+            Identifier(aml) [26-29] [aml]
+          GqlOperatorList [32-119] [OPTIONAL MATCH...RETURN 1 as r]
+            GqlOperatorList [32-119] [OPTIONAL MATCH...RETURN 1 as r]
+              GqlMatch (optional) [32-103] [OPTIONAL MATCH...TEST WALK (a)]
+                GraphPattern [47-103] [q = ANY SHORTEST...ST WALK (a)]
+                  GraphPathPattern [47-71] [q = ANY SHORTEST (a)-(b)]
+                    Identifier(q) [47-48] [q]
+                    GraphPathSearchPrefix [51-63] [ANY SHORTEST]
+                    GraphNodePattern [64-67] [(a)]
+                      GraphElementPatternFiller [65-66] [a]
+                        Identifier(a) [65-66] [a]
+                    GraphEdgePattern [67-68] [-]
+                    GraphNodePattern [68-71] [(b)]
+                      GraphElementPatternFiller [69-70] [b]
+                        Identifier(b) [69-70] [b]
+                  GraphPathPattern [77-103] [q2 = ANY SHORTEST WALK (a)]
+                    Identifier(q2) [77-79] [q2]
+                    GraphPathSearchPrefix [82-94] [ANY SHORTEST]
+                    GraphPathMode [95-99] [WALK]
+                    GraphNodePattern [100-103] [(a)]
+                      GraphElementPatternFiller [101-102] [a]
+                        Identifier(a) [101-102] [a]
+              GqlReturn [106-119] [RETURN 1 as r]
+                Select [112-119] [1 as r]
+                  SelectList [113-119] [1 as r]
+                    SelectColumn [113-119] [1 as r]
+                      IntLiteral(1) [113-114] [1]
+                      Alias [115-119] [as r]
+                        Identifier(r) [118-119] [r]
+
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    OPTIONAL MATCH
+      q = ANY SHORTEST (a)
+      -
+      (b),
+      q2 = ANY SHORTEST WALK
+      (a)
+    RETURN
+      1 AS r
+  )
+
+==
+
+# Hint on the graph match
+select * from graph_table(aml
+  MATCH @{key=hint_on_match_graph_pattern} p = (a)-(b)
+  RETURN 1 as r
+)
+--
+QueryStatement [0-102] [select * from...ETURN 1 as r )]
+  Query [0-102] [select * from...ETURN 1 as r )]
+    Select [0-102] [select * from...ETURN 1 as r )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-102] [from graph_table...RN 1 as r )]
+        GraphTableQuery [14-102] [graph_table...RETURN 1 as r )]
+          PathExpression [26-29] [aml]
+            Identifier(aml) [26-29] [aml]
+          GqlOperatorList [32-100] [MATCH @{key...RETURN 1 as r]
+            GqlOperatorList [32-100] [MATCH @{key...RETURN 1 as r]
+              GqlMatch [32-84] [MATCH @{key...= (a)-(b)]
+                GraphPattern [73-84] [p = (a)-(b)]
+                  GraphPathPattern [73-84] [p = (a)-(b)]
+                    Identifier(p) [73-74] [p]
+                    GraphNodePattern [77-80] [(a)]
+                      GraphElementPatternFiller [78-79] [a]
+                        Identifier(a) [78-79] [a]
+                    GraphEdgePattern [80-81] [-]
+                    GraphNodePattern [81-84] [(b)]
+                      GraphElementPatternFiller [82-83] [b]
+                        Identifier(b) [82-83] [b]
+                Hint [38-72] [@{key=hint_on_mat...h_pattern}]
+                  HintEntry [40-71] [key=hint_on_match...ph_pattern]
+                    Identifier(key) [40-43] [key]
+                    PathExpression [44-71] [hint_on_match_graph_pattern]
+                      Identifier(hint_on_match_graph_pattern) [44-71] [hint_on_match_graph_pattern]
+              GqlReturn [87-100] [RETURN 1 as r]
+                Select [93-100] [1 as r]
+                  SelectList [94-100] [1 as r]
+                    SelectColumn [94-100] [1 as r]
+                      IntLiteral(1) [94-95] [1]
+                      Alias [96-100] [as r]
+                        Identifier(r) [99-100] [r]
+
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH @{ key = hint_on_match_graph_pattern }
+      p = (a)
+      -
+      (b)
+    RETURN
+      1 AS r
+  )
+==
+
+# Hint on the graph match
+select * from graph_table(aml
+  MATCH @{key=hint_on_match_graph_pattern} p = (a)-(b),
+    @{key=hint_on_q} q = (b)-(c)
+  RETURN 1 as r
+)
+--
+QueryStatement [0-136] [select * from...ETURN 1 as r )]
+  Query [0-136] [select * from...ETURN 1 as r )]
+    Select [0-136] [select * from...ETURN 1 as r )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-136] [from graph_table...RN 1 as r )]
+        GraphTableQuery [14-136] [graph_table...RETURN 1 as r )]
+          PathExpression [26-29] [aml]
+            Identifier(aml) [26-29] [aml]
+          GqlOperatorList [32-134] [MATCH @{key...RETURN 1 as r]
+            GqlOperatorList [32-134] [MATCH @{key...RETURN 1 as r]
+              GqlMatch [32-118] [MATCH @{key...= (b)-(c)]
+                GraphPattern [73-118] [p = (a)-(b...= (b)-(c)]
+                  GraphPathPattern [73-84] [p = (a)-(b)]
+                    Identifier(p) [73-74] [p]
+                    GraphNodePattern [77-80] [(a)]
+                      GraphElementPatternFiller [78-79] [a]
+                        Identifier(a) [78-79] [a]
+                    GraphEdgePattern [80-81] [-]
+                    GraphNodePattern [81-84] [(b)]
+                      GraphElementPatternFiller [82-83] [b]
+                        Identifier(b) [82-83] [b]
+                  GraphPathPattern [90-118] [@{key=hint_on_q} q = (b)-(c)]
+                    Hint [90-106] [@{key=hint_on_q}]
+                      HintEntry [92-105] [key=hint_on_q]
+                        Identifier(key) [92-95] [key]
+                        PathExpression [96-105] [hint_on_q]
+                          Identifier(hint_on_q) [96-105] [hint_on_q]
+                    Identifier(q) [107-108] [q]
+                    GraphNodePattern [111-114] [(b)]
+                      GraphElementPatternFiller [112-113] [b]
+                        Identifier(b) [112-113] [b]
+                    GraphEdgePattern [114-115] [-]
+                    GraphNodePattern [115-118] [(c)]
+                      GraphElementPatternFiller [116-117] [c]
+                        Identifier(c) [116-117] [c]
+                Hint [38-72] [@{key=hint_on_mat...h_pattern}]
+                  HintEntry [40-71] [key=hint_on_match...ph_pattern]
+                    Identifier(key) [40-43] [key]
+                    PathExpression [44-71] [hint_on_match_graph_pattern]
+                      Identifier(hint_on_match_graph_pattern) [44-71] [hint_on_match_graph_pattern]
+              GqlReturn [121-134] [RETURN 1 as r]
+                Select [127-134] [1 as r]
+                  SelectList [128-134] [1 as r]
+                    SelectColumn [128-134] [1 as r]
+                      IntLiteral(1) [128-129] [1]
+                      Alias [130-134] [as r]
+                        Identifier(r) [133-134] [r]
+
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH @{ key = hint_on_match_graph_pattern }
+      p = (a)
+      -
+      (b),
+      @{ key = hint_on_q }
+      q = (b)
+      -
+      (c)
+    RETURN
+      1 AS r
+  )
+==
+
+# Hints on the match go before the path declaration
+
+select * from graph_table(aml
+  MATCH p = @{key=hint_on_nothing} (a)-(b)
+  RETURN 1 as r
+)
+--
+ERROR: Syntax error: Expected "(" or "-" or "<" or -> but got "@" [at 2:13]
+  MATCH p = @{key=hint_on_nothing} (a)-(b)
+            ^

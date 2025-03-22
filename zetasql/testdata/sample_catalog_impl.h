@@ -21,6 +21,7 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "zetasql/public/analyzer_output.h"
@@ -28,9 +29,11 @@
 #include "zetasql/public/function.h"
 #include "zetasql/public/function_signature.h"
 #include "zetasql/public/language_options.h"
+#include "zetasql/public/measure_expression.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/type.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/container/node_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -91,8 +94,16 @@ class SampleCatalogImpl {
   absl::Status LoadTypes();
   absl::Status LoadTables();
   void LoadProtoTables();
+  absl::Status LoadMeasureTables();
   void LoadViews(const LanguageOptions& language_options);
   void LoadNestedCatalogs();
+
+  absl::Status AddTableWithMeasures(
+      AnalyzerOptions& analyzer_options, absl::string_view table_name,
+      const std::vector<std::pair<std::string, const Type*>>& columns,
+      std::optional<absl::flat_hash_set<int>> row_identity_column_indices,
+      std::vector<MeasureColumnDef> measures);
+
   void AddFunctionWithArgumentType(std::string type_name, const Type* arg_type);
 
   // Creates and adds the Function to the catalog.

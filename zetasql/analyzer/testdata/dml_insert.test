@@ -2317,3 +2317,82 @@ InsertStmt
 |       +-value=
 |         +-Literal(type=INT64, value=1)
 +-column_access_list=WRITE
+==
+
+# Regression test for b/399439396.
+[language_features=PIPES]
+[show_sqlbuilder_output]
+[enabled_ast_rewrites=DEFAULTS]
+INSERT INTO KeyValue (Key, Value) FROM AnotherKeyValue
+--
+InsertStmt
++-table_scan=
+| +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
++-insert_column_list=KeyValue.[Key#1, Value#2]
++-query=
+| +-TableScan(column_list=AnotherKeyValue.[Key#3, value#4], table=AnotherKeyValue, column_index_list=[0, 1])
++-query_output_column_list=AnotherKeyValue.[Key#3, value#4]
++-column_access_list=WRITE,WRITE
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+INSERT INTO KeyValue(Key, Value)
+SELECT
+  AnotherKeyValue.Key AS Key,
+  AnotherKeyValue.value AS value
+FROM
+  AnotherKeyValue;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+INSERT INTO KeyValue(Key, Value)
+FROM
+  AnotherKeyValue
+|> SELECT
+     AnotherKeyValue.Key AS Key,
+     AnotherKeyValue.value AS value;
+
+==
+
+# Regression test for b/399439396
+[language_features=PIPES]
+[show_sqlbuilder_output]
+INSERT INTO KeyValue (Key, Value) FROM AnotherKeyValue |> WHERE Key > 2
+--
+InsertStmt
++-table_scan=
+| +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
++-insert_column_list=KeyValue.[Key#1, Value#2]
++-query=
+| +-FilterScan
+|   +-column_list=AnotherKeyValue.[Key#3, value#4]
+|   +-input_scan=
+|   | +-TableScan(column_list=AnotherKeyValue.[Key#3, value#4], table=AnotherKeyValue, column_index_list=[0, 1])
+|   +-filter_expr=
+|     +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+|       +-ColumnRef(type=INT64, column=AnotherKeyValue.Key#3)
+|       +-Literal(type=INT64, value=2)
++-query_output_column_list=AnotherKeyValue.[Key#3, value#4]
++-column_access_list=WRITE,WRITE
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+INSERT INTO KeyValue(Key, Value)
+SELECT
+  AnotherKeyValue.Key AS Key,
+  AnotherKeyValue.value AS value
+FROM
+  AnotherKeyValue
+WHERE
+  (AnotherKeyValue.Key) > 2;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+INSERT INTO KeyValue(Key, Value)
+FROM
+  AnotherKeyValue
+|> WHERE
+     (AnotherKeyValue.Key) > 2
+|> SELECT
+     AnotherKeyValue.Key AS Key,
+     AnotherKeyValue.value AS value;

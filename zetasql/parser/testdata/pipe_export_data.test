@@ -1,0 +1,160 @@
+[default language_features=PIPES]
+
+# The parser doens't know EXPORT DATA is terminal and can't be
+# followed by more operators.
+from t
+|> export data options()
+|> export data options(k1=1, k2=abc)
+|> where true
+--
+QueryStatement [93-175] [from t |>...where true]
+  Query [93-175] [from t |>...where true]
+    FromQuery [93-99] [from t]
+      FromClause [93-99] [from t]
+        TablePathExpression [98-99] [t]
+          PathExpression [98-99] [t]
+            Identifier(t) [98-99] [t]
+    PipeExportData [100-124] [|> export data options()]
+      ExportDataStatement [103-124] [export data options()]
+        OptionsList [122-124] [()]
+    PipeExportData [125-161] [|> export...1, k2=abc)]
+      ExportDataStatement [128-161] [export data...1, k2=abc)]
+        OptionsList [147-161] [(k1=1, k2=abc)]
+          OptionsEntry [148-152] [k1=1]
+            Identifier(k1) [148-150] [k1]
+            IntLiteral(1) [151-152] [1]
+          OptionsEntry [154-160] [k2=abc]
+            Identifier(k2) [154-156] [k2]
+            PathExpression [157-160] [abc]
+              Identifier(abc) [157-160] [abc]
+    PipeWhere [162-175] [|> where true]
+      WhereClause [165-175] [where true]
+        BooleanLiteral(true) [171-175] [true]
+--
+FROM
+  t
+|> EXPORT DATA OPTIONS()
+|> EXPORT DATA OPTIONS(k1 = 1, k2 = abc)
+|> WHERE
+     true
+==
+
+from t
+|> export data
+--
+QueryStatement [0-21] [from t |> export data]
+  Query [0-21] [from t |> export data]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeExportData [7-21] [|> export data]
+      ExportDataStatement [10-21] [export data]
+--
+FROM
+  t
+|> EXPORT DATA
+==
+
+from t
+|> export
+--
+ERROR: Syntax error: Expected keyword DATA but got end of statement [at 2:10]
+|> export
+         ^
+==
+
+from t
+|> export data abc
+--
+ERROR: Syntax error: Expected end of input but got identifier "abc" [at 2:16]
+|> export data abc
+               ^
+==
+
+from t
+|> export data with connection abc options(x=5)
+|> export data with connection def
+--
+QueryStatement [0-89] [from t |>...connection def]
+  Query [0-89] [from t |>...connection def]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeExportData [7-54] [|> export...options(x=5)]
+      ExportDataStatement [10-54] [export data...options(x=5)]
+        WithConnectionClause [22-41] [with connection abc]
+          ConnectionClause [27-41] [connection abc]
+            PathExpression [38-41] [abc]
+              Identifier(abc) [38-41] [abc]
+        OptionsList [49-54] [(x=5)]
+          OptionsEntry [50-53] [x=5]
+            Identifier(x) [50-51] [x]
+            IntLiteral(5) [52-53] [5]
+    PipeExportData [55-89] [|> export...connection def]
+      ExportDataStatement [58-89] [export data...connection def]
+        WithConnectionClause [70-89] [with connection def]
+          ConnectionClause [75-89] [connection def]
+            PathExpression [86-89] [def]
+              Identifier(def) [86-89] [def]
+--
+FROM
+  t
+|> EXPORT DATA WITH CONNECTION abc OPTIONS(x = 5)
+|> EXPORT DATA WITH CONNECTION def
+==
+
+from t
+|> export data as select * from KeyValue
+--
+ERROR: Syntax error: AS query is not allowed on pipe EXPORT DATA [at 2:16]
+|> export data as select * from KeyValue
+               ^
+==
+
+from t
+|> export data as (select * from KeyValue)
+--
+ERROR: Syntax error: AS query is not allowed on pipe EXPORT DATA [at 2:16]
+|> export data as (select * from KeyValue)
+               ^
+==
+
+from t
+|> export data options() as FROM KeyValue
+--
+ERROR: Syntax error: AS query is not allowed on pipe EXPORT DATA [at 2:26]
+|> export data options() as FROM KeyValue
+                         ^
+==
+
+from t
+|> export data select * from KeyValue
+--
+ERROR: Syntax error: Expected end of input but got keyword SELECT [at 2:16]
+|> export data select * from KeyValue
+               ^
+==
+
+# EXPORT DATA statement with an EXPORT DATA pipe operator in its query.
+EXPORT DATA AS
+FROM Table
+|> EXPORT DATA
+--
+ExportDataStatement [0-40] [EXPORT DATA...EXPORT DATA]
+  Query [15-40] [FROM Table |> EXPORT DATA]
+    FromQuery [15-25] [FROM Table]
+      FromClause [15-25] [FROM Table]
+        TablePathExpression [20-25] [Table]
+          PathExpression [20-25] [Table]
+            Identifier(Table) [20-25] [Table]
+    PipeExportData [26-40] [|> EXPORT DATA]
+      ExportDataStatement [29-40] [EXPORT DATA]
+--
+EXPORT DATA AS
+FROM
+  Table
+|> EXPORT DATA

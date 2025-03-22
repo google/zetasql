@@ -145,6 +145,7 @@ cc_library(
     hdrs = ["fusible_tokens.h"],
     deps = [
         ":token",
+        "//zetasql/base:check",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:span",

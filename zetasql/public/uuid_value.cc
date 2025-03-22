@@ -33,6 +33,8 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
+#include "absl/strings/strip.h"
+#include "absl/strings/substitute.h"
 #include "zetasql/base/endian.h"
 #include "zetasql/base/no_destructor.h"
 #include "zetasql/base/status_builder.h"
@@ -40,6 +42,8 @@
 
 namespace zetasql {
 namespace {
+
+constexpr int kMaxUuidNumberOfHexDigits = 32;
 
 // Helper function to parse a single hexadecimal block of a UUID.
 // A hexadecimal block is a 16-digit hexadecimal number, which is represented
@@ -56,21 +60,25 @@ absl::StatusOr<uint64_t> ParseHexBlock(absl::string_view& str,
                      {'E', 0x0e}, {'F', 0x0f}});
   uint64_t block = 0;
   for (int j = 0; j < kMaxUuidBlockLength; ++j) {
-    // Check for consecutive hyphens
-    if (str.size() >= 2 && str[0] == '-' && str[1] == '-') {
-      return MakeEvalError() << "Invalid input: '" << original_str
-                             << "'. UUID cannot have multiple "
-                                "consecutive hyphens (-).";
-    }
-    if (str[0] == '-') {
-      str.remove_prefix(1);
+    absl::ConsumePrefix(&str, "-");
+    if (str.empty()) {
+      return MakeEvalError() << absl::Substitute(
+                 "Invalid input: '$0'. UUID must be at least $1 characters "
+                 "long.",
+                 original_str, kMaxUuidNumberOfHexDigits);
+    } else if (str[0] == '-') {
+      // Check for consecutive hyphens
+      return MakeEvalError() << absl::Substitute(
+                 "Invalid input: '$0'. UUID cannot have multiple "
+                 "consecutive hyphens (-).",
+                 original_str);
     }
 
     auto it = kCharToHexMap->find(str[0]);
     if (it == kCharToHexMap->end()) {
-      return MakeEvalError()
-             << "Invalid input: '" << original_str << "'. UUID cannot have '"
-             << str[0] << "' character.";
+      return MakeEvalError() << absl::Substitute(
+                 "Invalid input: '$0'. UUID cannot have '$1' character.",
+                 original_str, str[0]);
     }
     block = (block << 4) + it->second;
     str.remove_prefix(1);
@@ -90,7 +98,6 @@ UuidValue UuidValue::MinValue() {
 }
 
 absl::StatusOr<UuidValue> UuidValue::FromString(absl::string_view str) {
-  constexpr int kMaxUuidNumberOfHexDigits = 32;
   // Early checks for invalid length or leading hyphen
   if (str.size() < kMaxUuidNumberOfHexDigits) {
     return MakeEvalError() << "Invalid input: '" << str
@@ -216,9 +223,9 @@ void UuidValue::AppendToString(std::string* output) const {
 }
 
 void UuidValue::SerializeAndAppendToBytes(std::string* bytes) const {
-  int64_t high_bits = zetasql_base::LittleEndian::FromHost64(high_bits_);
+  int64_t high_bits = zetasql_base::BigEndian::FromHost64(high_bits_);
   bytes->append(reinterpret_cast<const char*>(&high_bits), sizeof(high_bits));
-  int64_t low_bits = zetasql_base::LittleEndian::FromHost64(low_bits_);
+  int64_t low_bits = zetasql_base::BigEndian::FromHost64(low_bits_);
   bytes->append(reinterpret_cast<const char*>(&low_bits), sizeof(low_bits));
 }
 
@@ -231,8 +238,8 @@ absl::StatusOr<UuidValue> UuidValue::DeserializeFromBytes(
   }
   const char* data = bytes.data();
   UuidValue uuid;
-  uuid.high_bits_ = zetasql_base::LittleEndian::Load<uint64_t>(data);
-  uuid.low_bits_ = zetasql_base::LittleEndian::Load<uint64_t>(data + sizeof(uuid.high_bits_));
+  uuid.high_bits_ = zetasql_base::BigEndian::Load<uint64_t>(data);
+  uuid.low_bits_ = zetasql_base::BigEndian::Load<uint64_t>(data + sizeof(uuid.high_bits_));
   return uuid;
 }
 

@@ -95,6 +95,7 @@ const ProtoType* Proto3TimestampType();
 const ProtoType* Proto3DateType();
 const ProtoType* Proto3LatLngType();
 const ProtoType* Proto3TimeOfDayType();
+const ProtoType* ProtoDurationType();
 
 const ProtoType* CivilTimeTypesSinkProtoType();
 const ProtoType* NullableIntProtoType();
@@ -123,6 +124,7 @@ Value Proto3Date(int32_t year, int32_t month, int32_t day);
 Value Proto3LatLng(double latitude, double longitude);
 Value Proto3TimeOfDay(int32_t hour, int32_t minute, int32_t seconds,
                       int32_t nanos);
+Value ProtoDuration(int64_t seconds, int32_t nanos);
 Value CivilTimeTypesSink(absl::string_view proto_str);
 Value NullableInt(absl::string_view proto_str);
 

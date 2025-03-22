@@ -34,6 +34,7 @@
 #include "google/protobuf/wrappers.pb.h"
 #include "zetasql/compliance/functions_testlib_common.h"
 #include "zetasql/public/civil_time.h"
+#include "zetasql/public/functions/bitwise_agg_mode.pb.h"
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/interval_value.h"
 #include "zetasql/public/json_value.h"
@@ -3859,167 +3860,223 @@ std::vector<QueryParamsWithResult> GetFunctionTestsBitwiseNot() {
   };
 }
 
-std::vector<QueryParamsWithResult> GetFunctionTestsBitwiseOr() {
-  return {
-    {{NullInt32(), Int32(0)}, NullInt32()},
-    {{Int32(1), NullInt32()}, NullInt32()},
-    {{NullInt64(), Int64(2)}, NullInt64()},
-    {{Int64(3), NullInt64()}, NullInt64()},
-    {{NullUint32(), Uint32(4)}, NullUint32()},
-    {{Uint32(5), NullUint32()}, NullUint32()},
-    {{NullUint64(), Uint64(6)}, NullUint64()},
-    {{Uint64(7), NullUint64()}, NullUint64()},
-    {{NullBytes(), Bytes("foo")}, NullBytes()},
-    {{Bytes("foo"), NullBytes()}, NullBytes()},
+std::vector<QueryParamsWithResult> GetFunctionTestsBitwiseOr(
+    bool with_mode_tests) {
+  std::vector<QueryParamsWithResult> tests = {
+      {{NullInt32(), Int32(0)}, NullInt32()},
+      {{Int32(1), NullInt32()}, NullInt32()},
+      {{NullInt64(), Int64(2)}, NullInt64()},
+      {{Int64(3), NullInt64()}, NullInt64()},
+      {{NullUint32(), Uint32(4)}, NullUint32()},
+      {{Uint32(5), NullUint32()}, NullUint32()},
+      {{NullUint64(), Uint64(6)}, NullUint64()},
+      {{Uint64(7), NullUint64()}, NullUint64()},
+      {{NullBytes(), Bytes("foo")}, NullBytes()},
+      {{Bytes("foo"), NullBytes()}, NullBytes()},
 
-    {{Int32(0), Int32(0)}, Int32(0)},
-    {{Int32(-1), Int32(0)}, Int32(-1)},
-    {{Int32(0xAAAAAAAA), Int32(0x55555555)}, Int32(-1)},
-    {{Int32(0), Int32(1)}, Int32(1)},
-    {{Int32(2), Int32(1)}, Int32(3)},
-    {{Int32(0xFF), Int32(1)}, Int32(0xFF)},
+      {{Int32(0), Int32(0)}, Int32(0)},
+      {{Int32(-1), Int32(0)}, Int32(-1)},
+      {{Int32(0xAAAAAAAA), Int32(0x55555555)}, Int32(-1)},
+      {{Int32(0), Int32(1)}, Int32(1)},
+      {{Int32(2), Int32(1)}, Int32(3)},
+      {{Int32(0xFF), Int32(1)}, Int32(0xFF)},
 
-    {{Int64(0), Int64(0)}, Int64(0)},
-    {{Int64(-1), Int64(0)}, Int64(-1)},
-    {{Int64(0xAAAAAAAAAAAAAAAA), Int64(0x5555555555555555)}, Int64(-1)},
-    {{Int64(0), Int64(1)}, Int64(1)},
-    {{Int64(2), Int64(1)}, Int64(3)},
-    {{Int64(0xFF), Int64(1)}, Int64(0xFF)},
+      {{Int64(0), Int64(0)}, Int64(0)},
+      {{Int64(-1), Int64(0)}, Int64(-1)},
+      {{Int64(0xAAAAAAAAAAAAAAAA), Int64(0x5555555555555555)}, Int64(-1)},
+      {{Int64(0), Int64(1)}, Int64(1)},
+      {{Int64(2), Int64(1)}, Int64(3)},
+      {{Int64(0xFF), Int64(1)}, Int64(0xFF)},
 
-    {{Uint32(0), Uint32(0)}, Uint32(0)},
-    {{Uint32(0xFFFFFFFFU), Uint32(0)}, Uint32(0xFFFFFFFFU)},
-    {{Uint32(0xAAAAAAAA), Uint32(0x55555555)}, Uint32(0xFFFFFFFFU)},
-    {{Uint32(0), Uint32(1)}, Uint32(1)},
-    {{Uint32(2), Uint32(1)}, Uint32(3)},
-    {{Uint32(0xFF), Uint32(1)}, Uint32(0xFF)},
+      {{Uint32(0), Uint32(0)}, Uint32(0)},
+      {{Uint32(0xFFFFFFFFU), Uint32(0)}, Uint32(0xFFFFFFFFU)},
+      {{Uint32(0xAAAAAAAA), Uint32(0x55555555)}, Uint32(0xFFFFFFFFU)},
+      {{Uint32(0), Uint32(1)}, Uint32(1)},
+      {{Uint32(2), Uint32(1)}, Uint32(3)},
+      {{Uint32(0xFF), Uint32(1)}, Uint32(0xFF)},
 
-    {{Uint64(0), Uint64(0)}, Uint64(0)},
-    {{Uint64(0xFFFFFFFFFFFFFFFFU), Uint64(0)}, Uint64(0xFFFFFFFFFFFFFFFFU)},
-    {{Uint64(0xAAAAAAAAAAAAAAAA), Uint64(0x5555555555555555)},
-        Uint64(0xFFFFFFFFFFFFFFFFU)},
-    {{Uint64(0), Uint64(1)}, Uint64(1)},
-    {{Uint64(2), Uint64(1)}, Uint64(3)},
-    {{Uint64(0xFF), Uint64(1)}, Uint64(0xFF)},
+      {{Uint64(0), Uint64(0)}, Uint64(0)},
+      {{Uint64(0xFFFFFFFFFFFFFFFFU), Uint64(0)}, Uint64(0xFFFFFFFFFFFFFFFFU)},
+      {{Uint64(0xAAAAAAAAAAAAAAAA), Uint64(0x5555555555555555)},
+       Uint64(0xFFFFFFFFFFFFFFFFU)},
+      {{Uint64(0), Uint64(1)}, Uint64(1)},
+      {{Uint64(2), Uint64(1)}, Uint64(3)},
+      {{Uint64(0xFF), Uint64(1)}, Uint64(0xFF)},
 
-    {{Bytes(""), Bytes("")}, Bytes("") },
-    {{Bytes("\0"), Bytes("\xFF")}, Bytes("\xFF") },
-    {{Bytes("\0\xFF"), Bytes("\xFF\0")}, Bytes("\xFF\xFF") },
-    {{Bytes("\xAA\xAA\xAA\xAA\xAA"), Bytes("\x55\x55\x55\x55\x55")},
-        Bytes("\xFF\xFF\xFF\xFF\xFF") },
-    {{Bytes("\x01\x23\x45\x67\x89\xAB\xCD\xEF\xFE\xDC\xBA"),
-      Bytes("\x12\x34\x56\x78\x9A\xBC\xDE\xF0\x0F\xED\xCB")},
-        Bytes("\x13\x37\x57\x7F\x9B\xBF\xDF\xFF\xFF\xFD\xFB") },
-    {{Bytes(""), Bytes("\xFF")}, NullBytes(), OUT_OF_RANGE },
+      {{Bytes(""), Bytes("")}, Bytes("")},
+      {{Bytes("\0"), Bytes("\xFF")}, Bytes("\xFF")},
+      {{Bytes("\0\xFF"), Bytes("\xFF\0")}, Bytes("\xFF\xFF")},
+      {{Bytes("\xAA\xAA\xAA\xAA\xAA"), Bytes("\x55\x55\x55\x55\x55")},
+       Bytes("\xFF\xFF\xFF\xFF\xFF")},
+      {{Bytes("\x01\x23\x45\x67\x89\xAB\xCD\xEF\xFE\xDC\xBA"),
+        Bytes("\x12\x34\x56\x78\x9A\xBC\xDE\xF0\x0F\xED\xCB")},
+       Bytes("\x13\x37\x57\x7F\x9B\xBF\xDF\xFF\xFF\xFD\xFB")},
+      {{Bytes(""), Bytes("\xFF")}, NullBytes(), OUT_OF_RANGE},
   };
+  if (with_mode_tests) {
+    const Value strict_mode = Value::Enum(types::BitwiseAggModeEnumType(),
+                                          functions::BitwiseAggEnums::STRICT);
+    const Value pad_mode = Value::Enum(types::BitwiseAggModeEnumType(),
+                                       functions::BitwiseAggEnums::PAD);
+    std::vector<QueryParamsWithResult> tests_with_mode = {
+        {{Bytes("\x01"), Bytes("\x01\x02"), strict_mode},
+         NullBytes(),
+         OUT_OF_RANGE},
+        {{Bytes("\x01"), Bytes("\x01\x02"), pad_mode}, Bytes("\x01\x02")},
+        {{Bytes("\x01\x02"), Bytes("\x01"), strict_mode},
+         NullBytes(),
+         OUT_OF_RANGE},
+        {{Bytes("\x01\x02"), Bytes("\x01"), pad_mode}, Bytes("\x01\x02")}};
+    tests.insert(tests.end(), tests_with_mode.begin(), tests_with_mode.end());
+  };
+  return tests;
 }
 
-std::vector<QueryParamsWithResult> GetFunctionTestsBitwiseXor() {
-  return {
-    {{NullInt32(), Int32(0)}, NullInt32()},
-    {{Int32(1), NullInt32()}, NullInt32()},
-    {{NullInt64(), Int64(2)}, NullInt64()},
-    {{Int64(3), NullInt64()}, NullInt64()},
-    {{NullUint32(), Uint32(4)}, NullUint32()},
-    {{Uint32(5), NullUint32()}, NullUint32()},
-    {{NullUint64(), Uint64(6)}, NullUint64()},
-    {{Uint64(7), NullUint64()}, NullUint64()},
-    {{NullBytes(), Bytes("foo")}, NullBytes()},
-    {{Bytes("foo"), NullBytes()}, NullBytes()},
+std::vector<QueryParamsWithResult> GetFunctionTestsBitwiseXor(
+    bool with_mode_tests) {
+  std::vector<QueryParamsWithResult> tests = {
+      {{NullInt32(), Int32(0)}, NullInt32()},
+      {{Int32(1), NullInt32()}, NullInt32()},
+      {{NullInt64(), Int64(2)}, NullInt64()},
+      {{Int64(3), NullInt64()}, NullInt64()},
+      {{NullUint32(), Uint32(4)}, NullUint32()},
+      {{Uint32(5), NullUint32()}, NullUint32()},
+      {{NullUint64(), Uint64(6)}, NullUint64()},
+      {{Uint64(7), NullUint64()}, NullUint64()},
+      {{NullBytes(), Bytes("foo")}, NullBytes()},
+      {{Bytes("foo"), NullBytes()}, NullBytes()},
 
-    {{Int32(0), Int32(0)}, Int32(0)},
-    {{Int32(-1), Int32(0)}, Int32(-1)},
-    {{Int32(-1), Int32(-1)}, Int32(0)},
-    {{Int32(0xAAAAAAAA), Int32(0x55555555)}, Int32(-1)},
-    {{Int32(0xAAAAAAAA), Int32(0xFFFFFFFF)}, Int32(0x55555555)},
-    {{Int32(2), Int32(1)}, Int32(3)},
+      {{Int32(0), Int32(0)}, Int32(0)},
+      {{Int32(-1), Int32(0)}, Int32(-1)},
+      {{Int32(-1), Int32(-1)}, Int32(0)},
+      {{Int32(0xAAAAAAAA), Int32(0x55555555)}, Int32(-1)},
+      {{Int32(0xAAAAAAAA), Int32(0xFFFFFFFF)}, Int32(0x55555555)},
+      {{Int32(2), Int32(1)}, Int32(3)},
 
-    {{Int64(0), Int64(0)}, Int64(0)},
-    {{Int64(-1), Int64(0)}, Int64(-1)},
-    {{Int64(-1), Int64(-1)}, Int64(0)},
-    {{Int64(0xAAAAAAAAAAAAAAAA), Int64(0x5555555555555555)}, Int64(-1)},
-    {{Int64(0xAAAAAAAAAAAAAAAA), Int64(0xFFFFFFFFFFFFFFFF)},
-        Int64(0x5555555555555555)},
-    {{Int64(2), Int64(1)}, Int64(3)},
+      {{Int64(0), Int64(0)}, Int64(0)},
+      {{Int64(-1), Int64(0)}, Int64(-1)},
+      {{Int64(-1), Int64(-1)}, Int64(0)},
+      {{Int64(0xAAAAAAAAAAAAAAAA), Int64(0x5555555555555555)}, Int64(-1)},
+      {{Int64(0xAAAAAAAAAAAAAAAA), Int64(0xFFFFFFFFFFFFFFFF)},
+       Int64(0x5555555555555555)},
+      {{Int64(2), Int64(1)}, Int64(3)},
 
-    {{Uint32(0), Uint32(0)}, Uint32(0)},
-    {{Uint32(0xFFFFFFFFU), Uint32(0)}, Uint32(0xFFFFFFFFU)},
-    {{Uint32(0xFFFFFFFFU), Uint32(0xFFFFFFFFU)}, Uint32(0)},
-    {{Uint32(0xAAAAAAAAU), Uint32(0x55555555U)}, Uint32(0xFFFFFFFFU)},
-    {{Uint32(0xAAAAAAAAU), Uint32(0xFFFFFFFFU)}, Uint32(0x55555555U)},
-    {{Uint32(2), Uint32(1)}, Uint32(3)},
+      {{Uint32(0), Uint32(0)}, Uint32(0)},
+      {{Uint32(0xFFFFFFFFU), Uint32(0)}, Uint32(0xFFFFFFFFU)},
+      {{Uint32(0xFFFFFFFFU), Uint32(0xFFFFFFFFU)}, Uint32(0)},
+      {{Uint32(0xAAAAAAAAU), Uint32(0x55555555U)}, Uint32(0xFFFFFFFFU)},
+      {{Uint32(0xAAAAAAAAU), Uint32(0xFFFFFFFFU)}, Uint32(0x55555555U)},
+      {{Uint32(2), Uint32(1)}, Uint32(3)},
 
-    {{Uint64(0), Uint64(0)}, Uint64(0)},
-    {{Uint64(0xFFFFFFFFFFFFFFFFU), Uint64(0)}, Uint64(0xFFFFFFFFFFFFFFFFU)},
-    {{Uint64(0xFFFFFFFFFFFFFFFFU), Uint64(0xFFFFFFFFFFFFFFFFU)}, Uint64(0)},
-    {{Uint64(0xAAAAAAAAAAAAAAAAU), Uint64(0x5555555555555555U)},
-        Uint64(0xFFFFFFFFFFFFFFFFU)},
-    {{Uint64(0xAAAAAAAAAAAAAAAAU), Uint64(0xFFFFFFFFFFFFFFFFU)},
-        Uint64(0x5555555555555555U)},
-    {{Uint64(2), Uint64(1)}, Uint64(3)},
+      {{Uint64(0), Uint64(0)}, Uint64(0)},
+      {{Uint64(0xFFFFFFFFFFFFFFFFU), Uint64(0)}, Uint64(0xFFFFFFFFFFFFFFFFU)},
+      {{Uint64(0xFFFFFFFFFFFFFFFFU), Uint64(0xFFFFFFFFFFFFFFFFU)}, Uint64(0)},
+      {{Uint64(0xAAAAAAAAAAAAAAAAU), Uint64(0x5555555555555555U)},
+       Uint64(0xFFFFFFFFFFFFFFFFU)},
+      {{Uint64(0xAAAAAAAAAAAAAAAAU), Uint64(0xFFFFFFFFFFFFFFFFU)},
+       Uint64(0x5555555555555555U)},
+      {{Uint64(2), Uint64(1)}, Uint64(3)},
 
-    {{Bytes(""), Bytes("")}, Bytes("") },
-    {{Bytes("\0"), Bytes("\xFF")}, Bytes("\xFF") },
-    {{Bytes("\0\xFF"), Bytes("\xFF\0")}, Bytes("\xFF\xFF") },
-    {{Bytes("\xAA\xAA\xAA\xAA\xAA"), Bytes("\x55\x55\x55\x55\x55")},
-        Bytes("\xFF\xFF\xFF\xFF\xFF") },
-    {{Bytes("\x01\x23\x45\x67\x89\xAB\xCD\xEF\xFE\xDC\xBA"),
-      Bytes("\x12\x34\x56\x78\x9A\xBC\xDE\xF0\x0F\xED\xCB")},
-        Bytes("\x13\x17\x13\x1F\x13\x17\x13\x1F\xF1\x31\x71") },
-    {{Bytes(""), Bytes("\xFF")}, NullBytes(), OUT_OF_RANGE },
+      {{Bytes(""), Bytes("")}, Bytes("")},
+      {{Bytes("\0"), Bytes("\xFF")}, Bytes("\xFF")},
+      {{Bytes("\0\xFF"), Bytes("\xFF\0")}, Bytes("\xFF\xFF")},
+      {{Bytes("\xAA\xAA\xAA\xAA\xAA"), Bytes("\x55\x55\x55\x55\x55")},
+       Bytes("\xFF\xFF\xFF\xFF\xFF")},
+      {{Bytes("\x01\x23\x45\x67\x89\xAB\xCD\xEF\xFE\xDC\xBA"),
+        Bytes("\x12\x34\x56\x78\x9A\xBC\xDE\xF0\x0F\xED\xCB")},
+       Bytes("\x13\x17\x13\x1F\x13\x17\x13\x1F\xF1\x31\x71")},
+      {{Bytes(""), Bytes("\xFF")}, NullBytes(), OUT_OF_RANGE},
   };
+  if (with_mode_tests) {
+    const Value strict_mode = Value::Enum(types::BitwiseAggModeEnumType(),
+                                          functions::BitwiseAggEnums::STRICT);
+    const Value pad_mode = Value::Enum(types::BitwiseAggModeEnumType(),
+                                       functions::BitwiseAggEnums::PAD);
+    std::vector<QueryParamsWithResult> tests_with_mode = {
+        {{Bytes("\x01"), Bytes("\x01\x02"), strict_mode},
+         NullBytes(),
+         OUT_OF_RANGE},
+        {{Bytes("\x01"), Bytes("\x01\x02"), pad_mode}, Bytes("\x00\x02")},
+        {{Bytes("\x01\x02"), Bytes("\x01"), strict_mode},
+         NullBytes(),
+         OUT_OF_RANGE},
+        {{Bytes("\x01\x02"), Bytes("\x01"), pad_mode}, Bytes("\x00\x02")},
+    };
+    tests.insert(tests.end(), tests_with_mode.begin(), tests_with_mode.end());
+  }
+  return tests;
 }
 
-std::vector<QueryParamsWithResult> GetFunctionTestsBitwiseAnd() {
-  return {
-    {{NullInt32(), Int32(0)}, NullInt32()},
-    {{Int32(1), NullInt32()}, NullInt32()},
-    {{NullInt64(), Int64(2)}, NullInt64()},
-    {{Int64(3), NullInt64()}, NullInt64()},
-    {{NullUint32(), Uint32(4)}, NullUint32()},
-    {{Uint32(5), NullUint32()}, NullUint32()},
-    {{NullUint64(), Uint64(6)}, NullUint64()},
-    {{Uint64(7), NullUint64()}, NullUint64()},
-    {{NullBytes(), Bytes("foo")}, NullBytes()},
-    {{Bytes("foo"), NullBytes()}, NullBytes()},
+std::vector<QueryParamsWithResult> GetFunctionTestsBitwiseAnd(
+    bool with_mode_tests) {
+  std::vector<QueryParamsWithResult> tests = {
+      {{NullInt32(), Int32(0)}, NullInt32()},
+      {{Int32(1), NullInt32()}, NullInt32()},
+      {{NullInt64(), Int64(2)}, NullInt64()},
+      {{Int64(3), NullInt64()}, NullInt64()},
+      {{NullUint32(), Uint32(4)}, NullUint32()},
+      {{Uint32(5), NullUint32()}, NullUint32()},
+      {{NullUint64(), Uint64(6)}, NullUint64()},
+      {{Uint64(7), NullUint64()}, NullUint64()},
+      {{NullBytes(), Bytes("foo")}, NullBytes()},
+      {{Bytes("foo"), NullBytes()}, NullBytes()},
 
-    {{Int32(0), Int32(0)}, Int32(0)},
-    {{Int32(-1), Int32(0)}, Int32(0)},
-    {{Int32(0xAAAAAAAA), Int32(0x55555555)}, Int32(0)},
-    {{Int32(0xAAAAAAAA), Int32(0xFFFFFFFF)}, Int32(0xAAAAAAAA)},
-    {{Int32(0xAAAAAAAA), Int32(0xF0F0F0F0)}, Int32(0xA0A0A0A0)},
+      {{Int32(0), Int32(0)}, Int32(0)},
+      {{Int32(-1), Int32(0)}, Int32(0)},
+      {{Int32(0xAAAAAAAA), Int32(0x55555555)}, Int32(0)},
+      {{Int32(0xAAAAAAAA), Int32(0xFFFFFFFF)}, Int32(0xAAAAAAAA)},
+      {{Int32(0xAAAAAAAA), Int32(0xF0F0F0F0)}, Int32(0xA0A0A0A0)},
 
-    {{Int64(0), Int64(0)}, Int64(0)},
-    {{Int64(-1), Int64(0)}, Int64(0)},
-    {{Int64(0xAAAAAAAAAAAAAAAA), Int64(0x5555555555555555)}, Int64(0)},
-    {{Int64(0xAAAAAAAAAAAAAAAA), Int64(0xFFFFFFFFFFFFFFFF)},
-        Int64(0xAAAAAAAAAAAAAAAA)},
-    {{Int64(0xAAAAAAAAAAAAAAAA), Int64(0xF0F0F0F0F0F0F0F0)},
-        Int64(0xA0A0A0A0A0A0A0A0)},
+      {{Int64(0), Int64(0)}, Int64(0)},
+      {{Int64(-1), Int64(0)}, Int64(0)},
+      {{Int64(0xAAAAAAAAAAAAAAAA), Int64(0x5555555555555555)}, Int64(0)},
+      {{Int64(0xAAAAAAAAAAAAAAAA), Int64(0xFFFFFFFFFFFFFFFF)},
+       Int64(0xAAAAAAAAAAAAAAAA)},
+      {{Int64(0xAAAAAAAAAAAAAAAA), Int64(0xF0F0F0F0F0F0F0F0)},
+       Int64(0xA0A0A0A0A0A0A0A0)},
 
-    {{Uint32(0), Uint32(0)}, Uint32(0)},
-    {{Uint32(0xFFFFFFFFU), Uint32(0)}, Uint32(0)},
-    {{Uint32(0xAAAAAAAAU), Uint32(0x55555555U)}, Uint32(0)},
-    {{Uint32(0xAAAAAAAAU), Uint32(0xFFFFFFFFU)}, Uint32(0xAAAAAAAAU)},
-    {{Uint32(0xAAAAAAAAU), Uint32(0xF0F0F0F0U)}, Uint32(0xA0A0A0A0U)},
+      {{Uint32(0), Uint32(0)}, Uint32(0)},
+      {{Uint32(0xFFFFFFFFU), Uint32(0)}, Uint32(0)},
+      {{Uint32(0xAAAAAAAAU), Uint32(0x55555555U)}, Uint32(0)},
+      {{Uint32(0xAAAAAAAAU), Uint32(0xFFFFFFFFU)}, Uint32(0xAAAAAAAAU)},
+      {{Uint32(0xAAAAAAAAU), Uint32(0xF0F0F0F0U)}, Uint32(0xA0A0A0A0U)},
 
-    {{Uint64(0), Uint64(0)}, Uint64(0)},
-    {{Uint64(0xFFFFFFFFFFFFFFFFU), Uint64(0)}, Uint64(0)},
-    {{Uint64(0xAAAAAAAAAAAAAAAAU), Uint64(0x5555555555555555U)}, Uint64(0)},
-    {{Uint64(0xAAAAAAAAAAAAAAAAU), Uint64(0xFFFFFFFFFFFFFFFFU)},
-        Uint64(0xAAAAAAAAAAAAAAAAU)},
-    {{Uint64(0xAAAAAAAAAAAAAAAAU), Uint64(0xF0F0F0F0F0F0F0F0U)},
-        Uint64(0xA0A0A0A0A0A0A0A0U)},
+      {{Uint64(0), Uint64(0)}, Uint64(0)},
+      {{Uint64(0xFFFFFFFFFFFFFFFFU), Uint64(0)}, Uint64(0)},
+      {{Uint64(0xAAAAAAAAAAAAAAAAU), Uint64(0x5555555555555555U)}, Uint64(0)},
+      {{Uint64(0xAAAAAAAAAAAAAAAAU), Uint64(0xFFFFFFFFFFFFFFFFU)},
+       Uint64(0xAAAAAAAAAAAAAAAAU)},
+      {{Uint64(0xAAAAAAAAAAAAAAAAU), Uint64(0xF0F0F0F0F0F0F0F0U)},
+       Uint64(0xA0A0A0A0A0A0A0A0U)},
 
-    {{Bytes(""), Bytes("")}, Bytes("") },
-    {{Bytes("\0"), Bytes("\xFF")}, Bytes("\0")},
-    {{Bytes("\0\xFF"), Bytes("\xFF\0")}, Bytes("\0\0") },
-    {{Bytes("\xAA\xAA\xAA\xAA\xAA"), Bytes("\x55\x55\x55\x55\x55")},
-        Bytes("\0\0\0\0\0") },
-    {{Bytes("\x01\x23\x45\x67\x89\xAB\xCD\xEF\xFE\xDC\xBA"),
-      Bytes("\x12\x34\x56\x78\x9A\xBC\xDE\xF0\x0F\xED\xCB")},
-        Bytes("\x00\x20\x44\x60\x88\xA8\xCC\xE0\x0E\xCC\x8A") },
-    {{Bytes(""), Bytes("\xFF")}, NullBytes(), OUT_OF_RANGE },
+      {{Bytes(""), Bytes("")}, Bytes("")},
+      {{Bytes("\0"), Bytes("\xFF")}, Bytes("\0")},
+      {{Bytes("\0\xFF"), Bytes("\xFF\0")}, Bytes("\0\0")},
+      {{Bytes("\xAA\xAA\xAA\xAA\xAA"), Bytes("\x55\x55\x55\x55\x55")},
+       Bytes("\0\0\0\0\0")},
+      {{Bytes("\x01\x23\x45\x67\x89\xAB\xCD\xEF\xFE\xDC\xBA"),
+        Bytes("\x12\x34\x56\x78\x9A\xBC\xDE\xF0\x0F\xED\xCB")},
+       Bytes("\x00\x20\x44\x60\x88\xA8\xCC\xE0\x0E\xCC\x8A")},
+      {{Bytes(""), Bytes("\xFF")}, NullBytes(), OUT_OF_RANGE},
   };
+  if (with_mode_tests) {
+    const Value strict_mode = Value::Enum(types::BitwiseAggModeEnumType(),
+                                          functions::BitwiseAggEnums::STRICT);
+    const Value pad_mode = Value::Enum(types::BitwiseAggModeEnumType(),
+                                       functions::BitwiseAggEnums::PAD);
+    std::vector<QueryParamsWithResult> tests_with_mode = {
+        {{Bytes("\x01"), Bytes("\x01\x02"), strict_mode},
+         NullBytes(),
+         OUT_OF_RANGE},
+        {{Bytes("\x01"), Bytes("\x01\x02"), pad_mode}, Bytes("\x01\x00")},
+        {{Bytes("\x01\x02"), Bytes("\x01"), strict_mode},
+         NullBytes(),
+         OUT_OF_RANGE},
+        {{Bytes("\x01\x02"), Bytes("\x01"), pad_mode}, Bytes("\x01\x00")},
+    };
+    tests.insert(tests.end(), tests_with_mode.begin(), tests_with_mode.end());
+  }
+  return tests;
 }
 
 std::vector<QueryParamsWithResult> GetFunctionTestsBitwiseLeftShift() {

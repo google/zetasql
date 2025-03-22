@@ -323,14 +323,6 @@ QueryStmt
                         +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
 ==
 
-from KeyValue
-|> extend count(*) OVER w
---
-ERROR: Cannot reference a named window in pipe EXTEND [at 2:25]
-|> extend count(*) OVER w
-                        ^
-==
-
 # EXTEND preserves range variables.
 from KeyValue kv1, KeyValue kv2
 |> extend kv1.key AS key1

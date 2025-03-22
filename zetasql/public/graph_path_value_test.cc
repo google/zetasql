@@ -78,11 +78,14 @@ TEST(GraphPathValueTest, GraphPathCannotContainNull) {
               StatusIs(absl::StatusCode::kInternal,
                        HasSubstr("Path cannot have null graph elements")));
 
-  ZETASQL_ASSERT_OK_AND_ASSIGN(const Value node,
-                       Value::MakeGraphNode(node_type, "n1",
-                                            std::vector<Value::Property>{
-                                                {"p0", Value::String("foo")}},
-                                            /*labels=*/{}, "NodeTable"));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value node,
+      Value::MakeGraphNode(
+          node_type, "n1",
+          Value::GraphElementLabelsAndProperties{
+              .static_labels = {"label1"},
+              .static_properties = {{"p0", Value::String("foo")}}},
+          "NodeTable"));
 
   EXPECT_THAT(
       Value::MakeGraphPath(path_type, {node, Value::Null(edge_type), node}),
@@ -100,17 +103,21 @@ TEST(GraphPathValueTest, GraphPathTypeMismatch) {
               StatusIs(absl::StatusCode::kInternal,
                        HasSubstr("Path cannot have null graph elements")));
 
-  ZETASQL_ASSERT_OK_AND_ASSIGN(const Value node,
-                       Value::MakeGraphNode(node_type, "n1",
-                                            std::vector<Value::Property>{
-                                                {"p0", Value::String("foo")}},
-                                            /*labels=*/{}, "NodeTable"));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value node,
+      Value::MakeGraphNode(
+          node_type, "n1",
+          Value::GraphElementLabelsAndProperties{
+              .static_labels = {"label1"},
+              .static_properties = {{"p0", Value::String("foo")}}},
+          "NodeTable"));
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       const Value edge,
-      Value::MakeGraphEdge(
-          edge_type, "e1",
-          std::vector<Value::Property>{{"p1", Value::Int32(1)}},
-          /*labels=*/{}, "EdgeTable", "n1", "n1"));
+      Value::MakeGraphEdge(edge_type, "e1",
+                           Value::GraphElementLabelsAndProperties{
+                               .static_labels = {"label1"},
+                               .static_properties = {{"p1", Value::Int32(1)}}},
+                           "EdgeTable", "n1", "n1"));
 
   EXPECT_THAT(
       Value::MakeGraphPath(path_type, {node, edge, edge}),
@@ -139,22 +146,29 @@ TEST(GraphPathValueTest, SimpleGetter) {
               StatusIs(absl::StatusCode::kInternal,
                        HasSubstr("Path cannot have null graph elements")));
 
-  ZETASQL_ASSERT_OK_AND_ASSIGN(const Value node1,
-                       Value::MakeGraphNode(node_type, "n1",
-                                            std::vector<Value::Property>{
-                                                {"p0", Value::String("foo")}},
-                                            /*labels=*/{}, "NodeTable1"));
-  ZETASQL_ASSERT_OK_AND_ASSIGN(const Value node2,
-                       Value::MakeGraphNode(node_type, "n2",
-                                            std::vector<Value::Property>{
-                                                {"p0", Value::String("bar")}},
-                                            /*labels=*/{}, "NodeTable2"));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value node1,
+      Value::MakeGraphNode(
+          node_type, "n1",
+          Value::GraphElementLabelsAndProperties{
+              .static_labels = {"label1"},
+              .static_properties = {{"p0", Value::String("foo")}}},
+          "NodeTable1"));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value node2,
+      Value::MakeGraphNode(
+          node_type, "n2",
+          Value::GraphElementLabelsAndProperties{
+              .static_labels = {"label1"},
+              .static_properties = {{"p0", Value::String("bar")}}},
+          "NodeTable2"));
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       const Value edge,
-      Value::MakeGraphEdge(
-          edge_type, "e1",
-          std::vector<Value::Property>{{"p1", Value::Int32(1)}},
-          /*labels=*/{}, "EdgeTable", "n1", "n2"));
+      Value::MakeGraphEdge(edge_type, "e1",
+                           Value::GraphElementLabelsAndProperties{
+                               .static_labels = {"label1"},
+                               .static_properties = {{"p1", Value::Int32(1)}}},
+                           "EdgeTable", "n1", "n2"));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(const Value path,
                        Value::MakeGraphPath(path_type, {node1, edge, node2}));
@@ -174,17 +188,21 @@ TEST(GraphPathValueTest, DebugStrings) {
               StatusIs(absl::StatusCode::kInternal,
                        HasSubstr("Path cannot have null graph elements")));
 
-  ZETASQL_ASSERT_OK_AND_ASSIGN(const Value node1,
-                       Value::MakeGraphNode(node_type, "n1",
-                                            std::vector<Value::Property>{
-                                                {"p0", Value::String("foo")}},
-                                            /*labels=*/{}, "NodeTable"));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value node1,
+      Value::MakeGraphNode(
+          node_type, "n1",
+          Value::GraphElementLabelsAndProperties{
+              .static_labels = {"label1"},
+              .static_properties = {{"p0", Value::String("foo")}}},
+          "NodeTable"));
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       const Value edge,
-      Value::MakeGraphEdge(
-          edge_type, "e1",
-          std::vector<Value::Property>{{"p1", Value::Int32(1)}},
-          /*labels=*/{}, "EdgeTable", "n1", "n1"));
+      Value::MakeGraphEdge(edge_type, "e1",
+                           Value::GraphElementLabelsAndProperties{
+                               .static_labels = {"label1"},
+                               .static_properties = {{"p1", Value::Int32(1)}}},
+                           "EdgeTable", "n1", "n1"));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(const Value path,
                        Value::MakeGraphPath(path_type, {node1, edge, node1}));
@@ -193,13 +211,6 @@ TEST(GraphPathValueTest, DebugStrings) {
             R"({node:{p0:"foo"}, edge:{p1:1}, node:{p0:"foo"}})");
   EXPECT_EQ(path.DebugString(),
             R"({node:{p0:"foo"}, edge:{p1:1}, node:{p0:"foo"}})");
-  EXPECT_EQ(
-      path.FullDebugString(),
-      R"(GraphPath{node:GraphNode{$name:"NodeTable", $id:b"n1", $labels:[], )"
-      R"(p0:String("foo")}, edge:GraphEdge{$name:"EdgeTable", $id:b"e1", )"
-      R"($labels:[], $source_node_id:b"n1", $dest_node_id:b"n1", )"
-      R"(p1:Int32(1)}, node:GraphNode{$name:"NodeTable", $id:b"n1", )"
-      R"($labels:[], p0:String("foo")}})");
 }
 
 TEST(GraphPathValueTest, Comparisons) {
@@ -212,29 +223,37 @@ TEST(GraphPathValueTest, Comparisons) {
               StatusIs(absl::StatusCode::kInternal,
                        HasSubstr("Path cannot have null graph elements")));
 
-  ZETASQL_ASSERT_OK_AND_ASSIGN(const Value node1,
-                       Value::MakeGraphNode(node_type, "n1",
-                                            std::vector<Value::Property>{
-                                                {"p0", Value::String("foo")}},
-                                            /*labels=*/{}, "NodeTable1"));
-  ZETASQL_ASSERT_OK_AND_ASSIGN(const Value node2,
-                       Value::MakeGraphNode(node_type, "n2",
-                                            std::vector<Value::Property>{
-                                                {"p0", Value::String("bar")}},
-                                            /*labels=*/{}, "NodeTable2"));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value node1,
+      Value::MakeGraphNode(
+          node_type, "n1",
+          Value::GraphElementLabelsAndProperties{
+              .static_labels = {"label1"},
+              .static_properties = {{"p0", Value::String("foo")}}},
+          "NodeTable1"));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value node2,
+      Value::MakeGraphNode(
+          node_type, "n2",
+          Value::GraphElementLabelsAndProperties{
+              .static_labels = {"label1"},
+              .static_properties = {{"p0", Value::String("bar")}}},
+          "NodeTable2"));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       const Value edge1,
-      Value::MakeGraphEdge(
-          edge_type, "e1",
-          std::vector<Value::Property>{{"p1", Value::Int32(1)}},
-          /*labels=*/{}, "EdgeTable1", "n1", "n2"));
+      Value::MakeGraphEdge(edge_type, "e1",
+                           Value::GraphElementLabelsAndProperties{
+                               .static_labels = {"label1"},
+                               .static_properties = {{"p1", Value::Int32(1)}}},
+                           "EdgeTable1", "n1", "n2"));
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       const Value edge2,
-      Value::MakeGraphEdge(
-          edge_type, "e2",
-          std::vector<Value::Property>{{"p1", Value::Int32(2)}},
-          /*labels=*/{}, "EdgeTable2", "n1", "n2"));
+      Value::MakeGraphEdge(edge_type, "e2",
+                           Value::GraphElementLabelsAndProperties{
+                               .static_labels = {"label1"},
+                               .static_properties = {{"p1", Value::Int32(2)}}},
+                           "EdgeTable2", "n1", "n2"));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(const Value path1,
                        Value::MakeGraphPath(path_type, {node1, edge1, node2}));
@@ -293,29 +312,37 @@ TEST(GraphPathValueTest, IllformedPath) {
               StatusIs(absl::StatusCode::kInternal,
                        HasSubstr("Path cannot have null graph elements")));
 
-  ZETASQL_ASSERT_OK_AND_ASSIGN(const Value node1,
-                       Value::MakeGraphNode(node_type, "n1",
-                                            std::vector<Value::Property>{
-                                                {"p0", Value::String("foo")}},
-                                            /*labels=*/{}, "NodeTable1"));
-  ZETASQL_ASSERT_OK_AND_ASSIGN(const Value node2,
-                       Value::MakeGraphNode(node_type, "n2",
-                                            std::vector<Value::Property>{
-                                                {"p0", Value::String("bar")}},
-                                            /*labels=*/{}, "NodeTable2"));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value node1,
+      Value::MakeGraphNode(
+          node_type, "n1",
+          Value::GraphElementLabelsAndProperties{
+              .static_labels = {"label1"},
+              .static_properties = {{"p0", Value::String("foo")}}},
+          "NodeTable1"));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value node2,
+      Value::MakeGraphNode(
+          node_type, "n2",
+          Value::GraphElementLabelsAndProperties{
+              .static_labels = {"label1"},
+              .static_properties = {{"p0", Value::String("bar")}}},
+          "NodeTable2"));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       const Value edge1,
-      Value::MakeGraphEdge(
-          edge_type, "e1",
-          std::vector<Value::Property>{{"p1", Value::Int32(1)}},
-          /*labels=*/{}, "EdgeTable1", "n1", "n2"));
+      Value::MakeGraphEdge(edge_type, "e1",
+                           Value::GraphElementLabelsAndProperties{
+                               .static_labels = {"label1"},
+                               .static_properties = {{"p1", Value::Int32(1)}}},
+                           "EdgeTable1", "n1", "n2"));
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       const Value edge2,
-      Value::MakeGraphEdge(
-          edge_type, "e2",
-          std::vector<Value::Property>{{"p1", Value::Int32(2)}},
-          /*labels=*/{}, "EdgeTable2", "n2", "n2"));
+      Value::MakeGraphEdge(edge_type, "e2",
+                           Value::GraphElementLabelsAndProperties{
+                               .static_labels = {"label1"},
+                               .static_properties = {{"p1", Value::Int32(2)}}},
+                           "EdgeTable2", "n2", "n2"));
 
   EXPECT_THAT(Value::MakeGraphPath(path_type, {node1, edge1, node2}), IsOk());
   EXPECT_THAT(Value::MakeGraphPath(path_type, {node1, edge2, node2}),
@@ -333,29 +360,37 @@ TEST(GraphPathValueTest, PathWithSelfEdge) {
   const GraphElementType* edge_type = MakeGraphElementType(
       {"graph_name"}, GraphElementType::kEdge, {{"p1", Int32Type()}});
   const GraphPathType* path_type = MakeGraphPathType(node_type, edge_type);
-  ZETASQL_ASSERT_OK_AND_ASSIGN(const Value node1,
-                       Value::MakeGraphNode(node_type, "n1",
-                                            std::vector<Value::Property>{
-                                                {"p0", Value::String("foo")}},
-                                            /*labels=*/{}, "NodeTable1"));
-  ZETASQL_ASSERT_OK_AND_ASSIGN(const Value node2,
-                       Value::MakeGraphNode(node_type, "n2",
-                                            std::vector<Value::Property>{
-                                                {"p0", Value::String("bar")}},
-                                            /*labels=*/{}, "NodeTable2"));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value node1,
+      Value::MakeGraphNode(
+          node_type, "n1",
+          Value::GraphElementLabelsAndProperties{
+              .static_labels = {"label1"},
+              .static_properties = {{"p0", Value::String("foo")}}},
+          "NodeTable1"));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value node2,
+      Value::MakeGraphNode(
+          node_type, "n2",
+          Value::GraphElementLabelsAndProperties{
+              .static_labels = {"label1"},
+              .static_properties = {{"p0", Value::String("bar")}}},
+          "NodeTable2"));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       const Value edge1,
-      Value::MakeGraphEdge(
-          edge_type, "e1",
-          std::vector<Value::Property>{{"p1", Value::Int32(1)}},
-          /*labels=*/{}, "EdgeTable1", "n1", "n1"));
+      Value::MakeGraphEdge(edge_type, "e1",
+                           Value::GraphElementLabelsAndProperties{
+                               .static_labels = {"label1"},
+                               .static_properties = {{"p1", Value::Int32(1)}}},
+                           "EdgeTable1", "n1", "n1"));
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       const Value edge2,
-      Value::MakeGraphEdge(
-          edge_type, "e2",
-          std::vector<Value::Property>{{"p1", Value::Int32(2)}},
-          /*labels=*/{}, "EdgeTable2", "n1", "n2"));
+      Value::MakeGraphEdge(edge_type, "e2",
+                           Value::GraphElementLabelsAndProperties{
+                               .static_labels = {"label1"},
+                               .static_properties = {{"p1", Value::Int32(2)}}},
+                           "EdgeTable2", "n1", "n2"));
 
   EXPECT_THAT(Value::MakeGraphPath(path_type, {node1, edge1, node1}), IsOk());
   EXPECT_THAT(

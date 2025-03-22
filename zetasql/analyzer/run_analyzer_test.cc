@@ -17,8 +17,9 @@
 #include "zetasql/analyzer/run_analyzer_test.h"
 
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
 #include <functional>
-#include <iterator>
 #include <memory>
 #include <optional>
 #include <set>
@@ -55,6 +56,7 @@
 #include "zetasql/public/simple_catalog_util.h"
 #include "zetasql/public/sql_constant.h"
 #include "zetasql/public/sql_formatter.h"
+#include "zetasql/public/sql_function.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/templated_sql_function.h"
@@ -67,6 +69,7 @@
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/types/type_parameters.h"
 #include "zetasql/public/value.h"
+#include "zetasql/resolved_ast/query_expression.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast.pb.h"
 #include "zetasql/resolved_ast/resolved_ast_comparator.h"
@@ -291,6 +294,80 @@ absl::StatusOr<std::unique_ptr<AnalyzerOutput>> CopyAnalyzerOutput(
   AnalyzerOutputMutator(ret).mutable_runtime_info() = output.runtime_info();
   return ret;
 }
+
+class TemplatedFunctionCallVisitor : public ResolvedASTVisitor {
+ public:
+  // Returns a list of all templated function calls (UDFs, UDAs, and TVFs)
+  // including function calls that are nested inside of other function calls.
+  static absl::StatusOr<std::vector<const ResolvedNode*>>
+  FindTemplatedFunctionCalls(const ResolvedNode* node) {
+    std::vector<const ResolvedNode*> templated_function_calls;
+    TemplatedFunctionCallVisitor visitor(templated_function_calls);
+    ZETASQL_RETURN_IF_ERROR(node->Accept(&visitor));
+    return templated_function_calls;
+  }
+
+  template <typename T>
+  absl::Status VisitFunctionCall(const T* function_call) {
+    ZETASQL_RET_CHECK(function_call->template Is<ResolvedFunctionCall>() ||
+              function_call->template Is<ResolvedAggregateFunctionCall>());
+    if (function_call->function_call_info() != nullptr &&
+        function_call->function_call_info()
+            ->template Is<TemplatedSQLFunctionCall>()) {
+      templated_function_calls_.push_back(function_call);
+      const auto* templated_function_call =
+          function_call->function_call_info()
+              ->template GetAs<TemplatedSQLFunctionCall>();
+      for (const auto& agg_expr :
+           templated_function_call->aggregate_expression_list()) {
+        ZETASQL_RETURN_IF_ERROR(agg_expr->Accept(this));
+      }
+      ZETASQL_RETURN_IF_ERROR(templated_function_call->expr()->Accept(this));
+    }
+    if (function_call->function()->template Is<SQLFunctionInterface>()) {
+      const auto* sql_function =
+          function_call->function()->template GetAs<SQLFunctionInterface>();
+      const std::vector<std::unique_ptr<const ResolvedComputedColumn>>*
+          aggregate_expression_list = sql_function->aggregate_expression_list();
+      if (aggregate_expression_list != nullptr) {
+        for (const auto& agg_expr : *aggregate_expression_list) {
+          ZETASQL_RETURN_IF_ERROR(agg_expr->Accept(this));
+        }
+      }
+      ZETASQL_RETURN_IF_ERROR(sql_function->FunctionExpression()->Accept(this));
+    }
+    return DefaultVisit(function_call);
+  }
+
+  absl::Status VisitResolvedFunctionCall(
+      const ResolvedFunctionCall* node) override {
+    return VisitFunctionCall(node);
+  }
+
+  absl::Status VisitResolvedAggregateFunctionCall(
+      const ResolvedAggregateFunctionCall* node) override {
+    return VisitFunctionCall(node);
+  }
+
+  absl::Status VisitResolvedTVFScan(const ResolvedTVFScan* node) override {
+    if (node->signature() != nullptr &&
+        node->signature()->Is<TemplatedSQLTVFSignature>()) {
+      templated_function_calls_.push_back(node);
+      ZETASQL_RETURN_IF_ERROR(node->signature()
+                          ->GetAs<TemplatedSQLTVFSignature>()
+                          ->resolved_templated_query()
+                          ->Accept(this));
+    }
+    return DefaultVisit(node);
+  }
+
+ private:
+  explicit TemplatedFunctionCallVisitor(
+      std::vector<const ResolvedNode*>& templated_function_calls)
+      : templated_function_calls_(templated_function_calls) {}
+
+  std::vector<const ResolvedNode*>& templated_function_calls_;
+};
 
 }  // namespace
 
@@ -613,15 +690,23 @@ class AnalyzerTestRunner {
 
     if (!test_case_options_.GetString(kPositionalParameters).empty()) {
       // Add positional parameters based on test options.
+      auto catalog =
+          std::make_unique<zetasql::SimpleCatalog>("empty_catalog");
       const std::vector<std::string> positional_parameter_names =
           absl::StrSplit(test_case_options_.GetString(kPositionalParameters),
                          ',', absl::SkipEmpty());
       for (const std::string& parameter_name : positional_parameter_names) {
         const Type* parameter_type = nullptr;
-        ZETASQL_ASSERT_OK(AnalyzeType(parameter_name, options, nullptr, &type_factory,
-                              &parameter_type));
+        ZETASQL_ASSERT_OK(AnalyzeType(parameter_name, options, catalog.get(),
+                              &type_factory, &parameter_type));
         ZETASQL_EXPECT_OK(options.AddPositionalQueryParameter(parameter_type));
       }
+    }
+
+    if (test_case_options_.GetBool(kEnhancedErrorRedaction)) {
+      options.set_enhanced_error_redaction(true);
+      options.set_error_message_stability(
+          zetasql::ERROR_MESSAGE_STABILITY_TEST_REDACTED);
     }
 
     const std::string error_message_mode_string =
@@ -873,6 +958,7 @@ class AnalyzerTestRunner {
     if (mode == "statement") {
       status =
           AnalyzeStatement(test_case, options, catalog, type_factory, &output);
+      ASSERT_FALSE(status.ok() && output == nullptr);
       if (!status.ok() &&
           test_case_options_.GetBool(kAlsoShowSignatureMismatchDetails) &&
           (absl::StrContains(status.message(), "No matching signature") ||
@@ -1117,49 +1203,40 @@ class AnalyzerTestRunner {
                         more_nodes.end());
   }
 
-  // Acts as a helper for VisitResolvedTemplatedSQLUDFObjects. Takes a node off
-  // the front of `future_nodes` and if it is a node that needs more information
-  // attached to the analyzer test output we attach that info. If that object
-  // itself contains more nodes needing more information attached to the test
-  // output those are added to `future_nodes`.
+  // Checks that `node` is a ResolvedFunctionCall or
+  // ResolvedAggregateFunctionCall and adds a debug string to `debug_strings`
+  // and `test_result_string` if not already present in the former.
   // `debug_strings` is used to prevent duplicate function template expansions
   //     from appearing with the same test case.
   // `test_result_string` is the golden file output that we are appending to.
-  void VisitFirstResolvedTemplatedSQLUDFObject(
-      std::vector<const ResolvedNode*>& future_nodes,
-      absl::flat_hash_set<std::string>& debug_strings,
+  absl::Status AddResultStringForTemplatedSqlFunctionCall(
+      const ResolvedNode* node, absl::flat_hash_set<std::string>& debug_strings,
       std::string& test_result_string) {
-    const ResolvedNode* node = future_nodes.front();
-    future_nodes.erase(future_nodes.begin());
+    ZETASQL_RET_CHECK(node->Is<ResolvedFunctionCall>() ||
+              node->Is<ResolvedAggregateFunctionCall>())
+        << node->DebugString();
     const TemplatedSQLFunctionCall* sql_function_call = nullptr;
     std::string signature_string = "";
     if (node->node_kind() == RESOLVED_FUNCTION_CALL) {
       const auto* function_call = static_cast<const ResolvedFunctionCall*>(node);
-      if (!function_call->function()->Is<TemplatedSQLFunction>()) {
-        return;  // uninteresting
-      }
-      sql_function_call = static_cast<const TemplatedSQLFunctionCall*>(
-          function_call->function_call_info().get());
+      ZETASQL_RET_CHECK(
+          function_call->function_call_info()->Is<TemplatedSQLFunctionCall>())
+          << function_call->function_call_info()->DebugString();
+      sql_function_call = function_call->function_call_info()
+                              ->GetAs<TemplatedSQLFunctionCall>();
       signature_string = function_call->signature().DebugString(
           function_call->function()->FullName(),
           /*verbose=*/true);
     } else if (node->node_kind() == RESOLVED_AGGREGATE_FUNCTION_CALL) {
       const auto* function_call = node->GetAs<ResolvedAggregateFunctionCall>();
-      if (!function_call->function()->Is<TemplatedSQLFunction>()) {
-        return;  // uninteresting
-      }
-      sql_function_call = static_cast<const TemplatedSQLFunctionCall*>(
-          function_call->function_call_info().get());
+      ZETASQL_RET_CHECK(
+          function_call->function_call_info()->Is<TemplatedSQLFunctionCall>())
+          << function_call->function_call_info()->DebugString();
+      sql_function_call = function_call->function_call_info()
+                              ->GetAs<TemplatedSQLFunctionCall>();
       signature_string = function_call->signature().DebugString(
           function_call->function()->FullName(),
           /*verbose=*/true);
-      for (const auto& agg_expr :
-           sql_function_call->aggregate_expression_list()) {
-        AddDescendantFunctionCalls(agg_expr.get(), future_nodes);
-      }
-    } else {
-      // Other descendants of ResolvedFunctionCallBase can exit here.
-      return;
     }
     std::string templated_expr_debug_str =
         sql_function_call->expr()->DebugString();
@@ -1178,57 +1255,50 @@ class AnalyzerTestRunner {
     if (debug_strings.insert(debug_string).second) {
       absl::StrAppend(&test_result_string, debug_string);
     }
-    AddDescendantFunctionCalls(sql_function_call->expr(), future_nodes);
+    return absl::OkStatus();
   }
 
-  // Visits a ResolvedNode 'node' and traverses it to search for resolved
-  // templated scalar function calls. If any are found, adds additional debug
-  // strings to 'debug_strings' and appends them to 'test_result_string' if not
-  // already present in the former.
-  void VisitResolvedTemplatedSQLUDFObjects(
-      const ResolvedNode* node, absl::flat_hash_set<std::string>* debug_strings,
-      std::string* test_result_string) {
-    std::vector<const ResolvedNode*> future_nodes;
-    AddDescendantFunctionCalls(node, future_nodes);
-    while (!future_nodes.empty()) {
-      VisitFirstResolvedTemplatedSQLUDFObject(future_nodes, *debug_strings,
-                                              *test_result_string);
+  // Similar to `AddResultStringForTemplatedSqlFunctionCall`, but for
+  // ResolvedTVFScan nodes.
+  absl::Status AddResultStringForTemplatedSqlTvf(
+      const ResolvedTVFScan* node,
+      absl::flat_hash_set<std::string>& debug_strings,
+      std::string& test_result_string) {
+    ZETASQL_RET_CHECK(node->signature()->Is<TemplatedSQLTVFSignature>())
+        << node->signature()->DebugString();
+    const auto* tvf_signature =
+        node->signature()->GetAs<TemplatedSQLTVFSignature>();
+    std::string templated_query_debug_str =
+        tvf_signature->resolved_templated_query()->DebugString();
+    const std::string debug_string = absl::StrCat(
+        "\nWith Templated SQL TVF signature:\n  ", node->tvf()->FullName(),
+        node->signature()->DebugString(/*verbose=*/true),
+        "\ncontaining resolved templated query:\n", templated_query_debug_str);
+    if (debug_strings.insert(debug_string).second) {
+      absl::StrAppend(&test_result_string, debug_string);
     }
+    return absl::OkStatus();
   }
 
-  // Visits a ResolvedNode 'node' and traverses it to search for resolved
-  // templated table-valued function calls. If any are found, adds additional
-  // debug strings to 'debug_strings' and appends them to 'test_result_string'
-  // if not already present in the former.
-  void VisitResolvedTemplatedSQLTVFObjects(
-      const ResolvedNode* node, absl::flat_hash_set<std::string>* debug_strings,
-      std::string* test_result_string) {
-    std::vector<const ResolvedNode*> future_nodes;
-    if (node->node_kind() == RESOLVED_TVFSCAN) {
-      node->GetChildNodes(&future_nodes);
-      const auto* tvf = static_cast<const ResolvedTVFScan*>(node);
-      if (tvf->tvf()->Is<TemplatedSQLTVF>()) {
-        const auto* call =
-            static_cast<const TemplatedSQLTVFSignature*>(tvf->signature().get());
-        std::string templated_query_debug_str =
-            call->resolved_templated_query()->DebugString();
-        const std::string debug_string = absl::StrCat(
-            "\nWith Templated SQL TVF signature:\n  ", tvf->tvf()->FullName(),
-            tvf->signature()->DebugString(/*verbose=*/true),
-            "\ncontaining resolved templated query:\n",
-            templated_query_debug_str);
-        if (zetasql_base::InsertIfNotPresent(debug_strings, debug_string)) {
-          absl::StrAppend(test_result_string, debug_string);
-        }
-        future_nodes.push_back(call->resolved_templated_query()->query());
+  absl::Status AddResultStringsForTemplatedSqlObjects(
+      const ResolvedNode* node, std::string& test_result_string) {
+    if (node == nullptr) return absl::OkStatus();
+
+    ZETASQL_ASSIGN_OR_RETURN(
+        std::vector<const ResolvedNode*> templated_function_calls,
+        TemplatedFunctionCallVisitor::FindTemplatedFunctionCalls(node));
+
+    absl::flat_hash_set<std::string> debug_strings;
+    for (const ResolvedNode* node : templated_function_calls) {
+      if (node->Is<ResolvedTVFScan>()) {
+        ZETASQL_RETURN_IF_ERROR(AddResultStringForTemplatedSqlTvf(
+            node->GetAs<ResolvedTVFScan>(), debug_strings, test_result_string));
+      } else {
+        ZETASQL_RETURN_IF_ERROR(AddResultStringForTemplatedSqlFunctionCall(
+            node, debug_strings, test_result_string));
       }
-    } else {
-      node->GetDescendantsWithKinds({RESOLVED_TVFSCAN}, &future_nodes);
     }
-    for (const ResolvedNode* future_node : future_nodes) {
-      VisitResolvedTemplatedSQLTVFObjects(future_node, debug_strings,
-                                          test_result_string);
-    }
+    return absl::OkStatus();
   }
 
   void ExtractTableResolutionTimeInfoMapAsString(absl::string_view test_case,
@@ -1396,16 +1466,8 @@ class AnalyzerTestRunner {
       }
 
       // Append strings for any resolved templated objects in 'output'.
-      absl::flat_hash_set<std::string> debug_strings;
-      VisitResolvedTemplatedSQLUDFObjects(node, &debug_strings,
-                                          &test_result_string);
-      // The algorithm used for SQLTVFs doesn't deal with TVFs that invoke
-      // UDFs or UDAs. The easiest way to show such function templates invoked
-      // by TVF templates and vice versa would be to combine TVFs into the
-      // existing process for UDFs and UDAs which is more easily generalized.
-      // TODO: Extend VisitResolvedTemplatedSQLUDFObjects to cover TVFs.
-      VisitResolvedTemplatedSQLTVFObjects(node, &debug_strings,
-                                          &test_result_string);
+      ZETASQL_ASSERT_OK(
+          AddResultStringsForTemplatedSqlObjects(node, test_result_string));
 
       // Check that the statement we resolved matches the statement properties
       // we extracted with GetStatementProperties.
@@ -1439,8 +1501,13 @@ class AnalyzerTestRunner {
       if (status.code() != absl::StatusCode::kInternal &&
           test_case_options_.GetBool(kExpectErrorLocation) &&
           options.error_message_mode() != ERROR_MESSAGE_WITH_PAYLOAD) {
-        EXPECT_FALSE(!absl::StrContains(status.message(), " [at "))
-            << "Error message has no ErrorLocation: " << status;
+        if (test_case_options_.GetBool(kEnhancedErrorRedaction)) {
+          EXPECT_FALSE(absl::StrContains(status.message(), " [at "))
+              << "Error location was not redacted: " << status;
+        } else {
+          EXPECT_TRUE(absl::StrContains(status.message(), " [at "))
+              << "Error message has no ErrorLocation: " << status;
+        }
       }
     }
 
@@ -1485,12 +1552,12 @@ class AnalyzerTestRunner {
       absl::StripTrailingAsciiWhitespace(&test_result_string);
     }
 
-    if (test_case_options_.GetBool(kRunUnparser) &&
-        // We do not run the unparser if the original query failed analysis.
+    if (test_case_options_.GetBool(kRunSqlBuilder) &&
+        // We do not run the SQLBuilder if the original query failed analysis.
         output != nullptr) {
       std::string result_string;
-      TestUnparsing(test_case, options, catalog, mode == "statement", output,
-                    &result_string);
+      TestSqlBuilder(test_case, options, catalog, mode == "statement", output,
+                     &result_string);
       absl::StrAppend(&test_result_string, "\n", result_string);
       absl::StripAsciiWhitespace(&test_result_string);
     }
@@ -1538,12 +1605,25 @@ class AnalyzerTestRunner {
       struct RewriteGroupOutcome {
         absl::Status status;
         std::string ast_debug;
-        std::string unparsed;
+        std::string sqlbuilder_output;
         std::vector<std::string> rewrite_group_keys;
         std::string key() {
           return std::string(status.ok() ? ast_debug : status.message());
         }
       };
+
+      // Compute the pre-rewrite result string, which consists of the AST and
+      // any templated SQL objects. Rewrites can also be applied to templated
+      // SQL objects which may be nested inside of other SQL objects. In this
+      // case the debug string of the main statement's AST will be the same, but
+      // the templated SQL objects will have different ASTs.
+      std::string pre_rewrite_result_string;
+      if (output->resolved_statement() != nullptr) {
+        pre_rewrite_result_string = output->resolved_statement()->DebugString();
+        ZETASQL_ASSERT_OK(AddResultStringsForTemplatedSqlObjects(
+            output->resolved_statement(), pre_rewrite_result_string));
+      }
+
       std::vector<RewriteGroupOutcome> rewrite_group_results;
       absl::flat_hash_map<std::string, int64_t> rewrite_group_result_map;
       for (auto& [key, rewrites] : rewrite_groups) {
@@ -1565,13 +1645,15 @@ class AnalyzerTestRunner {
             rewrite_output->resolved_statement() != nullptr) {
           outcome.ast_debug =
               rewrite_output->resolved_statement()->DebugString();
-          if (outcome.ast_debug ==
-              output->resolved_statement()->DebugString()) {
+          // Append strings for any resolved templated objects in 'output'.
+          ZETASQL_ASSERT_OK(AddResultStringsForTemplatedSqlObjects(
+              rewrite_output->resolved_statement(), outcome.ast_debug));
+          if (outcome.ast_debug == pre_rewrite_result_string) {
             continue;
           }
-          if (test_case_options_.GetBool(kRunUnparser)) {
-            TestUnparsing(test_case, options, catalog, /*is_statement=*/true,
-                          rewrite_output.get(), &outcome.unparsed);
+          if (test_case_options_.GetBool(kRunSqlBuilder)) {
+            TestSqlBuilder(test_case, options, catalog, /*is_statement=*/true,
+                           rewrite_output.get(), &outcome.sqlbuilder_output);
           }
         } else if (outcome.status.ok()) {
           ASSERT_NE(rewrite_output->resolved_expr(), nullptr);
@@ -1579,9 +1661,9 @@ class AnalyzerTestRunner {
           if (outcome.ast_debug == output->resolved_expr()->DebugString()) {
             continue;
           }
-          if (test_case_options_.GetBool(kRunUnparser)) {
-            TestUnparsing(test_case, options, catalog, /*is_statement=*/false,
-                          rewrite_output.get(), &outcome.unparsed);
+          if (test_case_options_.GetBool(kRunSqlBuilder)) {
+            TestSqlBuilder(test_case, options, catalog, /*is_statement=*/false,
+                           rewrite_output.get(), &outcome.sqlbuilder_output);
           }
         }
         std::string outcome_key = outcome.key();
@@ -1619,7 +1701,7 @@ class AnalyzerTestRunner {
               absl::StrAppend(&test_result_string, "[REWRITTEN AST]\n",
                               outcome.ast_debug);
             }
-            absl::StrAppend(&test_result_string, outcome.unparsed);
+            absl::StrAppend(&test_result_string, outcome.sqlbuilder_output);
             absl::StripAsciiWhitespace(&test_result_string);
           }
         }
@@ -1805,7 +1887,8 @@ class AnalyzerTestRunner {
     if (!find_tables_status.ok()) {
       // If ExtractTableNames failed, analysis should have failed too.
       EXPECT_TRUE(analyzer_output == nullptr)
-          << "ExtractTableNames failed but query analysis succeeded";
+          << "ExtractTableNames failed but query analysis succeeded: "
+          << find_tables_status;
       return;
     }
 
@@ -2031,211 +2114,214 @@ class AnalyzerTestRunner {
   // We do custom comparison on Statements because we want to do custom
   // comparison on the OutputColumnLists.
   //
-  // NOTE: The result from this is always ignored currently because we can't
-  // guarantee that the exact same resolved AST comes back after unparsing.
-  // This is controlled by the show_unparsed_resolved_ast_diff option.
+  // NOTE: The result from this is currently ignored by default because we can't
+  // guarantee that the exact same resolved AST comes back after re-analyzing
+  // the SQLBuilder output. This is controlled by the
+  // show_sqlbuilder_resolved_ast_diff option.
   //
   // CompareStatementShape is a weaker form of this that just checks that the
   // result shape (column names, types, etc) matches, and that is tested by
   // default.
   bool CompareStatement(const ResolvedStatement* output_stmt,
-                        const ResolvedStatement* unparsed_stmt) {
-    if (output_stmt->node_kind() != unparsed_stmt->node_kind()) {
+                        const ResolvedStatement* sqlbuilder_stmt) {
+    if (output_stmt->node_kind() != sqlbuilder_stmt->node_kind()) {
       return false;
     }
 
-    switch (unparsed_stmt->node_kind()) {
+    switch (sqlbuilder_stmt->node_kind()) {
       case RESOLVED_EXPLAIN_STMT:
         return CompareStatement(
             output_stmt->GetAs<ResolvedExplainStmt>()->statement(),
-            unparsed_stmt->GetAs<ResolvedExplainStmt>()->statement());
+            sqlbuilder_stmt->GetAs<ResolvedExplainStmt>()->statement());
       case RESOLVED_DEFINE_TABLE_STMT:
         return CompareOptionList(
             output_stmt->GetAs<ResolvedDefineTableStmt>()->option_list(),
-            unparsed_stmt->GetAs<ResolvedDefineTableStmt>()->option_list());
+            sqlbuilder_stmt->GetAs<ResolvedDefineTableStmt>()->option_list());
       case RESOLVED_QUERY_STMT: {
         const ResolvedQueryStmt* output_query_stmt =
             output_stmt->GetAs<ResolvedQueryStmt>();
-        const ResolvedQueryStmt* unparsed_query_stmt =
-            unparsed_stmt->GetAs<ResolvedQueryStmt>();
+        const ResolvedQueryStmt* sqlbuilder_query_stmt =
+            sqlbuilder_stmt->GetAs<ResolvedQueryStmt>();
         return CompareNode(output_query_stmt->query(),
-                           unparsed_query_stmt->query()) &&
+                           sqlbuilder_query_stmt->query()) &&
                CompareOutputColumnList(
                    output_query_stmt->output_column_list(),
-                   unparsed_query_stmt->output_column_list());
+                   sqlbuilder_query_stmt->output_column_list());
       }
       case RESOLVED_DELETE_STMT: {
         const ResolvedDeleteStmt* output_delete_stmt =
             output_stmt->GetAs<ResolvedDeleteStmt>();
-        const ResolvedDeleteStmt* unparsed_delete_stmt =
-            unparsed_stmt->GetAs<ResolvedDeleteStmt>();
+        const ResolvedDeleteStmt* sqlbuilder_delete_stmt =
+            sqlbuilder_stmt->GetAs<ResolvedDeleteStmt>();
         return CompareNode(output_delete_stmt->returning(),
-                           unparsed_delete_stmt->returning());
+                           sqlbuilder_delete_stmt->returning());
       }
       case RESOLVED_UPDATE_STMT: {
         const ResolvedUpdateStmt* output_update_stmt =
             output_stmt->GetAs<ResolvedUpdateStmt>();
-        const ResolvedUpdateStmt* unparsed_update_stmt =
-            unparsed_stmt->GetAs<ResolvedUpdateStmt>();
+        const ResolvedUpdateStmt* sqlbuilder_update_stmt =
+            sqlbuilder_stmt->GetAs<ResolvedUpdateStmt>();
         return CompareNode(output_update_stmt->returning(),
-                           unparsed_update_stmt->returning());
+                           sqlbuilder_update_stmt->returning());
       }
       case RESOLVED_INSERT_STMT: {
         const ResolvedInsertStmt* output_insert_stmt =
             output_stmt->GetAs<ResolvedInsertStmt>();
-        const ResolvedInsertStmt* unparsed_insert_stmt =
-            unparsed_stmt->GetAs<ResolvedInsertStmt>();
+        const ResolvedInsertStmt* sqlbuilder_insert_stmt =
+            sqlbuilder_stmt->GetAs<ResolvedInsertStmt>();
         return CompareNode(output_insert_stmt->returning(),
-                           unparsed_insert_stmt->returning());
+                           sqlbuilder_insert_stmt->returning());
       }
       case RESOLVED_EXECUTE_IMMEDIATE_STMT: {
         const ResolvedExecuteImmediateStmt* output_exec =
             output_stmt->GetAs<ResolvedExecuteImmediateStmt>();
-        const ResolvedExecuteImmediateStmt* unparsed_exec =
-            unparsed_stmt->GetAs<ResolvedExecuteImmediateStmt>();
-        return CompareNode(output_exec, unparsed_exec);
+        const ResolvedExecuteImmediateStmt* sqlbuilder_exec =
+            sqlbuilder_stmt->GetAs<ResolvedExecuteImmediateStmt>();
+        return CompareNode(output_exec, sqlbuilder_exec);
       }
       case RESOLVED_CREATE_INDEX_STMT: {
         const ResolvedCreateIndexStmt* output_create_stmt =
             output_stmt->GetAs<ResolvedCreateIndexStmt>();
-        const ResolvedCreateIndexStmt* unparsed_create_stmt =
-            unparsed_stmt->GetAs<ResolvedCreateIndexStmt>();
-        return CompareIndexItemList(output_create_stmt->index_item_list(),
-                                    unparsed_create_stmt->index_item_list()) &&
+        const ResolvedCreateIndexStmt* sqlbuilder_create_stmt =
+            sqlbuilder_stmt->GetAs<ResolvedCreateIndexStmt>();
+        return CompareIndexItemList(
+                   output_create_stmt->index_item_list(),
+                   sqlbuilder_create_stmt->index_item_list()) &&
                CompareOptionList(output_create_stmt->option_list(),
-                                 unparsed_create_stmt->option_list());
+                                 sqlbuilder_create_stmt->option_list());
       }
       case RESOLVED_CREATE_DATABASE_STMT: {
         const ResolvedCreateDatabaseStmt* output_create_stmt =
             output_stmt->GetAs<ResolvedCreateDatabaseStmt>();
-        const ResolvedCreateDatabaseStmt* unparsed_create_stmt =
-            unparsed_stmt->GetAs<ResolvedCreateDatabaseStmt>();
+        const ResolvedCreateDatabaseStmt* sqlbuilder_create_stmt =
+            sqlbuilder_stmt->GetAs<ResolvedCreateDatabaseStmt>();
         return CompareOptionList(output_create_stmt->option_list(),
-                                 unparsed_create_stmt->option_list());
+                                 sqlbuilder_create_stmt->option_list());
       }
       case RESOLVED_CREATE_SCHEMA_STMT: {
         const ResolvedCreateSchemaStmt* output_create_stmt =
             output_stmt->GetAs<ResolvedCreateSchemaStmt>();
-        const ResolvedCreateSchemaStmt* unparsed_create_stmt =
-            unparsed_stmt->GetAs<ResolvedCreateSchemaStmt>();
+        const ResolvedCreateSchemaStmt* sqlbuilder_create_stmt =
+            sqlbuilder_stmt->GetAs<ResolvedCreateSchemaStmt>();
         return ComparePath(output_create_stmt->name_path(),
-                           unparsed_create_stmt->name_path()) &&
+                           sqlbuilder_create_stmt->name_path()) &&
                CompareOptionList(output_create_stmt->option_list(),
-                                 unparsed_create_stmt->option_list());
+                                 sqlbuilder_create_stmt->option_list());
       }
       case RESOLVED_CREATE_TABLE_STMT: {
         const ResolvedCreateTableStmt* output_create_stmt =
             output_stmt->GetAs<ResolvedCreateTableStmt>();
-        const ResolvedCreateTableStmt* unparsed_create_stmt =
-            unparsed_stmt->GetAs<ResolvedCreateTableStmt>();
+        const ResolvedCreateTableStmt* sqlbuilder_create_stmt =
+            sqlbuilder_stmt->GetAs<ResolvedCreateTableStmt>();
         return CompareColumnDefinitionList(
                    output_create_stmt->column_definition_list(),
-                   unparsed_create_stmt->column_definition_list()) &&
+                   sqlbuilder_create_stmt->column_definition_list()) &&
                CompareOptionList(output_create_stmt->option_list(),
-                                 unparsed_create_stmt->option_list());
+                                 sqlbuilder_create_stmt->option_list());
       }
       case RESOLVED_CREATE_SNAPSHOT_TABLE_STMT: {
         const ResolvedCreateSnapshotTableStmt* output_create_stmt =
             output_stmt->GetAs<ResolvedCreateSnapshotTableStmt>();
-        const ResolvedCreateSnapshotTableStmt* unparsed_create_stmt =
-            unparsed_stmt->GetAs<ResolvedCreateSnapshotTableStmt>();
+        const ResolvedCreateSnapshotTableStmt* sqlbuilder_create_stmt =
+            sqlbuilder_stmt->GetAs<ResolvedCreateSnapshotTableStmt>();
         return CompareNode(output_create_stmt->clone_from(),
-                           unparsed_create_stmt->clone_from()) &&
+                           sqlbuilder_create_stmt->clone_from()) &&
                CompareOptionList(output_create_stmt->option_list(),
-                                 unparsed_create_stmt->option_list());
+                                 sqlbuilder_create_stmt->option_list());
       }
       case RESOLVED_CREATE_TABLE_AS_SELECT_STMT: {
         const ResolvedCreateTableAsSelectStmt* output_create_stmt =
             output_stmt->GetAs<ResolvedCreateTableAsSelectStmt>();
-        const ResolvedCreateTableAsSelectStmt* unparsed_create_stmt =
-            unparsed_stmt->GetAs<ResolvedCreateTableAsSelectStmt>();
+        const ResolvedCreateTableAsSelectStmt* sqlbuilder_create_stmt =
+            sqlbuilder_stmt->GetAs<ResolvedCreateTableAsSelectStmt>();
         return CompareNode(output_create_stmt->query(),
-                           unparsed_create_stmt->query()) &&
+                           sqlbuilder_create_stmt->query()) &&
                CompareOutputColumnList(
                    output_create_stmt->output_column_list(),
-                   unparsed_create_stmt->output_column_list()) &&
+                   sqlbuilder_create_stmt->output_column_list()) &&
                CompareOptionList(output_create_stmt->option_list(),
-                                 unparsed_create_stmt->option_list());
+                                 sqlbuilder_create_stmt->option_list());
       }
       case RESOLVED_CLONE_DATA_STMT: {
         const ResolvedCloneDataStmt* resolved =
             output_stmt->GetAs<ResolvedCloneDataStmt>();
-        const ResolvedCloneDataStmt* unparsed =
-            unparsed_stmt->GetAs<ResolvedCloneDataStmt>();
+        const ResolvedCloneDataStmt* sqlbuilder =
+            sqlbuilder_stmt->GetAs<ResolvedCloneDataStmt>();
         return CompareNode(resolved->target_table(),
-                           unparsed->target_table()) &&
-               CompareNode(resolved->clone_from(), unparsed->clone_from());
+                           sqlbuilder->target_table()) &&
+               CompareNode(resolved->clone_from(), sqlbuilder->clone_from());
       }
       case RESOLVED_EXPORT_DATA_STMT: {
         const ResolvedExportDataStmt* output_export_stmt =
             output_stmt->GetAs<ResolvedExportDataStmt>();
-        const ResolvedExportDataStmt* unparsed_export_stmt =
-            unparsed_stmt->GetAs<ResolvedExportDataStmt>();
+        const ResolvedExportDataStmt* sqlbuilder_export_stmt =
+            sqlbuilder_stmt->GetAs<ResolvedExportDataStmt>();
         return CompareNode(output_export_stmt->query(),
-                           unparsed_export_stmt->query()) &&
+                           sqlbuilder_export_stmt->query()) &&
                CompareOutputColumnList(
                    output_export_stmt->output_column_list(),
-                   unparsed_export_stmt->output_column_list()) &&
+                   sqlbuilder_export_stmt->output_column_list()) &&
                CompareOptionList(output_export_stmt->option_list(),
-                                 unparsed_export_stmt->option_list());
+                                 sqlbuilder_export_stmt->option_list());
       }
       case RESOLVED_EXPORT_MODEL_STMT: {
         const ResolvedExportModelStmt* output_export_stmt =
             output_stmt->GetAs<ResolvedExportModelStmt>();
-        const ResolvedExportModelStmt* unparsed_export_stmt =
-            unparsed_stmt->GetAs<ResolvedExportModelStmt>();
+        const ResolvedExportModelStmt* sqlbuilder_export_stmt =
+            sqlbuilder_stmt->GetAs<ResolvedExportModelStmt>();
         return ComparePath(output_export_stmt->model_name_path(),
-                           unparsed_export_stmt->model_name_path()) &&
+                           sqlbuilder_export_stmt->model_name_path()) &&
                CompareOptionList(output_export_stmt->option_list(),
-                                 unparsed_export_stmt->option_list());
+                                 sqlbuilder_export_stmt->option_list());
       }
       case RESOLVED_CREATE_CONSTANT_STMT: {
         const ResolvedCreateConstantStmt* output_create_stmt =
             output_stmt->GetAs<ResolvedCreateConstantStmt>();
-        const ResolvedCreateConstantStmt* unparsed_create_stmt =
-            unparsed_stmt->GetAs<ResolvedCreateConstantStmt>();
+        const ResolvedCreateConstantStmt* sqlbuilder_create_stmt =
+            sqlbuilder_stmt->GetAs<ResolvedCreateConstantStmt>();
         return ComparePath(output_create_stmt->name_path(),
-                           unparsed_create_stmt->name_path()) &&
+                           sqlbuilder_create_stmt->name_path()) &&
                CompareNode(output_create_stmt->expr(),
-                           unparsed_create_stmt->expr());
+                           sqlbuilder_create_stmt->expr());
       }
       case RESOLVED_CREATE_ENTITY_STMT: {
         const auto* output_create_stmt =
             output_stmt->GetAs<ResolvedCreateEntityStmt>();
-        const auto* unparsed_create_stmt =
-            unparsed_stmt->GetAs<ResolvedCreateEntityStmt>();
+        const auto* sqlbuilder_create_stmt =
+            sqlbuilder_stmt->GetAs<ResolvedCreateEntityStmt>();
         return ComparePath(output_create_stmt->name_path(),
-                           unparsed_create_stmt->name_path()) &&
+                           sqlbuilder_create_stmt->name_path()) &&
                output_create_stmt->entity_type() ==
-                   unparsed_create_stmt->entity_type() &&
+                   sqlbuilder_create_stmt->entity_type() &&
                CompareOptionList(output_create_stmt->option_list(),
-                                 unparsed_create_stmt->option_list());
+                                 sqlbuilder_create_stmt->option_list());
       }
       case RESOLVED_AUX_LOAD_DATA_STMT: {
         const ResolvedAuxLoadDataStmt* output_create_stmt =
             output_stmt->GetAs<ResolvedAuxLoadDataStmt>();
-        const ResolvedAuxLoadDataStmt* unparsed_create_stmt =
-            unparsed_stmt->GetAs<ResolvedAuxLoadDataStmt>();
+        const ResolvedAuxLoadDataStmt* sqlbuilder_create_stmt =
+            sqlbuilder_stmt->GetAs<ResolvedAuxLoadDataStmt>();
         return CompareColumnDefinitionList(
                    output_create_stmt->column_definition_list(),
-                   unparsed_create_stmt->column_definition_list()) &&
+                   sqlbuilder_create_stmt->column_definition_list()) &&
                CompareOptionList(output_create_stmt->option_list(),
-                                 unparsed_create_stmt->option_list()) &&
+                                 sqlbuilder_create_stmt->option_list()) &&
                CompareOptionList(
                    output_create_stmt->from_files_option_list(),
-                   unparsed_create_stmt->from_files_option_list());
+                   sqlbuilder_create_stmt->from_files_option_list());
       }
       default:
-        ABSL_LOG(ERROR) << "Statement type " << unparsed_stmt->node_kind_string()
+        ABSL_LOG(ERROR) << "Statement type " << sqlbuilder_stmt->node_kind_string()
                    << " not supported";
         return false;
     }
   }
 
   bool CompareNode(const ResolvedNode* output_query,
-                   const ResolvedNode* unparsed_query) {
+                   const ResolvedNode* sqlbuilder_query) {
     absl::StatusOr<bool> compare_result =
-        ResolvedASTComparator::CompareResolvedAST(output_query, unparsed_query);
+        ResolvedASTComparator::CompareResolvedAST(output_query,
+                                                  sqlbuilder_query);
     if (!compare_result.status().ok()) {
       return false;
     }
@@ -2245,159 +2331,161 @@ class AnalyzerTestRunner {
   // This compares the final output shape (column names, types,
   // value-table-ness, orderedness, etc), but not the actual nodes in the tree.
   bool CompareStatementShape(const ResolvedStatement* output_stmt,
-                             const ResolvedStatement* unparsed_stmt) {
-    if (output_stmt->node_kind() != unparsed_stmt->node_kind()) {
+                             const ResolvedStatement* sqlbuilder_stmt) {
+    if (output_stmt->node_kind() != sqlbuilder_stmt->node_kind()) {
       return false;
     }
 
-    switch (unparsed_stmt->node_kind()) {
+    switch (sqlbuilder_stmt->node_kind()) {
       case RESOLVED_EXPLAIN_STMT:
         return CompareStatementShape(
             output_stmt->GetAs<ResolvedExplainStmt>()->statement(),
-            unparsed_stmt->GetAs<ResolvedExplainStmt>()->statement());
+            sqlbuilder_stmt->GetAs<ResolvedExplainStmt>()->statement());
       case RESOLVED_DEFINE_TABLE_STMT:
         return CompareOptionList(
             output_stmt->GetAs<ResolvedDefineTableStmt>()->option_list(),
-            unparsed_stmt->GetAs<ResolvedDefineTableStmt>()->option_list());
+            sqlbuilder_stmt->GetAs<ResolvedDefineTableStmt>()->option_list());
       case RESOLVED_QUERY_STMT: {
         const ResolvedQueryStmt* output_query_stmt =
             output_stmt->GetAs<ResolvedQueryStmt>();
-        const ResolvedQueryStmt* unparsed_query_stmt =
-            unparsed_stmt->GetAs<ResolvedQueryStmt>();
+        const ResolvedQueryStmt* sqlbuilder_query_stmt =
+            sqlbuilder_stmt->GetAs<ResolvedQueryStmt>();
         return CompareOutputColumnList(
             output_query_stmt->output_column_list(),
-            unparsed_query_stmt->output_column_list());
+            sqlbuilder_query_stmt->output_column_list());
         // TODO This should also be checking is_ordered, but that
         // is always broken right now because of http://b/36682469.
         //   output_query_stmt->query()->is_ordered() ==
-        //   unparsed_query_stmt->query()->is_ordered();
+        //   sqlbuilder_query_stmt->query()->is_ordered();
       }
       case RESOLVED_CREATE_INDEX_STMT: {
         const ResolvedCreateIndexStmt* output_create_stmt =
             output_stmt->GetAs<ResolvedCreateIndexStmt>();
-        const ResolvedCreateIndexStmt* unparsed_create_stmt =
-            unparsed_stmt->GetAs<ResolvedCreateIndexStmt>();
-        return CompareIndexItemList(output_create_stmt->index_item_list(),
-                                    unparsed_create_stmt->index_item_list()) &&
+        const ResolvedCreateIndexStmt* sqlbuilder_create_stmt =
+            sqlbuilder_stmt->GetAs<ResolvedCreateIndexStmt>();
+        return CompareIndexItemList(
+                   output_create_stmt->index_item_list(),
+                   sqlbuilder_create_stmt->index_item_list()) &&
                CompareOptionList(output_create_stmt->option_list(),
-                                 unparsed_create_stmt->option_list());
+                                 sqlbuilder_create_stmt->option_list());
       }
       case RESOLVED_CREATE_DATABASE_STMT: {
         const ResolvedCreateDatabaseStmt* output_create_stmt =
             output_stmt->GetAs<ResolvedCreateDatabaseStmt>();
-        const ResolvedCreateDatabaseStmt* unparsed_create_stmt =
-            unparsed_stmt->GetAs<ResolvedCreateDatabaseStmt>();
+        const ResolvedCreateDatabaseStmt* sqlbuilder_create_stmt =
+            sqlbuilder_stmt->GetAs<ResolvedCreateDatabaseStmt>();
         return CompareOptionList(output_create_stmt->option_list(),
-                                 unparsed_create_stmt->option_list());
+                                 sqlbuilder_create_stmt->option_list());
       }
       case RESOLVED_CREATE_TABLE_STMT: {
         const ResolvedCreateTableStmt* output_create_stmt =
             output_stmt->GetAs<ResolvedCreateTableStmt>();
-        const ResolvedCreateTableStmt* unparsed_create_stmt =
-            unparsed_stmt->GetAs<ResolvedCreateTableStmt>();
+        const ResolvedCreateTableStmt* sqlbuilder_create_stmt =
+            sqlbuilder_stmt->GetAs<ResolvedCreateTableStmt>();
         return CompareColumnDefinitionList(
                    output_create_stmt->column_definition_list(),
-                   unparsed_create_stmt->column_definition_list()) &&
+                   sqlbuilder_create_stmt->column_definition_list()) &&
                CompareOptionList(output_create_stmt->option_list(),
-                                 unparsed_create_stmt->option_list());
+                                 sqlbuilder_create_stmt->option_list());
         // TODO Also verify primary key, etc.
       }
       case RESOLVED_CREATE_TABLE_AS_SELECT_STMT: {
         const ResolvedCreateTableAsSelectStmt* output_create_stmt =
             output_stmt->GetAs<ResolvedCreateTableAsSelectStmt>();
-        const ResolvedCreateTableAsSelectStmt* unparsed_create_stmt =
-            unparsed_stmt->GetAs<ResolvedCreateTableAsSelectStmt>();
+        const ResolvedCreateTableAsSelectStmt* sqlbuilder_create_stmt =
+            sqlbuilder_stmt->GetAs<ResolvedCreateTableAsSelectStmt>();
         return CompareOutputColumnList(
                    output_create_stmt->output_column_list(),
-                   unparsed_create_stmt->output_column_list()) &&
+                   sqlbuilder_create_stmt->output_column_list()) &&
                CompareOptionList(output_create_stmt->option_list(),
-                                 unparsed_create_stmt->option_list()) &&
+                                 sqlbuilder_create_stmt->option_list()) &&
                output_create_stmt->is_value_table() ==
-                   unparsed_create_stmt->is_value_table();
+                   sqlbuilder_create_stmt->is_value_table();
       }
       case RESOLVED_EXPORT_DATA_STMT: {
         const ResolvedExportDataStmt* output_export_stmt =
             output_stmt->GetAs<ResolvedExportDataStmt>();
-        const ResolvedExportDataStmt* unparsed_export_stmt =
-            unparsed_stmt->GetAs<ResolvedExportDataStmt>();
+        const ResolvedExportDataStmt* sqlbuilder_export_stmt =
+            sqlbuilder_stmt->GetAs<ResolvedExportDataStmt>();
         return CompareOutputColumnList(
                    output_export_stmt->output_column_list(),
-                   unparsed_export_stmt->output_column_list()) &&
+                   sqlbuilder_export_stmt->output_column_list()) &&
                CompareOptionList(output_export_stmt->option_list(),
-                                 unparsed_export_stmt->option_list()) &&
+                                 sqlbuilder_export_stmt->option_list()) &&
                output_export_stmt->is_value_table() ==
-                   unparsed_export_stmt->is_value_table();
+                   sqlbuilder_export_stmt->is_value_table();
       }
       case RESOLVED_EXPORT_MODEL_STMT: {
         const ResolvedExportModelStmt* output_export_stmt =
             output_stmt->GetAs<ResolvedExportModelStmt>();
-        const ResolvedExportModelStmt* unparsed_export_stmt =
-            unparsed_stmt->GetAs<ResolvedExportModelStmt>();
+        const ResolvedExportModelStmt* sqlbuilder_export_stmt =
+            sqlbuilder_stmt->GetAs<ResolvedExportModelStmt>();
         return ComparePath(output_export_stmt->model_name_path(),
-                           unparsed_export_stmt->model_name_path()) &&
+                           sqlbuilder_export_stmt->model_name_path()) &&
                CompareOptionList(output_export_stmt->option_list(),
-                                 unparsed_export_stmt->option_list());
+                                 sqlbuilder_export_stmt->option_list());
       }
       case RESOLVED_EXPORT_METADATA_STMT: {
         const ResolvedExportMetadataStmt* output_export_stmt =
             output_stmt->GetAs<ResolvedExportMetadataStmt>();
-        const ResolvedExportMetadataStmt* unparsed_export_stmt =
-            unparsed_stmt->GetAs<ResolvedExportMetadataStmt>();
+        const ResolvedExportMetadataStmt* sqlbuilder_export_stmt =
+            sqlbuilder_stmt->GetAs<ResolvedExportMetadataStmt>();
         return ComparePath(output_export_stmt->name_path(),
-                           unparsed_export_stmt->name_path()) &&
+                           sqlbuilder_export_stmt->name_path()) &&
                CompareOptionList(output_export_stmt->option_list(),
-                                 unparsed_export_stmt->option_list());
+                                 sqlbuilder_export_stmt->option_list());
       }
       case RESOLVED_CREATE_CONSTANT_STMT: {
-        return CompareNode(output_stmt, unparsed_stmt);
+        return CompareNode(output_stmt, sqlbuilder_stmt);
       }
       case RESOLVED_START_BATCH_STMT: {
         const ResolvedStartBatchStmt* output_batch_stmt =
             output_stmt->GetAs<ResolvedStartBatchStmt>();
-        const ResolvedStartBatchStmt* unparsed_batch_stmt =
-            unparsed_stmt->GetAs<ResolvedStartBatchStmt>();
+        const ResolvedStartBatchStmt* sqlbuilder_batch_stmt =
+            sqlbuilder_stmt->GetAs<ResolvedStartBatchStmt>();
         return output_batch_stmt->batch_type() ==
-               unparsed_batch_stmt->batch_type();
+               sqlbuilder_batch_stmt->batch_type();
       }
       case RESOLVED_ASSIGNMENT_STMT:
         return CompareExpressionShape(
                    output_stmt->GetAs<ResolvedAssignmentStmt>()->target(),
-                   unparsed_stmt->GetAs<ResolvedAssignmentStmt>()->target()) &&
+                   sqlbuilder_stmt->GetAs<ResolvedAssignmentStmt>()
+                       ->target()) &&
                CompareExpressionShape(
                    output_stmt->GetAs<ResolvedAssignmentStmt>()->expr(),
-                   unparsed_stmt->GetAs<ResolvedAssignmentStmt>()->expr());
+                   sqlbuilder_stmt->GetAs<ResolvedAssignmentStmt>()->expr());
       case RESOLVED_CREATE_PROPERTY_GRAPH_STMT: {
         const ResolvedCreatePropertyGraphStmt* output_create_stmt =
             output_stmt->GetAs<ResolvedCreatePropertyGraphStmt>();
-        const ResolvedCreatePropertyGraphStmt* unparsed_create_stmt =
-            unparsed_stmt->GetAs<ResolvedCreatePropertyGraphStmt>();
+        const ResolvedCreatePropertyGraphStmt* sqlbuilder_create_stmt =
+            sqlbuilder_stmt->GetAs<ResolvedCreatePropertyGraphStmt>();
 
         if (!ComparePath(output_create_stmt->name_path(),
-                         unparsed_create_stmt->name_path())) {
+                         sqlbuilder_create_stmt->name_path())) {
           return false;
         }
         if (output_create_stmt->create_mode() !=
-            unparsed_create_stmt->create_mode()) {
+            sqlbuilder_create_stmt->create_mode()) {
           return false;
         }
         if (output_create_stmt->create_scope() !=
-            unparsed_create_stmt->create_scope()) {
+            sqlbuilder_create_stmt->create_scope()) {
           return false;
         }
         if (!CompareOptionList(output_create_stmt->option_list(),
-                               unparsed_create_stmt->option_list())) {
+                               sqlbuilder_create_stmt->option_list())) {
           return false;
         }
         if (!absl::c_equal(
                 output_create_stmt->label_list(),
-                unparsed_create_stmt->label_list(),
+                sqlbuilder_create_stmt->label_list(),
                 absl::bind_front(&AnalyzerTestRunner::GraphElementLabelEqual,
                                  this))) {
           return false;
         }
         if (!absl::c_equal(
                 output_create_stmt->property_declaration_list(),
-                unparsed_create_stmt->property_declaration_list(),
+                sqlbuilder_create_stmt->property_declaration_list(),
                 absl::bind_front(
                     &AnalyzerTestRunner::GraphPropertyDeclarationEqual,
                     this))) {
@@ -2405,20 +2493,20 @@ class AnalyzerTestRunner {
         }
         if (!absl::c_equal(
                 output_create_stmt->node_table_list(),
-                unparsed_create_stmt->node_table_list(),
+                sqlbuilder_create_stmt->node_table_list(),
                 absl::bind_front(&AnalyzerTestRunner::GraphElementTableEqual,
                                  this))) {
           return false;
         }
         if (!absl::c_equal(
                 output_create_stmt->edge_table_list(),
-                unparsed_create_stmt->edge_table_list(),
+                sqlbuilder_create_stmt->edge_table_list(),
                 absl::bind_front(&AnalyzerTestRunner::GraphElementTableEqual,
                                  this))) {
           return false;
         }
         ZETASQL_EXPECT_OK(output_create_stmt->CheckFieldsAccessed());
-        ZETASQL_EXPECT_OK(unparsed_create_stmt->CheckFieldsAccessed());
+        ZETASQL_EXPECT_OK(sqlbuilder_create_stmt->CheckFieldsAccessed());
         return true;
       }
 
@@ -2440,6 +2528,7 @@ class AnalyzerTestRunner {
       case RESOLVED_ALTER_TABLE_STMT:
       case RESOLVED_ALTER_VIEW_STMT:
       case RESOLVED_ALTER_ENTITY_STMT:
+      case RESOLVED_ALTER_INDEX_STMT:
       case RESOLVED_ANALYZE_STMT:
       case RESOLVED_ASSERT_STMT:
       case RESOLVED_BEGIN_STMT:
@@ -2490,36 +2579,36 @@ class AnalyzerTestRunner {
         return true;
 
       default:
-        ABSL_LOG(ERROR) << "Statement type " << unparsed_stmt->node_kind_string()
+        ABSL_LOG(ERROR) << "Statement type " << sqlbuilder_stmt->node_kind_string()
                    << " not supported";
         return false;
     }
   }
 
   bool CompareExpressionShape(const ResolvedExpr* output_expr,
-                              const ResolvedExpr* unparsed_expr,
+                              const ResolvedExpr* sqlbuilder_expr,
                               const bool mark_fields_accessed = false) {
     if (mark_fields_accessed) {
       output_expr->MarkFieldsAccessed();
-      unparsed_expr->MarkFieldsAccessed();
+      sqlbuilder_expr->MarkFieldsAccessed();
     }
     return output_expr->type()->DebugString() ==
-           unparsed_expr->type()->DebugString();
+           sqlbuilder_expr->type()->DebugString();
   }
 
   // returns true if `output_expr` produces the same type of output as
-  // `unparsed_expr`. Other fields in these expressions are ignored and marked
+  // `sqlbuilder_expr`. Other fields in these expressions are ignored and marked
   // as accessed.
   bool ExpressionShapeEqual(const ResolvedExpr* output_expr,
-                            const ResolvedExpr* unparsed_expr) {
-    return CompareExpressionShape(output_expr, unparsed_expr,
+                            const ResolvedExpr* sqlbuilder_expr) {
+    return CompareExpressionShape(output_expr, sqlbuilder_expr,
                                   /*mark_fields_accessed=*/true);
   }
 
   bool ExpressionPtrShapeEqual(
       const std::unique_ptr<const ResolvedExpr>& output_expr,
-      const std::unique_ptr<const ResolvedExpr>& unparsed_expr) {
-    return ExpressionShapeEqual(output_expr.get(), unparsed_expr.get());
+      const std::unique_ptr<const ResolvedExpr>& sqlbuilder_expr) {
+    return ExpressionShapeEqual(output_expr.get(), sqlbuilder_expr.get());
   }
 
   // We do custom comparison of output_column_list of the statement node where
@@ -2531,22 +2620,22 @@ class AnalyzerTestRunner {
       absl::Span<const std::unique_ptr<const ResolvedOutputColumn>>
           output_col_list,
       absl::Span<const std::unique_ptr<const ResolvedOutputColumn>>
-          unparsed_col_list) {
-    if (output_col_list.size() != unparsed_col_list.size()) {
+          sqlbuilder_col_list) {
+    if (output_col_list.size() != sqlbuilder_col_list.size()) {
       return false;
     }
 
     for (int i = 0; i < output_col_list.size(); ++i) {
       const ResolvedOutputColumn* output_col = output_col_list[i].get();
-      const ResolvedOutputColumn* unparsed_col = unparsed_col_list[i].get();
+      const ResolvedOutputColumn* sqlbuilder_col = sqlbuilder_col_list[i].get();
       // The SQLBuilder does not generate queries with anonymous columns, so
       // we can't check that IsInternalAlias always matches.
       if (!IsInternalAlias(output_col->name()) &&
-          IsInternalAlias(unparsed_col->name())) {
+          IsInternalAlias(sqlbuilder_col->name())) {
         return false;
       }
       if (!IsInternalAlias(output_col->name()) &&
-          output_col->name() != unparsed_col->name()) {
+          output_col->name() != sqlbuilder_col->name()) {
         return false;
       }
       // This uses Equivalent rather than Equals because in tests where
@@ -2554,13 +2643,13 @@ class AnalyzerTestRunner {
       // alt_descriptor_pool), the SQLBuilder doesn't know how to generate
       // an explicit CAST to get a particular instance of that proto type.
       if (!output_col->column().type()->Equivalent(
-              unparsed_col->column().type())) {
+              sqlbuilder_col->column().type())) {
         return false;
       }
 
       if (!AnnotationMap::Equals(
               output_col->column().type_annotation_map(),
-              unparsed_col->column().type_annotation_map())) {
+              sqlbuilder_col->column().type_annotation_map())) {
         return false;
       }
     }
@@ -2572,20 +2661,20 @@ class AnalyzerTestRunner {
       absl::Span<const std::unique_ptr<const ResolvedIndexItem>>
           output_item_list,
       absl::Span<const std::unique_ptr<const ResolvedIndexItem>>
-          unparsed_item_list) {
-    if (output_item_list.size() != unparsed_item_list.size()) {
+          sqlbuilder_item_list) {
+    if (output_item_list.size() != sqlbuilder_item_list.size()) {
       return false;
     }
 
     for (int i = 0; i < output_item_list.size(); ++i) {
-      const ResolvedIndexItem* item = output_item_list[i].get();
-      const ResolvedIndexItem* unparsed_item = unparsed_item_list[i].get();
+      const ResolvedIndexItem* output_item = output_item_list[i].get();
+      const ResolvedIndexItem* sqlbuilder_item = sqlbuilder_item_list[i].get();
       // This uses Equivalent rather than Equals because in tests where
       // we have alternate versions of the same proto (e.g. using
       // alt_descriptor_pool), the SQLBuilder doesn't know how to generate
       // an explicit CAST to get a particular instance of that proto type.
-      if (!item->column_ref()->column().type()->Equivalent(
-              unparsed_item->column_ref()->column().type())) {
+      if (!output_item->column_ref()->column().type()->Equivalent(
+              sqlbuilder_item->column_ref()->column().type())) {
         return false;
       }
     }
@@ -2597,26 +2686,27 @@ class AnalyzerTestRunner {
       absl::Span<const std::unique_ptr<const ResolvedColumnDefinition>>
           output_col_list,
       absl::Span<const std::unique_ptr<const ResolvedColumnDefinition>>
-          unparsed_col_list) {
-    if (output_col_list.size() != unparsed_col_list.size()) {
+          sqlbuilder_col_list) {
+    if (output_col_list.size() != sqlbuilder_col_list.size()) {
       return false;
     }
 
     for (int i = 0; i < output_col_list.size(); ++i) {
       const ResolvedColumnDefinition* output_col = output_col_list[i].get();
-      const ResolvedColumnDefinition* unparsed_col = unparsed_col_list[i].get();
+      const ResolvedColumnDefinition* sqlbuilder_col =
+          sqlbuilder_col_list[i].get();
       if (IsInternalAlias(output_col->name()) ||
-          IsInternalAlias(unparsed_col->name())) {
+          IsInternalAlias(sqlbuilder_col->name())) {
         return false;
       }
-      if (output_col->name() != unparsed_col->name()) {
+      if (output_col->name() != sqlbuilder_col->name()) {
         return false;
       }
-      if (!output_col->type()->Equals(unparsed_col->type())) {
+      if (!output_col->type()->Equals(sqlbuilder_col->type())) {
         return false;
       }
       if (!CompareColumnAnnotations(output_col->annotations(),
-                                    unparsed_col->annotations())) {
+                                    sqlbuilder_col->annotations())) {
         return false;
       }
     }
@@ -2626,31 +2716,32 @@ class AnalyzerTestRunner {
 
   bool CompareColumnAnnotations(
       const ResolvedColumnAnnotations* output_annotations,
-      const ResolvedColumnAnnotations* unparsed_annotations) {
-    if ((output_annotations == nullptr) != (unparsed_annotations == nullptr)) {
+      const ResolvedColumnAnnotations* sqlbuilder_annotations) {
+    if ((output_annotations == nullptr) !=
+        (sqlbuilder_annotations == nullptr)) {
       return false;
     }
     if (output_annotations == nullptr) {
       return true;
     }
-    if (output_annotations->not_null() != unparsed_annotations->not_null()) {
+    if (output_annotations->not_null() != sqlbuilder_annotations->not_null()) {
       return false;
     }
     if (!CompareOptionList(output_annotations->option_list(),
-                           unparsed_annotations->option_list())) {
+                           sqlbuilder_annotations->option_list())) {
       return false;
     }
     if (!output_annotations->type_parameters().Equals(
-            unparsed_annotations->type_parameters())) {
+            sqlbuilder_annotations->type_parameters())) {
       return false;
     }
     if (output_annotations->child_list().size() !=
-        unparsed_annotations->child_list().size()) {
+        sqlbuilder_annotations->child_list().size()) {
       return false;
     }
     for (int i = 0; i < output_annotations->child_list().size(); ++i) {
       if (!CompareColumnAnnotations(output_annotations->child_list(i),
-                                    unparsed_annotations->child_list(i))) {
+                                    sqlbuilder_annotations->child_list(i))) {
         return false;
       }
     }
@@ -2660,25 +2751,25 @@ class AnalyzerTestRunner {
   bool CompareOptionList(absl::Span<const std::unique_ptr<const ResolvedOption>>
                              output_option_list,
                          absl::Span<const std::unique_ptr<const ResolvedOption>>
-                             unparsed_option_list) {
-    if (output_option_list.size() != unparsed_option_list.size()) {
+                             sqlbuilder_option_list) {
+    if (output_option_list.size() != sqlbuilder_option_list.size()) {
       return false;
     }
 
-    for (int i = 0; i < unparsed_option_list.size(); ++i) {
+    for (int i = 0; i < sqlbuilder_option_list.size(); ++i) {
       const ResolvedOption* output_option = output_option_list[i].get();
-      const ResolvedOption* unparsed_option = unparsed_option_list[i].get();
+      const ResolvedOption* sqlbuilder_option = sqlbuilder_option_list[i].get();
       // Note that we only check the Type of the option, not the entire
-      // expression.  This is because STRUCT-type options will have an
-      // explicit Type in the unparsed SQL, even if the original SQL did
-      // not specify an explicit Type for them (so we cannot use CompareNode())
-      // on these expressions.  This logic is consistent with
-      // CompareOutputColumnList(), which only checks the Type and alias
-      // (and not the expressions themselves).
-      if (output_option->qualifier() != unparsed_option->qualifier() ||
-          output_option->name() != unparsed_option->name() ||
+      // expression. This is because STRUCT-type options will have an explicit
+      // Type in the SQLBuilder output SQL, even if the original SQL did not
+      // specify an explicit Type for them (so we cannot use CompareNode()) on
+      // these expressions.  This logic is consistent with
+      // CompareOutputColumnList(), which only checks the Type and alias (and
+      // not the expressions themselves).
+      if (output_option->qualifier() != sqlbuilder_option->qualifier() ||
+          output_option->name() != sqlbuilder_option->name() ||
           !ExpressionShapeEqual(output_option->value(),
-                                unparsed_option->value())) {
+                                sqlbuilder_option->value())) {
         return false;
       }
     }
@@ -2687,13 +2778,13 @@ class AnalyzerTestRunner {
   }
 
   bool ComparePath(absl::Span<const std::string> output_path,
-                   absl::Span<const std::string> unparsed_path) {
-    if (output_path.size() != unparsed_path.size()) {
+                   absl::Span<const std::string> sqlbuilder_path) {
+    if (output_path.size() != sqlbuilder_path.size()) {
       return false;
     }
 
-    for (int i = 0; i < unparsed_path.size(); ++i) {
-      if (!zetasql_base::CaseEqual(output_path[i], unparsed_path[i])) {
+    for (int i = 0; i < sqlbuilder_path.size(); ++i) {
+      if (!zetasql_base::CaseEqual(output_path[i], sqlbuilder_path[i])) {
         return false;
       }
     }
@@ -2703,50 +2794,52 @@ class AnalyzerTestRunner {
 
   bool GraphElementLabelEqual(
       const std::unique_ptr<const ResolvedGraphElementLabel>& output,
-      const std::unique_ptr<const ResolvedGraphElementLabel>& unparsed) {
-    return CompareNode(output.get(), unparsed.get());
+      const std::unique_ptr<const ResolvedGraphElementLabel>& sqlbuilder) {
+    return CompareNode(output.get(), sqlbuilder.get());
   }
 
   bool GraphPropertyDeclarationEqual(
       const std::unique_ptr<const ResolvedGraphPropertyDeclaration>&
           output_query,
       const std::unique_ptr<const ResolvedGraphPropertyDeclaration>&
-          unparsed_query) {
-    return CompareNode(output_query.get(), unparsed_query.get());
+          sqlbuilder_query) {
+    return CompareNode(output_query.get(), sqlbuilder_query.get());
   }
 
   bool GraphPropertyDefinitionEqual(
       const std::unique_ptr<const ResolvedGraphPropertyDefinition>& output,
-      const std::unique_ptr<const ResolvedGraphPropertyDefinition>& unparsed) {
+      const std::unique_ptr<const ResolvedGraphPropertyDefinition>&
+          sqlbuilder) {
     return output->property_declaration_name() ==
-               unparsed->property_declaration_name() &&
-           output->sql() == unparsed->sql() &&
-           CompareExpressionShape(output->expr(), unparsed->expr(),
+               sqlbuilder->property_declaration_name() &&
+           output->sql() == sqlbuilder->sql() &&
+           CompareExpressionShape(output->expr(), sqlbuilder->expr(),
                                   /*mark_fields_accessed=*/true);
   }
 
   bool GraphNodeTableReferenceEqual(
       const ResolvedGraphNodeTableReference* output,
-      const ResolvedGraphNodeTableReference* unparsed) {
-    if ((output == nullptr) != (unparsed == nullptr)) {
+      const ResolvedGraphNodeTableReference* sqlbuilder) {
+    if ((output == nullptr) != (sqlbuilder == nullptr)) {
       return false;
     }
     if (output == nullptr) {
       return true;
     }
-    if (output->node_table_identifier() != unparsed->node_table_identifier()) {
+    if (output->node_table_identifier() !=
+        sqlbuilder->node_table_identifier()) {
       return false;
     }
     if (!absl::c_equal(
             output->edge_table_column_list(),
-            unparsed->edge_table_column_list(),
+            sqlbuilder->edge_table_column_list(),
             absl::bind_front(&AnalyzerTestRunner::ExpressionPtrShapeEqual,
                              this))) {
       return false;
     }
     if (!absl::c_equal(
             output->node_table_column_list(),
-            unparsed->node_table_column_list(),
+            sqlbuilder->node_table_column_list(),
             absl::bind_front(&AnalyzerTestRunner::ExpressionPtrShapeEqual,
                              this))) {
       return false;
@@ -2756,35 +2849,35 @@ class AnalyzerTestRunner {
 
   bool GraphElementTableEqual(
       const std::unique_ptr<const ResolvedGraphElementTable>& output,
-      const std::unique_ptr<const ResolvedGraphElementTable>& unparsed) {
-    if (output->alias() != unparsed->alias()) {
+      const std::unique_ptr<const ResolvedGraphElementTable>& sqlbuilder) {
+    if (output->alias() != sqlbuilder->alias()) {
       return false;
     }
-    if (!CompareNode(output->input_scan(), unparsed->input_scan())) {
+    if (!CompareNode(output->input_scan(), sqlbuilder->input_scan())) {
       return false;
     }
     if (!absl::c_equal(
-            output->key_list(), unparsed->key_list(),
+            output->key_list(), sqlbuilder->key_list(),
             absl::bind_front(&AnalyzerTestRunner::ExpressionPtrShapeEqual,
                              this))) {
       return false;
     }
-    if (output->label_name_list() != unparsed->label_name_list()) {
+    if (output->label_name_list() != sqlbuilder->label_name_list()) {
       return false;
     }
     if (!absl::c_equal(
             output->property_definition_list(),
-            unparsed->property_definition_list(),
+            sqlbuilder->property_definition_list(),
             absl::bind_front(&AnalyzerTestRunner::GraphPropertyDefinitionEqual,
                              this))) {
       return false;
     }
     if (!GraphNodeTableReferenceEqual(output->source_node_reference(),
-                                      unparsed->source_node_reference())) {
+                                      sqlbuilder->source_node_reference())) {
       return false;
     }
     if (!GraphNodeTableReferenceEqual(output->dest_node_reference(),
-                                      unparsed->dest_node_reference())) {
+                                      sqlbuilder->dest_node_reference())) {
       return false;
     }
     return true;
@@ -3042,13 +3135,46 @@ class AnalyzerTestRunner {
     return absl::OkStatus();
   }
 
-  void TestUnparsing(absl::string_view test_case,
-                     const AnalyzerOptions& orig_options, Catalog* catalog,
-                     bool is_statement, const AnalyzerOutput* analyzer_output,
-                     std::string* result_string) {
+  void TestSqlBuilder(absl::string_view test_case,
+                      const AnalyzerOptions& orig_options, Catalog* catalog,
+                      bool is_statement, const AnalyzerOutput* analyzer_output,
+                      std::string* result_string) {
     ABSL_CHECK(analyzer_output != nullptr);
     result_string->clear();
 
+    absl::string_view target_syntax_mode =
+        test_case_options_.GetString(kSqlBuilderTargetSyntaxMode);
+    if (target_syntax_mode == kSqlBuilderTargetSyntaxModePipe) {
+      TestSqlBuilderForTargetSyntaxMode(
+          test_case, SQLBuilder::TargetSyntaxMode::kPipe,
+          kSqlBuilderTargetSyntaxModePipe, false, orig_options, catalog,
+          is_statement, analyzer_output, result_string);
+    } else if (target_syntax_mode == kSqlBuilderTargetSyntaxModeStandard) {
+      TestSqlBuilderForTargetSyntaxMode(
+          test_case, SQLBuilder::TargetSyntaxMode::kStandard,
+          kSqlBuilderTargetSyntaxModeStandard, false, orig_options, catalog,
+          is_statement, analyzer_output, result_string);
+    } else if (target_syntax_mode == kSqlBuilderTargetSyntaxModeBoth) {
+      TestSqlBuilderForTargetSyntaxMode(
+          test_case, SQLBuilder::TargetSyntaxMode::kStandard,
+          kSqlBuilderTargetSyntaxModeStandard, true, orig_options, catalog,
+          is_statement, analyzer_output, result_string);
+      TestSqlBuilderForTargetSyntaxMode(
+          test_case, SQLBuilder::TargetSyntaxMode::kPipe,
+          kSqlBuilderTargetSyntaxModePipe, true, orig_options, catalog,
+          is_statement, analyzer_output, result_string);
+    } else {
+      FAIL() << "Unrecognized value for " << kSqlBuilderTargetSyntaxMode
+             << ": '" << target_syntax_mode << "'";
+    }
+  }
+
+  void TestSqlBuilderForTargetSyntaxMode(
+      absl::string_view test_case,
+      SQLBuilder::TargetSyntaxMode target_syntax_mode,
+      absl::string_view target_syntax_mode_name, bool show_target_syntax_mode,
+      const AnalyzerOptions& orig_options, Catalog* catalog, bool is_statement,
+      const AnalyzerOutput* analyzer_output, std::string* result_string) {
     AnalyzerOptions options = orig_options;
     // Don't mess up any shared sequence generator for the original query.
     options.set_column_id_sequence_number(nullptr);
@@ -3064,11 +3190,12 @@ class AnalyzerTestRunner {
     builder_options.undeclared_positional_parameters =
         analyzer_output->undeclared_positional_parameters();
     builder_options.catalog = catalog;
-    builder_options.target_syntax =
-        InternalAnalyzerOutputProperties::GetTargetSyntax(
+    builder_options.target_syntax_map =
+        InternalAnalyzerOutputProperties::GetTargetSyntaxMap(
             analyzer_output->analyzer_output_properties());
+    builder_options.target_syntax_mode = target_syntax_mode;
     const std::string positional_parameter_mode =
-        test_case_options_.GetString(kUnparserPositionalParameterMode);
+        test_case_options_.GetString(kSqlBuilderPositionalParameterMode);
     if (positional_parameter_mode == "question_mark") {
       builder_options.positional_parameter_mode =
           SQLBuilder::SQLBuilderOptions::kQuestionMark;
@@ -3079,7 +3206,7 @@ class AnalyzerTestRunner {
       builder_options.positional_parameter_mode =
           SQLBuilder::SQLBuilderOptions::kNamed;
     } else {
-      FAIL() << "Unrecognized value for " << kUnparserPositionalParameterMode
+      FAIL() << "Unrecognized value for " << kSqlBuilderPositionalParameterMode
              << ": '" << positional_parameter_mode << "'";
     }
     const ResolvedNode* ast;
@@ -3130,17 +3257,22 @@ class AnalyzerTestRunner {
       formatted_sql = builder_sql;
     }
 
+    // Enable Pipes syntax in reanalyzer if the target syntax mode is kPipe.
+    if (builder_options.target_syntax_mode ==
+        QueryExpression::TargetSyntaxMode::kPipe) {
+      options.mutable_language()->EnableLanguageFeature(FEATURE_PIPES);
+    }
     TypeFactory type_factory;
     auto catalog_holder = CreateCatalog(options);
 
-    std::unique_ptr<const AnalyzerOutput> unparsed_output;
+    std::unique_ptr<const AnalyzerOutput> sqlbuilder_output;
     absl::Status re_analyze_status =
         is_statement
             ? AnalyzeStatement(builder_sql, options, catalog_holder.catalog(),
-                               &type_factory, &unparsed_output)
+                               &type_factory, &sqlbuilder_output)
             : AnalyzeExpression(builder_sql, options, catalog_holder.catalog(),
-                                &type_factory, &unparsed_output);
-    bool unparsed_tree_matches_original_tree = false;
+                                &type_factory, &sqlbuilder_output);
+    bool sqlbuilder_tree_matches_original_tree = false;
     // Re-analyzing the query should never fail.
     if (!re_analyze_status.ok()) {
       *result_string = absl::StrCat(
@@ -3149,31 +3281,37 @@ class AnalyzerTestRunner {
       FAIL() << *result_string;
     }
 
-    unparsed_tree_matches_original_tree =
+    sqlbuilder_tree_matches_original_tree =
         is_statement ? CompareStatement(analyzer_output->resolved_statement(),
-                                        unparsed_output->resolved_statement())
+                                        sqlbuilder_output->resolved_statement())
                      : CompareNode(analyzer_output->resolved_expr(),
-                                   unparsed_output->resolved_expr());
+                                   sqlbuilder_output->resolved_expr());
 
-    if (test_case_options_.GetBool(kShowUnparsed)) {
-      absl::StrAppend(result_string, "[UNPARSED_SQL]\n", formatted_sql, "\n\n");
+    if (test_case_options_.GetBool(kShowSqlBuilderOutput)) {
+      if (show_target_syntax_mode) {
+        absl::StrAppend(result_string, "[SQLBUILDER_TARGET_SYNTAX_MODE ",
+                        target_syntax_mode_name, "]\n");
+      }
+      absl::StrAppend(result_string, "[SQLBUILDER_OUTPUT]\n", formatted_sql,
+                      "\n\n");
     }
 
-    // Skip printing analysis of the unparser output if positional parameters
-    // were unparsed with names.
+    // Skip printing analysis of the SQLBuilder output if positional parameters
+    // were output with names.
     if (options.parameter_mode() == PARAMETER_POSITIONAL &&
         builder_options.positional_parameter_mode ==
             SQLBuilder::SQLBuilderOptions::kNamed) {
       return;
     }
 
-    if (!unparsed_tree_matches_original_tree &&
-        test_case_options_.GetBool(kShowUnparsedResolvedASTDiff)) {
+    if (!sqlbuilder_tree_matches_original_tree &&
+        test_case_options_.GetBool(kShowSqlBuilderResolvedASTDiff)) {
       absl::StrAppend(
-          result_string, "[UNPARSED_SQL_ANALYSIS]\n",
-          "* Unparsed tree does not match the original resolved tree\n",
-          "\n[UNPARSED_SQL_RESOLVED_AST]\n",
-          unparsed_output->resolved_statement()->DebugString(),
+          result_string, "[SQLBUILDER_ANALYSIS]\n",
+          "* Resolved AST tree of SQLBuilder output does not match the "
+          "original resolved tree\n",
+          "\n[SQLBUILDER_RESOLVED_AST]\n",
+          sqlbuilder_output->resolved_statement()->DebugString(),
           "\n[ORIGINAL_RESOLVED_AST]\n",
           analyzer_output->resolved_statement()->DebugString(), "\n");
     }
@@ -3181,19 +3319,19 @@ class AnalyzerTestRunner {
     const bool shape_matches =
         is_statement
             ? CompareStatementShape(analyzer_output->resolved_statement(),
-                                    unparsed_output->resolved_statement())
+                                    sqlbuilder_output->resolved_statement())
             : CompareExpressionShape(analyzer_output->resolved_expr(),
-                                     unparsed_output->resolved_expr());
+                                     sqlbuilder_output->resolved_expr());
     if (!shape_matches) {
-      if (!test_case_options_.GetBool(kShowUnparsed)) {
-        absl::StrAppend(result_string, "[UNPARSED_SQL]\n", formatted_sql,
+      if (!test_case_options_.GetBool(kShowSqlBuilderOutput)) {
+        absl::StrAppend(result_string, "[SQLBUILDER_OUTPUT]\n", formatted_sql,
                         "\n\n");
       }
-      absl::StrAppend(result_string, "[UNPARSED_SQL_SHAPE]\n",
-                      "* Unparsed tree does not produce same result shape as "
-                      "the original resolved tree\n",
-                      "\n[UNPARSED_SQL_RESOLVED_AST]\n",
-                      unparsed_output->resolved_statement()->DebugString(),
+      absl::StrAppend(result_string, "[SQLBUILDER_RESOLVED_AST_SHAPE]\n",
+                      "* Resolved tree of SQLBuilder output does not have the "
+                      "same shape as the original resolved tree\n",
+                      "\n[SQLBUILDER_RESOLVED_AST]\n",
+                      sqlbuilder_output->resolved_statement()->DebugString(),
                       "\n");
     }
   }
@@ -3233,7 +3371,6 @@ void ValidateRuntimeInfo(const AnalyzerRuntimeInfo& info) {
 
   std::vector<AnalyzerLogEntry::LoggedOperationCategory> expected_categories = {
       AnalyzerLogEntry::RESOLVER, AnalyzerLogEntry::PARSER};
-
   for (auto& stage : expected_categories) {
     int count = 0;
     for (const AnalyzerLogEntry::ExecutionStatsByOpEntry& op :

@@ -172,9 +172,9 @@ NET.FORMAT_IP(integer)
 
 **Description**
 
-This function is deprecated. It is the same as
+This function is deprecated. It's the same as
 [`NET.IP_TO_STRING`][net-link-to-ip-to-string]`(`[`NET.IPV4_FROM_INT64`][net-link-to-ipv4-from-int64]`(integer))`,
-except that this function does not allow negative input values.
+except that this function doesn't allow negative input values.
 
 **Return Data Type**
 
@@ -193,7 +193,7 @@ NET.FORMAT_PACKED_IP(bytes_value)
 
 **Description**
 
-This function is deprecated. It is the same as [`NET.IP_TO_STRING`][net-link-to-ip-to-string].
+This function is deprecated. It's the same as [`NET.IP_TO_STRING`][net-link-to-ip-to-string].
 
 **Return Data Type**
 
@@ -211,12 +211,12 @@ NET.HOST(url)
 
 Takes a URL as a `STRING` value and returns the host. For best results, URL
 values should comply with the format as defined by
-[RFC 3986][net-link-to-rfc-3986-appendix-a]. If the URL value does not comply
+[RFC 3986][net-link-to-rfc-3986-appendix-a]. If the URL value doesn't comply
 with RFC 3986 formatting, this function makes a best effort to parse the input
-and return a relevant result. If the function cannot parse the input, it
+and return a relevant result. If the function can't parse the input, it
 returns `NULL`.
 
-Note: The function does not perform any normalization.
+Note: The function doesn't perform any normalization.
 
 **Return Data Type**
 
@@ -224,7 +224,7 @@ Note: The function does not perform any normalization.
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   FORMAT("%T", input) AS input,
   description,
@@ -274,7 +274,7 @@ This function supports the following formats for `addr_str`:
   `1234:5678:90ab:cdef:1234:5678:90ab:cdef`. For more examples, see the
   [IP Version 6 Addressing Architecture][net-link-to-ipv6-rfc].
 
-This function does not support [CIDR notation][net-link-to-cidr-notation], such as `10.1.2.3/32`.
+This function doesn't support [CIDR notation][net-link-to-cidr-notation], such as `10.1.2.3/32`.
 
 If this function receives a `NULL` input, it returns `NULL`. If the input is
 considered invalid, an `OUT_OF_RANGE` error occurs.
@@ -285,7 +285,7 @@ BYTES
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   addr_str, FORMAT("%T", NET.IP_FROM_STRING(addr_str)) AS ip_from_string
 FROM UNNEST([
@@ -349,7 +349,7 @@ NET.IP_NET_MASK(num_output_bytes, prefix_length)
 Returns a network mask: a byte sequence with length equal to `num_output_bytes`,
 where the first `prefix_length` bits are set to 1 and the other bits are set to
 0. `num_output_bytes` and `prefix_length` are INT64.
-This function throws an error if `num_output_bytes` is not 4 (for IPv4) or 16
+This function throws an error if `num_output_bytes` isn't 4 (for IPv4) or 16
 (for IPv6). It also throws an error if `prefix_length` is negative or greater
 than `8 * num_output_bytes`.
 
@@ -359,7 +359,7 @@ BYTES
 
 **Example**
 
-```sql
+```zetasql
 SELECT x, y, FORMAT("%T", NET.IP_NET_MASK(x, y)) AS ip_net_mask
 FROM UNNEST([
   STRUCT(4 as x, 0 as y),
@@ -404,7 +404,7 @@ STRING
 
 **Example**
 
-```sql
+```zetasql
 SELECT FORMAT("%T", x) AS addr_bin, NET.IP_TO_STRING(x) AS ip_to_string
 FROM UNNEST([
   b"0123",
@@ -435,7 +435,7 @@ byte order, and returns a subnet address in the same format. The result has the
 same length as `addr_bin`, where the first `prefix_length` bits are equal to
 those in `addr_bin` and the remaining bits are 0.
 
-This function throws an error if `LENGTH(addr_bin)` is not 4 or 16, or if
+This function throws an error if `LENGTH(addr_bin)` isn't 4 or 16, or if
 `prefix_len` is negative or greater than `LENGTH(addr_bin) * 8`.
 
 **Return Data Type**
@@ -444,7 +444,7 @@ BYTES
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   FORMAT("%T", x) as addr_bin, prefix_length,
   FORMAT("%T", NET.IP_TRUNC(x, prefix_length)) AS ip_trunc
@@ -485,7 +485,7 @@ the most significant 33 bits are 1 (sign-extended from a 32-bit integer).
 In other words, the input should be in the range `[-0x80000000, 0xFFFFFFFF]`;
 otherwise, this function throws an error.
 
-This function does not support IPv6.
+This function doesn't support IPv6.
 
 **Return Data Type**
 
@@ -493,7 +493,7 @@ BYTES
 
 **Example**
 
-```sql
+```zetasql
 SELECT x, x_hex, FORMAT("%T", NET.IPV4_FROM_INT64(x)) AS ipv4_from_int64
 FROM (
   SELECT CAST(x_hex AS INT64) x, x_hex
@@ -525,9 +525,9 @@ address is stored in the least significant bit of the integer, regardless of
 host or client architecture. For example, `1` means `0.0.0.1`, and `0x1FF` means
 `0.0.1.255`. The output is in the range `[0, 0xFFFFFFFF]`.
 
-If the input length is not 4, this function throws an error.
+If the input length isn't 4, this function throws an error.
 
-This function does not support IPv6.
+This function doesn't support IPv6.
 
 **Return Data Type**
 
@@ -535,7 +535,7 @@ INT64
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   FORMAT("%T", x) AS addr_bin,
   FORMAT("0x%X", NET.IPV4_TO_INT64(x)) AS ipv4_to_int64
@@ -603,7 +603,7 @@ NET.PARSE_IP(addr_str)
 
 **Description**
 
-This function is deprecated. It is the same as
+This function is deprecated. It's the same as
 [`NET.IPV4_TO_INT64`][net-link-to-ipv4-to-int64]`(`[`NET.IP_FROM_STRING`][net-link-to-ip-from-string]`(addr_str))`,
 except that this function truncates the input at the first `'\x00'` character,
 if any, while `NET.IP_FROM_STRING` treats `'\x00'` as invalid.
@@ -625,7 +625,7 @@ NET.PARSE_PACKED_IP(addr_str)
 
 **Description**
 
-This function is deprecated. It is the same as
+This function is deprecated. It's the same as
 [`NET.IP_FROM_STRING`][net-link-to-ip-from-string], except that this function truncates
 the input at the first `'\x00'` character, if any, while `NET.IP_FROM_STRING`
 treats `'\x00'` as invalid.
@@ -648,16 +648,16 @@ Takes a URL as a `STRING` value and returns the public suffix (such as `com`,
 `org`, or `net`). A public suffix is an ICANN domain registered at
 [publicsuffix.org][net-link-to-public-suffix]. For best results, URL values
 should comply with the format as defined by
-[RFC 3986][net-link-to-rfc-3986-appendix-a]. If the URL value does not comply
+[RFC 3986][net-link-to-rfc-3986-appendix-a]. If the URL value doesn't comply
 with RFC 3986 formatting, this function makes a best effort to parse the input
 and return a relevant result.
 
 This function returns `NULL` if any of the following is true:
 
-+ It cannot parse the host from the input;
++ It can't parse the host from the input;
 + The parsed host contains adjacent dots in the middle
   (not leading or trailing);
-+ The parsed host does not contain any public suffix.
++ The parsed host doesn't contain any public suffix.
 
 Before looking up the public suffix, this function temporarily normalizes the
 host by converting uppercase English letters to lowercase and encoding all
@@ -665,7 +665,7 @@ non-ASCII characters with [Punycode][net-link-to-punycode].
 The function then returns the public suffix as part of the original host instead
 of the normalized host.
 
-Note: The function does not perform
+Note: The function doesn't perform
 [Unicode normalization][unicode-normalization].
 
 Note: The public suffix data at
@@ -681,7 +681,7 @@ produces a `NULL` result now may produce a non-`NULL` value in the future.
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   FORMAT("%T", input) AS input,
   description,
@@ -730,16 +730,16 @@ NET.REG_DOMAIN(url)
 Takes a URL as a string and returns the registered or registrable domain (the
 [public suffix](#netpublic_suffix) plus one preceding label), as a
 string. For best results, URL values should comply with the format as defined by
-[RFC 3986][net-link-to-rfc-3986-appendix-a]. If the URL value does not comply
+[RFC 3986][net-link-to-rfc-3986-appendix-a]. If the URL value doesn't comply
 with RFC 3986 formatting, this function makes a best effort to parse the input
 and return a relevant result.
 
 This function returns `NULL` if any of the following is true:
 
-+ It cannot parse the host from the input;
++ It can't parse the host from the input;
 + The parsed host contains adjacent dots in the middle
   (not leading or trailing);
-+ The parsed host does not contain any public suffix;
++ The parsed host doesn't contain any public suffix;
 + The parsed host contains only a public suffix without any preceding label.
 
 Before looking up the public suffix, this function temporarily normalizes the
@@ -748,12 +748,12 @@ non-ASCII characters with [Punycode][net-link-to-punycode]. The function then
 returns the registered or registerable domain as part of the original host
 instead of the normalized host.
 
-Note: The function does not perform
+Note: The function doesn't perform
 [Unicode normalization][unicode-normalization].
 
 Note: The public suffix data at
 [publicsuffix.org][net-link-to-public-suffix] also contains
-private domains. This function does not treat a private domain as a public
+private domains. This function doesn't treat a private domain as a public
 suffix. For example, if `us.com` is a private domain in the public suffix data,
 `NET.REG_DOMAIN("foo.us.com")` returns `us.com` (the public suffix `com` plus
 the preceding label `us`) rather than `foo.us.com` (the private domain `us.com`
@@ -769,7 +769,7 @@ value in the future.
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   FORMAT("%T", input) AS input,
   description,
@@ -824,7 +824,7 @@ BYTES
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   addr_str,
   FORMAT("%T", NET.SAFE_IP_FROM_STRING(addr_str)) AS safe_ip_from_string

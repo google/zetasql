@@ -30,6 +30,8 @@
 #include "zetasql/public/function.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/numeric_value.h"
+#include "zetasql/public/options.pb.h"
+#include "zetasql/public/proto/type_annotation.pb.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/simple_type.h"
@@ -40,6 +42,7 @@
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_builder.h"
 #include "zetasql/resolved_ast/resolved_column.h"
+#include "zetasql/resolved_ast/serialization.pb.h"
 #include "zetasql/resolved_ast/test_utils.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -1550,6 +1553,50 @@ AggregateFunctionCall(ZetaSQL:count(DOUBLE) -> INT64)
 )"));
 }
 
+TEST_F(FunctionCallBuilderTest, CountDistinctGetStructFieldTest) {
+  std::unique_ptr<ResolvedExpr> column_ref =
+      MakeResolvedColumnRef(types::Int64Type(), ResolvedColumn(), false);
+  auto column = MakeResolvedGetStructField(types::Int64Type(),
+                                           std::move(column_ref), 0, true);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedExpr> function,
+      fn_builder_.Count(std::move(column), /*is_distinct=*/true));
+  EXPECT_EQ(function->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+AggregateFunctionCall(ZetaSQL:count(INT64) -> INT64)
++-GetStructField
+  +-type=INT64
+  +-expr=
+  | +-ColumnRef(type=INT64, column=.#-1)
+  +-field_idx=0
+  +-field_expr_is_positional=TRUE
++-distinct=TRUE
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest, CountDistinctGetProtoTest) {
+  std::unique_ptr<ResolvedExpr> column_ref =
+      MakeResolvedColumnRef(types::Int64Type(), ResolvedColumn(), false);
+  auto field_descriptor =
+      ResolvedColumnProto::descriptor()->FindFieldByName("column_id");
+  auto column = MakeResolvedGetProtoField(
+      types::Int64Type(), std::move(column_ref), field_descriptor,
+      zetasql::Value(),
+      /*get_has_bit=*/false, FieldFormat::DEFAULT_FORMAT,
+      /*return_default_value_when_unset=*/false);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedExpr> function,
+      fn_builder_.Count(std::move(column), /*is_distinct=*/true));
+  EXPECT_EQ(function->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+AggregateFunctionCall(ZetaSQL:count(INT64) -> INT64)
++-GetProtoField
+  +-type=INT64
+  +-expr=
+  | +-ColumnRef(type=INT64, column=.#-1)
+  +-field_descriptor=column_id
++-distinct=TRUE
+)"));
+}
+
 TEST_F(FunctionCallBuilderTest, ConcatString) {
   std::vector<std::unique_ptr<const ResolvedExpr>> args;
   args.push_back(MakeResolvedLiteral(Value::String("a")));
@@ -1686,6 +1733,72 @@ AggregateFunctionCall(ZetaSQL:array_agg(STRING) -> ARRAY<STRING>)
 )"));
 }
 
+// FEATURE_ANALYTIC_FUNCTIONS is required to load the IS_FIRST function in the
+// catalog.
+TEST_F(FunctionCallBuilderTest, IsFirstKCatalogMissingFn) {
+  std::unique_ptr<ResolvedExpr> input =
+      MakeResolvedLiteral(types::Int64Type(), Value::Int64(1),
+                          /*has_explicit_type=*/true);
+
+  EXPECT_THAT(
+      fn_builder_.IsFirstK(std::move(input)),
+      StatusIs(absl::StatusCode::kNotFound,
+               ::testing::HasSubstr("Function not found: is_first not found in "
+                                    "catalog function_builder_catalog")));
+}
+
+TEST_F(FunctionCallBuilderTest, IsFirstKInt64Literal) {
+  AnalyzerOptions analyzer_options;
+  analyzer_options.mutable_language()->EnableLanguageFeature(
+      FEATURE_ANALYTIC_FUNCTIONS);
+  SimpleCatalog catalog("is_first_k_builder_catalog");
+  catalog.AddBuiltinFunctions(
+      BuiltinFunctionOptions(analyzer_options.language()));
+  FunctionCallBuilder fn_builder(analyzer_options, catalog, type_factory_);
+  std::unique_ptr<ResolvedExpr> input =
+      MakeResolvedLiteral(types::Int64Type(), Value::Int64(1),
+                          /*has_explicit_type=*/true);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedExpr> function,
+                       fn_builder.IsFirstK(std::move(input)));
+  EXPECT_EQ(function->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+AnalyticFunctionCall(ZetaSQL:is_first(INT64) -> BOOL)
++-Literal(type=INT64, value=1, has_explicit_type=TRUE)
+)"));
+}
+
+// IS_FIRST(k) requires the argument to be a literal or a parameter.
+TEST_F(FunctionCallBuilderTest, IsFirstKInt64ColumnRef) {
+  AnalyzerOptions analyzer_options;
+  analyzer_options.mutable_language()->EnableLanguageFeature(
+      FEATURE_ANALYTIC_FUNCTIONS);
+  SimpleCatalog catalog("is_first_k_builder_catalog");
+  catalog.AddBuiltinFunctions(
+      BuiltinFunctionOptions(analyzer_options.language()));
+  FunctionCallBuilder fn_builder(analyzer_options, catalog, type_factory_);
+  std::unique_ptr<ResolvedExpr> input =
+      MakeResolvedColumnRef(types::Int64Type(), ResolvedColumn(), false);
+
+  EXPECT_THAT(fn_builder.IsFirstK(std::move(input)),
+              StatusIs(absl::StatusCode::kInternal));
+}
+
+// IS_FIRST(k) requires the argument to be INT64.
+TEST_F(FunctionCallBuilderTest, IsFirstKWrongType) {
+  AnalyzerOptions analyzer_options;
+  analyzer_options.mutable_language()->EnableLanguageFeature(
+      FEATURE_ANALYTIC_FUNCTIONS);
+  SimpleCatalog catalog("is_first_k_builder_catalog");
+  catalog.AddBuiltinFunctions(
+      BuiltinFunctionOptions(analyzer_options.language()));
+  FunctionCallBuilder fn_builder(analyzer_options, catalog, type_factory_);
+  std::unique_ptr<ResolvedExpr> input =
+      MakeResolvedLiteral(types::StringType(), Value::String("abc"));
+
+  EXPECT_THAT(fn_builder.IsFirstK(std::move(input)),
+              StatusIs(absl::StatusCode::kInternal));
+}
+
 TEST_F(FunctionCallBuilderTest, MakeNullIfEmptyArray) {
   zetasql_base::SequenceNumber sequence;
   ColumnFactory column_factory(10, &sequence);
@@ -1709,6 +1822,96 @@ WithExpr
     | +-Literal(type=INT64, value=1)
     +-ColumnRef(type=ARRAY<STRING>, column=null_if_empty_array.$out#11)
     +-Literal(type=ARRAY<STRING>, value=NULL)
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest, AreEqualGraphElements) {
+  TypeFactory type_factory;
+  const GraphElementType* graph_node_type1 = nullptr;
+  const GraphElementType* graph_node_type2 = nullptr;
+  // super type.
+  ZETASQL_ASSERT_OK(type_factory.MakeGraphElementType(
+      {"graph_node_type"}, GraphElementType::kNode,
+      {{"p1", types::Int64Type()}, {"p2", types::StringType()}},
+      &graph_node_type1));
+  ZETASQL_ASSERT_OK(type_factory.MakeGraphElementType(
+      {"graph_node_type"}, GraphElementType::kNode,
+      {{"p1", types::Int64Type()}}, &graph_node_type2));
+
+  // lhs is super type.
+  std::vector<std::unique_ptr<const ResolvedExpr>> args;
+  args.emplace_back(MakeResolvedColumnRef(graph_node_type1, ResolvedColumn(),
+                                          /*is_correlated=*/false));
+  args.emplace_back(MakeResolvedColumnRef(graph_node_type2, ResolvedColumn(),
+                                          /*is_correlated=*/false));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedFunctionCall> function,
+                       fn_builder_.AreEqualGraphElements(std::move(args)));
+  EXPECT_EQ(function->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+FunctionCall(ZetaSQL:$equal(GRAPH_NODE(graph_node_type)<p1 INT64, p2 STRING>, GRAPH_NODE(graph_node_type)<p1 INT64, p2 STRING>) -> BOOL)
++-ColumnRef(type=GRAPH_NODE(graph_node_type)<p1 INT64, p2 STRING>, column=.#-1)
++-Cast(GRAPH_NODE(graph_node_type)<p1 INT64> -> GRAPH_NODE(graph_node_type)<p1 INT64, p2 STRING>)
+  +-ColumnRef(type=GRAPH_NODE(graph_node_type)<p1 INT64>, column=.#-1)
+)"));
+
+  // rhs is super type.
+  args.clear();
+  args.emplace_back(MakeResolvedColumnRef(graph_node_type2, ResolvedColumn(),
+                                          /*is_correlated=*/false));
+  args.emplace_back(MakeResolvedColumnRef(graph_node_type1, ResolvedColumn(),
+                                          /*is_correlated=*/false));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(function,
+                       fn_builder_.AreEqualGraphElements(std::move(args)));
+  EXPECT_EQ(function->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+FunctionCall(ZetaSQL:$equal(GRAPH_NODE(graph_node_type)<p1 INT64, p2 STRING>, GRAPH_NODE(graph_node_type)<p1 INT64, p2 STRING>) -> BOOL)
++-Cast(GRAPH_NODE(graph_node_type)<p1 INT64> -> GRAPH_NODE(graph_node_type)<p1 INT64, p2 STRING>)
+| +-ColumnRef(type=GRAPH_NODE(graph_node_type)<p1 INT64>, column=.#-1)
++-ColumnRef(type=GRAPH_NODE(graph_node_type)<p1 INT64, p2 STRING>, column=.#-1)
+)"));
+
+  // lhs and rhs are the same type.
+  args.clear();
+  args.emplace_back(MakeResolvedColumnRef(graph_node_type1, ResolvedColumn(),
+                                          /*is_correlated=*/false));
+  args.emplace_back(MakeResolvedColumnRef(graph_node_type1, ResolvedColumn(),
+                                          /*is_correlated=*/false));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(function,
+                       fn_builder_.AreEqualGraphElements(std::move(args)));
+  EXPECT_EQ(function->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+FunctionCall(ZetaSQL:$equal(GRAPH_NODE(graph_node_type)<p1 INT64, p2 STRING>, GRAPH_NODE(graph_node_type)<p1 INT64, p2 STRING>) -> BOOL)
++-ColumnRef(type=GRAPH_NODE(graph_node_type)<p1 INT64, p2 STRING>, column=.#-1)
++-ColumnRef(type=GRAPH_NODE(graph_node_type)<p1 INT64, p2 STRING>, column=.#-1)
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest,
+       IsNotDistinctFromArgumentTypeMismatchReturnsError) {
+  std::unique_ptr<ResolvedExpr> left =
+      MakeResolvedLiteral(types::Int64Type(), Value::Int64(1),
+                          /*has_explicit_type=*/true);
+  std::unique_ptr<ResolvedExpr> right =
+      MakeResolvedLiteral(types::StringType(), Value::String("test"),
+                          /*has_explicit_type=*/true);
+
+  EXPECT_THAT(fn_builder_.IsNotDistinctFrom(std::move(left), std::move(right)),
+              StatusIs(absl::StatusCode::kInternal,
+                       ::testing::HasSubstr("Inconsistent types")));
+}
+
+TEST_F(FunctionCallBuilderTest, IsNotDistinctFrom) {
+  std::unique_ptr<ResolvedExpr> left =
+      MakeResolvedLiteral(types::Int64Type(), Value::Int64(1),
+                          /*has_explicit_type=*/true);
+  std::unique_ptr<ResolvedExpr> right =
+      MakeResolvedLiteral(types::Int64Type(), Value::Int64(2),
+                          /*has_explicit_type=*/true);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedExpr> function,
+      fn_builder_.IsNotDistinctFrom(std::move(left), std::move(right)));
+  EXPECT_EQ(function->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+FunctionCall(ZetaSQL:$is_not_distinct_from(INT64, INT64) -> BOOL)
++-Literal(type=INT64, value=1, has_explicit_type=TRUE)
++-Literal(type=INT64, value=2, has_explicit_type=TRUE)
 )"));
 }
 

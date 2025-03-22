@@ -25,13 +25,13 @@ determine the names, types, and behavior of available system variables.
 
 **Syntax**
 
-```sql
+```zetasql
 SET @@system_variable = expression;
 ```
 
 **Examples**
 
-```sql
+```zetasql
 -- Set the system variable `@@system_var_a` to have the literal STRING value
 -- `"TEST"`.
 SET @@system_var_a = "TEST";
@@ -53,13 +53,13 @@ single `@` symbol.
 
 **Syntax**
 
-```sql
+```zetasql
 SET @query_parameter = expression;
 ```
 
 **Examples**
 
-```sql
+```zetasql
 -- Set the query parameter `@query_parameter_a` to have the value of the
 -- expression `1`.
 SET @query_parameter_a = 1;
@@ -85,7 +85,7 @@ you can set the variable.
 
 **Syntax**
 
-```sql
+```zetasql
 DECLARE runtime_variable [variable_type] [DEFAULT expression];
 SET runtime_variable = expression;
 SET (variable1, variable2, ...) = struct_expression;
@@ -93,7 +93,7 @@ SET (variable1, variable2, ...) = struct_expression;
 
 **Examples**
 
-```sql
+```zetasql
 -- Declare two runtime variables: `target_word` and `corpus_count`.
 DECLARE target_word STRING DEFAULT 'methinks';
 DECLARE corpus_count, word_count INT64;

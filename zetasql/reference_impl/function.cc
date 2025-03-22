@@ -62,7 +62,9 @@
 #include "zetasql/public/functions/datetime.pb.h"
 #include "zetasql/public/functions/differential_privacy.pb.h"
 #include "zetasql/public/functions/distance.h"
+#include "zetasql/public/functions/rounding_mode.pb.h"
 #include "zetasql/public/interval_value.h"
+#include "zetasql/public/proto/type_annotation.pb.h"
 #include "zetasql/public/types/timestamp_util.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/uuid_value.h"
@@ -487,6 +489,11 @@ class FunctionMap {
     return function_kind_by_name_;
   }
 
+  const absl::flat_hash_map<FunctionKind, std::string>& function_alias_by_kind()
+      const {
+    return function_alias_by_kind_;
+  }
+
  private:
   // We use string_view here to reduce stack frame usage in debug mode for
   // FunctionMap::FunctionMap.  We are not concerned about the performance
@@ -501,8 +508,28 @@ class FunctionMap {
     }
   }
 
+  void RegisterFunctionWithAlias(FunctionKind kind, absl::string_view name,
+                                 absl::string_view debug_name,
+                                 absl::string_view alias) {
+    ABSL_CHECK(function_debug_name_by_kind_  // Crash OK
+              .try_emplace(kind, debug_name)
+              .second)
+        << "Duplicate function debug_name: " << debug_name;
+    if (!name.empty()) {
+      ABSL_CHECK(function_kind_by_name_.try_emplace(name, kind).second)  // Crash OK
+          << "Duplicate function name: " << name;
+    }
+    if (!alias.empty()) {
+      ABSL_CHECK(
+          function_alias_by_kind_.try_emplace(kind, alias).second)  // Crash OK
+          << "Duplicate function alias: " << alias;
+    }
+  }
+
   absl::flat_hash_map<FunctionKind, std::string> function_debug_name_by_kind_;
   absl::flat_hash_map<std::string, FunctionKind> function_kind_by_name_;
+  // Maps function name to alias name.
+  absl::flat_hash_map<FunctionKind, std::string> function_alias_by_kind_;
 };
 
 FunctionMap::FunctionMap() {
@@ -515,6 +542,8 @@ FunctionMap::FunctionMap() {
     RegisterFunction(FunctionKind::kAnd, "$and", "And");
     RegisterFunction(FunctionKind::kAndAgg, kPrivate, "AndAgg");
     RegisterFunction(FunctionKind::kAnyValue, "any_value", "AnyValue");
+    RegisterFunction(FunctionKind::kFirst, "first", "First");
+    RegisterFunction(FunctionKind::kLast, "last", "Last");
     RegisterFunction(FunctionKind::kArrayAgg, "array_agg", "ArrayAgg");
     RegisterFunction(FunctionKind::kArrayConcat, "array_concat", "ArrayConcat");
     RegisterFunction(FunctionKind::kArrayConcatAgg, "array_concat_agg",
@@ -668,6 +697,8 @@ FunctionMap::FunctionMap() {
                      "JsonArrayInsert");
     RegisterFunction(FunctionKind::kJsonArrayAppend, "json_array_append",
                      "JsonArrayAppend");
+    RegisterFunction(FunctionKind::kJsonContains, "json_contains",
+                     "JsonContains");
     RegisterFunction(FunctionKind::kJsonKeys, "json_keys", "JsonKeys");
     RegisterFunction(FunctionKind::kGreatest, "greatest", "Greatest");
   }();
@@ -973,6 +1004,8 @@ FunctionMap::FunctionMap() {
                      "justify_days");
     RegisterFunction(FunctionKind::kJustifyInterval, "justify_interval",
                      "justify_interval");
+    RegisterFunction(FunctionKind::kToSecondsInterval, "to_seconds_interval",
+                     "To_seconds_interval");
     RegisterFunction(FunctionKind::kFromProto, "from_proto", "From_proto");
     RegisterFunction(FunctionKind::kToProto, "to_proto", "To_proto");
     RegisterFunction(FunctionKind::kEnumValueDescriptorProto,
@@ -1847,6 +1880,10 @@ std::string BuiltinScalarFunction::debug_name() const {
   return BuiltinFunctionCatalog::GetDebugNameByKind(kind());
 }
 
+absl::string_view BuiltinFunctionCatalog::GetAliasByKind(FunctionKind kind) {
+  return zetasql_base::FindWithDefault(GetFunctionMap().function_alias_by_kind(), kind);
+}
+
 static absl::Status ValidateInputTypesSupportEqualityComparison(
     FunctionKind kind, absl::Span<const Type* const> input_types) {
   for (auto type : input_types) {
@@ -2142,10 +2179,11 @@ absl::StatusOr<std::unique_ptr<ScalarFunctionCallExpr>>
 BuiltinScalarFunction::CreateCall(
     FunctionKind kind, const LanguageOptions& language_options,
     const Type* output_type, std::vector<std::unique_ptr<AlgebraArg>> arguments,
-    ResolvedFunctionCallBase::ErrorMode error_mode) {
+    ResolvedFunctionCallBase::ErrorMode error_mode,
+    const BuiltinScalarFunctionCallOptions& options) {
   ZETASQL_ASSIGN_OR_RETURN(
       std::unique_ptr<BuiltinScalarFunction> function,
-      CreateValidated(kind, language_options, output_type, arguments));
+      CreateValidated(kind, language_options, output_type, arguments, options));
   return ScalarFunctionCallExpr::Create(std::move(function),
                                         std::move(arguments), error_mode);
 }
@@ -2170,7 +2208,8 @@ absl::StatusOr<BuiltinScalarFunction*>
 BuiltinScalarFunction::CreateValidatedRaw(
     FunctionKind kind, const LanguageOptions& language_options,
     const Type* output_type,
-    absl::Span<const std::unique_ptr<AlgebraArg>> arguments) {
+    absl::Span<const std::unique_ptr<AlgebraArg>> arguments,
+    const BuiltinScalarFunctionCallOptions& options) {
   std::vector<const Type*> input_types;
   input_types.reserve(arguments.size());
   for (const auto& expr : arguments) {
@@ -2525,6 +2564,7 @@ BuiltinScalarFunction::CreateValidatedRaw(
     case FunctionKind::kJustifyHours:
     case FunctionKind::kJustifyDays:
     case FunctionKind::kJustifyInterval:
+    case FunctionKind::kToSecondsInterval:
       return new IntervalFunction(kind, output_type);
     case FunctionKind::kNetFormatIP:
     case FunctionKind::kNetParseIP:
@@ -2604,10 +2644,11 @@ absl::StatusOr<std::unique_ptr<BuiltinScalarFunction>>
 BuiltinScalarFunction::CreateValidated(
     FunctionKind kind, const LanguageOptions& language_options,
     const Type* output_type,
-    absl::Span<const std::unique_ptr<AlgebraArg>> arguments) {
-  ZETASQL_ASSIGN_OR_RETURN(
-      BuiltinScalarFunction * func,
-      CreateValidatedRaw(kind, language_options, output_type, arguments));
+    absl::Span<const std::unique_ptr<AlgebraArg>> arguments,
+    const BuiltinScalarFunctionCallOptions& options) {
+  ZETASQL_ASSIGN_OR_RETURN(BuiltinScalarFunction * func,
+                   CreateValidatedRaw(kind, language_options, output_type,
+                                      arguments, options));
   return std::unique_ptr<BuiltinScalarFunction>(func);
 }
 
@@ -3665,6 +3706,12 @@ bool ComparisonFunction::Eval(absl::Span<const TupleData* const> params,
       *result = Value::Bool(x.LessThan(y) || x.Equals(y));
       return true;
 
+    case FCT2(FunctionKind::kLessOrEqual, TYPE_EXTENDED, TYPE_EXTENDED):
+      if (x.type()->SupportsEquality() && x.type()->Equivalent(y.type())) {
+        *result = Value::Bool(x.LessThan(y) || x.Equals(y));
+        return true;
+      }
+      break;
     case FCT2(FunctionKind::kLessOrEqual, TYPE_FLOAT, TYPE_FLOAT):
       *result =
           Value::Bool(x.float_value() <= y.float_value());  // false if NaN
@@ -5419,7 +5466,7 @@ class BuiltinAggregateAccumulator : public AggregateAccumulator {
   // The number of bytes currently requested from 'accountant()'.
   int64_t requested_bytes_ = 0;
 
-  // AnyValue
+  // AnyValue, FirstValue and LastValue.
   Value any_value_;
   // Count of non-null values.
   int64_t count_ = 0;
@@ -5480,6 +5527,7 @@ class BuiltinAggregateAccumulator : public AggregateAccumulator {
   int64_t bit_int64_ = 0;
   uint32_t bit_uint32_ = 0;
   uint64_t bit_uint64_ = 0;
+  std::string bit_agg_byte_string_ = "";
   // ArrayAgg and ArrayConcatAgg
   std::vector<Value> array_agg_;
   // Percentile.
@@ -5917,7 +5965,10 @@ absl::Status BuiltinAggregateAccumulator::Reset() {
 
   switch (function_->kind()) {
     case FunctionKind::kAnyValue:
+    case FunctionKind::kFirst:
+    case FunctionKind::kLast:
       any_value_ = Value::Invalid();
+      break;
       break;
     case FunctionKind::kArrayAgg:
     case FunctionKind::kArrayConcatAgg:
@@ -5942,11 +5993,15 @@ absl::Status BuiltinAggregateAccumulator::Reset() {
       bit_int64_ = 0;
       bit_uint32_ = 0;
       bit_uint64_ = 0;
+      // Reset the byte string accumulator to the empty string.
+      bit_agg_byte_string_ = "";
       break;
     case FunctionKind::kBitAnd:
       // Initialize the bit variables to all ones.
       bit_int32_ = bit_uint32_ = 0xffffffff;
       bit_int64_ = bit_uint64_ = 0xffffffffffffffff;
+      // Reset the byte string accumulator to the empty string.
+      bit_agg_byte_string_ = "";
       break;
     case FunctionKind::kOrAgg:
     case FunctionKind::kLogicalOr:
@@ -6270,6 +6325,17 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
       }
       break;
     }
+    case FunctionKind::kFirst:
+      if (!any_value_.is_valid()) {
+        any_value_ = value;  // Take the first value, possibly NULL.
+        additional_bytes_to_request = value.physical_byte_size();
+      }
+      break;
+    case FunctionKind::kLast:
+      // Always take the next value, possibly NULL.
+      any_value_ = value;
+      additional_bytes_to_request = value.physical_byte_size();
+      break;
     case FunctionKind::kArrayAgg:
     case FunctionKind::kArrayConcatAgg: {
       additional_bytes_to_request = value.physical_byte_size();
@@ -6385,6 +6451,21 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
       }
       break;
     }
+    case FCT(FunctionKind::kBitAnd, TYPE_BYTES): {
+      functions::BitwiseAggEnums::BitwiseAggMode mode =
+          args_.empty()
+              ? functions::BitwiseAggEnums::STRICT
+              : static_cast<functions::BitwiseAggEnums::BitwiseAggMode>(
+                    args_.back().enum_value());
+      if (count_ == 1) {
+        bit_agg_byte_string_ = value.bytes_value();
+      } else if (!functions::BitwiseBinaryOpBytesWithMode<std::bit_and>(
+                     bit_agg_byte_string_, value.bytes_value(), mode,
+                     &bit_agg_byte_string_, status)) {
+        return false;
+      }
+      break;
+    }
     case FCT(FunctionKind::kBitOr, TYPE_INT32): {
       if (!functions::BitwiseOr(bit_int32_, value.int32_value(), &bit_int32_,
                                 status)) {
@@ -6409,6 +6490,21 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
     case FCT(FunctionKind::kBitOr, TYPE_UINT64): {
       if (!functions::BitwiseOr(bit_uint64_, value.uint64_value(), &bit_uint64_,
                                 status)) {
+        return false;
+      }
+      break;
+    }
+    case FCT(FunctionKind::kBitOr, TYPE_BYTES): {
+      functions::BitwiseAggEnums::BitwiseAggMode mode =
+          args_.empty()
+              ? functions::BitwiseAggEnums::STRICT
+              : static_cast<functions::BitwiseAggEnums::BitwiseAggMode>(
+                    args_.back().enum_value());
+      if (count_ == 1) {
+        bit_agg_byte_string_ = value.bytes_value();
+      } else if (!functions::BitwiseBinaryOpBytesWithMode<std::bit_or>(
+                     bit_agg_byte_string_, value.bytes_value(), mode,
+                     &bit_agg_byte_string_, status)) {
         return false;
       }
       break;
@@ -6445,6 +6541,21 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
         bit_uint64_ = value.uint64_value();
       } else if (!functions::BitwiseXor(bit_uint64_, value.uint64_value(),
                                         &bit_uint64_, status)) {
+        return false;
+      }
+      break;
+    }
+    case FCT(FunctionKind::kBitXor, TYPE_BYTES): {
+      functions::BitwiseAggEnums::BitwiseAggMode mode =
+          args_.empty()
+              ? functions::BitwiseAggEnums::STRICT
+              : static_cast<functions::BitwiseAggEnums::BitwiseAggMode>(
+                    args_.back().enum_value());
+      if (count_ == 1) {
+        bit_agg_byte_string_ = value.bytes_value();
+      } else if (!functions::BitwiseBinaryOpBytesWithMode<std::bit_xor>(
+                     bit_agg_byte_string_, value.bytes_value(), mode,
+                     &bit_agg_byte_string_, status)) {
         return false;
       }
       break;
@@ -7609,6 +7720,8 @@ absl::StatusOr<Value> BuiltinAggregateAccumulator::GetFinalResultInternal(
                                             std::move(values));
     }
     case FunctionKind::kAnyValue:
+    case FunctionKind::kFirst:
+    case FunctionKind::kLast:
       return any_value_.is_valid() ? any_value_ : Value::Null(output_type);
     case FunctionKind::kCount:
       return Value::Int64(count_);
@@ -8124,6 +8237,11 @@ absl::StatusOr<Value> BuiltinAggregateAccumulator::GetFinalResultInternal(
     case FCT(FunctionKind::kBitOr, TYPE_UINT64):
     case FCT(FunctionKind::kBitXor, TYPE_UINT64):
       return count_ > 0 ? Value::Uint64(bit_uint64_) : Value::NullUint64();
+    case FCT(FunctionKind::kBitAnd, TYPE_BYTES):
+    case FCT(FunctionKind::kBitOr, TYPE_BYTES):
+    case FCT(FunctionKind::kBitXor, TYPE_BYTES):
+      return count_ > 0 ? Value::Bytes(bit_agg_byte_string_)
+                        : Value::NullBytes();
     case FCT(FunctionKind::kPercentileCont, TYPE_DOUBLE):
       return ComputePercentileCont<>(percentile_population_,
                                      percentile_.double_value(),
@@ -10691,6 +10809,29 @@ absl::StatusOr<Value> FromProtoFunction::Eval(
       return Value::String(string_value);
       break;
     }
+    case TYPE_INTERVAL: {
+      IntervalValue interval_value;
+      google::protobuf::Duration duration;
+      duration.CopyFrom(*message);
+      // If the supported timestamp scale is MICROSECONDS (currently determined
+      // based on the FEATURE_TIMESTAMP_NANOS flag), the nanoseconds part of the
+      // duration is truncated to microseconds. For example, if the nanos field
+      // in the duration is 56789, it would considered as 56 microseconds.
+      // This truncation does not happen if the timestamps are supported at the
+      // nanoseconds precision.
+      if (GetTimestampScale(context->GetLanguageOptions()) ==
+          functions::TimestampScale::kMicroseconds) {
+        int64_t micros = duration.seconds() * IntervalValue::kMicrosInSecond +
+                         duration.nanos() / IntervalValue::kNanosInMicro;
+        ZETASQL_ASSIGN_OR_RETURN(interval_value, IntervalValue::FromMicros(micros));
+      } else {
+        __int128 nanos = duration.seconds() * IntervalValue::kNanosInSecond +
+                         duration.nanos();
+        ZETASQL_ASSIGN_OR_RETURN(interval_value, IntervalValue::FromNanos(nanos));
+      }
+      return Value::Interval(interval_value);
+      break;
+    }
     default:
       return ::zetasql_base::UnimplementedErrorBuilder()
              << "Unsupported function: " << debug_name();
@@ -10841,8 +10982,11 @@ absl::StatusOr<Value> DateTimeDiffFunction::Eval(
   }
   int32_t value32;
   int64_t value64;
+  absl::Time timestamp;
   functions::DateTimestampPart part =
       static_cast<functions::DateTimestampPart>(args[2].enum_value());
+  const functions::TimestampScale scale =
+      GetTimestampScale(context->GetLanguageOptions());
   switch (FCT(kind(), args[0].type_kind())) {
     case FCT(FunctionKind::kDateAdd, TYPE_DATE):
       ZETASQL_RETURN_IF_ERROR(functions::AddDate(args[0].date_value(), part,
@@ -10881,11 +11025,17 @@ absl::StatusOr<Value> DateTimeDiffFunction::Eval(
                                       : Value::Int32(value32);
     case FCT(FunctionKind::kDateDiff, TYPE_TIMESTAMP):
     case FCT(FunctionKind::kDatetimeDiff, TYPE_TIMESTAMP):
-    case FCT(FunctionKind::kTimestampDiff, TYPE_TIMESTAMP):
-      ZETASQL_RETURN_IF_ERROR(functions::TimestampDiff(
-          args[0].ToUnixMicros(), args[1].ToUnixMicros(),
-          functions::kMicroseconds, part, &value64));
+    case FCT(FunctionKind::kTimestampDiff, TYPE_TIMESTAMP): {
+      if (scale == functions::TimestampScale::kNanoseconds) {
+        ZETASQL_RETURN_IF_ERROR(functions::TimestampDiff(
+            args[0].ToTime(), args[1].ToTime(), part, &value64));
+      } else {
+        ZETASQL_RETURN_IF_ERROR(functions::TimestampDiff(
+            args[0].ToUnixMicros(), args[1].ToUnixMicros(),
+            functions::kMicroseconds, part, &value64));
+      }
       return Value::Int64(value64);
+    }
     case FCT(FunctionKind::kTimeAdd, TYPE_TIME): {
       TimeValue time;
       ZETASQL_RETURN_IF_ERROR(functions::AddTime(args[0].time_value(), part,
@@ -10907,6 +11057,13 @@ absl::StatusOr<Value> DateTimeDiffFunction::Eval(
     case FCT(FunctionKind::kTimestampAdd, TYPE_TIMESTAMP): {
       // We can hardcode the time zone to the default because it is only
       // used for error messaging.
+      if (scale == functions::TimestampScale::kNanoseconds) {
+        ZETASQL_RETURN_IF_ERROR(functions::AddTimestamp(
+            args[0].ToTime(), context->GetDefaultTimeZone(), part,
+            args[1].int64_value(), &timestamp));
+        return Value::Timestamp(timestamp);
+      }
+
       ZETASQL_RETURN_IF_ERROR(functions::AddTimestamp(
           args[0].ToUnixMicros(), functions::kMicroseconds,
           context->GetDefaultTimeZone(), part, args[1].int64_value(),
@@ -10918,6 +11075,13 @@ absl::StatusOr<Value> DateTimeDiffFunction::Eval(
     case FCT(FunctionKind::kTimestampSub, TYPE_TIMESTAMP): {
       // We can hardcode the time zone to the default because it is only
       // used for error messaging.
+      if (scale == functions::TimestampScale::kNanoseconds) {
+        ZETASQL_RETURN_IF_ERROR(functions::SubTimestamp(
+            args[0].ToTime(), context->GetDefaultTimeZone(), part,
+            args[1].int64_value(), &timestamp));
+        return Value::Timestamp(timestamp);
+      }
+
       ZETASQL_RETURN_IF_ERROR(functions::SubTimestamp(
           args[0].ToUnixMicros(), functions::kMicroseconds,
           context->GetDefaultTimeZone(), part, args[1].int64_value(),
@@ -11101,6 +11265,10 @@ absl::StatusOr<Value> IntervalFunction::Eval(
       ZETASQL_ASSIGN_OR_RETURN(interval, JustifyInterval(args[0].interval_value()));
       break;
     }
+    case FunctionKind::kToSecondsInterval: {
+      ZETASQL_ASSIGN_OR_RETURN(interval, ToSecondsInterval(args[0].interval_value()));
+      break;
+    }
     default:
       return ::zetasql_base::UnimplementedErrorBuilder()
              << "Unexpected function: " << debug_name();
@@ -11255,6 +11423,25 @@ absl::Status RankFunction::Eval(
   return absl::OkStatus();
 }
 
+// Given a list of tuples sorted according to some comparator, sets the
+// non-determinism flag in the given context if the order is not unique, (i.e.,
+// some row does not compare greater than the previous one, and is not identical
+// to it).
+static void SetNonDeterministicIfOrderNotUnique(
+    absl::Span<const TupleData* const> tuples,
+    const TupleComparator* comparator, EvaluationContext* context) {
+  for (int64_t row_number = 2; row_number <= tuples.size(); ++row_number) {
+    if (!(*comparator)(tuples[row_number - 2], tuples[row_number - 1]) &&
+        !tuples[row_number - 2]->Equals(*tuples[row_number - 1])) {
+      // The current tuple does not compare greater than the previous one, and
+      // is not identical to it, so the output is non-deterministic.
+      // If the tuples were identical, the partial ordering is not a problem
+      // as the result is unique anyway.
+      context->SetNonDeterministicOutput();
+    }
+  }
+}
+
 absl::Status RowNumberFunction::Eval(
     const TupleSchema& schema, const absl::Span<const TupleData* const>& tuples,
     const absl::Span<const std::vector<Value>>& args,
@@ -11264,19 +11451,13 @@ absl::Status RowNumberFunction::Eval(
     std::vector<Value>* result) const {
   ZETASQL_RET_CHECK(args.empty());
   ZETASQL_RET_CHECK(windows.empty());
-  ZETASQL_RET_CHECK(comparator == nullptr);
+  ZETASQL_RET_CHECK(comparator != nullptr);
 
   for (int64_t row_number = 1; row_number <= tuples.size(); ++row_number) {
     result->emplace_back(Value::Int64(row_number));
   }
 
-  if (tuples.size() > 1) {
-    // ROW_NUMBER generates non-deterministic results if there is no order by
-    // or the order by is not a total order. We cannot check order by here, so
-    // just mark the result as non-deterministic if there are more than one
-    // tuples.
-    context->SetNonDeterministicOutput();
-  }
+  SetNonDeterministicIfOrderNotUnique(tuples, comparator, context);
 
   return absl::OkStatus();
 }
@@ -11351,6 +11532,75 @@ absl::Status CumeDistFunction::Eval(
         result->end(), num_peers,
         Value::Double(static_cast<double>(tuple_id) / tuples.size()));
   }
+
+  return absl::OkStatus();
+}
+
+absl::Status IsFirstFunction::Eval(
+    const TupleSchema& schema, const absl::Span<const TupleData* const>& tuples,
+    const absl::Span<const std::vector<Value>>& args,
+    const absl::Span<const AnalyticWindow>& windows,
+    const TupleComparator* comparator,
+    ResolvedFunctionCallBase::ErrorMode error_mode, EvaluationContext* context,
+    std::vector<Value>* result) const {
+  ZETASQL_RET_CHECK(windows.empty());
+  ZETASQL_RET_CHECK(comparator != nullptr);
+  ZETASQL_RET_CHECK_EQ(args.size(), 1);
+  ZETASQL_RET_CHECK_EQ(args[0].size(), tuples.size());
+
+  for (int64_t row_number = 1; row_number <= tuples.size(); ++row_number) {
+    const Value& kVal = args[0][row_number - 1];
+    ZETASQL_RET_CHECK(kVal.is_valid());
+    ZETASQL_RET_CHECK(kVal.type()->IsInt64());
+    if (kVal.is_null() || kVal.int64_value() < 0) {
+      if (error_mode == ResolvedFunctionCallBase::SAFE_ERROR_MODE) {
+        result->emplace_back(Value::NullBool());
+      } else {
+        return ::zetasql_base::OutOfRangeErrorBuilder()
+               << "The argument to the function IS_FIRST() cannot be null or "
+                  "negative";
+      }
+    } else {
+      result->emplace_back(Value::Bool(row_number <= kVal.int64_value()));
+    }
+  }
+
+  SetNonDeterministicIfOrderNotUnique(tuples, comparator, context);
+
+  return absl::OkStatus();
+}
+
+absl::Status IsLastFunction::Eval(
+    const TupleSchema& schema, const absl::Span<const TupleData* const>& tuples,
+    const absl::Span<const std::vector<Value>>& args,
+    const absl::Span<const AnalyticWindow>& windows,
+    const TupleComparator* comparator,
+    ResolvedFunctionCallBase::ErrorMode error_mode, EvaluationContext* context,
+    std::vector<Value>* result) const {
+  ZETASQL_RET_CHECK(windows.empty());
+  ZETASQL_RET_CHECK(comparator != nullptr);
+  ZETASQL_RET_CHECK_EQ(args.size(), 1);
+  ZETASQL_RET_CHECK_EQ(args[0].size(), tuples.size());
+
+  for (int64_t row_number = 1; row_number <= tuples.size(); ++row_number) {
+    const Value& kVal = args[0][row_number - 1];
+    ZETASQL_RET_CHECK(kVal.is_valid());
+    ZETASQL_RET_CHECK(kVal.type()->IsInt64());
+    if (kVal.is_null() || kVal.int64_value() < 0) {
+      if (error_mode == ResolvedFunctionCallBase::SAFE_ERROR_MODE) {
+        result->emplace_back(Value::NullBool());
+      } else {
+        return ::zetasql_base::OutOfRangeErrorBuilder()
+               << "The argument to the function IS_LAST() cannot be null or "
+                  "negative";
+      }
+    } else {
+      result->emplace_back(
+          Value::Bool(row_number + kVal.int64_value() > tuples.size()));
+    }
+  }
+
+  SetNonDeterministicIfOrderNotUnique(tuples, comparator, context);
 
   return absl::OkStatus();
 }

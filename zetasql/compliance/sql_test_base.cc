@@ -60,6 +60,7 @@
 #include "zetasql/public/parse_helpers.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/simple_catalog_util.h"
+#include "zetasql/public/strings.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
@@ -124,6 +125,12 @@ ABSL_FLAG(bool, ignore_wrong_error_codes, false,
           "The test will accept any status regardless of the error code. This "
           "is useful for engines that cannot plumb through the original error "
           "during failure tests.");
+ABSL_FLAG(
+    bool, equate_allow_unimplemented_and_allow_error_codes, false,
+    "ALLOW_UNIMPLEMENTED and ALLOW_ERROR codes are treated as equivalent. This "
+    "is useful for test runs where the reason for error is not important. "
+    "Other error codes like ALLOW_ERROR_OR_WRONG_ANSWER are still "
+    "distinguished.");
 ABSL_FLAG(bool, zetasql_compliance_accept_all_test_output, false,
           "Pretend no tests failed by ignoring their output.");
 // Ideally we would rename this to --statement_name_pattern, but that might
@@ -925,7 +932,20 @@ class KnownErrorFilter
           sql_test_->location(), to_mode, sql_test_->compliance_labels_,
           expected_status_.code(), result.status().code());
     }
-    if (to_mode > from_mode) {
+    // If true, mismatching error codes does not trigger test failure.
+    bool ignore_error_code = false;
+    if (absl::GetFlag(FLAGS_equate_allow_unimplemented_and_allow_error_codes)) {
+      // If equate_allow_unimplemented_and_allow_error_codes=true,
+      // ALLOW_UNIMPLEMENTED and ALLOW_ERROR error codes should be considered
+      // equivalent.
+      if ((to_mode == KnownErrorMode::ALLOW_UNIMPLEMENTED &&
+           from_mode == KnownErrorMode::ALLOW_ERROR) ||
+          (from_mode == KnownErrorMode::ALLOW_UNIMPLEMENTED &&
+           to_mode == KnownErrorMode::ALLOW_ERROR)) {
+        ignore_error_code = true;
+      }
+    }
+    if (to_mode > from_mode && !ignore_error_code) {
       // 1. to_mode > 0 = from_mode: A failed non-known_error statement.
       // 2. to_mode > from_mode > 0: A known-error statement failed in a more
       //    severe mode.
@@ -985,7 +1005,8 @@ class KnownErrorFilter
         sql_test_->stats_->RecordToBeUpgradedStatement(
             sql_test_->full_name_, from_mode, to_mode, check_only_);
         if (!absl::GetFlag(
-                FLAGS_zetasql_compliance_allow_upgradable_known_errors)) {
+                FLAGS_zetasql_compliance_allow_upgradable_known_errors) &&
+            !ignore_error_code) {
           cached_match_result_string_ =
               absl::StrCat("A known error rule should be upgraded for '",
                            sql_test_->full_name_, "'.");
@@ -1495,7 +1516,9 @@ void SQLTestBase::RunSQLOnFeaturesAndValidateResult(
       }
     }
 
-    if (!absl::GetFlag(FLAGS_zetasql_detect_falsly_required_features)) {
+    if (!absl::GetFlag(FLAGS_zetasql_detect_falsly_required_features) ||
+        (test_case_options_ != nullptr &&
+         test_case_options_->skip_required_feature_integrity_check())) {
       return;
     }
 
@@ -1572,9 +1595,9 @@ static std::unique_ptr<ReferenceDriver> CreateTestSetupDriver() {
   options.set_product_mode(zetasql::ProductMode::PRODUCT_INTERNAL);
   // Enable all possible language features.
   options.EnableMaximumLanguageFeaturesForDevelopment();
-  options.EnableLanguageFeature(FEATURE_SHADOW_PARSING);
   // Allow CREATE TABLE AS SELECT in [prepare_database] statements.
   options.AddSupportedStatementKind(RESOLVED_CREATE_TABLE_AS_SELECT_STMT);
+  options.AddSupportedStatementKind(RESOLVED_CREATE_TABLE_FUNCTION_STMT);
   options.AddSupportedStatementKind(RESOLVED_CREATE_FUNCTION_STMT);
   options.AddSupportedStatementKind(RESOLVED_CREATE_VIEW_STMT);
 
@@ -1675,10 +1698,8 @@ SQLTestBase::TestResults SQLTestBase::ExecuteTestCase() {
   std::optional<bool> is_deterministic_output = std::nullopt;
   if (IsVerifyingGoldens()) {
     AutoLanguageOptions options_cleanup(reference_driver());
-    LanguageOptions options_with_shadow_parsing =
-        reference_driver_->language_options();
-    options_with_shadow_parsing.EnableLanguageFeature(FEATURE_SHADOW_PARSING);
-    reference_driver()->SetLanguageOptions(options_with_shadow_parsing);
+    reference_driver()->SetLanguageOptions(
+        reference_driver_->language_options());
     if (script_mode_) {
       is_deterministic_output = true;
       ReferenceDriver::ExecuteScriptAuxOutput aux_output;
@@ -1793,7 +1814,7 @@ void SQLTestBase::StepSkipUnsupportedTest() {
     return;
   }
 
-  bool engine_supports_sufficient_features = true;
+  std::vector<std::string> skip_test_reasons;
   // The reference implementation can be configured to run tests with any
   // combination of language features enabled. All other engines will skip
   // tests that require an incompatible set of features.
@@ -1801,7 +1822,9 @@ void SQLTestBase::StepSkipUnsupportedTest() {
     for (LanguageFeature required_feature :
          test_case_options_->required_features()) {
       if (!driver_language_options().LanguageFeatureEnabled(required_feature)) {
-        engine_supports_sufficient_features = false;
+        skip_test_reasons.push_back(absl::StrCat(
+            "Required feature, ", LanguageFeature_Name(required_feature),
+            ", not supported by engine"));
         break;
       }
     }
@@ -1809,7 +1832,9 @@ void SQLTestBase::StepSkipUnsupportedTest() {
     for (LanguageFeature forbidden_feature :
          test_case_options_->forbidden_features()) {
       if (driver_language_options().LanguageFeatureEnabled(forbidden_feature)) {
-        engine_supports_sufficient_features = false;
+        skip_test_reasons.push_back(absl::StrCat(
+            "Forbidden feature, ", LanguageFeature_Name(forbidden_feature),
+            ", present in engine's feature list"));
         break;
       }
     }
@@ -1824,12 +1849,20 @@ void SQLTestBase::StepSkipUnsupportedTest() {
     return;
   }
 
-  bool skip_test =
-      !engine_supports_sufficient_features ||
-      status_or_skip_test_for_primary_key_mode.value() ||
-      absl::GetFlag(FLAGS_zetasql_compliance_accept_all_test_output);
+  if (status_or_skip_test_for_primary_key_mode.value()) {
+    skip_test_reasons.push_back(
+        "Driver requested to skip tests in primary-key mode");
+  }
 
-  if (skip_test) {
+  if (absl::GetFlag(FLAGS_zetasql_compliance_accept_all_test_output)) {
+    skip_test_reasons.push_back(
+        "Command-line flag --zetasql_compliance_accept_all_test_output is "
+        "set");
+  }
+
+  if (!skip_test_reasons.empty()) {
+    ABSL_LOG(INFO) << "Test was skipped due to the following reasons:\n"
+              << absl::StrJoin(skip_test_reasons, "\n  ");
     test_result_->set_ignore_test_output(true);
     statement_workflow_ = FEATURE_MISMATCH;
   }
@@ -1910,6 +1943,44 @@ absl::Status SQLTestBase::AddFunctions(
   return absl::OkStatus();
 }
 
+void SQLTestBase::AddTVF() {
+  // Setup catalog with current test_db_ as property graph creation will be
+  // based on existing tables.
+  TypeFactory type_factory;
+  TestDatabaseCatalog test_catalog(&type_factory);
+  CheckCancellation(test_catalog.SetTestDatabase(test_db_),
+                    "Failed to set test database before TVF creation");
+
+  LanguageOptions lang_options;
+  lang_options.SetEnabledLanguageFeatures(
+      test_case_options_->required_features());
+  lang_options.AddSupportedStatementKind(RESOLVED_CREATE_TABLE_FUNCTION_STMT);
+  AnalyzerOptions analyzer_options(lang_options);
+  CheckCancellation(
+      test_catalog.SetLanguageOptions(analyzer_options.language()),
+      "Failed to set language options on the dummy catalog before TVF "
+      "creation");
+  std::unique_ptr<const AnalyzerOutput> analyzer_output;
+  CheckCancellation(AddTVFFromCreateTableFunction(
+                        sql_, analyzer_options, /*allow_persistent=*/true,
+                        analyzer_output, *test_catalog.catalog()),
+                    "Failed to resolve CREATE TABLE FUNCTION statement");
+
+  if (statement_workflow_ == CANCELLED) {
+    return;
+  }
+  std::string tvf_name =
+      IdentifierPathToString(analyzer_output->resolved_statement()
+                                 ->GetAs<ResolvedCreateTableFunctionStmt>()
+                                 ->name_path());
+  auto [_, is_new] = test_db_.tvfs.insert({tvf_name, sql_});
+  if (!is_new) {
+    CheckCancellation(absl::InvalidArgumentError(
+                          absl::StrFormat("TVF %s already exists", tvf_name)),
+                      "Failed to create TVF");
+  }
+}
+
 void SQLTestBase::StepPrepareDatabase() {
   if (test_case_options_ != nullptr &&
       !test_case_options_->prepare_database()) {
@@ -1943,6 +2014,21 @@ void SQLTestBase::StepPrepareDatabase() {
   // early.
   ABSL_CHECK(test_case_options_ != nullptr);
 
+  // When running [prepare_database] statements with the reference driver, we
+  // may need to enable extra features that the reference driver does not
+  // enable by default, for instance features which are still marked as
+  // in development.
+  AutoLanguageOptions options_cleanup(reference_driver_);
+  if (!test_case_options_->prepare_database_additional_features().empty()) {
+    LanguageOptions language_options_copy =
+        reference_driver_->language_options();
+    for (LanguageFeature extra_feature :
+         test_case_options_->prepare_database_additional_features()) {
+      language_options_copy.EnableLanguageFeature(extra_feature);
+    }
+    reference_driver_->SetLanguageOptions(language_options_copy);
+  }
+
   if (CREATE_DATABASE != file_workflow_) {
     absl::Status status(absl::StatusCode::kInvalidArgument,
                         "All [prepare_database] must be placed at the top "
@@ -1950,7 +2036,9 @@ void SQLTestBase::StepPrepareDatabase() {
     CheckCancellation(status, "Wrong placement of prepare_database");
   }
 
-  if (GetStatementKind(sql_) == RESOLVED_CREATE_PROPERTY_GRAPH_STMT) {
+  ResolvedNodeKind stmt_kind = GetStatementKind(sql_);
+
+  if (stmt_kind == RESOLVED_CREATE_PROPERTY_GRAPH_STMT) {
     TypeFactory type_factory;
     // Setup catalog with current test_db_ as property graph creation will be
     // based on existing tables.
@@ -1997,22 +2085,17 @@ void SQLTestBase::StepPrepareDatabase() {
     return;
   }
 
-  if (GetStatementKind(sql_) == RESOLVED_CREATE_FUNCTION_STMT) {
+  if (stmt_kind == RESOLVED_CREATE_FUNCTION_STMT) {
     ZETASQL_EXPECT_OK(AddFunctions({sql_}, /*cache_stmts=*/true));
     return;
   }
-
-  if (GetStatementKind(sql_) == RESOLVED_CREATE_VIEW_STMT) {
+  if (stmt_kind == RESOLVED_CREATE_VIEW_STMT) {
     ZETASQL_EXPECT_OK(AddViews({sql_}, /*cache_stmts=*/true));
     return;
   }
 
-  if (GetStatementKind(sql_) == RESOLVED_CREATE_TABLE_AS_SELECT_STMT) {
+  if (stmt_kind == RESOLVED_CREATE_TABLE_AS_SELECT_STMT) {
     ReferenceDriver::ExecuteStatementAuxOutput aux_output;
-    ABSL_CHECK(!test_setup_driver_->language_options().LanguageFeatureEnabled(
-        FEATURE_DISABLE_TEXTMAPPER_PARSER));
-    ABSL_CHECK(test_setup_driver_->language_options().LanguageFeatureEnabled(
-        FEATURE_SHADOW_PARSING));
     CheckCancellation(
         test_setup_driver_
             ->ExecuteStatementForReferenceDriver(
@@ -2029,6 +2112,11 @@ void SQLTestBase::StepPrepareDatabase() {
     // Output to golden files for validation purpose.
     test_result_->AddTestOutput(
         test_db_.tables[table_name].table_as_value.Format());
+    return;
+  }
+
+  if (stmt_kind == RESOLVED_CREATE_TABLE_FUNCTION_STMT) {
+    AddTVF();
     return;
   }
 
@@ -2187,7 +2275,9 @@ void SQLTestBase::StepExecuteStatementCheckResult() {
       }
     }
 
-    if (absl::GetFlag(FLAGS_zetasql_detect_falsly_required_features)) {
+    if (absl::GetFlag(FLAGS_zetasql_detect_falsly_required_features) &&
+        (test_case_options_ == nullptr ||
+         !test_case_options_->skip_required_feature_integrity_check())) {
       RunAndCompareTestWithoutEachRequiredFeatures(
           test_case_options_->required_features(), test_result);
     }
@@ -2216,6 +2306,8 @@ void SQLTestBase::StepExecuteStatementCheckResult() {
       uses_unsupported_type = aux_output.uses_unsupported_type.value_or(false);
     }
     if (uses_unsupported_type) {
+      ABSL_LOG(INFO) << "Test skipped because it uses a type which is not supported "
+                   "in the engine";
       stats_->RecordComplianceTestsLabelsProto(
           full_name_, sql_, parameters_, location_,
           KnownErrorMode::ALLOW_UNIMPLEMENTED, compliance_labels_,
@@ -2223,6 +2315,9 @@ void SQLTestBase::StepExecuteStatementCheckResult() {
       return;  // Skip this test. It uses types not supported by the driver.
     }
     if (absl::IsUnimplemented(ref_result.status())) {
+      ABSL_LOG(INFO) << "Test skipped because the result is unimplemented in the "
+                   "reference implementation: "
+                << ref_result.status();
       // This test is not implemented by the reference implementation. Skip
       // checking the results because we have no results to check against.
       stats_->RecordComplianceTestsLabelsProto(

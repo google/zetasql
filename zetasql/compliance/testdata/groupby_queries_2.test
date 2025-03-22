@@ -1221,7 +1221,7 @@ FROM AllTypesTable t
 GROUP BY c1, c2
 ORDER BY c1, c2
 --
-ARRAY<STRUCT<c1 DOUBLE, c2 DOUBLE, cnt INT64>>[known order:
+ARRAY<STRUCT<c1 DOUBLE, c2 DOUBLE, cnt INT64>>[unknown order:
   {NULL, NULL, 2},
   {NULL, -0, 2},
   {nan, inf, 2},
@@ -1250,7 +1250,7 @@ FROM AllTypesTable t
 GROUP BY c1, c2
 ORDER BY c1, c2
 --
-ARRAY<STRUCT<c1 DOUBLE, c2 STRING, cnt INT64>>[known order:
+ARRAY<STRUCT<c1 DOUBLE, c2 STRING, cnt INT64>>[unknown order:
   {NULL, NULL, 2},
   {NULL, "1", 2},
   {nan, NULL, 2},
@@ -1895,7 +1895,7 @@ SELECT s.c1, s.c2 FROM (
   SELECT DISTINCT float_val as c1, double_val as c2 FROM AllTypesTable t) s
 ORDER BY s.c1 ASC, s.c2 ASC
 --
-ARRAY<STRUCT<c1 FLOAT, c2 DOUBLE>>[known order:
+ARRAY<STRUCT<c1 FLOAT, c2 DOUBLE>>[unknown order:
   {NULL, NULL},
   {NULL, -0},
   {nan, inf},
@@ -1923,7 +1923,7 @@ SELECT s.c1, s.c2 FROM (
   SELECT DISTINCT double_val as c1, str_val as c2 FROM AllTypesTable t) s
 ORDER BY s.c1 ASC, s.c2 ASC
 --
-ARRAY<STRUCT<c1 DOUBLE, c2 STRING>>[known order:
+ARRAY<STRUCT<c1 DOUBLE, c2 STRING>>[unknown order:
   {NULL, NULL},
   {NULL, "1"},
   {nan, NULL},
@@ -2215,7 +2215,7 @@ SELECT s.c1, s.c2 FROM (
   FROM AllTypesTable t) s
 ORDER BY s.c1 ASC, s.c2 ASC
 --
-ARRAY<STRUCT<c1 DOUBLE, c2 DOUBLE>>[known order:
+ARRAY<STRUCT<c1 DOUBLE, c2 DOUBLE>>[unknown order:
   {NULL, NULL},
   {NULL, -0},
   {nan, inf},
@@ -2244,7 +2244,7 @@ SELECT s.c1, s.c2 FROM (
   FROM AllTypesTable t) s
 ORDER BY s.c1 ASC, s.c2 ASC
 --
-ARRAY<STRUCT<c1 DOUBLE, c2 STRING>>[known order:
+ARRAY<STRUCT<c1 DOUBLE, c2 STRING>>[unknown order:
   {NULL, NULL},
   {NULL, "1"},
   {nan, NULL},

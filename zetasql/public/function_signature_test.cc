@@ -1872,7 +1872,7 @@ TEST(FunctionSignatureTests, TestIsTemplatedArgument) {
     // values.
     enum_size += SignatureArgumentKind_IsValid(i);
   }
-  ASSERT_EQ(31, enum_size);
+  ASSERT_EQ(32, enum_size);
 
   std::set<SignatureArgumentKind> templated_kinds;
   templated_kinds.insert(ARG_TYPE_ANY_1);
@@ -1903,6 +1903,7 @@ TEST(FunctionSignatureTests, TestIsTemplatedArgument) {
   templated_kinds.insert(ARG_TYPE_GRAPH_EDGE);
   templated_kinds.insert(ARG_TYPE_GRAPH_PATH);
   templated_kinds.insert(ARG_TYPE_SEQUENCE);
+  templated_kinds.insert(ARG_MEASURE_TYPE_ANY_1);
 
   std::set<SignatureArgumentKind> non_templated_kinds;
   non_templated_kinds.insert(ARG_TYPE_FIXED);
@@ -2047,8 +2048,16 @@ TEST(FunctionSignatureTests, FunctionSignatureOptionTests) {
 
 TEST(FunctionSignatureTests, FunctionSignatureRewriteOptionsSerialization) {
   FunctionSignatureRewriteOptions opts1, opts2;
-  opts1.set_enabled(false).set_rewriter(REWRITE_PIVOT).set_sql("false");
-  opts2.set_enabled(true).set_rewriter(REWRITE_FLATTEN).set_sql("true");
+  opts1.set_enabled(false)
+      .set_rewriter(REWRITE_PIVOT)
+      .set_sql("false")
+      .set_allow_table_references(true)
+      .set_allowed_function_groups({"test1", "test2"});
+  opts2.set_enabled(true)
+      .set_rewriter(REWRITE_FLATTEN)
+      .set_sql("true")
+      .set_allow_table_references(false)
+      .set_allowed_function_groups({});
   for (const auto& opts : {opts1, opts2}) {
     FunctionSignatureRewriteOptionsProto opts_proto;
     opts.Serialize(&opts_proto);
@@ -2058,6 +2067,10 @@ TEST(FunctionSignatureTests, FunctionSignatureRewriteOptionsSerialization) {
     EXPECT_EQ(opts.enabled(), deserialized.enabled());
     EXPECT_EQ(opts.rewriter(), deserialized.rewriter());
     EXPECT_EQ(opts.sql(), deserialized.sql());
+    EXPECT_EQ(opts.allow_table_references(),
+              deserialized.allow_table_references());
+    EXPECT_EQ(opts.allowed_function_groups(),
+              deserialized.allowed_function_groups());
   }
 }
 
@@ -2408,6 +2421,13 @@ INSTANTIATE_TEST_SUITE_P(
         {.result_type = {ARG_RANGE_TYPE_ANY_1}, .arguments = {}},
         {.result_type = {ARG_RANGE_TYPE_ANY_1}, .arguments = {ARG_TYPE_ANY_2}},
         {.result_type = {ARG_TYPE_ANY_2}, .arguments = {ARG_RANGE_TYPE_ANY_1}},
+        // Templated measure type should fail if corresponding ANY type is not
+        // present.
+        {.result_type = {ARG_MEASURE_TYPE_ANY_1}, .arguments = {}},
+        {.result_type = {ARG_MEASURE_TYPE_ANY_1},
+         .arguments = {ARG_TYPE_ANY_2}},
+        {.result_type = {ARG_TYPE_ANY_2},
+         .arguments = {ARG_MEASURE_TYPE_ANY_1}},
         // Templated map result type should fail if key and value are not both
         // present.
         {.result_type = {ARG_MAP_TYPE_ANY_1_2}, .arguments = {}},

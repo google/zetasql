@@ -1,0 +1,474 @@
+[default reserve_graph_table]
+[default language_features=V_1_4_SQL_GRAPH]
+
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+      ->
+      (b)
+    WITH
+      ARRAY_AGG(a) as col1,
+      ANY_VALUE(b) as col2
+    RETURN col1
+  )
+--
+QueryStatement [0-161] [SELECT   *...RETURN col1   )]
+  Query [0-161] [SELECT   *...RETURN col1   )]
+    Select [0-161] [SELECT   *...RETURN col1   )]
+      SelectList [9-10] [*]
+        SelectColumn [9-10] [*]
+          Star(*) [9-10] [*]
+      FromClause [11-161] [FROM   GRAPH_TABL...N col1   )]
+        GraphTableQuery [18-161] [GRAPH_TABLE...RETURN col1   )]
+          PathExpression [35-38] [aml]
+            Identifier(aml) [35-38] [aml]
+          GqlOperatorList [43-157] [MATCH...RETURN col1]
+            GqlOperatorList [43-157] [MATCH...RETURN col1]
+              GqlMatch [43-77] [MATCH...(b)]
+                GraphPattern [55-77] [(a)       ->       (b)]
+                  GraphPathPattern [55-77] [(a)       ->       (b)]
+                    GraphNodePattern [55-58] [(a)]
+                      GraphElementPatternFiller [56-57] [a]
+                        Identifier(a) [56-57] [a]
+                    GraphEdgePattern [65-67] [->]
+                    GraphNodePattern [74-77] [(b)]
+                      GraphElementPatternFiller [75-76] [b]
+                        Identifier(b) [75-76] [b]
+              GqlWith [82-141] [WITH...b) as col2]
+                Select [86-141] [ARRAY_AGG(...b) as col2]
+                  SelectList [93-141] [ARRAY_AGG(...b) as col2]
+                    SelectColumn [93-113] [ARRAY_AGG(a) as col1]
+                      FunctionCall [93-105] [ARRAY_AGG(a)]
+                        PathExpression [93-102] [ARRAY_AGG]
+                          Identifier(ARRAY_AGG) [93-102] [ARRAY_AGG]
+                        PathExpression [103-104] [a]
+                          Identifier(a) [103-104] [a]
+                      Alias [106-113] [as col1]
+                        Identifier(col1) [109-113] [col1]
+                    SelectColumn [121-141] [ANY_VALUE(b) as col2]
+                      FunctionCall [121-133] [ANY_VALUE(b)]
+                        PathExpression [121-130] [ANY_VALUE]
+                          Identifier(ANY_VALUE) [121-130] [ANY_VALUE]
+                        PathExpression [131-132] [b]
+                          Identifier(b) [131-132] [b]
+                      Alias [134-141] [as col2]
+                        Identifier(col2) [137-141] [col2]
+              GqlReturn [146-157] [RETURN col1]
+                Select [152-157] [col1]
+                  SelectList [153-157] [col1]
+                    SelectColumn [153-157] [col1]
+                      PathExpression [153-157] [col1]
+                        Identifier(col1) [153-157] [col1]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+      ->
+      (b)
+    WITH
+      ARRAY_AGG(a) AS col1,
+      ANY_VALUE(b) AS col2
+    RETURN
+      col1
+  )
+==
+
+# Hints on WITH
+GRAPH my.graph.name
+MATCH (a)->(b)
+WITH@{key=val} 1 AS One
+RETURN One
+--
+QueryStatement [0-69] [GRAPH my.graph...RETURN One]
+  Query [0-69] [GRAPH my.graph...RETURN One]
+    GqlQuery [0-69] [GRAPH my.graph...RETURN One]
+      GraphTableQuery [0-69] [GRAPH my.graph...RETURN One]
+        PathExpression [6-19] [my.graph.name]
+          Identifier(my) [6-8] [my]
+          Identifier(graph) [9-14] [graph]
+          Identifier(name) [15-19] [name]
+        GqlOperatorList [20-69] [MATCH (a)-...RETURN One]
+          GqlOperatorList [20-69] [MATCH (a)-...RETURN One]
+            GqlMatch [20-34] [MATCH (a)->(b)]
+              GraphPattern [26-34] [(a)->(b)]
+                GraphPathPattern [26-34] [(a)->(b)]
+                  GraphNodePattern [26-29] [(a)]
+                    GraphElementPatternFiller [27-28] [a]
+                      Identifier(a) [27-28] [a]
+                  GraphEdgePattern [29-31] [->]
+                  GraphNodePattern [31-34] [(b)]
+                    GraphElementPatternFiller [32-33] [b]
+                      Identifier(b) [32-33] [b]
+            GqlWith [35-58] [WITH@{key=val} 1 AS One]
+              Select [39-58] [@{key=val} 1 AS One]
+                Hint [39-49] [@{key=val}]
+                  HintEntry [41-48] [key=val]
+                    Identifier(key) [41-44] [key]
+                    PathExpression [45-48] [val]
+                      Identifier(val) [45-48] [val]
+                SelectList [50-58] [1 AS One]
+                  SelectColumn [50-58] [1 AS One]
+                    IntLiteral(1) [50-51] [1]
+                    Alias [52-58] [AS One]
+                      Identifier(One) [55-58] [One]
+            GqlReturn [59-69] [RETURN One]
+              Select [65-69] [One]
+                SelectList [66-69] [One]
+                  SelectColumn [66-69] [One]
+                    PathExpression [66-69] [One]
+                      Identifier(One) [66-69] [One]
+--
+GRAPH my.graph.name
+MATCH
+  (a)
+  ->
+  (b)
+WITH @{ key = val }
+  1 AS One
+RETURN
+  One
+==
+
+select gt.* from
+graph_table(aml
+  MATCH (n) -[e:Transfer]->{1, 3} (m)
+  MATCH (m)
+  LET col2 = SUM(e.amount)
+  WITH n.id as n_id, m.id as m_id, col2, ARRAY_LENGTH(e) as e_arr
+  RETURN e_arr
+) gt
+--
+QueryStatement [0-195] [select gt....e_arr ) gt]
+  Query [0-195] [select gt....e_arr ) gt]
+    Select [0-195] [select gt....e_arr ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-195] [from graph_table...e_arr ) gt]
+        GraphTableQuery [17-195] [graph_table...e_arr ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-190] [MATCH (n)...RETURN e_arr]
+            GqlOperatorList [35-190] [MATCH (n)...RETURN e_arr]
+              GqlMatch [35-70] [MATCH (n)...{1, 3} (m)]
+                GraphPattern [41-70] [(n) -[e:Transfer]->{1, 3} (m)]
+                  GraphPathPattern [41-70] [(n) -[e:Transfer]->{1, 3} (m)]
+                    GraphNodePattern [41-44] [(n)]
+                      GraphElementPatternFiller [42-43] [n]
+                        Identifier(n) [42-43] [n]
+                    ParenthesizedGraphPathPattern [45-66] [-[e:Transfer]->{1, 3}]
+                      BoundedQuantifier [60-66] [{1, 3}]
+                        QuantifierBound [61-62] [1]
+                          IntLiteral(1) [61-62] [1]
+                        QuantifierBound [64-65] [3]
+                          IntLiteral(3) [64-65] [3]
+                      GraphEdgePattern [45-60] [-[e:Transfer]->]
+                        GraphElementPatternFiller [47-57] [e:Transfer]
+                          Identifier(e) [47-48] [e]
+                          GraphLabelFilter [48-57] [:Transfer]
+                            GraphElementLabel [49-57] [Transfer]
+                              Identifier(Transfer) [49-57] [Transfer]
+                    GraphNodePattern [67-70] [(m)]
+                      GraphElementPatternFiller [68-69] [m]
+                        Identifier(m) [68-69] [m]
+              GqlMatch [73-82] [MATCH (m)]
+                GraphPattern [79-82] [(m)]
+                  GraphPathPattern [79-82] [(m)]
+                    GraphNodePattern [79-82] [(m)]
+                      GraphElementPatternFiller [80-81] [m]
+                        Identifier(m) [80-81] [m]
+              GqlLet [85-109] [LET col2 = SUM(e.amount)]
+                GqlLetVariableDefinitionList [89-109] [col2 = SUM(e.amount)]
+                  GqlLetVariableDefinition [89-109] [col2 = SUM(e.amount)]
+                    Identifier(col2) [89-93] [col2]
+                    FunctionCall [96-109] [SUM(e.amount)]
+                      PathExpression [96-99] [SUM]
+                        Identifier(SUM) [96-99] [SUM]
+                      PathExpression [100-108] [e.amount]
+                        Identifier(e) [100-101] [e]
+                        Identifier(amount) [102-108] [amount]
+              GqlWith [112-175] [WITH n.id...) as e_arr]
+                Select [116-175] [n.id as n_id...) as e_arr]
+                  SelectList [117-175] [n.id as n_id...) as e_arr]
+                    SelectColumn [117-129] [n.id as n_id]
+                      PathExpression [117-121] [n.id]
+                        Identifier(n) [117-118] [n]
+                        Identifier(id) [119-121] [id]
+                      Alias [122-129] [as n_id]
+                        Identifier(n_id) [125-129] [n_id]
+                    SelectColumn [131-143] [m.id as m_id]
+                      PathExpression [131-135] [m.id]
+                        Identifier(m) [131-132] [m]
+                        Identifier(id) [133-135] [id]
+                      Alias [136-143] [as m_id]
+                        Identifier(m_id) [139-143] [m_id]
+                    SelectColumn [145-149] [col2]
+                      PathExpression [145-149] [col2]
+                        Identifier(col2) [145-149] [col2]
+                    SelectColumn [151-175] [ARRAY_LENGTH(e) as e_arr]
+                      FunctionCall [151-166] [ARRAY_LENGTH(e)]
+                        PathExpression [151-163] [ARRAY_LENGTH]
+                          Identifier(ARRAY_LENGTH) [151-163] [ARRAY_LENGTH]
+                        PathExpression [164-165] [e]
+                          Identifier(e) [164-165] [e]
+                      Alias [167-175] [as e_arr]
+                        Identifier(e_arr) [170-175] [e_arr]
+              GqlReturn [178-190] [RETURN e_arr]
+                Select [184-190] [e_arr]
+                  SelectList [185-190] [e_arr]
+                    SelectColumn [185-190] [e_arr]
+                      PathExpression [185-190] [e_arr]
+                        Identifier(e_arr) [185-190] [e_arr]
+          Alias [193-195] [gt]
+            Identifier(gt) [193-195] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (n)
+      (
+        -[e
+        IS Transfer]->
+      ) { 1, 3 }
+      (m)
+    MATCH
+      (m)
+    LET
+      col2 = SUM(e.amount)
+    WITH
+      n.id AS n_id,
+      m.id AS m_id,
+      col2,
+      ARRAY_LENGTH(e) AS e_arr
+    RETURN
+      e_arr
+  ) AS gt
+==
+
+# Parenthesized expression following WITH should not be interpreted as
+# WITH-expr
+select gt.* from
+graph_table(aml
+  MATCH (n) -[e:Transfer]->{1, 3} (m)
+  MATCH (m)
+  LET col2 = SUM(e.amount)
+  WITH (n.id+m.id) as col
+  RETURN col
+) gt
+--
+QueryStatement [0-153] [select gt....RETURN col ) gt]
+  Query [0-153] [select gt....RETURN col ) gt]
+    Select [0-153] [select gt....RETURN col ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-153] [from graph_table...RN col ) gt]
+        GraphTableQuery [17-153] [graph_table...RETURN col ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-148] [MATCH (n)...RETURN col]
+            GqlOperatorList [35-148] [MATCH (n)...RETURN col]
+              GqlMatch [35-70] [MATCH (n)...{1, 3} (m)]
+                GraphPattern [41-70] [(n) -[e:Transfer]->{1, 3} (m)]
+                  GraphPathPattern [41-70] [(n) -[e:Transfer]->{1, 3} (m)]
+                    GraphNodePattern [41-44] [(n)]
+                      GraphElementPatternFiller [42-43] [n]
+                        Identifier(n) [42-43] [n]
+                    ParenthesizedGraphPathPattern [45-66] [-[e:Transfer]->{1, 3}]
+                      BoundedQuantifier [60-66] [{1, 3}]
+                        QuantifierBound [61-62] [1]
+                          IntLiteral(1) [61-62] [1]
+                        QuantifierBound [64-65] [3]
+                          IntLiteral(3) [64-65] [3]
+                      GraphEdgePattern [45-60] [-[e:Transfer]->]
+                        GraphElementPatternFiller [47-57] [e:Transfer]
+                          Identifier(e) [47-48] [e]
+                          GraphLabelFilter [48-57] [:Transfer]
+                            GraphElementLabel [49-57] [Transfer]
+                              Identifier(Transfer) [49-57] [Transfer]
+                    GraphNodePattern [67-70] [(m)]
+                      GraphElementPatternFiller [68-69] [m]
+                        Identifier(m) [68-69] [m]
+              GqlMatch [73-82] [MATCH (m)]
+                GraphPattern [79-82] [(m)]
+                  GraphPathPattern [79-82] [(m)]
+                    GraphNodePattern [79-82] [(m)]
+                      GraphElementPatternFiller [80-81] [m]
+                        Identifier(m) [80-81] [m]
+              GqlLet [85-109] [LET col2 = SUM(e.amount)]
+                GqlLetVariableDefinitionList [89-109] [col2 = SUM(e.amount)]
+                  GqlLetVariableDefinition [89-109] [col2 = SUM(e.amount)]
+                    Identifier(col2) [89-93] [col2]
+                    FunctionCall [96-109] [SUM(e.amount)]
+                      PathExpression [96-99] [SUM]
+                        Identifier(SUM) [96-99] [SUM]
+                      PathExpression [100-108] [e.amount]
+                        Identifier(e) [100-101] [e]
+                        Identifier(amount) [102-108] [amount]
+              GqlWith [112-135] [WITH (n.id+m.id) as col]
+                Select [116-135] [(n.id+m.id) as col]
+                  SelectList [117-135] [(n.id+m.id) as col]
+                    SelectColumn [117-135] [(n.id+m.id) as col]
+                      BinaryExpression(+) [118-127] [n.id+m.id]
+                        PathExpression [118-122] [n.id]
+                          Identifier(n) [118-119] [n]
+                          Identifier(id) [120-122] [id]
+                        PathExpression [123-127] [m.id]
+                          Identifier(m) [123-124] [m]
+                          Identifier(id) [125-127] [id]
+                      Alias [129-135] [as col]
+                        Identifier(col) [132-135] [col]
+              GqlReturn [138-148] [RETURN col]
+                Select [144-148] [col]
+                  SelectList [145-148] [col]
+                    SelectColumn [145-148] [col]
+                      PathExpression [145-148] [col]
+                        Identifier(col) [145-148] [col]
+          Alias [151-153] [gt]
+            Identifier(gt) [151-153] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (n)
+      (
+        -[e
+        IS Transfer]->
+      ) { 1, 3 }
+      (m)
+    MATCH
+      (m)
+    LET
+      col2 = SUM(e.amount)
+    WITH
+      (n.id + m.id) AS col
+    RETURN
+      col
+  ) AS gt
+==
+
+select gt.* from
+graph_table(aml
+  MATCH (n) -[e:Transfer]->{1, 3} (m)
+  LET col2 = SUM(e.amount)
+  WITH WITH(value as 1, value) as col1, WITH(abc as 2, abc) as col2
+  RETURN col
+) gt
+--
+QueryStatement [0-183] [select gt....RETURN col ) gt]
+  Query [0-183] [select gt....RETURN col ) gt]
+    Select [0-183] [select gt....RETURN col ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-183] [from graph_table...RN col ) gt]
+        GraphTableQuery [17-183] [graph_table...RETURN col ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-178] [MATCH (n)...RETURN col]
+            GqlOperatorList [35-178] [MATCH (n)...RETURN col]
+              GqlMatch [35-70] [MATCH (n)...{1, 3} (m)]
+                GraphPattern [41-70] [(n) -[e:Transfer]->{1, 3} (m)]
+                  GraphPathPattern [41-70] [(n) -[e:Transfer]->{1, 3} (m)]
+                    GraphNodePattern [41-44] [(n)]
+                      GraphElementPatternFiller [42-43] [n]
+                        Identifier(n) [42-43] [n]
+                    ParenthesizedGraphPathPattern [45-66] [-[e:Transfer]->{1, 3}]
+                      BoundedQuantifier [60-66] [{1, 3}]
+                        QuantifierBound [61-62] [1]
+                          IntLiteral(1) [61-62] [1]
+                        QuantifierBound [64-65] [3]
+                          IntLiteral(3) [64-65] [3]
+                      GraphEdgePattern [45-60] [-[e:Transfer]->]
+                        GraphElementPatternFiller [47-57] [e:Transfer]
+                          Identifier(e) [47-48] [e]
+                          GraphLabelFilter [48-57] [:Transfer]
+                            GraphElementLabel [49-57] [Transfer]
+                              Identifier(Transfer) [49-57] [Transfer]
+                    GraphNodePattern [67-70] [(m)]
+                      GraphElementPatternFiller [68-69] [m]
+                        Identifier(m) [68-69] [m]
+              GqlLet [73-97] [LET col2 = SUM(e.amount)]
+                GqlLetVariableDefinitionList [77-97] [col2 = SUM(e.amount)]
+                  GqlLetVariableDefinition [77-97] [col2 = SUM(e.amount)]
+                    Identifier(col2) [77-81] [col2]
+                    FunctionCall [84-97] [SUM(e.amount)]
+                      PathExpression [84-87] [SUM]
+                        Identifier(SUM) [84-87] [SUM]
+                      PathExpression [88-96] [e.amount]
+                        Identifier(e) [88-89] [e]
+                        Identifier(amount) [90-96] [amount]
+              GqlWith [100-165] [WITH WITH(...abc) as col2]
+                Select [104-165] [WITH(value...abc) as col2]
+                  SelectList [105-165] [WITH(value...abc) as col2]
+                    SelectColumn [105-136] [WITH(value...value) as col1]
+                      WithExpression [105-128] [WITH(value as 1, value)]
+                        SelectList [110-120] [value as 1]
+                          SelectColumn [110-120] [value as 1]
+                            IntLiteral(1) [119-120] [1]
+                            Alias [110-118] [value as]
+                              Identifier(value) [110-115] [value]
+                        PathExpression [122-127] [value]
+                          Identifier(value) [122-127] [value]
+                      Alias [129-136] [as col1]
+                        Identifier(col1) [132-136] [col1]
+                    SelectColumn [138-165] [WITH(abc as 2, abc) as col2]
+                      WithExpression [138-157] [WITH(abc as 2, abc)]
+                        SelectList [143-151] [abc as 2]
+                          SelectColumn [143-151] [abc as 2]
+                            IntLiteral(2) [150-151] [2]
+                            Alias [143-149] [abc as]
+                              Identifier(abc) [143-146] [abc]
+                        PathExpression [153-156] [abc]
+                          Identifier(abc) [153-156] [abc]
+                      Alias [158-165] [as col2]
+                        Identifier(col2) [161-165] [col2]
+              GqlReturn [168-178] [RETURN col]
+                Select [174-178] [col]
+                  SelectList [175-178] [col]
+                    SelectColumn [175-178] [col]
+                      PathExpression [175-178] [col]
+                        Identifier(col) [175-178] [col]
+          Alias [181-183] [gt]
+            Identifier(gt) [181-183] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (n)
+      (
+        -[e
+        IS Transfer]->
+      ) { 1, 3 }
+      (m)
+    LET
+      col2 = SUM(e.amount)
+    WITH
+      WITH(value AS 1, value) AS col1,
+      WITH(abc AS 2, abc) AS col2
+    RETURN
+      col
+  ) AS gt

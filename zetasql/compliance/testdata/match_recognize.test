@@ -615,13 +615,13 @@ ARRAY<STRUCT<start INT64, end INT64, cnt INT64>>[known order:
 ]
 ==
 
-# use_longest_match as a parameter
-[name=longest_match_option_as_a_param]
+# Longest-match-mode set to true via named query parameter
+[name=longest_match_option_as_a_param_true]
 [parameters=true AS p_bool]
 SELECT * FROM t1 MATCH_RECOGNIZE(
   ORDER BY rowid
   MEASURES min(rowid) AS start, max(rowid) AS `end`, count(*) AS cnt
-  PATTERN ( x_eq_1 + | y_eq_100+ y_not_null+)
+  PATTERN ( x_eq_1 +? | y_eq_100+? y_not_null+?)
   DEFINE
     x_eq_1        AS x = 1,
     y_eq_100      AS y = 100,
@@ -630,7 +630,37 @@ SELECT * FROM t1 MATCH_RECOGNIZE(
 )
 ORDER BY start, `end`, cnt
 --
-ERROR: generic::invalid_argument: use_longest_match option does not yet support parameters
+ARRAY<STRUCT<start INT64, end INT64, cnt INT64>>[{1, 14, 14}]
+==
+
+# Identical query to the above, but longest-match-mode set to false via named
+# query parameter.
+[name=longest_match_option_as_a_param_false]
+[parameters=false AS p_bool]
+SELECT * FROM t1 MATCH_RECOGNIZE(
+  ORDER BY rowid
+  MEASURES min(rowid) AS start, max(rowid) AS `end`, count(*) AS cnt
+  PATTERN ( x_eq_1 +? | y_eq_100+? y_not_null+?)
+  DEFINE
+    x_eq_1        AS x = 1,
+    y_eq_100      AS y = 100,
+    y_not_null    AS y IS NOT NULL
+  OPTIONS (use_longest_match = @p_bool)
+)
+ORDER BY start, `end`, cnt
+--
+ARRAY<STRUCT<start INT64, end INT64, cnt INT64>>[known order:
+  {1, 1, 1},
+  {2, 2, 1},
+  {3, 3, 1},
+  {4, 4, 1},
+  {5, 5, 1},
+  {6, 6, 1},
+  {7, 7, 1},
+  {8, 8, 1},
+  {9, 9, 1},
+  {10, 11, 2}
+]
 ==
 
 # Quantifier bounds as params
@@ -645,7 +675,13 @@ SELECT * FROM t1 MATCH_RECOGNIZE(
 )
 ORDER BY start, `end`, cnt
 --
-ERROR: generic::invalid_argument: Pattern requires query parameters, but no parameter evaluator supplied
+ARRAY<STRUCT<start INT64, end INT64, cnt INT64>>[known order:
+  {1, 2, 2},
+  {3, 4, 2},
+  {5, 6, 2},
+  {7, 8, 2},
+  {9, 9, 1}
+]
 ==
 
 # Note: the (b*) doesn't consume any rows so we're still at the start
@@ -779,4 +815,394 @@ SELECT * FROM t1 MATCH_RECOGNIZE(
 )
 --
 ARRAY<STRUCT<multiple_as INT64, multiple_bs INT64>>[{1003, 1000}]
+==
+[name=multiple_order_bys]
+SELECT * FROM t1 MATCH_RECOGNIZE(
+  ORDER BY x ASC, rowid DESC
+  MEASURES max(a.z - a.x) AS multiple_as, max(b.z - b.x) AS multiple_bs
+  PATTERN ( a* b* )
+  DEFINE
+    a AS x = 1,
+    b AS x = 2
+)
+--
+ARRAY<STRUCT<multiple_as INT64, multiple_bs INT64>>[{1003, 1000}]
+==
+[name=query_param_in_order_by_collate]
+[required_features=V_1_4_MATCH_RECOGNIZE,V_1_1_ORDER_BY_COLLATE,V_1_1_ORDER_BY_IN_AGGREGATE]
+[parameters="und:ci" as param]
+SELECT *
+  FROM (
+    SELECT
+      '3' AS x
+    ) MATCH_RECOGNIZE(
+      ORDER BY 'a' COLLATE @param
+      MEASURES
+        STRING_AGG('a') AS y
+      PATTERN (V_0)
+      DEFINE
+        V_0 AS true
+  );
+--
+ARRAY<STRUCT<y STRING>>[{"a"}]
+==
+[name=count_star_symbol_qualified_column_mix]
+SELECT * FROM t1 MATCH_RECOGNIZE(
+  ORDER BY rowid
+  MEASURES
+    COUNT(*) AS cnt,
+    MAX(a.x) AS max_a_x
+  PATTERN ( a* b* )
+  DEFINE
+    a AS x = 1,
+    b AS x = 2
+)
+--
+ARRAY<STRUCT<cnt INT64, max_a_x INT64>>[{16, 1}]
+==
+[name=count_star_symbol_qualified_column_mix2]
+SELECT * FROM t1 MATCH_RECOGNIZE(
+  ORDER BY rowid
+  MEASURES
+    COUNT(*) AS cnt,
+    MAX(a.x) AS max_a_x,
+    MAX(b.x) AS max_b_x
+  PATTERN ( a* b* )
+  DEFINE
+    a AS x = 1,
+    b AS x = 2
+)
+--
+ARRAY<STRUCT<cnt INT64, max_a_x INT64, max_b_x INT64>>[{16, 1, 2}]
+==
+[name=count_constant_symbol_qualified_column_mix]
+SELECT * FROM t1 MATCH_RECOGNIZE(
+  ORDER BY rowid
+  MEASURES
+    COUNT(0) AS cnt,
+    MAX(a.x) AS max_a_x
+  PATTERN ( a* b* )
+  DEFINE
+    a AS x = 1,
+    b AS x = 2
+)
+--
+ARRAY<STRUCT<cnt INT64, max_a_x INT64>>[{16, 1}]
+==
 
+[name=count_star_with_qualified_symbol_in_the_same_measure]
+SELECT * FROM t1 MATCH_RECOGNIZE(
+  ORDER BY rowid
+  MEASURES
+    COUNT(*) + MAX(a.x) AS m1,
+    MAX(a.x) + COUNT(*) AS m2,
+    COUNT(0) + MAX(a.x) AS m3,
+    MAX(a.x) + COUNT(0) AS m4,
+    MAX(a.x) AS max_a_x,
+    COUNT(0) AS cnt0,
+    COUNT(*) AS cnt_star
+  PATTERN ( a* b* )
+  DEFINE
+    a AS x = 1,
+    b AS x = 2
+)
+--
+ARRAY<STRUCT<m1 INT64,
+             m2 INT64,
+             m3 INT64,
+             m4 INT64,
+             max_a_x INT64,
+             cnt0 INT64,
+             cnt_star INT64>>[{17, 17, 17, 17, 1, 16, 16}]
+==
+
+[required_features=V_1_4_MATCH_RECOGNIZE,V_1_4_MULTILEVEL_AGGREGATION,V_1_1_ORDER_BY_IN_AGGREGATE]
+[name=count_star_with_qualified_symbol_in_the_same_measure_in_multilevel_agg]
+SELECT * FROM t1 MATCH_RECOGNIZE(
+  ORDER BY rowid
+  MEASURES
+    string_agg('a' GROUP BY 'a'||'a' ORDER BY count(*), string_agg('b' ORDER BY a.x)) AS m
+  PATTERN ( a* b* )
+  DEFINE
+    a AS x = 1,
+    b AS x = 2
+)
+--
+ARRAY<STRUCT<m STRING>>[{"a"}]
+
+NOTE: Reference implementation reports non-determinism.
+==
+
+[required_features=V_1_4_MATCH_RECOGNIZE]
+[name=match_recognize_special_functions_first_and_last]
+SELECT * FROM t1 MATCH_RECOGNIZE(
+  ORDER BY rowid
+  MEASURES
+    FIRST(z) AS first_z,
+    LAST(z) AS last_z,
+    FIRST(a.z) AS first_az,
+    LAST(a.z) AS last_az,
+    FIRST(no_match.z) AS first_no_match_z,
+    LAST(no_match.z) AS last_no_match_z
+  PATTERN ( a* no_match* b* )
+  DEFINE
+    a AS x = 1,
+    no_match AS false,
+    b AS x = 2
+)
+--
+ARRAY<STRUCT<
+        first_z INT64,
+        last_z INT64,
+        first_az INT64,
+        last_az INT64,
+        first_no_match_z INT64,
+        last_no_match_z INT64
+      >>[{1000, 1002, 1000, 1002, NULL, NULL}]
+==
+
+[required_features=V_1_4_MATCH_RECOGNIZE,V_1_1_ORDER_BY_IN_AGGREGATE]
+[name=match_recognize_special_functions_match_result]
+SELECT * FROM t1 MATCH_RECOGNIZE(
+  ORDER BY rowid
+  MEASURES
+    match_number() AS m_no,
+    ARRAY_AGG(match_row_number()) AS implicitly_ordered_row_numbers,
+    STRING_AGG(CLASSIFIER()) AS assigned_vars_ordered_implicitly,
+    ARRAY_AGG(b.z) AS b_z_ordered_implicitly
+  PATTERN ( a* no_match* b* )
+  DEFINE
+    a AS x = 1,
+    no_match AS false,
+    b AS x = 2
+)
+--
+ARRAY<STRUCT<
+        m_no INT64,
+        implicitly_ordered_row_numbers ARRAY<>,
+        assigned_vars_ordered_implicitly STRING,
+        b_z_ordered_implicitly ARRAY<>
+      >>
+[{1,
+  ARRAY<INT64>[known order:
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16
+  ],
+  "a,a,a,a,a,a,a,a,a,b,b,b,b,b,b,b",
+  ARRAY<INT64>[known order:1000, 1001, 1002, NULL, NULL, 1002, 1002]}]
+==
+
+[required_features=V_1_4_MATCH_RECOGNIZE,V_1_1_ORDER_BY_IN_AGGREGATE]
+[name=match_recognize_implicit_ordering]
+SELECT * FROM t1 MATCH_RECOGNIZE(
+  ORDER BY rowid
+  MEASURES
+    ARRAY_AGG(match_row_number()) AS implicitly_ordered_row_numbers,
+    ARRAY_AGG(match_row_number() ORDER BY match_row_number()) AS match_row_numbers_ordered,
+    ARRAY_AGG(match_row_number() ORDER BY rowid DESC) AS match_row_numbers_ordered_by_something_else,
+    STRING_AGG(CLASSIFIER(), "-") AS assigned_vars_ordered_implicitly,
+    STRING_AGG(CLASSIFIER(), "-" ORDER BY match_row_number()) AS assigned_vars_ordered_explicitly,
+    STRING_AGG(CLASSIFIER(), "-" ORDER BY rowid DESC) AS assigned_vars_ordered_by_something_else,
+    ARRAY_AGG(b.z) AS b_z_ordered_implicitly,
+    ARRAY_AGG(b.z ORDER BY match_row_number()) AS b_z_ordered_explicitly,
+    ARRAY_AGG(b.z ORDER BY b.rowid DESC) AS b_z_ordered_by_something_else
+  PATTERN ( a* no_match* b* )
+  DEFINE
+    a AS x = 1,
+    no_match AS false,
+    b AS x = 2
+)
+--
+ARRAY<STRUCT<
+        implicitly_ordered_row_numbers ARRAY<>,
+        match_row_numbers_ordered ARRAY<>,
+        match_row_numbers_ordered_by_something_else ARRAY<>,
+        assigned_vars_ordered_implicitly STRING,
+        assigned_vars_ordered_explicitly STRING,
+        assigned_vars_ordered_by_something_else STRING,
+        b_z_ordered_implicitly ARRAY<>,
+        b_z_ordered_explicitly ARRAY<>,
+        b_z_ordered_by_something_else ARRAY<>
+      >>
+[{ARRAY<INT64>[known order:
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16
+  ],
+  ARRAY<INT64>[known order:
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16
+  ],
+  ARRAY<INT64>[known order:
+    16,
+    15,
+    14,
+    13,
+    12,
+    11,
+    10,
+    9,
+    8,
+    7,
+    6,
+    5,
+    4,
+    3,
+    2,
+    1
+  ],
+  "a-a-a-a-a-a-a-a-a-b-b-b-b-b-b-b",
+  "a-a-a-a-a-a-a-a-a-b-b-b-b-b-b-b",
+  "b-b-b-b-b-b-b-a-a-a-a-a-a-a-a-a",
+  ARRAY<INT64>[known order:1000, 1001, 1002, NULL, NULL, 1002, 1002],
+  ARRAY<INT64>[known order:1000, 1001, 1002, NULL, NULL, 1002, 1002],
+  ARRAY<INT64>[known order:1002, 1002, NULL, NULL, 1002, 1001, 1000]}]
+==
+
+[required_features=V_1_4_MATCH_RECOGNIZE,V_1_1_ORDER_BY_IN_AGGREGATE]
+[name=match_recognize_implicit_ordering_with_agg_distinct]
+SELECT * FROM t1 MATCH_RECOGNIZE(
+  ORDER BY rowid
+  MEASURES
+    ARRAY_AGG(DISTINCT match_row_number()) AS implicitly_ordered_distinct,
+    # DISTINCT does not include match_row_number(), so no implicit order is
+    # added.
+    ARRAY_AGG(DISTINCT CLASSIFIER()) AS no_implicit_order
+  PATTERN ( a* no_match* b* )
+  DEFINE
+    a AS x = 1,
+    no_match AS false,
+    b AS x = 2
+)
+--
+ARRAY<STRUCT<
+        implicitly_ordered_distinct ARRAY<>,
+        no_implicit_order ARRAY<>
+      >>
+[{ARRAY<INT64>[known order:
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16
+  ],
+  ARRAY<STRING>[unknown order:"a", "b"]}]
+==
+
+[required_features=V_1_4_MATCH_RECOGNIZE,V_1_1_LIMIT_IN_AGGREGATE,V_1_1_ORDER_BY_IN_AGGREGATE]
+[name=match_recognize_implicit_ordering_with_agg_limit]
+SELECT * FROM t1 MATCH_RECOGNIZE(
+  ORDER BY rowid
+  MEASURES
+    ARRAY_AGG(match_row_number() LIMIT 3) AS m
+  PATTERN ( a* no_match* b* )
+  DEFINE
+    a AS x = 1,
+    no_match AS false,
+    b AS x = 2
+)
+--
+ARRAY<STRUCT<m ARRAY<>>>[{ARRAY<INT64>[known order:1, 2, 3]}]
+==
+
+[required_features=V_1_4_MATCH_RECOGNIZE,V_1_1_HAVING_IN_AGGREGATE]
+[name=match_recognize_implicit_ordering_with_agg_having_min]
+SELECT * FROM t1 MATCH_RECOGNIZE(
+  ORDER BY rowid
+  MEASURES
+    ANY_VALUE(match_row_number() HAVING MAX rowid) AS having_min
+  PATTERN ( a* no_match* b* )
+  DEFINE
+    a AS x = 1,
+    no_match AS false,
+    b AS x = 2
+)
+--
+ARRAY<STRUCT<having_min INT64>>[{16}]
+==
+
+[required_features=V_1_4_MATCH_RECOGNIZE,V_1_4_MULTILEVEL_AGGREGATION]
+[name=match_recognize_no_implicit_ordering_with_multilevel_agg]
+SELECT * FROM t1 MATCH_RECOGNIZE(
+  ORDER BY rowid
+  MEASURES
+    ARRAY_AGG(1 GROUP BY match_row_number()) AS multilevel
+  PATTERN ( a* no_match* b* )
+  DEFINE
+    a AS x = 1,
+    no_match AS false,
+    b AS x = 2
+)
+--
+ARRAY<STRUCT<multilevel ARRAY<>>>[
+  {ARRAY<INT64>[unknown order:1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]}
+]
+==
+
+[required_features=V_1_4_MATCH_RECOGNIZE]
+[name=match_recognize_special_functions_composing]
+SELECT * FROM t1 MATCH_RECOGNIZE(
+  ORDER BY rowid
+  MEASURES
+    FIRST(1000 * a.z + 100 * match_number() + match_row_number()) AS m1,
+    LAST(1000 * b.z + 100 * match_number() + match_row_number()) AS m2
+  PATTERN ( a* no_match* b* )
+  DEFINE
+    a AS x = 1,
+    no_match AS false,
+    b AS x = 2
+)
+--
+ARRAY<STRUCT<m1 INT64, m2 INT64>>[{1000101, 1002116}]

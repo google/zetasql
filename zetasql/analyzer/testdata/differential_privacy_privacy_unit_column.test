@@ -1,7 +1,6 @@
 # Selecting privacy unit column from table.
 [default also_show_signature_mismatch_details]
 [default language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,NUMERIC_TYPE]
-[no_run_unparser]
 [default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with differential_privacy options(privacy_unit_column=`int64`) count(*)
 from SimpleTypes;
@@ -23,7 +22,6 @@ QueryStmt
         |     +-Literal(type=STRUCT<INT64, INT64>, value=NULL)
         +-option_list=
           +-privacy_unit_column := ColumnRef(type=INT64, column=SimpleTypes.int64#2)
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -58,7 +56,6 @@ QueryStmt
 ==
 
 # Setting nested columns.
-[no_run_unparser]
 select with differential_privacy options(privacy_unit_column=str.s) count(*)
 from (SELECT STRUCT(SimpleTypes.`int64` AS i, SimpleTypes.`string` AS s) AS str FROM SimpleTypes) group by str.i;
 --
@@ -102,7 +99,6 @@ QueryStmt
               +-expr=
               | +-ColumnRef(type=STRUCT<i INT64, s STRING>, column=$subquery1.str#20)
               +-field_idx=1
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -160,7 +156,6 @@ QueryStmt
 ==
 
 # Setting privacy unit column on Join.
-[no_run_unparser]
 select with differential_privacy options(privacy_unit_column=s2.`int32`) count(*)
 from SimpleTypes AS s1 Right OUTER JOIN SimpleTypes AS s2 ON s1.`int64` = s2.`int64`;
 --
@@ -191,7 +186,6 @@ QueryStmt
         |     +-Literal(type=STRUCT<INT64, INT64>, value=NULL)
         +-option_list=
           +-privacy_unit_column := ColumnRef(type=INT32, column=SimpleTypes.int32#20)
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -236,7 +230,6 @@ QueryStmt
 ==
 
 # Setting privacy unit column on Join.
-[no_run_unparser]
 select with differential_privacy options(privacy_unit_column=s2.`int32`) count(*)
 from SimpleTypes AS s1 CROSS JOIN SimpleTypes AS s2 ;
 --
@@ -262,7 +255,6 @@ QueryStmt
         |     +-Literal(type=STRUCT<INT64, INT64>, value=NULL)
         +-option_list=
           +-privacy_unit_column := ColumnRef(type=INT32, column=SimpleTypes.int32#20)
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -304,7 +296,6 @@ QueryStmt
 ==
 
 # Setting on subquery correctly exporting privacy_unit_column name will work.
-[no_run_unparser]
 select with differential_privacy options(privacy_unit_column=`int32`) count(*)
 from (SELECT * FROM SimpleTypes);
 --
@@ -329,7 +320,6 @@ QueryStmt
         |     +-Literal(type=STRUCT<INT64, INT64>, value=NULL)
         +-option_list=
           +-privacy_unit_column := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -367,7 +357,6 @@ QueryStmt
 ==
 
 # Setting privacy_unit_column to name that does not exist in the subquery will return an error.
-[no_run_unparser]
 select with differential_privacy options(privacy_unit_column=`int32`) count(*)
 from (SELECT int64 FROM SimpleTypes);
 --
@@ -377,7 +366,6 @@ select with differential_privacy options(privacy_unit_column=`int32`) count(*)
 ==
 
 # Overriding metadata column returns an error.
-[no_run_unparser]
 select with differential_privacy options(privacy_unit_column=`int32`) count(*)
 from SimpleTypesWithAnonymizationUid;
 --
@@ -400,12 +388,10 @@ QueryStmt
         +-option_list=
           +-privacy_unit_column := ColumnRef(type=INT32, column=SimpleTypesWithAnonymizationUid.int32#1)
 
-
 Rewrite ERROR: privacy_unit_column option cannot override the privacy unit column set in the table metadata: uid
 ==
 
 # Overriding aliased metadata column returns an error.
-[no_run_unparser]
 select with differential_privacy options(privacy_unit_column=`int32`) count(*)
 from (SELECT uid AS tmp_uid, `int32` FROM SimpleTypesWithAnonymizationUid);
 --
@@ -432,12 +418,10 @@ QueryStmt
         +-option_list=
           +-privacy_unit_column := ColumnRef(type=INT32, column=SimpleTypesWithAnonymizationUid.int32#1)
 
-
 Rewrite ERROR: privacy_unit_column option cannot override the privacy unit column set in the table metadata: uid
 ==
 
 # Overriding metadata column on unpropagated privacy_unit_column in subquery returns an error.
-[no_run_unparser]
 select with differential_privacy options(privacy_unit_column=`int32`) count(*)
 from (SELECT `int32` FROM SimpleTypesWithAnonymizationUid);
 --
@@ -463,12 +447,10 @@ QueryStmt
         +-option_list=
           +-privacy_unit_column := ColumnRef(type=INT32, column=SimpleTypesWithAnonymizationUid.int32#1)
 
-
 Rewrite ERROR: Subqueries of differential_privacy queries must explicitly SELECT the userid column 'uid'
 ==
 
 # Overriding metadata column on join returns an error.
-[no_run_unparser]
 select with differential_privacy options(privacy_unit_column=SimpleTypes.`int32`) count(*)
 from SimpleTypesWithAnonymizationUid CROSS JOIN SimpleTypes;
 --
@@ -496,12 +478,10 @@ QueryStmt
         +-option_list=
           +-privacy_unit_column := ColumnRef(type=INT32, column=SimpleTypes.int32#13)
 
-
 Rewrite ERROR: privacy_unit_column option cannot override the privacy unit column set in the table metadata: uid
 ==
 
 # Proto backed table
-[no_run_unparser]
 select with differential_privacy options(privacy_unit_column=int64_key_1)
 count(*) FROM KitchenSinkValueTable;
 --
@@ -527,7 +507,6 @@ QueryStmt
               +-expr=
               | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
               +-field_descriptor=int64_key_1
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -568,7 +547,6 @@ QueryStmt
 ==
 
 # Column not found
-[no_run_unparser]
 select with differential_privacy options(privacy_unit_column=this_column_does_not_exist)
 count(*) FROM SimpleTypes;
 --
@@ -579,7 +557,6 @@ ERROR: Unrecognized name: this_column_does_not_exist [at 1:62]
 ==
 
 # Non struct
-[no_run_unparser]
 select with differential_privacy options(privacy_unit_column=`int32`)
 count(*) FROM SimpleTypes;
 --
@@ -600,7 +577,6 @@ QueryStmt
         |     +-Literal(type=STRUCT<INT64, INT64>, value=NULL)
         +-option_list=
           +-privacy_unit_column := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -635,7 +611,6 @@ QueryStmt
 ==
 
 # Named struct field
-[no_run_unparser]
 select with differential_privacy options(privacy_unit_column=(TestStruct.d.a AS new_name))
 count(*) FROM SimpleTypesWithStruct;
 --
@@ -645,7 +620,6 @@ ERROR: Syntax error: Expected "," but got keyword AS [at 1:78]
 ==
 
 # Non path expression
-[no_run_unparser]
 select with differential_privacy options(privacy_unit_column=("TestStruct.c"))
 count(*) FROM SimpleTypesWithStruct;
 --
@@ -655,7 +629,6 @@ select with differential_privacy options(privacy_unit_column=("TestStruct.c"))
 ==
 
 # Non path expression
-[no_run_unparser]
 select with differential_privacy options(privacy_unit_column="TestStruct.c")
 count(*) FROM SimpleTypesWithStruct;
 --
@@ -665,7 +638,6 @@ select with differential_privacy options(privacy_unit_column="TestStruct.c")
 ==
 
 # Struct path
-[no_run_unparser]
 select with differential_privacy options(privacy_unit_column=TestStruct.d.a)
 count(*) FROM SimpleTypesWithStruct;
 --
@@ -695,7 +667,6 @@ QueryStmt
               |   | +-ColumnRef(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, column=SimpleTypesWithStruct.TestStruct#3)
               |   +-field_idx=1
               +-field_idx=0
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -739,7 +710,6 @@ QueryStmt
 ==
 
 # Subquery as a struct field type
-[no_run_unparser]
 select with differential_privacy options(privacy_unit_column=(SELECT 1))
 count(*) FROM SimpleTypes;
 --
@@ -749,7 +719,6 @@ select with differential_privacy options(privacy_unit_column=(SELECT 1))
 ==
 
 # Struct with 2 fields
-[no_run_unparser]
 select with differential_privacy options(privacy_unit_column=(`int32`, `int64`))
 count(*) FROM SimpleTypes;
 --
@@ -759,7 +728,6 @@ select with differential_privacy options(privacy_unit_column=(`int32`, `int64`))
 ==
 
 # Generalized path expression
-[no_run_unparser]
 select with differential_privacy options(
   privacy_unit_column=(SELECT TestStruct FROM SimpleTypesWithStruct).d.a)
 count(*) FROM SimpleTypes;
@@ -770,7 +738,6 @@ ERROR: Differential privacy option must be a path expression [at 2:23]
 ==
 
 # Parenthesized path expression
-[no_run_unparser]
 select with differential_privacy options(privacy_unit_column=(`int32`))
 count(*) FROM SimpleTypes;
 --
@@ -791,7 +758,6 @@ QueryStmt
         |     +-Literal(type=STRUCT<INT64, INT64>, value=NULL)
         +-option_list=
           +-privacy_unit_column := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -826,10 +792,91 @@ QueryStmt
 ==
 
 # Explicit struct constructor
-[no_run_unparser]
 select with differential_privacy options(privacy_unit_column=STRUCT<INT32>(`int32`))
 count(*) FROM SimpleTypes;
 --
 ERROR: Differential privacy option must be a path expression [at 1:62]
 ...differential_privacy options(privacy_unit_column=STRUCT<INT32>(`int32`))
                                                     ^
+==
+
+# Doubly nested privacy unit column.
+select with differential_privacy options(privacy_unit_column=f.d.a)
+count(*)
+from TestWithDoublyNestedStructNoUidValueTable;
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#2 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#2]
+    +-input_scan=
+      +-DifferentialPrivacyAggregateScan
+        +-column_list=[$aggregate.$agg1#2]
+        +-input_scan=
+        | +-TableScan(column_list=[TestWithDoublyNestedStructNoUidValueTable.value#1], table=TestWithDoublyNestedStructNoUidValueTable, column_index_list=[0])
+        +-aggregate_list=
+        | +-$agg1#2 :=
+        |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
+        |     +-Literal(type=STRUCT<INT64, INT64>, value=NULL)
+        +-option_list=
+          +-privacy_unit_column :=
+            +-GetStructField
+              +-type=INT32
+              +-expr=
+              | +-GetStructField
+              |   +-type=STRUCT<a INT32, b STRING>
+              |   +-expr=
+              |   | +-GetStructField
+              |   |   +-type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>
+              |   |   +-expr=
+              |   |   | +-ColumnRef(type=STRUCT<e INT32, f STRUCT<c INT32, d STRUCT<a INT32, b STRING>>>, column=TestWithDoublyNestedStructNoUidValueTable.value#1)
+              |   |   +-field_idx=1
+              |   +-field_idx=1
+              +-field_idx=0
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#2 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#2]
+    +-input_scan=
+      +-DifferentialPrivacyAggregateScan
+        +-column_list=[$aggregate.$agg1#2]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$aggregate.$agg1_partial#4, $group_by.$uid#5]
+        |   +-input_scan=
+        |   | +-TableScan(column_list=[TestWithDoublyNestedStructNoUidValueTable.value#1], table=TestWithDoublyNestedStructNoUidValueTable, column_index_list=[0])
+        |   +-group_by_list=
+        |   | +-$uid#5 :=
+        |   |   +-GetStructField
+        |   |     +-type=INT32
+        |   |     +-expr=
+        |   |     | +-GetStructField
+        |   |     |   +-type=STRUCT<a INT32, b STRING>
+        |   |     |   +-expr=
+        |   |     |   | +-GetStructField
+        |   |     |   |   +-type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>
+        |   |     |   |   +-expr=
+        |   |     |   |   | +-ColumnRef(type=STRUCT<e INT32, f STRUCT<c INT32, d STRUCT<a INT32, b STRING>>>, column=TestWithDoublyNestedStructNoUidValueTable.value#1)
+        |   |     |   |   +-field_idx=1
+        |   |     |   +-field_idx=1
+        |   |     +-field_idx=0
+        |   +-aggregate_list=
+        |     +-$agg1_partial#4 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        +-aggregate_list=
+        | +-$agg1#2 :=
+        | | +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
+        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#4)
+        | |   +-Literal(type=STRUCT<INT64, INT64>, value=NULL)
+        | +-$group_selection_threshold_col#8 :=
+        |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
+        |     +-Literal(type=INT64, value=1)
+        |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
+        +-group_selection_threshold_expr=
+          +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#8)
+==

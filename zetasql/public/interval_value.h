@@ -91,6 +91,7 @@ class IntervalValue final {
   static const __int128 kNanosInHour = kMicrosInHour * kNanosInMicro128;
   static const __int128 kNanosInDay = kNanosInMicro128 * kMicrosInDay;
   static const __int128 kNanosInMonth = kNanosInMicro128 * kMicrosInMonth;
+  static const __int128 kNanosInYear = kNanosInMonth * kMonthsInYear;
 
   static const int64_t kMaxYears = 10000;
   static const int64_t kMaxMonths = 12 * kMaxYears;
@@ -160,7 +161,7 @@ class IntervalValue final {
   }
 
   // Default constructor, constructs a zero value.
-  constexpr IntervalValue() {}
+  constexpr IntervalValue() = default;
 
   // Convert interval value to micros. Note, that the resulting number of
   // micros can be bigger (up to 3 times) than the maximum number of micros
@@ -294,9 +295,7 @@ class IntervalValue final {
     // Adds an INTERVAL value to the sum.
     void Add(IntervalValue value);
     // Subtracts an INTERVAL value from the sum.
-    void Subtract(IntervalValue value) {
-      Add(-value);
-    }
+    void Subtract(IntervalValue value) { Add(-value); }
 
     // Returns sum of all input values. Returns OUT_OF_RANGE error on overflow.
     absl::StatusOr<IntervalValue> GetSum() const;
@@ -508,6 +507,10 @@ absl::StatusOr<IntervalValue> JustifyDays(const IntervalValue& v);
 // Normalizes 24 hour time periods into full days, and after than 30 day time
 // periods into full months. Adjusts all date parts to have the same sign.
 absl::StatusOr<IntervalValue> JustifyInterval(const IntervalValue& v);
+
+// Normalization function that encodes the entire interval value into the nanos
+// part. Returns an error if the absolute interval value exceeds 10k years.
+absl::StatusOr<IntervalValue> ToSecondsInterval(const IntervalValue& v);
 
 // Checks if the two INTERVAL values are identical.
 // This is different from the behavior of the equality operator, which treats

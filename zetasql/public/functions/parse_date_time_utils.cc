@@ -21,11 +21,9 @@
 #include <time.h>
 
 #include <limits>
-#include <string>
 
-#include "zetasql/base/logging.h"
 #include "zetasql/public/functions/date_time_util.h"
-#include "zetasql/public/strings.h"
+#include "absl/base/optimization.h"
 #include "absl/time/time.h"
 
 namespace zetasql {
@@ -37,7 +35,9 @@ namespace {
 const char kDigits[] = "0123456789";
 
 const int64_t powers_of_ten[] = {
-    1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000};
+    1,           10,           100,          1000,      10000,
+    100000,      1000000,      10000000,     100000000, 1000000000,
+    10000000000, 100000000000, 1000000000000};
 }  // namespace
 
 bool ConvertTimeToTimestamp(absl::Time time, int64_t* timestamp) {
@@ -112,7 +112,8 @@ const char* ParseInt(const char* dp, const char* end_of_data, int max_width,
 
 const char* ParseSubSeconds(const char* dp, const char* end_of_data,
                             int max_digits, TimestampScale scale,
-                            absl::Duration* subseconds) {
+                            absl::Duration* subseconds,
+                            uint32_t* sub_nanoseconds) {
   if (dp != nullptr) {
     if (dp < end_of_data || scale != kSeconds) {
       int64_t parsed_value = 0;
@@ -140,13 +141,18 @@ const char* ParseSubSeconds(const char* dp, const char* end_of_data,
           // given precision.
           parsed_value *= powers_of_ten[scale - num_digits_parsed];
         }
+        *sub_nanoseconds = 0;
         if (scale == kMicroseconds) {
           *subseconds = absl::Microseconds(parsed_value);
         } else if (scale == kMilliseconds) {
           *subseconds = absl::Milliseconds(parsed_value);
-        } else {
+        } else if (scale == kNanoseconds) {
           // NANO precision.
           *subseconds = absl::Nanoseconds(parsed_value);
+        } else {
+          // PICO precision.
+          *subseconds = absl::Nanoseconds(parsed_value / 1000);
+          *sub_nanoseconds = parsed_value % 1000;
         }
       } else {
         dp = nullptr;

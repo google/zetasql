@@ -1248,9 +1248,9 @@ CreateModelStmt
 create model tt
 as (training_data as (select 1))
 --
-ERROR: CREATE MODEL columns must be named, but column 1 has no name [at 2:23]
+ERROR: CREATE MODEL columns must be named, but column 1 has no name [at 2:22]
 as (training_data as (select 1))
-                      ^
+                     ^
 
 ==
 
@@ -1310,3 +1310,35 @@ create model t1 options (abc = def, abc = 2)
 ERROR: Duplicate option specified for 'abc' [at 1:37]
 create model t1 options (abc = def, abc = 2)
                                     ^
+==
+
+[language_features=PIPES]
+CREATE MODEL m
+AS
+FROM KeyValue
+--
+CreateModelStmt
++-name_path=m
++-output_column_list=
+| +-KeyValue.Key#1 AS Key [INT64]
+| +-KeyValue.Value#2 AS Value [STRING]
++-query=
+  +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+==
+
+# Test with input from a pipe query with pruning, like the case in b/399439396.
+[language_features=PIPES]
+CREATE MODEL m
+AS
+FROM KeyValue
+|> SELECT key
+--
+CreateModelStmt
++-name_path=m
++-output_column_list=
+| +-KeyValue.Key#1 AS key [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[KeyValue.Key#1]
+    +-input_scan=
+      +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])

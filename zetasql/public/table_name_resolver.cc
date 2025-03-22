@@ -29,16 +29,18 @@
 #include "zetasql/parser/parse_tree_decls.h"
 #include "zetasql/parser/parse_tree_errors.h"
 #include "zetasql/public/analyzer.h"
+#include "zetasql/public/analyzer_options.h"
+#include "zetasql/public/analyzer_output.h"
+#include "zetasql/public/catalog.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
-#include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
-#include "zetasql/base/case.h"
 #include "absl/container/btree_set.h"
 #include "absl/status/status.h"
-#include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
@@ -130,6 +132,13 @@ class TableNameResolver {
 
   absl::Status FindInMergeStatement(const ASTMergeStatement* statement);
 
+  // Process the ASTWithClause that's part of an ASTQuery or ASTPipeWith.
+  // This adds CTE names to `local_table_aliases_`.
+  // The caller is responsible for saving the old state of that list before,
+  // and then restoring it later, when these CTEs go out of scope.
+  absl::Status HandleWithClause(const ASTWithClause* with_clause,
+                                const AliasSet& visible_aliases);
+
   // 'visible_aliases' includes things like the table name we are inserting
   // into or deleting from.  It does *not* include WITH table aliases or TVF
   // table-valued argument names (which are both tracked separately in
@@ -219,6 +228,21 @@ class TableNameResolver {
   absl::Status FindInOptionsListUnder(const ASTNode* root,
                                       const AliasSet& visible_aliases);
 
+  // Collects table names from a pipe recursive union.
+  absl::Status FindInPipeRecursiveUnion(
+      const ASTPipeRecursiveUnion* recursive_union,
+      const AliasSet& visible_aliases, AliasSet* new_aliases);
+
+  // Collects table names from the given list of pipe operators
+  // `pipe_operator_list`.
+  //
+  // `visible_aliases` are the aliases that can be resolved inside the query.
+  // `new_aliases`: the output variable that contains the new aliases introduced
+  //    by the pipe operators.
+  absl::Status FindInPipeOperatorList(
+      absl::Span<const ASTPipeOperator* const> pipe_operator_list,
+      const AliasSet& visible_aliases, AliasSet* new_aliases);
+
   // Root level SQL statement we are extracting table names or temporal
   // references from.
   const absl::string_view sql_;
@@ -302,6 +326,36 @@ absl::Status TableNameResolver::FindInScriptNode(const ASTNode* node) {
   return absl::OkStatus();
 }
 
+absl::Status TableNameResolver::FindInPipeRecursiveUnion(
+    const ASTPipeRecursiveUnion* recursive_union,
+    const AliasSet& visible_aliases, AliasSet* new_aliases) {
+  // Register the local alias, if provided.
+  bool inserted = false;
+  std::string recursive_alias;
+  if (recursive_union->alias() != nullptr) {
+    recursive_alias =
+        absl::AsciiStrToLower(recursive_union->alias()->GetAsStringView());
+    inserted = local_table_aliases_.insert(recursive_alias).second;
+  }
+
+  // Recursively find table names in the input subquery or input subpipeline.
+  if (recursive_union->input_subquery() != nullptr) {
+    ZETASQL_RETURN_IF_ERROR(FindInExpressionsUnder(recursive_union, visible_aliases));
+  } else {
+    ZETASQL_RET_CHECK(recursive_union->input_subpipeline() != nullptr);
+    ZETASQL_RETURN_IF_ERROR(FindInPipeOperatorList(
+        recursive_union->input_subpipeline()->pipe_operator_list(),
+        visible_aliases, new_aliases));
+  }
+
+  // If not inserted, it means `recursive_alias` shadows an outer alias. Do not
+  // remove it.
+  if (inserted) {
+    local_table_aliases_.erase(recursive_alias);
+  }
+  return absl::OkStatus();
+}
+
 absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   // Find table name under OPTIONS (...) clause for any type of statement.
@@ -344,6 +398,19 @@ absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
             static_cast<const ASTCreateIndexStatement*>(statement);
         zetasql_base::InsertIfNotPresent(
             table_names_, create_index->table_name()->ToIdentifierVector());
+        return absl::OkStatus();
+      }
+      break;
+
+    case AST_ALTER_INDEX_STATEMENT:
+      if (analyzer_options_->language().SupportsStatementKind(
+              RESOLVED_ALTER_INDEX_STMT)) {
+        const ASTAlterIndexStatement* alter_index =
+            static_cast<const ASTAlterIndexStatement*>(statement);
+        if (alter_index->table_name() != nullptr) {
+          zetasql_base::InsertIfNotPresent(
+              table_names_, alter_index->table_name()->ToIdentifierVector());
+        }
         return absl::OkStatus();
       }
       break;
@@ -406,8 +473,13 @@ absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
 
       const ASTQuery* query = stmt->query();
       if (query == nullptr) {
+        // We allow either of these because we hit this case when analyzing
+        // queries using FEATURE_PIPE_CREATE_TABLE even if
+        // RESOLVED_CREATE_TABLE_STMT is not supported.
         if (analyzer_options_->language().SupportsStatementKind(
-                RESOLVED_CREATE_TABLE_STMT)) {
+                RESOLVED_CREATE_TABLE_STMT) ||
+            analyzer_options_->language().LanguageFeatureEnabled(
+                FEATURE_PIPE_CREATE_TABLE)) {
           return absl::OkStatus();
         }
       } else {
@@ -932,6 +1004,7 @@ absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
         return absl::OkStatus();
       }
       break;
+
     case AST_HINTED_STATEMENT:
       return FindInStatement(
           statement->GetAs<ASTHintedStatement>()->statement());
@@ -1245,6 +1318,34 @@ absl::Status TableNameResolver::FindInMergeStatement(
   return absl::OkStatus();
 }
 
+absl::Status TableNameResolver::HandleWithClause(
+    const ASTWithClause* with_clause, const AliasSet& visible_aliases) {
+  if (with_clause->recursive()) {
+    // In WITH RECURSIVE, any entry can access an alias defined in any other
+    // entry, regardless of declaration order.
+    for (const ASTAliasedQuery* with_entry : with_clause->with()) {
+      const std::string with_alias =
+          absl::AsciiStrToLower(with_entry->alias()->GetAsStringView());
+      zetasql_base::InsertIfNotPresent(&local_table_aliases_, with_alias);
+    }
+    for (const ASTAliasedQuery* with_entry : with_clause->with()) {
+      ZETASQL_RETURN_IF_ERROR(FindInQuery(with_entry->query(), visible_aliases));
+      const std::string with_alias =
+          absl::AsciiStrToLower(with_entry->alias()->GetAsStringView());
+    }
+  } else {
+    // In WITH without RECURSIVE, entries can only access with aliases defined
+    // in prior entries.
+    for (const ASTAliasedQuery* with_entry : with_clause->with()) {
+      ZETASQL_RETURN_IF_ERROR(FindInQuery(with_entry->query(), visible_aliases));
+      const std::string with_alias =
+          absl::AsciiStrToLower(with_entry->alias()->GetAsStringView());
+      zetasql_base::InsertIfNotPresent(&local_table_aliases_, with_alias);
+    }
+  }
+  return absl::OkStatus();
+}
+
 absl::Status TableNameResolver::FindInQuery(const ASTQuery* query,
                                             const AliasSet& visible_aliases,
                                             AliasSet* new_aliases) {
@@ -1255,29 +1356,7 @@ absl::Status TableNameResolver::FindInQuery(const ASTQuery* query,
     // can restore that after processing the local query.
     old_local_table_aliases = local_table_aliases_;
 
-    if (query->with_clause()->recursive()) {
-      // In WITH RECURSIVE, any entry can access an alias defined in any other
-      // entry, regardless of declaration order.
-      for (const ASTAliasedQuery* with_entry : query->with_clause()->with()) {
-        const std::string with_alias =
-            absl::AsciiStrToLower(with_entry->alias()->GetAsStringView());
-        zetasql_base::InsertIfNotPresent(&local_table_aliases_, with_alias);
-      }
-      for (const ASTAliasedQuery* with_entry : query->with_clause()->with()) {
-        ZETASQL_RETURN_IF_ERROR(FindInQuery(with_entry->query(), visible_aliases));
-        const std::string with_alias =
-            absl::AsciiStrToLower(with_entry->alias()->GetAsStringView());
-      }
-    } else {
-      // In WITH without RECURSIVE, entries can only access with aliases defined
-      // in prior entries.
-      for (const ASTAliasedQuery* with_entry : query->with_clause()->with()) {
-        ZETASQL_RETURN_IF_ERROR(FindInQuery(with_entry->query(), visible_aliases));
-        const std::string with_alias =
-            absl::AsciiStrToLower(with_entry->alias()->GetAsStringView());
-        zetasql_base::InsertIfNotPresent(&local_table_aliases_, with_alias);
-      }
-    }
+    ZETASQL_RETURN_IF_ERROR(HandleWithClause(query->with_clause(), visible_aliases));
   }
 
   AliasSet local_visible_aliases = visible_aliases;
@@ -1289,22 +1368,8 @@ absl::Status TableNameResolver::FindInQuery(const ASTQuery* query,
   // We need to handle any pipe operators that can include table references
   // outside expressions.  Operators with just expressions are handled by
   // the default case.
-  // TODO Will need to handle ASTPipeSetOperation here.
-  for (const ASTPipeOperator* pipe_operator : query->pipe_operator_list()) {
-    switch (pipe_operator->node_kind()) {
-      case AST_PIPE_CALL:
-        ZETASQL_RETURN_IF_ERROR(FindInTVF(pipe_operator->GetAs<ASTPipeCall>()->tvf(),
-                                  visible_aliases, &local_visible_aliases));
-        break;
-      case AST_PIPE_JOIN:
-        ZETASQL_RETURN_IF_ERROR(FindInJoin(pipe_operator->GetAs<ASTPipeJoin>()->join(),
-                                   visible_aliases, &local_visible_aliases));
-        break;
-      default:
-        ZETASQL_RETURN_IF_ERROR(FindInExpressionsUnder(pipe_operator, visible_aliases));
-        break;
-    }
-  }
+  ZETASQL_RETURN_IF_ERROR(FindInPipeOperatorList(
+      query->pipe_operator_list(), visible_aliases, &local_visible_aliases));
 
   new_aliases->insert(local_visible_aliases.begin(),
                       local_visible_aliases.end());
@@ -1313,6 +1378,60 @@ absl::Status TableNameResolver::FindInQuery(const ASTQuery* query,
   if (query->with_clause() != nullptr) {
     local_table_aliases_ = old_local_table_aliases;
   }
+  return absl::OkStatus();
+}
+
+absl::Status TableNameResolver::FindInPipeOperatorList(
+    absl::Span<const ASTPipeOperator* const> pipe_operator_list,
+    const AliasSet& visible_aliases, AliasSet* new_aliases) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
+
+  if (pipe_operator_list.empty()) {
+    return absl::OkStatus();
+  }
+
+  // Record the CTE set visible in the outer scope so we can restore that
+  // after processing the local query.
+  AliasSet old_local_table_aliases = local_table_aliases_;
+
+  for (const ASTPipeOperator* pipe_operator : pipe_operator_list) {
+    switch (pipe_operator->node_kind()) {
+      case AST_PIPE_CALL:
+        ZETASQL_RETURN_IF_ERROR(FindInTVF(pipe_operator->GetAs<ASTPipeCall>()->tvf(),
+                                  visible_aliases, new_aliases));
+        break;
+      case AST_PIPE_JOIN:
+        ZETASQL_RETURN_IF_ERROR(FindInJoin(pipe_operator->GetAs<ASTPipeJoin>()->join(),
+                                   visible_aliases, new_aliases));
+        break;
+      case AST_PIPE_CREATE_TABLE:
+        // This is needed because the CREATE TABLE can have references
+        // to tables in its FOREIGN KEY definitions.
+        ZETASQL_RETURN_IF_ERROR(
+            FindInStatement(pipe_operator->GetAs<ASTPipeCreateTable>()
+                                ->create_table_statement()));
+        break;
+      case AST_PIPE_INSERT:
+        ZETASQL_RETURN_IF_ERROR(FindInInsertStatement(
+            pipe_operator->GetAs<ASTPipeInsert>()->insert_statement()));
+        break;
+      case AST_PIPE_RECURSIVE_UNION:
+        ZETASQL_RETURN_IF_ERROR(FindInPipeRecursiveUnion(
+            pipe_operator->GetAsOrDie<ASTPipeRecursiveUnion>(), visible_aliases,
+            new_aliases));
+        break;
+      case AST_PIPE_WITH:
+        ZETASQL_RETURN_IF_ERROR(HandleWithClause(
+            pipe_operator->GetAsOrDie<ASTPipeWith>()->with_clause(),
+            visible_aliases));
+        break;
+      default:
+        ZETASQL_RETURN_IF_ERROR(FindInExpressionsUnder(pipe_operator, visible_aliases));
+        break;
+    }
+  }
+
+  local_table_aliases_ = old_local_table_aliases;
   return absl::OkStatus();
 }
 

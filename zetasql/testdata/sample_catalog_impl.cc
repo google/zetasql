@@ -27,6 +27,7 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/errors.h"
+#include "zetasql/common/internal_property_graph.h"
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/annotation/collation.h"
@@ -41,6 +42,7 @@
 #include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
 #include "zetasql/public/function_signature.h"
+#include "zetasql/public/measure_expression.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_resume_location.h"
 #include "zetasql/public/procedure.h"
@@ -79,7 +81,6 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
-#include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/synchronization/mutex.h"
@@ -611,6 +612,7 @@ absl::Status SampleCatalogImpl::LoadCatalogImpl(
   LoadConnections();
   LoadSequences();
   LoadProtoTables();
+  ZETASQL_RETURN_IF_ERROR(LoadMeasureTables());
   LoadViews(language_options);
   LoadNestedCatalogs();
   LoadFunctions();
@@ -1401,6 +1403,19 @@ absl::Status SampleCatalogImpl::LoadTables() {
   }
 
   {
+    auto value_table_with_no_uid = std::make_unique<SimpleTable>(
+        "TestStructWithNoUidValueTable", struct_type_);
+    AddOwnedTable(value_table_with_no_uid.release());
+  }
+
+  {
+    auto value_table_with_doubly_nested_no_uid = std::make_unique<SimpleTable>(
+        "TestWithDoublyNestedStructNoUidValueTable",
+        doubly_nested_struct_type_);
+    AddOwnedTable(value_table_with_doubly_nested_no_uid.release());
+  }
+
+  {
     auto value_table_with_proto_uid = std::make_unique<SimpleTable>(
         "TestWithProtoUidValueTable", proto_MessageWithKitchenSinkPB_);
     ZETASQL_CHECK_OK(value_table_with_proto_uid->SetAnonymizationInfo(
@@ -1491,6 +1506,101 @@ absl::Status SampleCatalogImpl::LoadTables() {
                                  {"a", struct_with_unicode_column_table}}));
   return absl::OkStatus();
 }  // NOLINT(readability/fn_size)
+
+absl::Status SampleCatalogImpl::AddTableWithMeasures(
+    AnalyzerOptions& analyzer_options, absl::string_view table_name,
+    const std::vector<std::pair<std::string, const Type*>>& columns,
+    std::optional<absl::flat_hash_set<int>> row_identity_column_indices,
+    std::vector<MeasureColumnDef> measures) {
+  auto table = std::make_unique<SimpleTable>(table_name, columns);
+  if (row_identity_column_indices.has_value()) {
+    for (int row_identity_column_index : row_identity_column_indices.value()) {
+      ZETASQL_RET_CHECK_GE(row_identity_column_index, 0);
+      ZETASQL_RET_CHECK_LT(row_identity_column_index, columns.size());
+      std::string type_description;
+    }
+    ZETASQL_RETURN_IF_ERROR(table->SetRowIdentityColumns(
+        std::vector<int>(row_identity_column_indices.value().begin(),
+                         row_identity_column_indices.value().end())));
+  }
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::vector<std::unique_ptr<const AnalyzerOutput>> analyzer_outputs,
+      AddMeasureColumnsToTable(*table, measures, *types_, *catalog_,
+                               analyzer_options));
+  sql_object_artifacts_.insert(
+      sql_object_artifacts_.end(),
+      std::make_move_iterator(analyzer_outputs.begin()),
+      std::make_move_iterator(analyzer_outputs.end()));
+  AddOwnedTable(table.release());
+  return absl::OkStatus();
+}
+
+absl::Status SampleCatalogImpl::LoadMeasureTables() {
+  AnalyzerOptions analyzer_options;
+  analyzer_options.mutable_language()->EnableLanguageFeature(
+      FEATURE_V_1_4_MULTILEVEL_AGGREGATION);
+
+  ZETASQL_RETURN_IF_ERROR(AddTableWithMeasures(
+      analyzer_options, "MeasureTable_SingleKey",
+      {{"key", types_->get_int64()},
+       {"country", types_->get_string()},
+       {"quantity", types_->get_int64()},
+       {"price", types_->get_int64()}},
+      /*row_identity_column_indices=*/absl::flat_hash_set<int>{0},
+      /*measures=*/
+      {
+          {"measure_count_star", "COUNT(*)"},
+          {"measure_count_star_per_key", "COUNT(* GROUP BY key)"},
+          {"measure_count_distinct_key", "COUNT(DISTINCT key)"},
+          {"measure_count_key_per_key", "COUNT(1 GROUP BY key)"},
+          {"measure_sum_quantity", "SUM(quantity)"},
+          {"measure_sum_price", "SUM(price)"},
+          {"measure_sum_price_times_quantity", "SUM(price * quantity)"},
+          {"measure_ratio_price_to_quantity", "SUM(price) / SUM(quantity)"},
+          {"measure_ratio_price_to_quantity_per_key",
+           "SUM(ANY_VALUE(price) GROUP BY key) / "
+           "SUM(ANY_VALUE(quantity) GROUP BY key)"},
+          {"measure_complex_ratio_metric",
+           "SUM(AVG(price) + MIN(price) GROUP BY key) / "
+           "SUM(AVG(price) + MAX(price) GROUP BY key)"},
+      }));
+
+  ZETASQL_RETURN_IF_ERROR(AddTableWithMeasures(
+      analyzer_options, "MeasureTable_TwoKeys",
+      {{"key1", types_->get_int64()},
+       {"key2", types_->get_int64()},
+       {"country", types_->get_string()},
+       {"quantity", types_->get_int64()},
+       {"price", types_->get_int64()}},
+      /*row_identity_column_indices=*/absl::flat_hash_set<int>{0, 1},
+      /*measures=*/
+      {{"measure_count_star", "COUNT(*)"},
+       {"measure_count_star_per_key", "COUNT(* GROUP BY key1,key2)"},
+       {"measure_count_key_per_key", "COUNT(1 GROUP BY key1,key2)"},
+       {"measure_sum_quantity", "SUM(quantity)"},
+       {"measure_sum_price", "SUM(price)"},
+       {"measure_sum_price_times_quantity", "SUM(price * quantity)"},
+       {"measure_ratio_price_to_quantity", "SUM(price) / SUM(quantity)"},
+       {"measure_ratio_price_to_quantity_per_key",
+        "SUM(ANY_VALUE(price) GROUP BY key1,key2) / "
+        "SUM(ANY_VALUE(quantity) GROUP BY key1,key2)"}}));
+
+  ZETASQL_RETURN_IF_ERROR(
+      AddTableWithMeasures(analyzer_options, "MeasureTable_NoRowIdentity",
+                           {{"key", types_->get_int64()}},
+                           /*row_identity_column_indices=*/std::nullopt,
+                           /*measures=*/
+                           {{"measure_count_star", "COUNT(*)"}}));
+
+  ZETASQL_RETURN_IF_ERROR(AddTableWithMeasures(
+      analyzer_options, "MeasureTable_NonGroupableRowIdentity",
+      {{"json_col", types_->get_json()}},
+      /*row_identity_column_indices=*/absl::flat_hash_set<int>{0},
+      /*measures=*/
+      {{"measure_count_star", "COUNT(*)"}}));
+
+  return absl::OkStatus();
+}
 
 void SampleCatalogImpl::LoadProtoTables() {
   // Add a named struct type.
@@ -4690,6 +4800,29 @@ void SampleCatalogImpl::LoadTemplatedSQLUDFs() {
       ParseResumeLocation::FromString("SUM(e GROUP BY e)"),
       Function::AGGREGATE));
 
+  catalog_->AddOwnedFunction(new TemplatedSQLFunction(
+      {"WrappedAggWithWhereModifier"},
+      FunctionSignature(result_type, {ARG_TYPE_ARBITRARY}, context_id++),
+      /*argument_names=*/{"e"},
+      ParseResumeLocation::FromString("SUM(e WHERE e > 10)"),
+      Function::AGGREGATE));
+
+  catalog_->AddOwnedFunction(new TemplatedSQLFunction(
+      {"WrappedAggWithHavingModifier"},
+      FunctionSignature(result_type, {ARG_TYPE_ARBITRARY}, context_id++),
+      /*argument_names=*/{"e"},
+      ParseResumeLocation::FromString("SUM(e GROUP BY e HAVING COUNT(*) > 10)"),
+      Function::AGGREGATE));
+
+  // Invalid UDA
+  catalog_->AddOwnedFunction(new TemplatedSQLFunction(
+      {"InvalidReferenceUda"},
+      FunctionSignature(result_type, {ARG_TYPE_ARBITRARY, ARG_TYPE_ARBITRARY},
+                        context_id++),
+      /*argument_names=*/{"value", "key"},
+      ParseResumeLocation::FromString("SUM(value GROUP BY key)"),
+      Function::AGGREGATE));
+
   // Add a SQL UDA with a valid templated SQL body with two NOT AGGREGATE
   // arguments having default values.
   FunctionArgumentType int64_default_not_aggregate_arg_type(
@@ -4789,6 +4922,27 @@ void SampleCatalogImpl::LoadTemplatedSQLUDFs() {
       /*argument_names=*/{"x"},
       ParseResumeLocation::FromString("min(collate(x, 'und:ci'))"),
       Function::AGGREGATE));
+
+  // Add a templated SQL UDF which calls TYPEOF which is implemented via
+  // ZetaSQL rewrites.
+  catalog_->AddOwnedFunction(new TemplatedSQLFunction(
+      {"udf_templated_typeof_function"},
+      FunctionSignature(types::StringType(),
+                        {FunctionArgumentType(ARG_TYPE_ARBITRARY,
+                                              FunctionArgumentType::REQUIRED)},
+                        context_id++),
+      /*argument_names=*/{"x"}, ParseResumeLocation::FromString("TYPEOF(x)")));
+
+  // Add a templated SQL UDF which calls another templated SQL UDF which calls
+  // TYPEOF which is implemented via ZetaSQL rewrites.
+  catalog_->AddOwnedFunction(new TemplatedSQLFunction(
+      {"nested_udf_templated_typeof_function"},
+      FunctionSignature(types::StringType(),
+                        {FunctionArgumentType(ARG_TYPE_ARBITRARY,
+                                              FunctionArgumentType::REQUIRED)},
+                        context_id++),
+      /*argument_names=*/{"x"},
+      ParseResumeLocation::FromString("udf_templated_typeof_function(x)")));
 }
 
 absl::Status SampleCatalogImpl::LoadAmlBasedPropertyGraphs() {
@@ -4910,8 +5064,7 @@ absl::Status SampleCatalogImpl::LoadAmlBasedPropertyGraphs() {
 }
 
 absl::Status SampleCatalogImpl::LoadBasicAmlPropertyGraph() {
-  std::vector<std::string> property_graph_name_path{catalog_->FullName(),
-                                                    "aml"};
+  std::vector<std::string> property_graph_name_path{"aml"};
 
   const Table* person = nullptr;
   const Table* account = nullptr;
@@ -5007,8 +5160,8 @@ absl::Status SampleCatalogImpl::LoadBasicAmlPropertyGraph() {
       types_->get_string(), person->FindColumnByName("name"));
   auto person_name_prop_def = std::make_unique<SimpleGraphPropertyDefinition>(
       name_property_dcl.get(), "name");
-  InternalSetResolvedExpr(person_name_prop_def.get(),
-                          person_name_col_ref.get());
+  InternalPropertyGraph::InternalSetResolvedExpr(person_name_prop_def.get(),
+                                                 person_name_col_ref.get());
 
   property_defs_person.push_back(std::move(person_name_prop_def));
   owned_resolved_graph_property_definitions_.push_back(
@@ -5018,8 +5171,8 @@ absl::Status SampleCatalogImpl::LoadBasicAmlPropertyGraph() {
       types_->get_date(), person->FindColumnByName("birthday"));
   auto person_bday_prop_def = std::make_unique<SimpleGraphPropertyDefinition>(
       bday_property_dcl.get(), "birthday");
-  InternalSetResolvedExpr(person_bday_prop_def.get(),
-                          person_bday_col_ref.get());
+  InternalPropertyGraph::InternalSetResolvedExpr(person_bday_prop_def.get(),
+                                                 person_bday_col_ref.get());
 
   property_defs_person.push_back(std::move(person_bday_prop_def));
   owned_resolved_graph_property_definitions_.push_back(
@@ -5029,7 +5182,8 @@ absl::Status SampleCatalogImpl::LoadBasicAmlPropertyGraph() {
       types_->get_int64(), person->FindColumnByName("id"));
   auto person_id_prop_def = std::make_unique<SimpleGraphPropertyDefinition>(
       id_property_dcl.get(), "id");
-  InternalSetResolvedExpr(person_id_prop_def.get(), person_id_col_ref.get());
+  InternalPropertyGraph::InternalSetResolvedExpr(person_id_prop_def.get(),
+                                                 person_id_col_ref.get());
   property_defs_person.push_back(std::move(person_id_prop_def));
   owned_resolved_graph_property_definitions_.push_back(
       std::move(person_id_col_ref));
@@ -5038,7 +5192,8 @@ absl::Status SampleCatalogImpl::LoadBasicAmlPropertyGraph() {
       types_->get_uint32(), person->FindColumnByName("age"));
   auto person_age_prop_def = std::make_unique<SimpleGraphPropertyDefinition>(
       age_property_dcl.get(), "age");
-  InternalSetResolvedExpr(person_age_prop_def.get(), person_age_col_ref.get());
+  InternalPropertyGraph::InternalSetResolvedExpr(person_age_prop_def.get(),
+                                                 person_age_col_ref.get());
   property_defs_person.push_back(std::move(person_age_prop_def));
   owned_resolved_graph_property_definitions_.push_back(
       std::move(person_age_col_ref));
@@ -5047,8 +5202,8 @@ absl::Status SampleCatalogImpl::LoadBasicAmlPropertyGraph() {
       types_->get_uint32(), person->FindColumnByName("data"));
   auto person_data_prop_def = std::make_unique<SimpleGraphPropertyDefinition>(
       data_property_dcl.get(), "data");
-  InternalSetResolvedExpr(person_data_prop_def.get(),
-                          person_data_col_ref.get());
+  InternalPropertyGraph::InternalSetResolvedExpr(person_data_prop_def.get(),
+                                                 person_data_col_ref.get());
   property_defs_person.push_back(std::move(person_data_prop_def));
   owned_resolved_graph_property_definitions_.push_back(
       std::move(person_data_col_ref));
@@ -5064,7 +5219,8 @@ absl::Status SampleCatalogImpl::LoadBasicAmlPropertyGraph() {
       types_->get_int64(), account->FindColumnByName("id"));
   auto account_id_prop_def = std::make_unique<SimpleGraphPropertyDefinition>(
       id_property_dcl.get(), "id");
-  InternalSetResolvedExpr(account_id_prop_def.get(), id_col_ref.get());
+  InternalPropertyGraph::InternalSetResolvedExpr(account_id_prop_def.get(),
+                                                 id_col_ref.get());
 
   property_defs_account.push_back(std::move(account_id_prop_def));
   owned_resolved_graph_property_definitions_.push_back(std::move(id_col_ref));
@@ -5074,8 +5230,8 @@ absl::Status SampleCatalogImpl::LoadBasicAmlPropertyGraph() {
   auto account_balance_prop_def =
       std::make_unique<SimpleGraphPropertyDefinition>(
           balance_property_dcl.get(), "balance");
-  InternalSetResolvedExpr(account_balance_prop_def.get(),
-                          balance_col_ref.get());
+  InternalPropertyGraph::InternalSetResolvedExpr(account_balance_prop_def.get(),
+                                                 balance_col_ref.get());
 
   property_defs_account.push_back(std::move(account_balance_prop_def));
   owned_resolved_graph_property_definitions_.push_back(
@@ -5092,8 +5248,8 @@ absl::Status SampleCatalogImpl::LoadBasicAmlPropertyGraph() {
       types_->get_int64(), syndicate->FindColumnByName("syndicateId"));
   auto syndicateid_prop_def = std::make_unique<SimpleGraphPropertyDefinition>(
       syndicateid_property_dcl.get(), "syndicateId");
-  InternalSetResolvedExpr(syndicateid_prop_def.get(),
-                          syndicateid_col_ref.get());
+  InternalPropertyGraph::InternalSetResolvedExpr(syndicateid_prop_def.get(),
+                                                 syndicateid_col_ref.get());
 
   property_defs_syndicate.push_back(std::move(syndicateid_prop_def));
   owned_resolved_graph_property_definitions_.push_back(
@@ -5103,8 +5259,8 @@ absl::Status SampleCatalogImpl::LoadBasicAmlPropertyGraph() {
       types_->get_string(), syndicate->FindColumnByName("syndicateName"));
   auto syndicatename_prop_def = std::make_unique<SimpleGraphPropertyDefinition>(
       syndicatename_property_dcl.get(), "syndicateName");
-  InternalSetResolvedExpr(syndicatename_prop_def.get(),
-                          syndicatename_col_ref.get());
+  InternalPropertyGraph::InternalSetResolvedExpr(syndicatename_prop_def.get(),
+                                                 syndicatename_col_ref.get());
 
   property_defs_syndicate.push_back(std::move(syndicatename_prop_def));
   owned_resolved_graph_property_definitions_.push_back(
@@ -5114,8 +5270,8 @@ absl::Status SampleCatalogImpl::LoadBasicAmlPropertyGraph() {
       int64array_type_, syndicate->FindColumnByName("syndicateData"));
   auto syndicatedata_prop_def = std::make_unique<SimpleGraphPropertyDefinition>(
       syndicatedata_property_dcl.get(), "syndicateData");
-  InternalSetResolvedExpr(syndicatedata_prop_def.get(),
-                          syndicatedata_col_ref.get());
+  InternalPropertyGraph::InternalSetResolvedExpr(syndicatedata_prop_def.get(),
+                                                 syndicatedata_col_ref.get());
 
   property_defs_syndicate.push_back(std::move(syndicatedata_prop_def));
   owned_resolved_graph_property_definitions_.push_back(
@@ -5132,8 +5288,8 @@ absl::Status SampleCatalogImpl::LoadBasicAmlPropertyGraph() {
       types_->get_int64(), person_own_acc->FindColumnByName("personId"));
   auto pa_personid_prop_def = std::make_unique<SimpleGraphPropertyDefinition>(
       personId_property_dcl.get(), "personId");
-  InternalSetResolvedExpr(pa_personid_prop_def.get(),
-                          pa_personid_col_ref.get());
+  InternalPropertyGraph::InternalSetResolvedExpr(pa_personid_prop_def.get(),
+                                                 pa_personid_col_ref.get());
 
   property_defs_person_own_acc.push_back(std::move(pa_personid_prop_def));
   owned_resolved_graph_property_definitions_.push_back(
@@ -5143,8 +5299,8 @@ absl::Status SampleCatalogImpl::LoadBasicAmlPropertyGraph() {
       types_->get_int64(), person_own_acc->FindColumnByName("accountId"));
   auto pa_accountid_prop_def = std::make_unique<SimpleGraphPropertyDefinition>(
       accountId_property_dcl.get(), "accountId");
-  InternalSetResolvedExpr(pa_accountid_prop_def.get(),
-                          pa_accountid_col_ref.get());
+  InternalPropertyGraph::InternalSetResolvedExpr(pa_accountid_prop_def.get(),
+                                                 pa_accountid_col_ref.get());
 
   property_defs_person_own_acc.push_back(std::move(pa_accountid_prop_def));
   owned_resolved_graph_property_definitions_.push_back(
@@ -5169,8 +5325,8 @@ absl::Status SampleCatalogImpl::LoadBasicAmlPropertyGraph() {
   auto transfer_account_id_property =
       std::make_unique<SimpleGraphPropertyDefinition>(
           accountId_property_dcl.get(), "fromAccountId");
-  InternalSetResolvedExpr(transfer_account_id_property.get(),
-                          transfer_account_id_col_ref.get());
+  InternalPropertyGraph::InternalSetResolvedExpr(
+      transfer_account_id_property.get(), transfer_account_id_col_ref.get());
   property_defs_transfer.emplace_back(std::move(transfer_account_id_property));
   owned_resolved_graph_property_definitions_.push_back(
       std::move(transfer_account_id_col_ref));
@@ -5180,8 +5336,8 @@ absl::Status SampleCatalogImpl::LoadBasicAmlPropertyGraph() {
   auto transfer_target_id_property =
       std::make_unique<SimpleGraphPropertyDefinition>(
           target_account_id_property_dcl.get(), "toAccountId");
-  InternalSetResolvedExpr(transfer_target_id_property.get(),
-                          transfer_target_id_col_ref.get());
+  InternalPropertyGraph::InternalSetResolvedExpr(
+      transfer_target_id_property.get(), transfer_target_id_col_ref.get());
   property_defs_transfer.emplace_back(std::move(transfer_target_id_property));
   owned_resolved_graph_property_definitions_.push_back(
       std::move(transfer_target_id_col_ref));
@@ -5190,7 +5346,8 @@ absl::Status SampleCatalogImpl::LoadBasicAmlPropertyGraph() {
       types_->get_uint64(), transfer->FindColumnByName("amount"));
   auto amount_property = std::make_unique<SimpleGraphPropertyDefinition>(
       amount_property_dcl.get(), "amount");
-  InternalSetResolvedExpr(amount_property.get(), amount_col_ref.get());
+  InternalPropertyGraph::InternalSetResolvedExpr(amount_property.get(),
+                                                 amount_col_ref.get());
   property_defs_transfer.emplace_back(std::move(amount_property));
   owned_resolved_graph_property_definitions_.push_back(
       std::move(amount_col_ref));
@@ -5247,8 +5404,7 @@ absl::Status SampleCatalogImpl::LoadBasicAmlPropertyGraph() {
 }
 
 absl::Status SampleCatalogImpl::LoadEnhancedAmlPropertyGraph() {
-  std::vector<std::string> property_graph_name_path{catalog_->FullName(),
-                                                    "aml_enhanced"};
+  std::vector<std::string> property_graph_name_path{"aml_enhanced"};
 
   const Table* person = nullptr;
   const Table* account = nullptr;
@@ -5285,10 +5441,10 @@ absl::Status SampleCatalogImpl::LoadEnhancedAmlPropertyGraph() {
   auto name_property_dcl = std::make_unique<SimpleGraphPropertyDeclaration>(
       "name", property_graph_name_path, types_->get_string());
   auto city_id_property_dcl = std::make_unique<SimpleGraphPropertyDeclaration>(
-      "cityId", property_graph_name_path, types_->get_string());
+      "cityId", property_graph_name_path, types_->get_int64());
   auto country_id_property_dcl =
       std::make_unique<SimpleGraphPropertyDeclaration>(
-          "countryId", property_graph_name_path, types_->get_string());
+          "countryId", property_graph_name_path, types_->get_int64());
 
   // Labels
   auto property_dcls_person =
@@ -5350,7 +5506,8 @@ absl::Status SampleCatalogImpl::LoadEnhancedAmlPropertyGraph() {
       types_->get_int64(), person->FindColumnByName("id"));
   auto person_id_prop_def = std::make_unique<SimpleGraphPropertyDefinition>(
       id_property_dcl.get(), "id");
-  InternalSetResolvedExpr(person_id_prop_def.get(), person_id_col_ref.get());
+  InternalPropertyGraph::InternalSetResolvedExpr(person_id_prop_def.get(),
+                                                 person_id_col_ref.get());
 
   property_defs_person.push_back(std::move(person_id_prop_def));
   owned_resolved_graph_property_definitions_.push_back(
@@ -5360,8 +5517,8 @@ absl::Status SampleCatalogImpl::LoadEnhancedAmlPropertyGraph() {
       types_->get_string(), person->FindColumnByName("name"));
   auto person_name_prop_def = std::make_unique<SimpleGraphPropertyDefinition>(
       name_property_dcl.get(), "name");
-  InternalSetResolvedExpr(person_name_prop_def.get(),
-                          person_name_col_ref.get());
+  InternalPropertyGraph::InternalSetResolvedExpr(person_name_prop_def.get(),
+                                                 person_name_col_ref.get());
 
   property_defs_person.push_back(std::move(person_name_prop_def));
   owned_resolved_graph_property_definitions_.push_back(
@@ -5377,7 +5534,8 @@ absl::Status SampleCatalogImpl::LoadEnhancedAmlPropertyGraph() {
       types_->get_int64(), account->FindColumnByName("id"));
   auto account_id_prop_def = std::make_unique<SimpleGraphPropertyDefinition>(
       id_property_dcl.get(), "id");
-  InternalSetResolvedExpr(account_id_prop_def.get(), account_id_col_ref.get());
+  InternalPropertyGraph::InternalSetResolvedExpr(account_id_prop_def.get(),
+                                                 account_id_col_ref.get());
 
   property_defs_account.push_back(std::move(account_id_prop_def));
   owned_resolved_graph_property_definitions_.push_back(
@@ -5393,17 +5551,19 @@ absl::Status SampleCatalogImpl::LoadEnhancedAmlPropertyGraph() {
       types_->get_int64(), city->FindColumnByName("id"));
   auto city_id_prop_def = std::make_unique<SimpleGraphPropertyDefinition>(
       city_id_property_dcl.get(), "id");
-  InternalSetResolvedExpr(city_id_prop_def.get(), city_id_col_ref.get());
+  InternalPropertyGraph::InternalSetResolvedExpr(city_id_prop_def.get(),
+                                                 city_id_col_ref.get());
 
   property_defs_city.push_back(std::move(city_id_prop_def));
   owned_resolved_graph_property_definitions_.push_back(
       std::move(city_id_col_ref));
 
   auto city_name_col_ref = MakeResolvedCatalogColumnRef(
-      types_->get_string(), person->FindColumnByName("name"));
+      types_->get_string(), city->FindColumnByName("name"));
   auto city_name_prop_def = std::make_unique<SimpleGraphPropertyDefinition>(
       name_property_dcl.get(), "name");
-  InternalSetResolvedExpr(city_name_prop_def.get(), city_name_col_ref.get());
+  InternalPropertyGraph::InternalSetResolvedExpr(city_name_prop_def.get(),
+                                                 city_name_col_ref.get());
 
   property_defs_city.push_back(std::move(city_name_prop_def));
   owned_resolved_graph_property_definitions_.push_back(
@@ -5419,18 +5579,19 @@ absl::Status SampleCatalogImpl::LoadEnhancedAmlPropertyGraph() {
       types_->get_int64(), country->FindColumnByName("id"));
   auto country_id_prop_def = std::make_unique<SimpleGraphPropertyDefinition>(
       country_id_property_dcl.get(), "id");
-  InternalSetResolvedExpr(country_id_prop_def.get(), country_id_col_ref.get());
+  InternalPropertyGraph::InternalSetResolvedExpr(country_id_prop_def.get(),
+                                                 country_id_col_ref.get());
 
   property_defs_country.push_back(std::move(country_id_prop_def));
   owned_resolved_graph_property_definitions_.push_back(
       std::move(country_id_col_ref));
 
   auto country_name_col_ref = MakeResolvedCatalogColumnRef(
-      types_->get_string(), person->FindColumnByName("name"));
+      types_->get_string(), country->FindColumnByName("name"));
   auto country_name_prop_def = std::make_unique<SimpleGraphPropertyDefinition>(
       name_property_dcl.get(), "name");
-  InternalSetResolvedExpr(country_name_prop_def.get(),
-                          country_name_col_ref.get());
+  InternalPropertyGraph::InternalSetResolvedExpr(country_name_prop_def.get(),
+                                                 country_name_col_ref.get());
 
   property_defs_country.push_back(std::move(country_name_prop_def));
   owned_resolved_graph_property_definitions_.push_back(
@@ -5446,8 +5607,8 @@ absl::Status SampleCatalogImpl::LoadEnhancedAmlPropertyGraph() {
       types_->get_int64(), person_own_acc->FindColumnByName("personId"));
   auto pa_personid_prop_def = std::make_unique<SimpleGraphPropertyDefinition>(
       personId_property_dcl.get(), "personId");
-  InternalSetResolvedExpr(pa_personid_prop_def.get(),
-                          pa_personid_col_ref.get());
+  InternalPropertyGraph::InternalSetResolvedExpr(pa_personid_prop_def.get(),
+                                                 pa_personid_col_ref.get());
 
   property_defs_person_own_acc.push_back(std::move(pa_personid_prop_def));
   owned_resolved_graph_property_definitions_.push_back(
@@ -5457,8 +5618,8 @@ absl::Status SampleCatalogImpl::LoadEnhancedAmlPropertyGraph() {
       types_->get_int64(), person_own_acc->FindColumnByName("accountId"));
   auto pa_accountid_prop_def = std::make_unique<SimpleGraphPropertyDefinition>(
       accountId_property_dcl.get(), "accountId");
-  InternalSetResolvedExpr(pa_accountid_prop_def.get(),
-                          pa_accountid_col_ref.get());
+  InternalPropertyGraph::InternalSetResolvedExpr(pa_accountid_prop_def.get(),
+                                                 pa_accountid_col_ref.get());
 
   property_defs_person_own_acc.push_back(std::move(pa_accountid_prop_def));
   owned_resolved_graph_property_definitions_.push_back(
@@ -5483,8 +5644,8 @@ absl::Status SampleCatalogImpl::LoadEnhancedAmlPropertyGraph() {
   auto transfer_account_id_property =
       std::make_unique<SimpleGraphPropertyDefinition>(
           accountId_property_dcl.get(), "fromAccountId");
-  InternalSetResolvedExpr(transfer_account_id_property.get(),
-                          transfer_account_id_col_ref.get());
+  InternalPropertyGraph::InternalSetResolvedExpr(
+      transfer_account_id_property.get(), transfer_account_id_col_ref.get());
   property_defs_transfer.emplace_back(std::move(transfer_account_id_property));
   owned_resolved_graph_property_definitions_.push_back(
       std::move(transfer_account_id_col_ref));
@@ -5494,8 +5655,8 @@ absl::Status SampleCatalogImpl::LoadEnhancedAmlPropertyGraph() {
   auto transfer_target_id_property =
       std::make_unique<SimpleGraphPropertyDefinition>(
           target_account_id_property_dcl.get(), "toAccountId");
-  InternalSetResolvedExpr(transfer_target_id_property.get(),
-                          transfer_target_id_col_ref.get());
+  InternalPropertyGraph::InternalSetResolvedExpr(
+      transfer_target_id_property.get(), transfer_target_id_col_ref.get());
   property_defs_transfer.emplace_back(std::move(transfer_target_id_property));
   owned_resolved_graph_property_definitions_.push_back(
       std::move(transfer_target_id_col_ref));
@@ -5516,8 +5677,8 @@ absl::Status SampleCatalogImpl::LoadEnhancedAmlPropertyGraph() {
   auto knows_person_id_property =
       std::make_unique<SimpleGraphPropertyDefinition>(
           personId_property_dcl.get(), "personId");
-  InternalSetResolvedExpr(knows_person_id_property.get(),
-                          knows_person_id_col_ref.get());
+  InternalPropertyGraph::InternalSetResolvedExpr(knows_person_id_property.get(),
+                                                 knows_person_id_col_ref.get());
   property_defs_knows.emplace_back(std::move(knows_person_id_property));
   owned_resolved_graph_property_definitions_.push_back(
       std::move(knows_person_id_col_ref));
@@ -5527,8 +5688,9 @@ absl::Status SampleCatalogImpl::LoadEnhancedAmlPropertyGraph() {
   auto knows_target_person_id_property =
       std::make_unique<SimpleGraphPropertyDefinition>(
           to_personId_property_dcl.get(), "toPersonId");
-  InternalSetResolvedExpr(knows_target_person_id_property.get(),
-                          knows_target_person_id_col_ref.get());
+  InternalPropertyGraph::InternalSetResolvedExpr(
+      knows_target_person_id_property.get(),
+      knows_target_person_id_col_ref.get());
   property_defs_knows.emplace_back(std::move(knows_target_person_id_property));
   owned_resolved_graph_property_definitions_.push_back(
       std::move(knows_target_person_id_col_ref));
@@ -5548,8 +5710,8 @@ absl::Status SampleCatalogImpl::LoadEnhancedAmlPropertyGraph() {
   auto located_in_city_id_property =
       std::make_unique<SimpleGraphPropertyDefinition>(
           country_id_property_dcl.get(), "countryId");
-  InternalSetResolvedExpr(located_in_city_id_property.get(),
-                          located_in_city_id_col_ref.get());
+  InternalPropertyGraph::InternalSetResolvedExpr(
+      located_in_city_id_property.get(), located_in_city_id_col_ref.get());
 
   property_defs_located_in.emplace_back(std::move(located_in_city_id_property));
   owned_resolved_graph_property_definitions_.push_back(
@@ -5560,8 +5722,9 @@ absl::Status SampleCatalogImpl::LoadEnhancedAmlPropertyGraph() {
   auto located_in_country_id_property =
       std::make_unique<SimpleGraphPropertyDefinition>(
           country_id_property_dcl.get(), "countryId");
-  InternalSetResolvedExpr(located_in_country_id_property.get(),
-                          located_in_country_id_col_ref.get());
+  InternalPropertyGraph::InternalSetResolvedExpr(
+      located_in_country_id_property.get(),
+      located_in_country_id_col_ref.get());
   property_defs_located_in.emplace_back(
       std::move(located_in_country_id_property));
   owned_resolved_graph_property_definitions_.push_back(
@@ -5620,8 +5783,7 @@ absl::Status SampleCatalogImpl::LoadEnhancedAmlPropertyGraph() {
 }
 
 void SampleCatalogImpl::LoadMultiSrcDstEdgePropertyGraphs() {
-  const std::vector<std::string> property_graph_name_path{catalog_->FullName(),
-                                                          "aml_multi"};
+  const std::vector<std::string> property_graph_name_path{"aml_multi"};
   typedef std::pair<std::string, const Type*> NameAndType;
 
   auto* entity = new SimpleTable(
@@ -5660,16 +5822,21 @@ void SampleCatalogImpl::LoadMultiSrcDstEdgePropertyGraphs() {
       types_->get_string(), entity->FindColumnByName("value"));
   auto entity_value_property = std::make_unique<SimpleGraphPropertyDefinition>(
       value_property_dcl.get(), "value");
-  InternalSetResolvedExpr(entity_value_property.get(),
-                          entity_value_column_ref.get());
+  InternalPropertyGraph::InternalSetResolvedExpr(entity_value_property.get(),
+                                                 entity_value_column_ref.get());
   std::vector<std::unique_ptr<const GraphPropertyDefinition>>
       property_defs_entity;
   property_defs_entity.push_back(std::move(entity_value_property));
   owned_resolved_graph_property_definitions_.push_back(
       std::move(entity_value_column_ref));
+  // Entity
+  // KEYS (id, version)
+  // PROPERTIES (value)
+  //
+  // Intentionally skipped `namespace` column which is not scanned by `Entity`
+  // node scan, but it will be used in `Relation` edge scan.
   auto entity_node_table = std::make_unique<const SimpleGraphNodeTable>(
-      entity->Name(), property_graph_name_path, entity,
-      std::vector<int>{0, 1, 2},
+      entity->Name(), property_graph_name_path, entity, std::vector<int>{0, 2},
       absl::flat_hash_set<const GraphElementLabel*>{entity_label.get()},
       std::move(property_defs_entity));
 
@@ -5679,8 +5846,8 @@ void SampleCatalogImpl::LoadMultiSrcDstEdgePropertyGraphs() {
   auto relation_value_property =
       std::make_unique<SimpleGraphPropertyDefinition>(value_property_dcl.get(),
                                                       "value");
-  InternalSetResolvedExpr(relation_value_property.get(),
-                          relation_value_column_ref.get());
+  InternalPropertyGraph::InternalSetResolvedExpr(
+      relation_value_property.get(), relation_value_column_ref.get());
   std::vector<std::unique_ptr<const GraphPropertyDefinition>>
       property_defs_relation;
   property_defs_relation.push_back(std::move(relation_value_property));
@@ -5729,8 +5896,7 @@ void SampleCatalogImpl::LoadMultiSrcDstEdgePropertyGraphs() {
 }
 
 void SampleCatalogImpl::LoadCompositeKeyPropertyGraphs() {
-  std::vector<std::string> property_graph_name_path{catalog_->FullName(),
-                                                    "aml_composite_key"};
+  std::vector<std::string> property_graph_name_path{"aml_composite_key"};
   typedef std::pair<std::string, const Type*> NameAndType;
 
   auto* entity = new SimpleTable(
@@ -5770,8 +5936,8 @@ void SampleCatalogImpl::LoadCompositeKeyPropertyGraphs() {
       types_->get_string(), entity->FindColumnByName("value"));
   auto entity_value_property = std::make_unique<SimpleGraphPropertyDefinition>(
       value_property_dcl.get(), "value");
-  InternalSetResolvedExpr(entity_value_property.get(),
-                          entity_value_column_ref.get());
+  InternalPropertyGraph::InternalSetResolvedExpr(entity_value_property.get(),
+                                                 entity_value_column_ref.get());
   std::vector<std::unique_ptr<const GraphPropertyDefinition>>
       property_defs_entity;
   property_defs_entity.push_back(std::move(entity_value_property));
@@ -5788,8 +5954,8 @@ void SampleCatalogImpl::LoadCompositeKeyPropertyGraphs() {
   auto relation_value_property =
       std::make_unique<SimpleGraphPropertyDefinition>(value_property_dcl.get(),
                                                       "value");
-  InternalSetResolvedExpr(relation_value_property.get(),
-                          relation_value_column_ref.get());
+  InternalPropertyGraph::InternalSetResolvedExpr(
+      relation_value_property.get(), relation_value_column_ref.get());
   std::vector<std::unique_ptr<const GraphPropertyDefinition>>
       property_defs_relation;
   property_defs_relation.push_back(std::move(relation_value_property));
@@ -8047,7 +8213,9 @@ void SampleCatalogImpl::AddSqlDefinedTableFunctionFromCreate(
   language.EnableLanguageFeature(FEATURE_TABLE_VALUED_FUNCTIONS);
   language.EnableLanguageFeature(FEATURE_TEMPLATE_FUNCTIONS);
   language.EnableLanguageFeature(FEATURE_V_1_1_WITH_ON_SUBQUERY);
+  language.EnableLanguageFeature(FEATURE_V_1_2_GROUP_BY_STRUCT);
   language.EnableLanguageFeature(FEATURE_V_1_3_INLINE_LAMBDA_ARGUMENT);
+  language.EnableLanguageFeature(FEATURE_V_1_4_MULTILEVEL_AGGREGATION);
   AnalyzerOptions analyzer_options;
   analyzer_options.set_language(language);
   std::unique_ptr<const AnalyzerOutput> analyzer_output;
@@ -8137,6 +8305,10 @@ void SampleCatalogImpl::LoadNonTemplatedSqlTableValuedFunctions(
          AS SELECT * FROM arg0;)",
       language_options);
   AddSqlDefinedTableFunctionFromCreate(
+      R"(CREATE TABLE FUNCTION UnaryTableArgColumnsUnused(arg0 TABLE<key INT64, value INT64>)
+           AS SELECT 1 as result FROM arg0;)",
+      language_options);
+  AddSqlDefinedTableFunctionFromCreate(
       R"sql(
             CREATE TABLE FUNCTION ScalarParamUsedAsTVFArgument(arg0 INT64)
             AS (SELECT * FROM UnaryScalarArg(arg0))
@@ -8208,6 +8380,61 @@ void SampleCatalogImpl::LoadNonTemplatedSqlTableValuedFunctions(
       )sql",
       language_options);
 
+  AddSqlDefinedTableFunctionFromCreate(
+      R"sql(
+          CREATE TABLE FUNCTION TvfMultiAggGroupingConstants(
+            TwoIntsTableArg TABLE<first INT64, second INT64>, int64_arg INT64)
+            AS
+          SELECT
+            SUM(first + int64_arg GROUP BY first) AS result
+          FROM TwoIntsTableArg;
+      )sql",
+      language_options);
+
+  AddSqlDefinedTableFunctionFromCreate(
+      R"sql(
+          CREATE TABLE FUNCTION TvfMultiAggGroupingConstantsWithStruct(
+            arg_table TABLE<STRUCT<a STRUCT<b INT64>>>, int64_arg INT64)
+            AS
+          SELECT
+            SUM(arg_table.a.b + int64_arg GROUP BY arg_table.a) AS result
+          FROM arg_table;
+      )sql",
+      language_options);
+
+  AddSqlDefinedTableFunctionFromCreate(
+      R"sql(
+          CREATE TABLE FUNCTION TvfMultiAggNullary()
+            AS
+          WITH t AS (SELECT 1 AS a, 2 AS b)
+          SELECT SUM(COUNT(a GROUP BY b) + COUNT(b GROUP BY a)
+          GROUP BY a, b) as result FROM t;
+        )sql",
+      language_options);
+
+  AddSqlDefinedTableFunctionFromCreate(
+      R"sql(
+          CREATE TABLE FUNCTION TvfMultiAggReferencesScannedTable(
+            arg_table TABLE<key INT64, value INT64>, arg_scalar INT64
+          )
+          AS
+          SELECT SUM(MAX(value) group by key) / SUM(MIN(key) group by value)
+          + arg_scalar AS result
+          FROM TwoIntegers JOIN arg_table USING (key, value);
+        )sql",
+      language_options);
+
+  AddSqlDefinedTableFunctionFromCreate(
+      R"sql(
+          CREATE TABLE FUNCTION TvfMultiAggScalarArgGroupingConst(
+            arg_table TABLE<key INT64, value INT64>, arg_scalar INT64
+          )
+          AS
+          SELECT SUM(COUNT(key) + arg_scalar GROUP BY value) as result
+          FROM arg_table;
+        )sql",
+      language_options);
+
   // Functions for definer-rights inlining
   AddSqlDefinedTableFunctionFromCreate(
       R"sql(
@@ -8266,6 +8493,13 @@ void SampleCatalogImpl::LoadNonTemplatedSqlTableValuedFunctions(
         )sql",
         language_options);
   }
+
+  // We want a TVF whose name is close to a scalar function to trigger
+  // Did you mean logic when accidentally calling the TVF.
+  AddSqlDefinedTableFunctionFromCreate(
+      R"(CREATE TABLE FUNCTION NullaryPIT()
+         AS SELECT 3.141 AS a;)",
+      language_options);
 }
 
 void SampleCatalogImpl::LoadTemplatedSQLTableValuedFunctions() {
@@ -8409,6 +8643,15 @@ void SampleCatalogImpl::LoadTemplatedSQLTableValuedFunctions() {
       /*arg_name_list=*/{"t"},
       ParseResumeLocation::FromString("select * from t")));
 
+  // Add a TVF with a valid templated SQL body that refers to a relation
+  // argument but does not use its columns.
+  catalog_->AddOwnedTableValuedFunction(new TemplatedSQLTVF(
+      {"tvf_templated_select_relation_arg_columns_unused"},
+      FunctionSignature(ARG_TYPE_RELATION,
+                        {FunctionArgumentType::AnyRelation()}, context_id++),
+      /*arg_name_list=*/{"t"},
+      ParseResumeLocation::FromString("select 1 as result from t")));
+
   // Add a TVF with a templated SQL body that refers to a relation argument
   // using "select 1". The TVF is missing an output column name.
   catalog_->AddOwnedTableValuedFunction(new TemplatedSQLTVF(
@@ -8441,6 +8684,52 @@ void SampleCatalogImpl::LoadTemplatedSQLTableValuedFunctions() {
           "with w1 as (select * from s),\n"
           "     w2 as (select * from t)\n"
           "select * from w1 inner join w2 using (key) order by key limit 1")));
+
+  catalog_->AddOwnedTableValuedFunction(new TemplatedSQLTVF(
+      {"tvf_templated_multi_agg_valid_grouping_constants"},
+      FunctionSignature(ARG_TYPE_RELATION,
+                        {FunctionArgumentType(ARG_TYPE_ARBITRARY,
+                                              FunctionArgumentType::REQUIRED)},
+                        context_id++),
+      /*arg_name_list=*/{"int64_arg"},
+      ParseResumeLocation::FromString("SELECT SUM(key + int64_arg GROUP BY "
+                                      "key) AS result FROM TwoIntegers")));
+
+  catalog_->AddOwnedTableValuedFunction(new TemplatedSQLTVF(
+      {"tvf_templated_multi_agg_invalid_grouping_constants"},
+      FunctionSignature(ARG_TYPE_RELATION,
+                        {FunctionArgumentType(ARG_TYPE_ARBITRARY,
+                                              FunctionArgumentType::REQUIRED)},
+                        context_id++),
+      /*arg_name_list=*/{"int64_arg"},
+      ParseResumeLocation::FromString("SELECT SUM(value + int64_arg GROUP BY "
+                                      "key) AS result FROM TwoIntegers")));
+
+  catalog_->AddOwnedTableValuedFunction(new TemplatedSQLTVF(
+      {"tvf_templated_multi_agg_valid_grouping_constants_with_struct"},
+      FunctionSignature(ARG_TYPE_RELATION,
+                        {FunctionArgumentType::AnyRelation()}, context_id++),
+      /*arg_name_list=*/{"arg_table"},
+      ParseResumeLocation::FromString(
+          "SELECT SUM(arg_table.a.b GROUP BY arg_table.a) AS "
+          "result FROM arg_table")));
+
+  catalog_->AddOwnedTableValuedFunction(new TemplatedSQLTVF(
+      {"tvf_templated_call_udf_with_multi_agg"},
+      FunctionSignature(ARG_TYPE_RELATION,
+                        {FunctionArgumentType::AnyRelation()}, context_id++),
+      /*arg_name_list=*/{"arg_table"},
+      ParseResumeLocation::FromString("SELECT NullaryWithMultilevelAgg() AS "
+                                      "result")));
+
+  catalog_->AddOwnedTableValuedFunction(new TemplatedSQLTVF(
+      {"tvf_templated_call_uda_with_multi_agg"},
+      FunctionSignature(ARG_TYPE_RELATION,
+                        {FunctionArgumentType::AnyRelation()}, context_id++),
+      /*arg_name_list=*/{"arg_table"},
+      ParseResumeLocation::FromString(
+          "SELECT SumOfValuesForDistinctKey(key, value) AS "
+          "result FROM arg_table")));
 
   // Add a TVF with a valid templated SQL body that refers to both a scalar
   // argument and a relation argument.
@@ -8755,6 +9044,41 @@ void SampleCatalogImpl::LoadTemplatedSQLTableValuedFunctions() {
       /*arg_name_list=*/{"x"},
       ParseResumeLocation::FromString("select as value COLLATE(x, 'und:ci')")));
 
+  // Add a templated TVF which returns a column of type STRING by calling the
+  // TYPEOF function. Note that TYPEOF is implemented via a builtin ZetaSQL
+  // rewriter.
+  catalog_->AddOwnedTableValuedFunction(new TemplatedSQLTVF(
+      {"tvf_templated_select_typeof_function"},
+      FunctionSignature(ARG_TYPE_RELATION,
+                        {FunctionArgumentType(ARG_TYPE_ARBITRARY)},
+                        context_id++),
+      /*arg_name_list=*/{"x"},
+      ParseResumeLocation::FromString(R"sql(select TYPEOF(x) AS col)sql")));
+
+  // A templated TVF which calls TYPEOF and has anonymization info.
+  {
+    catalog_->AddOwnedTableValuedFunction(new TemplatedSQLTVF(
+        {"tvf_templated_select_typeof_function_with_anonymization_info"},
+        FunctionSignature(ARG_TYPE_RELATION,
+                          {FunctionArgumentType(ARG_TYPE_ARBITRARY)},
+                          context_id++),
+        /*arg_name_list=*/{"x"},
+        ParseResumeLocation::FromString(
+            R"sql(select 1 AS user_id, TYPEOF(x) AS value)sql"),
+        AnonymizationInfo::Create({"user_id"}).value_or(nullptr),
+        /*tvf_options=*/{}));
+  }
+
+  // A templated TVF which calls a templated TVF.
+  catalog_->AddOwnedTableValuedFunction(new TemplatedSQLTVF(
+      {"tvf_templated_select_nested_typeof_function"},
+      FunctionSignature(ARG_TYPE_RELATION,
+                        {FunctionArgumentType(ARG_TYPE_ARBITRARY)},
+                        context_id++),
+      /*arg_name_list=*/{"x"},
+      ParseResumeLocation::FromString(
+          R"sql(select * from tvf_templated_select_typeof_function(x))sql")));
+
   // Add a templated definer-rights TVF
   auto templated_definer_rights_tvf = std::make_unique<TemplatedSQLTVF>(
       std::vector<std::string>{"definer_rights_templated_tvf"},
@@ -8998,6 +9322,10 @@ void SampleCatalogImpl::LoadConstants() {
   catalog_->AddOwnedConstant(std::move(bool_constant));
   ZETASQL_CHECK_OK(SimpleConstant::Create(std::vector<std::string>{"TestConstantFalse"},
                                   Value::Bool(false), &bool_constant));
+  catalog_->AddOwnedConstant(std::move(bool_constant));
+  ZETASQL_CHECK_OK(
+      SimpleConstant::Create(std::vector<std::string>{"TestConstantNullBool"},
+                             Value::NullBool(), &bool_constant));
   catalog_->AddOwnedConstant(std::move(bool_constant));
 
   std::unique_ptr<SimpleConstant> string_constant_nonstandard_name;
@@ -9433,8 +9761,12 @@ void SampleCatalogImpl::AddSqlDefinedFunctionFromCreate(
   language.EnableLanguageFeature(FEATURE_TEMPLATE_FUNCTIONS);
   language.EnableLanguageFeature(FEATURE_CREATE_AGGREGATE_FUNCTION);
   language.EnableLanguageFeature(FEATURE_V_1_1_HAVING_IN_AGGREGATE);
+  language.EnableLanguageFeature(FEATURE_V_1_1_LIMIT_IN_AGGREGATE);
   language.EnableLanguageFeature(
       FEATURE_V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE);
+  language.EnableLanguageFeature(FEATURE_V_1_4_MULTILEVEL_AGGREGATION);
+  language.EnableLanguageFeature(FEATURE_V_1_4_MULTILEVEL_AGGREGATION_IN_UDAS);
+  language.EnableLanguageFeature(FEATURE_V_1_2_GROUP_BY_STRUCT);
   AnalyzerOptions analyzer_options;
   analyzer_options.set_language(language);
   analyzer_options.set_enabled_rewrites(/*rewrites=*/{});
@@ -9491,6 +9823,44 @@ void SampleCatalogImpl::LoadScalarSqlFunctions(
 
   AddSqlDefinedFunctionFromCreate(
       R"( CREATE FUNCTION UnaryIncrement(a INT64) AS ( a + 1 ); )",
+      language_options);
+
+  AddSqlDefinedFunctionFromCreate(
+      R"(
+        CREATE FUNCTION GroupingConstantFromUnnest(
+          arr ARRAY<INT64>, int64_arg INT64)
+        AS (
+          (SELECT SUM(X GROUP BY X) FROM UNNEST(arr) AS X)
+        );
+      )",
+      language_options);
+
+  AddSqlDefinedFunctionFromCreate(
+      R"(
+        CREATE FUNCTION GroupingConstantFromArg(
+          arr ARRAY<INT64>, int64_arg INT64)
+        AS (
+          (SELECT SUM(int64_arg GROUP BY X) FROM UNNEST(arr) AS X)
+        );
+      )",
+      language_options);
+
+  AddSqlDefinedFunctionFromCreate(
+      R"(
+        CREATE FUNCTION NullaryWithMultilevelAgg()
+        AS (
+          (SELECT SUM(x GROUP BY x) FROM UNNEST([1, 2, 3, 3]) AS x)
+        );
+      )",
+      language_options);
+
+  AddSqlDefinedFunctionFromCreate(
+      R"(
+        CREATE FUNCTION NestedNullaryWithMultilevelAgg()
+        AS (
+          NullaryWithMultilevelAgg() + NullaryWithMultilevelAgg()
+        );
+      )",
       language_options);
 
   // Creating the function using AnalyzeExpressionForAssignmentToType results in
@@ -9798,6 +10168,90 @@ void SampleCatalogImpl::LoadAggregateSqlFunctions(
       );)sql",
       language_options);
 
+  AddSqlDefinedFunctionFromCreate(
+      R"sql(
+      CREATE AGGREGATE FUNCTION SumOfValuesForDistinctKey(
+        value INT64,
+        key INT64
+      ) AS (
+        SUM(ANY_VALUE(value) GROUP BY key)
+      );)sql",
+      language_options);
+
+  // This function is intended to test grouping-constness for multi-level
+  // aggregate functions in various scenarios (using struct field paths, in
+  // subqueries, aggregate functions, etc.). Avoid altering it where possible.
+  AddSqlDefinedFunctionFromCreate(
+      R"sql(
+      CREATE AGGREGATE FUNCTION ComplexUda3(value1 INT64, value2 INT64, key INT64, struct_arg STRUCT<e INT64, f STRUCT<c INT64, d STRUCT<a INT64, b STRING>>>) AS (
+        CORR(
+          key + CORR(key, value2 + MAX(value1) GROUP BY value2)
+            + struct_arg.f.c,
+          AVG(
+            value2 + MIN(value1) + (SELECT key + value2)
+              + struct_arg.f.c + struct_arg.f.d.a
+            GROUP BY value2, struct_arg.f.d
+          )
+          GROUP BY key, struct_arg.f
+        )
+      );)sql",
+      language_options);
+
+  AddSqlDefinedFunctionFromCreate(
+      R"sql(
+      CREATE AGGREGATE FUNCTION NullaryUdaWithMultilevelAgg() AS (
+        (SELECT SUM(x GROUP BY x) FROM UNNEST([1, 2, 3, 3]) AS x)
+      );)sql",
+      language_options);
+
+  AddSqlDefinedFunctionFromCreate(
+      R"sql(
+      CREATE AGGREGATE FUNCTION UdaWithMultilevelAggOrderBy(key INT64, value INT64) AS (
+        ARRAY_AGG(MAX(value) GROUP BY key)
+      );)sql",
+      language_options);
+
+  AddSqlDefinedFunctionFromCreate(
+      R"sql(
+      CREATE AGGREGATE FUNCTION UdaWithMultilevelAggIgnoreNulls(key INT64, value INT64) AS (
+        ARRAY_AGG(SUM(value) IGNORE NULLS GROUP BY key)
+      );)sql",
+      language_options);
+
+  AddSqlDefinedFunctionFromCreate(
+      R"sql(
+      CREATE AGGREGATE FUNCTION UdaWithMultilevelAggLimitDistinct(key INT64, value INT64) AS (
+        ARRAY_AGG(DISTINCT SUM(value) GROUP BY key LIMIT 2)
+      );)sql",
+      language_options);
+
+  AddSqlDefinedFunctionFromCreate(
+      R"sql(
+      CREATE AGGREGATE FUNCTION UdaWithMultilevelAggMultiArg(
+        arg1 INT64, arg2 INT64, arg3 STRING, arg4 BYTES) AS (
+          CORR(
+            AVG(arg1 GROUP BY arg3),
+            CORR(MAX(arg2), COUNT(*) GROUP BY arg4)
+            GROUP BY arg1, arg2)
+      );)sql",
+      language_options);
+
+  AddSqlDefinedFunctionFromCreate(
+      R"sql(
+      CREATE AGGREGATE FUNCTION UdaWithMultilevelAggNonAggregateArgs(
+        arg1 INT64, arg2 INT64, arg3 INT64 NOT AGGREGATE, arg4 INT64 NOT AGGREGATE) AS (
+          arg4 + SUM(arg1 + CAST(arg3 AS INT64) GROUP BY arg1)
+            / COUNT(arg2 + CAST(arg4 AS INT64) GROUP BY arg2)
+      );)sql",
+      language_options);
+
+  AddSqlDefinedFunctionFromCreate(
+      R"sql(
+      CREATE AGGREGATE FUNCTION UdaWithMultilevelAggNested(key INT64, value INT64) AS (
+        SumOfValuesForDistinctKey(key, value) + COUNT(* GROUP BY key, value)
+      );)sql",
+      language_options);
+
   FunctionOptions aggregate_calling_clauses_enabled;
   aggregate_calling_clauses_enabled
       // No need to test clamped between modifier since it is hard-coded to only
@@ -9833,6 +10287,13 @@ void SampleCatalogImpl::LoadAggregateSqlFunctions(
           SumExpressionOfAggregateArgs(x)
       );)sql",
       language_options, /*inline_sql_functions=*/true);
+
+  AddSqlDefinedFunctionFromCreate(
+      R"sql(
+      CREATE AGGREGATE FUNCTION TemplatedUdaCountIfTypeOfIsString(x ANY TYPE) AS (
+          COUNTIF(TYPEOF(x) = 'STRING')
+      );)sql",
+      language_options, /*inline_sql_functions=*/false);
 }
 
 void SampleCatalogImpl::ForceLinkProtoTypes() {

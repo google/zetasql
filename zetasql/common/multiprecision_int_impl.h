@@ -139,7 +139,7 @@ inline void UintToArray(Uint<n> src, Uint<m> dest[]) {
 }
 
 template <int n, int m>
-inline Uint<n> ArrayToUint(const Uint<m> src[]) {
+inline constexpr Uint<n> ArrayToUint(const Uint<m> src[]) {
   if constexpr (n == m) {
     return src[0];
   } else {

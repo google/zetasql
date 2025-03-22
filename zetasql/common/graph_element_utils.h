@@ -17,14 +17,28 @@
 #ifndef ZETASQL_COMMON_GRAPH_ELEMENT_UTILS_H_
 #define ZETASQL_COMMON_GRAPH_ELEMENT_UTILS_H_
 
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "zetasql/public/json_value.h"
 #include "zetasql/public/types/type.h"
+#include "zetasql/public/value.h"
+#include "absl/status/statusor.h"
+#include "absl/types/span.h"
 namespace zetasql {
 
 class Function;
+class ResolvedExpr;
 
 // Helper function that is used to determine a type is or contains in its
 // nesting structure a GraphElement or GraphPath type.
 bool TypeIsOrContainsGraphElement(const Type* type);
+
+// Helper function that merges a list of properties to a JSON value.
+absl::StatusOr<JSONValue> MakePropertiesJsonValue(
+    absl::Span<Value::Property> properties,
+    const LanguageOptions& language_options);
 
 }  // namespace zetasql
 

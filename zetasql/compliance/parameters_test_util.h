@@ -23,6 +23,7 @@
 
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
+#include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"
 

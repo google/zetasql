@@ -37,6 +37,13 @@ QueryStmt
                   | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
                   +-end_expr=
                     +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
+
+
+DEPRECATION WARNING:
+The pipe WINDOW operator is deprecated; Use EXTEND instead [at 2:1]
+|> window sum(x) OVER (), count(*) OVER () AS c
+^
+[zetasql.DeprecationWarning] { kind: PIPE_WINDOW }
 ==
 
 # Expressions without a window function are not allowed.
@@ -199,6 +206,13 @@ QueryStmt
             |         +-ColumnRef(type=INT64, column=$query.z#3)
             +-analytic_function_list=
               +-$analytic4#12 := AnalyticFunctionCall(ZetaSQL:rank() -> INT64)
+
+
+DEPRECATION WARNING:
+The pipe WINDOW operator is deprecated; Use EXTEND instead [at 2:1]
+|> window x+sum(y+1) OVER (ORDER BY z),
+^
+[zetasql.DeprecationWarning] { kind: PIPE_WINDOW }
 ==
 
 # An expression combining the result of two window functions.
@@ -268,6 +282,13 @@ QueryStmt
                       | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
                       +-end_expr=
                         +-WindowFrameExpr(boundary_type=CURRENT ROW)
+
+
+DEPRECATION WARNING:
+The pipe WINDOW operator is deprecated; Use EXTEND instead [at 2:1]
+|> window sum(x) OVER (ORDER BY y) + avg(x) OVER (ORDER BY y DESC)
+^
+[zetasql.DeprecationWarning] { kind: PIPE_WINDOW }
 ==
 
 # Test visibility of names after pipe window.
@@ -312,6 +333,13 @@ QueryStmt
           +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
             +-ColumnRef(type=INT64, column=$query.x#1)
             +-ColumnRef(type=INT64, column=$analytic.r#4)
+
+
+DEPRECATION WARNING:
+The pipe WINDOW operator is deprecated; Use EXTEND instead [at 2:1]
+|> window rank() over (order by y) AS r
+^
+[zetasql.DeprecationWarning] { kind: PIPE_WINDOW }
 ==
 
 # Applying WINDOW on a value table input.
@@ -362,6 +390,13 @@ QueryStmt
                   | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
                   +-end_expr=
                     +-WindowFrameExpr(boundary_type=CURRENT ROW)
+
+
+DEPRECATION WARNING:
+The pipe WINDOW operator is deprecated; Use EXTEND instead [at 2:1]
+|> WINDOW sum(int32_val1) OVER (order by t.int32_val2) AS sum_col
+^
+[zetasql.DeprecationWarning] { kind: PIPE_WINDOW }
 ==
 
 # Range variables and pseudo-columns are preserved after WINDOW.
@@ -438,6 +473,13 @@ QueryStmt
       +-FunctionCall(ZetaSQL:$equal(INT32, INT32) -> BOOL)
         +-ColumnRef(type=INT32, column=EnumTable.key#1)
         +-Literal(type=INT32, value=1)
+
+
+DEPRECATION WARNING:
+The pipe WINDOW operator is deprecated; Use EXTEND instead [at 4:1]
+|> WINDOW COUNT(*) OVER () + 1
+^
+[zetasql.DeprecationWarning] { kind: PIPE_WINDOW }
 ==
 
 # This tests that unselected pseudo-columns are still pruned
@@ -475,6 +517,13 @@ QueryStmt
       +-FunctionCall(ZetaSQL:$equal(BYTES, BYTES) -> BOOL)
         +-ColumnRef(type=BYTES, column=EnumTable.RowId#5)
         +-Literal(type=BYTES, value=b"")
+
+
+DEPRECATION WARNING:
+The pipe WINDOW operator is deprecated; Use EXTEND instead [at 2:1]
+|> WINDOW COUNT(*) OVER ()
+^
+[zetasql.DeprecationWarning] { kind: PIPE_WINDOW }
 ==
 
 # This shows a case where a window function is computed but not used.
@@ -504,15 +553,13 @@ QueryStmt
                       | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
                       +-end_expr=
                         +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
-==
 
-# Named windows aren't supported.
-from KeyValue
-|> window count(*) OVER w
---
-ERROR: Cannot reference a named window in pipe WINDOW [at 2:25]
-|> window count(*) OVER w
-                        ^
+
+DEPRECATION WARNING:
+The pipe WINDOW operator is deprecated; Use EXTEND instead [at 2:1]
+|> WINDOW COUNT(*) OVER () win
+^
+[zetasql.DeprecationWarning] { kind: PIPE_WINDOW }
 ==
 
 # Dot-star works in WINDOW, but still requires a window fucntion.
@@ -576,6 +623,13 @@ QueryStmt
                           | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
                           +-end_expr=
                             +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
+
+
+DEPRECATION WARNING:
+The pipe WINDOW operator is deprecated; Use EXTEND instead [at 3:1]
+|> WINDOW ANY_VALUE(TestStruct) OVER ().*
+^
+[zetasql.DeprecationWarning] { kind: PIPE_WINDOW }
 ==
 
 # Dot-star after a window function with modifiers.
@@ -629,6 +683,13 @@ QueryStmt
                           | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
                           +-end_expr=
                             +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
+
+
+DEPRECATION WARNING:
+The pipe WINDOW operator is deprecated; Use EXTEND instead [at 3:1]
+|> WINDOW ANY_VALUE(TestStruct) OVER ().*
+^
+[zetasql.DeprecationWarning] { kind: PIPE_WINDOW }
 ==
 
 # Dot-star over an expression constructing a STRUCT.
@@ -710,6 +771,13 @@ QueryStmt
                           | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
                           +-end_expr=
                             +-WindowFrameExpr(boundary_type=CURRENT ROW)
+
+
+DEPRECATION WARNING:
+The pipe WINDOW operator is deprecated; Use EXTEND instead [at 2:1]
+|> WINDOW (FIRST_VALUE(STRUCT(1 AS x, 2, 'abc' AS x, null AS y))
+^
+[zetasql.DeprecationWarning] { kind: PIPE_WINDOW }
 ==
 
 # Normal errors from .* apply.  This file doesn't repeat all the error case
@@ -771,6 +839,13 @@ QueryStmt
                   | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
                   +-end_expr=
                     +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
+
+
+DEPRECATION WARNING:
+The pipe WINDOW operator is deprecated; Use EXTEND instead [at 3:1]
+|> WINDOW MAX(COALESCE(string_ci)) OVER () AS newcol
+^
+[zetasql.DeprecationWarning] { kind: PIPE_WINDOW }
 --
 ALTERNATION GROUP: ,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT
 --
@@ -802,3 +877,10 @@ QueryStmt
                   | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
                   +-end_expr=
                     +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
+
+
+DEPRECATION WARNING:
+The pipe WINDOW operator is deprecated; Use EXTEND instead [at 3:1]
+|> WINDOW MAX(COALESCE(string_ci)) OVER () AS newcol
+^
+[zetasql.DeprecationWarning] { kind: PIPE_WINDOW }

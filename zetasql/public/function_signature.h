@@ -978,7 +978,7 @@ class FunctionSignatureRewriteOptions {
   // SQL expression implementing the logic of this function. Depending on which
   // ResolvedAST rewriter is used, it may or may not expect this field to be
   // filled. See the ResolvedAST rewriter specified in `rewrite()` for
-  // specific documentation reguarding the requirements of this SQL.
+  // specific documentation regarding the requirements of this SQL.
   //
   // For example, the `REWRITE_BUILTIN_FUNCTION_INLINER` ResolvedAST rewriter
   // requires a SQL definition of the function to be specified here. The SQL
@@ -993,6 +993,22 @@ class FunctionSignatureRewriteOptions {
     return *this;
   }
 
+  bool allow_table_references() const { return allow_table_references_; }
+  FunctionSignatureRewriteOptions& set_allow_table_references(
+      const bool allow_table_references) {
+    allow_table_references_ = allow_table_references;
+    return *this;
+  }
+
+  std::vector<std::string> allowed_function_groups() const {
+    return allowed_function_groups_;
+  }
+  FunctionSignatureRewriteOptions& set_allowed_function_groups(
+      std::vector<std::string> allowed_function_groups) {
+    allowed_function_groups_ = std::move(allowed_function_groups);
+    return *this;
+  }
+
   static absl::Status Deserialize(
       const FunctionSignatureRewriteOptionsProto& proto,
       FunctionSignatureRewriteOptions& result);
@@ -1003,6 +1019,16 @@ class FunctionSignatureRewriteOptions {
   bool enabled_ = true;
   ResolvedASTRewrite rewriter_ = ResolvedASTRewrite::REWRITE_INVALID_DO_NOT_USE;
   std::string sql_;
+  // Whether or not the rewrite SQL is allowed to reference tables. This
+  // restriction applies to `REWRITE_BUILTIN_FUNCTION_INLINER`, but might not be
+  // enforced by other rewriters.
+  bool allow_table_references_ = false;
+  // A (case-sensitive) list of function groups that are allowed to be
+  // referenced in the rewrite SQL. By default, only ZetaSQL-builtin functions
+  // are allowed, but engines can set this to allow additional function groups.
+  // This restriction applies to `REWRITE_BUILTIN_FUNCTION_INLINER`, but might
+  // not be enforced by other rewriters.
+  std::vector<std::string> allowed_function_groups_ = {};
 };
 
 // Returns the reason why the concrete argument list is NOT valid for a matched

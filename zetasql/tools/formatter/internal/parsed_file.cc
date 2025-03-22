@@ -51,7 +51,33 @@ namespace zetasql::formatter::internal {
 
 namespace {
 
-std::unique_ptr<ParsedFile> CreateParsedFile(absl::string_view sql) {
+// Detects the type of newlines used in <input>. If input contains more than one
+// type of newlines, the first type is returned. If input doesn't contain any
+// newlines, then "\n" is returned.
+std::string DetectNewlineType(absl::string_view input) {
+  std::string newline = std::string(FormatterOptions::kUnixNewLineType);
+  for (int i = 0; i < input.size(); ++i) {
+    if (input[i] == '\n') {
+      if (i + 1 < input.size() && input[i + 1] == '\r') {
+        newline = "\n\r";
+      } else {
+        newline = "\n";
+      }
+      break;
+    } else if (input[i] == '\r') {
+      if (i + 1 < input.size() && input[i + 1] == '\n') {
+        newline = "\r\n";
+      } else {
+        newline = "\r";
+      }
+      break;
+    }
+  }
+  return newline;
+}
+
+std::unique_ptr<ParsedFile> CreateParsedFile(absl::string_view sql,
+                                             FormatterOptions options) {
   // Formatter expects interchange valid UTF-8 string as an input.
   icu::UnicodeString utf(sql.data(), static_cast<int32_t>(sql.size()));
   const UChar32 null_char[1] = {'\0'};
@@ -61,7 +87,17 @@ std::unique_ptr<ParsedFile> CreateParsedFile(absl::string_view sql) {
   std::string pre_processed_sql;
   utf.toUTF8String<std::string>(pre_processed_sql);
   pre_processed_sql = zetasql::CoerceToWellFormedUTF8(pre_processed_sql);
-  return std::make_unique<ParsedFile>(std::move(pre_processed_sql));
+
+  // Fix up options.
+  if (options.IsLineTypeDetectionEnabled()) {
+    options.SetNewLineType(DetectNewlineType(sql));
+  }
+  if (options.LineLengthLimit() <= 0) {
+    options.SetLineLengthLimit(
+        ::zetasql::FormatterOptions().LineLengthLimit());
+  }
+  return std::make_unique<ParsedFile>(std::move(pre_processed_sql),
+                                      std::move(options));
 }
 
 std::string LineAndColumnStringFromByteOffset(
@@ -92,8 +128,7 @@ absl::StatusOr<std::unique_ptr<zetasql::ParserOutput>> ParseTokenizedStmt(
   bool unused;
   LanguageOptions language_options;
   language_options.EnableMaximumLanguageFeaturesForDevelopment();
-  ParserOptions parser_options;
-  parser_options.set_language_options(language_options);
+  ParserOptions parser_options(language_options);
   ZETASQL_RETURN_IF_ERROR(ParseNextScriptStatement(&location, parser_options,
                                            &parser_output, &unused));
 
@@ -187,34 +222,32 @@ absl::Status ParsedStmt::Accept(ParsedFileVisitor* visitor) const {
 absl::StatusOr<std::unique_ptr<ParsedFile>> ParsedFile::ParseLineRanges(
     absl::string_view sql, const std::vector<FormatterRange>& line_ranges,
     const FormatterOptions& options, ParseAction parse_action) {
-  std::unique_ptr<ParsedFile> file = CreateParsedFile(sql);
+  std::unique_ptr<ParsedFile> file = CreateParsedFile(sql, options);
   ZETASQL_ASSIGN_OR_RETURN(
       std::vector<FormatterRange> byte_ranges,
       ConvertLineRangesToSortedByteRanges(line_ranges, file->Sql(),
                                           file->GetLocationTranslator()));
-  ZETASQL_RETURN_IF_ERROR(
-      file->ParseByteRanges(std::move(byte_ranges), options, parse_action));
+  ZETASQL_RETURN_IF_ERROR(file->ParseByteRanges(std::move(byte_ranges), parse_action));
   return file;
 }
 
 absl::StatusOr<std::unique_ptr<ParsedFile>> ParsedFile::ParseByteRanges(
     absl::string_view sql, const std::vector<FormatterRange>& byte_ranges,
     const FormatterOptions& options, ParseAction parse_action) {
-  std::unique_ptr<ParsedFile> file = CreateParsedFile(sql);
+  std::unique_ptr<ParsedFile> file = CreateParsedFile(sql, options);
   ZETASQL_ASSIGN_OR_RETURN(
       std::vector<FormatterRange> sorted_ranges,
       ValidateAndSortByteRanges(byte_ranges, file->Sql(), options));
   ZETASQL_RETURN_IF_ERROR(
-      file->ParseByteRanges(std::move(sorted_ranges), options, parse_action));
+      file->ParseByteRanges(std::move(sorted_ranges), parse_action));
   return file;
 }
 
 absl::StatusOr<std::unique_ptr<FilePart>> ParsedFile::ParseNextFilePart(
-    ParseResumeLocation* parse_location, const FormatterOptions& options,
-    ParseAction parse_action) {
+    ParseResumeLocation* parse_location, ParseAction parse_action) {
   ZETASQL_ASSIGN_OR_RETURN(
       std::unique_ptr<TokenizedStmt> tokenized_stmt,
-      TokenizedStmt::ParseFrom(parse_location, location_translator_, options));
+      TokenizedStmt::ParseFrom(parse_location, location_translator_, options_));
 
   if (parse_action == ParseAction::kTokenize ||
       tokenized_stmt->Tokens().WithoutComments().empty()) {
@@ -233,11 +266,10 @@ absl::StatusOr<std::unique_ptr<FilePart>> ParsedFile::ParseNextFilePart(
 }
 
 absl::Status ParsedFile::ParseByteRanges(
-    std::vector<FormatterRange> byte_ranges, const FormatterOptions& options,
-    ParseAction parse_action) {
+    std::vector<FormatterRange> byte_ranges, ParseAction parse_action) {
   if (byte_ranges.empty() && !Sql().empty()) {
     byte_ranges.push_back({0, static_cast<int>(Sql().size())});
-  } else if (options.GetExpandRangesToFullStatements()) {
+  } else if (options_.GetExpandRangesToFullStatements()) {
     ZETASQL_RETURN_IF_ERROR(ExpandByteRangesToFullStatements(&byte_ranges, Sql()));
   }
   int last_end = 0;
@@ -260,9 +292,8 @@ absl::Status ParsedFile::ParseByteRanges(
     parse_location.set_byte_position(range.start);
 
     while (parse_location.byte_position() < parse_location.input().size()) {
-      ZETASQL_ASSIGN_OR_RETURN(
-          std::unique_ptr<FilePart> parsed_stmt,
-          ParseNextFilePart(&parse_location, options, parse_action));
+      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<FilePart> parsed_stmt,
+                       ParseNextFilePart(&parse_location, parse_action));
       if (!parsed_stmt->IsEmpty()) {
         file_parts_.emplace_back(std::move(parsed_stmt));
       }

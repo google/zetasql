@@ -16,6 +16,7 @@
 
 #include "zetasql/common/builtin_function_internal.h"
 #include "zetasql/public/builtin_function_options.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "absl/status/status.h"
@@ -30,6 +31,11 @@ absl::Status GetStandaloneBuiltinEnumTypes(
           FEATURE_V_1_4_MULTIWAY_UNNEST)) {
     const Type* array_zip_mode_type = types::ArrayZipModeEnumType();
     ZETASQL_RETURN_IF_ERROR(InsertType(types, options, array_zip_mode_type));
+  }
+  if (options.language_options.LanguageFeatureEnabled(
+          FEATURE_V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES)) {
+    const Type* bitwise_agg_mode_type = types::BitwiseAggModeEnumType();
+    ZETASQL_RETURN_IF_ERROR(InsertType(types, options, bitwise_agg_mode_type));
   }
   return absl::OkStatus();
 }

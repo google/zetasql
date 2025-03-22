@@ -21,6 +21,7 @@
 #include <utility>
 
 #include "zetasql/common/status_payload_utils.h"
+#include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/proto/logging.pb.h"
 #include "absl/flags/flag.h"
 #include "zetasql/base/check.h"

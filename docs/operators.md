@@ -5,7 +5,7 @@
 # Operators
 
 ZetaSQL supports operators.
-Operators are represented by special characters or keywords; they do not use
+Operators are represented by special characters or keywords; they don't use
 function call syntax. An operator manipulates any number of data inputs, also
 called operands, and returns a result.
 
@@ -342,8 +342,8 @@ is interpreted as:
 
 `( ( x * y ) / z )`
 
-All comparison operators have the same priority, but comparison operators are
-not associative. Therefore, parentheses are required to resolve
+All comparison operators have the same priority, but comparison operators
+aren't associative. Therefore, parentheses are required to resolve
 ambiguity. For example:
 
 `(x < y) IS FALSE`
@@ -485,7 +485,8 @@ ambiguity. For example:
   <td><a href="#same_predicate"><code>SAME</code> predicate</a>
 </td>
   <td>
-    In a graph, determines if all graph elements in a list bind to the same node or edge.
+    In a graph, checks if all graph elements in a list bind to the same node
+    or edge.
   </td>
 </tr>
 
@@ -584,21 +585,21 @@ a field by position is useful when fields are un-named or have ambiguous names.
 
 **Return type**
 
-+ For `STRUCT`: SQL data type of `fieldname`. If a field is not found in
++ For `STRUCT`: SQL data type of `fieldname`. If a field isn't found in
   the struct, an error is thrown.
-+ For `PROTO`: SQL data type of `fieldname`. If a field is not found in
++ For `PROTO`: SQL data type of `fieldname`. If a field isn't found in
   the protocol buffer, an error is thrown.
-+ For `JSON`: `JSON`. If a field is not found in a JSON value, a SQL `NULL` is
++ For `JSON`: `JSON`. If a field isn't found in a JSON value, a SQL `NULL` is
   returned.
-+ For `GRAPH_ELEMENT`: SQL data type of `fieldname`. If a field (property) is
-  not found in the graph element, an error is produced.
++ For `GRAPH_ELEMENT`: SQL data type of `fieldname`. If a field (property) isn't
+  found in the graph element, an error is produced.
 
 **Example**
 
 In the following example, the field access operations are `.address` and
 `.country`.
 
-```sql
+```zetasql
 SELECT
   STRUCT(
     STRUCT('Yonge Street' AS street, 'Canada' AS country)
@@ -662,10 +663,10 @@ Input values:
 
 In following query, the array subscript operator is used to return values at
 specific position in `item_array`. This query also shows what happens when you
-reference an index (`6`) in an array that is out of range. If the `SAFE` prefix
+reference an index (`6`) in an array that's out of range. If the `SAFE` prefix
 is included, `NULL` is returned, otherwise an error is produced.
 
-```sql
+```zetasql
 SELECT
   ["coffee", "tea", "milk"] AS item_array,
   ["coffee", "tea", "milk"][0] AS item_index,
@@ -680,16 +681,16 @@ SELECT
  *----------------------------------+-------------+--------------+------------------*/
 ```
 
-When you reference an index that is out of range in an array, and a positional
-keyword that begins with `SAFE` is not included, an error is produced.
+When you reference an index that's out of range in an array, and a positional
+keyword that begins with `SAFE` isn't included, an error is produced.
 For example:
 
-```sql
+```zetasql
 -- Error. Array index 6 is out of bounds.
 SELECT ["coffee", "tea", "milk"][6] AS item_offset
 ```
 
-```sql
+```zetasql
 -- Error. Array index 6 is out of bounds.
 SELECT ["coffee", "tea", "milk"][OFFSET(6)] AS item_offset
 ```
@@ -735,10 +736,10 @@ at this time.
 
 In following query, the struct subscript operator is used to return values at
 specific locations in `item_struct` using position keywords. This query also
-shows what happens when you reference an index (`6`) in an struct that is out of
+shows what happens when you reference an index (`6`) in an struct that's out of
 range.
 
-```sql
+```zetasql
 SELECT
   STRUCT<INT64, STRING, BOOL>(23, "tea", FALSE)[0] AS field_index,
   STRUCT<INT64, STRING, BOOL>(23, "tea", FALSE)[OFFSET(0)] AS field_offset,
@@ -751,15 +752,15 @@ SELECT
  *-------------+--------------+---------------*/
 ```
 
-When you reference an index that is out of range in a struct, an error is
+When you reference an index that's out of range in a struct, an error is
 produced. For example:
 
-```sql
+```zetasql
 -- Error: Field ordinal 6 is out of bounds in STRUCT
 SELECT STRUCT<INT64, STRING, BOOL>(23, "tea", FALSE)[6] AS field_offset
 ```
 
-```sql
+```zetasql
 -- Error: Field ordinal 6 is out of bounds in STRUCT
 SELECT STRUCT<INT64, STRING, BOOL>(23, "tea", FALSE)[OFFSET(6)] AS field_offset
 ```
@@ -791,7 +792,7 @@ Input values:
   or equal to the size of the array, or the JSON expression doesn't represent
   a JSON array, a SQL `NULL` is returned.
 + `[field_name]`: A `STRING` expression that represents the name of a field in
-  JSON. If the field name is not found, or the JSON expression is not a
+  JSON. If the field name isn't found, or the JSON expression isn't a
   JSON object, a SQL `NULL` is returned.
 
 **Return type**
@@ -810,7 +811,7 @@ In the following example:
 + `['name']` is a JSON subscript expression with a field name that
   accesses a field.
 
-```sql
+```zetasql
 SELECT json_value.class.students[0]['name'] AS first_student
 FROM
   UNNEST(
@@ -832,7 +833,7 @@ FROM
 ### Protocol buffer map subscript operator 
 <a id="proto_subscript_operator"></a>
 
-```sql
+```zetasql
 proto_map_field_expression[proto_subscript_specifier]
 
 proto_subscript_specifier:
@@ -851,13 +852,13 @@ Input values:
 
 + `proto_map_field_expression`: A protocol buffer map field.
 + `key_keyword(key_name)`: Determines whether to produce `NULL` or
-  an error if the key is not present in the protocol buffer map field.
-  + `KEY(key_name)`: Returns an error if the key is not present in the
+  an error if the key isn't present in the protocol buffer map field.
+  + `KEY(key_name)`: Returns an error if the key isn't present in the
     protocol buffer map field.
-  + `SAFE_KEY(key_name)`: Returns `NULL` if the key is not present in the
+  + `SAFE_KEY(key_name)`: Returns `NULL` if the key isn't present in the
     protocol buffer map field.
   + `key_name`: When `key_name` is provided without a wrapping keyword,
-    it is the same as `KEY(key_name)`.
+    it's the same as `KEY(key_name)`.
 + `key_name`: The key in the protocol buffer map field. This operator returns
   `NULL` if the key is `NULL`.
 
@@ -879,7 +880,7 @@ message Item {
 In the following example, the subscript operator returns the value when the key
 is present.
 
-```sql
+```zetasql
 SELECT
   m.purchased[KEY('A')] AS map_value
 FROM
@@ -892,10 +893,10 @@ FROM
  *-----------*/
 ```
 
-When the key does not exist in the map field and you use `KEY`, an error is
+When the key doesn't exist in the map field and you use `KEY`, an error is
 produced. For example:
 
-```sql
+```zetasql
 -- ERROR: Key not found in map: 2
 SELECT
   m.purchased[KEY('B')] AS value
@@ -903,10 +904,10 @@ FROM
   (SELECT AS VALUE CAST("purchased { key: 'A' value: 2 }" AS Item)) AS m;
 ```
 
-When the key does not exist in the map field and you use `SAFE_KEY`,
+When the key doesn't exist in the map field and you use `SAFE_KEY`,
 the subscript operator returns `NULL`. For example:
 
-```sql
+```zetasql
 SELECT
   CAST(m.purchased[SAFE_KEY('B')] AS safe_key_missing
 FROM
@@ -922,7 +923,7 @@ FROM
 The subscript operator returns `NULL` when the map field or key is `NULL`.
 For example:
 
-```sql
+```zetasql
 SELECT
   CAST(NULL AS Item).purchased[KEY('A')] AS null_map,
   m.purchased[KEY(NULL)] AS null_key
@@ -939,7 +940,7 @@ FROM
 When a key is used without `KEY()` or `SAFE_KEY()`, it has the same behavior
 as if `KEY()` had been used. For example:
 
-```sql
+```zetasql
 SELECT
   m.purchased['A'] AS map_value
 FROM
@@ -984,7 +985,7 @@ Input values:
   For example, this query returns all values for the `items` field inside of the
   `my_array` array expression:
 
-  ```sql
+  ```zetasql
   WITH MyTable AS ( SELECT [STRUCT(['foo', 'bar'] AS items)] AS my_array )
   SELECT FLATTEN(my_array.items)
   FROM MyTable
@@ -1009,7 +1010,7 @@ Input values:
   For example, this query only returns values at position 0 in the `items`
   array field:
 
-  ```sql
+  ```zetasql
   WITH MyTable AS ( SELECT [STRUCT(['foo', 'bar'] AS items)] AS my_array )
   SELECT FLATTEN(my_array.items[OFFSET(0)])
   FROM MyTable
@@ -1017,13 +1018,13 @@ Input values:
 
 Details:
 
-The array elements field access operation is not a typical expression
+The array elements field access operation isn't a typical expression
 that returns a typed value; it represents a concept outside the type system
 and can only be interpreted by the following operations:
 
 +  [`FLATTEN` operation][flatten-operation]: Returns an array. For example:
 
-   ```sql
+   ```zetasql
    FLATTEN(my_array.sales.prices)
    ```
 +  [`UNNEST` operation][operators-link-to-unnest]: Returns a table.
@@ -1031,11 +1032,11 @@ and can only be interpreted by the following operations:
    Implicitly implements the `FLATTEN` operator.
    For example, these do the same thing:
 
-   ```sql
+   ```zetasql
    UNNEST(my_array.sales.prices)
    ```
 
-   ```sql
+   ```zetasql
    UNNEST(FLATTEN(my_array.sales.prices))
    ```
 +  [`FROM` clause][operators-link-to-from-clause]: Returns a table.
@@ -1044,15 +1045,15 @@ and can only be interpreted by the following operations:
    For example, these unnesting operations produce the same values for
    `results`:
 
-   ```sql
+   ```zetasql
    SELECT results FROM SalesTable, SalesTable.my_array.sales.prices AS results;
    ```
 
-   ```sql
+   ```zetasql
    SELECT results FROM SalesTable, UNNEST(my_array.sales.prices) AS results;
    ```
 
-   ```sql
+   ```zetasql
    SELECT results FROM SalesTable, UNNEST(FLATTEN(my_array.sales.prices)) AS results;
    ```
 
@@ -1099,7 +1100,7 @@ to the resulting array.
 The next examples in this section reference a table called `SalesTable`, that
 contains a nested struct in an array called `my_array`:
 
-```sql
+```zetasql
 WITH
   SalesTable AS (
     SELECT
@@ -1124,7 +1125,7 @@ SELECT * FROM SalesTable;
 This is what the array elements field access operator looks like in the
 `FLATTEN` operator:
 
-```sql
+```zetasql
 SELECT FLATTEN(my_array.sales.prices) AS all_prices FROM SalesTable;
 
 /*--------------*
@@ -1137,7 +1138,7 @@ SELECT FLATTEN(my_array.sales.prices) AS all_prices FROM SalesTable;
 This is how you use the array subscript operator to only return values at a
 specific index in the `prices` array:
 
-```sql
+```zetasql
 SELECT FLATTEN(my_array.sales.prices[OFFSET(0)]) AS first_prices FROM SalesTable;
 
 /*--------------*
@@ -1150,7 +1151,7 @@ SELECT FLATTEN(my_array.sales.prices[OFFSET(0)]) AS first_prices FROM SalesTable
 This is an example of an explicit `UNNEST` operation that includes the
 array elements field access operator:
 
-```sql
+```zetasql
 SELECT all_prices FROM SalesTable, UNNEST(my_array.sales.prices) AS all_prices
 
 /*------------*
@@ -1165,7 +1166,7 @@ SELECT all_prices FROM SalesTable, UNNEST(my_array.sales.prices) AS all_prices
 This is an example of an implicit `UNNEST` operation that includes the
 array elements field access operator:
 
-```sql
+```zetasql
 SELECT all_prices FROM SalesTable, SalesTable.my_array.sales.prices AS all_prices
 
 /*------------*
@@ -1177,10 +1178,10 @@ SELECT all_prices FROM SalesTable, SalesTable.my_array.sales.prices AS all_price
  *------------*/
 ```
 
-This query produces an error because one of the `prices` arrays does not have
+This query produces an error because one of the `prices` arrays doesn't have
 an element at index `1` and `OFFSET` is used:
 
-```sql
+```zetasql
 SELECT FLATTEN(my_array.sales.prices[OFFSET(1)]) AS second_prices FROM SalesTable;
 
 -- Error
@@ -1189,7 +1190,7 @@ SELECT FLATTEN(my_array.sales.prices[OFFSET(1)]) AS second_prices FROM SalesTabl
 This query is like the previous query, but `SAFE_OFFSET` is used. This
 produces a `NULL` value instead of an error.
 
-```sql
+```zetasql
 SELECT FLATTEN(my_array.sales.prices[SAFE_OFFSET(1)]) AS second_prices FROM SalesTable;
 
 /*---------------*
@@ -1202,7 +1203,7 @@ SELECT FLATTEN(my_array.sales.prices[SAFE_OFFSET(1)]) AS second_prices FROM Sale
 In this next example, an empty array and a `NULL` field value have been added to
 the query. These contribute no elements to the result.
 
-```sql
+```zetasql
 WITH
   SalesTable AS (
     SELECT
@@ -1245,7 +1246,7 @@ Nested data is common in protocol buffers that have data within repeated
 messages. The following example extracts a flattened array of songs from a
 table called `AlbumList` that contains a column called `Album` of type `PROTO`.
 
-```sql
+```zetasql
 WITH
   AlbumList AS (
     SELECT
@@ -1273,7 +1274,7 @@ The following example extracts a flattened array of album names, one album name
 per row. The data comes from a table called `AlbumList` that contains a
 proto-typed column called `Album`.
 
-```sql
+```zetasql
 WITH
   AlbumList AS (
     SELECT
@@ -1457,7 +1458,7 @@ Result types for Unary Minus:
 
 Operators '+' and '-' can be used for arithmetic operations on dates.
 
-```sql
+```zetasql
 date_expression + int64_expression
 int64_expression + date_expression
 date_expression - int64_expression
@@ -1475,7 +1476,7 @@ days.
 
 **Example**
 
-```sql
+```zetasql
 SELECT DATE "2020-09-22" + 1 AS day_later, DATE "2020-09-22" - 7 AS week_ago
 
 /*------------+------------*
@@ -1488,7 +1489,7 @@ SELECT DATE "2020-09-22" + 1 AS day_later, DATE "2020-09-22" - 7 AS week_ago
 ### Datetime subtraction 
 <a id="datetime_subtraction"></a>
 
-```sql
+```zetasql
 date_expression - date_expression
 timestamp_expression - timestamp_expression
 datetime_expression - datetime_expression
@@ -1504,7 +1505,7 @@ Computes the difference between two datetime values as an interval.
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   DATE "2021-05-20" - DATE "2020-04-19" AS date_diff,
   TIMESTAMP "2021-06-01 12:34:56.789" - TIMESTAMP "2021-05-31 00:00:00" AS time_diff
@@ -1521,7 +1522,7 @@ SELECT
 
 **Addition and subtraction**
 
-```sql
+```zetasql
 date_expression + interval_expression = DATETIME
 date_expression - interval_expression = DATETIME
 timestamp_expression + interval_expression = TIMESTAMP
@@ -1538,7 +1539,7 @@ value.
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   DATE "2021-04-20" + INTERVAL 25 HOUR AS date_plus,
   TIMESTAMP "2021-05-02 00:01:02.345" - INTERVAL 10 SECOND AS time_minus;
@@ -1552,7 +1553,7 @@ SELECT
 
 **Multiplication and division**
 
-```sql
+```zetasql
 interval_expression * integer_expression = INTERVAL
 interval_expression / integer_expression = INTERVAL
 
@@ -1564,7 +1565,7 @@ Multiplies or divides an interval value by an integer.
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   INTERVAL '1:2:3' HOUR TO SECOND * 10 AS mul1,
   INTERVAL 35 SECOND * 4 AS mul2,
@@ -1671,8 +1672,8 @@ This operator throws an error if <code>Y</code> is negative.</td>
 <td style="white-space:nowrap">
 <code>X</code>: Integer or <code>BYTES</code><br>
 <code>Y</code>: <code>INT64</code></td>
-<td>Shifts the first operand <code>X</code> to the right. This operator does not
-do sign bit extension with a signed type (i.e., it fills vacant bits on the left
+<td>Shifts the first operand <code>X</code> to the right. This operator doesn't
+perform sign bit extension with a signed type (i.e., it fills vacant bits on the left
 with <code>0</code>). This operator returns
 <code>0</code> or a byte sequence of
 <code>b'\x00'</code>
@@ -1716,7 +1717,7 @@ to produce a result. The result can be `TRUE`, `FALSE`, or `NULL`:
 
 The examples in this section reference a table called `entry_table`:
 
-```sql
+```zetasql
 /*-------*
  | entry |
  +-------+
@@ -1727,7 +1728,7 @@ The examples in this section reference a table called `entry_table`:
  *-------*/
 ```
 
-```sql
+```zetasql
 SELECT 'a' FROM entry_table WHERE entry = 'a'
 
 -- a => 'a' = 'a' => TRUE
@@ -1741,7 +1742,7 @@ SELECT 'a' FROM entry_table WHERE entry = 'a'
  *-------*/
 ```
 
-```sql
+```zetasql
 SELECT entry FROM entry_table WHERE NOT (entry = 'a')
 
 -- a => NOT('a' = 'a') => NOT(TRUE) => FALSE
@@ -1756,7 +1757,7 @@ SELECT entry FROM entry_table WHERE NOT (entry = 'a')
  *-------*/
 ```
 
-```sql
+```zetasql
 SELECT entry FROM entry_table WHERE entry IS NULL
 
 -- a => 'a' IS NULL => FALSE
@@ -1775,7 +1776,7 @@ SELECT entry FROM entry_table WHERE entry IS NULL
 ### Graph concatenation operator 
 <a id="graph_concatenation_operator"></a>
 
-```sql
+```zetasql
 graph_path || graph_path [ || ... ]
 ```
 
@@ -1794,7 +1795,7 @@ Arguments:
 This operator produces an error if the last node in the first path isn't the
 same as the first node in the second path.
 
-```sql
+```zetasql
 -- This successfully produces the concatenated path called `full_path`.
 MATCH
   p=(src:Account)-[t1:Transfers]->(mid:Account),
@@ -1802,9 +1803,9 @@ MATCH
 LET full_path = p || q
 ```
 
-```sql
+```zetasql
 -- This produces an error because the first node of the path to be concatenated
--- (mid2) is not equal to the last node of the previous path (mid1).
+-- (mid2) isn't equal to the last node of the previous path (mid1).
 MATCH
   p=(src:Account)-[t1:Transfers]->(mid1:Account),
   q=(mid2:Account)-[t2:Transfers]->(dst:Account)
@@ -1814,7 +1815,7 @@ LET full_path = p || q
 The first node in each subsequent path is removed from the
 concatenated path.
 
-```sql
+```zetasql
 -- The concatenated path called `full_path` contains these elements:
 -- src, t1, mid, t2, dst.
 MATCH
@@ -1832,7 +1833,7 @@ In the following query, a path called `p` and `q` are concatenated. Notice that
 second path. Also notice that the duplicate `mid` is removed from the
 concatenated path called `full_path`:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH
   p=(src:Account)-[t1:Transfers]->(mid:Account),
@@ -1857,8 +1858,8 @@ RETURN
 The following query produces an error because the last node for `p` must
 be the first node for `q`:
 
-```sql
--- Error: `mid1` and `mid2` are not equal.
+```zetasql
+-- Error: `mid1` and `mid2` aren't equal.
 GRAPH FinGraph
 MATCH
   p=(src:Account)-[t1:Transfers]->(mid1:Account),
@@ -1869,7 +1870,7 @@ RETURN TO_JSON(full_path) AS results
 
 The following query produces an error because the path called `p` is `NULL`:
 
-```sql
+```zetasql
 -- Error: a graph path is NULL.
 GRAPH FinGraph
 MATCH
@@ -1898,7 +1899,7 @@ ZetaSQL supports the following logical operators in
       <td><code>NOT</code></td>
       <td style="white-space:nowrap"><code>!X</code></td>
       <td>
-        Returns <code>TRUE</code> if <code>X</code> is not included, otherwise,
+        Returns <code>TRUE</code> if <code>X</code> isn't included, otherwise,
         returns <code>FALSE</code>.
       </td>
     </tr>
@@ -1929,10 +1930,13 @@ ZetaSQL supports the following logical operators in
 ZetaSQL supports the following graph-specific predicates in
 graph expressions. A predicate can produce `TRUE`, `FALSE`, or `NULL`.
 
++   [`ALL_DIFFERENT` predicate][all-different-predicate]
 +   [`PROPERTY_EXISTS` predicate][property-exists-predicate]
 +   [`IS SOURCE` predicate][is-source-predicate]
 +   [`IS DESTINATION` predicate][is-destination-predicate]
 +   [`SAME` predicate][same-predicate]
+
+[all-different-predicate]: #all_different_predicate
 
 [property-exists-predicate]: #property_exists_predicate
 
@@ -1945,7 +1949,7 @@ graph expressions. A predicate can produce `TRUE`, `FALSE`, or `NULL`.
 ### `IS DESTINATION` predicate 
 <a id="is_destination_predicate"></a>
 
-```sql
+```zetasql
 node IS [ NOT ] DESTINATION [ OF ] edge
 ```
 
@@ -1961,7 +1965,7 @@ Arguments:
 
 **Examples**
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (a:Account)-[transfer:Transfers]-(b:Account)
 WHERE a IS DESTINATION of transfer
@@ -1978,7 +1982,7 @@ RETURN a.id AS a_id, b.id AS b_id
  +-------------*/
 ```
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (a:Account)-[transfer:Transfers]-(b:Account)
 WHERE b IS DESTINATION of transfer
@@ -1998,7 +2002,7 @@ RETURN a.id AS a_id, b.id AS b_id
 ### `IS SOURCE` predicate 
 <a id="is_source_predicate"></a>
 
-```sql
+```zetasql
 node IS [ NOT ] SOURCE [ OF ] edge
 ```
 
@@ -2014,7 +2018,7 @@ Arguments:
 
 **Examples**
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (a:Account)-[transfer:Transfers]-(b:Account)
 WHERE a IS SOURCE of transfer
@@ -2031,7 +2035,7 @@ RETURN a.id AS a_id, b.id AS b_id
  +-------------*/
 ```
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (a:Account)-[transfer:Transfers]-(b:Account)
 WHERE b IS SOURCE of transfer
@@ -2051,7 +2055,7 @@ RETURN a.id AS a_id, b.id AS b_id
 ### `PROPERTY_EXISTS` predicate 
 <a id="property_exists_predicate"></a>
 
-```sql
+```zetasql
 PROPERTY_EXISTS(element, element_property)
 ```
 
@@ -2065,12 +2069,12 @@ Arguments:
 + `element`: The graph pattern variable for a node or edge element.
 + `element_property`: The name of the property to look for in `element`.
   The property name must refer to a property in the graph. If the property
-  does not exist in the graph, an error is produced. The property name is
+  doesn't exist in the graph, an error is produced. The property name is
   resolved in a case-insensitive manner.
 
 **Example**
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (n:Person|Account WHERE PROPERTY_EXISTS(n, name))
 RETURN n.name
@@ -2087,24 +2091,29 @@ RETURN n.name
 ### `SAME` predicate 
 <a id="same_predicate"></a>
 
-```sql
-SAME (element, element[, element])
+```zetasql
+SAME (element, element[, ...])
 ```
 
 **Description**
 
-In a graph, determines if all graph elements in a list bind to the same node or
-edge. Can produce `TRUE`, `FALSE`, or `NULL`.
+In a graph, checks if all graph elements in a list bind to the same node or
+edge. Returns `TRUE` if the elements bind to the same node or edge, otherwise
+`FALSE`.
 
 Arguments:
 
 + `element`: The graph pattern variable for a node or edge element.
 
+**Details**
+
+Produces an error if `element` is `NULL`.
+
 **Example**
 
-The following query checks to see if `a` and `b` are not the same person.
+The following query checks to see if `a` and `b` aren't the same person.
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (src:Account)<-[transfer:Transfers]-(dest:Account)
 WHERE NOT SAME(src, dest)
@@ -2198,7 +2207,7 @@ This operator supports specifying <a href="https://github.com/google/zetasql/blo
       <td>Not Equal</td>
       <td><code>X != Y</code><br><code>X &lt;&gt; Y</code></td>
       <td>
-        Returns <code>TRUE</code> if <code>X</code> is not equal to
+        Returns <code>TRUE</code> if <code>X</code> isn't equal to
         <code>Y</code>.
         
 
@@ -2252,7 +2261,7 @@ The following rules apply to operands in a comparison operator:
     converted to a common type without loss of precision,
     they are generally coerced to that common type for the comparison.
 +   A literal operand is generally coerced to the same data type of a
-    non-literal operand that is part of the comparison.
+    non-literal operand that's part of the comparison.
 +   Comparisons between operands that are signed and unsigned integers is
     allowed.
 +   Struct operands support only these comparison operators: equal
@@ -2276,7 +2285,7 @@ The following rules apply when comparing these data types:
     fields are `NULL`. In such cases:
 
     +   If all non-`NULL` field values are equal, the comparison returns `NULL`.
-    +   If any non-`NULL` field values are not equal, the comparison returns
+    +   If any non-`NULL` field values aren't equal, the comparison returns
         `FALSE`.
 
     The following table demonstrates how `STRUCT` data types are compared when
@@ -2316,8 +2325,8 @@ The following rules apply when comparing these data types:
 ### `EXISTS` operator 
 <a id="exists_operator"></a>
 
-```sql
-EXISTS ( subquery )
+```zetasql
+EXISTS( subquery )
 ```
 
 **Description**
@@ -2332,13 +2341,13 @@ see [`EXISTS` subqueries][exists-subqueries].
 In this example, the `EXISTS` operator returns `FALSE` because there are no
 rows in `Words` where the direction is `south`:
 
-```sql
+```zetasql
 WITH Words AS (
   SELECT 'Intend' as value, 'east' as direction UNION ALL
   SELECT 'Secure', 'north' UNION ALL
   SELECT 'Clarity', 'west'
  )
-SELECT EXISTS ( SELECT value FROM Words WHERE direction = 'south' ) as result;
+SELECT EXISTS( SELECT value FROM Words WHERE direction = 'south' ) as result;
 
 /*--------*
  | result |
@@ -2354,7 +2363,7 @@ SELECT EXISTS ( SELECT value FROM Words WHERE direction = 'south' ) as result;
 
 The `IN` operator supports the following syntax:
 
-```sql
+```zetasql
 search_value [NOT] IN value_set
 
 value_set:
@@ -2373,7 +2382,7 @@ if an equal value is found, `FALSE` if an equal value is excluded, otherwise
 `NULL`. `NOT IN` returns `FALSE` if an equal value is found, `TRUE` if an
 equal value is excluded, otherwise `NULL`.
 
-+ `search_value`: The expression that is compared to a set of values.
++ `search_value`: The expression that's compared to a set of values.
 + `value_set`: One or more values to compare to a search value.
    + `(expression[, ...])`: A list of expressions.
    + `(subquery)`: A [subquery][operators-subqueries] that returns
@@ -2383,13 +2392,13 @@ equal value is excluded, otherwise `NULL`.
       that returns a column of values from an array expression. This is
       equivalent to:
 
-      ```sql
+      ```zetasql
       IN (SELECT element FROM UNNEST(array_expression) AS element)
       ```
 
 This operator supports [collation][collation], but these limitations apply:
 
-+ `[NOT] IN UNNEST` does not support collation.
++ `[NOT] IN UNNEST` doesn't support collation.
 + If collation is used with a list of expressions, there must be at least one
   item in the list.
 
@@ -2472,7 +2481,7 @@ See the [Struct Type][operators-link-to-struct-type] topic for more information.
 You can use these `WITH` clauses to emulate temporary tables for
 `Words` and `Items` in the following examples:
 
-```sql
+```zetasql
 WITH Words AS (
   SELECT 'Intend' as value UNION ALL
   SELECT 'Secure' UNION ALL
@@ -2493,7 +2502,7 @@ SELECT * FROM Words;
  *----------*/
 ```
 
-```sql
+```zetasql
 WITH
   Items AS (
     SELECT STRUCT('blue' AS color, 'round' AS shape) AS info UNION ALL
@@ -2513,7 +2522,7 @@ SELECT * FROM Items;
 
 Example with `IN` and an expression:
 
-```sql
+```zetasql
 SELECT * FROM Words WHERE value IN ('Intend', 'Secure');
 
 /*----------*
@@ -2527,7 +2536,7 @@ SELECT * FROM Words WHERE value IN ('Intend', 'Secure');
 
 Example with `NOT IN` and an expression:
 
-```sql
+```zetasql
 SELECT * FROM Words WHERE value NOT IN ('Intend');
 
 /*----------*
@@ -2541,7 +2550,7 @@ SELECT * FROM Words WHERE value NOT IN ('Intend');
 
 Example with `IN`, a scalar subquery, and an expression:
 
-```sql
+```zetasql
 SELECT * FROM Words WHERE value IN ((SELECT 'Intend'), 'Clarity');
 
 /*----------*
@@ -2555,7 +2564,7 @@ SELECT * FROM Words WHERE value IN ((SELECT 'Intend'), 'Clarity');
 
 Example with `IN` and an `UNNEST` operation:
 
-```sql
+```zetasql
 SELECT * FROM Words WHERE value IN UNNEST(['Secure', 'Clarity']);
 
 /*----------*
@@ -2568,7 +2577,7 @@ SELECT * FROM Words WHERE value IN UNNEST(['Secure', 'Clarity']);
 
 Example with `IN` and a struct:
 
-```sql
+```zetasql
 SELECT
   (SELECT AS STRUCT Items.info) as item
 FROM
@@ -2703,7 +2712,7 @@ inverted.
 ### `IS DISTINCT FROM` operator 
 <a id="is_distinct"></a>
 
-```sql
+```zetasql
 expression_1 IS [NOT] DISTINCT FROM expression_2
 ```
 
@@ -2742,37 +2751,37 @@ Input values:
 
 These return `TRUE`:
 
-```sql
+```zetasql
 SELECT 1 IS DISTINCT FROM 2
 ```
 
-```sql
+```zetasql
 SELECT 1 IS DISTINCT FROM NULL
 ```
 
-```sql
+```zetasql
 SELECT 1 IS NOT DISTINCT FROM 1
 ```
 
-```sql
+```zetasql
 SELECT NULL IS NOT DISTINCT FROM NULL
 ```
 
 These return `FALSE`:
 
-```sql
+```zetasql
 SELECT NULL IS DISTINCT FROM NULL
 ```
 
-```sql
+```zetasql
 SELECT 1 IS DISTINCT FROM 1
 ```
 
-```sql
+```zetasql
 SELECT 1 IS NOT DISTINCT FROM 2
 ```
 
-```sql
+```zetasql
 SELECT 1 IS NOT DISTINCT FROM NULL
 ```
 
@@ -2783,7 +2792,7 @@ SELECT 1 IS NOT DISTINCT FROM NULL
 ### `LIKE` operator 
 <a id="like_operator"></a>
 
-```sql
+```zetasql
 expression_1 [NOT] LIKE expression_2
 ```
 
@@ -2794,7 +2803,7 @@ matches a pattern specified by the second operand `expression_2`,
 otherwise returns `FALSE`.
 
 `NOT LIKE` returns `TRUE` if the string in the first operand `expression_1`
-does not match a pattern specified by the second operand `expression_2`,
+doesn't match a pattern specified by the second operand `expression_2`,
 otherwise returns `FALSE`.
 
 Expressions can contain these characters:
@@ -2815,13 +2824,13 @@ This operator supports [collation][collation], but caveats apply:
 
     +   The character is a percent sign (`%`).
 
-    +   The character is an underscore (`_`) and the collator is not `und:ci`.
+    +   The character is an underscore (`_`) and the collator isn't `und:ci`.
 +   These additional rules apply to the underscore (`_`) character:
 
-    +   If the collator is not `und:ci`, an error is produced when an underscore
-        is not escaped in `expression_2`.
+    +   If the collator isn't `und:ci`, an error is produced when an underscore
+        isn't escaped in `expression_2`.
 
-    +   If the collator is not `und:ci`, the underscore is not allowed when the
+    +   If the collator isn't `und:ci`, the underscore isn't allowed when the
         operands have collation specified.
 
     +   Some _compatibility composites_, such as the fi-ligature (`ﬁ`) and the
@@ -2833,7 +2842,7 @@ This operator supports [collation][collation], but caveats apply:
 +   For a contiguous sequence of single character specifiers, equality
     depends on the collator and its language tags and tailoring.
 
-    +   By default, the `und:ci` collator does not fully normalize a string.
+    +   By default, the `und:ci` collator doesn't fully normalize a string.
         Some canonically equivalent strings are considered unequal for
         both the `=` and `LIKE` operators.
 
@@ -2869,32 +2878,32 @@ This operator supports [collation][collation], but caveats apply:
 The following examples illustrate how you can check to see if the string in the
 first operand matches a pattern specified by the second operand.
 
-```sql
+```zetasql
 -- Returns TRUE
 SELECT 'apple' LIKE 'a%';
 ```
 
-```sql
+```zetasql
 -- Returns FALSE
 SELECT '%a' LIKE 'apple';
 ```
 
-```sql
+```zetasql
 -- Returns FALSE
 SELECT 'apple' NOT LIKE 'a%';
 ```
 
-```sql
+```zetasql
 -- Returns TRUE
 SELECT '%a' NOT LIKE 'apple';
 ```
 
-```sql
+```zetasql
 -- Produces an error
 SELECT NULL LIKE 'a%';
 ```
 
-```sql
+```zetasql
 -- Produces an error
 SELECT 'apple' LIKE NULL;
 ```
@@ -2902,7 +2911,7 @@ SELECT 'apple' LIKE NULL;
 The following example illustrates how to search multiple patterns in an array
 to find a match with the `LIKE` operator:
 
-```sql
+```zetasql
 WITH Words AS
  (SELECT 'Intend with clarity.' as value UNION ALL
   SELECT 'Secure with intention.' UNION ALL
@@ -2922,32 +2931,32 @@ WHERE ARRAY_INCLUDES(['%ity%', '%and%'], pattern->(Words.value LIKE pattern));
 The following examples illustrate how collation can be used with the `LIKE`
 operator.
 
-```sql
+```zetasql
 -- Returns FALSE
 'Foo' LIKE '%foo%'
 ```
 
-```sql
+```zetasql
 -- Returns TRUE
 COLLATE('Foo', 'und:ci') LIKE COLLATE('%foo%', 'und:ci');
 ```
 
-```sql
+```zetasql
 -- Returns TRUE
 COLLATE('Foo', 'und:ci') = COLLATE('foo', 'und:ci');
 ```
 
-```sql
+```zetasql
 -- Produces an error
 COLLATE('Foo', 'und:ci') LIKE COLLATE('%foo%', 'binary');
 ```
 
-```sql
+```zetasql
 -- Produces an error
 COLLATE('Foo', 'und:ci') LIKE COLLATE('%f_o%', 'und:ci');
 ```
 
-```sql
+```zetasql
 -- Returns TRUE
 COLLATE('Foo_', 'und:ci') LIKE COLLATE('%foo\\_%', 'und:ci');
 ```
@@ -2957,17 +2966,17 @@ case. While the difference between `ß` and `ẞ` is case difference (tertiary
 difference), the difference between sharp `s` and `ss` is secondary and
 considered not equal using the `und:ci` collator. For example:
 
-```sql
+```zetasql
 -- Returns FALSE
 'MASSE' LIKE 'Maße';
 ```
 
-```sql
+```zetasql
 -- Returns FALSE
 COLLATE('MASSE', 'und:ci') LIKE '%Maße%';
 ```
 
-```sql
+```zetasql
 -- Returns FALSE
 COLLATE('MASSE', 'und:ci') = COLLATE('Maße', 'und:ci');
 ```
@@ -2981,17 +2990,17 @@ secondary strength.
 
 For example:
 
-```sql
+```zetasql
 -- Returns FALSE
 '\u3042' LIKE '%\u30A2%';
 ```
 
-```sql
+```zetasql
 -- Returns TRUE
 COLLATE('\u3042', 'und:ci') LIKE COLLATE('%\u30A2%', 'und:ci');
 ```
 
-```sql
+```zetasql
 -- Returns TRUE
 COLLATE('\u3042', 'und:ci') = COLLATE('\u30A2', 'und:ci');
 ```
@@ -3008,17 +3017,17 @@ collation units are considered the same.
 In the following examples, the difference between `'\u0061\u030A'` and
 `'\u00C5'` is tertiary.
 
-```sql
+```zetasql
 -- Returns FALSE
 '\u0061\u030A' LIKE '%\u00C5%';
 ```
 
-```sql
+```zetasql
 -- Returns TRUE
 COLLATE('\u0061\u030A', 'und:ci') LIKE '%\u00C5%';
 ```
 
-```sql
+```zetasql
 -- Returns TRUE
 COLLATE('\u0061\u030A', 'und:ci') = COLLATE('\u00C5', 'und:ci');
 ```
@@ -3026,12 +3035,12 @@ COLLATE('\u0061\u030A', 'und:ci') = COLLATE('\u00C5', 'und:ci');
 In the following example, `'\u0083'` is a `NO BREAK HERE` character and
 is ignored.
 
-```sql
+```zetasql
 -- Returns FALSE
 '\u0083' LIKE '';
 ```
 
-```sql
+```zetasql
 -- Returns TRUE
 COLLATE('\u0083', 'und:ci') LIKE '';
 ```
@@ -3047,7 +3056,7 @@ COLLATE('\u0083', 'und:ci') LIKE '';
 
 The quantified `LIKE` operator supports the following syntax:
 
-```sql
+```zetasql
 search_value [NOT] LIKE quantifier patterns
 
 quantifier:
@@ -3076,8 +3085,8 @@ Checks `search_value` for matches against several patterns. Each comparison is
 case-sensitive. Wildcard searches are supported.
 [Semantic rules][semantic-rules-quant-like] apply, but in general, `LIKE`
 returns `TRUE` if a matching pattern is found, `FALSE` if a matching pattern
-is not found, or otherwise `NULL`. `NOT LIKE` returns `FALSE` if a
-matching pattern is found, `TRUE` if a matching pattern is not found, or
+isn't found, or otherwise `NULL`. `NOT LIKE` returns `FALSE` if a
+matching pattern is found, `TRUE` if a matching pattern isn't found, or
 otherwise `NULL`.
 
 + `search_value`: The value to search for matching patterns. This value can be a
@@ -3177,7 +3186,7 @@ semantics apply in this order:
 The following example checks to see if the `Intend%` or `%intention%`
 pattern exists in a value and produces that value if either pattern is found:
 
-```sql
+```zetasql
 WITH Words AS
  (SELECT 'Intend with clarity.' as value UNION ALL
   SELECT 'Secure with intention.' UNION ALL
@@ -3197,7 +3206,7 @@ pattern exists in a value and produces that value if the pattern is found.
 
 Example with `LIKE ALL`:
 
-```sql
+```zetasql
 WITH Words AS
  (SELECT 'Intend with clarity.' as value UNION ALL
   SELECT 'Secure with intention.' UNION ALL
@@ -3214,9 +3223,9 @@ SELECT * FROM Words WHERE value LIKE ALL ('%ity%');
 
 The following example checks to see if the `%ity%`
 pattern exists in a value produces that value if the pattern
-is not found:
+isn't found:
 
-```sql
+```zetasql
 WITH Words AS
  (SELECT 'Intend with clarity.' as value UNION ALL
   SELECT 'Secure with intention.' UNION ALL
@@ -3232,7 +3241,7 @@ SELECT * FROM Words WHERE value NOT LIKE ('%ity%');
 
 You can use a subquery as an expression in `patterns`. For example:
 
-```sql
+```zetasql
 WITH Words AS
  (SELECT 'Intend with clarity.' as value UNION ALL
   SELECT 'Secure with intention.' UNION ALL
@@ -3249,7 +3258,7 @@ SELECT * FROM Words WHERE value LIKE ANY ((SELECT '%ion%'), '%and%');
 
 You can pass in a subquery for `patterns`. For example:
 
-```sql
+```zetasql
 WITH Words AS
  (SELECT 'Intend with clarity.' as value UNION ALL
   SELECT 'Secure with intention.' UNION ALL
@@ -3266,7 +3275,7 @@ SELECT * FROM Words WHERE value LIKE ANY (SELECT '%with%');
 
 You can pass in an array for `patterns`. For example:
 
-```sql
+```zetasql
 WITH Words AS
  (SELECT 'Intend with clarity.' as value UNION ALL
   SELECT 'Secure with intention.' UNION ALL
@@ -3283,7 +3292,7 @@ SELECT * FROM Words WHERE value LIKE ANY UNNEST(['%ion%', '%and%']);
 
 You can pass in an array and subquery for `patterns`. For example:
 
-```sql
+```zetasql
 WITH Words AS
  (SELECT 'Intend with clarity.' as value UNION ALL
   SELECT 'Secure with intention.' UNION ALL
@@ -3304,7 +3313,7 @@ WHERE
 The following queries illustrate some of the semantic rules for the
 quantified `LIKE` operator:
 
-```sql
+```zetasql
 SELECT
   NULL LIKE ANY ('a', 'b'), -- NULL
   'a' LIKE ANY ('a', 'c'), -- TRUE
@@ -3318,7 +3327,7 @@ SELECT
   'a' NOT LIKE ANY ('b', NULL); -- TRUE
 ```
 
-```sql
+```zetasql
 SELECT
   NULL LIKE SOME ('a', 'b'), -- NULL
   'a' LIKE SOME ('a', 'c'), -- TRUE
@@ -3332,7 +3341,7 @@ SELECT
   'a' NOT LIKE SOME ('b', NULL); -- TRUE
 ```
 
-```sql
+```zetasql
 SELECT
   NULL LIKE ALL ('a', 'b'), -- NULL
   'a' LIKE ALL ('a', '%a%'), -- TRUE
@@ -3349,14 +3358,14 @@ SELECT
 The following queries illustrate some of the semantic rules for the
 quantified `LIKE` operator and collation:
 
-```sql
+```zetasql
 SELECT
   COLLATE('a', 'und:ci') LIKE ALL ('a', 'A'), -- TRUE
   'a' LIKE ALL (COLLATE('a', 'und:ci'), 'A'), -- TRUE
   'a' LIKE ALL ('%A%', COLLATE('a', 'und:ci')); -- TRUE
 ```
 
-```sql
+```zetasql
 -- ERROR: BYTES and STRING values can't be used together.
 SELECT b'a' LIKE ALL (COLLATE('a', 'und:ci'), 'A');
 ```
@@ -3381,7 +3390,7 @@ The `NEW` operator only supports protocol buffers and uses the following syntax:
  + `NEW protocol_buffer {...}`: Creates a
 protocol buffer using a map constructor.
 
-  ```sql
+  ```zetasql
   NEW protocol_buffer {
     field_name: literal_or_expression
     field_name { ... }
@@ -3391,7 +3400,7 @@ protocol buffer using a map constructor.
 +   `NEW protocol_buffer (...)`: Creates a protocol buffer using a parenthesized
     list of arguments.
 
-    ```sql
+    ```zetasql
     NEW protocol_buffer(field [AS alias], ...field [AS alias])
     ```
 
@@ -3399,7 +3408,7 @@ protocol buffer using a map constructor.
 
 The following example uses the `NEW` operator with a map constructor:
 
-```sql
+```zetasql
 NEW Universe {
   name: "Sol"
   closest_planets: ["Mercury", "Venus", "Earth" ]
@@ -3421,7 +3430,7 @@ NEW Universe {
 The following example uses the `NEW` operator with a parenthesized list of
 arguments:
 
-```sql
+```zetasql
 SELECT
   key,
   name,
@@ -3476,7 +3485,7 @@ Note: The concatenation operator is translated into a nested
 ### `WITH` expression 
 <a id="with_expression"></a>
 
-```sql
+```zetasql
 WITH(variable_assignment[, ...], result_expression)
 
 variable_assignment:
@@ -3498,7 +3507,7 @@ expressions within the `WITH` expression. Returns the value of
     +   `variable_name`: The name of the variable.
 
     +   `expression`: The value to assign to the variable.
-+   `result_expression`: An expression that is the `WITH` expression's result.
++   `result_expression`: An expression that's the `WITH` expression's result.
     `result_expression` can use all of the variables defined before it.
 
 **Return Type**
@@ -3519,7 +3528,7 @@ expressions within the `WITH` expression. Returns the value of
 The following example first concatenates variable `a` with `b`, then variable
 `b` with `c`:
 
-```sql
+```zetasql
 SELECT WITH(a AS '123',               -- a is '123'
             b AS CONCAT(a, '456'),    -- b is '123456'
             c AS '789',               -- c is '789'
@@ -3532,11 +3541,11 @@ SELECT WITH(a AS '123',               -- a is '123'
  *-------------*/
 ```
 
-In the following example, the volatile expression `RAND()` behaves as if it is
+In the following example, the volatile expression `RAND()` behaves as if it's
 evaluated only once. This means the value of the result expression will always
 be zero:
 
-```sql
+```zetasql
 SELECT WITH(a AS RAND(), a - a);
 
 /*---------*
@@ -3549,7 +3558,7 @@ SELECT WITH(a AS RAND(), a - a);
 Aggregate or analytic function
 results can be stored in variables. In this example, an average is computed:
 
-```sql
+```zetasql
 SELECT WITH(s AS SUM(input), c AS COUNT(input), s/c)
 FROM UNNEST([1.0, 2.0, 3.0]) AS input;
 
@@ -3560,10 +3569,10 @@ FROM UNNEST([1.0, 2.0, 3.0]) AS input;
  *---------*/
 ```
 
-Variables cannot be used in aggregate or
+Variables can't be used in aggregate or
 analytic function call arguments:
 
-```sql
+```zetasql
 SELECT WITH(diff AS a - b, AVG(diff))
 FROM UNNEST([
               STRUCT(1 AS a, 2 AS b),
@@ -3571,7 +3580,7 @@ FROM UNNEST([
               STRUCT(5 AS a, 6 AS b),
             ]);
 
--- ERROR: WITH variables like 'diff' cannot be used in aggregate or analytic
+-- ERROR: WITH variables like 'diff' can't be used in aggregate or analytic
 -- function arguments.
 ```
 

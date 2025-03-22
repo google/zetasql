@@ -2730,3 +2730,43 @@ QueryStmt
               +-arr_col#4 := ColumnRef(type=ARRAY<INT64>, column=Table5.arr_col#2)
 ==
 
+# Non-path expression is not deduplicated by GROUP BY ALL yet.
+SELECT a + b, a + b, COUNT(*)
+FROM (
+  SELECT 1 AS expr, 1 AS a, 1 AS b
+) T
+GROUP BY ALL
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.$col1#5 AS `$col1` [INT64]
+| +-$groupby.$col2#6 AS `$col2` [INT64]
+| +-$aggregate.$agg1#4 AS `$col3` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.$col1#5, $groupby.$col2#6, $aggregate.$agg1#4]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$groupby.$col1#5, $groupby.$col2#6, $aggregate.$agg1#4]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=T.[expr#1, a#2, b#3]
+        |   +-expr_list=
+        |   | +-expr#1 := Literal(type=INT64, value=1)
+        |   | +-a#2 := Literal(type=INT64, value=1)
+        |   | +-b#3 := Literal(type=INT64, value=1)
+        |   +-input_scan=
+        |     +-SingleRowScan
+        +-group_by_list=
+        | +-$col1#5 :=
+        | | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+        | |   +-ColumnRef(type=INT64, column=T.a#2)
+        | |   +-ColumnRef(type=INT64, column=T.b#3)
+        | +-$col2#6 :=
+        |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+        |     +-ColumnRef(type=INT64, column=T.a#2)
+        |     +-ColumnRef(type=INT64, column=T.b#3)
+        +-aggregate_list=
+          +-$agg1#4 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+==
+

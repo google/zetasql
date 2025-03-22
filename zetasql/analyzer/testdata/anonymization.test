@@ -5822,7 +5822,7 @@ QueryStmt
 
 # We can't run the unparser because the rewrite generates ORDER BY in an
 # aggregate function and the appropriate language feature is not enabled.
-[no_run_unparser]
+[no_run_sqlbuilder]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization ANON_VAR_POP(int64)
 from SimpleTypesWithAnonymizationUid;
@@ -5894,7 +5894,7 @@ QueryStmt
 
 # We can't run the unparser because the rewrite generates ORDER BY in an
 # aggregate function and the appropriate language feature is not enabled.
-[no_run_unparser]
+[no_run_sqlbuilder]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization ANON_VAR_POP(double), ANON_SUM(double)
 from SimpleTypesWithAnonymizationUid;
@@ -5975,7 +5975,7 @@ QueryStmt
 
 # We can't run the unparser because the rewrite generates ORDER BY in an
 # aggregate function and the appropriate language feature is not enabled.
-[no_run_unparser]
+[no_run_sqlbuilder]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization ANON_VAR_POP(int64), ANON_VAR_POP(double)
 from SimpleTypesWithAnonymizationUid;
@@ -6065,7 +6065,7 @@ QueryStmt
 
 # We can't run the unparser because the rewrite generates ORDER BY in an
 # aggregate function and the appropriate language feature is not enabled.
-[no_run_unparser]
+[no_run_sqlbuilder]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization ANON_STDDEV_POP(int64 CLAMPED BETWEEN 2 AND 3.5)
 from SimpleTypesWithAnonymizationUid;
@@ -6141,7 +6141,7 @@ QueryStmt
 
 # We can't run the unparser because the rewrite generates ORDER BY in an
 # aggregate function and the appropriate language feature is not enabled.
-[no_run_unparser]
+[no_run_sqlbuilder]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization ANON_STDDEV_POP(int64)
 from SimpleTypesWithAnonymizationUid;
@@ -6213,7 +6213,7 @@ QueryStmt
 
 # We can't run the unparser because the rewrite generates ORDER BY in an
 # aggregate function and the appropriate language feature is not enabled.
-[no_run_unparser]
+[no_run_sqlbuilder]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization ANON_STDDEV_POP(int64), ANON_STDDEV_POP(double)
 from SimpleTypesWithAnonymizationUid;
@@ -6303,7 +6303,7 @@ QueryStmt
 
 # We can't run the unparser because the rewrite generates ORDER BY in an
 # aggregate function and the appropriate language feature is not enabled.
-[no_run_unparser]
+[no_run_sqlbuilder]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization ANON_STDDEV_POP(double), ANON_SUM(double)
 from SimpleTypesWithAnonymizationUid;
@@ -6384,7 +6384,7 @@ QueryStmt
 
 # We can't run the unparser because the rewrite generates ORDER BY in an
 # aggregate function and the appropriate language feature is not enabled.
-[no_run_unparser]
+[no_run_sqlbuilder]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization ANON_STDDEV_POP(double), ANON_VAR_POP(double)
 from SimpleTypesWithAnonymizationUid;
@@ -6472,7 +6472,7 @@ QueryStmt
 
 # We can't run the unparser because the rewrite generates ORDER BY in an
 # aggregate function and the appropriate language feature is not enabled.
-[no_run_unparser]
+[no_run_sqlbuilder]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization
     ANON_PERCENTILE_CONT(int64, 0.4),
@@ -6568,7 +6568,7 @@ QueryStmt
 
 # We can't run the unparser because the rewrite generates ORDER BY in an
 # aggregate function and the appropriate language feature is not enabled.
-[no_run_unparser]
+[no_run_sqlbuilder]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization
     ANON_PERCENTILE_CONT(int64, 0.4 CLAMPED BETWEEN 2 AND 3),
@@ -6672,7 +6672,7 @@ QueryStmt
 
 # We can't run the unparser because the rewrite generates ORDER BY in an
 # aggregate function and the appropriate language feature is not enabled.
-[no_run_unparser]
+[no_run_sqlbuilder]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization
     ANON_QUANTILES(int64, 4 CLAMPED BETWEEN 2 AND 3),
@@ -7819,7 +7819,7 @@ ERROR: Unknown option: wrong_option [at 1:89]
 
 # We can't run the unparser because the rewrite generates ORDER BY in an
 # aggregate function and the appropriate language feature is not enabled.
-[no_run_unparser]
+[no_run_sqlbuilder]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 [language_features=ANONYMIZATION,JSON_TYPE]
 select with anonymization
@@ -7980,7 +7980,7 @@ QueryStmt
           +-custom_option := Literal(type=STRING, value="option_value")
 ==
 
-[no_run_unparser]
+[no_run_sqlbuilder]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 [language_features=ANONYMIZATION]
 select with anonymization anon_avg(double with report(foRMat=ProTO))
@@ -9268,7 +9268,7 @@ QueryStmt
 
 [language_features=ANONYMIZATION,V_1_4_GROUPING_BUILTIN{{|,V_1_4_ENFORCE_CONDITIONAL_EVALUATION}}]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
-[no_run_unparser]
+[no_run_sqlbuilder]
 # The anonymization rewrite combined conditional evaluation leads to a
 # ResolvedAST that is inexpressible in SQL due to the extra AggScan.
 SELECT WITH ANONYMIZATION OPTIONS({{epsilon=1e20, k_threshold=1|max_groups_contributed = 1}})

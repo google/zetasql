@@ -21,6 +21,7 @@
 #include <memory>
 #include <optional>
 #include <stack>
+#include <utility>
 #include <vector>
 
 #include "zetasql/base/arena.h"
@@ -67,7 +68,9 @@ class LookaheadTransformer final {
   static absl::StatusOr<std::unique_ptr<LookaheadTransformer>> Create(
       BisonParserMode mode, absl::string_view filename, absl::string_view input,
       int start_offset, const LanguageOptions& language_options,
-      const macros::MacroCatalog* macro_catalog, zetasql_base::UnsafeArena* arena);
+      MacroExpansionMode macro_expansion_mode,
+      const macros::MacroCatalog* macro_catalog, zetasql_base::UnsafeArena* arena,
+      std::vector<std::unique_ptr<StackFrame>>& stack_frames);
 
   // Returns the next token id, returning its location in `yylloc` and image in
   // `text`.

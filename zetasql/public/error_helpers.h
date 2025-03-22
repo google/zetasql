@@ -163,9 +163,15 @@ absl::Status UpdateErrorLocationPayloadWithFilenameIfNotPresent(
 // for the caret substring to work correctly, `input_start_line_offset` and
 // `input_start_column_offset` are added only after the caret string has been
 // extracted.
+// `input_start_byte_offset` is the number of bytes in the original input before
+// the input `query`. As the given internal location would have offsets relative
+// to that larger original input, the `input_start_byte_offset` needs to be
+// subtracted in order to calculate the offset in the input `query` (e.g. for
+// the caret substring).
 absl::Status ConvertInternalErrorLocationToExternal(
     absl::Status status, absl::string_view query,
-    int input_start_line_offset = 0, int input_start_column_offset = 0);
+    int input_start_line_offset = 0, int input_start_column_offset = 0,
+    int input_start_byte_offset = 0);
 
 // The type url for the ErrorMessageMode payload. Used to indicate what mode
 // was applied to a given error message (e.g. caret on same line or multiline).

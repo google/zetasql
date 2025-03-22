@@ -34,6 +34,7 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
+#include "absl/strings/substitute.h"
 
 namespace zetasql::functions::match_recognize {
 namespace {
@@ -512,6 +513,31 @@ TEST_F(NFABuilderTest, NamedQueryParameterInQuantifierBound) {
                     })));
 }
 
+TEST_F(NFABuilderTest, NamedQueryParameterInQuantifierBound_OutOfRange) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const ResolvedMatchRecognizeScan* scan,
+      resolver_.ResolvePattern("A{@lower_bound, @upper_bound}",
+                               {.parameters = QueryParametersMap{
+                                    {"lower_bound", types::Int64Type()},
+                                    {"upper_bound", types::Int64Type()}}}));
+
+  EXPECT_THAT(
+      NFABuilder::BuildNFAForPattern(
+          *scan,
+          [](std::variant<int, absl::string_view> param)
+              -> absl::StatusOr<Value> {
+            absl::string_view param_name = std::get<absl::string_view>(param);
+            if (param_name == "lower_bound") {
+              return values::Int64(2);
+            } else if (param_name == "upper_bound") {
+              return values::Int64(kMaxSupportedQuantifierBound + 1);
+            } else {
+              return absl::InvalidArgumentError("Unexpected param name");
+            }
+          }),
+      StatusIs(absl::StatusCode::kOutOfRange));
+}
+
 TEST_F(NFABuilderTest, PositionalQueryParameterInQuantifierBound) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       const ResolvedMatchRecognizeScan* scan,
@@ -542,6 +568,30 @@ TEST_F(NFABuilderTest, PositionalQueryParameterInQuantifierBound) {
                         State("N4", {Edge("N5")}),
                         State("N5", {}),
                     })));
+}
+
+TEST_F(NFABuilderTest, PositionalQueryParameterInQuantifierBound_OutOfRange) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const ResolvedMatchRecognizeScan* scan,
+      resolver_.ResolvePattern("A{?, ?}",
+                               {.parameters = std::vector<const Type*>{
+                                    types::Int64Type(), types::Int64Type()}}));
+
+  EXPECT_THAT(
+      NFABuilder::BuildNFAForPattern(
+          *scan,
+          [](std::variant<int, absl::string_view> param)
+              -> absl::StatusOr<Value> {
+            int param_position = std::get<int>(param);
+            if (param_position == 1) {
+              return values::Int64(2);
+            } else if (param_position == 2) {
+              return values::Int64(kMaxSupportedQuantifierBound + 1);
+            } else {
+              return absl::InvalidArgumentError("Unexpected param position");
+            }
+          }),
+      StatusIs(absl::StatusCode::kOutOfRange));
 }
 
 TEST_F(NFABuilderTest, QueryParametersUnavailable) {
@@ -932,6 +982,70 @@ TEST_F(NFABuilderTest, PatternTooComplexInEpsilonRemover) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       const ResolvedMatchRecognizeScan* scan,
       resolver_.ResolvePattern("(((A|B|C|D|E|F|){,50}){,10})"));
+  EXPECT_THAT(NFABuilder::BuildNFAForPattern(*scan),
+              StatusIs(absl::StatusCode::kOutOfRange));
+}
+
+TEST_F(NFABuilderTest, MaxSupportedQuantifierBound_Exact_Works) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const ResolvedMatchRecognizeScan* scan,
+                       resolver_.ResolvePattern(absl::Substitute(
+                           "A{$0}", kMaxSupportedQuantifierBound)));
+  ZETASQL_EXPECT_OK(NFABuilder::BuildNFAForPattern(*scan));
+}
+
+TEST_F(NFABuilderTest, MaxSupportedQuantifierBoundPlusOne_Exact_Fails) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const ResolvedMatchRecognizeScan* scan,
+                       resolver_.ResolvePattern(absl::Substitute(
+                           "A{$0}", kMaxSupportedQuantifierBound + 1)));
+  EXPECT_THAT(NFABuilder::BuildNFAForPattern(*scan),
+              StatusIs(absl::StatusCode::kOutOfRange));
+}
+
+TEST_F(NFABuilderTest, MaxSupportedQuantifierBound_Lower_Works) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const ResolvedMatchRecognizeScan* scan,
+                       resolver_.ResolvePattern(absl::Substitute(
+                           "A{$0,}", kMaxSupportedQuantifierBound)));
+  ZETASQL_EXPECT_OK(NFABuilder::BuildNFAForPattern(*scan));
+}
+
+TEST_F(NFABuilderTest, MaxSupportedQuantifierBoundPlusOne_Lower_Fails) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const ResolvedMatchRecognizeScan* scan,
+                       resolver_.ResolvePattern(absl::Substitute(
+                           "A{$0,}", kMaxSupportedQuantifierBound + 1)));
+  EXPECT_THAT(NFABuilder::BuildNFAForPattern(*scan),
+              StatusIs(absl::StatusCode::kOutOfRange));
+}
+
+TEST_F(NFABuilderTest, MaxSupportedQuantifierBound_Upper_Works) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const ResolvedMatchRecognizeScan* scan,
+                       resolver_.ResolvePattern(absl::Substitute(
+                           "A{,$0}", kMaxSupportedQuantifierBound)));
+  ZETASQL_EXPECT_OK(NFABuilder::BuildNFAForPattern(*scan));
+}
+
+TEST_F(NFABuilderTest, MaxSupportedQuantifierBoundPlusOne_Upper_Fails) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const ResolvedMatchRecognizeScan* scan,
+                       resolver_.ResolvePattern(absl::Substitute(
+                           "A{,$0}", kMaxSupportedQuantifierBound + 1)));
+  EXPECT_THAT(NFABuilder::BuildNFAForPattern(*scan),
+              StatusIs(absl::StatusCode::kOutOfRange));
+}
+
+TEST_F(NFABuilderTest,
+       MaxSupportedQuantifierBound_UpperWithLowerBoundPresent_Works) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const ResolvedMatchRecognizeScan* scan,
+                       resolver_.ResolvePattern(absl::Substitute(
+                           "A{$0,$1}", kMaxSupportedQuantifierBound - 1,
+                           kMaxSupportedQuantifierBound)));
+  ZETASQL_EXPECT_OK(NFABuilder::BuildNFAForPattern(*scan));
+}
+
+TEST_F(NFABuilderTest,
+       MaxSupportedQuantifierBoundPlusOne_UpperWithLowerBoundPresent_Fails) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const ResolvedMatchRecognizeScan* scan,
+                       resolver_.ResolvePattern(absl::Substitute(
+                           "A{$0, $1}", kMaxSupportedQuantifierBound,
+                           kMaxSupportedQuantifierBound + 1)));
   EXPECT_THAT(NFABuilder::BuildNFAForPattern(*scan),
               StatusIs(absl::StatusCode::kOutOfRange));
 }

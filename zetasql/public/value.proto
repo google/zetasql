@@ -86,6 +86,12 @@ message ValueProto {
     repeated MapEntry entry = 1;
   }
 
+  // A Timestamp with picosecond precision. It is a count of seconds and
+  // fractions of seconds at picosecond resolution. The count is relative to
+  // Unix Epoch, i.e. UTC midnight on January 1, 1970.
+  message TimestampPicos {
+  }
+
   // Each non-null value will have exactly one of these fields specified.
   // Null values will have no fields set.
   oneof value {

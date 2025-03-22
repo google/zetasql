@@ -1,4 +1,5 @@
 [default language_features=JSON_TYPE]
+
 SELECT JSON '1'
 --
 QueryStmt
@@ -581,8 +582,8 @@ SELECT JSON_KEYS(JSON '999', mode=>TO_JSON_STRING(json_col))
 
 [language_features=JSON_TYPE,NAMED_ARGUMENTS,RANGE_TYPE,TO_JSON_UNSUPPORTED_FIELDS]
 [enabled_ast_rewrites=DEFAULTS]
-[run_unparser]
-[show_unparsed]
+[run_sqlbuilder]
+[show_sqlbuilder_output]
 
 # TO_JSON with unsupported_fields defauls to 'FAIL'
 SELECT TO_JSON(RANGE(DATE '2022-10-01', NULL))
@@ -604,15 +605,21 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  TO_JSON(`RANGE`(DATE "2022-10-01", CAST(NULL AS DATE)), stringify_wide_numbers  => false) AS a_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 SELECT
   TO_JSON(`RANGE`(DATE "2022-10-01", CAST(NULL AS DATE)), stringify_wide_numbers  => false) AS a_1;
 ==
 
 [language_features=JSON_TYPE,NAMED_ARGUMENTS,RANGE_TYPE,TO_JSON_UNSUPPORTED_FIELDS]
 [enabled_ast_rewrites=DEFAULTS]
-[run_unparser]
-[show_unparsed]
+[run_sqlbuilder]
+[show_sqlbuilder_output]
 
 # TO_JSON with unsupported_fields set to 'IGNORE' or 'PLACEHOLDER'
 SELECT TO_JSON(RANGE(DATE '2022-10-01', NULL), unsupported_fields=>{{'IGNORE'|'PLACEHOLDER'}})
@@ -637,7 +644,13 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  TO_JSON(`RANGE`(DATE "2022-10-01", CAST(NULL AS DATE)), stringify_wide_numbers  => false, unsupported_fields  => CAST("IGNORE" AS UNSUPPORTED_FIELDS)) AS a_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 SELECT
   TO_JSON(`RANGE`(DATE "2022-10-01", CAST(NULL AS DATE)), stringify_wide_numbers  => false, unsupported_fields  => CAST("IGNORE" AS UNSUPPORTED_FIELDS)) AS a_1;
 --
@@ -660,14 +673,19 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  TO_JSON(`RANGE`(DATE "2022-10-01", CAST(NULL AS DATE)), stringify_wide_numbers  => false, unsupported_fields  => CAST("PLACEHOLDER" AS UNSUPPORTED_FIELDS)) AS a_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 SELECT
   TO_JSON(`RANGE`(DATE "2022-10-01", CAST(NULL AS DATE)), stringify_wide_numbers  => false, unsupported_fields  => CAST("PLACEHOLDER" AS UNSUPPORTED_FIELDS)) AS a_1;
 ==
 
 [language_features=JSON_TYPE,NAMED_ARGUMENTS,RANGE_TYPE,TO_JSON_UNSUPPORTED_FIELDS]
 [enabled_ast_rewrites=DEFAULTS]
-[no_run_unparser]
 
 # TO_JSON with unsupported_fields set to invalid value 'blah'
 SELECT TO_JSON(RANGE(DATE '2022-10-01', NULL), unsupported_fields=>'blah')
@@ -681,8 +699,8 @@ SELECT TO_JSON(RANGE(DATE '2022-10-01', NULL), unsupported_fields=>'blah')
 # Case sensitive: setting unsupported_fields to `iGnore` triggers hint
 [language_features=JSON_TYPE,NAMED_ARGUMENTS,RANGE_TYPE,TO_JSON_UNSUPPORTED_FIELDS]
 [enabled_ast_rewrites=DEFAULTS]
-[run_unparser]
-[show_unparsed]
+[run_sqlbuilder]
+[show_sqlbuilder_output]
 
 SELECT TO_JSON(RANGE(DATE '2022-10-01', NULL), unsupported_fields=>'iGnore')
 --
@@ -695,8 +713,8 @@ SELECT TO_JSON(RANGE(DATE '2022-10-01', NULL), unsupported_fields=>'iGnore')
 # Case sensitive: setting unsupported_fields to `iGnore` triggers hint
 [language_features=JSON_TYPE,NAMED_ARGUMENTS,RANGE_TYPE,TO_JSON_UNSUPPORTED_FIELDS]
 [enabled_ast_rewrites=DEFAULTS]
-[run_unparser]
-[show_unparsed]
+[run_sqlbuilder]
+[show_sqlbuilder_output]
 
 SELECT TO_JSON(RANGE(DATE '2022-10-01', NULL), unsupported_fields=>'iGnore')
 --

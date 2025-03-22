@@ -14,6 +14,8 @@
 # limitations under the License.
 #
 
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
+
 package(
     default_visibility = ["//visibility:public"],
 )
@@ -79,5 +81,6 @@ cc_test(
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:string_view",
+        "@com_google_absl//absl/types:span",
     ],
 )

@@ -378,6 +378,39 @@ ARRAY<STRUCT<BOOL>>[{true}]
 
 # Various error cases with the SAFE version of the functions.
 [required_features=ENCRYPTION,V_1_2_SAFE_FUNCTION_CALL]
+[name=safe_decrypt_string_functions]
+SELECT
+  -- Bad keyset
+  SAFE.AEAD.DECRYPT_STRING(b'', b'', ''),
+  -- Bad ciphertext/aad for the keyset
+  SAFE.AEAD.DECRYPT_STRING(KEYS.NEW_KEYSET('AEAD_AES_GCM_256'), b'', ''),
+  -- Bad plaintext
+  SAFE.DETERMINISTIC_DECRYPT_STRING(
+    keyset,
+    b'',
+    aad_string)
+FROM DeterministicKeysetTable
+CROSS JOIN PlaintextTable
+ORDER BY 1, 2
+--
+ARRAY<STRUCT<STRING, STRING, STRING>>[known order:
+  {NULL, NULL, NULL},
+  {NULL, NULL, NULL},
+  {NULL, NULL, NULL},
+  {NULL, NULL, NULL},
+  {NULL, NULL, NULL},
+  {NULL, NULL, NULL},
+  {NULL, NULL, NULL},
+  {NULL, NULL, NULL},
+  {NULL, NULL, NULL},
+  {NULL, NULL, NULL},
+  {NULL, NULL, NULL},
+  {NULL, NULL, NULL}
+]
+==
+
+# Various error cases with the SAFE version of the functions.
+[required_features=ENCRYPTION,V_1_2_SAFE_FUNCTION_CALL]
 [name=safe_functions]
 SELECT
   -- Bad keyset

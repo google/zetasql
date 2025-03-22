@@ -117,6 +117,67 @@ ComputeOp(
 \
 ==
 
+# Unused column Key gets pruned.
+[mode=analyze,unanalyze]
+FROM KeyValue
+|> SELECT value
+--
+QueryStmt
++-output_column_list=
+| +-KeyValue.Value#2 AS value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[KeyValue.Value#2]
+    +-input_scan=
+      +-TableScan(column_list=[KeyValue.Value#2], table=KeyValue, column_index_list=[1])
+
+SELECT
+  KeyValue.Value AS value
+FROM
+  KeyValue;
+\
+==
+
+# Unused column Key gets pruned.
+[mode=analyze,unanalyze]
+select 1 from KeyValue GROUP BY key, key+1
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#5 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#5]
+    +-expr_list=
+    | +-$col1#5 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-AggregateScan
+        +-input_scan=
+        | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
+        +-group_by_list=
+          +-key#3 := ColumnRef(type=INT64, column=KeyValue.Key#1)
+          +-$groupbycol2#4 :=
+            +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+              +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+              +-Literal(type=INT64, value=1)
+
+SELECT
+  1 AS a_4
+FROM
+  (
+    SELECT
+      NULL
+    FROM
+      (
+        SELECT
+          KeyValue.Key AS a_1
+        FROM
+          KeyValue
+      ) AS keyvalue_2
+    GROUP BY keyvalue_2.a_1, (keyvalue_2.a_1) + 1
+  ) AS aggregatescan_3;
+\
+==
 COMMIT
 --
 ERROR: INVALID_ARGUMENT: The statement CommitStmt is not supported for execution.
@@ -239,6 +300,8 @@ DESCRIBE {{|fUNCtion}} sqrt
 --
 Function SQRT
 Signature: SQRT(DOUBLE) -> DOUBLE
+Signature: SQRT(NUMERIC) -> NUMERIC
+Signature: SQRT(BIGNUMERIC) -> BIGNUMERIC
 \
 ==
 
@@ -268,22 +331,13 @@ Signature: RANK() -> INT64
 [catalog={{none|sample}}]
 DESCRIBE sum
 --
-ALTERNATION GROUP: none
---
 Aggregate function SUM
 Signature: SUM(INT64) -> INT64
 Signature: SUM(UINT64) -> UINT64
 Signature: SUM(DOUBLE) -> DOUBLE
 Signature: SUM(NUMERIC) -> NUMERIC
 Signature: SUM(BIGNUMERIC) -> BIGNUMERIC
-\
---
-ALTERNATION GROUP: sample
---
-Aggregate function SUM
-Signature: SUM(INT64) -> INT64
-Signature: SUM(UINT64) -> UINT64
-Signature: SUM(DOUBLE) -> DOUBLE
+Signature: SUM(INTERVAL) -> INTERVAL
 \
 ==
 
@@ -673,23 +727,178 @@ Signature: f([x=>]INT64) -> DOUBLE
 \
 ==
 
-# Macros aren't turned on by default yet.
+# Statement-at-a-time macro support, i.e. macro invocations have access to
+# definitions from statements preceeding them.
 [mode={{parse|analyze|execute}}]
-DEFINE MACRO abc 123
+DEFINE MACRO foo "foo";
+SELECT $foo();
 --
-ERROR: INVALID_ARGUMENT: Macros are not supported [at 1:8]
-DEFINE MACRO abc 123
+ALTERNATION GROUP: parse
+--
+DefineMacroStatement [0-22]
+  Identifier(foo) [13-16]
+  MacroBody("foo") [17-22]
+
+Macro registered: foo
+QueryStatement [24-37]
+  Query [24-37]
+    Select [24-37]
+      SelectList [31-37]
+        SelectColumn [31-37]
+          StringLiteral [31-37]
+            StringLiteralComponent("foo") [31-37]
+\
+--
+ALTERNATION GROUP: analyze
+--
+Macro registered: foo
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := Literal(type=STRING, value="foo")
+    +-input_scan=
+      +-SingleRowScan
+\
+--
+ALTERNATION GROUP: execute
+--
+Macro registered: foo
++-----+
+|     |
++-----+
+| foo |
++-----+
+\
+==
+
+# Macros support positional arguments
+[mode=execute]
+DEFINE MACRO Identity $1;
+SELECT $Identity(1);
+--
+Macro registered: Identity
++---+
+|   |
++---+
+| 1 |
++---+
+\
+==
+
+# Implicit token splicing is disallowed
+[mode=parse]
+DEFINE MACRO MacroA a;
+DEFINE MACRO MacroB b;
+
+SELECT $MacroA()$MacroB();
+--
+DefineMacroStatement [0-21]
+  Identifier(MacroA) [13-19]
+  MacroBody(a) [20-21]
+
+Macro registered: MacroA
+DefineMacroStatement [23-44]
+  Identifier(MacroB) [36-42]
+  MacroBody(b) [43-44]
+
+Macro registered: MacroB
+ERROR: INVALID_ARGUMENT: Splicing tokens (a) and (b) [at 4:17]
+SELECT $MacroA()$MacroB();
+                ^
+==
+
+# Macros can be defined only once
+[mode=execute]
+DEFINE MACRO m once;
+DEFINE MACRO m twice;
+--
+Macro registered: m
+ERROR: ALREADY_EXISTS: Macro m already exists
+==
+
+# Macros expand lazily. For example the first macro body references a macro that
+# is not known at definition time.
+[mode=execute]
+DEFINE MACRO foo $bar();
+DEFINE MACRO bar "bar";
+SELECT $foo();
+--
+Macro registered: foo
+Macro registered: bar
++-----+
+|     |
++-----+
+| bar |
++-----+
+\
+==
+
+# Invoking a macro that is not defined is an error.
+[mode=execute]
+SELECT $UndefinedMacro();
+--
+ERROR: INVALID_ARGUMENT: Macro 'UndefinedMacro' not found. [at 1:8]
+SELECT $UndefinedMacro();
        ^
 ==
 
-[mode={{parse|analyze|execute}}]
-DEFINE MACRO abc 123;
-SELECT $abc;
+# Extraneous arguments to macro invocations is an error
+DEFINE MACRO Identity $1;
+SELECT $Identity(1);
+SELECT $Identity(1, 2);
 --
-ERROR: INVALID_ARGUMENT: Macros are not supported [at 1:8]
-DEFINE MACRO abc 123;
+Macro registered: Identity
++---+
+|   |
++---+
+| 1 |
++---+
+
+ERROR: INVALID_ARGUMENT: Macro invocation has too many arguments (2) while the definition only references up to 1 arguments [at 3:8]
+SELECT $Identity(1, 2);
        ^
 ==
+
+# All arguments are required, failure to provide them is an error
+DEFINE MACRO TakesTwoArgs $1, $2;
+SELECT $TakesTwoArgs(1);
+--
+Macro registered: TakesTwoArgs
+ERROR: INVALID_ARGUMENT: Argument index $2 out of range. Invocation was provided only 1 arguments. [at 1:31]
+DEFINE MACRO TakesTwoArgs $1, $2;
+                              ^
+Expanded from macro:TakesTwoArgs [at 2:8]
+SELECT $TakesTwoArgs(1);
+       ^
+==
+
+# Macro invocations must be followed by parentheses
+DEFINE MACRO foo "foo";
+SELECT $foo;
+--
+Macro registered: foo
+ERROR: INVALID_ARGUMENT: Invocation of macro 'foo' missing argument list. [at 2:12]
+SELECT $foo;
+           ^
+==
+
+# Macros are not expanded within a literal
+DEFINE MACRO foo "foo";
+SELECT "$foo()bar";
+--
+Macro registered: foo
++-----------+
+|           |
++-----------+
+| $foo()bar |
++-----------+
+\
+==
+
 
 # Setting a LANGUAGE is required if we don't have a SQL body.
 # execute_query just makes a signature for these but can't execute them.
@@ -1075,7 +1284,6 @@ SELECT * FROM multi;   # The table.
 # This test depends on TVFs, which are not supported by the reference
 # implementation and execute_query tool, and so the query which references a TVF
 # produces an error when executed.
-# TODO: b/371219410 - Update test with result when TVF support is launched.
 SELECT * FROM multi(); # The TVF.
 --
 Function registered.
@@ -1101,7 +1309,12 @@ Table-valued function: MULTI() -> TABLE<x INT64>
 +---+
 +---+
 
-ERROR: UNIMPLEMENTED: TVF multi does not support the API in evaluator.h
++---+
+| x |
++---+
+| 1 |
++---+
+\
 ==
 
 # This case with stacked DDL objects that trigger rewriters exercises code that
@@ -1132,9 +1345,8 @@ CreateTableFunctionStmt
 |   | +-mm#3 := Literal(type=INT64, value=5)
 |   +-input_scan=
 |     +-ArrayScan
-|       +-column_list=[t.y#1, $array.uu#2]
 |       +-input_scan=
-|       | +-TableScan(column_list=[t.y#1], table=t, column_index_list=[0])
+|       | +-TableScan(table=t)
 |       +-array_expr_list=
 |       | +-Literal(type=ARRAY<INT64>, value=[1, 2])
 |       +-element_column_list=[$array.uu#2]
@@ -1206,8 +1418,8 @@ where value is null
 --
 DeleteStmt
 +-table_scan=
-| +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
-+-column_access_list=NONE,READ
+| +-TableScan(column_list=[KeyValue.Value#2], table=KeyValue, column_index_list=[1])
++-column_access_list=READ
 +-where_expr=
   +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
     +-ColumnRef(type=STRING, column=KeyValue.Value#2)
@@ -1345,6 +1557,8 @@ UnaryAbTableArgSelfJoin
 UnaryAbTableArgWithScalarArgs
 UnaryAbTableArgWithScalarArgsTempl
 UnaryTableArg
+UnaryTableArgAggregatedWithOrderBy
+UnaryTableArgColumnsUnused
 ==
 
 SHOW tvfs like '%foo%'
@@ -1823,34 +2037,12 @@ QueryStmt
 | +-KeyValue.Value#2 AS Value [STRING]
 | +-$pipe_extend.$col1#3 AS `$col1` [INT64]
 +-query=
-  +-PipeIfScan
+  +-ProjectScan
     +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $pipe_extend.$col1#3]
+    +-expr_list=
+    | +-$col1#3 := Literal(type=INT64, value=55)
     +-input_scan=
-    | +-PipeIfScan
-    |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $pipe_extend.$col1#3]
-    |   +-input_scan=
-    |   | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
-    |   +-selected_case=0
-    |   +-if_case_list=
-    |     +-PipeIfCase
-    |       +-condition=
-    |       | +-Constant(c1, type=BOOL, value=true)
-    |       +-subpipeline_sql="( |> EXTEND 55 )"
-    |       +-subpipeline=
-    |         +-Subpipeline
-    |           +-scan=
-    |             +-ProjectScan
-    |               +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $pipe_extend.$col1#3]
-    |               +-expr_list=
-    |               | +-$col1#3 := Literal(type=INT64, value=55)
-    |               +-input_scan=
-    |                 +-SubpipelineInputScan(column_list=KeyValue.[Key#1, Value#2])
-    +-selected_case=-1
-    +-if_case_list=
-      +-PipeIfCase
-        +-condition=
-        | +-Constant(c2, type=BOOL, value=false)
-        +-subpipeline_sql="( |> EXTEND 66 )"
+      +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
 
 +-----+-------+----+
 | Key | Value |    |
@@ -1882,3 +2074,77 @@ select x AS xx |> IF x THEN ( |> EXTEND 66 );
 | false |
 +-------+
 \
+==
+
+SELECT (JSON "{}")[0];
+--
++------+
+|      |
++------+
+| NULL |
++------+
+\
+==
+
+# Subscript access on MAP types using
+[catalog=none]
+[mode=analyze,execute]
+[enabled_language_features=DEV,+V_1_4_BARE_ARRAY_ACCESS]
+
+SELECT MAP_FROM_ARRAY([('a', 1)])['a']
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$subscript(MAP<STRING, INT64>, STRING) -> INT64)
+    |     +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, INT64>>) -> MAP<STRING, INT64>)
+    |     | +-Literal(type=ARRAY<STRUCT<STRING, INT64>>, value=[{"a", 1}])
+    |     +-Literal(type=STRING, value="a")
+    +-input_scan=
+      +-SingleRowScan
+
++---+
+|   |
++---+
+| 1 |
++---+
+\
+==
+
+# Deprecation warnings
+[catalog=sample]
+[mode=analyze]
+
+FROM KeyValue
+|> WINDOW RANK() OVER (order by key)
+--
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS Key [INT64]
+| +-KeyValue.Value#2 AS Value [STRING]
+| +-$analytic.$analytic1#4 AS `$col1` [INT64]
++-query=
+  +-AnalyticScan
+    +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#4]
+    +-input_scan=
+    | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+    +-function_group_list=
+      +-AnalyticFunctionGroup
+        +-order_by=
+        | +-WindowOrdering
+        |   +-order_by_item_list=
+        |     +-OrderByItem
+        |       +-column_ref=
+        |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        +-analytic_function_list=
+          +-$analytic1#4 := AnalyticFunctionCall(ZetaSQL:rank() -> INT64)
+
+Deprecation warnings:
+The pipe WINDOW operator is deprecated; Use EXTEND instead [at 2:1]
+|> WINDOW RANK() OVER (order by key)
+^

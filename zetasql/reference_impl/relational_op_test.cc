@@ -24,14 +24,12 @@
 #include <optional>
 #include <ostream>
 #include <string>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/evaluator_test_table.h"
 #include "zetasql/base/testing/status_matchers.h"
-#include "zetasql/common/testing/testing_proto_util.h"
 #include "zetasql/common/thread_stack.h"
 #include "zetasql/public/evaluator_table_iterator.h"
 #include "zetasql/public/functions/array_zip_mode.pb.h"
@@ -60,11 +58,10 @@
 #include "absl/strings/ascii.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
+#include "absl/strings/string_view.h"
 #include "absl/time/time.h"
-#include "absl/types/optional.h"
-#include "google/protobuf/wire_format_lite.h"
-#include "zetasql/base/source_location.h"
-#include "zetasql/base/status.h"
+#include "absl/types/span.h"
 #include "zetasql/base/status_macros.h"
 #include "zetasql/base/clock.h"
 
@@ -3903,7 +3900,7 @@ LoopOp(
       std::unique_ptr<TupleIterator> iter,
       loop_op->CreateIterator({&params_data}, /*num_extra_slots=*/1, &context));
   EXPECT_EQ(iter->DebugString(), "LoopTupleIterator: inner iterator: nullptr");
-  EXPECT_TRUE(iter->PreservesOrder());
+  EXPECT_FALSE(iter->PreservesOrder());
   ZETASQL_ASSERT_OK_AND_ASSIGN(std::vector<TupleData> data,
                        ReadFromTupleIterator(iter.get()));
 
@@ -4024,7 +4021,7 @@ LoopOp(
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<TupleIterator> iter,
       loop_op->CreateIterator({&params_data}, /*num_extra_slots=*/1, &context));
-  EXPECT_TRUE(iter->PreservesOrder());
+  EXPECT_FALSE(iter->PreservesOrder());
   ZETASQL_ASSERT_OK_AND_ASSIGN(std::vector<TupleData> data,
                        ReadFromTupleIterator(iter.get()));
   ASSERT_THAT(data, SizeIs(3));
@@ -4113,7 +4110,8 @@ TEST_F(CreateIteratorTest, ComputeOp) {
   std::vector<TupleData> test_values =
       CreateTestTupleDatas({{Int64(1), Int64(10)}, {Int64(2), Int64(20)}});
   auto input = absl::WrapUnique(
-      new TestRelationalOp({a, b}, test_values, /*preserves_order=*/true));
+      new TestRelationalOp({a, b}, test_values, /*preserves_order=*/true,
+                           /*may_preserve_order=*/false));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_a, DerefExpr::Create(a, Int64Type()));
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_b, DerefExpr::Create(b, Int64Type()));
@@ -4148,6 +4146,108 @@ TEST_F(CreateIteratorTest, ComputeOp) {
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto compute_op,
                        ComputeOp::Create(std::move(args), std::move(input)));
+  EXPECT_FALSE(compute_op->may_preserve_order());
+  EXPECT_EQ(compute_op->IteratorDebugString(),
+            "ComputeTupleIterator(TestTupleIterator)");
+  EXPECT_EQ(
+      "ComputeOp(\n"
+      "+-map: {\n"
+      "| +-$plus := Add($a, $b),\n"
+      "| +-$minus := Subtract($a, $b),\n"
+      "| +-$param := $param},\n"
+      "+-input: TestRelationalOp)",
+      compute_op->DebugString());
+  std::unique_ptr<TupleSchema> output_schema = compute_op->CreateOutputSchema();
+  EXPECT_THAT(output_schema->variables(),
+              ElementsAre(a, b, plus, minus, param));
+
+  TupleSchema params_schema({param});
+  std::vector<const SharedProtoState*> params_shared_states;
+  TupleData params_data =
+      CreateTestTupleData({GetProtoValue(100)}, &params_shared_states);
+  const SharedProtoState* params_shared_state = params_shared_states[0];
+
+  ZETASQL_ASSERT_OK(compute_op->SetSchemasForEvaluation({&params_schema}));
+
+  EvaluationContext context((EvaluationOptions()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<TupleIterator> iter,
+      compute_op->CreateIterator({&params_data},
+                                 /*num_extra_slots=*/1, &context));
+  EXPECT_EQ(iter->DebugString(), "ComputeTupleIterator(TestTupleIterator)");
+  EXPECT_TRUE(iter->PreservesOrder());
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::vector<TupleData> data,
+                       ReadFromTupleIterator(iter.get()));
+  ASSERT_EQ(data.size(), 2);
+  EXPECT_THAT(data[0].slots(),
+              ElementsAre(IsTupleSlotWith(Int64(1), IsNull()),
+                          IsTupleSlotWith(Int64(10), IsNull()),
+                          IsTupleSlotWith(Int64(11), IsNull()),
+                          IsTupleSlotWith(Int64(-9), IsNull()),
+                          IsTupleSlotWith(GetProtoValue(100),
+                                          HasRawPointer(params_shared_state)),
+                          _));
+  EXPECT_THAT(data[1].slots(),
+              ElementsAre(IsTupleSlotWith(Int64(2), IsNull()),
+                          IsTupleSlotWith(Int64(20), IsNull()),
+                          IsTupleSlotWith(Int64(22), IsNull()),
+                          IsTupleSlotWith(Int64(-18), IsNull()),
+                          IsTupleSlotWith(GetProtoValue(100),
+                                          HasRawPointer(params_shared_state)),
+                          _));
+
+  // Check that scrambling works.
+  EvaluationContext scramble_context(GetScramblingEvaluationOptions());
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      iter, compute_op->CreateIterator({&params_data}, /*num_extra_slots=*/1,
+                                       &scramble_context));
+  EXPECT_EQ(iter->DebugString(),
+            "ReorderingTupleIterator(ComputeTupleIterator(TestTupleIterator))");
+  EXPECT_FALSE(iter->PreservesOrder());
+}
+
+TEST_F(CreateIteratorTest, ComputeOp_OrderedInput) {
+  VariableId a("a"), b("b"), param("param"), minus("minus"), plus("plus");
+  std::vector<TupleData> test_values =
+      CreateTestTupleDatas({{Int64(1), Int64(10)}, {Int64(2), Int64(20)}});
+  auto input = absl::WrapUnique(
+      new TestRelationalOp({a, b}, test_values, /*preserves_order=*/true,
+                           /*may_preserve_order=*/true));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_a, DerefExpr::Create(a, Int64Type()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_b, DerefExpr::Create(b, Int64Type()));
+
+  std::vector<std::unique_ptr<ValueExpr>> plus_args;
+  plus_args.push_back(std::move(deref_a));
+  plus_args.push_back(std::move(deref_b));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto plus_expr,
+                       ScalarFunctionCallExpr::Create(
+                           CreateFunction(FunctionKind::kAdd, Int64Type()),
+                           std::move(plus_args), DEFAULT_ERROR_MODE));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_a_again, DerefExpr::Create(a, Int64Type()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_b_again, DerefExpr::Create(b, Int64Type()));
+
+  std::vector<std::unique_ptr<ValueExpr>> minus_args;
+  minus_args.push_back(std::move(deref_a_again));
+  minus_args.push_back(std::move(deref_b_again));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto minus_expr,
+                       ScalarFunctionCallExpr::Create(
+                           CreateFunction(FunctionKind::kSubtract, Int64Type()),
+                           std::move(minus_args), DEFAULT_ERROR_MODE));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_param, DerefExpr::Create(param, Int64Type()));
+
+  std::vector<std::unique_ptr<ExprArg>> args;
+  args.push_back(std::make_unique<ExprArg>(plus, std::move(plus_expr)));
+  args.push_back(std::make_unique<ExprArg>(minus, std::move(minus_expr)));
+  args.push_back(std::make_unique<ExprArg>(param, std::move(deref_param)));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto compute_op,
+                       ComputeOp::Create(std::move(args), std::move(input)));
+  EXPECT_TRUE(compute_op->may_preserve_order());
   EXPECT_EQ(compute_op->IteratorDebugString(),
             "ComputeTupleIterator(TestTupleIterator)");
   EXPECT_EQ(

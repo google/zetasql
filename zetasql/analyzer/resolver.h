@@ -31,7 +31,6 @@
 #include <variant>
 #include <vector>
 
-#include "zetasql/base/atomic_sequence_num.h"
 #include "zetasql/analyzer/annotation_propagator.h"
 #include "zetasql/analyzer/column_cycle_detector.h"
 #include "zetasql/analyzer/container_hash_equals.h"
@@ -85,18 +84,16 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/container/node_hash_map.h"
+#include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
-#include "absl/strings/ascii.h"
-#include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
-#include "absl/types/optional.h"
 #include "absl/types/span.h"
-#include "absl/types/variant.h"
 #include "google/protobuf/descriptor.h"
 #include "zetasql/base/general_trie.h"
 #include "zetasql/base/ret_check.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
@@ -196,6 +193,12 @@ class Resolver {
   absl::Status ResolveStatement(
       absl::string_view sql, const ASTStatement* statement,
       std::unique_ptr<const ResolvedStatement>* output);
+
+  // Do final checks and updates at the end of ResolveStatement.
+  // These are also applied at the end of resolve methods for terminal pipe
+  // operators that correspond to statements.
+  absl::Status FinishResolveStatement(const ASTStatement* ast_stmt,
+                                      ResolvedStatement* stmt);
 
   // Resolve a standalone expression outside a query.
   // `sql` contains the text at which `ast_expression` points.
@@ -647,6 +650,23 @@ class Resolver {
   // resolving z and w.
   int side_effect_scope_depth_ = 0;
 
+  // Used when inside a MATCH_RECOGNIZE() clause, to express the state needed
+  // to compute special MATCH_RECOGNIZE functions, i.e., the assigned resolved
+  // columns expressing the needed information.
+  struct MatchRecognizeState {
+    ResolvedColumn match_number_column;
+    ResolvedColumn match_row_number_column;
+    ResolvedColumn classifier_column;
+  };
+
+  // The current state of the innermost MATCH_RECOGNIZE clause.
+  // Not a stack because we do not allow nested MATCH_RECOGNIZE clauses.
+  std::optional<MatchRecognizeState> match_recognize_state_;
+
+  // This is true if we found any of the operators that only work in
+  // ResolvedGeneralizedQueryStmt (not in ResolvedQueryStmt).
+  bool needs_generalized_query_stmt_ = false;
+
   AnalyzerOutputProperties analyzer_output_properties_;
 
   // Store list of named subqueries currently visible.
@@ -683,6 +703,15 @@ class Resolver {
     // This also includes the is_value_table bit indicating if the WITH subquery
     // produced a value table.
     const std::shared_ptr<const NameList> name_list;
+
+    // If not OK, represents the error that should be returned when this
+    // subquery is referenced. The caller may choose to update its location
+    // to the actual reference site.
+    //
+    // Example usage:
+    // - Set this field to disallow recursive references inside the subpipline
+    //   input of a pipe recursive union.
+    absl::Status access_error_message = absl::OkStatus();
   };
 
   // Keeps track of all active named subqueries.
@@ -703,9 +732,13 @@ class Resolver {
   // Stores additional information about each ResolvedRecursiveRefScan node
   // needed by the resolver, but not persisted in the tree.
   struct RecursiveRefScanInfo {
-    // ASTPathExpression representing the table reference; used for error
+    // The AST node representing the table reference; used for error
     // reporting only.
-    const ASTPathExpression* path;
+    const ASTNode* ast_location;
+
+    // The path corresponding to the table reference. It is used for error
+    // reporting only.
+    std::vector<IdString> path;
 
     // Unique name of the recursive query being referenced. Used to identify
     // cases where an inner WITH alias contains a recursive reference to an
@@ -725,8 +758,16 @@ class Resolver {
   absl::flat_hash_map<const ResolvedRecursiveRefScan*, RecursiveRefScanInfo>
       recursive_ref_info_;
 
+  // Add a CTE definition.  For each name, this maintains a stack in
+  // `named_subquery_map_` storing previous definitions for that name.
   void AddNamedSubquery(const std::vector<IdString>& alias,
                         std::unique_ptr<NamedSubquery> named_subquery);
+
+  // Removes the innermost CTE with name `alias` from `named_subquery_map_`.
+  //
+  // Returns an internal error if `alias` has no active definition.
+  absl::Status RemoveInnermostNamedSubqueryWithAlias(IdString alias);
+
   bool IsPathExpressionStartingFromNamedSubquery(
       const ASTPathExpression& path_expr) const;
 
@@ -797,7 +838,7 @@ class Resolver {
   // resolved nodes.
   std::unique_ptr<AnnotationPropagator> annotation_propagator_;
 
-  // Holds active name lists that are available for GROUP_ROWS() function
+  // Holds active NameLists that are available for GROUP_ROWS() function
   // invoked from inside WITH GROUP ROWS(...). Contains an entry for each nested
   // usage of WITH GROUP ROWS syntax. Boolean component is used to track usage
   // of GROUP_ROWS() TVF inside WITH GROUP ROWS(...). It is enforced that
@@ -1054,8 +1095,17 @@ class Resolver {
   // statements.
   // The CREATE TABLE/MODEL statement must not have a column definition list
   // (otherwise, use ResolveAndAdaptQueryAndOutputColumns instead).
-  // - <query>, <query_scan>, <is_value_table> and <output_column_list> cannot
-  //   be null.
+  // - For regular CREATE TABLE AS SELECT,
+  //     <ast_query> is the query.
+  //     <pipe_input_name_list> is null.
+  //     <query_scan> is unset, and will get the created scan on output.
+  // - For CREATE TABLE inside ResolvedPipeCreateTableScan
+  //     <ast_query> is null.
+  //     <pipe_input_name_list> is the NameList for the pipe input table.
+  //     <query_scan> is the initial scan for the pipe input table. It may be
+  //       modified to add casts.
+  // - <is_value_table> and <output_column_list> are pointers for output values
+  //   and cannot be null.
   // - <internal_table_name> should be a static IdString such as
   //   kCreateAsId and kViewId; it's used as an alias of the SELECT query.
   // - <view_explicit_column_list> the list of columns with optional column
@@ -1071,7 +1121,8 @@ class Resolver {
   //   <column_definition_list> is null, but for CREATE
   //   TABLE/MATERIALIZED_VIEW/MODEL the <column_definition_list> is non-null.
   absl::Status ResolveQueryAndOutputColumns(
-      const ASTQuery* query, absl::string_view object_type,
+      const ASTNode* ast_location, const ASTQuery* ast_query,
+      const NameList* pipe_input_name_list, absl::string_view object_type,
       bool is_recursive_view, const std::vector<IdString>& table_name_id_string,
       IdString internal_table_name,
       const ASTColumnWithOptionsList* view_explicit_column_list,
@@ -1086,7 +1137,10 @@ class Resolver {
   // ensure that the output types are the same as in <column_definition_list>.
   // No pointer in the arguments can be null.
   absl::Status ResolveAndAdaptQueryAndOutputColumns(
-      const ASTQuery* query, const ASTPathExpression* like_table_name,
+      const ASTNode* ast_location,
+      const ASTQuery* ast_query,             // Present with AS SELECT.
+      const NameList* pipe_input_name_list,  // Present with pipe input.
+      const ASTPathExpression* like_table_name,
       const ASTTableElementList* table_element_list,
       absl::Span<const ASTColumnDefinition* const> ast_column_definitions,
       std::vector<std::unique_ptr<const ResolvedColumnDefinition>>&
@@ -1283,8 +1337,12 @@ class Resolver {
       const ASTIndexUnnestExpressionList* unnest_expression_list) const;
 
   // Resolve a CREATE TABLE [AS SELECT] statement.
+  // For pipe CREATE TABLE, `pipe_input_name_list` provides the input table
+  // schema.
   absl::Status ResolveCreateTableStatement(
       const ASTCreateTableStatement* ast_statement,
+      std::unique_ptr<const ResolvedScan>* pipe_input_scan,
+      const NameList* pipe_input_name_list,
       std::unique_ptr<ResolvedStatement>* output);
 
   // Resolve a CREATE MODEL statement.
@@ -1567,8 +1625,13 @@ class Resolver {
       ResolvedColumnToCatalogColumnHashMap&
           resolved_columns_to_catalog_columns_for_target_scan);
 
+  // Resolve INSERT statement or pipe INSERT.
+  // `pipe_input_name_list` and `pipe_input_scan` provide the pipe input table
+  // when resolving pipe INSERT.
   absl::Status ResolveInsertStatement(
       const ASTInsertStatement* ast_statement,
+      const NameList* pipe_input_name_list,
+      std::unique_ptr<const ResolvedScan> pipe_input_scan,
       std::unique_ptr<ResolvedInsertStmt>* output);
   absl::Status ResolveInsertStatementImpl(
       const ASTInsertStatement* ast_statement, IdString target_alias,
@@ -1576,6 +1639,8 @@ class Resolver {
       std::unique_ptr<const ResolvedTableScan> table_scan,
       const ResolvedColumnList& insert_columns,
       const NameScope* nested_scope,  // NULL for non-nested INSERTs.
+      const NameList* pipe_input_name_list,
+      std::unique_ptr<const ResolvedScan> pipe_input_scan,
       ResolvedColumnToCatalogColumnHashMap&
           resolved_columns_to_catalog_columns_for_target_scan,
       std::unique_ptr<ResolvedInsertStmt>* output);
@@ -1653,6 +1718,10 @@ class Resolver {
       const ASTAlterAllRowAccessPoliciesStatement* ast_statement,
       std::unique_ptr<ResolvedStatement>* output);
 
+  absl::Status ResolveAlterIndexStatement(
+      const ASTAlterIndexStatement* ast_statement,
+      std::unique_ptr<ResolvedStatement>* output);
+
   absl::Status ResolveAlterActions(
       const ASTAlterStatementBase* ast_statement,
       absl::string_view alter_statement_kind,
@@ -1682,8 +1751,9 @@ class Resolver {
   // <table> can be NULL. If the table does not exist in the catalog, we try
   // to resolve the ALTER statement anyway.
   absl::Status ResolveDropColumnAction(
-      const Table* table, const ASTDropColumnAction* action,
-      IdStringSetCase* new_columns, IdStringSetCase* columns_to_drop,
+      absl::string_view alter_statement_kind, const Table* table,
+      const ASTDropColumnAction* action, IdStringSetCase* new_columns,
+      IdStringSetCase* columns_to_drop,
       std::unique_ptr<const ResolvedAlterAction>* alter_action);
 
   // <table> can be NULL. If the table does not exist in the catalog, we try
@@ -1865,10 +1935,11 @@ class Resolver {
       std::shared_ptr<const NameList>* output_name_list,
       const Type* inferred_type_for_query);
 
-  // If the query contains a WITH clause, resolves all WITH entries and returns
+  // If `with_clause` is non-NULL, this resolves all WITH entries and returns
   // them. Otherwise, just returns an empty vector.
   absl::StatusOr<std::vector<std::unique_ptr<const ResolvedWithEntry>>>
-  ResolveWithClauseIfPresent(const ASTQuery* query, bool is_outer_query);
+  ResolveWithClauseIfPresent(const ASTWithClause* with_clause,
+                             bool is_outer_query);
 
   // Called immediately after resolving the main body of a query. If the query
   // contained a WITH clause, removes the WITH entries from named_subquery_map_
@@ -2007,6 +2078,12 @@ class Resolver {
   // before the related AggregateScan.
   absl::Status AnalyzeSelectColumnsToPrecomputeBeforeAggregation(
       QueryResolutionInfo* query_resolution_info);
+
+  // Resolves a scalar WHERE expression and coerces it to a BOOL.
+  absl::Status ResolveWhere(const ASTWhereClause* ast_where,
+                            const NameScope* name_scope,
+                            const char* clause_name,
+                            std::unique_ptr<const ResolvedExpr>* resolved_expr);
 
   // Resolve the WHERE clause expression (which must be non-NULL) and
   // generate a ResolvedFilterScan for it.  The <current_scan> will be
@@ -2455,7 +2532,7 @@ class Resolver {
   // name is found in <catalog> but is not a proto.
   absl::StatusOr<const google::protobuf::Descriptor*> FindMessageTypeForExtension(
       const ASTPathExpression* ast_path_expr,
-      const std::vector<std::string>& type_name_path,
+      absl::Span<const std::string> type_name_path,
       const google::protobuf::DescriptorPool* descriptor_pool,
       bool return_error_for_non_message);
 
@@ -2599,6 +2676,11 @@ class Resolver {
                          std::unique_ptr<const ResolvedScan>* lhs_scan,
                          Resolver* resolver);
 
+    SetOperationResolver(const ASTPipeRecursiveUnion* pipe_recursive_union,
+                         const std::shared_ptr<const NameList>& lhs_name_list,
+                         std::unique_ptr<const ResolvedScan>* lhs_scan,
+                         Resolver* resolver);
+
     // Resolves the ASTSetOperation passed to the constructor, returning the
     // ResolvedScan and NameList in the given output parameters.
     // <scope> represents the name scope used to resolve each of the set items.
@@ -2634,7 +2716,7 @@ class Resolver {
     // Note that we do post-process of recursion depth modifier because
     // the intermediate resolution result will also be used to resolve the
     // recursive reference to which recursion depth column is not visible.
-    absl::Status FinishResolveRecursionWithModifier(
+    absl::Status AddDepthColumnToRecursiveScan(
         const ASTNode* ast_location,
         const std::vector<IdString>& recursive_alias,
         std::unique_ptr<const ResolvedRecursionDepthModifier> depth_modifier,
@@ -2642,15 +2724,34 @@ class Resolver {
         std::shared_ptr<const NameList>* output_name_list);
 
    private:
-    using InputSetOperationKind =
-        std::variant<const ASTSetOperation* const,
-                     const ASTPipeSetOperation* const>;
+    using InputSetOperation = std::variant<const ASTSetOperation* const,
+                                           const ASTPipeSetOperation* const,
+                                           const ASTPipeRecursiveUnion* const>;
+    // The kind of the input set operation.
+    enum class InputKind {
+      // The input is a standard set operation, e.g. <query> UNION ALL <query>.
+      kStandard,
+      // The input is a pipe set operation, e.g. <query> |> INTERSECT DISTINCT
+      // (<query>).
+      kPipe,
+      // The input is a pipe recursive union, e.g. <query> |> RECURSIVE UNION
+      // ALL (<query>).
+      kPipeRecursive,
+    };
 
     // Represents the result of resolving one input to the set operation.
     struct ResolvedInputResult {
       std::unique_ptr<ResolvedSetOperationItem> node;
       std::shared_ptr<const NameList> name_list;
       const ASTNode* ast_location;
+      // The (0-based) index of the input queries. For pipe syntax, the pipe
+      // input table has index 0, and the rhs input indices start from 1.
+      //
+      // For pipe recursive queries, the recursive term index is always 1
+      // because there is exactly one non-recursive input, i.e. the pipe input
+      // table. For recursive queries using the standard syntax, the recursive
+      // term index is >= 1.
+      int query_idx = -1;
     };
 
     struct NonRecursiveTerm {
@@ -2659,6 +2760,12 @@ class Resolver {
 
       // The final column list for the recursive set operation.
       ResolvedColumnList final_column_list;
+
+      // The NameList template to build the final NameList for the recursive
+      // query. The final NameList inherits the template's column attributes,
+      // like the value-table-ness and column explictness. See
+      // `BuildFinalNameList()` for more details.
+      std::shared_ptr<const NameList> name_list_template;
     };
 
     // Resolves the non-recursive term of the recursive set operation.
@@ -2677,6 +2784,34 @@ class Resolver {
         const NameScope* scope, int ast_input_index,
         const Type* inferred_type_for_query) const;
 
+    // Resolves the input subpipeline of the recursive term. Should only be
+    // called if the input set operation is a pipe recursive union and its
+    // input is a subpipeline instead of a subquery.
+    //
+    // `outer_scope`: the scope from *outside* the containing query, for
+    //   correlated column references. It's not the scope for the containing
+    //   query.
+    // `alias`: the alias used in the query to refer to the
+    //   recursive table reference. Could be user-provided or a generated name.
+    // `recursive_query_unique_name`: a unique name to associate with the
+    //   recursive query in the resolved tree.
+    // `named_subquery`: the NamedSubquery corresponding to the recursive table.
+    absl::StatusOr<ResolvedInputResult> ResolveRecursiveTermSubpipeline(
+        const NameScope* outer_scope, IdString alias,
+        IdString recursive_query_unique_name,
+        const NamedSubquery& named_subquery);
+
+    // Creates a recursive reference scan for the subpipeline input of the
+    // recursive term and a NameList for it.
+    //
+    // `named_subquery`: the NamedSubquery corresponding to the recursive table.
+    // `alias` will be added to `recursive_ref_scan_name_list` if it is not an
+    // internal alias.
+    absl::Status CreateRecursiveRefScanForSubpipeline(
+        IdString alias, const NamedSubquery& named_subquery,
+        std::unique_ptr<const ResolvedScan>* resolved_recursive_ref_scan,
+        std::shared_ptr<const NameList>* recursive_ref_scan_name_list);
+
     // Builds a vector specifying the type of each column for each input scan.
     // After calling:
     //   ZETASQL_ASSIGN_OR_RETURN(column_type_lists,
@@ -2691,14 +2826,14 @@ class Resolver {
     BuildColumnTypeListsByPosition(
         absl::Span<ResolvedInputResult> resolved_inputs) const;
 
-    // Adds a cast to the `set_operation_item` of `resolved_inputs[item_index]`
+    // Adds a cast to the `set_operation_item` of `resolved_input`
     // if necessary to convert each column to the respective final column
     // type in `column_list`.
     absl::Status CreateWrapperScanWithCastsForSetOperationItem(
-        const ResolvedColumnList& column_list, int item_index,
+        const ResolvedColumnList& column_list,
         ResolvedInputResult& resolved_input) const;
 
-    // Builds the final name list for the resolution of the set operation from
+    // Builds the final NameList for the resolution of the set operation from
     // the given `name_list_template`. The properties of each NamedColumn in
     // `name_list_template` will be preserved; only the ResolvedColumns will be
     // replaced by the ones in `final_column_list`.
@@ -2715,8 +2850,10 @@ class Resolver {
     // or CORRESPONDING BY.
     absl::Status ValidateCorresponding() const;
 
-    // Do not allow CORRESPONDING clauses to be used in WITH RECURSIVE.
-    absl::Status ValidateNoCorrespondingForRecursive() const;
+    // Checks that the usage of CORRESPONDING or BY NAME is valid for
+    // recursive queries. Specifically, it validates:
+    // - Either STRICT CORRESPONDING or BY NAME is used.
+    absl::Status ValidateMatchByNameForRecursive() const;
 
     // Validates that all the set operations are identical. Returns a sql error
     // if the validation fails.
@@ -2854,7 +2991,7 @@ class Resolver {
         const ResolvedColumnList& output_column_list, int query_idx,
         const IndexMapper* index_mapper) const;
 
-    // Builds the name list template for the final name list for CORRESPONDING.
+    // Builds the NameList template for the final NameList for CORRESPONDING.
     // If a column in `final_column_list` does not appear in the first input,
     // it is not an explicit column. Otherwise inherits the explicit'ness from
     // the corresponding column in the first input.
@@ -2888,22 +3025,62 @@ class Resolver {
     GetAllColumnNames(
         const std::vector<ResolvedInputResult>& resolved_inputs) const;
 
+    struct FinalColumnList {
+      // The calculated final column list of the set operation.
+      ResolvedColumnList column_list;
+
+      // The NameList template to build the final NameList for the recursive
+      // query. The final NameList inherits the template's column attributes,
+      // like the value-table-ness and column explictness. See
+      // `BuildFinalNameList()` for more details.
+      std::shared_ptr<const NameList> name_list_template;
+    };
+
+    // Mutates the parameter `resolved_inputs` to adjust the input
+    // queries so that their matching columns are in the same position and share
+    // the same types. The position and type adjustment are done by adding
+    // ProjectScans to the input queries and updating their corresponding
+    // NameLists.
+    //
+    // Returns the final column list of the set operation.
+    absl::StatusOr<FinalColumnList> MatchInputsAndCalculateFinalColumns(
+        std::vector<ResolvedInputResult>& resolved_inputs);
+
+    // Validates that the column types of the recursive term columns can be
+    // coerced into the corresponding columns in `final_name_list`.
+    //
+    // If `index_mapper` is not nullptr, it is used to map the columns of the
+    // recursive term to the columns in `final_name_list`.
+    absl::Status ValidateRecursiveTermColumnTypes(
+        const NameList& final_name_list,
+        const ResolvedInputResult& resolved_recursive_input,
+        const IndexMapper* index_mapper = nullptr) const;
+
     // Returns the metadata of the input set operation. Standard set operations
     // contain a list of metadata, and we use the first one as the effective
     // metadata. Pipe set operations only have one metadata.
     const ASTSetOperationMetadata& effective_metadata() const {
-      if (is_pipe_set_operation_) {
-        return *ast_pipe_set_operation()->metadata();
+      switch (input_kind_) {
+        case InputKind::kStandard:
+          return *ast_set_operation()->metadata()->set_operation_metadata_list(
+              0);
+        case InputKind::kPipe:
+          return *ast_pipe_set_operation()->metadata();
+        case InputKind::kPipeRecursive:
+          return *ast_pipe_recursive_union()->metadata();
       }
-      return *ast_set_operation()->metadata()->set_operation_metadata_list(0);
     }
 
     // Returns the ast node for the input set operation.
     const ASTNode* ast_node() const {
-      if (is_pipe_set_operation_) {
-        return ast_pipe_set_operation();
+      switch (input_kind_) {
+        case InputKind::kStandard:
+          return ast_set_operation();
+        case InputKind::kPipe:
+          return ast_pipe_set_operation();
+        case InputKind::kPipeRecursive:
+          return ast_pipe_recursive_union();
       }
-      return ast_set_operation();
     }
 
     // Returns the AST nodes in the `inputs` field for the input standard or
@@ -2922,31 +3099,51 @@ class Resolver {
     // the pipe UNION operator).
     //
     // `ast_inputs(1)` returns the AST node corresponding to "SELECT 2".
-    absl::Span<const ASTQueryExpression* const> ast_inputs() const {
-      if (is_pipe_set_operation_) {
-        return ast_pipe_set_operation()->inputs();
+    //
+    // For pipe recursive unions, it returns the input subquery or subpipeline.
+    // The return value is always a vector of size 1.
+    absl::Span<const ASTNode* const> ast_inputs() const {
+      switch (input_kind_) {
+        case InputKind::kStandard:
+          return absl::MakeSpan(reinterpret_cast<const ASTNode* const*>(
+                                    ast_set_operation()->inputs().data()),
+                                ast_set_operation()->inputs().size());
+
+        case InputKind::kPipe:
+          return absl::MakeSpan(reinterpret_cast<const ASTNode* const*>(
+                                    ast_pipe_set_operation()->inputs().data()),
+                                ast_pipe_set_operation()->inputs().size());
+        case InputKind::kPipeRecursive:
+          ABSL_DCHECK_EQ(pipe_recursive_rhs_input_nodes_.size(), 1);
+          return absl::MakeSpan(pipe_recursive_rhs_input_nodes_);
       }
-      return ast_set_operation()->inputs();
     }
 
-    const ASTQueryExpression* ast_inputs(int ast_input_idx) const {
+    const ASTNode* ast_inputs(int ast_input_idx) const {
       return ast_inputs()[ast_input_idx];
     }
 
     // Returns the input standard set operation, or nullptr if the input is a
     // pipe set operation.
     const ASTSetOperation* ast_set_operation() const {
-      if (is_pipe_set_operation_) {
-        return nullptr;
+      if (input_kind_ == InputKind::kStandard) {
+        return std::get<const ASTSetOperation* const>(set_operation_);
       }
-      return std::get<const ASTSetOperation* const>(set_operation_);
+      return nullptr;
     }
 
     // Returns the input pipe set operation, or nullptr if the input is a
     // standard set operation.
     const ASTPipeSetOperation* ast_pipe_set_operation() const {
-      if (is_pipe_set_operation_) {
+      if (input_kind_ == InputKind::kPipe) {
         return std::get<const ASTPipeSetOperation* const>(set_operation_);
+      }
+      return nullptr;
+    }
+
+    const ASTPipeRecursiveUnion* ast_pipe_recursive_union() const {
+      if (input_kind_ == InputKind::kPipeRecursive) {
+        return std::get<const ASTPipeRecursiveUnion* const>(set_operation_);
       }
       return nullptr;
     }
@@ -2976,10 +3173,10 @@ class Resolver {
       return GetQueryLabel(/*query_idx=*/0, capitalize_first_char);
     }
 
-    SetOperationResolver(
-        InputSetOperationKind set_operation,
-        std::optional<ResolvedInputResult> pipe_lhs_resolved_input,
-        Resolver* resolver);
+    SetOperationResolver(InputSetOperation set_operation,
+                         const std::shared_ptr<const NameList>& lhs_name_list,
+                         std::unique_ptr<const ResolvedScan>* lhs_scan,
+                         Resolver* resolver);
 
     // Returns the resolved input scans for the set operation. For pipe set
     // operations the first item of the resolved inputs will be
@@ -2987,17 +3184,27 @@ class Resolver {
     absl::StatusOr<std::vector<ResolvedInputResult>> GetResolvedInputs(
         const NameScope* scope, const Type* inferred_type_for_query);
 
+    // Assembles and returns a ResolvedInputResult from `lhs_name_list` and
+    // `lhs_scan` corresponding to the given `ast_pipe_operator`.
+    static std::optional<ResolvedInputResult> GetResolvedPipeInput(
+        const ASTNode* ast_pipe_operator,
+        const std::shared_ptr<const NameList>& lhs_name_list,
+        std::unique_ptr<const ResolvedScan>* lhs_scan);
+
+    inline bool IsPipeSyntax() const {
+      return input_kind_ != InputKind::kStandard;
+    }
+
     // The input set operation.
-    const std::variant<const ASTSetOperation* const,
-                       const ASTPipeSetOperation* const>
-        set_operation_;
+    InputSetOperation set_operation_;
 
     // This field is true if `set_operation_` is an ASTPipeSetOperation, and
     // false if it is an ASTSetOperation.
     //
-    // We cache this field instead of checking `ast_set_operation() == nullptr`
-    // to avoid performing unnecessary `get` function calls.
-    const bool is_pipe_set_operation_;
+    // We cache this field instead of checking, for example,
+    // `ast_set_operation() == nullptr` to avoid performing unnecessary `get`
+    // function calls.
+    const InputKind input_kind_;
 
     // If the input is a pipe set operation, the field holds its resolved input
     // scan until GetResolvedInputs() or ResolveNonRecursiveTerm() is called,
@@ -3007,6 +3214,13 @@ class Resolver {
 
     Resolver* const resolver_;
     const IdString op_type_str_;
+
+    // If the input set operation is a pipe recursive union, the field holds
+    // either the input subquery or subpipeline of the pipe recursive union and
+    // the size is always 1.
+    //
+    // Otherwise the vector is always empty.
+    std::vector<const ASTNode*> pipe_recursive_rhs_input_nodes_;
   };
 
   // Called only for the query associated with an actually-recursive WITH
@@ -3043,8 +3257,7 @@ class Resolver {
   // it's not from the grouping set, grouping_set_item will have the default
   // value nullptr.
   absl::Status ResolveGroupingItemExpression(
-      const ASTExpression* ast_group_by_expr,
-      const ASTAlias* ast_alias,
+      const ASTExpression* ast_group_by_expr, const ASTAlias* ast_alias,
       const ASTGroupingItemOrder* ast_grouping_item_order,
       const NameScope* from_clause_scope, bool from_grouping_set,
       QueryResolutionInfo* query_resolution_info,
@@ -3133,26 +3346,6 @@ class Resolver {
       const ASTCollate* ast_collate,
       std::unique_ptr<const ResolvedExpr>* resolved_collate);
 
-  // Resolves the ORDER BY expressions and creates columns for them.
-  // Populates OrderByItemInfo in
-  // <expr_resolution_info>->query_resolution_info, along with the list
-  // of computed ORDER BY columns.  <is_post_distinct> indicates that the
-  // ORDER BY occurs after DISTINCT, i.e., SELECT DISTINCT ... ORDER BY...
-  absl::Status ResolveOrderByExprs(
-      const ASTOrderBy* order_by, const NameScope* having_and_order_by_scope,
-      const NameScope* select_list_and_from_scan_scope, bool is_post_distinct,
-      QueryResolutionInfo* query_resolution_info);
-
-  // Resolves a standalone ORDER BY outside the context of a SELECT.
-  // A ResolvedOrderByScan will be added to `scan`.
-  // This is used for ORDER BY after set operations and for pipe ORDER BY.
-  absl::Status ResolveOrderBySimple(const ASTOrderBy* order_by,
-                                    const NameList& name_list,
-                                    const NameScope* scope,
-                                    const char* clause_name,
-                                    OrderBySimpleMode mode,
-                                    std::unique_ptr<const ResolvedScan>* scan);
-
   // Resolves the table name and predicate expression in an ALTER ROW POLICY
   // or CREATE ROW POLICY statement.
   absl::Status ResolveTableAndPredicate(
@@ -3209,10 +3402,18 @@ class Resolver {
   ResolveNullHandlingModifier(
       ASTFunctionCall::NullHandlingModifier ast_null_handling_modifier);
 
+  // Resolves the WHERE modifier for aggregate and analytic functions.
+  absl::Status ResolveWhereModifier(
+      const ASTFunctionCall* ast_function_call,
+      const ResolvedFunctionCall* resolved_function_call,
+      const NameScope* name_scope,
+      std::unique_ptr<const ResolvedExpr>* resolved_where_expr);
+
   // Resolves the given HAVING MAX or HAVING MIN argument, and stores the
   // result in <resolved_having>.
-  absl::Status ResolveHavingModifier(
-      const ASTHavingModifier* ast_having_modifier,
+  absl::Status ResolveHavingMaxMinModifier(
+      const ASTFunctionCall* ast_function_call,
+      const ResolvedFunctionCall* resolved_function_call,
       ExprResolutionInfo* expr_resolution_info,
       std::unique_ptr<const ResolvedAggregateHavingModifier>* resolved_having);
 
@@ -3339,8 +3540,13 @@ class Resolver {
       std::unique_ptr<const ResolvedScan>* current_scan,
       std::shared_ptr<const NameList>* current_name_list);
 
+  absl::Status ResolvePipeMatchRecognize(
+      const ASTPipeMatchRecognize* pipe_match_recognize, const NameScope* scope,
+      std::unique_ptr<const ResolvedScan>* current_scan,
+      std::shared_ptr<const NameList>* current_name_list);
+
   absl::Status ResolvePipeSetOperation(
-      const ASTPipeSetOperation* set_operation, const NameScope* scope,
+      const ASTPipeSetOperation* set_operation, const NameScope* outer_scope,
       std::unique_ptr<const ResolvedScan>* current_scan,
       std::shared_ptr<const NameList>* current_name_list,
       const Type* inferred_type_for_pipe);
@@ -3359,13 +3565,40 @@ class Resolver {
                              std::shared_ptr<const NameList>* current_name_list,
                              bool allow_terminal);
 
+  absl::Status ResolvePipeForkOrTeeSubpipeline(
+      const ASTSubpipeline* ast_subpipeline, const NameScope* outer_scope,
+      const ResolvedScan* current_scan, const NameList* current_name_list,
+      bool allow_terminal,
+      std::vector<std::unique_ptr<const ResolvedGeneralizedQuerySubpipeline>>*
+          resolved_subpipelines);
+
   absl::Status ResolvePipeFork(
       const ASTPipeFork* pipe_fork, const NameScope* outer_scope,
       const NameScope* scope, std::unique_ptr<const ResolvedScan>* current_scan,
       std::shared_ptr<const NameList>* current_name_list, bool allow_terminal);
 
+  absl::Status ResolvePipeTee(
+      const ASTPipeTee* pipe_tee, const NameScope* outer_scope,
+      const NameScope* scope, std::unique_ptr<const ResolvedScan>* current_scan,
+      std::shared_ptr<const NameList>* current_name_list, bool allow_terminal);
+
+  absl::Status ResolvePipeWith(
+      const ASTPipeWith* pipe_with,
+      std::vector<IdString>* named_subqueries_added,
+      std::vector<std::unique_ptr<ResolvedWithScan>>* with_scans_to_add);
+
   absl::Status ResolvePipeExportData(
       const ASTPipeExportData* pipe_export_data, const NameScope* outer_scope,
+      const NameScope* scope, std::unique_ptr<const ResolvedScan>* current_scan,
+      std::shared_ptr<const NameList>* current_name_list, bool allow_terminal);
+
+  absl::Status ResolvePipeCreateTable(
+      const ASTPipeCreateTable* pipe_create_table, const NameScope* scope,
+      std::unique_ptr<const ResolvedScan>* current_scan,
+      std::shared_ptr<const NameList>* current_name_list, bool allow_terminal);
+
+  absl::Status ResolvePipeInsert(
+      const ASTPipeInsert* pipe_insert, const NameScope* outer_scope,
       const NameScope* scope, std::unique_ptr<const ResolvedScan>* current_scan,
       std::shared_ptr<const NameList>* current_name_list, bool allow_terminal);
 
@@ -3373,6 +3606,19 @@ class Resolver {
   absl::Status CheckTerminalPipeOperatorAllowed(
       const ASTNode* location, LanguageFeature required_language_feature,
       const char* operator_name, bool allow_terminal);
+
+  absl::Status ResolvePipeRecursiveUnion(
+      const ASTPipeRecursiveUnion* pipe_recursive_union,
+      std::unique_ptr<const ResolvedScan>* current_scan,
+      std::shared_ptr<const NameList>* current_name_list);
+
+  absl::StatusOr<IdString> ResolvePipeRecursiveUnionAlias(
+      const ASTPipeRecursiveUnion* pipe_recursive_union);
+
+  // Creates a unique alias based on `with_alias` that is guaranteed not to
+  // conflict with aliases in `unique_with_alias_names_`, and adds it to
+  // `unique_with_alias_names_`.
+  IdString MakeUniqueWithAlias(IdString with_alias);
 
   // Resolve a subpipeline.
   // `ast_subpipeline` is allowed to be null, for cases where the subpipeline
@@ -3550,6 +3796,17 @@ class Resolver {
       std::unique_ptr<const ResolvedScan>* output,
       std::shared_ptr<const NameList>* output_name_list);
 
+  // Similar to the above overload, but takes in a named subquery directly
+  // instead of doing a lookup in `named_subquery_map_`.
+  //
+  // `ast_location`: the ast location of the table reference expression.
+  // `table_path`: the path of the table reference expression.
+  absl::Status ResolveNamedSubqueryRef(
+      const ASTNode* ast_location, const std::vector<IdString>& table_path,
+      const NamedSubquery* named_subquery, const ASTHint* hint,
+      std::unique_ptr<const ResolvedScan>* output,
+      std::shared_ptr<const NameList>* output_name_list);
+
   // If <ast_join> has a join hint keyword (e.g. HASH JOIN or LOOKUP JOIN),
   // add that hint onto <resolved_scan>.  Called with JoinScan or ArrayScan.
   static absl::Status MaybeAddJoinHintKeyword(const ASTJoin* ast_join,
@@ -3635,14 +3892,12 @@ class Resolver {
   //    output schema.
   absl::Status ResolveTVF(const ASTTVF* ast_tvf,
                           const NameScope* external_scope,
-                          const NameScope* local_scope,
                           ResolvedTVFArg* pipe_input_arg,
                           std::unique_ptr<const ResolvedScan>* output,
                           std::shared_ptr<const NameList>* output_name_list);
 
   absl::StatusOr<ResolvedTVFArg> ResolveTVFArg(
       const ASTTVFArgument* ast_tvf_arg, const NameScope* external_scope,
-      const NameScope* local_scope,
       const FunctionArgumentType* function_argument,
       const TableValuedFunction* tvf_catalog_entry, int sig_idx,
       absl::flat_hash_map<int, std::unique_ptr<const NameScope>>*
@@ -3693,7 +3948,7 @@ class Resolver {
   // <ast_location> is a place in the AST to use for error messages.
   //
   // <resolved_tvf_arg> is an in/out parameter that contains the resolved scan
-  // and name list for the relation argument, and this method updates it to
+  // and NameList for the relation argument, and this method updates it to
   // contain a projection to perform the coercions.
   absl::Status CoerceOrRearrangeTVFRelationArgColumns(
       const FunctionArgumentType& tvf_signature_arg, int arg_idx,
@@ -3754,6 +4009,26 @@ class Resolver {
       const NameScope* scope, std::unique_ptr<const ResolvedScan>* output,
       std::shared_ptr<const NameList>* output_name_list);
 
+  // Resolves the ORDER BY expressions and creates columns for them.
+  // Populates OrderByItemInfo in
+  // <expr_resolution_info>->query_resolution_info, along with the list
+  // of computed ORDER BY columns.  <is_post_distinct> indicates that the
+  // ORDER BY occurs after DISTINCT, i.e., SELECT DISTINCT ... ORDER BY...
+  absl::Status ResolveOrderByExprs(
+      const ASTOrderBy* order_by, const NameScope* having_and_order_by_scope,
+      const NameScope* select_list_and_from_scan_scope, bool is_post_distinct,
+      QueryResolutionInfo* query_resolution_info);
+
+  // Resolves a standalone ORDER BY outside the context of a SELECT.
+  // A ResolvedOrderByScan will be added to `scan`.
+  // This is used for ORDER BY after set operations and for pipe ORDER BY.
+  absl::Status ResolveOrderBySimple(const ASTOrderBy* order_by,
+                                    const NameList& name_list,
+                                    const NameScope* scope,
+                                    const char* clause_name,
+                                    OrderBySimpleMode mode,
+                                    std::unique_ptr<const ResolvedScan>* scan);
+
   // Resolve ASTNullOrder to the enum, checking LanguageFeatures.
   absl::StatusOr<ResolvedOrderByItemEnums::NullOrderMode> ResolveNullOrderMode(
       const ASTNullOrder* null_order);
@@ -3767,6 +4042,14 @@ class Resolver {
       ExprResolutionInfo* expr_resolution_info, bool allow_ordinals,
       absl::string_view clause_name,
       std::vector<OrderByItemInfo>* order_by_info);
+
+  // Resolves the ORDER BY expression against the post-GROUP BY scope and falls
+  // back to resolving against the pre-GROUP BY scope to find an equivalent
+  // GROUP BY expression.
+  absl::StatusOr<std::unique_ptr<const ResolvedExpr>>
+  ResolveOrderingExprWithGroupByExprEquivalenceFallback(
+      const ASTExpression* ordering_expr,
+      ExprResolutionInfo* post_group_by_expr_resolution_info);
 
   // A list of `const vector<OrderByItemInfo>&`.  Used because the object is
   // not copyable, for passing lists of one or more of those vectors using
@@ -4442,6 +4725,17 @@ class Resolver {
       std::vector<std::unique_ptr<const ResolvedExpr>>*
           out_generated_column_expr_list);
 
+  // Resolves the HAVING modifier of an aggregate function. The HAVING
+  // modifier is distinct from the HAVING {MAX|MIN} modifier. A HAVING
+  // modifier requires a GROUP BY modifier be present and is resolved to a
+  // general `ResolvedExpr`.
+  absl::Status ResolveAggregateFunctionHavingModifier(
+      const ASTFunctionCall* ast_function_call,
+      const ResolvedFunctionCall* resolved_function_call,
+      ExprResolutionInfo* expr_resolution_info,
+      QueryResolutionInfo& multi_level_aggregate_info,
+      std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
+
   absl::Status ResolveAggregateFunctionOrderByModifiers(
       const ASTFunctionCall* ast_function_call,
       std::unique_ptr<ResolvedFunctionCall>* resolved_function_call,
@@ -4482,6 +4776,7 @@ class Resolver {
   // A container that has state about the 'lhs' part of a braced constructor
   // field.
   struct BracedConstructorField {
+    ASTBracedConstructorLhs::Operation operation;
     const ASTNode* location;
     FindFieldsOutput field_info;
   };
@@ -4499,6 +4794,21 @@ class Resolver {
       const ProtoType* parent_type, int field_index, bool allow_field_paths,
       const ResolvedExpr* update_constructor_expr_to_modify,
       ExprResolutionInfo* expr_resolution_info);
+
+  // Resolves a generalized path access from an already resolved base protocol
+  // buffer expression.
+  // `resolved_base`: The base protocol buffer from which we try to resolve a
+  // path access.
+  // `parse_location`: The parse location to use for error reporting.
+  // `generalized_path`: The path access that needs to be resolved.
+  // `flatten_state`: The path access that needs to be resolved.
+  //
+  // Returns the resolved proto expression as output.
+  absl::StatusOr<std::unique_ptr<const ResolvedExpr>> ResolveProtoFieldAccess(
+      const ResolvedExpr& resolved_base,
+      const ParseLocationRange& parse_location,
+      const ASTGeneralizedPathExpression& generalized_path,
+      FlattenState* flatten_state);
 
   absl::Status ResolveBracedConstructor(
       const ASTBracedConstructor* ast_braced_constructor,
@@ -4525,6 +4835,41 @@ class Resolver {
   absl::Status ResolveBracedConstructorForProto(
       const ASTBracedConstructor* ast_braced_constructor,
       const Type* inferred_type, ExprResolutionInfo* expr_resolution_info,
+      std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
+
+  // Resolves an ASTBracedConstructor that should be interpreted as an UPDATE
+  // constructor. This includes the top-level ASTBracedConstructor under an
+  // ASTUpdateConstructor, as well as braced constructors that are values of the
+  // immediate fields being updated by another UPDATE constructor.
+  //
+  // For example:
+  //   UPDATE (x) {
+  //     a: 3
+  //     b { c: 4 }
+  //   }
+  // Is interpreted as:
+  //   UPDATE (x) {
+  //     a: 3
+  //     b: UPDATE(x.b) { c: 4 }
+  //   }
+  // Where both braced constructors are resolved with this function.
+  //
+  // However, given an input like this:
+  //   UPDATE (x) {
+  //     a: [{c: 4}]
+  //   }
+  // The outer braced constructor is resolved with this function, however the
+  // inner braced constructor is not. Details: http://shortn/_EXoCKUiBhJ.
+  absl::StatusOr<std::unique_ptr<const ResolvedExpr>>
+  ResolveBracedConstructorInUpdateContext(
+      const ASTNode& location,
+      std::unique_ptr<const ResolvedExpr> expr_to_modify, std::string alias,
+      const ASTBracedConstructor& ast_braced_constructor,
+      ExprResolutionInfo* expr_resolution_info);
+
+  absl::Status ResolveUpdateConstructor(
+      const ASTUpdateConstructor& ast_update_constructor,
+      ExprResolutionInfo* expr_resolution_info,
       std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
 
   absl::Status ResolveArrayConstructor(
@@ -4664,9 +5009,14 @@ class Resolver {
   // <nested_scope> is NULL for a non-nested INSERT. For a nested INSERT,
   // populates <parameter_list> with any columns in <nested_scope> (whose
   // topmost scope is always the empty scope) that are referenced by <output>.
+  // For non-pipe INSERT, `query` is present.
+  // For pipe INSERT, `query` is NULL, and `pipe_input_name_list` and
+  // `pipe_input_scan` provide the pipe input table.
   absl::Status ResolveInsertQuery(
-      const ASTQuery* query, const NameScope* nested_scope,
-      const ResolvedColumnList& insert_columns,
+      const ASTNode* ast_location, const ASTQuery* query,
+      const NameScope* nested_scope, const ResolvedColumnList& insert_columns,
+      const NameList* pipe_input_name_list,
+      std::unique_ptr<const ResolvedScan> pipe_input_scan,
       std::unique_ptr<const ResolvedScan>* output,
       ResolvedColumnList* output_column_list,
       std::vector<std::unique_ptr<const ResolvedColumnRef>>* parameter_list);
@@ -4838,17 +5188,21 @@ class Resolver {
       std::vector<const ASTNode*>* ast_arguments_out);
 
   // Common implementation for resolving all functions given resolved input
-  // <arguments> and <expected_result_type> (if any, usually needed while
-  // resolving cast functions). If <function> is an aggregate function,
-  // <ast_location> must be an ASTFunctionCall, and additional validation work
-  // is done for aggregate function properties in the ASTFunctionCall, such as
-  // distinct and order_by.  After resolving the function call, will add a
-  // deprecation warning if either the function itself is deprecated or a
-  // deprecated function signature is used.
+  // `arguments` and `expected_result_type` (if any, usually needed while
+  // resolving cast functions).
+  // `match_internal_signatures` indicates whether attempts to match an internal
+  // signature will be made.
+  // If `function` is an aggregate function, `ast_location` must be an
+  // ASTFunctionCall, and additional validation work is done for aggregate
+  // function properties in the ASTFunctionCall, such as distinct and order_by.
+  // After resolving the function call, will add a deprecation warning if either
+  // the function itself is deprecated or a deprecated function signature is
+  // used.
   absl::Status ResolveFunctionCallWithResolvedArguments(
       const ASTNode* ast_location,
       const std::vector<const ASTNode*>& arg_locations,
-      const Function* function, ResolvedFunctionCallBase::ErrorMode error_mode,
+      bool match_internal_signatures, const Function* function,
+      ResolvedFunctionCallBase::ErrorMode error_mode,
       std::vector<std::unique_ptr<const ResolvedExpr>> resolved_arguments,
       std::vector<NamedArgumentInfo> named_arguments,
       ExprResolutionInfo* expr_resolution_info,
@@ -4863,6 +5217,7 @@ class Resolver {
   absl::Status ResolveFunctionCallWithResolvedArguments(
       const ASTNode* ast_location,
       const std::vector<const ASTNode*>& arg_locations,
+      bool match_internal_signatures,
       const std::vector<std::string>& function_name_path,
       std::vector<std::unique_ptr<const ResolvedExpr>> resolved_arguments,
       std::vector<NamedArgumentInfo> named_arguments,
@@ -4943,7 +5298,7 @@ class Resolver {
   absl::Status ResolveFunctionCallWithResolvedArguments(
       const ASTNode* ast_location,
       const std::vector<const ASTNode*>& arg_locations,
-      absl::string_view function_name,
+      bool match_internal_signatures, absl::string_view function_name,
       std::vector<std::unique_ptr<const ResolvedExpr>> resolved_arguments,
       std::vector<NamedArgumentInfo> named_arguments,
       ExprResolutionInfo* expr_resolution_info,
@@ -5422,7 +5777,7 @@ class Resolver {
   // <pipe_input_arg> if present is the pipe input argument in pipe CALL.
   absl::StatusOr<int> MatchTVFSignature(
       const ASTTVF* ast_tvf, const TableValuedFunction* tvf_catalog_entry,
-      const NameScope* external_scope, const NameScope* local_scope,
+      const NameScope* external_scope,
       const FunctionResolver& function_resolver, ResolvedTVFArg* pipe_input_arg,
       std::unique_ptr<FunctionSignature>* result_signature,
       std::vector<const ASTNode*>* arg_locations,
@@ -5437,8 +5792,7 @@ class Resolver {
   absl::Status PrepareTVFInputArguments(
       absl::string_view tvf_name_string, const ASTTVF* ast_tvf,
       const TableValuedFunction* tvf_catalog_entry,
-      const NameScope* external_scope, const NameScope* local_scope,
-      ResolvedTVFArg* pipe_input_arg,
+      const NameScope* external_scope, ResolvedTVFArg* pipe_input_arg,
       std::unique_ptr<FunctionSignature>* result_signature,
       std::vector<ResolvedTVFArg>* resolved_tvf_args,
       std::vector<TVFInputArgumentType>* tvf_input_arguments);
@@ -5503,7 +5857,9 @@ class Resolver {
   absl::Status ResolveCreateTableStmtBaseProperties(
       const ASTCreateTableStmtBase* ast_statement,
       absl::string_view statement_type,
-      const ASTPathExpression* like_table_name, const ASTQuery* query,
+      const ASTPathExpression* like_table_name,
+      const ASTQuery* query,                 // Present if there's an AS SELECT.
+      const NameList* pipe_input_name_list,  // Present for pipe CREATE TABLE.
       const ASTCollate* collate, const ASTPartitionBy* partition_by,
       const ASTClusterBy* cluster_by,
       const ASTWithPartitionColumnsClause* with_partition_columns_clause,
@@ -5578,7 +5934,7 @@ class Resolver {
   // Expressions inside the pivot clause are resolved using <input_name_list>
   // with <previous_scope> as a fallback scope for names not in the list.
   //
-  // On success, sets <output> and <output_name_list> to a scan and name list
+  // On success, sets <output> and <output_name_list> to a scan and NameList
   // describing the PIVOT output.
   absl::Status ResolvePivotClause(
       std::unique_ptr<const ResolvedScan> input_scan,
@@ -5612,13 +5968,13 @@ class Resolver {
   // Resolves an UNPIVOT clause.
   //  - <input_scan> represents the input to unpivot. On success, ownership is
   //      transferred to 'output'.
-  //  - <input_name_list> represents a name list for columns in the input scan.
+  //  - <input_name_list> represents a NameList for columns in the input scan.
   //      This defines the list of valid columns when resolving unpivot
   //      expressions and FOR expressions.
   //  - <ast_unpivot_clause> represents the parse tree of the entire unpivot
   //  clause.
   //  - On output, '*output' contains a scan representing the result of the
-  //      UNPIVOT clause and '*output_name_list' contains a name list which can
+  //      UNPIVOT clause and '*output_name_list' contains a NameList which can
   //      be used by external clauses to refer to columns in the UNPIVOT output.
   absl::Status ResolveUnpivotClause(
       std::unique_ptr<const ResolvedScan> input_scan,
@@ -5632,13 +5988,13 @@ class Resolver {
   //  See (broken link).
   //  - <input_scan> represents the input to MATCH_RECOGNIZE. On success,
   //      ownership is transferred to 'output'.
-  //  - <input_name_list> represents a name list for columns in the input scan.
+  //  - <input_name_list> represents a NameList for columns in the input scan.
   //      This defines the list of valid columns when resolving match recognize
   //      expressions.
   //  - <ast_match_recognize_clause> represents the parse tree of the
   //      entire MATCH_RECOGNIZE clause.
   //  - On output, '*output' contains a scan representing the result of the
-  //      MATCH_RECOGNIZE clause and '*output_name_list' contains a name list
+  //      MATCH_RECOGNIZE clause and '*output_name_list' contains a NameList
   //      which can be used by external clauses to refer to columns in the
   //      MATCH_RECOGNIZE output.
   absl::Status ResolveMatchRecognizeClause(
@@ -5791,6 +6147,15 @@ class Resolver {
           resolved_array_expr_list,
       std::vector<ResolvedColumn>& resolved_element_column_list);
 
+  // Resolves the proto expression portion of the UPDATE constructor i.e.
+  // "UPDATE(foo.bar AS baz)".
+  // The resolved proto expression is returned in `expr_to_modify` and if an
+  // alias is present it is filled in `alias`.
+  absl::Status ResolveUpdateConstructorProtoExpression(
+      const ASTUpdateConstructor& ast_update_constructor,
+      ExprResolutionInfo* expr_resolution_info, std::string& alias,
+      std::unique_ptr<const ResolvedExpr>& expr_to_modify);
+
   // Fills in `last_field_type` with the type of a the last element found in
   // FindFieldsOutput.
   static absl::Status GetLastSeenFieldType(
@@ -5814,7 +6179,7 @@ class Resolver {
   // `oneof_path_to_full_path`.
   static absl::Status AddToFieldPathTrie(
       const LanguageOptions& language_options, const ASTNode* path_location,
-      const std::vector<FindFieldsOutput::StructFieldInfo>& struct_path_prefix,
+      absl::Span<const FindFieldsOutput::StructFieldInfo> struct_path_prefix,
       const std::vector<const google::protobuf::FieldDescriptor*>&
           proto_field_path_suffix,
       absl::flat_hash_map<std::string, std::string>* oneof_path_to_full_path,
@@ -5870,6 +6235,9 @@ class FunctionArgumentInfo {
   // when constructing a FunctionSignature.
   FunctionArgumentTypeList SignatureArguments() const;
 
+  // Return a list of argument details.
+  std::vector<const ArgumentDetails*> GetArgumentDetails() const;
+
   // Add details of a scalar argument.
   absl::Status AddScalarArg(IdString name,
                             ResolvedArgumentDef::ArgumentKind arg_kind,
@@ -5882,7 +6250,7 @@ class FunctionArgumentInfo {
   // std::unique_ptr is used to ensure stability of any pointers to details
   // returned even when more arguments are added to the details_ list.
   // details_ is stored in argument order to enable constructing function
-  // signature and name lists.
+  // signature and NameLists.
   std::vector<std::unique_ptr<ArgumentDetails>> details_;
   // This map functions as an index of details to make lookup-by-name cheap and
   // idiomatic.

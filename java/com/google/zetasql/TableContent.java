@@ -22,7 +22,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.errorprone.annotations.CheckReturnValue;
 import com.google.zetasql.LocalService.TableData;
 import java.util.List;
 
@@ -30,7 +29,6 @@ import java.util.List;
  * Class that represents the content of a table. For now the content can only be provided as a
  * matrix of rows and columns where each row represents a row in the table.
  */
-@CheckReturnValue // see (broken link)
 @AutoValue
 public abstract class TableContent {
 

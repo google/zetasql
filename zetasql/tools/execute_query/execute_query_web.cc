@@ -90,6 +90,9 @@ class RootHandler : public CivetHandler {
     std::string sql_mode;
     CivetServer::getParam(conn, "sql_mode", sql_mode);
 
+    std::string target_syntax_mode;
+    CivetServer::getParam(conn, "target_syntax_mode", target_syntax_mode);
+
     std::string catalog;
     CivetServer::getParam(conn, "catalog", catalog);
 
@@ -101,7 +104,8 @@ class RootHandler : public CivetHandler {
 
     return std::make_unique<ExecuteQueryWebRequest>(
         GetModesParams(conn), ExecuteQueryConfig::parse_sql_mode(sql_mode),
-        query, catalog, enabled_language_features, enabled_ast_rewrites);
+        ExecuteQueryConfig::parse_target_syntax_mode(target_syntax_mode), query,
+        catalog, enabled_language_features, enabled_ast_rewrites);
   }
 
   // Gets all the modes currently checked in the form.

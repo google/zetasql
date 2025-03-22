@@ -23,7 +23,6 @@ message MatchResultProto {
   // Details of each match found, including starting row, length, and pattern
   // variables matched by each row.
   repeated string match = 1;
-  optional int32 total_rows_fully_processed = 2;
 
   // When multiple consecurive AddRow() results are completely identical (
   // possible only when new_matches is empty), we store only one copy in the

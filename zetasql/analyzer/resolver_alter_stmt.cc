@@ -18,14 +18,13 @@
 // methods from resolver.h.
 #include <memory>
 #include <optional>
-#include <set>
 #include <string>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/base/varsetter.h"
+#include "zetasql/analyzer/expr_resolver_helper.h"
 #include "zetasql/analyzer/name_scope.h"
 #include "zetasql/analyzer/resolver.h"
 #include "zetasql/parser/ast_node_kind.h"
@@ -44,9 +43,8 @@
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
-#include "absl/memory/memory.h"
 #include "absl/status/status.h"
-#include "absl/status/statusor.h"
+#include "absl/strings/ascii.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
@@ -107,6 +105,12 @@ absl::Status Resolver::ResolveAlterActions(
     std::vector<std::unique_ptr<const ResolvedAlterAction>>* alter_actions) {
   // path can be null if ALLOW_MISSING_PATH_EXPRESSION_IN_ALTER_DDL is set or
   // if alter actions are being resolved for an AlterSubEntityAction.
+  if (path == nullptr && !ast_statement->Is<ASTAlterSubEntityAction>() &&
+      !language().LanguageFeatureEnabled(
+          FEATURE_ALLOW_MISSING_PATH_EXPRESSION_IN_ALTER_DDL)) {
+    return MakeSqlErrorAt(ast_statement)
+           << "Missing path expression in ALTER statement";
+  }
   ZETASQL_RET_CHECK(language().LanguageFeatureEnabled(
                 FEATURE_ALLOW_MISSING_PATH_EXPRESSION_IN_ALTER_DDL) ||
             path != nullptr ||
@@ -260,11 +264,40 @@ absl::Status Resolver::ResolveAlterActions(
       case AST_ALTER_CONSTRAINT_SET_OPTIONS_ACTION:
         return MakeSqlErrorAt(action)
                << "ALTER CONSTRAINT SET OPTIONS is not supported";
+      case AST_ADD_COLUMN_IDENTIFIER_ACTION: {
+        if (ast_statement->node_kind() != AST_ALTER_INDEX_STATEMENT) {
+          return MakeSqlErrorAt(action)
+                 << "ALTER " << alter_statement_kind
+                 << " does not support AddColumnIdentifier";
+        }
+        if (!is_if_exists) {
+          ZETASQL_RETURN_IF_ERROR(table_status);
+        }
+        const auto* add_column_identifier_action =
+            action->GetAsOrDie<ASTAddColumnIdentifierAction>();
+        const IdString column_name =
+            add_column_identifier_action->column_name()->GetAsIdString();
+        if (!new_columns.insert(column_name).second) {
+          return MakeSqlErrorAt(add_column_identifier_action)
+                 << "Duplicate column name " << column_name << " in ALTER "
+                 << alter_statement_kind << " ADD COLUMN";
+        }
+        std::vector<std::unique_ptr<const ResolvedOption>> resolved_options;
+        ZETASQL_RETURN_IF_ERROR(ResolveOptionsList(
+            add_column_identifier_action->options_list(),
+            /*allow_alter_array_operators=*/false, &resolved_options));
+        alter_actions->push_back(MakeResolvedAddColumnIdentifierAction(
+            add_column_identifier_action->column_name()->GetAsStringView(),
+            std::move(resolved_options),
+            add_column_identifier_action->is_if_not_exists()));
+      } break;
       case AST_ADD_COLUMN_ACTION:
       case AST_DROP_COLUMN_ACTION:
       case AST_RENAME_COLUMN_ACTION:
       case AST_ALTER_COLUMN_TYPE_ACTION: {
-        if (ast_statement->node_kind() != AST_ALTER_TABLE_STATEMENT) {
+        if (!(ast_statement->node_kind() == AST_ALTER_TABLE_STATEMENT ||
+              (ast_statement->node_kind() == AST_ALTER_INDEX_STATEMENT &&
+               action->node_kind() == AST_DROP_COLUMN_ACTION))) {
           // Views, models, etc don't support ADD/DROP/RENAME/SET DATA TYPE
           // columns.
           return MakeSqlErrorAt(action)
@@ -284,8 +317,9 @@ absl::Status Resolver::ResolveAlterActions(
           } break;
           case AST_DROP_COLUMN_ACTION: {
             ZETASQL_RETURN_IF_ERROR(ResolveDropColumnAction(
-                altered_table, action->GetAsOrDie<ASTDropColumnAction>(),
-                &new_columns, &column_to_drop, &resolved_action));
+                alter_statement_kind, altered_table,
+                action->GetAsOrDie<ASTDropColumnAction>(), &new_columns,
+                &column_to_drop, &resolved_action));
           } break;
           case AST_ALTER_COLUMN_TYPE_ACTION: {
             if (language().LanguageFeatureEnabled(
@@ -373,6 +407,7 @@ absl::Status Resolver::ResolveAlterActions(
       case AST_ALTER_COLUMN_OPTIONS_ACTION: {
         bool is_alter_column_options_allowed =
             ast_statement->node_kind() == AST_ALTER_TABLE_STATEMENT ||
+            ast_statement->node_kind() == AST_ALTER_INDEX_STATEMENT ||
             (ast_statement->node_kind() == AST_ALTER_VIEW_STATEMENT &&
              language().LanguageFeatureEnabled(
                  FEATURE_ALTER_VIEWS_ALTER_COLUMN_SET_OPTIONS));
@@ -539,6 +574,14 @@ absl::Status Resolver::ResolveAlterActions(
             ast_drop_sub_entity_action->is_if_exists());
         alter_actions->push_back(std::move(resolved_drop_sub_entity_action));
       } break;
+      case AST_REBUILD_ACTION: {
+        if (ast_statement->node_kind() != AST_ALTER_INDEX_STATEMENT) {
+          return MakeSqlErrorAt(action) << "ALTER " << alter_statement_kind
+                                        << " does not support REBUILD";
+        }
+        alter_actions->push_back(MakeResolvedRebuildAction());
+        break;
+      }
       default:
         return MakeSqlErrorAt(action)
                << "ALTER " << alter_statement_kind << " does not support "
@@ -766,21 +809,24 @@ absl::Status Resolver::ResolveAddColumnAction(
 }
 
 absl::Status Resolver::ResolveDropColumnAction(
-    const Table* table, const ASTDropColumnAction* action,
-    IdStringSetCase* new_columns, IdStringSetCase* columns_to_drop,
+    absl::string_view alter_statement_kind, const Table* table,
+    const ASTDropColumnAction* action, IdStringSetCase* new_columns,
+    IdStringSetCase* columns_to_drop,
     std::unique_ptr<const ResolvedAlterAction>* alter_action) {
   ABSL_DCHECK(*alter_action == nullptr);
 
   const IdString column_name = action->column_name()->GetAsIdString();
   if (!columns_to_drop->insert(column_name).second) {
     return MakeSqlErrorAt(action->column_name())
-           << "ALTER TABLE DROP COLUMN cannot drop column " << column_name
+           << "ALTER " << alter_statement_kind
+           << " DROP COLUMN cannot drop column " << column_name
            << " multiple times";
   }
   if (new_columns->find(column_name) != new_columns->end()) {
     return MakeSqlErrorAt(action->column_name())
            << "Column " << column_name
-           << " cannot be added and dropped by the same ALTER TABLE statement";
+           << " cannot be added and dropped by the same ALTER "
+           << alter_statement_kind << " statement";
   }
 
   // If the table is present, verify that the column exists and can be dropped.
@@ -810,7 +856,7 @@ absl::Status Resolver::ResolveRenameColumnAction(
   ZETASQL_RET_CHECK(*alter_action == nullptr);
 
   const IdString new_column_name = action->new_column_name()->GetAsIdString();
-  if (zetasql_base::ContainsKey(*columns_rename_map, new_column_name)) {
+  if (columns_rename_map->contains(new_column_name)) {
     return MakeSqlErrorAt(action->new_column_name())
            << "Another column was renamed to " << new_column_name
            << " in a previous command of the same ALTER TABLE statement";
@@ -831,7 +877,7 @@ absl::Status Resolver::ResolveRenameColumnAction(
   // 3. Check if the column name exists in the table.
   const IdString old_column_name = action->column_name()->GetAsIdString();
   if (table != nullptr) {
-    if (zetasql_base::ContainsKey(*columns_rename_map, old_column_name)) {
+    if (columns_rename_map->contains(old_column_name)) {
       // This case is renaming a column that was already renamed, e.g., RENAME a
       // TO b, RENAME b TO c. In this case, we replace key-value pair
       // {old_column_name, catalog_column_name} with {new_column_name,
@@ -1293,6 +1339,85 @@ absl::Status Resolver::ResolveAlterColumnSetDefaultAction(
       action->is_if_exists(), column_name.ToString(),
       std::move(resolved_default_value));
 
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolveAlterIndexStatement(
+    const ASTAlterIndexStatement* ast_statement,
+    std::unique_ptr<ResolvedStatement>* output) {
+  ZETASQL_RET_CHECK(ast_statement->path() != nullptr);
+
+  std::vector<std::string> table_name;
+  if (ast_statement->table_name() != nullptr) {
+    table_name = ast_statement->table_name()->ToIdentifierVector();
+  }
+
+  ResolvedAlterIndexStmt::AlterIndexType index_type =
+      ResolvedAlterIndexStmt::INDEX_DEFAULT;
+  std::string alter_statement_kind;
+  switch (ast_statement->index_type()) {
+    case ASTAlterIndexStatement::IndexType::INDEX_SEARCH:
+      index_type = ResolvedAlterIndexStmt::INDEX_SEARCH;
+      alter_statement_kind = "SEARCH INDEX";
+      break;
+    case ASTAlterIndexStatement::IndexType::INDEX_VECTOR:
+      index_type = ResolvedAlterIndexStmt::INDEX_VECTOR;
+      alter_statement_kind = "VECTOR INDEX";
+      break;
+    default:
+      ZETASQL_RET_CHECK_FAIL() << "Invalid index type: " << ast_statement->index_type();
+  }
+
+  const ASTPathExpression* table_path = ast_statement->table_name();
+  std::shared_ptr<const NameList> target_name_list(new NameList);
+  std::unique_ptr<const ResolvedTableScan> resolved_table_scan;
+
+  if (table_path != nullptr) {
+    ZETASQL_RETURN_IF_ERROR(ResolvePathExpressionAsTableScan(
+        table_path, GetAliasForExpression(table_path),
+        /*has_explicit_alias=*/false,
+        /*alias_location=*/table_path, /*hints=*/nullptr,
+        /*for_system_time=*/nullptr, empty_name_scope_.get(),
+        /*remaining_names=*/nullptr, &resolved_table_scan, &target_name_list,
+        /*output_column_name_list=*/nullptr,
+        resolved_columns_from_table_scans_));
+  }
+
+  bool has_rebuild_action = false;
+  for (const auto& action : ast_statement->action_list()->actions()) {
+    if (has_rebuild_action) {
+      return MakeSqlErrorAt(ast_statement)
+             << "REBUILD needs to be the last action in ALTER "
+                "VECTOR|SEARCH INDEX statement.";
+    }
+    switch (action->node_kind()) {
+      case AST_REBUILD_ACTION:
+        has_rebuild_action = true;
+        break;
+      case AST_ADD_COLUMN_IDENTIFIER_ACTION:
+      case AST_DROP_COLUMN_ACTION:
+      case AST_ALTER_COLUMN_OPTIONS_ACTION:
+      case AST_SET_OPTIONS_ACTION:
+        break;
+      default:
+        return MakeSqlErrorAt(action)
+               << "ALTER " << alter_statement_kind << " does not support "
+               << action->GetNodeKindString();
+    }
+  }
+
+  bool has_only_set_options_action = true;
+  std::vector<std::unique_ptr<const ResolvedAlterAction>>
+      resolved_alter_actions;
+  ZETASQL_RETURN_IF_ERROR(ResolveAlterActions(
+      ast_statement, alter_statement_kind, ast_statement->table_name(),
+      ast_statement->action_list()->actions(), ast_statement->is_if_exists(),
+      output, &has_only_set_options_action, &resolved_alter_actions));
+
+  *output = MakeResolvedAlterIndexStmt(
+      ast_statement->path()->ToIdentifierVector(),
+      std::move(resolved_alter_actions), ast_statement->is_if_exists(),
+      table_name, index_type, std::move(resolved_table_scan));
   return absl::OkStatus();
 }
 

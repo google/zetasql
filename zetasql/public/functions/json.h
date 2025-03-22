@@ -521,8 +521,7 @@ class JsonObjectBuilder {
   // Returns whether the pair was inserted.
   // When an error is returned, it is the caller's responsibility to Reset() the
   // builder.
-  ABSL_MUST_USE_RESULT absl::StatusOr<bool> Add(absl::string_view key,
-                                                const Value& value);
+  absl::StatusOr<bool> Add(absl::string_view key, const Value& value);
 
   // Returns the JSON object. Resets the internal state. The instance can be
   // used again.
@@ -815,6 +814,47 @@ absl::Status JsonStripNulls(
 absl::StatusOr<JSONValue> JsonQueryLax(
     JSONValueConstRef input,
     json_internal::StrictJSONPathIterator& path_iterator);
+
+// Returns true if a given JSON document `target` is contained within a JSON
+// document `input`. Otherwise, returns false.
+//
+// Example 1:
+// JsonContains(JSON '{"a":1,"b":2,"c":null}', JSON '{"c":null,"a":1.00}');
+// Result: True
+// Reasoning: All keys and values are contained. The ordering of keys and
+// format of numeric values are not important. Also, JSON null is contained with
+// JSON null.
+//
+// Example 2:
+// JsonContains(JSON '{"a":1,"b":2,"c":3}', JSON '{"c":3.0,"d":1}');
+// Result: False
+// Reasoning: Only partial keys and values are matched.
+//
+// Example 3:
+// JsonContains(JSON '[1,2,[3,4,[5]],[6,7]]', JSON '[2,[6],[[5]],2]');
+// Result: True
+// Reasoning: Duplicated values in arrays are not important. The nested levels
+// of these array elements are.
+//
+// Example 4:
+// JsonContains(JSON '[1,2,[3,4,[5]],[6,7]]', JSON '2.0');
+// Result: True
+// Reasoning: Top level json array can contains a scalar value directly.
+//
+// Example 5:
+// JsonContains(JSON '[{"a":1},[{"a":[2]}, 3]]', JSON '[[{"a":2}]]')
+// Result: False
+// Reasoning: Because the scalar value 2 is not matched with json array type.
+// Switching the tareget as JSON '[[{"a":[2]}]]' will return true.
+//
+// Example 6:
+// JsonContains(JSON '[{"a":1}, {"a":2,"b":3},4]]', JSON '[{"a":1,"b":3}]')
+// Result: False
+// Reasoning: Because the json object in the array needs to be matched together.
+// Switching the tareget as JSON '[{"a":1},{"b":3}]' will return true.
+//
+// See (broken link) for full details.
+bool JsonContains(JSONValueConstRef input, JSONValueConstRef target);
 
 // Options for JsonKeys functions.
 //

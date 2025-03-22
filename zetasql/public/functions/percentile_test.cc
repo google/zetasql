@@ -17,17 +17,23 @@
 #include "zetasql/public/functions/percentile.h"
 
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <deque>
+#include <initializer_list>
 #include <limits>
 #include <string>
+#include <vector>
 
 #include "zetasql/common/string_util.h"
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/numeric_value.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 
 namespace zetasql {
 namespace {

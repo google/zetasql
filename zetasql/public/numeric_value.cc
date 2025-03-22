@@ -16,7 +16,6 @@
 
 #include "zetasql/public/numeric_value.h"
 
-#include <ctype.h>
 #include <stddef.h>
 #include <string.h>
 #include <sys/types.h>
@@ -61,16 +60,6 @@ using FormatFlag = NumericValue::FormatSpec::Flag;
 constexpr uint8_t kGroupSize = 3;
 constexpr char kGroupChar = ',';
 enum RoundingMode { kTrunc, kRoundHalfAwayFromZero, kRoundHalfEven };
-
-// Returns -1, 0 or 1 if the given int128 number is negative, zero of positive
-// respectively.
-inline int int128_sign(__int128 x) { return (0 < x) - (x < 0); }
-
-inline unsigned __int128 int128_abs(__int128 x) {
-  // Must cast to unsigned type before negation. Negation of signed integer
-  // could overflow and has undefined behavior in C/C++.
-  return (x >= 0) ? x : -static_cast<unsigned __int128>(x);
-}
 
 constexpr FixedUint<64, 1> NumericScalingFactorSquared() {
   return FixedUint<64, 1>(NumericValue::kScalingFactor *
@@ -1007,14 +996,13 @@ size_t NumericValue::HashCode() const {
 }
 
 void NumericValue::AppendToString(std::string* output) const {
-  if (as_packed_int() == 0) {
+  if (value_.is_zero()) {
     output->push_back('0');
     return;
   }
   size_t old_size = output->size();
-  FixedInt<64, 2> value(as_packed_int());
-  value.AppendToString(output);
-  size_t first_digit_index = old_size + value.is_negative();
+  value_.AppendToString(output);
+  size_t first_digit_index = old_size + value_.is_negative();
   AddDecimalPointAndAdjustZeros(first_digit_index, kMaxFractionalDigits, 0,
                                 false, output);
 }
@@ -1047,7 +1035,7 @@ double NumericValue::ToDouble() const {
     return 0;
   }
   using uint128 = unsigned __int128;
-  uint128 abs_value = int128_abs(value);
+  uint128 abs_value = static_cast<uint128>(value_.abs());
   // binary_scaling_factor must be a power of 2, so that the division by it
   // never loses any precision.
   double binary_scaling_factor = 1;
@@ -1164,13 +1152,9 @@ absl::StatusOr<NumericValue> NumericValue::FromDouble(double value) {
 }
 
 absl::StatusOr<NumericValue> NumericValue::Multiply(NumericValue rh) const {
-  const __int128 value = as_packed_int();
-  const __int128 rh_value = rh.as_packed_int();
-  bool negative = value < 0;
-  bool rh_negative = rh_value < 0;
-  FixedUint<64, 4> product =
-      ExtendAndMultiply(FixedUint<64, 2>(int128_abs(value)),
-                        FixedUint<64, 2>(int128_abs(rh_value)));
+  bool negative = value_.is_negative();
+  bool rh_negative = rh.value_.is_negative();
+  FixedUint<64, 4> product = ExtendAndMultiply(value_.abs(), rh.value_.abs());
 
   // This value represents kNumericMax * kScalingFactor + kScalingFactor / 2.
   // At this value, <res> would be internal::kNumericMax + 1 and overflow.
@@ -1191,12 +1175,9 @@ absl::StatusOr<NumericValue> NumericValue::Multiply(NumericValue rh) const {
 
 absl::StatusOr<NumericValue> NumericValue::MultiplyAndDivideByPowerOfTwo(
     const FixedInt<64, 2>& multiplier, uint scale_bits) const {
-  const __int128 value = as_packed_int();
-  bool negative = value < 0;
-  bool mult_negative = multiplier.is_negative();
-  bool result_is_negative = negative != mult_negative;
-  FixedUint<64, 4> product = ExtendAndMultiply(
-      FixedUint<64, 2>(int128_abs(value)), FixedUint<64, 2>(multiplier.abs()));
+  const bool result_is_negative =
+      value_.is_negative() != multiplier.is_negative();
+  FixedUint<64, 4> product = ExtendAndMultiply(value_.abs(), multiplier.abs());
 
   if (scale_bits > 0) {
     ShiftRightAndRound(scale_bits, &product);
@@ -1223,11 +1204,19 @@ absl::StatusOr<NumericValue> NumericValue::MultiplyAndDivideByPowerOfTwo(
 }
 
 NumericValue NumericValue::Abs() const {
-  // The result is expected to be within the valid range.
-  return NumericValue(static_cast<__int128>(int128_abs(as_packed_int())));
+  if (value_.is_negative()) {
+    NumericValue result = *this;
+    // The result is expected to be within the valid range, ignore the
+    // overflow signal.
+    result.value_.NegateOverflow();
+    return result;
+  }
+  return *this;
 }
 
-int NumericValue::Sign() const { return int128_sign(as_packed_int()); }
+int NumericValue::Sign() const {
+  return value_.is_negative() ? -1 : (value_.is_zero() ? 0 : 1);
+}
 
 absl::StatusOr<NumericValue> NumericValue::Power(NumericValue exp) const {
   auto res_or_status = PowerInternal<2, 2, 3, 94>(*this, exp);
@@ -1346,7 +1335,7 @@ absl::StatusOr<NumericValue> NumericValue::Sqrt() const {
 }
 
 absl::StatusOr<NumericValue> NumericValue::Cbrt() const {
-  bool is_negative = as_packed_int() < 0;
+  const bool is_negative = value_.is_negative();
   UnsignedBinaryFraction<3, 94> value =
       SignedBinaryFraction<3, 94>(*this).Abs();
   UnsignedBinaryFraction<3, 94> cbrt;
@@ -1553,14 +1542,12 @@ absl::StatusOr<NumericValue> NumericValue::Floor() const {
 }
 
 absl::StatusOr<NumericValue> NumericValue::Divide(NumericValue rh) const {
-  const __int128 value = as_packed_int();
-  const __int128 rh_value = rh.as_packed_int();
-  const bool is_negative = value < 0;
-  const bool rh_is_negative = rh_value < 0;
+  const bool is_negative = value_.is_negative();
+  const bool rh_is_negative = rh.value_.is_negative();
 
-  if (ABSL_PREDICT_TRUE(rh_value != 0)) {
-    FixedUint<64, 3> dividend(int128_abs(value));
-    unsigned __int128 divisor = int128_abs(rh_value);
+  if (ABSL_PREDICT_TRUE(!rh.value_.is_zero())) {
+    FixedUint<64, 3> dividend(value_.abs());
+    unsigned __int128 divisor = static_cast<unsigned __int128>(rh.value_.abs());
 
     // To preserve the scale of the result we need to multiply the dividend by
     // the scaling factor first.
@@ -1613,9 +1600,12 @@ void NumericValue::SerializeAndAppendToProtoBytes(std::string* bytes) const {
 
 absl::StatusOr<NumericValue> NumericValue::DeserializeFromProtoBytes(
     absl::string_view bytes) {
-  FixedInt<64, 2> value;
-  if (ABSL_PREDICT_TRUE(value.DeserializeFromBytes(bytes))) {
-    return NumericValue::FromPackedInt(static_cast<__int128>(value));
+  NumericValue out;
+  if (ABSL_PREDICT_TRUE(out.value_.DeserializeFromBytes(bytes))) {
+    if (ABSL_PREDICT_TRUE(out >= MinValue() && out <= MaxValue())) {
+      return out;
+    }
+    return MakeEvalError() << "numeric overflow: result out of range";
   }
   return MakeEvalError() << "Invalid numeric encoding";
 }

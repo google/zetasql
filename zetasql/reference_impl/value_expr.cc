@@ -33,6 +33,7 @@
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/common/thread_stack.h"
 #include "zetasql/public/catalog.h"
+#include "zetasql/public/json_value.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/property_graph.h"
@@ -53,6 +54,7 @@
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
+#include "zetasql/base/case.h"
 #include "absl/cleanup/cleanup.h"
 #include "absl/container/btree_map.h"
 #include "absl/container/flat_hash_map.h"
@@ -69,7 +71,6 @@
 #include "absl/strings/string_view.h"
 #include "absl/strings/strip.h"
 #include "absl/time/time.h"
-#include "absl/types/optional.h"
 #include "absl/types/span.h"
 #include "google/protobuf/dynamic_message.h"
 #include "zetasql/base/map_util.h"
@@ -319,7 +320,7 @@ bool NewArrayExpr::Eval(absl::Span<const TupleData* const> params,
     }
     values_size += element->physical_byte_size();
     if (values_size >= context->options().max_value_byte_size) {
-      *status = zetasql_base::ResourceExhaustedErrorBuilder()
+      *status = zetasql_base::OutOfRangeErrorBuilder()
                 << "Cannot construct array Value larger than "
                 << context->options().max_value_byte_size << " bytes";
       return false;
@@ -437,7 +438,7 @@ bool ArrayNestExpr::Eval(absl::Span<const TupleData* const> params,
 
     if (!builder.PushBackUnsafe(std::move(*slot.mutable_value()), status)) {
       if (!is_with_table_) {
-        *status = zetasql_base::ResourceExhaustedErrorBuilder()
+        *status = zetasql_base::OutOfRangeErrorBuilder()
                   << "Cannot construct array Value larger than "
                   << context->options().max_value_byte_size << " bytes";
       }
@@ -2189,8 +2190,8 @@ DMLValueExpr::GetPrimaryKeyColumnIndexes(EvaluationContext* context) const {
 
 absl::StatusOr<Value> DMLValueExpr::GetDMLOutputValue(
     int64_t num_rows_modified,
-    const std::vector<std::vector<Value>>& dml_output_rows,
-    const std::vector<std::vector<Value>>& dml_returning_rows,
+    absl::Span<const std::vector<Value>> dml_output_rows,
+    absl::Span<const std::vector<Value>> dml_returning_rows,
     EvaluationContext* context) const {
   for (const std::vector<Value>& dml_output_row : dml_output_rows) {
     for (const Value& value : dml_output_row) {
@@ -3848,7 +3849,7 @@ absl::Status DMLInsertValueExpr::PopulateColumnsToInsert(
 }
 
 absl::Status DMLInsertValueExpr::PopulateReturningRows(
-    const std::vector<std::vector<Value>>& rows_to_insert,
+    absl::Span<const std::vector<Value>> rows_to_insert,
     absl::Span<const TupleData* const> params, EvaluationContext* context,
     std::vector<std::vector<Value>>& dml_returning_rows) const {
   ZETASQL_RET_CHECK_NE(stmt()->returning(), nullptr);
@@ -4125,6 +4126,27 @@ absl::Status AppendOrderedCode(absl::Span<const zetasql::Value> values,
   return absl::OkStatus();
 }
 
+absl::Status ValidateGraphElementExprInputs(
+    const Type* type, const GraphElementTable* table,
+    const std::vector<std::unique_ptr<ValueExpr>>& key,
+    const std::vector<std::unique_ptr<ValueExpr>>& src_node_key,
+    const std::vector<std::unique_ptr<ValueExpr>>& dest_node_key) {
+  ZETASQL_RET_CHECK(!key.empty()) << "Key value cannot be empty";
+  ZETASQL_RET_CHECK(type->IsGraphElement());
+  const GraphElementType* graph_element_type = type->AsGraphElement();
+  if (graph_element_type->IsNode()) {
+    ZETASQL_RET_CHECK(src_node_key.empty());
+    ZETASQL_RET_CHECK(dest_node_key.empty());
+    ZETASQL_RET_CHECK(table->Is<GraphNodeTable>());
+  } else {
+    ZETASQL_RET_CHECK(graph_element_type->IsEdge());
+    ZETASQL_RET_CHECK(!src_node_key.empty());
+    ZETASQL_RET_CHECK(!dest_node_key.empty());
+    ZETASQL_RET_CHECK(table->Is<GraphEdgeTable>());
+  }
+  return absl::OkStatus();
+}
+
 }  // namespace
 
 class NewGraphElementExpr::PropertyArg : public ExprArg {
@@ -4143,47 +4165,39 @@ absl::StatusOr<std::unique_ptr<NewGraphElementExpr>>
 NewGraphElementExpr::Create(
     const Type* graph_element_type, const GraphElementTable* table,
     std::vector<std::unique_ptr<ValueExpr>> key,
-    std::vector<Property> properties,
-    std::optional<std::vector<std::unique_ptr<ValueExpr>>> src_node_key,
-    std::optional<std::vector<std::unique_ptr<ValueExpr>>> dest_node_key) {
-  ZETASQL_RET_CHECK(!key.empty()) << "Key value cannot be empty";
-  ZETASQL_RET_CHECK(graph_element_type->IsGraphElement());
-  if (graph_element_type->AsGraphElement()->IsNode()) {
-    ZETASQL_RET_CHECK(!src_node_key.has_value());
-    ZETASQL_RET_CHECK(!dest_node_key.has_value());
-    ZETASQL_RET_CHECK(table->Is<GraphNodeTable>());
-  } else {
-    ZETASQL_RET_CHECK(graph_element_type->AsGraphElement()->IsEdge());
-    ZETASQL_RET_CHECK(src_node_key.has_value());
-    ZETASQL_RET_CHECK(dest_node_key.has_value());
-    ZETASQL_RET_CHECK(table->Is<GraphEdgeTable>());
-  }
+    std::vector<Property> static_properties,
+    std::vector<std::unique_ptr<ValueExpr>> src_node_key,
+    std::vector<std::unique_ptr<ValueExpr>> dest_node_key) {
+  ZETASQL_RETURN_IF_ERROR(ValidateGraphElementExprInputs(
+      graph_element_type, table, key,
+      src_node_key, dest_node_key));
   return absl::WrapUnique(new NewGraphElementExpr(
-      graph_element_type, table, std::move(key), std::move(properties),
+      graph_element_type, table, std::move(key), std::move(static_properties),
       std::move(src_node_key), std::move(dest_node_key)));
 }
 
 NewGraphElementExpr::NewGraphElementExpr(
     const Type* graph_element_type, const GraphElementTable* table,
     std::vector<std::unique_ptr<ValueExpr>> key,
-    std::vector<Property> properties,
-    std::optional<std::vector<std::unique_ptr<ValueExpr>>> src_node_key,
-    std::optional<std::vector<std::unique_ptr<ValueExpr>>> dest_node_key)
+    std::vector<Property> static_properties,
+    std::vector<std::unique_ptr<ValueExpr>> src_node_key,
+    std::vector<std::unique_ptr<ValueExpr>> dest_node_key)
     : ValueExpr(graph_element_type), table_(table) {
-  SetArgs<ExprArg>(kKey, zetasql::MakeExprArgList(std::move(key)));
-  SetArgs<PropertyArg>(kProperty, MakeExprArgList(std::move(properties)));
-  if (src_node_key.has_value()) {
-    SetArgs<ExprArg>(kSrcNodeReference, zetasql::MakeExprArgList(
-                                            std::move(src_node_key).value()));
-  }
-  if (dest_node_key.has_value()) {
-    SetArgs<ExprArg>(kDstNodeReference, zetasql::MakeExprArgList(
-                                            std::move(dest_node_key).value()));
-  }
+  SetArgs<ExprArg>(kKey, MakeExprArgList(std::move(key)));
+  SetArgs<PropertyArg>(kStaticProperty,
+                       MakePropertyArgList(std::move(static_properties)));
+  SetArgs<ExprArg>(kSrcNodeReference,
+                   !src_node_key.empty()
+                       ? MakeExprArgList(std::move(src_node_key))
+                       : std::vector<std::unique_ptr<ExprArg>>{});
+  SetArgs<ExprArg>(kDstNodeReference,
+                   !dest_node_key.empty()
+                       ? MakeExprArgList(std::move(dest_node_key))
+                       : std::vector<std::unique_ptr<ExprArg>>{});
 }
 
 std::vector<std::unique_ptr<NewGraphElementExpr::PropertyArg>>
-NewGraphElementExpr::MakeExprArgList(std::vector<Property> properties) {
+NewGraphElementExpr::MakePropertyArgList(std::vector<Property> properties) {
   std::vector<std::unique_ptr<PropertyArg>> args;
   args.reserve(properties.size());
   for (Property& property : properties) {
@@ -4201,7 +4215,18 @@ absl::Status NewGraphElementExpr::SetSchemasForEvaluation(
     ZETASQL_RETURN_IF_ERROR(
         SetArgsSchema(params_schemas, mutable_args<kDstNodeReference>()));
   }
-  ZETASQL_RETURN_IF_ERROR(SetArgsSchema(params_schemas, mutable_args<kProperty>()));
+  ZETASQL_RETURN_IF_ERROR(
+      SetArgsSchema(params_schemas, mutable_args<kStaticProperty>()));
+  return absl::OkStatus();
+}
+
+absl::Status NewGraphElementExpr::SetArgsSchema(
+    absl::Span<const TupleSchema* const> params_schemas,
+    absl::Span<ExprArg* const> mutable_args) const {
+  for (auto* arg : mutable_args) {
+    ZETASQL_RETURN_IF_ERROR(
+        arg->mutable_value_expr()->SetSchemasForEvaluation(params_schemas));
+  }
   return absl::OkStatus();
 }
 
@@ -4211,7 +4236,8 @@ bool NewGraphElementExpr::Eval(absl::Span<const TupleData* const> params,
                                absl::Status* status) const {
   uint64_t values_size = 0;
   std::vector<std::pair<std::string, Value>> properties;
-  if (!EvaluateProperties(params, context, status, &values_size, &properties)) {
+  if (!EvaluateStaticProperties(params, context, status, &values_size,
+                                &properties)) {
     return false;
   }
 
@@ -4225,22 +4251,28 @@ bool NewGraphElementExpr::Eval(absl::Span<const TupleData* const> params,
     return false;
   };
 
-  absl::flat_hash_set<const GraphElementLabel*> label_set;
-  ZETASQL_RETURN_IF_ERROR(table_->GetLabels(label_set)).With(kErrorAdaptor);
-  std::vector<std::string> labels;
-  labels.reserve(label_set.size());
-  std::transform(label_set.begin(), label_set.end(), std::back_inserter(labels),
+  absl::flat_hash_set<const GraphElementLabel*> static_label_set;
+  ZETASQL_RETURN_IF_ERROR(table_->GetLabels(static_label_set)).With(kErrorAdaptor);
+  std::vector<std::string> static_labels;
+  static_labels.reserve(static_label_set.size());
+  std::transform(static_label_set.begin(), static_label_set.end(),
+                 std::back_inserter(static_labels),
                  [](const GraphElementLabel* l) { return l->Name(); });
 
   const GraphElementType* element_type = output_type()->AsGraphElement();
   if (IsNode()) {
     ZETASQL_ASSIGN_OR_RETURN(std::string opaque_key, MakeOpaqueKey(table_, keys),
                      _.With(kErrorAdaptor));
-    ZETASQL_ASSIGN_OR_RETURN(Value element_value,
-                     Value::MakeGraphNode(element_type, std::move(opaque_key),
-                                          std::move(properties),
-                                          std::move(labels), table_->Name()),
-                     _.With(kErrorAdaptor));
+    ZETASQL_ASSIGN_OR_RETURN(
+        Value element_value,
+        Value::MakeGraphNode(
+            element_type, std::move(opaque_key),
+            Value::GraphElementLabelsAndProperties{
+                .static_labels = std::move(static_labels),
+                .static_properties = std::move(properties)
+            },
+            table_->Name()),
+        _.With(kErrorAdaptor));
     result->SetValue(std::move(element_value));
     return true;
   }
@@ -4276,20 +4308,48 @@ bool NewGraphElementExpr::Eval(absl::Span<const TupleData* const> params,
                    _.With(kErrorAdaptor));
   ZETASQL_ASSIGN_OR_RETURN(
       Value element_value,
-      Value::MakeGraphEdge(element_type, std::move(opaque_key),
-                           std::move(properties), std::move(labels),
-                           table_->Name(), std::move(src_node_opaque_key),
-                           std::move(dst_node_opaque_key)),
+      Value::MakeGraphEdge(
+          element_type, std::move(opaque_key),
+          Value::GraphElementLabelsAndProperties{
+              .static_labels = std::move(static_labels),
+              .static_properties = std::move(properties)
+          },
+          table_->Name(), std::move(src_node_opaque_key),
+          std::move(dst_node_opaque_key)),
       _.With(kErrorAdaptor));
   result->SetValue(std::move(element_value));
   return true;
 }
 
-bool NewGraphElementExpr::EvaluateProperties(
+bool NewGraphElementExpr::Evaluate(absl::Span<const ExprArg* const> args,
+                                   absl::Span<const TupleData* const> params,
+                                   EvaluationContext* context,
+                                   absl::Status* status, uint64_t* values_size,
+                                   std::vector<Value>* values) const {
+  values->reserve(values->size() + args.size());
+  for (const auto* arg : args) {
+    std::shared_ptr<TupleSlot::SharedProtoState> arg_shared_state;
+    VirtualTupleSlot arg_result(&values->emplace_back(), &arg_shared_state);
+    if (!arg->value_expr()->Eval(params, context, &arg_result, status)) {
+      return false;
+    }
+
+    *values_size += values->back().physical_byte_size();
+    if (*values_size >= context->options().max_value_byte_size) {
+      *status = zetasql_base::OutOfRangeErrorBuilder()
+                << "Cannot construct graph element Value larger than "
+                << context->options().max_value_byte_size << " bytes";
+      return false;
+    }
+  }
+  return true;
+}
+
+bool NewGraphElementExpr::EvaluateStaticProperties(
     absl::Span<const TupleData* const> params, EvaluationContext* context,
     absl::Status* status, uint64_t* values_size,
     std::vector<std::pair<std::string, Value>>* properties) const {
-  const auto property_args = args<kProperty, PropertyArg>();
+  const auto property_args = args<kStaticProperty, PropertyArg>();
   properties->reserve(property_args.size());
   for (const auto* property_arg : property_args) {
     std::shared_ptr<TupleSlot::SharedProtoState> arg_shared_state;
@@ -4318,65 +4378,31 @@ std::string NewGraphElementExpr::DebugInternal(const std::string& indent,
   std::string indent_child_field = indent + kIndentSpace;
   std::string result = absl::StrCat("NewGraphElementExpr(", indent_child,
                                     "type: ", output_type()->DebugString());
-  absl::StrAppend(&result, indent_child, "table=", table_->FullName());
-  absl::StrAppend(&result, indent_child, "key=",
+  absl::StrAppend(&result, indent_child, "table: ", table_->FullName());
+  absl::StrAppend(&result, indent_child, "key: ",
                   ArgsDebugString(args<kKey>(), indent_child_field, verbose));
   if (IsEdge()) {
-    absl::StrAppend(&result, indent_child, "src_node_key=",
+    absl::StrAppend(&result, indent_child, "src_node_key: ",
                     ArgsDebugString(args<kSrcNodeReference>(),
                                     indent_child_field, verbose));
-    absl::StrAppend(&result, indent_child, "dst_node_key=",
+    absl::StrAppend(&result, indent_child, "dst_node_key: ",
                     ArgsDebugString(args<kDstNodeReference>(),
                                     indent_child_field, verbose));
   }
-  absl::StrAppend(&result, indent_child, "properties=",
-                  PropertiesDebugString(indent_child_field, verbose));
+  absl::StrAppend(&result, indent_child, "static_properties: ",
+                  StaticPropertiesDebugString(indent_child_field, verbose));
   return result;
 }
 
-std::string NewGraphElementExpr::PropertiesDebugString(
+std::string NewGraphElementExpr::StaticPropertiesDebugString(
     const std::string& indent, bool verbose) const {
   std::string result;
   std::string indent_child = indent + kIndentFork;
-  for (auto* arg : args<kProperty, PropertyArg>()) {
+  for (auto* arg : args<kStaticProperty, PropertyArg>()) {
     absl::StrAppend(&result, indent_child, " ", arg->Name(), ": ",
                     arg->DebugInternal(indent + kIndentSpace, verbose), ",");
   }
   return absl::StrCat("(", result, indent_child, ")");
-}
-
-absl::Status NewGraphElementExpr::SetArgsSchema(
-    absl::Span<const TupleSchema* const> params_schemas,
-    absl::Span<ExprArg* const> mutable_args) const {
-  for (auto* arg : mutable_args) {
-    ZETASQL_RETURN_IF_ERROR(
-        arg->mutable_value_expr()->SetSchemasForEvaluation(params_schemas));
-  }
-  return absl::OkStatus();
-}
-
-bool NewGraphElementExpr::Evaluate(absl::Span<const ExprArg* const> args,
-                                   absl::Span<const TupleData* const> params,
-                                   EvaluationContext* context,
-                                   absl::Status* status, uint64_t* values_size,
-                                   std::vector<Value>* values) const {
-  values->reserve(values->size() + args.size());
-  for (const auto* arg : args) {
-    std::shared_ptr<TupleSlot::SharedProtoState> arg_shared_state;
-    VirtualTupleSlot arg_result(&values->emplace_back(), &arg_shared_state);
-    if (!arg->value_expr()->Eval(params, context, &arg_result, status)) {
-      return false;
-    }
-
-    *values_size += values->back().physical_byte_size();
-    if (*values_size >= context->options().max_value_byte_size) {
-      *status = zetasql_base::OutOfRangeErrorBuilder()
-                << "Cannot construct graph element Value larger than "
-                << context->options().max_value_byte_size << " bytes";
-      return false;
-    }
-  }
-  return true;
 }
 
 std::string NewGraphElementExpr::ArgsDebugString(
@@ -4405,10 +4431,11 @@ absl::StatusOr<std::string> NewGraphElementExpr::MakeOpaqueKey(
 // -------------------------------------------------------
 
 absl::StatusOr<std::unique_ptr<GraphGetElementPropertyExpr>>
-GraphGetElementPropertyExpr::Create(absl::string_view property_name,
+GraphGetElementPropertyExpr::Create(const Type* output_type,
+                                    absl::string_view property_name,
                                     std::unique_ptr<ValueExpr> expr) {
-  return absl::WrapUnique(
-      new GraphGetElementPropertyExpr(property_name, std::move(expr)));
+  return absl::WrapUnique(new GraphGetElementPropertyExpr(
+      output_type, property_name, std::move(expr)));
 }
 
 absl::Status GraphGetElementPropertyExpr::SetSchemasForEvaluation(
@@ -4423,27 +4450,20 @@ bool GraphGetElementPropertyExpr::Eval(
   if (!input()->EvalSimple(params, context, &graph_element_slot, status)) {
     return false;
   }
+
+  const auto kErrorAdaptor = [&](zetasql_base::StatusBuilder builder) {
+    *status = std::move(builder);
+    return false;
+  };
+
   const Value& graph_element_value = graph_element_slot.value();
   Value property_value;
   if (graph_element_value.is_null()) {
     property_value = Value::Null(output_type());
   } else {
-    absl::StatusOr<Value> fetched_value =
-        graph_element_value.FindPropertyByName(property_name_);
-    if (!fetched_value.ok()) {
-      if (!absl::IsNotFound(fetched_value.status())) {
-        *status = fetched_value.status();
-        return false;
-      }
-      // Resolver already made sure property is accessible for this graph
-      // element type. Missing property means the element table, which is part
-      // of the relational UNION, does not have it, so it should evaluate to
-      // NULL. This is similar to the case where a column exists only for one
-      // side of a relational UNION.
-      property_value = Value::Null(output_type());
-    } else {
-      property_value = fetched_value.value();
-    }
+    ZETASQL_ASSIGN_OR_RETURN(property_value,
+                     graph_element_value.FindPropertyByName(property_name_),
+                     _.With(kErrorAdaptor));
   }
   result->SetValueAndMaybeSharedProtoState(
       std::move(property_value),
@@ -4458,12 +4478,9 @@ std::string GraphGetElementPropertyExpr::DebugInternal(
 }
 
 GraphGetElementPropertyExpr::GraphGetElementPropertyExpr(
-    absl::string_view property_name, std::unique_ptr<ValueExpr> expr)
-    : ValueExpr(expr->output_type()
-                    ->AsGraphElement()
-                    ->FindPropertyType(property_name)
-                    ->value_type),
-      property_name_(property_name) {
+    const Type* output_type, absl::string_view property_name,
+    std::unique_ptr<ValueExpr> expr)
+    : ValueExpr(output_type), property_name_(property_name) {
   SetArg(kGraphElement, std::make_unique<ExprArg>(std::move(expr)));
 }
 
@@ -4597,6 +4614,9 @@ absl::Span<ExprArg* const> ArrayAggregateExpr::mutable_expr_list() {
 // -------------------------------------------------------
 // GraphIsLabeledExpr
 // -------------------------------------------------------
+using CaseInsensitiveLabelSet =
+    absl::flat_hash_set<std::string, zetasql_base::StringViewCaseHash,
+                        zetasql_base::StringViewCaseEqual>;
 
 // This function assumes that the resolver has already validated that the label
 // expression is valid in context of the graph element's property graph. Since
@@ -4604,12 +4624,14 @@ absl::Span<ExprArg* const> ArrayAggregateExpr::mutable_expr_list() {
 // the (unqualified) names of labels are valid in the context of the property
 // graph and directly compare the string labels stored on the graph element.
 static absl::StatusOr<bool> CheckLabelSatisfactionOnStringLabels(
-    const absl::flat_hash_set<absl::string_view>& labels,
+    const CaseInsensitiveLabelSet& labels,
     const ResolvedGraphLabelExpr& label_expr) {
   switch (label_expr.node_kind()) {
     case RESOLVED_GRAPH_LABEL: {
-      return labels.contains(
-          label_expr.GetAs<ResolvedGraphLabel>()->label()->Name());
+      const ResolvedGraphLabel* graph_label =
+          label_expr.GetAs<ResolvedGraphLabel>();
+      std::string label_name = graph_label->label()->Name();
+      return labels.contains(label_name);
     }
     case RESOLVED_GRAPH_WILD_CARD_LABEL: {
       return !labels.empty();
@@ -4692,7 +4714,7 @@ bool GraphIsLabeledExpr::Eval(absl::Span<const TupleData* const> params,
   }
   absl::Span<const std::string> labels = graph_element_value.GetLabels();
   absl::StatusOr<bool> label_satisfied = CheckLabelSatisfactionOnStringLabels(
-      {labels.begin(), labels.end()}, *label_expr_);
+      CaseInsensitiveLabelSet(labels.begin(), labels.end()), *label_expr_);
   if (!label_satisfied.ok()) {
     *status = label_satisfied.status();
     return false;

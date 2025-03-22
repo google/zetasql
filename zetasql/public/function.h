@@ -389,6 +389,10 @@ struct FunctionOptions {
     supports_having_modifier = value;
     return *this;
   }
+  FunctionOptions& set_supports_group_by_modifier(bool value) {
+    supports_group_by_modifier = value;
+    return *this;
+  }
   FunctionOptions& set_supports_clamped_between_modifier(bool value) {
     supports_clamped_between_modifier = value;
     return *this;
@@ -399,6 +403,12 @@ struct FunctionOptions {
   }
   FunctionOptions& set_may_suppress_side_effects(bool value) {
     may_suppress_side_effects = value;
+    return *this;
+  }
+
+  FunctionOptions& set_default_null_handling(
+      FunctionEnums::DefaultNullHandling value) {
+    default_null_handling = value;
     return *this;
   }
 
@@ -550,6 +560,11 @@ struct FunctionOptions {
   // (affects aggregate functions only).
   bool supports_having_modifier = true;
 
+  // Indicates whether this function supports GROUP BY modifiers (and thus
+  // multi-level aggregation)
+  // (affects aggregate functions only).
+  bool supports_group_by_modifier = true;
+
   // Indicates whether this function supports CLAMPED BETWEEN in arguments
   // (affects aggregate functions only).
   // Must only be true for differential privacy functions.
@@ -607,6 +622,10 @@ struct FunctionOptions {
   // and (broken link) for more details.
   bool may_suppress_side_effects = false;
 
+  // Indicates this function's default handling of null values. This value is
+  // only relevant for aggregate functions and window functions.
+  FunctionEnums::DefaultNullHandling default_null_handling =
+      FunctionEnums::DEFAULT_NULL_HANDLING_UNSPECIFIED;
   // Copyable.
 };
 
@@ -929,6 +948,9 @@ class Function {
   // Returns true if DISTINCT is allowed in the function arguments.
   bool SupportsDistinctModifier() const;
 
+  // Returns true if GROUP BY is allowed in the function arguments.
+  bool SupportsGroupByModifier() const;
+
   // Returns true if CLAMPED BETWEEN is allowed in the function arguments.
   // Must only be true for differential privacy functions.
   bool SupportsClampedBetweenModifier() const;
@@ -951,6 +973,11 @@ class Function {
     sql_security_ = security;
   }
 
+  void set_statement_context(StatementContext context) {
+    statement_context_ = context;
+  }
+  StatementContext statement_context() const { return statement_context_; }
+
  private:
   bool is_operator() const;
 
@@ -961,6 +988,12 @@ class Function {
   const FunctionOptions function_options_;
   ResolvedCreateStatementEnums::SqlSecurity sql_security_ =
       ResolvedCreateStatementEnums::SQL_SECURITY_UNSPECIFIED;
+
+  // The ZetaSQL statement context in which this object was defined,
+  // indicating the context in which it was analyzed or needs to be analyzed.
+  // Specifically, this indicates if the object came from a module, which may
+  // have some different resolution behavior.
+  StatementContext statement_context_ = CONTEXT_DEFAULT;
 };
 
 // This class contains custom information about a particular function call.
@@ -987,6 +1020,15 @@ class ResolvedFunctionCallInfo {
   template <class ResolvedFunctionCallInfoSubclass>
   const ResolvedFunctionCallInfoSubclass* GetAs() const {
     return static_cast<const ResolvedFunctionCallInfoSubclass*>(this);
+  }
+
+  // Returns this ResolvedFunctionCallInfo as ResolvedFunctionCallInfo*.  Must
+  // only be used when it is known that the object *is* this subclass, which can
+  // be checked using Is() before calling GetAs(). non-const version of the
+  // above function.
+  template <class ResolvedFunctionCallInfoSubclass>
+  ResolvedFunctionCallInfoSubclass* GetAs() {
+    return static_cast<ResolvedFunctionCallInfoSubclass*>(this);
   }
 };
 

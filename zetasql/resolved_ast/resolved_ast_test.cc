@@ -26,8 +26,10 @@
 #include "zetasql/base/logging.h"
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/analyzer.h"
+#include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/function.h"
+#include "zetasql/public/function_signature.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/type.h"
@@ -35,12 +37,16 @@
 #include "zetasql/public/value.h"
 #include "zetasql/public/value.pb.h"
 #include "zetasql/resolved_ast/make_node_vector.h"
+#include "zetasql/resolved_ast/resolved_ast.pb.h"
+#include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/resolved_node_kind.h"
+#include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/resolved_ast/serialization.pb.h"
 #include "zetasql/resolved_ast/test_utils.h"
 #include "zetasql/resolved_ast/validator.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "zetasql/base/status.h"
 
@@ -342,6 +348,17 @@ TEST_F(ResolvedASTTest, GetAs) {
   const ResolvedScan* scan = join_scan;  // Implicit up cast.
   EXPECT_EQ("JoinScan", scan->node_kind_string());
   EXPECT_EQ(ResolvedJoinScan::TYPE, scan->node_kind());
+}
+
+TEST_F(ResolvedASTTest, GetAsResolvedNode) {
+  std::unique_ptr<const ResolvedNode> node = MakeJoin();
+  EXPECT_EQ(RESOLVED_JOIN_SCAN, node->node_kind());
+  EXPECT_EQ("JoinScan", node->node_kind_string());
+
+  std::unique_ptr<const ResolvedJoinScan> join =
+      GetAsResolvedNode<ResolvedJoinScan>(std::move(node));
+  EXPECT_EQ(RESOLVED_JOIN_SCAN, join->node_kind());
+  EXPECT_EQ("JoinScan", join->node_kind_string());
 }
 
 TEST_F(ResolvedASTTest, CheckFieldsAccessed) {

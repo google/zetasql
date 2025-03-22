@@ -19,7 +19,6 @@
 #include <memory>
 #include <optional>
 #include <string>
-#include <utility>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/analyzer/name_scope.h"
@@ -29,8 +28,10 @@
 #include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
 #include "zetasql/public/id_string.h"
+#include "zetasql/public/select_with_mode.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_column.h"
+#include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "absl/memory/memory.h"
 #include "absl/status/statusor.h"
@@ -116,20 +117,17 @@ absl::StatusOr<bool> IsConstantExpression(const ResolvedExpr* expr) {
     }
 
     case RESOLVED_CAST:
-      return IsConstantExpression(
-          expr->GetAs<ResolvedCast>()->expr());
+      return IsConstantExpression(expr->GetAs<ResolvedCast>()->expr());
 
     case RESOLVED_GET_STRUCT_FIELD:
       return IsConstantExpression(
           expr->GetAs<ResolvedGetStructField>()->expr());
 
     case RESOLVED_GET_PROTO_FIELD:
-      return IsConstantExpression(
-          expr->GetAs<ResolvedGetProtoField>()->expr());
+      return IsConstantExpression(expr->GetAs<ResolvedGetProtoField>()->expr());
 
     case RESOLVED_GET_JSON_FIELD:
-      return IsConstantExpression(
-          expr->GetAs<ResolvedGetJsonField>()->expr());
+      return IsConstantExpression(expr->GetAs<ResolvedGetJsonField>()->expr());
 
     case RESOLVED_FLATTEN:
       for (const auto& arg : expr->GetAs<ResolvedFlatten>()->get_field_list()) {
@@ -218,6 +216,28 @@ absl::StatusOr<bool> IsConstantExpression(const ResolvedExpr* expr) {
     // See above reasoning for subquery + aggregation
     case RESOLVED_ARRAY_AGGREGATE:
       return false;
+
+    case RESOLVED_UPDATE_CONSTRUCTOR: {
+      const ResolvedUpdateConstructor* update_constructor =
+          expr->GetAs<ResolvedUpdateConstructor>();
+      ZETASQL_ASSIGN_OR_RETURN(bool update_constructor_expr_is_constant,
+                       IsConstantExpression(update_constructor->expr()));
+      if (!update_constructor_expr_is_constant) {
+        return false;
+      }
+
+      for (const std::unique_ptr<const ResolvedUpdateFieldItem>&
+               update_field_item :
+           update_constructor->update_field_item_list()) {
+        ZETASQL_ASSIGN_OR_RETURN(bool update_field_item_expr_is_constant,
+                         IsConstantExpression(update_field_item->expr()));
+        if (!update_field_item_expr_is_constant) {
+          return false;
+        }
+      }
+
+      return true;
+    }
 
     default:
       // Update the static_assert above if adding or removing cases in

@@ -1,3 +1,4 @@
+
 create index i1 on KeyValue(Value) options (x=1);
 --
 CreateIndexStmt
@@ -122,7 +123,7 @@ CreateIndexStmt
 
 ==
 
-[show_unparsed]
+[show_sqlbuilder_output]
 # Proto field with OPTIONS.
 create index i1 on TestTable(KitchenSink.timestamp_seconds OPTIONS(k1="v1"));
 --
@@ -149,7 +150,12 @@ CreateIndexStmt
       +-default_value=1970-01-01 00:00:00+00
       +-format=TIMESTAMP_SECONDS
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+CREATE INDEX i1 ON TestTable(KitchenSink.timestamp_seconds OPTIONS(k1 = "v1"));
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 CREATE INDEX i1 ON TestTable(KitchenSink.timestamp_seconds OPTIONS(k1 = "v1"));
 
 ==
@@ -1368,7 +1374,7 @@ ERROR: Non-path index key expression for CREATE INDEX is notsupported yet [at 1:
 
 ==
 
-[show_unparsed]
+[show_sqlbuilder_output]
 # Create search index single option on columns.
 create search index i1 on ComplexTypes (key OPTIONS(k1="v1"), TestStruct OPTIONS(k2="v2"))
 --
@@ -1393,12 +1399,17 @@ CreateIndexStmt
     +-option_list=
       +-k2 := Literal(type=STRING, value="v2")
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+CREATE SEARCH INDEX i1 ON ComplexTypes(key OPTIONS(k1 = "v1"), TestStruct OPTIONS(k2 = "v2"));
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 CREATE SEARCH INDEX i1 ON ComplexTypes(key OPTIONS(k1 = "v1"), TestStruct OPTIONS(k2 = "v2"));
 
 ==
 
-[show_unparsed]
+[show_sqlbuilder_output]
 # Create search index with multiple options on columns.
 create search index i1 on ComplexTypes (KitchenSink OPTIONS(k1="v1", k2="v2"), TestStruct OPTIONS(k3="v3"))
 --
@@ -1424,7 +1435,13 @@ CreateIndexStmt
     +-option_list=
       +-k3 := Literal(type=STRING, value="v3")
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+CREATE SEARCH INDEX i1 ON ComplexTypes(KitchenSink OPTIONS(k1 = "v1", k2 = "v2"), TestStruct OPTIONS(k3 =
+  "v3"));
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 CREATE SEARCH INDEX i1 ON ComplexTypes(KitchenSink OPTIONS(k1 = "v1", k2 = "v2"), TestStruct OPTIONS(k3 =
   "v3"));
 
@@ -1523,7 +1540,7 @@ ERROR: Duplicate option name k1 [at 1:92]
 
 ==
 
-[show_unparsed]
+[show_sqlbuilder_output]
 # Create search index ALL COLUMNS with OPTIONS.
 create search index i1 on ComplexTypes (ALL COLUMNS WITH COLUMN OPTIONS(key OPTIONS(k1="v1"), TestStruct OPTIONS(k2="v2")))
 --
@@ -1549,13 +1566,19 @@ CreateIndexStmt
     +-option_list=
       +-k2 := Literal(type=STRING, value="v2")
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+CREATE SEARCH INDEX i1 ON ComplexTypes(ALL COLUMNS WITH COLUMN OPTIONS(key OPTIONS(k1 = "v1"), TestStruct OPTIONS(k2 =
+  "v2")));
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 CREATE SEARCH INDEX i1 ON ComplexTypes(ALL COLUMNS WITH COLUMN OPTIONS(key OPTIONS(k1 = "v1"), TestStruct OPTIONS(k2 =
   "v2")));
 
 ==
 
-[show_unparsed]
+[show_sqlbuilder_output]
 # Create search index ALL COLUMNS with multiple OPTIONS on same column.
 create search index i1 on ComplexTypes (ALL COLUMNS WITH COLUMN OPTIONS(key OPTIONS(k1="v1", k2="v2"), TestStruct OPTIONS(k3="v3")))
 --
@@ -1582,7 +1605,13 @@ CreateIndexStmt
     +-option_list=
       +-k3 := Literal(type=STRING, value="v3")
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+CREATE SEARCH INDEX i1 ON ComplexTypes(ALL COLUMNS WITH COLUMN OPTIONS(key OPTIONS(k1 = "v1", k2 = "v2"),
+TestStruct OPTIONS(k3 = "v3")));
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 CREATE SEARCH INDEX i1 ON ComplexTypes(ALL COLUMNS WITH COLUMN OPTIONS(key OPTIONS(k1 = "v1", k2 = "v2"),
 TestStruct OPTIONS(k3 = "v3")));
 

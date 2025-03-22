@@ -14,19 +14,15 @@
 // limitations under the License.
 //
 
-#ifndef ZETASQL_ANALYZER_REWRITERS_ARRAY_FUNCTIONS_REWRITER_H_
-#define ZETASQL_ANALYZER_REWRITERS_ARRAY_FUNCTIONS_REWRITER_H_
+#ifndef ZETASQL_ANALYZER_REWRITERS_IS_FIRST_IS_LAST_FUNCTION_REWRITER_H_
+#define ZETASQL_ANALYZER_REWRITERS_IS_FIRST_IS_LAST_FUNCTION_REWRITER_H_
 
 #include "zetasql/public/rewriter_interface.h"
 
 namespace zetasql {
 
-// Gets a pointer to the array filter and array transform rewriter.
-const Rewriter* GetArrayFilterTransformRewriter();
-
-// Gets a pointer to the array includes rewriter.
-const Rewriter* GetArrayIncludesRewriter();
+const Rewriter* GetIsFirstIsLastFunctionRewriter();
 
 }  // namespace zetasql
 
-#endif  // ZETASQL_ANALYZER_REWRITERS_ARRAY_FUNCTIONS_REWRITER_H_
+#endif  // ZETASQL_ANALYZER_REWRITERS_IS_FIRST_IS_LAST_FUNCTION_REWRITER_H_

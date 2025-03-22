@@ -1,0 +1,364 @@
+[default reserve_graph_table]
+[default language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+
+select gt.* from
+graph_table(aml
+  match (n)
+  for x in [1,2,3]
+  return n.name, 1 AS number
+) gt
+--
+QueryStatement [0-97] [select gt....number ) gt]
+  Query [0-97] [select gt....number ) gt]
+    Select [0-97] [select gt....number ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-97] [from graph_table...number ) gt]
+        GraphTableQuery [17-97] [graph_table...number ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-92] [match (n)...AS number]
+            GqlOperatorList [35-92] [match (n)...AS number]
+              GqlMatch [35-44] [match (n)]
+                GraphPattern [41-44] [(n)]
+                  GraphPathPattern [41-44] [(n)]
+                    GraphNodePattern [41-44] [(n)]
+                      GraphElementPatternFiller [42-43] [n]
+                        Identifier(n) [42-43] [n]
+              GqlFor [47-63] [for x in [1,2,3]]
+                Identifier(x) [51-52] [x]
+                ArrayConstructor [56-63] [[1,2,3]]
+                  IntLiteral(1) [57-58] [1]
+                  IntLiteral(2) [59-60] [2]
+                  IntLiteral(3) [61-62] [3]
+              GqlReturn [66-92] [return n.name, 1 AS number]
+                Select [72-92] [n.name, 1 AS number]
+                  SelectList [73-92] [n.name, 1 AS number]
+                    SelectColumn [73-79] [n.name]
+                      PathExpression [73-79] [n.name]
+                        Identifier(n) [73-74] [n]
+                        Identifier(name) [75-79] [name]
+                    SelectColumn [81-92] [1 AS number]
+                      IntLiteral(1) [81-82] [1]
+                      Alias [83-92] [AS number]
+                        Identifier(number) [86-92] [number]
+          Alias [95-97] [gt]
+            Identifier(gt) [95-97] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (n)
+    FOR x IN ARRAY[1, 2, 3]
+    RETURN
+      n.name,
+      1 AS number
+  ) AS gt
+==
+
+select gt.* from
+graph_table(aml
+  match (n)
+  for x in [1,2,3]
+  with offset
+  return n.name, 1 AS number
+) gt
+--
+QueryStatement [0-111] [select gt....number ) gt]
+  Query [0-111] [select gt....number ) gt]
+    Select [0-111] [select gt....number ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-111] [from graph_table...number ) gt]
+        GraphTableQuery [17-111] [graph_table...number ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-106] [match (n)...AS number]
+            GqlOperatorList [35-106] [match (n)...AS number]
+              GqlMatch [35-44] [match (n)]
+                GraphPattern [41-44] [(n)]
+                  GraphPathPattern [41-44] [(n)]
+                    GraphNodePattern [41-44] [(n)]
+                      GraphElementPatternFiller [42-43] [n]
+                        Identifier(n) [42-43] [n]
+              GqlFor [47-77] [for x in [1,2,3]   with offset]
+                Identifier(x) [51-52] [x]
+                ArrayConstructor [56-63] [[1,2,3]]
+                  IntLiteral(1) [57-58] [1]
+                  IntLiteral(2) [59-60] [2]
+                  IntLiteral(3) [61-62] [3]
+                WithOffset [66-77] [with offset]
+              GqlReturn [80-106] [return n.name, 1 AS number]
+                Select [86-106] [n.name, 1 AS number]
+                  SelectList [87-106] [n.name, 1 AS number]
+                    SelectColumn [87-93] [n.name]
+                      PathExpression [87-93] [n.name]
+                        Identifier(n) [87-88] [n]
+                        Identifier(name) [89-93] [name]
+                    SelectColumn [95-106] [1 AS number]
+                      IntLiteral(1) [95-96] [1]
+                      Alias [97-106] [AS number]
+                        Identifier(number) [100-106] [number]
+          Alias [109-111] [gt]
+            Identifier(gt) [109-111] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (n)
+    FOR x IN ARRAY[1, 2, 3] WITH OFFSET
+    RETURN
+      n.name,
+      1 AS number
+  ) AS gt
+==
+
+select gt.* from
+graph_table(aml
+  match (n)
+  for x in [1,2,3]
+  with offset as my_offset
+  return n.name, 1 AS number
+) gt
+--
+QueryStatement [0-124] [select gt....number ) gt]
+  Query [0-124] [select gt....number ) gt]
+    Select [0-124] [select gt....number ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-124] [from graph_table...number ) gt]
+        GraphTableQuery [17-124] [graph_table...number ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-119] [match (n)...AS number]
+            GqlOperatorList [35-119] [match (n)...AS number]
+              GqlMatch [35-44] [match (n)]
+                GraphPattern [41-44] [(n)]
+                  GraphPathPattern [41-44] [(n)]
+                    GraphNodePattern [41-44] [(n)]
+                      GraphElementPatternFiller [42-43] [n]
+                        Identifier(n) [42-43] [n]
+              GqlFor [47-90] [for x in [...my_offset]
+                Identifier(x) [51-52] [x]
+                ArrayConstructor [56-63] [[1,2,3]]
+                  IntLiteral(1) [57-58] [1]
+                  IntLiteral(2) [59-60] [2]
+                  IntLiteral(3) [61-62] [3]
+                WithOffset [66-90] [with offset as my_offset]
+                  Alias [78-90] [as my_offset]
+                    Identifier(my_offset) [81-90] [my_offset]
+              GqlReturn [93-119] [return n.name, 1 AS number]
+                Select [99-119] [n.name, 1 AS number]
+                  SelectList [100-119] [n.name, 1 AS number]
+                    SelectColumn [100-106] [n.name]
+                      PathExpression [100-106] [n.name]
+                        Identifier(n) [100-101] [n]
+                        Identifier(name) [102-106] [name]
+                    SelectColumn [108-119] [1 AS number]
+                      IntLiteral(1) [108-109] [1]
+                      Alias [110-119] [AS number]
+                        Identifier(number) [113-119] [number]
+          Alias [122-124] [gt]
+            Identifier(gt) [122-124] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (n)
+    FOR x IN ARRAY[1, 2, 3] WITH OFFSET AS my_offset
+    RETURN
+      n.name,
+      1 AS number
+  ) AS gt
+==
+
+select gt.* from
+graph_table(aml
+  match (n)
+  for x in [1,2,3] with offset
+  with id as col1
+  return n.name, 1 AS number
+) gt
+--
+QueryStatement [0-127] [select gt....number ) gt]
+  Query [0-127] [select gt....number ) gt]
+    Select [0-127] [select gt....number ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-127] [from graph_table...number ) gt]
+        GraphTableQuery [17-127] [graph_table...number ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-122] [match (n)...AS number]
+            GqlOperatorList [35-122] [match (n)...AS number]
+              GqlMatch [35-44] [match (n)]
+                GraphPattern [41-44] [(n)]
+                  GraphPathPattern [41-44] [(n)]
+                    GraphNodePattern [41-44] [(n)]
+                      GraphElementPatternFiller [42-43] [n]
+                        Identifier(n) [42-43] [n]
+              GqlFor [47-75] [for x in [1,2,3] with offset]
+                Identifier(x) [51-52] [x]
+                ArrayConstructor [56-63] [[1,2,3]]
+                  IntLiteral(1) [57-58] [1]
+                  IntLiteral(2) [59-60] [2]
+                  IntLiteral(3) [61-62] [3]
+                WithOffset [64-75] [with offset]
+              GqlWith [78-93] [with id as col1]
+                Select [82-93] [id as col1]
+                  SelectList [83-93] [id as col1]
+                    SelectColumn [83-93] [id as col1]
+                      PathExpression [83-85] [id]
+                        Identifier(id) [83-85] [id]
+                      Alias [86-93] [as col1]
+                        Identifier(col1) [89-93] [col1]
+              GqlReturn [96-122] [return n.name, 1 AS number]
+                Select [102-122] [n.name, 1 AS number]
+                  SelectList [103-122] [n.name, 1 AS number]
+                    SelectColumn [103-109] [n.name]
+                      PathExpression [103-109] [n.name]
+                        Identifier(n) [103-104] [n]
+                        Identifier(name) [105-109] [name]
+                    SelectColumn [111-122] [1 AS number]
+                      IntLiteral(1) [111-112] [1]
+                      Alias [113-122] [AS number]
+                        Identifier(number) [116-122] [number]
+          Alias [125-127] [gt]
+            Identifier(gt) [125-127] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (n)
+    FOR x IN ARRAY[1, 2, 3] WITH OFFSET
+    WITH
+      id AS col1
+    RETURN
+      n.name,
+      1 AS number
+  ) AS gt
+==
+
+select gt.* from
+graph_table(aml
+  match (n)
+  for x in [1,2,3] with offset as off
+  with id as col1
+  return n.name, 1 AS number
+) gt
+--
+QueryStatement [0-134] [select gt....number ) gt]
+  Query [0-134] [select gt....number ) gt]
+    Select [0-134] [select gt....number ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-134] [from graph_table...number ) gt]
+        GraphTableQuery [17-134] [graph_table...number ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-129] [match (n)...AS number]
+            GqlOperatorList [35-129] [match (n)...AS number]
+              GqlMatch [35-44] [match (n)]
+                GraphPattern [41-44] [(n)]
+                  GraphPathPattern [41-44] [(n)]
+                    GraphNodePattern [41-44] [(n)]
+                      GraphElementPatternFiller [42-43] [n]
+                        Identifier(n) [42-43] [n]
+              GqlFor [47-82] [for x in [...offset as off]
+                Identifier(x) [51-52] [x]
+                ArrayConstructor [56-63] [[1,2,3]]
+                  IntLiteral(1) [57-58] [1]
+                  IntLiteral(2) [59-60] [2]
+                  IntLiteral(3) [61-62] [3]
+                WithOffset [64-82] [with offset as off]
+                  Alias [76-82] [as off]
+                    Identifier(off) [79-82] [off]
+              GqlWith [85-100] [with id as col1]
+                Select [89-100] [id as col1]
+                  SelectList [90-100] [id as col1]
+                    SelectColumn [90-100] [id as col1]
+                      PathExpression [90-92] [id]
+                        Identifier(id) [90-92] [id]
+                      Alias [93-100] [as col1]
+                        Identifier(col1) [96-100] [col1]
+              GqlReturn [103-129] [return n.name, 1 AS number]
+                Select [109-129] [n.name, 1 AS number]
+                  SelectList [110-129] [n.name, 1 AS number]
+                    SelectColumn [110-116] [n.name]
+                      PathExpression [110-116] [n.name]
+                        Identifier(n) [110-111] [n]
+                        Identifier(name) [112-116] [name]
+                    SelectColumn [118-129] [1 AS number]
+                      IntLiteral(1) [118-119] [1]
+                      Alias [120-129] [AS number]
+                        Identifier(number) [123-129] [number]
+          Alias [132-134] [gt]
+            Identifier(gt) [132-134] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (n)
+    FOR x IN ARRAY[1, 2, 3] WITH OFFSET AS off
+    WITH
+      id AS col1
+    RETURN
+      n.name,
+      1 AS number
+  ) AS gt
+==
+
+select gt.* from
+graph_table(aml
+  match (n)
+  for x in [1,2,3]
+  with id as col1
+  return n.name, 1 AS number
+) gt
+--
+ERROR: Syntax error: Expected keyword OFFSET but got identifier "id" [at 5:8]
+  with id as col1
+       ^
+==
+
+select gt.* from
+graph_table(aml
+  match (n)
+  for x in [1,2,3]
+  with sum(id+1) as col1
+  return n.name, 1 AS number
+) gt
+--
+ERROR: Syntax error: Expected keyword OFFSET but got identifier "sum" [at 5:8]
+  with sum(id+1) as col1
+       ^

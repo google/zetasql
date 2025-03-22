@@ -1,0 +1,333 @@
+[default language_features=PIPES]
+# Minimal case
+FROM t
+|> MATCH_RECOGNIZE(
+  ORDER BY w + z, f(x).y
+  MEASURES a + sum(b.x) AS m
+  PATTERN ( a | bc)
+  DEFINE
+    a AS f(x)
+)
+--
+QueryStatement [15-140] [FROM t |>...AS f(x) )]
+  Query [15-140] [FROM t |>...AS f(x) )]
+    FromQuery [15-21] [FROM t]
+      FromClause [15-21] [FROM t]
+        TablePathExpression [20-21] [t]
+          PathExpression [20-21] [t]
+            Identifier(t) [20-21] [t]
+    PipeMatchRecognize [22-140] [|> MATCH_RECOGNIZ...AS f(x) )]
+      MatchRecognizeClause [25-140] [MATCH_RECOGNIZE...AS f(x) )]
+        OrderBy [44-66] [ORDER BY w + z, f(x).y]
+          OrderingExpression(ASC) [53-58] [w + z]
+            BinaryExpression(+) [53-58] [w + z]
+              PathExpression [53-54] [w]
+                Identifier(w) [53-54] [w]
+              PathExpression [57-58] [z]
+                Identifier(z) [57-58] [z]
+          OrderingExpression(ASC) [60-66] [f(x).y]
+            DotIdentifier [60-66] [f(x).y]
+              FunctionCall [60-64] [f(x)]
+                PathExpression [60-61] [f]
+                  Identifier(f) [60-61] [f]
+                PathExpression [62-63] [x]
+                  Identifier(x) [62-63] [x]
+              Identifier(y) [65-66] [y]
+        SelectList [78-95] [a + sum(b.x) AS m]
+          SelectColumn [78-95] [a + sum(b.x) AS m]
+            BinaryExpression(+) [78-90] [a + sum(b.x)]
+              PathExpression [78-79] [a]
+                Identifier(a) [78-79] [a]
+              FunctionCall [82-90] [sum(b.x)]
+                PathExpression [82-85] [sum]
+                  Identifier(sum) [82-85] [sum]
+                PathExpression [86-89] [b.x]
+                  Identifier(b) [86-87] [b]
+                  Identifier(x) [88-89] [x]
+            Alias [91-95] [AS m]
+              Identifier(m) [94-95] [m]
+        RowPatternOperation [108-114] [a | bc]
+          RowPatternVariable [108-109] [a]
+            Identifier(a) [108-109] [a]
+          RowPatternVariable [112-114] [bc]
+            Identifier(bc) [112-114] [bc]
+        SelectList [129-138] [a AS f(x)]
+          SelectColumn [129-138] [a AS f(x)]
+            FunctionCall [134-138] [f(x)]
+              PathExpression [134-135] [f]
+                Identifier(f) [134-135] [f]
+              PathExpression [136-137] [x]
+                Identifier(x) [136-137] [x]
+            Alias [129-133] [a AS]
+              Identifier(a) [129-130] [a]
+--
+FROM
+  t
+|> MATCH_RECOGNIZE(
+     ORDER BY w + z, f(x).y
+     MEASURES
+       a + sum(b.x) AS m
+     PATTERN (a | bc)
+     DEFINE
+       a AS f(x)
+   )
+==
+
+# Maximal case
+FROM t
+|> MATCH_RECOGNIZE(
+  PARTITION BY x + y
+  ORDER BY w + z, f(x).y
+  MEASURES a + sum(b.x) AS m
+  AFTER MATCH SKIP TO NEXT ROW
+  PATTERN ( a | bc)
+  DEFINE
+    a AS f(x)
+  OPTIONS(use_longest_match=true)
+)
+|> EXTEND 1 AS x
+--
+QueryStatement [0-228] [FROM t |>...EXTEND 1 AS x]
+  Query [0-228] [FROM t |>...EXTEND 1 AS x]
+    FromQuery [0-6] [FROM t]
+      FromClause [0-6] [FROM t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeMatchRecognize [7-211] [|> MATCH_RECOGNIZ...ch=true) )]
+      MatchRecognizeClause [10-211] [MATCH_RECOGNIZE...atch=true) )]
+        OptionsList [185-209] [(use_longest_match=true)]
+          OptionsEntry [186-208] [use_longest_match=true]
+            Identifier(use_longest_match) [186-203] [use_longest_match]
+            BooleanLiteral(true) [204-208] [true]
+        PartitionBy [29-47] [PARTITION BY x + y]
+          BinaryExpression(+) [42-47] [x + y]
+            PathExpression [42-43] [x]
+              Identifier(x) [42-43] [x]
+            PathExpression [46-47] [y]
+              Identifier(y) [46-47] [y]
+        OrderBy [50-72] [ORDER BY w + z, f(x).y]
+          OrderingExpression(ASC) [59-64] [w + z]
+            BinaryExpression(+) [59-64] [w + z]
+              PathExpression [59-60] [w]
+                Identifier(w) [59-60] [w]
+              PathExpression [63-64] [z]
+                Identifier(z) [63-64] [z]
+          OrderingExpression(ASC) [66-72] [f(x).y]
+            DotIdentifier [66-72] [f(x).y]
+              FunctionCall [66-70] [f(x)]
+                PathExpression [66-67] [f]
+                  Identifier(f) [66-67] [f]
+                PathExpression [68-69] [x]
+                  Identifier(x) [68-69] [x]
+              Identifier(y) [71-72] [y]
+        SelectList [84-101] [a + sum(b.x) AS m]
+          SelectColumn [84-101] [a + sum(b.x) AS m]
+            BinaryExpression(+) [84-96] [a + sum(b.x)]
+              PathExpression [84-85] [a]
+                Identifier(a) [84-85] [a]
+              FunctionCall [88-96] [sum(b.x)]
+                PathExpression [88-91] [sum]
+                  Identifier(sum) [88-91] [sum]
+                PathExpression [92-95] [b.x]
+                  Identifier(b) [92-93] [b]
+                  Identifier(x) [94-95] [x]
+            Alias [97-101] [AS m]
+              Identifier(m) [100-101] [m]
+        AfterMatchSkipClause [121-132] [TO NEXT ROW]
+        RowPatternOperation [145-151] [a | bc]
+          RowPatternVariable [145-146] [a]
+            Identifier(a) [145-146] [a]
+          RowPatternVariable [149-151] [bc]
+            Identifier(bc) [149-151] [bc]
+        SelectList [166-175] [a AS f(x)]
+          SelectColumn [166-175] [a AS f(x)]
+            FunctionCall [171-175] [f(x)]
+              PathExpression [171-172] [f]
+                Identifier(f) [171-172] [f]
+              PathExpression [173-174] [x]
+                Identifier(x) [173-174] [x]
+            Alias [166-170] [a AS]
+              Identifier(a) [166-167] [a]
+    PipeExtend [212-228] [|> EXTEND 1 AS x]
+      Select [215-228] [EXTEND 1 AS x]
+        SelectList [222-228] [1 AS x]
+          SelectColumn [222-228] [1 AS x]
+            IntLiteral(1) [222-223] [1]
+            Alias [224-228] [AS x]
+              Identifier(x) [227-228] [x]
+--
+FROM
+  t
+|> MATCH_RECOGNIZE(
+     PARTITION BY x + y
+     ORDER BY w + z, f(x).y
+     MEASURES
+       a + sum(b.x) AS m
+     AFTER MATCH SKIP TO NEXT ROW
+     PATTERN (a | bc)
+     DEFINE
+       a AS f(x)
+     OPTIONS(use_longest_match = true)
+   )
+|> EXTEND
+     1 AS x
+==
+
+# With alias
+FROM t
+|> MATCH_RECOGNIZE(
+  PARTITION BY x + y
+  ORDER BY w + z, f(x).y
+  MEASURES a + sum(b.x) AS m
+  PATTERN ( a | bc)
+  DEFINE
+    a AS f(x)
+) {{|AS m_r}}
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStatement [0-146] [FROM t |>...AS f(x) )]
+  Query [0-146] [FROM t |>...AS f(x) )]
+    FromQuery [0-6] [FROM t]
+      FromClause [0-6] [FROM t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeMatchRecognize [7-146] [|> MATCH_RECOGNIZ...AS f(x) )]
+      MatchRecognizeClause [10-146] [MATCH_RECOGNIZE...AS f(x) )]
+        PartitionBy [29-47] [PARTITION BY x + y]
+          BinaryExpression(+) [42-47] [x + y]
+            PathExpression [42-43] [x]
+              Identifier(x) [42-43] [x]
+            PathExpression [46-47] [y]
+              Identifier(y) [46-47] [y]
+        OrderBy [50-72] [ORDER BY w + z, f(x).y]
+          OrderingExpression(ASC) [59-64] [w + z]
+            BinaryExpression(+) [59-64] [w + z]
+              PathExpression [59-60] [w]
+                Identifier(w) [59-60] [w]
+              PathExpression [63-64] [z]
+                Identifier(z) [63-64] [z]
+          OrderingExpression(ASC) [66-72] [f(x).y]
+            DotIdentifier [66-72] [f(x).y]
+              FunctionCall [66-70] [f(x)]
+                PathExpression [66-67] [f]
+                  Identifier(f) [66-67] [f]
+                PathExpression [68-69] [x]
+                  Identifier(x) [68-69] [x]
+              Identifier(y) [71-72] [y]
+        SelectList [84-101] [a + sum(b.x) AS m]
+          SelectColumn [84-101] [a + sum(b.x) AS m]
+            BinaryExpression(+) [84-96] [a + sum(b.x)]
+              PathExpression [84-85] [a]
+                Identifier(a) [84-85] [a]
+              FunctionCall [88-96] [sum(b.x)]
+                PathExpression [88-91] [sum]
+                  Identifier(sum) [88-91] [sum]
+                PathExpression [92-95] [b.x]
+                  Identifier(b) [92-93] [b]
+                  Identifier(x) [94-95] [x]
+            Alias [97-101] [AS m]
+              Identifier(m) [100-101] [m]
+        RowPatternOperation [114-120] [a | bc]
+          RowPatternVariable [114-115] [a]
+            Identifier(a) [114-115] [a]
+          RowPatternVariable [118-120] [bc]
+            Identifier(bc) [118-120] [bc]
+        SelectList [135-144] [a AS f(x)]
+          SelectColumn [135-144] [a AS f(x)]
+            FunctionCall [140-144] [f(x)]
+              PathExpression [140-141] [f]
+                Identifier(f) [140-141] [f]
+              PathExpression [142-143] [x]
+                Identifier(x) [142-143] [x]
+            Alias [135-139] [a AS]
+              Identifier(a) [135-136] [a]
+--
+FROM
+  t
+|> MATCH_RECOGNIZE(
+     PARTITION BY x + y
+     ORDER BY w + z, f(x).y
+     MEASURES
+       a + sum(b.x) AS m
+     PATTERN (a | bc)
+     DEFINE
+       a AS f(x)
+   )
+--
+ALTERNATION GROUP: AS m_r
+--
+QueryStatement [0-153] [FROM t |>...) ) AS m_r]
+  Query [0-153] [FROM t |>...) ) AS m_r]
+    FromQuery [0-6] [FROM t]
+      FromClause [0-6] [FROM t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeMatchRecognize [7-153] [|> MATCH_RECOGNIZ...) ) AS m_r]
+      MatchRecognizeClause [10-153] [MATCH_RECOGNIZE...) ) AS m_r]
+        PartitionBy [29-47] [PARTITION BY x + y]
+          BinaryExpression(+) [42-47] [x + y]
+            PathExpression [42-43] [x]
+              Identifier(x) [42-43] [x]
+            PathExpression [46-47] [y]
+              Identifier(y) [46-47] [y]
+        OrderBy [50-72] [ORDER BY w + z, f(x).y]
+          OrderingExpression(ASC) [59-64] [w + z]
+            BinaryExpression(+) [59-64] [w + z]
+              PathExpression [59-60] [w]
+                Identifier(w) [59-60] [w]
+              PathExpression [63-64] [z]
+                Identifier(z) [63-64] [z]
+          OrderingExpression(ASC) [66-72] [f(x).y]
+            DotIdentifier [66-72] [f(x).y]
+              FunctionCall [66-70] [f(x)]
+                PathExpression [66-67] [f]
+                  Identifier(f) [66-67] [f]
+                PathExpression [68-69] [x]
+                  Identifier(x) [68-69] [x]
+              Identifier(y) [71-72] [y]
+        SelectList [84-101] [a + sum(b.x) AS m]
+          SelectColumn [84-101] [a + sum(b.x) AS m]
+            BinaryExpression(+) [84-96] [a + sum(b.x)]
+              PathExpression [84-85] [a]
+                Identifier(a) [84-85] [a]
+              FunctionCall [88-96] [sum(b.x)]
+                PathExpression [88-91] [sum]
+                  Identifier(sum) [88-91] [sum]
+                PathExpression [92-95] [b.x]
+                  Identifier(b) [92-93] [b]
+                  Identifier(x) [94-95] [x]
+            Alias [97-101] [AS m]
+              Identifier(m) [100-101] [m]
+        RowPatternOperation [114-120] [a | bc]
+          RowPatternVariable [114-115] [a]
+            Identifier(a) [114-115] [a]
+          RowPatternVariable [118-120] [bc]
+            Identifier(bc) [118-120] [bc]
+        SelectList [135-144] [a AS f(x)]
+          SelectColumn [135-144] [a AS f(x)]
+            FunctionCall [140-144] [f(x)]
+              PathExpression [140-141] [f]
+                Identifier(f) [140-141] [f]
+              PathExpression [142-143] [x]
+                Identifier(x) [142-143] [x]
+            Alias [135-139] [a AS]
+              Identifier(a) [135-136] [a]
+        Alias [147-153] [AS m_r]
+          Identifier(m_r) [150-153] [m_r]
+--
+FROM
+  t
+|> MATCH_RECOGNIZE(
+     PARTITION BY x + y
+     ORDER BY w + z, f(x).y
+     MEASURES
+       a + sum(b.x) AS m
+     PATTERN (a | bc)
+     DEFINE
+       a AS f(x)
+   )
+   AS m_r

@@ -20,7 +20,7 @@
 #include <stddef.h>
 
 #include <cstdint>
-#include <map>
+#include <initializer_list>
 #include <memory>
 #include <set>
 #include <string>
@@ -35,9 +35,10 @@
 #include "zetasql/public/function_signature.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/type.h"
-#include "absl/container/flat_hash_set.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 
 namespace zetasql {
 
@@ -57,6 +58,9 @@ class FunctionSignatureOnHeap {
       : signature_(new FunctionSignature(std::move(result_type),
                                          std::move(arguments), context_id,
                                          std::move(options))) {}
+
+  explicit FunctionSignatureOnHeap(const FunctionSignature& signature)
+      : signature_(new FunctionSignature(signature)) {}
 
   const FunctionSignature& Get() const { return *signature_; }
 
@@ -391,8 +395,7 @@ std::string NoMatchingSignatureForSubscript(
     const std::vector<InputArgumentType>& arguments, ProductMode product_mode);
 
 absl::Status CheckArgumentsSupportEquality(
-    const std::string& comparison_name,
-    const FunctionSignature& /*signature*/,
+    const std::string& comparison_name, const FunctionSignature& /*signature*/,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
@@ -402,8 +405,7 @@ absl::Status CheckArgumentsSupportGrouping(
     const LanguageOptions& language_options);
 
 absl::Status CheckArgumentsSupportComparison(
-    const std::string& comparison_name,
-    const FunctionSignature& /*signature*/,
+    const std::string& comparison_name, const FunctionSignature& /*signature*/,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
@@ -497,8 +499,7 @@ bool CanStringConcatCoerceFrom(const zetasql::Type* arg_type);
 //            `<field2_name>` <arguments[1].type()> > >
 absl::StatusOr<const Type*> ComputeResultTypeForTopStruct(
     const std::string& field2_name, Catalog* catalog, TypeFactory* type_factory,
-    CycleDetector* cycle_detector,
-    const FunctionSignature& /*signature*/,
+    CycleDetector* cycle_detector, const FunctionSignature& /*signature*/,
     const std::vector<InputArgumentType>& arguments,
     const AnalyzerOptions& analyzer_options);
 
@@ -812,6 +813,15 @@ void GetMapCoreFunctions(TypeFactory* type_factory,
                          const ZetaSQLBuiltinFunctionOptions& options,
                          NameToFunctionMap* functions);
 
+// Add MEASURE-type functions to the given map.
+void GetMeasureFunctions(TypeFactory* type_factory,
+                         const ZetaSQLBuiltinFunctionOptions& options,
+                         NameToFunctionMap* functions);
+
+// Add MATCH_RECOGNIZE functions to the given map.
+void GetMatchRecognizeFunctions(TypeFactory* type_factory,
+                                const ZetaSQLBuiltinFunctionOptions& options,
+                                NameToFunctionMap* functions);
 }  // namespace zetasql
 
 #endif  // ZETASQL_COMMON_BUILTIN_FUNCTION_INTERNAL_H_

@@ -16,13 +16,17 @@
 
 #include "zetasql/public/functions/date_time_util.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <functional>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <string>
+#include <string_view>
+#include <type_traits>
 #include <variant>
 
 #include "zetasql/base/logging.h"
@@ -32,13 +36,16 @@
 #include "zetasql/public/functions/date_time_util_internal.h"
 #include "zetasql/public/functions/datetime.pb.h"
 #include "zetasql/public/interval_value.h"
+#include "zetasql/public/pico_time.h"
 #include "zetasql/public/time_zone_util.h"
 #include "zetasql/public/types/timestamp_util.h"
+#include "absl/base/optimization.h"
 #include "absl/numeric/int128.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/match.h"
+#include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
@@ -153,8 +160,11 @@ static bool CheckRemainingLength(absl::string_view str, int current_idx,
 // Parse between <min_digits> and <max_digits> from <str> starting at
 // offset <idx>, incrementing <idx> for parsed digits and returning the
 // result in <part_value>.  Returns true if successful, false if not.
+template <class T>
 static bool ParseDigits(absl::string_view str, int min_digits, int max_digits,
-                        int* idx, int* part_value) {
+                        int* idx, T* part_value) {
+  static_assert(std::is_same<T, int>::value || std::is_same<T, int64_t>::value,
+                "T must be int or int64_t");
   int num_digits = 0;
   *part_value = 0;
   while (num_digits < max_digits && *idx < static_cast<int64_t>(str.length()) &&
@@ -205,16 +215,21 @@ static bool ParseStringToDateParts(absl::string_view str, int* idx, int* year,
 }
 
 static const int64_t powers_of_ten[] = {
-    1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000};
+    1,           10,           100,           1000,      10000,
+    100000,      1000000,      10000000,      100000000, 1000000000,
+    10000000000, 100000000000, 1000000000000,
+};
 // Parse <str> starting at offset <idx> into <hour>, <minute>, <second> and
 // <subsecond> parts, incrementing <idx> for parsed digits. <scale> indicates
 // the number of subsecond digits requested. The subsecond part is normalized to
 // the requested scale.
-// The valid format is [H]H:[M]M:[S]S[.DDDDDDDDD].
+// The valid format is [H]H:[M]M:[S]S[.DDDDDDDDDDDD].
 // Returns success or failure.
 static bool ParsePrefixToTimeParts(absl::string_view str, TimestampScale scale,
                                    int* idx, int* hour, int* minute,
-                                   int* second, int* subsecond) {
+                                   int* second, int64_t* subsecond) {
+  // Maximum number of subsecond digits that can be parsed.
+  static constexpr int kMaxSubsecondDigits = 12;
   if (!CheckRemainingLength(str, *idx, 5 /* remaining_length */) ||
       !ParseDigits(str, 1, 2, idx, hour) ||
       !CheckRemainingLength(str, *idx, 4 /* remaining_length */) ||
@@ -230,7 +245,7 @@ static bool ParsePrefixToTimeParts(absl::string_view str, TimestampScale scale,
   if (str[*idx] == '.') {
     ++(*idx);
     const int start_subsecond_idx = *idx;
-    if (!ParseDigits(str, 1, 9, idx, subsecond)) {
+    if (!ParseDigits(str, 1, kMaxSubsecondDigits, idx, subsecond)) {
       return false;
     }
 
@@ -239,7 +254,7 @@ static bool ParsePrefixToTimeParts(absl::string_view str, TimestampScale scale,
     if (scale - num_parsed_subsecond_digits < 0) {
       return false;
     }
-    ABSL_CHECK_LE(num_parsed_subsecond_digits, 9);
+    ABSL_CHECK_LE(num_parsed_subsecond_digits, kMaxSubsecondDigits);  // Crash OK
 
     // <scale> is at most 9, and <num_parsed_subsecond_digits> is at least
     // 1, so the difference is no larger than 8 so indexing into
@@ -253,7 +268,7 @@ static bool ParsePrefixToTimeParts(absl::string_view str, TimestampScale scale,
 // consumed.
 static bool ParseStringToTimeParts(absl::string_view str, TimestampScale scale,
                                    int* idx, int* hour, int* minute,
-                                   int* second, int* subsecond) {
+                                   int* second, int64_t* subsecond) {
   return ParsePrefixToTimeParts(str, scale, idx, hour, minute, second,
                                 subsecond) &&
          *idx >= static_cast<int64_t>(str.length());
@@ -270,7 +285,7 @@ static bool ParseStringToDatetimeParts(absl::string_view str,
                                        TimestampScale scale, int* year,
                                        int* month, int* day, int* hour,
                                        int* minute, int* second,
-                                       int* subsecond) {
+                                       int64_t* subsecond) {
   int idx = 0;
   if (!ParsePrefixToDateParts(str, &idx, year, month, day)) {
     return false;
@@ -350,6 +365,8 @@ static std::string DefaultTimestampFormatStr(TimestampScale scale) {
       return "%E4Y-%m-%d %H:%M:%E6S%Ez";
     case kNanoseconds:
       return "%E4Y-%m-%d %H:%M:%E9S%Ez";
+    case kPicoseconds:
+      return "%E4Y-%m-%d %H:%M:%E12S%Ez";
   }
 }
 
@@ -364,6 +381,8 @@ static std::string DefaultTimeFormatStr(TimestampScale scale) {
       return "%02d:%02d:%02d.%06d";
     case kNanoseconds:
       return "%02d:%02d:%02d.%09d";
+    case kPicoseconds:
+      return "%02d:%02d:%02d.%12d";
   }
 }
 
@@ -378,6 +397,8 @@ static std::string DefaultDatetimeFormatStr(TimestampScale scale) {
       return "%04d-%02d-%02d %02d:%02d:%02d.%06d";
     case kNanoseconds:
       return "%04d-%02d-%02d %02d:%02d:%02d.%09d";
+    case kPicoseconds:
+      return "%04d-%02d-%02d %02d:%02d:%02d.%12d";
   }
 }
 
@@ -408,7 +429,8 @@ static bool TimeFromParts(absl::civil_year_t year, int month, int day, int hour,
   return true;
 }
 
-static absl::Duration MakeDuration(int subsecond, TimestampScale scale) {
+static absl::StatusOr<absl::Duration> MakeDuration(int64_t subsecond,
+                                                   TimestampScale scale) {
   switch (scale) {
     case kSeconds:
       return absl::Seconds(subsecond);
@@ -418,6 +440,8 @@ static absl::Duration MakeDuration(int subsecond, TimestampScale scale) {
       return absl::Microseconds(subsecond);
     case kNanoseconds:
       return absl::Nanoseconds(subsecond);
+    case kPicoseconds:
+      return MakeEvalError() << "Picoseconds is not supported";
   }
 }
 
@@ -432,7 +456,11 @@ static bool TimestampFromParts(absl::civil_year_t year, int month, int day,
                      timestamp)) {
     return false;
   }
-  *timestamp += MakeDuration(subsecond, scale);
+  auto status_or_duration = MakeDuration(subsecond, scale);
+  if (!status_or_duration.ok()) {
+    return false;
+  }
+  *timestamp += status_or_duration.value();
   return true;
 }
 
@@ -498,7 +526,7 @@ static bool TimeZonePartsToOffset(const char timezone_sign,
 // an error is produced.
 static absl::Status ParseStringToTimestampParts(
     absl::string_view str, TimestampScale scale, int* year, int* month,
-    int* day, int* hour, int* minute, int* second, int* subsecond,
+    int* day, int* hour, int* minute, int* second, int64_t* subsecond,
     absl::TimeZone* timezone, bool* string_includes_timezone) {
   int idx = 0;
 
@@ -1072,8 +1100,11 @@ static absl::Status AddTimestampNanos(int64_t nanos, absl::TimeZone timezone,
   return absl::OkStatus();
 }
 
-static void NarrowTimestampIfPossible(int64_t* timestamp,
-                                      TimestampScale* scale) {
+template <typename T>
+static void NarrowTimestampIfPossible(T* timestamp, TimestampScale* scale) {
+  static_assert(
+      std::is_same<T, int64_t>::value || std::is_same<T, absl::int128>::value,
+      "T must be either int64_t or absl::int128");
   while (*timestamp % 1000 == 0) {
     switch (*scale) {
       case kSeconds:
@@ -1088,14 +1119,24 @@ static void NarrowTimestampIfPossible(int64_t* timestamp,
       case kNanoseconds:
         *scale = kMicroseconds;
         break;
+      case kPicoseconds:
+        *scale = kNanoseconds;
+        break;
     }
     *timestamp /= 1000;
   }
 }
 
+// Formats the timestamp, represented as <base_time> + <sub_nanoseconds>, as a
+// string.  When <sub_nanoseconds> is empty, the timestamp to be formatted has
+// nanosecond precision. Otherwise, the timestamp to be formatted has picosecond
+// precision.
+//
+// REQUIRES: When <sub_nanoseconds> has value, the value is in the range
+//   [0, 999].
 static absl::Status FormatTimestampToStringInternal(
     absl::string_view format_string, absl::Time base_time,
-    absl::TimeZone timezone,
+    std::optional<uint32_t> sub_nanoseconds, absl::TimeZone timezone,
     const internal_functions::ExpansionOptions expansion_options,
     std::string* output) {
   if (!IsValidTime(base_time)) {
@@ -1112,6 +1153,13 @@ static absl::Status FormatTimestampToStringInternal(
   ZETASQL_RETURN_IF_ERROR(internal_functions::ExpandPercentZQJ(
       format_string, base_time, normalized_timezone, expansion_options,
       &updated_format_string));
+
+  if (sub_nanoseconds.has_value()) {
+    ZETASQL_ASSIGN_OR_RETURN(updated_format_string,
+                     internal_functions::AddPicosecondsInFormatString(
+                         updated_format_string, *sub_nanoseconds));
+  }
+
   *output =
       absl::FormatTime(updated_format_string, base_time, normalized_timezone);
   if (expansion_options.truncate_tz) {
@@ -1124,6 +1172,26 @@ static absl::Status FormatTimestampToStringInternal(
   return absl::OkStatus();
 }
 
+static absl::Status FormatTimestampToStringInternal(
+    absl::string_view format_string, absl::Time base_time,
+    absl::TimeZone timezone,
+    const internal_functions::ExpansionOptions expansion_options,
+    std::string* output) {
+  return FormatTimestampToStringInternal(format_string, base_time,
+                                         /*sub_nanoseconds=*/std::nullopt,
+                                         timezone, expansion_options, output);
+}
+
+static absl::Status FormatTimestampToStringInternal(
+    absl::string_view format_string, const PicoTime& time,
+    absl::TimeZone timezone,
+    const internal_functions::ExpansionOptions expansion_options,
+    std::string* output) {
+  return FormatTimestampToStringInternal(format_string, time.ToAbslTime(),
+                                         time.SubNanoseconds(), timezone,
+                                         expansion_options, output);
+}
+
 static absl::Status ConvertTimestampToStringInternal(
     int64_t timestamp, TimestampScale scale, absl::TimeZone timezone,
     bool truncate_trailing_zeros, std::string* out) {
@@ -1132,7 +1200,8 @@ static absl::Status ConvertTimestampToStringInternal(
   if (truncate_trailing_zeros) {
     NarrowTimestampIfPossible(&timestamp, &scale);
   }
-  const absl::Time base_time = MakeTime(timestamp, scale);
+  ZETASQL_ASSIGN_OR_RETURN(const absl::Time base_time,
+                   MakeTimeFromInt64(timestamp, scale));
   // Note that the DefaultTimestampFormatStr does not use %Q or %J, so the
   // 'expand_quarter' and 'expand_iso_dayofyear' settings in ExpansionOptions
   // are not relevant.
@@ -1571,7 +1640,11 @@ static absl::Status TimestampTruncAtLeastMinute(absl::Time timestamp,
 
       // Re-adjust the timestamp by the time zone offset.
       timestamp_seconds -= seconds_offset_east_of_UTC;
-      *output = MakeTime(timestamp_seconds, kSeconds);
+      auto status_or_time = MakeTimeFromInt64(timestamp_seconds, kSeconds);
+      if (!status_or_time.ok()) {
+        return status_or_time.status();
+      }
+      *output = status_or_time.value();
       break;
     }
     case DATE:
@@ -1712,8 +1785,11 @@ static absl::Status TimestampTruncImpl(int64_t timestamp, TimestampScale scale,
         return absl::OkStatus();
       }
       break;
+    case kPicoseconds:
+      return MakeEvalError() << "Picoseconds is not supported";
   }
-  const absl::Time base_time = MakeTime(timestamp, scale);
+  ZETASQL_ASSIGN_OR_RETURN(const absl::Time base_time,
+                   MakeTimeFromInt64(timestamp, scale));
   absl::Time output_base_time;
   ZETASQL_RETURN_IF_ERROR(TimestampTruncAtLeastMinute(base_time, scale, timezone, part,
                                               &output_base_time));
@@ -1740,6 +1816,9 @@ bool IsValidTimestamp(int64_t timestamp, TimestampScale scale) {
     case kNanoseconds:
       // There is no invalid range for int64_t timestamps with nanoseconds scale
       return true;
+    case kPicoseconds:
+      // There is no invalid range for int64_t timestamps with picoseconds scale
+      return true;
   }
 }
 
@@ -1758,7 +1837,8 @@ bool IsValidTimeZone(int timezone_minutes_offset) {
          timezone_minutes_offset <= kTimezoneOffsetMax;
 }
 
-absl::Time MakeTime(int64_t timestamp, TimestampScale scale) {
+absl::StatusOr<absl::Time> MakeTimeFromInt64(int64_t timestamp,
+                                             TimestampScale scale) {
   switch (scale) {
     case kSeconds:
       return absl::FromUnixSeconds(timestamp);
@@ -1768,7 +1848,19 @@ absl::Time MakeTime(int64_t timestamp, TimestampScale scale) {
       return absl::FromUnixMicros(timestamp);
     case kNanoseconds:
       return absl::FromUnixNanos(timestamp);
+    case kPicoseconds:
+      return MakeEvalError() << "TimestampScale kPicoseconds is not supported";
   }
+}
+
+absl::Time MakeTime(int64_t timestamp, TimestampScale scale) {
+  auto time_or_status = MakeTimeFromInt64(timestamp, scale);
+  if (time_or_status.ok()) {
+    return time_or_status.value();
+  }
+
+  // This method should never be called with scale == kPicoseconds.
+  ABSL_LOG(FATAL) << time_or_status.status();  // Crash OK
 }
 
 bool FromTime(absl::Time base_time, TimestampScale scale, int64_t* output) {
@@ -1792,6 +1884,9 @@ bool FromTime(absl::Time base_time, TimestampScale scale, int64_t* output) {
       *output = absl::ToUnixNanos(base_time);
       break;
     }
+    case kPicoseconds:
+      // Picoseconds is not supported.
+      return false;
   }
 
   return functions::IsValidTimestamp(*output, scale);
@@ -1830,12 +1925,36 @@ absl::Status ConvertTimestampToStringWithoutTruncation(
                                                    out);
 }
 
+absl::Status ConvertTimestampToStringWithoutTruncation(const PicoTime& input,
+                                                       absl::TimeZone timezone,
+                                                       std::string* out) {
+  // Note that the DefaultTimestampFormatStr does not use %Q or %J, so the
+  // 'expand_quarter' and 'expand_iso_dayofyear' settings in ExpansionOptions
+  // are not relevant.
+  return FormatTimestampToStringInternal(
+      DefaultTimestampFormatStr(kPicoseconds), input, timezone,
+      {.truncate_tz = true}, out);
+}
+
 // ConvertTimestampToStringWithTruncation is a popular function, because it is
 // used for CASTs from TIMESTAMP to STRING, and in STRING conversion. This
 // function is optimized for this conversion by hardcoding the rules of applying
 // "%E4Y-%m-%d %H:%M:%E(0|3|6)S%Ez" formatting.
 absl::Status ConvertTimestampMicrosToStringWithTruncation(
     int64_t timestamp, absl::TimeZone timezone, std::string* out) {
+  // The custom formatting code for %E4Y below will produce wrong result when
+  // civil year value is 10000, which might happen for timestamps close to the
+  // kTimestampMax in time zones with positive offset from UTC. Fall back to the
+  // default implementation when year value is large enough - the cutoff doesn't
+  // need to be precise as this won't be happening often in practice.
+  constexpr int64_t kFourDigitYearCutOff =
+      types::kTimestampMax - kNaiveNumMicrosPerDay;
+  if (ABSL_PREDICT_FALSE(timestamp >= kFourDigitYearCutOff)) {
+    return ConvertTimestampToStringInternal(timestamp, kMicroseconds, timezone,
+                                            /*truncate_trailing_zeros=*/true,
+                                            out);
+  }
+
   absl::Time time = absl::FromUnixMicros(timestamp);
   if (ABSL_PREDICT_FALSE(!IsValidTime(time))) {
     return MakeEvalError() << "Invalid timestamp value: " << timestamp;
@@ -1941,6 +2060,23 @@ absl::Status ConvertTimestampToStringWithTruncation(
   ZETASQL_RETURN_IF_ERROR(MakeTimeZone(timezone_string, &timezone));
   return ConvertTimestampToStringWithTruncation(timestamp, scale, timezone,
                                                 out);
+}
+
+absl::Status ConvertTimestampToStringWithTruncation(const PicoTime& timestamp,
+                                                    absl::TimeZone timezone,
+                                                    std::string* out) {
+  // When converting timestamp to string the result has 0, 3, 6, 9 or 12 digits
+  // with trailing sets of three zeros truncated.
+  TimestampScale scale = kPicoseconds;
+  absl::int128 picos = timestamp.ToUnixPicos();
+  NarrowTimestampIfPossible(&picos, &scale);
+
+  // Note that the DefaultTimestampFormatStr does not use %Q or %J, so the
+  // 'expand_quarter' and 'expand_iso_dayofyear' settings in ExpansionOptions
+  // are not relevant.
+  return FormatTimestampToStringInternal(
+      DefaultTimestampFormatStr(scale), timestamp, timezone,
+      /*expansion_options=*/{.truncate_tz = true}, out);
 }
 
 absl::Status ConvertTimeToString(TimeValue time, TimestampScale scale,
@@ -2178,26 +2314,28 @@ absl::Status FormatTimestampToString(
     const FormatDateTimestampOptions& format_options, std::string* out) {
   absl::TimeZone timezone;
   ZETASQL_RETURN_IF_ERROR(MakeTimeZone(timezone_string, &timezone));
-  return FormatTimestampToString(format_str, MakeTime(timestamp, kMicroseconds),
-                                 timezone, format_options, out);
+  ZETASQL_ASSIGN_OR_RETURN(auto time, MakeTimeFromInt64(timestamp, kMicroseconds));
+  return FormatTimestampToString(format_str, time, timezone, format_options,
+                                 out);
 }
 
 absl::Status FormatTimestampToString(
     absl::string_view format_str, int64_t timestamp, absl::TimeZone timezone,
     const FormatDateTimestampOptions& format_options, std::string* out) {
-  return FormatTimestampToString(format_str, MakeTime(timestamp, kMicroseconds),
-                                 timezone, format_options, out);
+  ZETASQL_ASSIGN_OR_RETURN(auto time, MakeTimeFromInt64(timestamp, kMicroseconds));
+  return FormatTimestampToString(format_str, time, timezone, format_options,
+                                 out);
 }
 
 absl::Status FormatTimestampToString(absl::string_view format_str,
                                      int64_t timestamp, absl::TimeZone timezone,
                                      std::string* out) {
-  return FormatTimestampToStringInternal(
-      format_str, MakeTime(timestamp, kMicroseconds), timezone,
-      {.truncate_tz = false,
-       .expand_quarter = true,
-       .expand_iso_dayofyear = false},
-      out);
+  ZETASQL_ASSIGN_OR_RETURN(auto time, MakeTimeFromInt64(timestamp, kMicroseconds));
+  return FormatTimestampToStringInternal(format_str, time, timezone,
+                                         {.truncate_tz = false,
+                                          .expand_quarter = true,
+                                          .expand_iso_dayofyear = false},
+                                         out);
 }
 
 absl::Status FormatTimestampToString(absl::string_view format_str,
@@ -2233,6 +2371,17 @@ absl::Status FormatTimestampToString(absl::string_view format_string,
                                          out);
 }
 
+absl::Status FormatTimestampToString(absl::string_view format_string,
+                                     const PicoTime& timestamp,
+                                     absl::TimeZone timezone,
+                                     std::string* out) {
+  return FormatTimestampToStringInternal(format_string, timestamp, timezone,
+                                         {.truncate_tz = false,
+                                          .expand_quarter = true,
+                                          .expand_iso_dayofyear = false},
+                                         out);
+}
+
 absl::Status ConvertTimestampToString(absl::Time input, TimestampScale scale,
                                       absl::TimeZone timezone,
                                       std::string* output) {
@@ -2251,6 +2400,12 @@ absl::Status ConvertTimestampToString(absl::Time input, TimestampScale scale,
   absl::TimeZone timezone;
   ZETASQL_RETURN_IF_ERROR(MakeTimeZone(timezone_string, &timezone));
   return ConvertTimestampToString(input, scale, timezone, output);
+}
+
+absl::Status ConvertTimestampToString(const PicoTime& input,
+                                      absl::TimeZone timezone,
+                                      std::string* output) {
+  return ConvertTimestampToStringWithTruncation(input, timezone, output);
 }
 
 absl::Status MakeTimeZone(absl::string_view timezone_string,
@@ -2354,7 +2509,7 @@ absl::Status ConvertStringToTimestamp(absl::string_view str,
                                       bool allow_tz_in_str,
                                       absl::Time* output) {
   int year = 0, month = 0, day = 0, hour = 0, minute = 0, second = 0;
-  int subsecond = 0;
+  int64_t subsecond = 0;
   bool string_includes_timezone = false;
   absl::TimeZone timezone;
   ZETASQL_RETURN_IF_ERROR(ParseStringToTimestampParts(
@@ -2371,18 +2526,52 @@ absl::Status ConvertStringToTimestamp(absl::string_view str,
     timezone = default_timezone;
   }
   const absl::CivilSecond cs(year, month, day, hour, minute, second);
-  *output = timezone.At(cs).pre + MakeDuration(subsecond, scale);
+  ZETASQL_ASSIGN_OR_RETURN(auto duration, MakeDuration(subsecond, scale));
+  *output = timezone.At(cs).pre + duration;
   if (!IsValidTime(*output)) {
     return MakeEvalError() << MakeInvalidTimestampStrErrorMsg(str, scale);
   }
   return absl::OkStatus();
 }
 
+absl::Status ConvertStringToTimestamp(absl::string_view str,
+                                      absl::TimeZone default_timezone,
+                                      bool allow_tz_in_str, PicoTime* output) {
+  int year = 0, month = 0, day = 0, hour = 0, minute = 0, second = 0;
+  int64_t subsecond = 0;
+  bool string_includes_timezone = false;
+  absl::TimeZone timezone;
+  ZETASQL_RETURN_IF_ERROR(ParseStringToTimestampParts(
+      str, kPicoseconds, &year, &month, &day, &hour, &minute, &second,
+      &subsecond, &timezone, &string_includes_timezone));
+  if (!IsValidDay(year, month, day) ||
+      !IsValidTimeOfDay(hour, minute, second)) {
+    return MakeEvalError() << MakeInvalidTimestampStrErrorMsg(str,
+                                                              kPicoseconds);
+  }
+  if (string_includes_timezone && !allow_tz_in_str) {
+    return MakeEvalError() << "Timezone is not allowed in \"" << str << "\"";
+  }
+  if (!string_includes_timezone) {
+    timezone = default_timezone;
+  }
+  const absl::CivilSecond cs(year, month, day, hour, minute, second);
+  auto status_or_time = PicoTime::Create(timezone.At(cs).pre, subsecond);
+  if (!status_or_time.ok()) {
+    return MakeEvalError() << MakeInvalidTimestampStrErrorMsg(str,
+                                                              kPicoseconds);
+  }
+  *output = status_or_time.value();
+  return absl::OkStatus();
+}
+
 absl::Status ConvertStringToTime(absl::string_view str, TimestampScale scale,
                                  TimeValue* output) {
+  // TODO: Support Time with picosecond precision.
   ZETASQL_RET_CHECK(scale == kMicroseconds || scale == kNanoseconds)
       << "Only kMicroseconds and kNanoseconds are acceptable values for scale";
-  int hour = 0, minute = 0, second = 0, subsecond = 0;
+  int hour = 0, minute = 0, second = 0;
+  int64_t subsecond = 0;
   int idx = 0;
   if (!ParseStringToTimeParts(str, scale, &idx, &hour, &minute, &second,
                               &subsecond) ||
@@ -2411,10 +2600,11 @@ absl::Status ConvertStringToTime(absl::string_view str, TimestampScale scale,
 absl::Status ConvertStringToDatetime(absl::string_view str,
                                      TimestampScale scale,
                                      DatetimeValue* output) {
+  // TODO: Support DateTime with picosecond precision.
   ZETASQL_RET_CHECK(scale == kMicroseconds || scale == kNanoseconds)
       << "Only kMicroseconds and kNanoseconds are acceptable values for scale";
   int year = 0, month = 0, day = 0, hour = 0, minute = 0, second = 0;
-  int subsecond = 0;
+  int64_t subsecond = 0;
   if (!ParseStringToDatetimeParts(str, scale, &year, &month, &day, &hour,
                                   &minute, &second, &subsecond) ||
       !IsValidDay(year, month, day) ||
@@ -2509,8 +2699,8 @@ absl::Status ExtractFromTimestamp(DateTimestampPart part, int64_t timestamp,
   if (!IsValidTimestamp(timestamp, scale)) {
     return MakeEvalError() << "Invalid timestamp value: " << timestamp;
   }
-  return ExtractFromTimestampInternal(part, MakeTime(timestamp, scale),
-                                      timezone, output);
+  ZETASQL_ASSIGN_OR_RETURN(auto time, MakeTimeFromInt64(timestamp, scale));
+  return ExtractFromTimestampInternal(part, time, timezone, output);
 }
 
 absl::Status ExtractFromTimestamp(DateTimestampPart part, int64_t timestamp,
@@ -2544,6 +2734,31 @@ absl::Status ExtractFromTimestamp(DateTimestampPart part, absl::Time base_time,
   absl::TimeZone timezone;
   ZETASQL_RETURN_IF_ERROR(MakeTimeZone(timezone_string, &timezone));
   return ExtractFromTimestamp(part, base_time, timezone, output);
+}
+
+absl::StatusOr<int32_t> ExtractFromTimestamp(
+    DateTimestampPart part, const PicoTime& timestamp,
+    absl::string_view timezone_string) {
+  absl::TimeZone timezone;
+  ZETASQL_RETURN_IF_ERROR(MakeTimeZone(timezone_string, &timezone));
+  return ExtractFromTimestamp(part, timestamp, timezone);
+}
+
+absl::StatusOr<int32_t> ExtractFromTimestamp(DateTimestampPart part,
+                                             const PicoTime& timestamp,
+                                             absl::TimeZone timezone) {
+  // TODO: Support DateTimestampPart::PICOSECOND.
+  int32_t output;
+  ZETASQL_RETURN_IF_ERROR(
+      ExtractFromTimestamp(part, timestamp.ToAbslTime(), timezone, &output));
+  return output;
+}
+
+absl::Status ExtractFromTimestamp(DateTimestampPart part,
+                                  const PicoTime& timestamp,
+                                  absl::TimeZone timezone, int32_t* output) {
+  // TODO: Support DateTimestampPart::PICOSECOND.
+  return ExtractFromTimestamp(part, timestamp.ToAbslTime(), timezone, output);
 }
 
 absl::Status ExtractFromDate(DateTimestampPart part, int32_t date,
@@ -2960,8 +3175,8 @@ absl::Status ConvertProto3TimestampToTimestamp(
 absl::Status ConvertTimestampToProto3Timestamp(
     int64_t input_timestamp, TimestampScale scale,
     google::protobuf::Timestamp* output) {
-  return ConvertTimestampToProto3Timestamp(MakeTime(input_timestamp, scale),
-                                           output);
+  ZETASQL_ASSIGN_OR_RETURN(auto time, MakeTimeFromInt64(input_timestamp, scale));
+  return ConvertTimestampToProto3Timestamp(time, output);
 }
 
 absl::Status ConvertTimestampToProto3Timestamp(
@@ -4009,8 +4224,8 @@ absl::Status TruncateDatetime(const DatetimeValue& datetime,
 absl::Status TimestampDiff(int64_t timestamp1, int64_t timestamp2,
                            TimestampScale scale, DateTimestampPart part,
                            int64_t* output) {
-  absl::Time base_time1 = MakeTime(timestamp1, scale);
-  absl::Time base_time2 = MakeTime(timestamp2, scale);
+  ZETASQL_ASSIGN_OR_RETURN(absl::Time base_time1, MakeTimeFromInt64(timestamp1, scale));
+  ZETASQL_ASSIGN_OR_RETURN(absl::Time base_time2, MakeTimeFromInt64(timestamp2, scale));
   return TimestampDiff(base_time1, base_time2, part, output);
 }
 
@@ -4094,6 +4309,8 @@ std::string TimestampScale_Name(TimestampScale scale) {
       return "TIMESTAMP_MICROSECOND";
     case kNanoseconds:
       return "TIMESTAMP_NANOSECOND";
+    case kPicoseconds:
+      return "TIMESTAMP_PICOSECOND";
   }
 }
 
@@ -4749,6 +4966,204 @@ absl::TimeZone GetNormalizedTimeZone(absl::Time base_time,
     return absl::FixedTimeZone(timezone_offset - seconds_offset);
   return timezone;
 }
+
+// Expands the subsecond format elements, "%E<number>S", "%E*S", "%E<number>f"
+// or "%E*f", in <format_string> to contains the subnanosecond value
+// <subnanosecond> and returns the new format string.
+//
+// E.g.
+// - <format_string> is "%E*S", and <subnanosecond> is 120, the return value is
+//   "%E9S12".
+// - <format_string> is "%E*f", and <subnanosecond> is 120, the return value is
+//   "%E9f12".
+// - <format_string> is "%E12S", and <subnanosecond> is 120, the return value is
+//   "%E9S120".
+// - <format_string> is "%E12f", and <subnanosecond> is 120, the return value is
+//   "%E9f120".
+//
+// REQUIRES: <subnanoseconds> is in the range [0, 999].
+absl::StatusOr<std::string> AddPicosecondsInFormatString(
+    absl::string_view format_string, uint32_t subnanosecond) {
+  if (subnanosecond > 999) {
+    return MakeEvalError() << "Valid range of subnanosecond is [0, 999], but "
+                              "the input value is "
+                           << subnanosecond;
+  }
+
+  // The string representation of the subnanosecond value. E.g. when
+  // subnanosecond is 120, its value will be "120".
+  std::string picos_str;
+
+  // The string representation of the subnanosecond value, without trailing
+  // zeros. E.g. when subnanosecond is 120, its value will be "12".
+  std::string picos_str_without_trailing_zeros;
+
+  // Generating picos_str_without_trailing_zeros and picos_str, in reverse.
+  uint32_t v = subnanosecond;
+  for (int i = 0; i < 3; ++i) {
+    if (v % 10 != 0 || !picos_str_without_trailing_zeros.empty()) {
+      absl::StrAppend(&picos_str_without_trailing_zeros, v % 10);
+    }
+
+    absl::StrAppend(&picos_str, v % 10);
+    v /= 10;
+  }
+
+  // Reverse the strings to get the final result.
+  std::reverse(picos_str.begin(), picos_str.end());
+  std::reverse(picos_str_without_trailing_zeros.begin(),
+               picos_str_without_trailing_zeros.end());
+
+  // Scanning the format string to find "%E<number>S"/"%E*S" and replace them
+  // with new strings. A state machine is used. The initial state is kDefault.
+  // The state machine works as follows:
+  // - In state kDefault:
+  //   - Input is "%E", state is changed to kPercentEParsed.
+  //   - Otherwise, state is unchanged.
+  // - In state kPercentEParsed:
+  //   - Input is "*S" (or "*f"). "%E*S" (or "%E*f") is found. State is changed
+  //     to kDefault;
+  //   - Input is a digit, state is changed to kDigitParsed;
+  //   - Otherwise, state is changed to kDefault;
+  // - In state kDigitParsed:
+  //   - Input is a digit, state remains in kDigitParsed;
+  //   - Input is "S" (or "f"). "%E<number>S" (or "%E<number>f")  is
+  //     found. State is changed to kDefault;
+  //   - Otherwise, state is changed to kDefault;
+  enum State {
+    kDefault,
+    kPercentEParsed,
+    kDigitParsed,
+  };
+
+  std::string format_string_with_picos;
+  enum State state = kDefault;
+  size_t i = 0;
+
+  // The index of character "%" when "%E" is parsed; It's npos if "%E" is not
+  // parsed.
+  size_t idx_percent_e = std::string::npos;
+
+  while (i < format_string.length()) {
+    switch (state) {
+      case kDefault:
+        if (i + 1 < format_string.length() && format_string[i] == '%' &&
+            format_string[i + 1] == 'E') {
+          state = kPercentEParsed;
+          idx_percent_e = i;
+          i += 2;
+        } else {
+          format_string_with_picos.push_back(format_string[i]);
+          i++;
+        }
+        break;
+      case kPercentEParsed:
+        if (i + 1 < format_string.length() && format_string[i] == '*' &&
+            (format_string[i + 1] == 'S' || format_string[i + 1] == 'f')) {
+          // "%E*S" (or "%E*f") is found.
+          if (subnanosecond == 0) {
+            // The subnanosecond is 0. In this, there is no need to replace this
+            // format element. Copy it as-is to the output.
+            format_string_with_picos.append(absl::string_view(
+                format_string.begin() + idx_percent_e, i + 2 - idx_percent_e));
+          } else {
+            absl::StrAppend(&format_string_with_picos, "%E9",
+                            std::string(1, format_string[i + 1]),
+                            picos_str_without_trailing_zeros);
+          }
+          state = kDefault;
+          idx_percent_e = std::string::npos;
+
+          // Increment by 2 to skip "*S" (or "*f").
+          i += 2;
+        } else if (absl::ascii_isdigit(format_string[i])) {
+          state = kDigitParsed;
+          i++;
+        } else {
+          format_string_with_picos.append(absl::string_view(
+              format_string.begin() + idx_percent_e, i - idx_percent_e));
+          state = kDefault;
+          idx_percent_e = std::string::npos;
+
+          // If the format string starts with "%E%", the execution will reach
+          // this point, with i pointing at the 2nd percent sign. Since that
+          // percent sign can be the first character of a valid
+          // "%E<number>S"/"%E*S" format element, we do not increment i in this
+          // case, so that the format element, if exists, can be recognized and
+          // processed.
+        }
+        break;
+      case kDigitParsed:
+        if (absl::ascii_isdigit(format_string[i])) {
+          i++;
+        } else if (format_string[i] == 'S' || format_string[i] == 'f') {
+          // "%E<number>S" (or "%E<number>f") is found.
+          int num_digits;
+          if (!absl::SimpleAtoi(
+                  absl::string_view(format_string.begin() + idx_percent_e + 2,
+                                    i - idx_percent_e - 2),
+                  &num_digits)) {
+            num_digits = 1025;
+          }
+
+          // In absl::FormatTime(), if the number in "%E<number>S" is greater
+          // than 1024 (See
+          // (broken link);l=549;rcl=716441858),
+          // then the format element is just copied as is in the output. We
+          // duplicate this behavior here.
+          if (num_digits > 9 && num_digits <= 1024) {
+            // The maximum number of subsecond digits is 18. See
+            // (broken link);l=557;rcl=716441858.
+            if (num_digits > 18) {
+              num_digits = 18;
+            }
+            format_string_with_picos.append("%E9");
+            format_string_with_picos += format_string[i];
+
+            // Append subnanosecond digits.
+            for (int k = 0; k < num_digits - 9; k++) {
+              format_string_with_picos.push_back(
+                  (k < picos_str.length() ? picos_str[k] : '0'));
+            }
+          } else {
+            // The precision is less than or equal to nanosecond, or num_digits
+            // > 1024. In this, there is no need to replace this format
+            // element. Copy it as-is to the output.
+            format_string_with_picos.append(absl::string_view(
+                format_string.begin() + idx_percent_e, i - idx_percent_e + 1));
+          }
+          state = kDefault;
+          idx_percent_e = std::string::npos;
+          i++;
+        } else {
+          format_string_with_picos.append(absl::string_view(
+              format_string.begin() + idx_percent_e, i - idx_percent_e));
+          idx_percent_e = std::string::npos;
+          state = kDefault;
+
+          // If the format string starts with "%E<number>%", the execution will
+          // reach this point, with i pointing at the 2nd percent sign. Since
+          // that percent sign can be the first character of a valid
+          // "%E<number>S"/"%E*S" format element, we do not increment i in this
+          // case, so that the format element, if exists, can be recognized and
+          // processed.
+        }
+        break;
+    }
+  }
+
+  if (idx_percent_e != std::string::npos) {
+    // For example, if the format string ends with "%E12", we'll reach this
+    // point. Because "%E12" has not been copied to the output yet, we need to
+    // copy it here.
+    format_string_with_picos.append(
+        absl::string_view(format_string.begin() + idx_percent_e,
+                          format_string.length() - idx_percent_e));
+  }
+
+  return format_string_with_picos;
+}
+
 }  // namespace internal_functions
 }  // namespace functions
 }  // namespace zetasql

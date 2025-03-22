@@ -41,7 +41,7 @@ from zetasql.parser.generator_utils import UpperCamelCase
 
 # You can use `tag_id=GetTempTagId()` until doing the final submit.
 # That will avoid merge conflicts when syncing in other changes.
-NEXT_NODE_TAG_ID = 508
+NEXT_NODE_TAG_ID = 522
 
 
 def GetTempTagId():
@@ -324,6 +324,14 @@ SCALAR_COLUMN_MATCH_MODE = EnumScalarType(
 
 SCALAR_COLUMN_PROPAGATION_MODE = EnumScalarType(
     'ColumnPropagationMode', 'ASTSetOperation', 'STRICT'
+)
+
+SCALAR_BRACED_CONSTRUCTOR_LHS_OP = EnumScalarType(
+    'Operation', 'ASTBracedConstructorLhs', 'UPDATE_SINGLE'
+)
+
+SCALAR_ALTER_INDEX_TYPE = EnumScalarType(
+    'IndexType', 'ASTAlterIndexStatement', 'INDEX_DEFAULT'
 )
 
 
@@ -1248,6 +1256,20 @@ def main(argv):
   )
 
   gen.AddNode(
+      name='ASTPipeMatchRecognize',
+      tag_id=508,
+      parent='ASTPipeOperator',
+      fields=[
+          Field(
+              'match_recognize',
+              'ASTMatchRecognizeClause',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
       name='ASTPipeAs',
       tag_id=437,
       parent='ASTPipeOperator',
@@ -1437,6 +1459,35 @@ def main(argv):
   )
 
   gen.AddNode(
+      name='ASTPipeTee',
+      tag_id=510,
+      parent='ASTPipeOperator',
+      fields=[
+          Field('hint', 'ASTHint', tag_id=2),
+          Field(
+              'subpipeline_list',
+              'ASTSubpipeline',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTPipeWith',
+      tag_id=520,
+      parent='ASTPipeOperator',
+      fields=[
+          Field(
+              'with_clause',
+              'ASTWithClause',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
       name='ASTPipeExportData',
       tag_id=505,
       parent='ASTPipeOperator',
@@ -1444,6 +1495,34 @@ def main(argv):
           Field(
               'export_data_statement',
               'ASTExportDataStatement',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTPipeCreateTable',
+      tag_id=509,
+      parent='ASTPipeOperator',
+      fields=[
+          Field(
+              'create_table_statement',
+              'ASTCreateTableStatement',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTPipeInsert',
+      tag_id=519,
+      parent='ASTPipeOperator',
+      fields=[
+          Field(
+              'insert_statement',
+              'ASTInsertStatement',
               tag_id=2,
               field_loader=FieldLoaderMethod.REQUIRED,
           ),
@@ -1646,7 +1725,7 @@ def main(argv):
       extra_public_defs="""
   // Set the identifier string.  Input <identifier> is the unquoted identifier.
   // There is no validity checking here.  This assumes the identifier was
-  // validated and unquoted in zetasql.jjt.
+  // validated and unquoted in the parser.
   void SetIdentifier(IdString identifier) {
     id_string_ = identifier;
   }
@@ -1663,8 +1742,21 @@ def main(argv):
               'id_string',
               SCALAR_ID_STRING,
               tag_id=2,
-              gen_setters_and_getters=False)
-      ])
+              gen_setters_and_getters=False,
+          ),
+          Field(
+              'is_quoted',
+              SCALAR_BOOL,
+              tag_id=3,
+              comment="""
+              Used only by the parser to determine the correct handling of
+              "VALUE" in `SELECT AS VALUE`, as well as time functions like
+              CURRENT_TIMESTAMP() which can be called without parentheses if
+              unquoted. After parsing, this field is completely ignored.
+              """,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ASTAlias',
@@ -2747,12 +2839,22 @@ def main(argv):
               'function',
               'ASTPathExpression',
               tag_id=2,
-              field_loader=FieldLoaderMethod.REQUIRED),
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
           Field(
               'arguments',
               'ASTExpression',
               tag_id=3,
-              field_loader=FieldLoaderMethod.REPEATING_WHILE_IS_EXPRESSION),
+              field_loader=FieldLoaderMethod.REPEATING_WHILE_IS_EXPRESSION,
+          ),
+          Field(
+              'where_expr',
+              'ASTWhereClause',
+              tag_id=15,
+              private_comment="""
+       Set if the function was called with FUNC(args WHERE expr).
+              """,
+          ),
           Field(
               'having_modifier',
               'ASTHavingModifier',
@@ -2770,6 +2872,14 @@ def main(argv):
               """,
           ),
           Field(
+              'having_expr',
+              'ASTHaving',
+              tag_id=16,
+              private_comment="""
+       Set if the function was called with FUNC(args group_by HAVING expr).
+              """,
+          ),
+          Field(
               'clamped_between_modifier',
               'ASTClampedBetweenModifier',
               tag_id=5,
@@ -2779,7 +2889,8 @@ def main(argv):
               private_comment="""
       Set if the function was called with
       FUNC(args CLAMPED BETWEEN low AND high).
-              """),
+              """,
+          ),
           Field(
               'with_report_modifier',
               'ASTWithReportModifier',
@@ -2791,7 +2902,8 @@ def main(argv):
               private_comment="""
       Set if the function was called with
       FUNC(args WITH REPORT).
-              """),
+              """,
+          ),
           Field(
               'order_by',
               'ASTOrderBy',
@@ -2801,7 +2913,8 @@ def main(argv):
               """,
               private_comment="""
       Set if the function was called with FUNC(args ORDER BY cols).
-              """),
+              """,
+          ),
           Field(
               'limit_offset',
               'ASTLimitOffset',
@@ -2811,7 +2924,8 @@ def main(argv):
               """,
               private_comment="""
       Set if the function was called with FUNC(args LIMIT N).
-              """),
+              """,
+          ),
           Field(
               'hint',
               'ASTHint',
@@ -2821,14 +2935,16 @@ def main(argv):
               """,
               private_comment="""
               Optional hint.
-              """),
+              """,
+          ),
           Field(
               'with_group_rows',
               'ASTWithGroupRows',
               tag_id=9,
               private_comment="""
       Set if the function was called WITH GROUP ROWS(...).
-              """),
+              """,
+          ),
           Field(
               'null_handling_modifier',
               SCALAR_NULL_HANDLING_MODIFIER,
@@ -2838,14 +2954,16 @@ def main(argv):
               """,
               private_comment="""
       Set if the function was called with FUNC(args {IGNORE|RESPECT} NULLS).
-              """),
+              """,
+          ),
           Field(
               'distinct',
               SCALAR_BOOL,
               tag_id=11,
               private_comment="""
       True if the function was called with FUNC(DISTINCT args).
-              """),
+              """,
+          ),
           Field(
               'is_current_date_time_without_parentheses',
               SCALAR_BOOL,
@@ -2859,7 +2977,8 @@ def main(argv):
       CURRENT_* functions. The parser parses them as function calls even without
       the parentheses, but then still allows function call parentheses to be
       applied.
-              """),
+              """,
+          ),
       ],
       extra_public_defs="""
   // Convenience method that returns true if any modifiers are set. Useful for
@@ -2870,9 +2989,11 @@ def main(argv):
            having_modifier_ != nullptr ||
            clamped_between_modifier_ != nullptr || order_by_ != nullptr ||
            limit_offset_ != nullptr || with_group_rows_ != nullptr ||
-           group_by_ != nullptr;
+           group_by_ != nullptr || where_expr_ != nullptr ||
+           having_expr_ != nullptr || with_report_modifier_ != nullptr;
   }
-      """)
+      """,
+  )
 
   gen.AddNode(
       name='ASTArrayConstructor',
@@ -5421,6 +5542,7 @@ def main(argv):
               tag_id=2,
               field_loader=FieldLoaderMethod.REQUIRED,
           ),
+          Field('operation', SCALAR_BRACED_CONSTRUCTOR_LHS_OP, tag_id=3),
       ],
   )
 
@@ -5507,6 +5629,51 @@ def main(argv):
               tag_id=3,
               field_loader=FieldLoaderMethod.REQUIRED),
       ])
+
+  # A path expression that supports paths that start with standalone extension
+  # fields.
+  gen.AddNode(
+      name='ASTExtendedPathExpression',
+      tag_id=514,
+      parent='ASTGeneralizedPathExpression',
+      fields=[
+          Field(
+              'parenthesized_path',
+              'ASTGeneralizedPathExpression',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+          Field(
+              'generalized_path_expression',
+              'ASTGeneralizedPathExpression',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTUpdateConstructor',
+      tag_id=515,
+      parent='ASTExpression',
+      fields=[
+          # The parser treats a function call followed by a braced constructor
+          # as a potential UPDATE constructor. The analyzer validates that it is
+          # an actual UPDATE call and interprets it as so.
+          Field(
+              'function',
+              'ASTFunctionCall',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+          Field(
+              'braced_constructor',
+              'ASTBracedConstructor',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ASTStructBracedConstructor',
@@ -6421,6 +6588,21 @@ def main(argv):
               tag_id=3,
               field_loader=FieldLoaderMethod.REQUIRED),
       ])
+
+  gen.AddNode(
+      name='ASTCreateLocalityGroupStatement',
+      tag_id=521,
+      parent='ASTStatement',
+      fields=[
+          Field(
+              'name',
+              'ASTPathExpression',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+          Field('options_list', 'ASTOptionsList', tag_id=3),
+      ],
+  )
 
   gen.AddNode(
       name='ASTWithPartitionColumnsClause',
@@ -7739,6 +7921,37 @@ def main(argv):
       extra_public_defs="""
   std::string GetSQLForAlterAction() const override;
       """)
+
+  gen.AddNode(
+      name='ASTAddColumnIdentifierAction',
+      tag_id=516,
+      parent='ASTAlterAction',
+      use_custom_debug_string=True,
+      comment="""
+      ALTER SEARCH|VECTOR INDEX action for "ADD COLUMN" clause.
+      Note: Different from ASTAddColumnAction, this action is used for adding an
+      existing column in table to an index, so it doesn't need column definition
+      or other fields in ASTAddColumnAction.
+      """,
+      fields=[
+          Field(
+              'column_name',
+              'ASTIdentifier',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+          Field(
+              'options_list',
+              'ASTOptionsList',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.OPTIONAL,
+          ),
+          Field('is_if_not_exists', SCALAR_BOOL, tag_id=4),
+      ],
+      extra_public_defs="""
+  std::string GetSQLForAlterAction() const override;
+      """,
+  )
 
   gen.AddNode(
       name='ASTAddColumnAction',
@@ -9866,6 +10079,38 @@ def main(argv):
       ])
 
   gen.AddNode(
+      name='ASTRebuildAction',
+      tag_id=517,
+      parent='ASTAlterAction',
+      comment="""
+      ALTER SEARCH|VECTOR INDEX action for "REBUILD" clause.
+      """,
+      extra_public_defs="""
+  std::string GetSQLForAlterAction() const override;
+      """,
+  )
+
+  gen.AddNode(
+      name='ASTAlterIndexStatement',
+      tag_id=518,
+      parent='ASTAlterStatementBase',
+      comment="""
+      Represents a ALTER SEARCH|VECTOR INDEX statement.
+      Note: ALTER INDEX without SEARCH or VECTOR is currently resolved to
+      schema_object_kind, and throws not supported error.
+      """,
+      fields=[
+          Field('table_name', 'ASTPathExpression', tag_id=2),
+          Field('index_type', SCALAR_ALTER_INDEX_TYPE, tag_id=3),
+      ],
+      init_fields_order=[
+          'path',
+          'table_name',
+          'action_list',
+      ],
+  )
+
+  gen.AddNode(
       name='ASTCreateFunctionStmtBase',
       tag_id=313,
       parent='ASTCreateStatement',
@@ -10960,7 +11205,9 @@ def main(argv):
       Represents a path pattern search prefix which restricts the result from a
       graph pattern match by partitioning the resulting paths by their endpoints
       (the first and last vertices) and makes a selection of paths from each
-      partition. For now ANY 1 and SHORTEST 1 are supported.
+      partition.
+      path_count refers to the number of paths to select from each partition,
+      if unspecified only one path is selected.
       """,
       tag_id=471,
       parent='ASTNode',
@@ -10969,6 +11216,30 @@ def main(argv):
               'type',
               SCALAR_GRAPH_PATH_SEARCH_PREFIX_TYPE,
               tag_id=2,
+          ),
+          Field(
+              'path_count',
+              'ASTGraphPathSearchPrefixCount',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.OPTIONAL,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTGraphPathSearchPrefixCount',
+      comment="""
+      Represents the number of paths to retain from each partition of path
+      bindings containing the same head and tail.
+      """,
+      tag_id=513,
+      parent='ASTNode',
+      fields=[
+          Field(
+              'path_count',
+              'ASTExpression',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
           ),
       ],
   )
@@ -11024,6 +11295,11 @@ def main(argv):
       This adds the "parenthesized" modifier to the node name.
       """,
       fields=[
+          # Currently the AST does not distinguish these two cases:
+          #   (@{k=v} ()->()) -- hint within the parenthesized subpath
+          #   @{k=v} (()->()) -- hint outside the parenthesized subpath
+          # Currently the parser rejects the first case. We need to handle this
+          # ambiguity if we want to support the first case.
           Field(
               'hint',
               'ASTHint',
@@ -11066,8 +11342,8 @@ def main(argv):
       # AddRepeatedWhileIsNodeKind does not support abstract kinds like
       # ASTGraphPathBase.
       init_fields_order=[
-          'quantifier',
           'hint',
+          'quantifier',
           'where_clause',
           'path_name',
           'search_prefix',

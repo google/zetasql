@@ -26,10 +26,13 @@
 #include <string>
 #include <type_traits>
 
+#include "zetasql/common/multiprecision_int.h"
 #include "zetasql/public/functions/datetime.pb.h"
-#include "absl/base/casts.h"
+#include "absl/base/macros.h"
 #include "absl/base/optimization.h"
 #include "absl/hash/hash.h"
+#include "zetasql/base/check.h"
+#include "absl/numeric/int128.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/match.h"
@@ -1260,6 +1263,10 @@ absl::StatusOr<IntervalValue> JustifyInterval(const IntervalValue& v) {
     days++;
   }
   return IntervalValue::FromMonthsDaysNanos(months, days, nanos);
+}
+
+absl::StatusOr<IntervalValue> ToSecondsInterval(const IntervalValue& v) {
+  return IntervalValue::FromNanos(v.GetAsNanos());
 }
 
 bool IdenticalIntervals(const IntervalValue& v1, const IntervalValue& v2) {

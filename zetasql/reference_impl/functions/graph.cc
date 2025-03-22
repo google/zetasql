@@ -16,21 +16,30 @@
 
 #include "zetasql/reference_impl/functions/graph.h"
 
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
 
+#include "zetasql/common/errors.h"
 #include "zetasql/public/cast.h"
+#include "zetasql/public/functions/json.h"
 #include "zetasql/public/functions/json_format.h"
+#include "zetasql/public/json_value.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/array_type.h"
 #include "zetasql/public/value.h"
 #include "zetasql/reference_impl/evaluation.h"
 #include "zetasql/reference_impl/function.h"
 #include "zetasql/reference_impl/tuple.h"
+#include "zetasql/base/case.h"
 #include "absl/algorithm/container.h"
 #include "absl/container/flat_hash_set.h"
+#include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
@@ -305,7 +314,8 @@ absl::StatusOr<Value> PropertyExistsFunction::Eval(
     return Value::Null(output_type());
   }
   absl::Status s =
-      graph_element_value.FindPropertyByName(property_name.string_value())
+      graph_element_value
+          .FindValidPropertyValueByName(property_name.string_value())
           .status();
   if (absl::IsNotFound(s)) {
     return Value::Bool(false);
@@ -341,10 +351,13 @@ absl::StatusOr<Value> PropertyNamesFunction::Eval(
   if (graph_element_value.is_null()) {
     return Value::Null(output_type());
   }
+
+  // Property names are sorted case-insensitively.
   std::vector<std::string> property_names =
       graph_element_value.property_names();
   std::vector<Value> property_names_values;
   property_names_values.reserve(property_names.size());
+  absl::c_sort(property_names, zetasql_base::CaseLess());
   for (const auto& prop : property_names) {
     property_names_values.push_back(Value::String(prop));
   }

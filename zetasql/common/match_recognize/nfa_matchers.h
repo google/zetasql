@@ -17,6 +17,7 @@
 #ifndef ZETASQL_COMMON_MATCH_RECOGNIZE_NFA_MATCHERS_H_
 #define ZETASQL_COMMON_MATCH_RECOGNIZE_NFA_MATCHERS_H_
 
+#include <memory>
 #include <optional>
 #include <ostream>
 #include <string>
@@ -110,7 +111,7 @@ bool EqualsGraphImpl(const NFA& nfa, const TestGraph& graph);
 // Renumbered NFAs are more useful for comparison in test assertion because it
 // prevents implementation details around state number assignment from leaking
 // into the test results.
-NFA RenumberStates(const NFA& nfa);
+std::unique_ptr<NFA> RenumberStates(const NFA& nfa);
 
 // Overrides formatting of the NFA for testing so that the renumbered NFA is
 // shown alongside the NFA, itself. This makes for a better diff in the test
@@ -127,7 +128,7 @@ void PrintTo(const NFA& nfa, std::ostream* os);
 MATCHER_P(EquivToGraph, graph,
           absl::StrCat(negation ? "Not equal" : "Equal",
                        " to the follow graph, after renumbering:\n", graph)) {
-  return EqualsGraphImpl(RenumberStates(arg), graph);
+  return EqualsGraphImpl(*RenumberStates(arg), graph);
 }
 
 // Convenience functions to concisely construct a graph in a test case to use

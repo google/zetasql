@@ -1,0 +1,511 @@
+[default language_features=PIPES]
+
+from t
+|> IF true THEN ( |> WHERE false )
+|> IF x=y THEN ( |> WHERE true )
+   ELSE ( |> SELECT 1 )
+|> IF x=y THEN ( |> WHERE true )
+   ELSEIF x=2 THEN ( |> SELECT 2 )
+   ELSE ( |> SELECT 1 )
+|> WHERE true
+--
+QueryStatement [0-204] [from t |>...WHERE true]
+  Query [0-204] [from t |>...WHERE true]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeIf [7-41] [|> IF true...WHERE false )]
+      PipeIfCase [10-41] [IF true THEN...WHERE false )]
+        BooleanLiteral(true) [13-17] [true]
+        Subpipeline [23-41] [( |> WHERE false )]
+          PipeWhere [25-39] [|> WHERE false]
+            WhereClause [28-39] [WHERE false]
+              BooleanLiteral(false) [34-39] [false]
+    PipeIf [42-98] [|> IF x=y...SELECT 1 )]
+      PipeIfCase [45-74] [IF x=y THEN ( |> WHERE true )]
+        BinaryExpression(=) [48-51] [x=y]
+          PathExpression [48-49] [x]
+            Identifier(x) [48-49] [x]
+          PathExpression [50-51] [y]
+            Identifier(y) [50-51] [y]
+        Subpipeline [57-74] [( |> WHERE true )]
+          PipeWhere [59-72] [|> WHERE true]
+            WhereClause [62-72] [WHERE true]
+              BooleanLiteral(true) [68-72] [true]
+      Subpipeline [83-98] [( |> SELECT 1 )]
+        PipeSelect [85-96] [|> SELECT 1]
+          Select [88-96] [SELECT 1]
+            SelectList [95-96] [1]
+              SelectColumn [95-96] [1]
+                IntLiteral(1) [95-96] [1]
+    PipeIf [99-190] [|> IF x=y...SELECT 1 )]
+      PipeIfCase [102-131] [IF x=y THEN ( |> WHERE true )]
+        BinaryExpression(=) [105-108] [x=y]
+          PathExpression [105-106] [x]
+            Identifier(x) [105-106] [x]
+          PathExpression [107-108] [y]
+            Identifier(y) [107-108] [y]
+        Subpipeline [114-131] [( |> WHERE true )]
+          PipeWhere [116-129] [|> WHERE true]
+            WhereClause [119-129] [WHERE true]
+              BooleanLiteral(true) [125-129] [true]
+      PipeIfCase [135-166] [ELSEIF x=2...SELECT 2 )]
+        BinaryExpression(=) [142-145] [x=2]
+          PathExpression [142-143] [x]
+            Identifier(x) [142-143] [x]
+          IntLiteral(2) [144-145] [2]
+        Subpipeline [151-166] [( |> SELECT 2 )]
+          PipeSelect [153-164] [|> SELECT 2]
+            Select [156-164] [SELECT 2]
+              SelectList [163-164] [2]
+                SelectColumn [163-164] [2]
+                  IntLiteral(2) [163-164] [2]
+      Subpipeline [175-190] [( |> SELECT 1 )]
+        PipeSelect [177-188] [|> SELECT 1]
+          Select [180-188] [SELECT 1]
+            SelectList [187-188] [1]
+              SelectColumn [187-188] [1]
+                IntLiteral(1) [187-188] [1]
+    PipeWhere [191-204] [|> WHERE true]
+      WhereClause [194-204] [WHERE true]
+        BooleanLiteral(true) [200-204] [true]
+--
+FROM
+  t
+|> IF true THEN (
+     |> WHERE
+          false
+   )
+|> IF x = y THEN (
+     |> WHERE
+          true
+   )
+   ELSE(
+     |> SELECT
+          1
+   )
+|> IF x = y THEN (
+     |> WHERE
+          true
+   )
+   ELSEIF x = 2 THEN (
+     |> SELECT
+          2
+   )
+   ELSE(
+     |> SELECT
+          1
+   )
+|> WHERE
+     true
+==
+
+from t
+|> IF x=y THEN ( |> WHERE true )
+   ELSEIF x=2 THEN ( |> SELECT 2 )
+   ELSEIF x=3 THEN ( |> SELECT 3 )
+   ELSE ( |> SELECT 1 )
+--
+QueryStatement [0-133] [from t |>...SELECT 1 )]
+  Query [0-133] [from t |>...SELECT 1 )]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeIf [7-133] [|> IF x=y...SELECT 1 )]
+      PipeIfCase [10-39] [IF x=y THEN ( |> WHERE true )]
+        BinaryExpression(=) [13-16] [x=y]
+          PathExpression [13-14] [x]
+            Identifier(x) [13-14] [x]
+          PathExpression [15-16] [y]
+            Identifier(y) [15-16] [y]
+        Subpipeline [22-39] [( |> WHERE true )]
+          PipeWhere [24-37] [|> WHERE true]
+            WhereClause [27-37] [WHERE true]
+              BooleanLiteral(true) [33-37] [true]
+      PipeIfCase [43-74] [ELSEIF x=2...SELECT 2 )]
+        BinaryExpression(=) [50-53] [x=2]
+          PathExpression [50-51] [x]
+            Identifier(x) [50-51] [x]
+          IntLiteral(2) [52-53] [2]
+        Subpipeline [59-74] [( |> SELECT 2 )]
+          PipeSelect [61-72] [|> SELECT 2]
+            Select [64-72] [SELECT 2]
+              SelectList [71-72] [2]
+                SelectColumn [71-72] [2]
+                  IntLiteral(2) [71-72] [2]
+      PipeIfCase [78-109] [ELSEIF x=3...SELECT 3 )]
+        BinaryExpression(=) [85-88] [x=3]
+          PathExpression [85-86] [x]
+            Identifier(x) [85-86] [x]
+          IntLiteral(3) [87-88] [3]
+        Subpipeline [94-109] [( |> SELECT 3 )]
+          PipeSelect [96-107] [|> SELECT 3]
+            Select [99-107] [SELECT 3]
+              SelectList [106-107] [3]
+                SelectColumn [106-107] [3]
+                  IntLiteral(3) [106-107] [3]
+      Subpipeline [118-133] [( |> SELECT 1 )]
+        PipeSelect [120-131] [|> SELECT 1]
+          Select [123-131] [SELECT 1]
+            SelectList [130-131] [1]
+              SelectColumn [130-131] [1]
+                IntLiteral(1) [130-131] [1]
+--
+FROM
+  t
+|> IF x = y THEN (
+     |> WHERE
+          true
+   )
+   ELSEIF x = 2 THEN (
+     |> SELECT
+          2
+   )
+   ELSEIF x = 3 THEN (
+     |> SELECT
+          3
+   )
+   ELSE(
+     |> SELECT
+          1
+   )
+==
+
+# Empty subpipelines
+from t
+|> IF x=y THEN ()
+   ELSEIF x=2 THEN ()
+   ELSEIF x=3 THEN ()
+   ELSE ()
+--
+QueryStatement [0-79] [from t |>...ELSE ()]
+  Query [0-79] [from t |>...ELSE ()]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeIf [7-79] [|> IF x=y...ELSE ()]
+      PipeIfCase [10-24] [IF x=y THEN ()]
+        BinaryExpression(=) [13-16] [x=y]
+          PathExpression [13-14] [x]
+            Identifier(x) [13-14] [x]
+          PathExpression [15-16] [y]
+            Identifier(y) [15-16] [y]
+        Subpipeline [22-24] [()]
+      PipeIfCase [28-46] [ELSEIF x=2 THEN ()]
+        BinaryExpression(=) [35-38] [x=2]
+          PathExpression [35-36] [x]
+            Identifier(x) [35-36] [x]
+          IntLiteral(2) [37-38] [2]
+        Subpipeline [44-46] [()]
+      PipeIfCase [50-68] [ELSEIF x=3 THEN ()]
+        BinaryExpression(=) [57-60] [x=3]
+          PathExpression [57-58] [x]
+            Identifier(x) [57-58] [x]
+          IntLiteral(3) [59-60] [3]
+        Subpipeline [66-68] [()]
+      Subpipeline [77-79] [()]
+--
+FROM
+  t
+|> IF x = y THEN ()
+   ELSEIF x = 2 THEN ()
+   ELSEIF x = 3 THEN ()
+   ELSE()
+==
+
+# Hints
+from t
+|> IF @{hint=1} x=y THEN ()
+   ELSE ()
+--
+QueryStatement [0-45] [from t |>...ELSE ()]
+  Query [0-45] [from t |>...ELSE ()]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeIf [7-45] [|> IF @{hint...ELSE ()]
+      Hint [13-22] [@{hint=1}]
+        HintEntry [15-21] [hint=1]
+          Identifier(hint) [15-19] [hint]
+          IntLiteral(1) [20-21] [1]
+      PipeIfCase [10-34] [IF @{hint=1} x=y THEN ()]
+        BinaryExpression(=) [23-26] [x=y]
+          PathExpression [23-24] [x]
+            Identifier(x) [23-24] [x]
+          PathExpression [25-26] [y]
+            Identifier(y) [25-26] [y]
+        Subpipeline [32-34] [()]
+      Subpipeline [43-45] [()]
+--
+FROM
+  t
+|> IF @{ hint = 1 } x = y THEN ()
+   ELSE()
+==
+
+# Formatting with multi-statement subpipelines
+from t
+|> IF x=y THEN ( |> WHERE true |> SELECT 1)
+   ELSEIF x=2 THEN ( |> SELECT 2 |> SELECT 3 )
+   ELSE ( |> SELECT 1 |> SELECT 4 )
+--
+QueryStatement [0-133] [from t |>...SELECT 4 )]
+  Query [0-133] [from t |>...SELECT 4 )]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeIf [7-133] [|> IF x=y...SELECT 4 )]
+      PipeIfCase [10-50] [IF x=y THEN...SELECT 1)]
+        BinaryExpression(=) [13-16] [x=y]
+          PathExpression [13-14] [x]
+            Identifier(x) [13-14] [x]
+          PathExpression [15-16] [y]
+            Identifier(y) [15-16] [y]
+        Subpipeline [22-50] [( |> WHERE true |> SELECT 1)]
+          PipeWhere [24-37] [|> WHERE true]
+            WhereClause [27-37] [WHERE true]
+              BooleanLiteral(true) [33-37] [true]
+          PipeSelect [38-49] [|> SELECT 1]
+            Select [41-49] [SELECT 1]
+              SelectList [48-49] [1]
+                SelectColumn [48-49] [1]
+                  IntLiteral(1) [48-49] [1]
+      PipeIfCase [54-97] [ELSEIF x=2...SELECT 3 )]
+        BinaryExpression(=) [61-64] [x=2]
+          PathExpression [61-62] [x]
+            Identifier(x) [61-62] [x]
+          IntLiteral(2) [63-64] [2]
+        Subpipeline [70-97] [( |> SELECT 2 |> SELECT 3 )]
+          PipeSelect [72-83] [|> SELECT 2]
+            Select [75-83] [SELECT 2]
+              SelectList [82-83] [2]
+                SelectColumn [82-83] [2]
+                  IntLiteral(2) [82-83] [2]
+          PipeSelect [84-95] [|> SELECT 3]
+            Select [87-95] [SELECT 3]
+              SelectList [94-95] [3]
+                SelectColumn [94-95] [3]
+                  IntLiteral(3) [94-95] [3]
+      Subpipeline [106-133] [( |> SELECT 1 |> SELECT 4 )]
+        PipeSelect [108-119] [|> SELECT 1]
+          Select [111-119] [SELECT 1]
+            SelectList [118-119] [1]
+              SelectColumn [118-119] [1]
+                IntLiteral(1) [118-119] [1]
+        PipeSelect [120-131] [|> SELECT 4]
+          Select [123-131] [SELECT 4]
+            SelectList [130-131] [4]
+              SelectColumn [130-131] [4]
+                IntLiteral(4) [130-131] [4]
+--
+FROM
+  t
+|> IF x = y THEN (
+     |> WHERE
+          true
+     |> SELECT
+          1
+   )
+   ELSEIF x = 2 THEN (
+     |> SELECT
+          2
+     |> SELECT
+          3
+   )
+   ELSE(
+     |> SELECT
+          1
+     |> SELECT
+          4
+   )
+==
+
+from t
+|> IF
+--
+ERROR: Syntax error: Unexpected end of statement [at 2:6]
+|> IF
+     ^
+==
+
+from t
+|> IF true
+--
+ERROR: Syntax error: Expected keyword THEN but got end of statement [at 2:11]
+|> IF true
+          ^
+==
+
+from t
+|> IF true THEN
+--
+ERROR: Syntax error: Expected "(" but got end of statement [at 2:16]
+|> IF true THEN
+               ^
+==
+
+# The error when THEN is missing may be confusing.
+from t
+|> IF true ( |> WHERE true )
+--
+ERROR: Syntax error: Function call cannot be applied to this expression. Function calls require a path, e.g. a.b.c() [at 2:12]
+|> IF true ( |> WHERE true )
+           ^
+==
+
+from t
+|> IF true THEN ( |> WHERE true
+--
+ERROR: Syntax error: Expected ")" but got end of statement [at 2:32]
+|> IF true THEN ( |> WHERE true
+                               ^
+==
+
+from t
+|> IF true THEN ( |> WHERE true )
+   ( |> WHERE false )
+--
+ERROR: Syntax error: Expected end of input but got "(" [at 3:4]
+   ( |> WHERE false )
+   ^
+==
+
+# This error is not ideal since IF isn't actually allowed here.
+# It shows up because the parser accepts ELSE IF there so it can
+# give an error suggesting ELSEIF, which seems like a more common
+# error case.
+from t
+|> IF true THEN ( |> WHERE true )
+   ELSE
+--
+ERROR: Syntax error: Expected "(" or keyword IF but got end of statement [at 3:8]
+   ELSE
+       ^
+==
+
+from t
+|> IF true THEN ( |> WHERE true )
+   ELSEIF
+--
+ERROR: Syntax error: Unexpected end of statement [at 3:10]
+   ELSEIF
+         ^
+==
+
+from t
+|> IF true THEN ( |> WHERE true )
+   ELSEIF ()
+--
+ERROR: Syntax error: Unexpected ")" [at 3:12]
+   ELSEIF ()
+           ^
+==
+
+from t
+|> IF true THEN ( |> WHERE true )
+   ELSEIF ( |> WHERE true )
+--
+ERROR: Syntax error: Unexpected "|>" [at 3:13]
+   ELSEIF ( |> WHERE true )
+            ^
+==
+
+from t
+|> IF true THEN ( |> WHERE true )
+   ELSEIF true
+--
+ERROR: Syntax error: Expected keyword THEN but got end of statement [at 3:15]
+   ELSEIF true
+              ^
+==
+
+# Error when THEN is missing in ELSEIF.
+from t
+|> IF true THEN ( |> WHERE true )
+   ELSEIF true ( |> WHERE false )
+--
+ERROR: Syntax error: Function call cannot be applied to this expression. Function calls require a path, e.g. a.b.c() [at 3:16]
+   ELSEIF true ( |> WHERE false )
+               ^
+==
+
+# Error if ELSE IF is written instead of ELSEIF.
+from t
+|> IF true THEN ()
+   ELSE IF true THEN ()
+--
+ERROR: Syntax error: Unexpected ELSE IF; Expected ELSEIF [at 3:4]
+   ELSE IF true THEN ()
+   ^
+==
+
+# Accidental |> before ELSEIF.
+from t
+|> IF true THEN ()
+|> ELSEIF true THEN ()
+--
+ERROR: Syntax error: ELSEIF should be part of a pipe IF, without a leading pipe symbol [at 3:4]
+|> ELSEIF true THEN ()
+   ^
+==
+
+# Accidental |> before ELSE.
+from t
+|> IF true THEN ()
+|> ELSE ()
+--
+ERROR: Syntax error: ELSE should be part of a pipe IF, without a leading pipe symbol [at 3:4]
+|> ELSE ()
+   ^
+==
+
+from t
+|> {{ELSE|ELSEIF}}
+--
+ALTERNATION GROUP: ELSE
+--
+ERROR: Syntax error: ELSE should be part of a pipe IF, without a leading pipe symbol [at 2:4]
+|> ELSE
+   ^
+--
+ALTERNATION GROUP: ELSEIF
+--
+ERROR: Syntax error: ELSEIF should be part of a pipe IF, without a leading pipe symbol [at 2:4]
+|> ELSEIF
+   ^
+==
+
+from t
+|> if true then (select 1)
+--
+ERROR: Syntax error: Expected subpipeline starting with |>, not a subquery [at 2:18]
+|> if true then (select 1)
+                 ^
+==
+
+from t
+|> if true then ()
+   else (from t2)
+--
+ERROR: Syntax error: Expected subpipeline starting with |>, not a subquery [at 3:10]
+   else (from t2)
+         ^
+==
+
+from t
+|> if true then ()
+   elseif true then ((from t2))
+--
+ERROR: Syntax error: Expected subpipeline starting with |> [at 3:22]
+   elseif true then ((from t2))
+                     ^

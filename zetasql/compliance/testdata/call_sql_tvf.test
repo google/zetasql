@@ -1,0 +1,267 @@
+[default required_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,TEMPLATE_FUNCTIONS]
+
+[prepare_database]
+CREATE TABLE t1 AS
+  SELECT * FROM UNNEST([
+    STRUCT(1 AS rowid, 1 AS x, 100 AS y, 1000 AS z),
+    STRUCT(2 AS rowid, 1 AS x, 100 AS y, 1000 AS z),
+    STRUCT(3 AS rowid, 1 AS x, 100 AS y, 1001 AS z),
+    STRUCT(4 AS rowid, 1 AS x, 100 AS y, 1002 AS z),
+    STRUCT(5 AS rowid, 1 AS x, 100 AS y, 1003 AS z),
+    STRUCT(6 AS rowid, 1 AS x, 100 AS y, 1004 AS z),
+    STRUCT(7 AS rowid, 1 AS x, 101 AS y, 1000 AS z),
+    STRUCT(8 AS rowid, 1 AS x, 101 AS y, 1001 AS z),
+    STRUCT(9 AS rowid, 1 AS x, 101 AS y, 1002 AS z),
+    STRUCT(10 AS rowid, 2 AS x, 100 AS y, 1000 AS z),
+    STRUCT(11 AS rowid, 2 AS x, 101 AS y, 1001 AS z),
+    STRUCT(12 AS rowid, 2 AS x, 102 AS y, 1002 AS z),
+    STRUCT(13 AS rowid, 2 AS x, 102 AS y, NULL AS z),
+    STRUCT(14 AS rowid, 2 AS x, 102 AS y, NULL AS z),
+    STRUCT(15 AS rowid, 2 AS x, NULL AS y, 1002 AS z),
+    STRUCT(16 AS rowid, 2 AS x, NULL AS y, 1002 AS z)
+    ]);
+--
+ARRAY<STRUCT<rowid INT64, x INT64, y INT64, z INT64>>[
+  {2, 1, 100, 1000},
+  {4, 1, 100, 1002},
+  {6, 1, 100, 1004},
+  {8, 1, 101, 1001},
+  {10, 2, 100, 1000},
+  {12, 2, 102, 1002},
+  {14, 2, 102, NULL},
+  {16, 2, NULL, 1002},
+  {1, 1, 100, 1000},
+  {3, 1, 100, 1001},
+  {5, 1, 100, 1003},
+  {7, 1, 101, 1000},
+  {9, 1, 101, 1002},
+  {11, 2, 101, 1001},
+  {13, 2, 102, NULL},
+  {15, 2, NULL, 1002}
+]
+==
+
+[prepare_database]
+# Reads a table from the database.
+CREATE TABLE FUNCTION tvf_nullary()
+AS (
+  SELECT *, rand() AS rnd FROM t1
+);
+==
+
+[prepare_database]
+CREATE TABLE FUNCTION tvf_no_table_args(p INT64)
+AS (
+  SELECT * FROM t1 WHERE rowid <= p
+);
+==
+
+
+[prepare_database]
+CREATE TABLE FUNCTION tvf_templated(arg_t ANY TABLE, p ANY TYPE)
+AS (
+  SELECT x, sum(y) AS s FROM arg_t WHERE rowid <= p GROUP BY x
+);
+==
+
+[prepare_database]
+# IFTTT: keep the arg name the same as the table's.
+CREATE TABLE FUNCTION tvf_templated_arg_shadows_table_name(t1 ANY TABLE, p INT64)
+# end_IFTTT
+AS (
+  SELECT x, sum(y) AS s FROM t1 WHERE rowid <= p GROUP BY x
+);
+==
+
+[prepare_database]
+# Argument referenced more than once in the body, requires once-semantics.
+CREATE TABLE FUNCTION tvf_references_arg_multiple_times(arg_t TABLE<rowid INT64, rnd FLOAT64>)
+AS (
+  SELECT
+    r1 AS r1,
+    r2 AS r2,
+  FROM
+      arg_t AS r1
+    INNER JOIN
+      arg_t AS r2
+    ON abs(r1.rnd - r2.rnd) < 0.0000000000001
+);
+==
+
+[prepare_database]
+# Argument referenced more than once in the body, requires once-semantics.
+CREATE TABLE FUNCTION tvf_references_arg_multiple_times_templated(arg_t ANY TABLE)
+AS (
+  SELECT
+    r1 AS r1,
+    r2 AS r2,
+  FROM
+      arg_t AS r1
+    INNER JOIN
+      arg_t AS r2
+    ON abs(r1.rnd - r2.rnd) < 0.0000000000001
+);
+==
+
+[required_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,TEMPLATE_FUNCTIONS,V_1_1_WITH_ON_SUBQUERY]
+[prepare_database]
+# The TVF body has a WITH CTE shadowing the argument table with the same name.
+CREATE TABLE FUNCTION tvf_with_cte_shadowing_arg_table(arg_t TABLE<rowid INT64>)
+AS (
+  WITH arg_t AS (SELECT 'a' AS str_from_body_cte)
+  SELECT * FROM arg_t
+);
+==
+
+[name=tvf_call_nullary]
+SELECT rowid, x, y, z FROM tvf_nullary() ORDER BY rowid;
+--
+ARRAY<STRUCT<rowid INT64, x INT64, y INT64, z INT64>>[known order:
+  {1, 1, 100, 1000},
+  {2, 1, 100, 1000},
+  {3, 1, 100, 1001},
+  {4, 1, 100, 1002},
+  {5, 1, 100, 1003},
+  {6, 1, 100, 1004},
+  {7, 1, 101, 1000},
+  {8, 1, 101, 1001},
+  {9, 1, 101, 1002},
+  {10, 2, 100, 1000},
+  {11, 2, 101, 1001},
+  {12, 2, 102, 1002},
+  {13, 2, 102, NULL},
+  {14, 2, 102, NULL},
+  {15, 2, NULL, 1002},
+  {16, 2, NULL, 1002}
+]
+==
+
+[name=tvf_call_no_table_args]
+SELECT * FROM tvf_no_table_args(12) ORDER BY rowid;
+--
+ARRAY<STRUCT<rowid INT64, x INT64, y INT64, z INT64>>[known order:
+  {1, 1, 100, 1000},
+  {2, 1, 100, 1000},
+  {3, 1, 100, 1001},
+  {4, 1, 100, 1002},
+  {5, 1, 100, 1003},
+  {6, 1, 100, 1004},
+  {7, 1, 101, 1000},
+  {8, 1, 101, 1001},
+  {9, 1, 101, 1002},
+  {10, 2, 100, 1000},
+  {11, 2, 101, 1001},
+  {12, 2, 102, 1002}
+]
+==
+
+[name=templated_tvf_call]
+SELECT * FROM tvf_templated(TABLE t1, 12) ORDER BY x, s;
+--
+ARRAY<STRUCT<x INT64, s INT64>>[known order:{1, 903}, {2, 303}]
+==
+
+[required_features=TABLE_VALUED_FUNCTIONS]
+[name=templated_tvf_arg_shadows_table_name]
+SELECT * FROM tvf_templated_arg_shadows_table_name((SELECT 1 AS rowid, 1 AS x, 1 AS y), 12) ORDER BY x, s;
+--
+ARRAY<STRUCT<x INT64, s INT64>>[{1, 1}]
+==
+
+[required_features=TABLE_VALUED_FUNCTIONS]
+[name=templated_tvf_arg_shadows_table_name2]
+# Same, but passing the arg as a CTE for variety.
+WITH tmp AS (
+  SELECT 1 AS rowid, 1 AS x, 1 AS y UNION ALL
+  SELECT 2 AS rowid, 2 AS x, 2 AS y
+)
+SELECT * FROM tvf_templated_arg_shadows_table_name(TABLE tmp, 12) ORDER BY x, s;
+--
+ARRAY<STRUCT<x INT64, s INT64>>[known order:{1, 1}, {2, 2}]
+==
+
+[name=tvf_references_arg_multiple_times]
+SELECT r1.rowid, r2.rowid
+FROM
+  tvf_references_arg_multiple_times((SELECT rowid, rand() AS rnd FROM t1))
+ORDER BY r1.rowid, r2.rowid
+--
+
+ARRAY<STRUCT<rowid INT64, rowid INT64>>[known order:
+  {1, 1},
+  {2, 2},
+  {3, 3},
+  {4, 4},
+  {5, 5},
+  {6, 6},
+  {7, 7},
+  {8, 8},
+  {9, 9},
+  {10, 10},
+  {11, 11},
+  {12, 12},
+  {13, 13},
+  {14, 14},
+  {15, 15},
+  {16, 16}
+]
+==
+
+[name=templated_tvf_references_arg_multiple_times_templated]
+# Ensure the arg is computed only (once-semantics)
+SELECT r1.rowid, r2.rowid
+FROM
+  tvf_references_arg_multiple_times_templated((SELECT rowid, rand() AS rnd FROM t1))
+ORDER BY r1.rowid, r2.rowid
+--
+ARRAY<STRUCT<rowid INT64, rowid INT64>>[known order:
+  {1, 1},
+  {2, 2},
+  {3, 3},
+  {4, 4},
+  {5, 5},
+  {6, 6},
+  {7, 7},
+  {8, 8},
+  {9, 9},
+  {10, 10},
+  {11, 11},
+  {12, 12},
+  {13, 13},
+  {14, 14},
+  {15, 15},
+  {16, 16}
+]
+==
+
+[name=tvf_arg_is_itself_a_tvf_call]
+# Ensure the arg is computed only (once-semantics)
+SELECT r1.rowid, r2.rowid
+FROM tvf_references_arg_multiple_times(TABLE tvf_nullary())
+ORDER BY r1.rowid, r2.rowid;
+--
+ARRAY<STRUCT<rowid INT64, rowid INT64>>[known order:
+  {1, 1},
+  {2, 2},
+  {3, 3},
+  {4, 4},
+  {5, 5},
+  {6, 6},
+  {7, 7},
+  {8, 8},
+  {9, 9},
+  {10, 10},
+  {11, 11},
+  {12, 12},
+  {13, 13},
+  {14, 14},
+  {15, 15},
+  {16, 16}
+]
+==
+
+[required_features=TABLE_VALUED_FUNCTIONS]
+[name=tvf_with_cte_shadowing_arg_table]
+SELECT * FROM tvf_with_cte_shadowing_arg_table((SELECT 1 AS rowid))
+--
+ARRAY<STRUCT<str_from_body_cte STRING>>[{"a"}]

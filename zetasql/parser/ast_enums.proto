@@ -489,3 +489,20 @@ message ASTLockModeEnums {
     UPDATE = 1;
   }
 }
+
+message ASTBracedConstructorLhsEnums {
+  // See comments at ResolvedUpdateFieldItemEnums::Operation.
+  enum Operation {
+    UPDATE_SINGLE = 0;
+    UPDATE_MANY = 1;
+    UPDATE_SINGLE_NO_CREATION = 2;
+  }
+}
+
+message ASTAlterIndexStatementEnums {
+  enum IndexType {
+    INDEX_DEFAULT = 0;
+    INDEX_SEARCH = 1;
+    INDEX_VECTOR = 2;
+  }
+}

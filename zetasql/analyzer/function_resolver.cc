@@ -25,7 +25,6 @@
 #include <optional>
 #include <set>
 #include <string>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -83,7 +82,6 @@
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/base/case.h"
 #include "absl/algorithm/container.h"
-#include "absl/base/attributes.h"
 #include "absl/container/flat_hash_map.h"
 #include "zetasql/base/check.h"
 #include "absl/memory/memory.h"
@@ -91,6 +89,7 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
@@ -99,6 +98,16 @@
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
+namespace {
+// Enable preserve_in_literal_remover for a literal. The caller is responsible
+// for ensuring that `expr` is a literal.
+absl::Status EnablePreserveInLiteralRemover(const ResolvedExpr* expr) {
+  ZETASQL_RET_CHECK(expr->node_kind() == RESOLVED_LITERAL);
+  const auto* literal = expr->GetAs<ResolvedLiteral>();
+  const_cast<ResolvedLiteral*>(literal)->set_preserve_in_literal_remover(true);
+  return absl::OkStatus();
+}
+}  // namespace
 
 FunctionResolver::FunctionResolver(Catalog* catalog, TypeFactory* type_factory,
                                    Resolver* resolver)
@@ -278,7 +287,8 @@ static ParseLocationPoint GetLocationFromResolvedNode(const ResolvedNode* node,
 absl::Status FunctionResolver::CheckCreateAggregateFunctionProperties(
     const ResolvedExpr& resolved_expr,
     const ASTNode* sql_function_body_location,
-    const ExprResolutionInfo* expr_info, QueryResolutionInfo* query_info) {
+    const ExprResolutionInfo* expr_info, QueryResolutionInfo* query_info,
+    const LanguageOptions& language_options) {
   auto sql_error = [sql_function_body_location](std::string message) {
     if (sql_function_body_location != nullptr) {
       return MakeSqlErrorAt(sql_function_body_location) << message;
@@ -286,6 +296,8 @@ absl::Status FunctionResolver::CheckCreateAggregateFunctionProperties(
       return MakeSqlError() << message;
     }
   };
+  // In CREATE AGGREGATE FUNCTION, we are only ever ranging over the full input.
+  ZETASQL_RETURN_IF_ERROR(query_info->PinToRowRange(std::nullopt));
   if (expr_info->has_aggregation) {
     ZETASQL_RET_CHECK(query_info->group_by_column_state_list().empty());
     ZETASQL_RET_CHECK(!query_info->aggregate_columns_to_compute().empty());
@@ -294,10 +306,20 @@ absl::Status FunctionResolver::CheckCreateAggregateFunctionProperties(
       ZETASQL_RET_CHECK(computed_column->expr()->Is<ResolvedAggregateFunctionCall>());
       const ResolvedAggregateFunctionCall* aggregate_function_call =
           computed_column->expr()->GetAs<ResolvedAggregateFunctionCall>();
-      if (!aggregate_function_call->group_by_list().empty()) {
-        return sql_error(
-            "Function body with aggregate functions with GROUP BY modifiers "
-            "are not currently supported");
+      static constexpr absl::string_view modifier_error_template =
+          "Function body with aggregate functions with %s modifiers are not "
+          "currently supported";
+
+      if (!aggregate_function_call->group_by_list().empty() &&
+          !language_options.LanguageFeatureEnabled(
+              FEATURE_V_1_4_MULTILEVEL_AGGREGATION_IN_UDAS)) {
+        return sql_error(absl::StrFormat(modifier_error_template, "GROUP BY"));
+      }
+      if (aggregate_function_call->where_expr() != nullptr) {
+        return sql_error(absl::StrFormat(modifier_error_template, "WHERE"));
+      }
+      if (aggregate_function_call->having_expr() != nullptr) {
+        return sql_error(absl::StrFormat(modifier_error_template, "HAVING"));
       }
     }
 
@@ -871,6 +893,7 @@ absl::StatusOr<const FunctionSignature*>
 FunctionResolver::FindMatchingSignature(
     const Function* function, const ASTNode* ast_location,
     const std::vector<const ASTNode*>& arg_locations_in,
+    bool match_internal_signatures,
     absl::Span<const NamedArgumentInfo> named_arguments,
     const NameScope* name_scope,
     std::vector<InputArgumentType>* input_arguments,
@@ -900,10 +923,9 @@ FunctionResolver::FindMatchingSignature(
     int repetitions = 0;
     int optionals = 0;
     // If a user calls a function with an internal signature, we won't match it.
-    // Only when a fake ASTNode is used to call the function by the rewriter,
-    // the internal signature will be matched.
-    if (signature.IsInternal() && !arg_locations_in.empty() &&
-        arg_locations_in[0]->node_kind() != FakeASTNode::kConcreteNodeKind) {
+    // Only when an internal caller invoke this method, the internal signature
+    // will be matched.
+    if (signature.IsInternal() && !match_internal_signatures) {
       if (show_mismatch_details) {
         mismatch_errors->push_back("Internal error");
       }
@@ -1573,6 +1595,7 @@ absl::Status FunctionResolver::ConvertLiteralToType(
 absl::Status FunctionResolver::ResolveGeneralFunctionCall(
     const ASTNode* ast_location,
     const std::vector<const ASTNode*>& arg_locations,
+    bool match_internal_signatures,
     const std::vector<std::string>& function_name_path, bool is_analytic,
     std::vector<std::unique_ptr<const ResolvedExpr>> arguments,
     std::vector<NamedArgumentInfo> named_arguments,
@@ -1585,15 +1608,17 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
       Resolver::FunctionNotFoundHandleMode::kReturnError, &function,
       &error_mode));
   return ResolveGeneralFunctionCall(
-      ast_location, arg_locations, function, error_mode, is_analytic,
-      std::move(arguments), std::move(named_arguments), expected_result_type,
+      ast_location, arg_locations, match_internal_signatures, function,
+      error_mode, is_analytic, std::move(arguments), std::move(named_arguments),
+      expected_result_type,
       /*name_scope=*/nullptr, resolved_expr_out);
 }
 
 absl::Status FunctionResolver::ResolveGeneralFunctionCall(
     const ASTNode* ast_location,
     const std::vector<const ASTNode*>& arg_locations,
-    absl::string_view function_name, bool is_analytic,
+    bool match_internal_signatures, absl::string_view function_name,
+    bool is_analytic,
     std::vector<std::unique_ptr<const ResolvedExpr>> arguments,
     std::vector<NamedArgumentInfo> named_arguments,
     const Type* expected_result_type,
@@ -1601,9 +1626,9 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
   const std::vector<std::string> function_name_path = {
       std::string(function_name)};
   return ResolveGeneralFunctionCall(
-      ast_location, arg_locations, function_name_path, is_analytic,
-      std::move(arguments), std::move(named_arguments), expected_result_type,
-      resolved_expr_out);
+      ast_location, arg_locations, match_internal_signatures,
+      function_name_path, is_analytic, std::move(arguments),
+      std::move(named_arguments), expected_result_type, resolved_expr_out);
 }
 
 // Shorthand to make ResolvedFunctionArgument from ResolvedExpr
@@ -1623,8 +1648,7 @@ absl::Status FunctionResolver::ResolveCollationForCollateFunction(
   ZETASQL_RET_CHECK(arg_1->type()->IsString() &&
             arg_1->node_kind() == RESOLVED_LITERAL &&
             !arg_1->GetAs<ResolvedLiteral>()->value().is_null());
-  const ResolvedLiteral* literal = arg_1->GetAs<ResolvedLiteral>();
-  const_cast<ResolvedLiteral*>(literal)->set_preserve_in_literal_remover(true);
+  ZETASQL_RETURN_IF_ERROR(EnablePreserveInLiteralRemover(arg_1));
   const std::string& collation_name =
       arg_1->GetAs<ResolvedLiteral>()->value().string_value();
   if (!collation_name.empty()) {
@@ -1810,8 +1834,8 @@ absl::Status FunctionResolver::CustomPropagateAnnotations(
 absl::Status FunctionResolver::ResolveGeneralFunctionCall(
     const ASTNode* ast_location,
     const std::vector<const ASTNode*>& arg_locations_in,
-    const Function* function, ResolvedFunctionCallBase::ErrorMode error_mode,
-    bool is_analytic,
+    bool match_internal_signatures, const Function* function,
+    ResolvedFunctionCallBase::ErrorMode error_mode, bool is_analytic,
     std::vector<std::unique_ptr<const ResolvedExpr>> arguments,
     std::vector<NamedArgumentInfo> named_arguments,
     const Type* expected_result_type, const NameScope* name_scope,
@@ -1872,11 +1896,12 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
   auto mismatch_errors = show_mismatch_details
                              ? std::make_unique<std::vector<std::string>>()
                              : nullptr;
-  ZETASQL_ASSIGN_OR_RETURN(const FunctionSignature* signature,
-                   FindMatchingSignature(
-                       function, ast_location, arg_locations, named_arguments,
-                       name_scope, &input_argument_types, &arg_overrides,
-                       &arg_reorder_index_mapping, mismatch_errors.get()));
+  ZETASQL_ASSIGN_OR_RETURN(
+      const FunctionSignature* signature,
+      FindMatchingSignature(function, ast_location, arg_locations,
+                            match_internal_signatures, named_arguments,
+                            name_scope, &input_argument_types, &arg_overrides,
+                            &arg_reorder_index_mapping, mismatch_errors.get()));
   result_signature.reset(signature);
 
   if (nullptr == result_signature) {
@@ -2155,13 +2180,13 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
         ast_location, function_name_path,
         Resolver::FunctionNotFoundHandleMode::kReturnError, &concat_op_function,
         &concat_op_error_mode));
-    ZETASQL_ASSIGN_OR_RETURN(
-        const FunctionSignature* matched_signature,
-        FindMatchingSignature(
-            concat_op_function, ast_location, arg_locations_in, named_arguments,
-            /*name_scope=*/nullptr, &input_argument_types,
-            /*arg_overrides=*/nullptr, &arg_reorder_index_mapping,
-            /*mismatch_errors=*/nullptr));
+    ZETASQL_ASSIGN_OR_RETURN(const FunctionSignature* matched_signature,
+                     FindMatchingSignature(
+                         concat_op_function, ast_location, arg_locations_in,
+                         match_internal_signatures, named_arguments,
+                         /*name_scope=*/nullptr, &input_argument_types,
+                         /*arg_overrides=*/nullptr, &arg_reorder_index_mapping,
+                         /*mismatch_errors=*/nullptr));
     ZETASQL_RET_CHECK_NE(matched_signature, nullptr);
     std::unique_ptr<const FunctionSignature> concat_op_result_signature(
         matched_signature);
@@ -2346,7 +2371,7 @@ absl::Status FunctionResolver::ResolveTemplatedSQLFunctionCall(
     const IdString arg_name =
         analyzer_options.id_string_pool()->Make(function.GetArgumentNames()[i]);
     const InputArgumentType& arg_type = actual_arguments[i];
-    if (zetasql_base::ContainsKey(function_arguments, arg_name)) {
+    if (function_arguments.contains(arg_name)) {
       // TODO: Attach proper error locations to the returned Status.
       return MakeFunctionExprAnalysisError(
           function,
@@ -2422,7 +2447,8 @@ absl::Status FunctionResolver::ResolveTemplatedSQLFunctionCall(
     const absl::Status status =
         FunctionResolver::CheckCreateAggregateFunctionProperties(
             *resolved_sql_body, /*sql_function_body_location=*/nullptr,
-            expr_resolution_info.get(), query_resolution_info.get());
+            expr_resolution_info.get(), query_resolution_info.get(),
+            resolver->language());
     if (!status.ok()) {
       return ForwardNestedResolutionAnalysisError(
           function, MakeFunctionExprAnalysisError(function, status.message()),

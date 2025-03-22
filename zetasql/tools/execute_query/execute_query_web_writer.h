@@ -109,7 +109,7 @@ class ExecuteQueryWebWriter : public ExecuteQueryWriter {
 
   void FlushStatement(bool at_end, std::string error_msg = "") {
     if (GotResults()) {
-      current_statement_params_["result"] = "1";
+      current_statement_params_["result"] = true;
     }
     if (!error_msg.empty()) {
       current_statement_params_["error"] = error_msg;

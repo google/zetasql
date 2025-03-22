@@ -17,15 +17,16 @@
 #ifndef ZETASQL_ANALYZER_PATH_EXPRESSION_SPAN_H_
 #define ZETASQL_ANALYZER_PATH_EXPRESSION_SPAN_H_
 
-#include <algorithm>
+#include <cstddef>
 #include <cstdint>
-#include <memory>
+#include <limits>
 #include <string>
 #include <vector>
 
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_generated.h"
 #include "zetasql/public/id_string.h"
+#include "zetasql/public/parse_location.h"
 #include "zetasql/base/check.h"
 
 namespace zetasql {

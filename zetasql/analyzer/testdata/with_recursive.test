@@ -1059,18 +1059,18 @@ WITH RECURSIVE t AS (SELECT * FROM t)
 SELECT * FROM t;
 --
 
-ERROR: Recursive query does not have the form <non-recursive-term> UNION [ALL|DISTINCT] <recursive-term> or the pipe form <non-recursive-term> |> UNION [ALL|DISTINCT] <recursive-term> [at 1:22]
+ERROR: Recursive query does not have the form <non-recursive-term> UNION [ALL|DISTINCT] <recursive-term> or the pipe form <non-recursive-term> |> UNION [ALL|DISTINCT] <recursive-term> [at 1:21]
 WITH RECURSIVE t AS (SELECT * FROM t)
-                     ^
+                    ^
 ==
 
 # ERROR: Recursive query a set operation, but not a UNION
 WITH RECURSIVE t AS (SELECT 1 INTERSECT ALL SELECT * FROM t)
 SELECT * FROM t;
 --
-ERROR: Recursive query does not have the form <non-recursive-term> UNION [ALL|DISTINCT] <recursive-term> or the pipe form <non-recursive-term> |> UNION [ALL|DISTINCT] <recursive-term> [at 1:22]
+ERROR: Recursive query does not have the form <non-recursive-term> UNION [ALL|DISTINCT] <recursive-term> or the pipe form <non-recursive-term> |> UNION [ALL|DISTINCT] <recursive-term> [at 1:21]
 WITH RECURSIVE t AS (SELECT 1 INTERSECT ALL SELECT * FROM t)
-                     ^
+                    ^
 ==
 
 # Recursive query is a UNION
@@ -1437,7 +1437,7 @@ QueryStmt
     |         +-SetOperationItem
     |           +-scan=
     |           | +-ProjectScan
-    |           |   +-column_list=[$union_all1_cast.$col1#5]
+    |           |   +-column_list=[$union_all2_cast.$col1#5]
     |           |   +-expr_list=
     |           |   | +-$col1#5 := Literal(type=DOUBLE, value=5)
     |           |   +-input_scan=
@@ -1447,7 +1447,7 @@ QueryStmt
     |           |       | +-$col1#4 := Literal(type=INT64, value=5)
     |           |       +-input_scan=
     |           |         +-RecursiveRefScan(column_list=[t.$col1#3])
-    |           +-output_column_list=[$union_all1_cast.$col1#5]
+    |           +-output_column_list=[$union_all2_cast.$col1#5]
     +-query=
     | +-ProjectScan
     |   +-column_list=[t.$col1#6]
@@ -1473,7 +1473,7 @@ WITH RECURSIVE t AS (
     UNION ALL SELECT 'test' FROM t
 ) SELECT * FROM t;
 --
-ERROR: Cannot coerce column 1 of recursive term (STRING) to column type in non-recursive term (DOUBLE) [at 3:15]
+ERROR: Cannot coerce type (STRING) of column 1 in the recursive term to type (DOUBLE) of column 1 in non-recursive term [at 3:15]
     UNION ALL SELECT 'test' FROM t
               ^
 ==
@@ -1551,6 +1551,18 @@ ALTERNATION GROUP: DISTINCT
 ERROR: Column 1 in UNION DISTINCT has type that does not support set operation comparisons: STRUCT [at 2:42]
   SELECT STRUCT('a', 'b') UNION DISTINCT SELECT * FROM t
                                          ^
+==
+
+# Non-groupable columns with pipe set operations.
+WITH RECURSIVE t AS (
+  SELECT STRUCT('a', 'b')
+  |> UNION DISTINCT (FROM t)
+)
+FROM t
+--
+ERROR: Column 1 in UNION DISTINCT has type that does not support set operation comparisons: STRUCT [at 3:22]
+  |> UNION DISTINCT (FROM t)
+                     ^
 ==
 
 # ERROR: Columns must be comparable for UNION DISTINCT, but proto comparison is
@@ -1842,13 +1854,13 @@ WITH RECURSIVE
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: table 't1' may not be recursively referenced from inside an inner WITH entry [at 5:34]
+ERROR: Table 't1' must not be recursively referenced from inside an inner recursive query [at 5:34]
       WITH  t2 AS (SELECT * FROM t1)
                                  ^
 --
 ALTERNATION GROUP: RECURSIVE
 --
-ERROR: table 't1' may not be recursively referenced from inside an inner WITH entry [at 5:43]
+ERROR: Table 't1' must not be recursively referenced from inside an inner recursive query [at 5:43]
       WITH RECURSIVE t2 AS (SELECT * FROM t1)
                                           ^
 ==
@@ -1863,7 +1875,7 @@ WITH RECURSIVE
       USING (n)) SELECT * FROM t2)
 ) SELECT * FROM t1;
 --
-ERROR: table 't1' may not be recursively referenced from inside an inner WITH entry [at 6:47]
+ERROR: Table 't1' must not be recursively referenced from inside an inner recursive query [at 6:47]
         SELECT 1 AS n UNION ALL SELECT * FROM t1 INNER JOIN t2
                                               ^
 ==
@@ -1971,7 +1983,7 @@ WITH RECURSIVE
     SELECT * FROM t2)
 ) SELECT * FROM t1;
 --
-ERROR: table 't1' may not be recursively referenced from inside an inner WITH entry [at 7:11]
+ERROR: Table 't1' must not be recursively referenced from inside an inner recursive query [at 7:11]
           t1 INNER JOIN t3 USING (n))
           ^
 ==
@@ -2327,7 +2339,7 @@ WITH RECURSIVE
   t AS (SELECT 1 AS n UNION ALL SELECT SUM(n) FROM t)
 SELECT * FROM t;
 --
-ERROR: A subquery containing a recursive reference may not use DISTINCT, GROUP BY, or any aggregate function [at 2:52]
+ERROR: A subquery containing a recursive reference must not use DISTINCT, GROUP BY, or any aggregate function [at 2:52]
   t AS (SELECT 1 AS n UNION ALL SELECT SUM(n) FROM t)
                                                    ^
 ==
@@ -2337,7 +2349,7 @@ WITH RECURSIVE
   t AS (SELECT 1 AS n UNION ALL SELECT n + 1 FROM t GROUP BY n)
 SELECT * FROM t;
 --
-ERROR: A subquery containing a recursive reference may not use DISTINCT, GROUP BY, or any aggregate function [at 2:51]
+ERROR: A subquery containing a recursive reference must not use DISTINCT, GROUP BY, or any aggregate function [at 2:51]
   t AS (SELECT 1 AS n UNION ALL SELECT n + 1 FROM t GROUP BY n)
                                                   ^
 ==
@@ -2347,7 +2359,7 @@ WITH RECURSIVE
   t AS (SELECT 1 AS n UNION ALL SELECT DISTINCT n + 1 FROM t)
 SELECT * FROM t;
 --
-ERROR: A subquery containing a recursive reference may not use DISTINCT, GROUP BY, or any aggregate function [at 2:60]
+ERROR: A subquery containing a recursive reference must not use DISTINCT, GROUP BY, or any aggregate function [at 2:60]
   t AS (SELECT 1 AS n UNION ALL SELECT DISTINCT n + 1 FROM t)
                                                            ^
 ==
@@ -2367,7 +2379,7 @@ WITH RECURSIVE
   t AS (SELECT 1 AS n UNION ALL SELECT COUNT(*) FROM t GROUP BY (SELECT n FROM t))
 SELECT * FROM t;
 --
-ERROR: A subquery containing a recursive reference may not use DISTINCT, GROUP BY, or any aggregate function [at 2:54]
+ERROR: A subquery containing a recursive reference must not use DISTINCT, GROUP BY, or any aggregate function [at 2:54]
   t AS (SELECT 1 AS n UNION ALL SELECT COUNT(*) FROM t GROUP BY (SELECT n FRO...
                                                      ^
 ==
@@ -2589,7 +2601,7 @@ WITH RECURSIVE t AS (
   )
   SELECT n FROM t;
 --
-ERROR: A query containing a recursive reference may not be used as an argument to a table-valued function [at 4:73]
+ERROR: A query containing a recursive reference must not be used as an argument to a table-valued function [at 4:73]
     SELECT 1 FROM tvf_one_relation_arg_with_fixed_output((SELECT * FROM t))
                                                                         ^
 ==
@@ -2602,7 +2614,7 @@ WITH RECURSIVE t AS (
   )
   SELECT n FROM t;
 --
-ERROR: A query containing a recursive reference may not be used as an argument to a table-valued function [at 4:103]
+ERROR: A query containing a recursive reference must not be used as an argument to a table-valued function [at 4:103]
 ...SELECT * FROM (SELECT * FROM (SELECT * FROM t))))
                                                ^
 ==
@@ -2659,7 +2671,7 @@ QueryStmt
     |         +-SetOperationItem
     |           +-scan=
     |           | +-ProjectScan
-    |           |   +-column_list=[$union_all1_cast.$col1#9]
+    |           |   +-column_list=[$union_all2_cast.$col1#9]
     |           |   +-expr_list=
     |           |   | +-$col1#9 := Literal(type=DOUBLE, value=1)
     |           |   +-input_scan=
@@ -2703,7 +2715,7 @@ QueryStmt
     |           |             +-FunctionCall(ZetaSQL:$equal(DOUBLE, DOUBLE) -> BOOL)
     |           |               +-ColumnRef(type=DOUBLE, column=tvf_one_relation_arg_output_schema_is_input_schema.n#6)
     |           |               +-ColumnRef(type=DOUBLE, column=t.n#7)
-    |           +-output_column_list=[$union_all1_cast.$col1#9]
+    |           +-output_column_list=[$union_all2_cast.$col1#9]
     +-query=
     | +-ProjectScan
     |   +-column_list=[t.n#10]
@@ -2726,7 +2738,7 @@ WITH RECURSIVE
   )
 SELECT n FROM t;
 --
-ERROR: A query containing a recursive reference may not be used as an argument to a table-valued function [at 8:24]
+ERROR: A query containing a recursive reference must not be used as an argument to a table-valued function [at 8:24]
         (SELECT * FROM t)
                        ^
 ==
@@ -2747,7 +2759,7 @@ WITH RECURSIVE
   )
 ) SELECT * FROM t;
 --
-ERROR: A query containing a recursive reference may not be used as an argument to a table-valued function [at 9:20]
+ERROR: A query containing a recursive reference must not be used as an argument to a table-valued function [at 9:20]
         INNER JOIN t USING (n)))
                    ^
 ==
@@ -2861,7 +2873,7 @@ WITH RECURSIVE
     )
 ) SELECT * FROM t1;
 --
-ERROR: table 't1' may not be recursively referenced from inside an inner WITH entry [at 7:30]
+ERROR: Table 't1' must not be recursively referenced from inside an inner recursive query [at 7:30]
         t3 AS (SELECT * FROM t1 AS n UNION ALL SELECT * FROM t3)
                              ^
 ==
@@ -2960,7 +2972,7 @@ WITH RECURSIVE t AS (
   )
   SELECT n FROM t;
 --
-ERROR: A subquery containing a recursive reference may not use an analytic function [at 5:10]
+ERROR: A subquery containing a recursive reference must not use an analytic function [at 5:10]
     FROM t WHERE n < 10
          ^
 ==
@@ -3074,7 +3086,7 @@ WITH RECURSIVE t AS (
   )
   SELECT n FROM t;
 --
-ERROR: A subquery containing a recursive reference may not use an analytic function [at 7:18]
+ERROR: A subquery containing a recursive reference must not use an analytic function [at 7:18]
       INNER JOIN t ON (r = t.n) WHERE n < 10)
                  ^
 ==
@@ -3092,7 +3104,7 @@ WITH RECURSIVE t AS (
   )
   SELECT n FROM t;
 --
-ERROR: A subquery containing a recursive reference may not use an analytic function [at 7:18]
+ERROR: A subquery containing a recursive reference must not use an analytic function [at 7:18]
       INNER JOIN t ON (r = t.n) WHERE n < 10))
                  ^
 ==
@@ -3103,7 +3115,7 @@ WITH RECURSIVE
     SELECT 1 AS n UNION ALL (SELECT n FROM t LIMIT 5)
 ) SELECT * FROM t;
 --
-ERROR: A query containing a recursive reference may not use a LIMIT clause [at 3:44]
+ERROR: A query containing a recursive reference must not use a LIMIT clause [at 3:44]
     SELECT 1 AS n UNION ALL (SELECT n FROM t LIMIT 5)
                                            ^
 ==
@@ -3217,7 +3229,7 @@ WITH RECURSIVE
      LIMIT 2)
 ) SELECT * FROM t;
 --
-ERROR: A query containing a recursive reference may not use a LIMIT clause [at 6:30]
+ERROR: A query containing a recursive reference must not use a LIMIT clause [at 6:30]
           (SELECT n + 1 FROM t)
                              ^
 ==
@@ -3235,7 +3247,7 @@ WITH RECURSIVE
      LIMIT 2)
 ) SELECT * FROM t;
 --
-ERROR: A query containing a recursive reference may not use a LIMIT clause [at 8:30]
+ERROR: A query containing a recursive reference must not use a LIMIT clause [at 8:30]
            SELECT n + 1 FROM t)
                              ^
 ==
@@ -3247,7 +3259,7 @@ WITH RECURSIVE
   UNION ALL (SELECT n + 1 FROM t ORDER BY n)
 ) SELECT * FROM t;
 --
-ERROR: A subquery containing a recursive reference may not contain an ORDER BY clause [at 4:32]
+ERROR: A subquery containing a recursive reference must not contain an ORDER BY clause [at 4:32]
   UNION ALL (SELECT n + 1 FROM t ORDER BY n)
                                ^
 ==
@@ -3259,7 +3271,7 @@ WITH RECURSIVE
   UNION ALL (SELECT n + 1 FROM (SELECT * FROM t) ORDER BY n)
 ) SELECT * FROM t;
 --
-ERROR: A subquery containing a recursive reference may not contain an ORDER BY clause [at 4:47]
+ERROR: A subquery containing a recursive reference must not contain an ORDER BY clause [at 4:47]
   UNION ALL (SELECT n + 1 FROM (SELECT * FROM t) ORDER BY n)
                                               ^
 ==
@@ -3271,7 +3283,7 @@ WITH RECURSIVE
   UNION ALL (SELECT n + 1 FROM t INNER JOIN UNNEST([1,2,3,4]) AS arr ORDER BY n)
 ) SELECT * FROM t;
 --
-ERROR: A subquery containing a recursive reference may not contain an ORDER BY clause [at 4:32]
+ERROR: A subquery containing a recursive reference must not contain an ORDER BY clause [at 4:32]
   UNION ALL (SELECT n + 1 FROM t INNER JOIN UNNEST([1,2,3,4]) AS arr ORDER BY n)
                                ^
 ==
@@ -3306,7 +3318,7 @@ WITH RECURSIVE t AS (
   SELECT n FROM t TABLESAMPLE RESERVOIR (100 ROWS)
 ) SELECT * FROM t;
 --
-ERROR: A subquery containing a recursive reference may not use the TABLESAMPLE operator [at 3:17]
+ERROR: A subquery containing a recursive reference must not use the TABLESAMPLE operator [at 3:17]
   SELECT n FROM t TABLESAMPLE RESERVOIR (100 ROWS)
                 ^
 ==
@@ -3318,7 +3330,7 @@ WITH RECURSIVE t AS (
     (SELECT n + 1 AS n, 3 AS three FROM t) TABLESAMPLE RESERVOIR (100 ROWS)
 ) SELECT * FROM t;
 --
-ERROR: A subquery containing a recursive reference may not use the TABLESAMPLE operator [at 4:41]
+ERROR: A subquery containing a recursive reference must not use the TABLESAMPLE operator [at 4:41]
     (SELECT n + 1 AS n, 3 AS three FROM t) TABLESAMPLE RESERVOIR (100 ROWS)
                                         ^
 ==
@@ -3713,13 +3725,13 @@ QueryStmt
 --
 ALTERNATION GROUP: t,RIGHT
 --
-ERROR: A query containing a recursive reference may not be used as the left operand of a RIGHT JOIN [at 3:47]
+ERROR: A query containing a recursive reference must not be used as the left operand of a RIGHT JOIN [at 3:47]
   t AS (SELECT 1 AS n UNION ALL SELECT n FROM t
                                               ^
 --
 ALTERNATION GROUP: t,FULL OUTER
 --
-ERROR: A query containing a recursive reference may not be used as an operand of a FULL OUTER JOIN [at 3:47]
+ERROR: A query containing a recursive reference must not be used as an operand of a FULL OUTER JOIN [at 3:47]
   t AS (SELECT 1 AS n UNION ALL SELECT n FROM t
                                               ^
 --
@@ -3854,13 +3866,13 @@ QueryStmt
 --
 ALTERNATION GROUP: (SELECT * FROM t),RIGHT
 --
-ERROR: A query containing a recursive reference may not be used as the left operand of a RIGHT JOIN [at 3:62]
+ERROR: A query containing a recursive reference must not be used as the left operand of a RIGHT JOIN [at 3:62]
   t AS (SELECT 1 AS n UNION ALL SELECT n FROM (SELECT * FROM t)
                                                              ^
 --
 ALTERNATION GROUP: (SELECT * FROM t),FULL OUTER
 --
-ERROR: A query containing a recursive reference may not be used as an operand of a FULL OUTER JOIN [at 3:62]
+ERROR: A query containing a recursive reference must not be used as an operand of a FULL OUTER JOIN [at 3:62]
   t AS (SELECT 1 AS n UNION ALL SELECT n FROM (SELECT * FROM t)
                                                              ^
 ==
@@ -4000,13 +4012,13 @@ QueryStmt
 --
 ALTERNATION GROUP: LEFT,t
 --
-ERROR: A query containing a recursive reference may not be used as the right operand of a LEFT JOIN [at 4:15]
+ERROR: A query containing a recursive reference must not be used as the right operand of a LEFT JOIN [at 4:15]
     LEFT JOIN t USING (n))
               ^
 --
 ALTERNATION GROUP: LEFT,(SELECT * FROM t)
 --
-ERROR: A query containing a recursive reference may not be used as the right operand of a LEFT JOIN [at 4:30]
+ERROR: A query containing a recursive reference must not be used as the right operand of a LEFT JOIN [at 4:30]
     LEFT JOIN (SELECT * FROM t) USING (n))
                              ^
 --
@@ -4139,13 +4151,13 @@ QueryStmt
 --
 ALTERNATION GROUP: FULL OUTER,t
 --
-ERROR: A query containing a recursive reference may not be used as an operand of a FULL OUTER JOIN [at 4:21]
+ERROR: A query containing a recursive reference must not be used as an operand of a FULL OUTER JOIN [at 4:21]
     FULL OUTER JOIN t USING (n))
                     ^
 --
 ALTERNATION GROUP: FULL OUTER,(SELECT * FROM t)
 --
-ERROR: A query containing a recursive reference may not be used as an operand of a FULL OUTER JOIN [at 4:36]
+ERROR: A query containing a recursive reference must not be used as an operand of a FULL OUTER JOIN [at 4:36]
     FULL OUTER JOIN (SELECT * FROM t) USING (n))
                                    ^
 ==
@@ -4723,13 +4735,13 @@ SELECT * FROM t;
 --
 ALTERNATION GROUP: ALL
 --
-ERROR: A subquery containing a recursive reference may not be used as the right operand of EXCEPT [at 7:29]
+ERROR: A subquery containing a recursive reference must not be used as the right operand of EXCEPT [at 7:29]
    EXCEPT ALL SELECT * FROM t))
                             ^
 --
 ALTERNATION GROUP: DISTINCT
 --
-ERROR: A subquery containing a recursive reference may not use INTERSECT, UNION, or EXCEPT with the DISTINCT modifier [at 7:34]
+ERROR: A subquery containing a recursive reference must not use INTERSECT, UNION, or EXCEPT with the DISTINCT modifier [at 7:34]
    EXCEPT DISTINCT SELECT * FROM t))
                                  ^
 ==
@@ -4745,7 +4757,7 @@ WITH RECURSIVE
    EXCEPT ALL SELECT * FROM t))
 SELECT * FROM t;
 --
-ERROR: A subquery containing a recursive reference may not be used as the right operand of EXCEPT [at 8:29]
+ERROR: A subquery containing a recursive reference must not be used as the right operand of EXCEPT [at 8:29]
    EXCEPT ALL SELECT * FROM t))
                             ^
 ==
@@ -4844,7 +4856,7 @@ QueryStmt
 --
 ALTERNATION GROUP: DISTINCT
 --
-ERROR: A subquery containing a recursive reference may not use INTERSECT, UNION, or EXCEPT with the DISTINCT modifier [at 6:22]
+ERROR: A subquery containing a recursive reference must not use INTERSECT, UNION, or EXCEPT with the DISTINCT modifier [at 6:22]
   (SELECT n + 1 FROM t
                      ^
 ==
@@ -4867,7 +4879,7 @@ ERROR: Multiple recursive references to table 't' are not allowed [at 6:58]
 --
 ALTERNATION GROUP: DISTINCT
 --
-ERROR: A subquery containing a recursive reference may not use INTERSECT, UNION, or EXCEPT with the DISTINCT modifier [at 6:41]
+ERROR: A subquery containing a recursive reference must not use INTERSECT, UNION, or EXCEPT with the DISTINCT modifier [at 6:41]
   (SELECT n + 1 FROM (SELECT t_1.n FROM t t_1 CROSS JOIN t t_2)
                                         ^
 ==
@@ -4964,7 +4976,7 @@ QueryStmt
 --
 ALTERNATION GROUP: INTERSECT,DISTINCT
 --
-ERROR: A subquery containing a recursive reference may not use INTERSECT, UNION, or EXCEPT with the DISTINCT modifier [at 6:62]
+ERROR: A subquery containing a recursive reference must not use INTERSECT, UNION, or EXCEPT with the DISTINCT modifier [at 6:62]
         (SELECT * FROM t0) INTERSECT DISTINCT (SELECT * FROM t))
                                                              ^
 --
@@ -5048,7 +5060,7 @@ QueryStmt
 --
 ALTERNATION GROUP: UNION,DISTINCT
 --
-ERROR: A subquery containing a recursive reference may not use INTERSECT, UNION, or EXCEPT with the DISTINCT modifier [at 6:58]
+ERROR: A subquery containing a recursive reference must not use INTERSECT, UNION, or EXCEPT with the DISTINCT modifier [at 6:58]
         (SELECT * FROM t0) UNION DISTINCT (SELECT * FROM t))
                                                          ^
 ==
@@ -5143,7 +5155,7 @@ QueryStmt
 --
 ALTERNATION GROUP: INTERSECT,DISTINCT
 --
-ERROR: A subquery containing a recursive reference may not use INTERSECT, UNION, or EXCEPT with the DISTINCT modifier [at 6:24]
+ERROR: A subquery containing a recursive reference must not use INTERSECT, UNION, or EXCEPT with the DISTINCT modifier [at 6:24]
         (SELECT * FROM t) INTERSECT DISTINCT (SELECT * FROM t0))
                        ^
 --
@@ -5227,7 +5239,7 @@ QueryStmt
 --
 ALTERNATION GROUP: UNION,DISTINCT
 --
-ERROR: A subquery containing a recursive reference may not use INTERSECT, UNION, or EXCEPT with the DISTINCT modifier [at 6:24]
+ERROR: A subquery containing a recursive reference must not use INTERSECT, UNION, or EXCEPT with the DISTINCT modifier [at 6:24]
         (SELECT * FROM t) UNION DISTINCT (SELECT * FROM t0))
                        ^
 ==
@@ -5244,7 +5256,7 @@ WITH RECURSIVE
     WHERE n < 5))
 SELECT * from t;
 --
-ERROR: A subquery containing a recursive reference may not use INTERSECT, UNION, or EXCEPT with the DISTINCT modifier [at 8:43]
+ERROR: A subquery containing a recursive reference must not use INTERSECT, UNION, or EXCEPT with the DISTINCT modifier [at 8:43]
         INTERSECT DISTINCT (SELECT * FROM t))
                                           ^
 ==
@@ -5261,7 +5273,7 @@ WITH RECURSIVE
     WHERE n < 5))
 SELECT * from t;
 --
-ERROR: A subquery containing a recursive reference may not use INTERSECT, UNION, or EXCEPT with the DISTINCT modifier [at 8:39]
+ERROR: A subquery containing a recursive reference must not use INTERSECT, UNION, or EXCEPT with the DISTINCT modifier [at 8:39]
         UNION DISTINCT (SELECT * FROM t))
                                       ^
 ==
@@ -5501,15 +5513,15 @@ SELECT * FROM T1 ORDER BY n;
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: CORRESPONDING is not supported in WITH RECURSIVE [at 3:29]
+ERROR: CORRESPONDING for set operations is not supported [at 3:29]
     SELECT 1 AS n UNION ALL CORRESPONDING SELECT n + 1 FROM T1 WHERE n < 5)
                             ^
 --
 ALTERNATION GROUP: ,V_1_4_CORRESPONDING
 --
-ERROR: CORRESPONDING for set operations cannot be used in WITH RECURSIVE [at 3:29]
+ERROR: Only STRICT CORRESPONDING is supported in recursive queries [at 3:19]
     SELECT 1 AS n UNION ALL CORRESPONDING SELECT n + 1 FROM T1 WHERE n < 5)
-                            ^
+                  ^
 ==
 
 # FULL mode is not allowed for set operators in WITH RECURSIVE.
@@ -5519,15 +5531,7 @@ WITH RECURSIVE
     SELECT 1 AS n FULL UNION ALL SELECT n + 1 FROM T1 WHERE n < 5)
 SELECT * FROM T1 ORDER BY n;
 --
-ALTERNATION GROUP: <empty>
---
-ERROR: Column propagation mode (FULL) is not supported in WITH RECURSIVE [at 3:19]
-    SELECT 1 AS n FULL UNION ALL SELECT n + 1 FROM T1 WHERE n < 5)
-                  ^
---
-ALTERNATION GROUP: ,V_1_4_CORRESPONDING
---
-ERROR: FULL cannot be in WITH RECURSIVE [at 3:19]
+ERROR: Column propagation mode (FULL) for set operations is not supported [at 3:19]
     SELECT 1 AS n FULL UNION ALL SELECT n + 1 FROM T1 WHERE n < 5)
                   ^
 ==
@@ -5539,15 +5543,7 @@ WITH RECURSIVE
     SELECT 1 AS n LEFT UNION ALL SELECT n + 1 FROM T1 WHERE n < 5)
 SELECT * FROM T1 ORDER BY n;
 --
-ALTERNATION GROUP: <empty>
---
-ERROR: Column propagation mode (LEFT) is not supported in WITH RECURSIVE [at 3:19]
-    SELECT 1 AS n LEFT UNION ALL SELECT n + 1 FROM T1 WHERE n < 5)
-                  ^
---
-ALTERNATION GROUP: ,V_1_4_CORRESPONDING
---
-ERROR: LEFT cannot be in WITH RECURSIVE [at 3:19]
+ERROR: Column propagation mode (LEFT) for set operations is not supported [at 3:19]
     SELECT 1 AS n LEFT UNION ALL SELECT n + 1 FROM T1 WHERE n < 5)
                   ^
 ==
@@ -5561,15 +5557,15 @@ SELECT * FROM T1 ORDER BY n;
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: CORRESPONDING is not supported in WITH RECURSIVE [at 3:36]
+ERROR: CORRESPONDING for set operations is not supported [at 3:36]
     SELECT 1 AS n UNION ALL STRICT CORRESPONDING SELECT n + 1 FROM T1 WHERE n...
                                    ^
 --
 ALTERNATION GROUP: ,V_1_4_CORRESPONDING
 --
-ERROR: CORRESPONDING for set operations cannot be used in WITH RECURSIVE [at 3:36]
+ERROR: Column propagation mode (STRICT) for set operations is not supported [at 3:29]
     SELECT 1 AS n UNION ALL STRICT CORRESPONDING SELECT n + 1 FROM T1 WHERE n...
-                                   ^
+                            ^
 ==
 
 # CORRESPONDING is not allowed for base term either.
@@ -5581,15 +5577,15 @@ SELECT * FROM T1 ORDER BY n;
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: CORRESPONDING is not supported in WITH RECURSIVE [at 3:29]
+ERROR: CORRESPONDING for set operations is not supported [at 3:29]
     SELECT 1 AS n UNION ALL CORRESPONDING SELECT 2 AS n UNION ALL SELECT n + ...
                             ^
 --
 ALTERNATION GROUP: ,V_1_4_CORRESPONDING
 --
-ERROR: CORRESPONDING for set operations cannot be used in WITH RECURSIVE [at 3:29]
+ERROR: Only STRICT CORRESPONDING is supported in recursive queries [at 3:19]
     SELECT 1 AS n UNION ALL CORRESPONDING SELECT 2 AS n UNION ALL SELECT n + ...
-                            ^
+                  ^
 ==
 
 # BY NAME doesn't work either.
@@ -5607,18 +5603,27 @@ ALTERNATION GROUPS:
     INNER
     LEFT
 --
-ERROR: BY NAME is not supported in WITH RECURSIVE [at 5:15]
+ERROR: BY NAME for set operations is not supported [at 5:15]
     UNION ALL BY NAME
               ^
 --
-ALTERNATION GROUPS:
-    ,V_1_4_CORRESPONDING_FULL,V_1_4_BY_NAME,
-    ,V_1_4_CORRESPONDING_FULL,V_1_4_BY_NAME,INNER
-    ,V_1_4_CORRESPONDING_FULL,V_1_4_BY_NAME,LEFT
+ALTERNATION GROUP: ,V_1_4_CORRESPONDING_FULL,V_1_4_BY_NAME,
 --
-ERROR: BY NAME for set operations cannot be used in WITH RECURSIVE [at 5:15]
-    UNION ALL BY NAME
-              ^
+ERROR: Anonymous columns are not allowed in set operations when BY NAME is used: query 2, column 1 [at 6:5]
+    SELECT n + 1 FROM T1 WHERE n < 5)
+    ^
+--
+ALTERNATION GROUP: ,V_1_4_CORRESPONDING_FULL,V_1_4_BY_NAME,INNER
+--
+ERROR: Only BY NAME is supported in recursive queries [at 4:5]
+    INNER
+    ^
+--
+ALTERNATION GROUP: ,V_1_4_CORRESPONDING_FULL,V_1_4_BY_NAME,LEFT
+--
+ERROR: Only BY NAME is supported in recursive queries [at 4:5]
+    LEFT
+    ^
 ==
 
 [language_features=V_1_3_WITH_RECURSIVE{{|,V_1_4_WITH_RECURSIVE_DEPTH_MODIFIER}}]
@@ -6075,9 +6080,9 @@ with recursive t as (
 )
 select * from t;
 --
-ERROR: Recursive query does not have the form <non-recursive-term> UNION [ALL|DISTINCT] <recursive-term> or the pipe form <non-recursive-term> |> UNION [ALL|DISTINCT] <recursive-term> [at 2:3]
-  select 1 as col
-  ^
+ERROR: Recursive query does not have the form <non-recursive-term> UNION [ALL|DISTINCT] <recursive-term> or the pipe form <non-recursive-term> |> UNION [ALL|DISTINCT] <recursive-term> [at 1:21]
+with recursive t as (
+                    ^
 ==
 
 [language_features=V_1_3_WITH_RECURSIVE,PIPES]
@@ -6107,17 +6112,17 @@ QueryStmt
     |       | +-SetOperationItem
     |       |   +-scan=
     |       |   | +-LimitOffsetScan
-    |       |   |   +-column_list=[non_recursive_term.col#1]
+    |       |   |   +-column_list=[$union_all1.col#1]
     |       |   |   +-input_scan=
     |       |   |   | +-ProjectScan
-    |       |   |   |   +-column_list=[non_recursive_term.col#1]
+    |       |   |   |   +-column_list=[$union_all1.col#1]
     |       |   |   |   +-expr_list=
     |       |   |   |   | +-col#1 := Literal(type=INT64, value=1)
     |       |   |   |   +-input_scan=
     |       |   |   |     +-SingleRowScan
     |       |   |   +-limit=
     |       |   |     +-Literal(type=INT64, value=10)
-    |       |   +-output_column_list=[non_recursive_term.col#1]
+    |       |   +-output_column_list=[$union_all1.col#1]
     |       +-recursive_term=
     |         +-SetOperationItem
     |           +-scan=
@@ -6251,12 +6256,12 @@ QueryStmt
     |       | +-SetOperationItem
     |       |   +-scan=
     |       |   | +-ProjectScan
-    |       |   |   +-column_list=[non_recursive_term.col#1]
+    |       |   |   +-column_list=[$union_all1.col#1]
     |       |   |   +-expr_list=
     |       |   |   | +-col#1 := Literal(type=INT64, value=1)
     |       |   |   +-input_scan=
     |       |   |     +-SingleRowScan
-    |       |   +-output_column_list=[non_recursive_term.col#1]
+    |       |   +-output_column_list=[$union_all1.col#1]
     |       +-recursive_term=
     |         +-SetOperationItem
     |           +-scan=
@@ -6291,12 +6296,12 @@ QueryStmt
     |       | +-SetOperationItem
     |       |   +-scan=
     |       |   | +-ProjectScan
-    |       |   |   +-column_list=[non_recursive_term.col#1]
+    |       |   |   +-column_list=[$union_distinct1.col#1]
     |       |   |   +-expr_list=
     |       |   |   | +-col#1 := Literal(type=INT64, value=1)
     |       |   |   +-input_scan=
     |       |   |     +-SingleRowScan
-    |       |   +-output_column_list=[non_recursive_term.col#1]
+    |       |   +-output_column_list=[$union_distinct1.col#1]
     |       +-recursive_term=
     |         +-SetOperationItem
     |           +-scan=
@@ -6342,12 +6347,12 @@ QueryStmt
     |       | +-SetOperationItem
     |       |   +-scan=
     |       |   | +-ProjectScan
-    |       |   |   +-column_list=[non_recursive_term.$col1#1]
+    |       |   |   +-column_list=[$union_all1.$col1#1]
     |       |   |   +-expr_list=
     |       |   |   | +-$col1#1 := Literal(type=INT64, value=1)
     |       |   |   +-input_scan=
     |       |   |     +-SingleRowScan
-    |       |   +-output_column_list=[non_recursive_term.$col1#1]
+    |       |   +-output_column_list=[$union_all1.$col1#1]
     |       +-recursive_term=
     |         +-SetOperationItem
     |           +-scan=
@@ -6435,9 +6440,9 @@ with recursive t as (
 )
 select * from t;
 --
-ERROR: Recursive query does not have the form <non-recursive-term> UNION [ALL|DISTINCT] <recursive-term> or the pipe form <non-recursive-term> |> UNION [ALL|DISTINCT] <recursive-term> [at 4:7]
-      select 1
-      ^
+ERROR: Recursive query does not have the form <non-recursive-term> UNION [ALL|DISTINCT] <recursive-term> or the pipe form <non-recursive-term> |> UNION [ALL|DISTINCT] <recursive-term> [at 1:21]
+with recursive t as (
+                    ^
 ==
 
 # With recursive does not allow pipe set operators other than pipe union.
@@ -6447,9 +6452,9 @@ with recursive t as (
 )
 select * from t;
 --
-ERROR: Recursive query does not have the form <non-recursive-term> UNION [ALL|DISTINCT] <recursive-term> or the pipe form <non-recursive-term> |> UNION [ALL|DISTINCT] <recursive-term> [at 2:3]
-  select 1 as col
-  ^
+ERROR: Recursive query does not have the form <non-recursive-term> UNION [ALL|DISTINCT] <recursive-term> or the pipe form <non-recursive-term> |> UNION [ALL|DISTINCT] <recursive-term> [at 1:21]
+with recursive t as (
+                    ^
 ==
 
 # The recursive term must have exactly one input argument to the pipe union
@@ -6559,17 +6564,17 @@ QueryStmt
     |       |   |     +-SetOperationItem
     |       |   |     | +-scan=
     |       |   |     | | +-FilterScan
-    |       |   |     | |   +-column_list=[non_recursive_term.col#1]
+    |       |   |     | |   +-column_list=[$union_distinct1.col#1]
     |       |   |     | |   +-input_scan=
     |       |   |     | |   | +-ProjectScan
-    |       |   |     | |   |   +-column_list=[non_recursive_term.col#1]
+    |       |   |     | |   |   +-column_list=[$union_distinct1.col#1]
     |       |   |     | |   |   +-expr_list=
     |       |   |     | |   |   | +-col#1 := Literal(type=INT64, value=1)
     |       |   |     | |   |   +-input_scan=
     |       |   |     | |   |     +-SingleRowScan
     |       |   |     | |   +-filter_expr=
     |       |   |     | |     +-Literal(type=BOOL, value=true)
-    |       |   |     | +-output_column_list=[non_recursive_term.col#1]
+    |       |   |     | +-output_column_list=[$union_distinct1.col#1]
     |       |   |     +-SetOperationItem
     |       |   |     | +-scan=
     |       |   |     | | +-ProjectScan
@@ -6641,17 +6646,17 @@ QueryStmt
     |       |   |     +-SetOperationItem
     |       |   |     | +-scan=
     |       |   |     | | +-FilterScan
-    |       |   |     | |   +-column_list=[non_recursive_term.col#1]
+    |       |   |     | |   +-column_list=[$union_distinct1.col#1]
     |       |   |     | |   +-input_scan=
     |       |   |     | |   | +-ProjectScan
-    |       |   |     | |   |   +-column_list=[non_recursive_term.col#1]
+    |       |   |     | |   |   +-column_list=[$union_distinct1.col#1]
     |       |   |     | |   |   +-expr_list=
     |       |   |     | |   |   | +-col#1 := Literal(type=INT64, value=1)
     |       |   |     | |   |   +-input_scan=
     |       |   |     | |   |     +-SingleRowScan
     |       |   |     | |   +-filter_expr=
     |       |   |     | |     +-Literal(type=BOOL, value=true)
-    |       |   |     | +-output_column_list=[non_recursive_term.col#1]
+    |       |   |     | +-output_column_list=[$union_distinct1.col#1]
     |       |   |     +-SetOperationItem
     |       |   |     | +-scan=
     |       |   |     | | +-ProjectScan
@@ -6707,9 +6712,9 @@ with recursive t as (
 )
 select * from t;
 --
-ERROR: Recursive query does not have the form <non-recursive-term> UNION [ALL|DISTINCT] <recursive-term> or the pipe form <non-recursive-term> |> UNION [ALL|DISTINCT] <recursive-term> [at 2:3]
-  select 1 as col
-  ^
+ERROR: Recursive query does not have the form <non-recursive-term> UNION [ALL|DISTINCT] <recursive-term> or the pipe form <non-recursive-term> |> UNION [ALL|DISTINCT] <recursive-term> [at 1:21]
+with recursive t as (
+                    ^
 ==
 
 # The last pipe union is the recursive term. Non recursive term is not allowed
@@ -6736,15 +6741,15 @@ select * from t;
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: CORRESPONDING is not supported in WITH RECURSIVE [at 3:16]
+ERROR: CORRESPONDING for set operations is not supported [at 3:16]
   |> union all corresponding (select col + 1 from t where col < 3)
                ^
 --
 ALTERNATION GROUP: ,V_1_4_CORRESPONDING
 --
-ERROR: CORRESPONDING for set operations cannot be used in WITH RECURSIVE [at 3:16]
+ERROR: Only STRICT CORRESPONDING is supported in recursive queries [at 3:6]
   |> union all corresponding (select col + 1 from t where col < 3)
-               ^
+     ^
 ==
 
 # Column number does not match between the recursive and non-recursive terms.
@@ -6766,7 +6771,7 @@ with recursive t as (
 )
 select * from t;
 --
-ERROR: Cannot coerce column 1 of recursive term (STRING) to column type in non-recursive term (INT64) [at 3:17]
+ERROR: Cannot coerce type (STRING) of column 1 in the recursive term to type (INT64) of column 1 in non-recursive term [at 3:17]
   |> union all (select "string" from t where col1 < 3)
                 ^
 ==
@@ -6808,7 +6813,7 @@ QueryStmt
     |       |   |     | |   | +-col#4 := Literal(type=DOUBLE, value=1, has_explicit_type=TRUE)
     |       |   |     | |   +-input_scan=
     |       |   |     | |     +-ProjectScan
-    |       |   |     | |       +-column_list=[non_recursive_term.col#1]
+    |       |   |     | |       +-column_list=[$union_all1.col#1]
     |       |   |     | |       +-expr_list=
     |       |   |     | |       | +-col#1 := Literal(type=FLOAT, value=1, has_explicit_type=TRUE)
     |       |   |     | |       +-input_scan=
@@ -6833,7 +6838,7 @@ QueryStmt
     |         +-SetOperationItem
     |           +-scan=
     |           | +-ProjectScan
-    |           |   +-column_list=[$union_all1_cast.$col1#9]
+    |           |   +-column_list=[$union_all2_cast.$col1#9]
     |           |   +-expr_list=
     |           |   | +-$col1#9 :=
     |           |   |   +-Cast(INT64 -> DOUBLE)
@@ -6856,7 +6861,7 @@ QueryStmt
     |           |             +-FunctionCall(ZetaSQL:$less(DOUBLE, DOUBLE) -> BOOL)
     |           |               +-ColumnRef(type=DOUBLE, column=t.col#7)
     |           |               +-Literal(type=DOUBLE, value=3)
-    |           +-output_column_list=[$union_all1_cast.$col1#9]
+    |           +-output_column_list=[$union_all2_cast.$col1#9]
     +-query=
     | +-ProjectScan
     |   +-column_list=[t.col#10]
@@ -6873,7 +6878,7 @@ with recursive t as (
 )
 select * from t;
 --
-ERROR: Cannot coerce column 1 of recursive term (INT32) to column type in non-recursive term (UINT32) [at 3:17]
+ERROR: Cannot coerce type (INT32) of column 1 in the recursive term to type (UINT32) of column 1 in non-recursive term [at 3:17]
   |> union all (select cast(col + 1 as int32) from t where col < 3)
                 ^
 ==
@@ -6888,6 +6893,20 @@ with recursive t as (
 )
 select * from t;
 --
-ERROR: Recursive query does not have the form <non-recursive-term> UNION [ALL|DISTINCT] <recursive-term> [at 2:3]
+ERROR: Recursive query does not have the form <non-recursive-term> UNION [ALL|DISTINCT] <recursive-term> [at 1:21]
+with recursive t as (
+                    ^
+==
+
+# Pipe syntax is not supported when the language feature FEATURE_PIPES is not
+# enabled.
+[language_features=V_1_3_WITH_RECURSIVE]
+with recursive t as (
   select 1 as col
+  |> union all (select * from t)
+)
+select * from t;
+--
+ERROR: Pipe query syntax not supported [at 3:3]
+  |> union all (select * from t)
   ^

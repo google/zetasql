@@ -15,14 +15,23 @@
 //
 
 #include <memory>
+#include <string>
+#include <utility>
+#include <vector>
 
+#include "zetasql/base/atomic_sequence_num.h"
 #include "zetasql/base/testing/status_matchers.h"  
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
+#include "zetasql/public/builtin_function_options.h"
+#include "zetasql/public/options.pb.h"
+#include "zetasql/public/rewriter_interface.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/type_factory.h"
+#include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/testdata/test_schema.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -30,11 +39,14 @@
 #include "absl/flags/flag.h"
 #include "zetasql/base/check.h"
 #include "absl/status/status.h"
-#include "absl/time/time.h"
+#include "absl/strings/string_view.h"
 
 ABSL_DECLARE_FLAG(double, zetasql_stack_usage_proportion_warning);
 
 namespace zetasql {
+
+using ::testing::Eq;
+using ::testing::NotNull;
 
 TEST(RewriteResolvedAstTest, RewriterDoesNotConflictWithExpressionColumnNames) {
   // The map function rewriters use a variable called "m" and a variable called
@@ -181,6 +193,150 @@ TEST(RewriteResolvedAstTest, RewriterWarnsComplextyJustOnce) {
               ::testing::ElementsAre(zetasql_base::testing::StatusIs(
                   absl::StatusCode::kResourceExhausted)));
   absl::SetFlag(&FLAGS_zetasql_stack_usage_proportion_warning, old_value);
+}
+
+TEST(RewriteResolvedAstTest, SequenceNumberUnchangedIfNoRewritersApplied) {
+  TypeFactory types;
+  SimpleCatalog catalog("catalog", &types);
+  catalog.AddBuiltinFunctions(BuiltinFunctionOptions::AllReleasedFunctions());
+
+  auto table = std::make_unique<SimpleTable>(
+      "T",
+      std::vector<SimpleTable::NameAndType>{{"string_col", types.get_string()},
+                                            {"int64_col", types.get_int64()}});
+  catalog.AddOwnedTable(std::move(table));
+
+  zetasql_base::SequenceNumber sequence_number;
+  AnalyzerOptions options;
+  options.set_column_id_sequence_number(&sequence_number);
+  options.mutable_language()->DisableAllLanguageFeatures();
+  // Disable TYPEOF rewriting and expect that no rewriters are applied.
+  options.disable_rewrite(ResolvedASTRewrite::REWRITE_TYPEOF_FUNCTION);
+
+  std::unique_ptr<const AnalyzerOutput> output;
+  ZETASQL_ASSERT_OK(AnalyzeStatement(R"sql(SELECT TYPEOF(int64_col) FROM T)sql",
+                             options, &catalog, &types, &output));
+  ASSERT_THAT(output->resolved_statement(), NotNull());
+
+  // One ID for each table column and one for the query's output column.
+  EXPECT_THAT(output->max_column_id(), Eq(3));
+  EXPECT_THAT(sequence_number.GetNext(), Eq(4));
+}
+
+// Same as above, but `REWRITE_TYPEOF_FUNCTION` is enabled.
+TEST(RewriteResolvedAstTest,
+     SequenceNumberIncrementedIfBuiltinRewriterApplied) {
+  TypeFactory types;
+  SimpleCatalog catalog("catalog", &types);
+  catalog.AddBuiltinFunctions(BuiltinFunctionOptions::AllReleasedFunctions());
+
+  auto table = std::make_unique<SimpleTable>(
+      "T",
+      std::vector<SimpleTable::NameAndType>{{"string_col", types.get_string()},
+                                            {"int64_col", types.get_int64()}});
+  catalog.AddOwnedTable(std::move(table));
+
+  zetasql_base::SequenceNumber sequence_number;
+  AnalyzerOptions options;
+  options.set_column_id_sequence_number(&sequence_number);
+  options.mutable_language()->DisableAllLanguageFeatures();
+  options.enable_rewrite(ResolvedASTRewrite::REWRITE_TYPEOF_FUNCTION);
+
+  std::unique_ptr<const AnalyzerOutput> output;
+  ZETASQL_ASSERT_OK(AnalyzeStatement(R"sql(SELECT TYPEOF(int64_col) FROM T)sql",
+                             options, &catalog, &types, &output));
+  ASSERT_THAT(output->resolved_statement(), NotNull());
+
+  // One ID for each table column and one for the query's output column. Note
+  // that this is unchanged from the previous test case. The rewriter for
+  // TYPEOF did not need to generate any new IDs.
+  EXPECT_THAT(output->max_column_id(), Eq(3));
+
+  // Whenever a rewriter is applied, the sequence number is always incremented
+  // by one even though it is not necessary. This is because the framework does
+  // not have any way to track the current value of the max column ID. It must
+  // call `GetNext()` to get the next value, which mutates the sequence number.
+  EXPECT_THAT(sequence_number.GetNext(), Eq(5));
+}
+
+namespace {
+
+class NoopRewriter : public Rewriter {
+ public:
+  absl::StatusOr<std::unique_ptr<const ResolvedNode>> Rewrite(
+      const AnalyzerOptions& options, std::unique_ptr<const ResolvedNode> input,
+      Catalog& catalog, TypeFactory& type_factory,
+      AnalyzerOutputProperties& output_properties) const override {
+    return input;
+  }
+
+  std::string Name() const override { return "NoopRewriter"; }
+};
+
+}  // namespace
+
+TEST(RewriteResolvedAstTest,
+     SequenceNumberIncrementedIfLeadingRewriterApplied) {
+  TypeFactory types;
+  SimpleCatalog catalog("catalog", &types);
+
+  auto table = std::make_unique<SimpleTable>(
+      "T",
+      std::vector<SimpleTable::NameAndType>{{"string_col", types.get_string()},
+                                            {"int64_col", types.get_int64()}});
+  catalog.AddOwnedTable(std::move(table));
+
+  zetasql_base::SequenceNumber sequence_number;
+  AnalyzerOptions options;
+  options.set_column_id_sequence_number(&sequence_number);
+  options.mutable_language()->DisableAllLanguageFeatures();
+  options.add_leading_rewriter(std::make_shared<NoopRewriter>());
+
+  std::unique_ptr<const AnalyzerOutput> output;
+  ZETASQL_ASSERT_OK(AnalyzeStatement(R"sql(SELECT * FROM T)sql", options, &catalog,
+                             &types, &output));
+  ASSERT_THAT(output->resolved_statement(), NotNull());
+
+  // One ID for each table column and one for the query's output column.
+  EXPECT_THAT(output->max_column_id(), Eq(2));
+
+  // Whenever a rewriter is applied, the sequence number is always incremented
+  // by one even though it is not necessary. This is because the framework does
+  // not have any way to track the current value of the max column ID. It must
+  // call `GetNext()` to get the next value, which mutates the sequence number.
+  EXPECT_THAT(sequence_number.GetNext(), Eq(4));
+}
+
+TEST(RewriteResolvedAstTest,
+     SequenceNumberIncrementedIfTrailingRewriterApplied) {
+  TypeFactory types;
+  SimpleCatalog catalog("catalog", &types);
+
+  auto table = std::make_unique<SimpleTable>(
+      "T",
+      std::vector<SimpleTable::NameAndType>{{"string_col", types.get_string()},
+                                            {"int64_col", types.get_int64()}});
+  catalog.AddOwnedTable(std::move(table));
+
+  zetasql_base::SequenceNumber sequence_number;
+  AnalyzerOptions options;
+  options.set_column_id_sequence_number(&sequence_number);
+  options.mutable_language()->DisableAllLanguageFeatures();
+  options.add_trailing_rewriter(std::make_shared<NoopRewriter>());
+
+  std::unique_ptr<const AnalyzerOutput> output;
+  ZETASQL_ASSERT_OK(AnalyzeStatement(R"sql(SELECT * FROM T)sql", options, &catalog,
+                             &types, &output));
+  ASSERT_THAT(output->resolved_statement(), NotNull());
+
+  // One ID for each table column and one for the query's output column.
+  EXPECT_THAT(output->max_column_id(), Eq(2));
+
+  // Whenever a rewriter is applied, the sequence number is always incremented
+  // by one even though it is not necessary. This is because the framework does
+  // not have any way to track the current value of the max column ID. It must
+  // call `GetNext()` to get the next value, which mutates the sequence number.
+  EXPECT_THAT(sequence_number.GetNext(), Eq(4));
 }
 
 }  // namespace zetasql

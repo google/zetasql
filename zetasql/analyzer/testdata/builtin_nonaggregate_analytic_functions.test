@@ -1793,3 +1793,1410 @@ ALTERNATION GROUP: disc
 ERROR: Argument 2 to PERCENTILE_DISC must be between 0 and 1 [at 1:49]
 select percentile_disc(cast(key as bignumeric), bignumeric "-1e-38") over () ...
                                                 ^
+==
+
+# IS_FIRST() and IS_LAST(). Both are numbering functions, so they do not accept
+# a window frame.
+select {{is_first|is_last}}(2)
+  over ({{w1|ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING}})
+from keyvalue
+window w1 as (partition by value order by key ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING)
+--
+ALTERNATION GROUP: is_first,w1
+--
+ERROR: Window framing clause is not allowed for analytic function is_first [at 4:47]
+window w1 as (partition by value order by key ROWS BETWEEN 1 PRECEDING AND 1 ...
+                                              ^
+--
+ALTERNATION GROUP: is_first,ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING
+--
+ERROR: Window framing clause is not allowed for analytic function is_first [at 2:9]
+  over (ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING)
+        ^
+--
+ALTERNATION GROUP: is_last,w1
+--
+ERROR: Window framing clause is not allowed for analytic function is_last [at 4:47]
+window w1 as (partition by value order by key ROWS BETWEEN 1 PRECEDING AND 1 ...
+                                              ^
+--
+ALTERNATION GROUP: is_last,ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING
+--
+ERROR: Window framing clause is not allowed for analytic function is_last [at 2:9]
+  over (ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING)
+        ^
+==
+
+# IS_FIRST() and IS_LAST() make order by clause optional.
+select is_first(2) OVER(), is_last(2) over ()
+from keyvalue
+--
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#5 AS `$col1` [BOOL]
+| +-$analytic.$analytic2#6 AS `$col2` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=$analytic.[$analytic1#5, $analytic2#6]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=$analytic.[$analytic1#5, $analytic2#6]
+        +-input_scan=
+        | +-TableScan(table=KeyValue)
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+            +-analytic_function_list=
+              +-$analytic1#5 :=
+              | +-AnalyticFunctionCall(ZetaSQL:is_first(INT64) -> BOOL)
+              |   +-Literal(type=INT64, value=2)
+              +-$analytic2#6 :=
+                +-AnalyticFunctionCall(ZetaSQL:is_last(INT64) -> BOOL)
+                  +-Literal(type=INT64, value=2)
+==
+
+# IGNORE NULLS and RESPECT NULLS are not allowed for IS_FIRST() and IS_LAST().
+[language_features=ANALYTIC_FUNCTIONS,V_1_1_NULL_HANDLING_MODIFIER_IN_ANALYTIC]
+select {{is_first|is_last}}(2
+                            respect nulls) over () from keyvalue;
+--
+ALTERNATION GROUP: is_first
+--
+ERROR: IGNORE NULLS and RESPECT NULLS are not allowed for analytic function IS_FIRST [at 1:8]
+select is_first(2
+       ^
+--
+ALTERNATION GROUP: is_last
+--
+ERROR: IGNORE NULLS and RESPECT NULLS are not allowed for analytic function IS_LAST [at 1:8]
+select is_last(2
+       ^
+==
+
+[enabled_ast_rewrites=DEFAULTS,+IS_FIRST_IS_LAST_FUNCTION]
+[language_features=ANALYTIC_FUNCTIONS,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY]
+select is_first(2) over (partition by key order by value{{| DESC}}{{| NULLS FIRST| NULLS LAST}})
+from keyvalue
+--
+
+ALTERNATION GROUP: <empty>
+--
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#4 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#4]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#4]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+            +-partition_by=
+            | +-WindowPartitioning
+            |   +-partition_by_list=
+            |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-order_by=
+            | +-WindowOrdering
+            |   +-order_by_item_list=
+            |     +-OrderByItem
+            |       +-column_ref=
+            |         +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+            +-analytic_function_list=
+              +-$analytic1#4 :=
+                +-AnalyticFunctionCall(ZetaSQL:is_first(INT64) -> BOOL)
+                  +-Literal(type=INT64, value=2)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#4 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#4]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#4]
+        +-expr_list=
+        | +-$analytic1#4 :=
+        |   +-FunctionCall(ZetaSQL:if(BOOL, BOOL, BOOL) -> BOOL)
+        |     +-FunctionCall(ZetaSQL:$or(repeated(2) BOOL) -> BOOL)
+        |     | +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
+        |     | | +-ColumnRef(type=INT64, column=$analytic.$analytic_arg#5)
+        |     | +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
+        |     |   +-ColumnRef(type=INT64, column=$analytic.$analytic_arg#5)
+        |     |   +-Literal(type=INT64, value=0)
+        |     +-FunctionCall(ZetaSQL:error(STRING) -> BOOL)
+        |     | +-Literal(type=STRING, value="k cannot be null or negative")
+        |     +-FunctionCall(ZetaSQL:$less_or_equal(INT64, INT64) -> BOOL)
+        |       +-ColumnRef(type=INT64, column=$analytic.$analytic1#6)
+        |       +-ColumnRef(type=INT64, column=$analytic.$analytic_arg#5)
+        +-input_scan=
+          +-AnalyticScan
+            +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#6, $analytic.$analytic_arg#5]
+            +-input_scan=
+            | +-ProjectScan
+            |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic_arg#5]
+            |   +-expr_list=
+            |   | +-$analytic_arg#5 := Literal(type=INT64, value=2)
+            |   +-input_scan=
+            |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+            +-function_group_list=
+              +-AnalyticFunctionGroup
+                +-partition_by=
+                | +-WindowPartitioning
+                |   +-partition_by_list=
+                |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+                +-order_by=
+                | +-WindowOrdering
+                |   +-order_by_item_list=
+                |     +-OrderByItem
+                |       +-column_ref=
+                |         +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+                +-analytic_function_list=
+                  +-$analytic1#6 := AnalyticFunctionCall(ZetaSQL:row_number() -> INT64)
+--
+ALTERNATION GROUP:  NULLS FIRST
+--
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#4 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#4]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#4]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+            +-partition_by=
+            | +-WindowPartitioning
+            |   +-partition_by_list=
+            |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-order_by=
+            | +-WindowOrdering
+            |   +-order_by_item_list=
+            |     +-OrderByItem
+            |       +-column_ref=
+            |       | +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+            |       +-null_order=NULLS_FIRST
+            +-analytic_function_list=
+              +-$analytic1#4 :=
+                +-AnalyticFunctionCall(ZetaSQL:is_first(INT64) -> BOOL)
+                  +-Literal(type=INT64, value=2)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#4 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#4]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#4]
+        +-expr_list=
+        | +-$analytic1#4 :=
+        |   +-FunctionCall(ZetaSQL:if(BOOL, BOOL, BOOL) -> BOOL)
+        |     +-FunctionCall(ZetaSQL:$or(repeated(2) BOOL) -> BOOL)
+        |     | +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
+        |     | | +-ColumnRef(type=INT64, column=$analytic.$analytic_arg#5)
+        |     | +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
+        |     |   +-ColumnRef(type=INT64, column=$analytic.$analytic_arg#5)
+        |     |   +-Literal(type=INT64, value=0)
+        |     +-FunctionCall(ZetaSQL:error(STRING) -> BOOL)
+        |     | +-Literal(type=STRING, value="k cannot be null or negative")
+        |     +-FunctionCall(ZetaSQL:$less_or_equal(INT64, INT64) -> BOOL)
+        |       +-ColumnRef(type=INT64, column=$analytic.$analytic1#6)
+        |       +-ColumnRef(type=INT64, column=$analytic.$analytic_arg#5)
+        +-input_scan=
+          +-AnalyticScan
+            +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#6, $analytic.$analytic_arg#5]
+            +-input_scan=
+            | +-ProjectScan
+            |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic_arg#5]
+            |   +-expr_list=
+            |   | +-$analytic_arg#5 := Literal(type=INT64, value=2)
+            |   +-input_scan=
+            |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+            +-function_group_list=
+              +-AnalyticFunctionGroup
+                +-partition_by=
+                | +-WindowPartitioning
+                |   +-partition_by_list=
+                |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+                +-order_by=
+                | +-WindowOrdering
+                |   +-order_by_item_list=
+                |     +-OrderByItem
+                |       +-column_ref=
+                |       | +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+                |       +-null_order=NULLS_FIRST
+                +-analytic_function_list=
+                  +-$analytic1#6 := AnalyticFunctionCall(ZetaSQL:row_number() -> INT64)
+--
+ALTERNATION GROUP:  NULLS LAST
+--
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#4 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#4]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#4]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+            +-partition_by=
+            | +-WindowPartitioning
+            |   +-partition_by_list=
+            |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-order_by=
+            | +-WindowOrdering
+            |   +-order_by_item_list=
+            |     +-OrderByItem
+            |       +-column_ref=
+            |       | +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+            |       +-null_order=NULLS_LAST
+            +-analytic_function_list=
+              +-$analytic1#4 :=
+                +-AnalyticFunctionCall(ZetaSQL:is_first(INT64) -> BOOL)
+                  +-Literal(type=INT64, value=2)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#4 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#4]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#4]
+        +-expr_list=
+        | +-$analytic1#4 :=
+        |   +-FunctionCall(ZetaSQL:if(BOOL, BOOL, BOOL) -> BOOL)
+        |     +-FunctionCall(ZetaSQL:$or(repeated(2) BOOL) -> BOOL)
+        |     | +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
+        |     | | +-ColumnRef(type=INT64, column=$analytic.$analytic_arg#5)
+        |     | +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
+        |     |   +-ColumnRef(type=INT64, column=$analytic.$analytic_arg#5)
+        |     |   +-Literal(type=INT64, value=0)
+        |     +-FunctionCall(ZetaSQL:error(STRING) -> BOOL)
+        |     | +-Literal(type=STRING, value="k cannot be null or negative")
+        |     +-FunctionCall(ZetaSQL:$less_or_equal(INT64, INT64) -> BOOL)
+        |       +-ColumnRef(type=INT64, column=$analytic.$analytic1#6)
+        |       +-ColumnRef(type=INT64, column=$analytic.$analytic_arg#5)
+        +-input_scan=
+          +-AnalyticScan
+            +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#6, $analytic.$analytic_arg#5]
+            +-input_scan=
+            | +-ProjectScan
+            |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic_arg#5]
+            |   +-expr_list=
+            |   | +-$analytic_arg#5 := Literal(type=INT64, value=2)
+            |   +-input_scan=
+            |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+            +-function_group_list=
+              +-AnalyticFunctionGroup
+                +-partition_by=
+                | +-WindowPartitioning
+                |   +-partition_by_list=
+                |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+                +-order_by=
+                | +-WindowOrdering
+                |   +-order_by_item_list=
+                |     +-OrderByItem
+                |       +-column_ref=
+                |       | +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+                |       +-null_order=NULLS_LAST
+                +-analytic_function_list=
+                  +-$analytic1#6 := AnalyticFunctionCall(ZetaSQL:row_number() -> INT64)
+--
+ALTERNATION GROUP:  DESC,
+--
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#4 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#4]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#4]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+            +-partition_by=
+            | +-WindowPartitioning
+            |   +-partition_by_list=
+            |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-order_by=
+            | +-WindowOrdering
+            |   +-order_by_item_list=
+            |     +-OrderByItem
+            |       +-column_ref=
+            |       | +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+            |       +-is_descending=TRUE
+            +-analytic_function_list=
+              +-$analytic1#4 :=
+                +-AnalyticFunctionCall(ZetaSQL:is_first(INT64) -> BOOL)
+                  +-Literal(type=INT64, value=2)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#4 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#4]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#4]
+        +-expr_list=
+        | +-$analytic1#4 :=
+        |   +-FunctionCall(ZetaSQL:if(BOOL, BOOL, BOOL) -> BOOL)
+        |     +-FunctionCall(ZetaSQL:$or(repeated(2) BOOL) -> BOOL)
+        |     | +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
+        |     | | +-ColumnRef(type=INT64, column=$analytic.$analytic_arg#5)
+        |     | +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
+        |     |   +-ColumnRef(type=INT64, column=$analytic.$analytic_arg#5)
+        |     |   +-Literal(type=INT64, value=0)
+        |     +-FunctionCall(ZetaSQL:error(STRING) -> BOOL)
+        |     | +-Literal(type=STRING, value="k cannot be null or negative")
+        |     +-FunctionCall(ZetaSQL:$less_or_equal(INT64, INT64) -> BOOL)
+        |       +-ColumnRef(type=INT64, column=$analytic.$analytic1#6)
+        |       +-ColumnRef(type=INT64, column=$analytic.$analytic_arg#5)
+        +-input_scan=
+          +-AnalyticScan
+            +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#6, $analytic.$analytic_arg#5]
+            +-input_scan=
+            | +-ProjectScan
+            |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic_arg#5]
+            |   +-expr_list=
+            |   | +-$analytic_arg#5 := Literal(type=INT64, value=2)
+            |   +-input_scan=
+            |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+            +-function_group_list=
+              +-AnalyticFunctionGroup
+                +-partition_by=
+                | +-WindowPartitioning
+                |   +-partition_by_list=
+                |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+                +-order_by=
+                | +-WindowOrdering
+                |   +-order_by_item_list=
+                |     +-OrderByItem
+                |       +-column_ref=
+                |       | +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+                |       +-is_descending=TRUE
+                +-analytic_function_list=
+                  +-$analytic1#6 := AnalyticFunctionCall(ZetaSQL:row_number() -> INT64)
+--
+ALTERNATION GROUP:  DESC, NULLS FIRST
+--
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#4 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#4]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#4]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+            +-partition_by=
+            | +-WindowPartitioning
+            |   +-partition_by_list=
+            |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-order_by=
+            | +-WindowOrdering
+            |   +-order_by_item_list=
+            |     +-OrderByItem
+            |       +-column_ref=
+            |       | +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+            |       +-is_descending=TRUE
+            |       +-null_order=NULLS_FIRST
+            +-analytic_function_list=
+              +-$analytic1#4 :=
+                +-AnalyticFunctionCall(ZetaSQL:is_first(INT64) -> BOOL)
+                  +-Literal(type=INT64, value=2)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#4 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#4]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#4]
+        +-expr_list=
+        | +-$analytic1#4 :=
+        |   +-FunctionCall(ZetaSQL:if(BOOL, BOOL, BOOL) -> BOOL)
+        |     +-FunctionCall(ZetaSQL:$or(repeated(2) BOOL) -> BOOL)
+        |     | +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
+        |     | | +-ColumnRef(type=INT64, column=$analytic.$analytic_arg#5)
+        |     | +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
+        |     |   +-ColumnRef(type=INT64, column=$analytic.$analytic_arg#5)
+        |     |   +-Literal(type=INT64, value=0)
+        |     +-FunctionCall(ZetaSQL:error(STRING) -> BOOL)
+        |     | +-Literal(type=STRING, value="k cannot be null or negative")
+        |     +-FunctionCall(ZetaSQL:$less_or_equal(INT64, INT64) -> BOOL)
+        |       +-ColumnRef(type=INT64, column=$analytic.$analytic1#6)
+        |       +-ColumnRef(type=INT64, column=$analytic.$analytic_arg#5)
+        +-input_scan=
+          +-AnalyticScan
+            +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#6, $analytic.$analytic_arg#5]
+            +-input_scan=
+            | +-ProjectScan
+            |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic_arg#5]
+            |   +-expr_list=
+            |   | +-$analytic_arg#5 := Literal(type=INT64, value=2)
+            |   +-input_scan=
+            |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+            +-function_group_list=
+              +-AnalyticFunctionGroup
+                +-partition_by=
+                | +-WindowPartitioning
+                |   +-partition_by_list=
+                |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+                +-order_by=
+                | +-WindowOrdering
+                |   +-order_by_item_list=
+                |     +-OrderByItem
+                |       +-column_ref=
+                |       | +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+                |       +-is_descending=TRUE
+                |       +-null_order=NULLS_FIRST
+                +-analytic_function_list=
+                  +-$analytic1#6 := AnalyticFunctionCall(ZetaSQL:row_number() -> INT64)
+--
+ALTERNATION GROUP:  DESC, NULLS LAST
+--
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#4 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#4]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#4]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+            +-partition_by=
+            | +-WindowPartitioning
+            |   +-partition_by_list=
+            |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-order_by=
+            | +-WindowOrdering
+            |   +-order_by_item_list=
+            |     +-OrderByItem
+            |       +-column_ref=
+            |       | +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+            |       +-is_descending=TRUE
+            |       +-null_order=NULLS_LAST
+            +-analytic_function_list=
+              +-$analytic1#4 :=
+                +-AnalyticFunctionCall(ZetaSQL:is_first(INT64) -> BOOL)
+                  +-Literal(type=INT64, value=2)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#4 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#4]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#4]
+        +-expr_list=
+        | +-$analytic1#4 :=
+        |   +-FunctionCall(ZetaSQL:if(BOOL, BOOL, BOOL) -> BOOL)
+        |     +-FunctionCall(ZetaSQL:$or(repeated(2) BOOL) -> BOOL)
+        |     | +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
+        |     | | +-ColumnRef(type=INT64, column=$analytic.$analytic_arg#5)
+        |     | +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
+        |     |   +-ColumnRef(type=INT64, column=$analytic.$analytic_arg#5)
+        |     |   +-Literal(type=INT64, value=0)
+        |     +-FunctionCall(ZetaSQL:error(STRING) -> BOOL)
+        |     | +-Literal(type=STRING, value="k cannot be null or negative")
+        |     +-FunctionCall(ZetaSQL:$less_or_equal(INT64, INT64) -> BOOL)
+        |       +-ColumnRef(type=INT64, column=$analytic.$analytic1#6)
+        |       +-ColumnRef(type=INT64, column=$analytic.$analytic_arg#5)
+        +-input_scan=
+          +-AnalyticScan
+            +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#6, $analytic.$analytic_arg#5]
+            +-input_scan=
+            | +-ProjectScan
+            |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic_arg#5]
+            |   +-expr_list=
+            |   | +-$analytic_arg#5 := Literal(type=INT64, value=2)
+            |   +-input_scan=
+            |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+            +-function_group_list=
+              +-AnalyticFunctionGroup
+                +-partition_by=
+                | +-WindowPartitioning
+                |   +-partition_by_list=
+                |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+                +-order_by=
+                | +-WindowOrdering
+                |   +-order_by_item_list=
+                |     +-OrderByItem
+                |       +-column_ref=
+                |       | +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+                |       +-is_descending=TRUE
+                |       +-null_order=NULLS_LAST
+                +-analytic_function_list=
+                  +-$analytic1#6 := AnalyticFunctionCall(ZetaSQL:row_number() -> INT64)
+==
+
+[enabled_ast_rewrites=DEFAULTS,+IS_FIRST_IS_LAST_FUNCTION]
+[language_features=ANALYTIC_FUNCTIONS,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY]
+select is_last(2) over (partition by key order by value{{| DESC}}{{| NULLS FIRST| NULLS LAST}})
+from keyvalue
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#4 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#4]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#4]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+            +-partition_by=
+            | +-WindowPartitioning
+            |   +-partition_by_list=
+            |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-order_by=
+            | +-WindowOrdering
+            |   +-order_by_item_list=
+            |     +-OrderByItem
+            |       +-column_ref=
+            |         +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+            +-analytic_function_list=
+              +-$analytic1#4 :=
+                +-AnalyticFunctionCall(ZetaSQL:is_last(INT64) -> BOOL)
+                  +-Literal(type=INT64, value=2)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#4 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#4]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#4]
+        +-expr_list=
+        | +-$analytic1#4 :=
+        |   +-FunctionCall(ZetaSQL:if(BOOL, BOOL, BOOL) -> BOOL)
+        |     +-FunctionCall(ZetaSQL:$or(repeated(2) BOOL) -> BOOL)
+        |     | +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
+        |     | | +-ColumnRef(type=INT64, column=$analytic.$analytic_arg#5)
+        |     | +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
+        |     |   +-ColumnRef(type=INT64, column=$analytic.$analytic_arg#5)
+        |     |   +-Literal(type=INT64, value=0)
+        |     +-FunctionCall(ZetaSQL:error(STRING) -> BOOL)
+        |     | +-Literal(type=STRING, value="k cannot be null or negative")
+        |     +-FunctionCall(ZetaSQL:$greater(INT64, UINT64) -> BOOL)
+        |       +-FunctionCall(ZetaSQL:$add(repeated(2) INT64) -> INT64)
+        |       | +-ColumnRef(type=INT64, column=$analytic.$analytic1#6)
+        |       | +-ColumnRef(type=INT64, column=$analytic.$analytic_arg#5)
+        |       +-ColumnRef(type=UINT64, column=$analytic.$analytic1#7)
+        +-input_scan=
+          +-AnalyticScan
+            +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#6, $analytic.$analytic1#7, $analytic.$analytic_arg#5]
+            +-input_scan=
+            | +-ProjectScan
+            |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic_arg#5]
+            |   +-expr_list=
+            |   | +-$analytic_arg#5 := Literal(type=INT64, value=2)
+            |   +-input_scan=
+            |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+            +-function_group_list=
+              +-AnalyticFunctionGroup
+                +-partition_by=
+                | +-WindowPartitioning
+                |   +-partition_by_list=
+                |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+                +-order_by=
+                | +-WindowOrdering
+                |   +-order_by_item_list=
+                |     +-OrderByItem
+                |       +-column_ref=
+                |         +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+                +-analytic_function_list=
+                  +-$analytic1#6 := AnalyticFunctionCall(ZetaSQL:row_number() -> INT64)
+                  +-$analytic1#7 :=
+                    +-AnalyticFunctionCall(ZetaSQL:$count_star() -> INT64)
+                      +-window_frame=
+                        +-WindowFrame(frame_unit=ROWS)
+                          +-start_expr=
+                          | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+                          +-end_expr=
+                            +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
+--
+ALTERNATION GROUP:  NULLS FIRST
+--
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#4 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#4]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#4]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+            +-partition_by=
+            | +-WindowPartitioning
+            |   +-partition_by_list=
+            |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-order_by=
+            | +-WindowOrdering
+            |   +-order_by_item_list=
+            |     +-OrderByItem
+            |       +-column_ref=
+            |       | +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+            |       +-null_order=NULLS_FIRST
+            +-analytic_function_list=
+              +-$analytic1#4 :=
+                +-AnalyticFunctionCall(ZetaSQL:is_last(INT64) -> BOOL)
+                  +-Literal(type=INT64, value=2)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#4 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#4]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#4]
+        +-expr_list=
+        | +-$analytic1#4 :=
+        |   +-FunctionCall(ZetaSQL:if(BOOL, BOOL, BOOL) -> BOOL)
+        |     +-FunctionCall(ZetaSQL:$or(repeated(2) BOOL) -> BOOL)
+        |     | +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
+        |     | | +-ColumnRef(type=INT64, column=$analytic.$analytic_arg#5)
+        |     | +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
+        |     |   +-ColumnRef(type=INT64, column=$analytic.$analytic_arg#5)
+        |     |   +-Literal(type=INT64, value=0)
+        |     +-FunctionCall(ZetaSQL:error(STRING) -> BOOL)
+        |     | +-Literal(type=STRING, value="k cannot be null or negative")
+        |     +-FunctionCall(ZetaSQL:$greater(INT64, UINT64) -> BOOL)
+        |       +-FunctionCall(ZetaSQL:$add(repeated(2) INT64) -> INT64)
+        |       | +-ColumnRef(type=INT64, column=$analytic.$analytic1#6)
+        |       | +-ColumnRef(type=INT64, column=$analytic.$analytic_arg#5)
+        |       +-ColumnRef(type=UINT64, column=$analytic.$analytic1#7)
+        +-input_scan=
+          +-AnalyticScan
+            +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#6, $analytic.$analytic1#7, $analytic.$analytic_arg#5]
+            +-input_scan=
+            | +-ProjectScan
+            |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic_arg#5]
+            |   +-expr_list=
+            |   | +-$analytic_arg#5 := Literal(type=INT64, value=2)
+            |   +-input_scan=
+            |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+            +-function_group_list=
+              +-AnalyticFunctionGroup
+                +-partition_by=
+                | +-WindowPartitioning
+                |   +-partition_by_list=
+                |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+                +-order_by=
+                | +-WindowOrdering
+                |   +-order_by_item_list=
+                |     +-OrderByItem
+                |       +-column_ref=
+                |       | +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+                |       +-null_order=NULLS_FIRST
+                +-analytic_function_list=
+                  +-$analytic1#6 := AnalyticFunctionCall(ZetaSQL:row_number() -> INT64)
+                  +-$analytic1#7 :=
+                    +-AnalyticFunctionCall(ZetaSQL:$count_star() -> INT64)
+                      +-window_frame=
+                        +-WindowFrame(frame_unit=ROWS)
+                          +-start_expr=
+                          | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+                          +-end_expr=
+                            +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
+--
+ALTERNATION GROUP:  NULLS LAST
+--
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#4 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#4]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#4]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+            +-partition_by=
+            | +-WindowPartitioning
+            |   +-partition_by_list=
+            |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-order_by=
+            | +-WindowOrdering
+            |   +-order_by_item_list=
+            |     +-OrderByItem
+            |       +-column_ref=
+            |       | +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+            |       +-null_order=NULLS_LAST
+            +-analytic_function_list=
+              +-$analytic1#4 :=
+                +-AnalyticFunctionCall(ZetaSQL:is_last(INT64) -> BOOL)
+                  +-Literal(type=INT64, value=2)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#4 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#4]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#4]
+        +-expr_list=
+        | +-$analytic1#4 :=
+        |   +-FunctionCall(ZetaSQL:if(BOOL, BOOL, BOOL) -> BOOL)
+        |     +-FunctionCall(ZetaSQL:$or(repeated(2) BOOL) -> BOOL)
+        |     | +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
+        |     | | +-ColumnRef(type=INT64, column=$analytic.$analytic_arg#5)
+        |     | +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
+        |     |   +-ColumnRef(type=INT64, column=$analytic.$analytic_arg#5)
+        |     |   +-Literal(type=INT64, value=0)
+        |     +-FunctionCall(ZetaSQL:error(STRING) -> BOOL)
+        |     | +-Literal(type=STRING, value="k cannot be null or negative")
+        |     +-FunctionCall(ZetaSQL:$greater(INT64, UINT64) -> BOOL)
+        |       +-FunctionCall(ZetaSQL:$add(repeated(2) INT64) -> INT64)
+        |       | +-ColumnRef(type=INT64, column=$analytic.$analytic1#6)
+        |       | +-ColumnRef(type=INT64, column=$analytic.$analytic_arg#5)
+        |       +-ColumnRef(type=UINT64, column=$analytic.$analytic1#7)
+        +-input_scan=
+          +-AnalyticScan
+            +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#6, $analytic.$analytic1#7, $analytic.$analytic_arg#5]
+            +-input_scan=
+            | +-ProjectScan
+            |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic_arg#5]
+            |   +-expr_list=
+            |   | +-$analytic_arg#5 := Literal(type=INT64, value=2)
+            |   +-input_scan=
+            |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+            +-function_group_list=
+              +-AnalyticFunctionGroup
+                +-partition_by=
+                | +-WindowPartitioning
+                |   +-partition_by_list=
+                |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+                +-order_by=
+                | +-WindowOrdering
+                |   +-order_by_item_list=
+                |     +-OrderByItem
+                |       +-column_ref=
+                |       | +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+                |       +-null_order=NULLS_LAST
+                +-analytic_function_list=
+                  +-$analytic1#6 := AnalyticFunctionCall(ZetaSQL:row_number() -> INT64)
+                  +-$analytic1#7 :=
+                    +-AnalyticFunctionCall(ZetaSQL:$count_star() -> INT64)
+                      +-window_frame=
+                        +-WindowFrame(frame_unit=ROWS)
+                          +-start_expr=
+                          | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+                          +-end_expr=
+                            +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
+--
+ALTERNATION GROUP:  DESC,
+--
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#4 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#4]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#4]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+            +-partition_by=
+            | +-WindowPartitioning
+            |   +-partition_by_list=
+            |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-order_by=
+            | +-WindowOrdering
+            |   +-order_by_item_list=
+            |     +-OrderByItem
+            |       +-column_ref=
+            |       | +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+            |       +-is_descending=TRUE
+            +-analytic_function_list=
+              +-$analytic1#4 :=
+                +-AnalyticFunctionCall(ZetaSQL:is_last(INT64) -> BOOL)
+                  +-Literal(type=INT64, value=2)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#4 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#4]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#4]
+        +-expr_list=
+        | +-$analytic1#4 :=
+        |   +-FunctionCall(ZetaSQL:if(BOOL, BOOL, BOOL) -> BOOL)
+        |     +-FunctionCall(ZetaSQL:$or(repeated(2) BOOL) -> BOOL)
+        |     | +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
+        |     | | +-ColumnRef(type=INT64, column=$analytic.$analytic_arg#5)
+        |     | +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
+        |     |   +-ColumnRef(type=INT64, column=$analytic.$analytic_arg#5)
+        |     |   +-Literal(type=INT64, value=0)
+        |     +-FunctionCall(ZetaSQL:error(STRING) -> BOOL)
+        |     | +-Literal(type=STRING, value="k cannot be null or negative")
+        |     +-FunctionCall(ZetaSQL:$greater(INT64, UINT64) -> BOOL)
+        |       +-FunctionCall(ZetaSQL:$add(repeated(2) INT64) -> INT64)
+        |       | +-ColumnRef(type=INT64, column=$analytic.$analytic1#6)
+        |       | +-ColumnRef(type=INT64, column=$analytic.$analytic_arg#5)
+        |       +-ColumnRef(type=UINT64, column=$analytic.$analytic1#7)
+        +-input_scan=
+          +-AnalyticScan
+            +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#6, $analytic.$analytic1#7, $analytic.$analytic_arg#5]
+            +-input_scan=
+            | +-ProjectScan
+            |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic_arg#5]
+            |   +-expr_list=
+            |   | +-$analytic_arg#5 := Literal(type=INT64, value=2)
+            |   +-input_scan=
+            |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+            +-function_group_list=
+              +-AnalyticFunctionGroup
+                +-partition_by=
+                | +-WindowPartitioning
+                |   +-partition_by_list=
+                |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+                +-order_by=
+                | +-WindowOrdering
+                |   +-order_by_item_list=
+                |     +-OrderByItem
+                |       +-column_ref=
+                |       | +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+                |       +-is_descending=TRUE
+                +-analytic_function_list=
+                  +-$analytic1#6 := AnalyticFunctionCall(ZetaSQL:row_number() -> INT64)
+                  +-$analytic1#7 :=
+                    +-AnalyticFunctionCall(ZetaSQL:$count_star() -> INT64)
+                      +-window_frame=
+                        +-WindowFrame(frame_unit=ROWS)
+                          +-start_expr=
+                          | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+                          +-end_expr=
+                            +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
+--
+ALTERNATION GROUP:  DESC, NULLS FIRST
+--
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#4 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#4]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#4]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+            +-partition_by=
+            | +-WindowPartitioning
+            |   +-partition_by_list=
+            |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-order_by=
+            | +-WindowOrdering
+            |   +-order_by_item_list=
+            |     +-OrderByItem
+            |       +-column_ref=
+            |       | +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+            |       +-is_descending=TRUE
+            |       +-null_order=NULLS_FIRST
+            +-analytic_function_list=
+              +-$analytic1#4 :=
+                +-AnalyticFunctionCall(ZetaSQL:is_last(INT64) -> BOOL)
+                  +-Literal(type=INT64, value=2)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#4 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#4]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#4]
+        +-expr_list=
+        | +-$analytic1#4 :=
+        |   +-FunctionCall(ZetaSQL:if(BOOL, BOOL, BOOL) -> BOOL)
+        |     +-FunctionCall(ZetaSQL:$or(repeated(2) BOOL) -> BOOL)
+        |     | +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
+        |     | | +-ColumnRef(type=INT64, column=$analytic.$analytic_arg#5)
+        |     | +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
+        |     |   +-ColumnRef(type=INT64, column=$analytic.$analytic_arg#5)
+        |     |   +-Literal(type=INT64, value=0)
+        |     +-FunctionCall(ZetaSQL:error(STRING) -> BOOL)
+        |     | +-Literal(type=STRING, value="k cannot be null or negative")
+        |     +-FunctionCall(ZetaSQL:$greater(INT64, UINT64) -> BOOL)
+        |       +-FunctionCall(ZetaSQL:$add(repeated(2) INT64) -> INT64)
+        |       | +-ColumnRef(type=INT64, column=$analytic.$analytic1#6)
+        |       | +-ColumnRef(type=INT64, column=$analytic.$analytic_arg#5)
+        |       +-ColumnRef(type=UINT64, column=$analytic.$analytic1#7)
+        +-input_scan=
+          +-AnalyticScan
+            +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#6, $analytic.$analytic1#7, $analytic.$analytic_arg#5]
+            +-input_scan=
+            | +-ProjectScan
+            |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic_arg#5]
+            |   +-expr_list=
+            |   | +-$analytic_arg#5 := Literal(type=INT64, value=2)
+            |   +-input_scan=
+            |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+            +-function_group_list=
+              +-AnalyticFunctionGroup
+                +-partition_by=
+                | +-WindowPartitioning
+                |   +-partition_by_list=
+                |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+                +-order_by=
+                | +-WindowOrdering
+                |   +-order_by_item_list=
+                |     +-OrderByItem
+                |       +-column_ref=
+                |       | +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+                |       +-is_descending=TRUE
+                |       +-null_order=NULLS_FIRST
+                +-analytic_function_list=
+                  +-$analytic1#6 := AnalyticFunctionCall(ZetaSQL:row_number() -> INT64)
+                  +-$analytic1#7 :=
+                    +-AnalyticFunctionCall(ZetaSQL:$count_star() -> INT64)
+                      +-window_frame=
+                        +-WindowFrame(frame_unit=ROWS)
+                          +-start_expr=
+                          | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+                          +-end_expr=
+                            +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
+--
+ALTERNATION GROUP:  DESC, NULLS LAST
+--
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#4 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#4]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#4]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+            +-partition_by=
+            | +-WindowPartitioning
+            |   +-partition_by_list=
+            |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-order_by=
+            | +-WindowOrdering
+            |   +-order_by_item_list=
+            |     +-OrderByItem
+            |       +-column_ref=
+            |       | +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+            |       +-is_descending=TRUE
+            |       +-null_order=NULLS_LAST
+            +-analytic_function_list=
+              +-$analytic1#4 :=
+                +-AnalyticFunctionCall(ZetaSQL:is_last(INT64) -> BOOL)
+                  +-Literal(type=INT64, value=2)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#4 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#4]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#4]
+        +-expr_list=
+        | +-$analytic1#4 :=
+        |   +-FunctionCall(ZetaSQL:if(BOOL, BOOL, BOOL) -> BOOL)
+        |     +-FunctionCall(ZetaSQL:$or(repeated(2) BOOL) -> BOOL)
+        |     | +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
+        |     | | +-ColumnRef(type=INT64, column=$analytic.$analytic_arg#5)
+        |     | +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
+        |     |   +-ColumnRef(type=INT64, column=$analytic.$analytic_arg#5)
+        |     |   +-Literal(type=INT64, value=0)
+        |     +-FunctionCall(ZetaSQL:error(STRING) -> BOOL)
+        |     | +-Literal(type=STRING, value="k cannot be null or negative")
+        |     +-FunctionCall(ZetaSQL:$greater(INT64, UINT64) -> BOOL)
+        |       +-FunctionCall(ZetaSQL:$add(repeated(2) INT64) -> INT64)
+        |       | +-ColumnRef(type=INT64, column=$analytic.$analytic1#6)
+        |       | +-ColumnRef(type=INT64, column=$analytic.$analytic_arg#5)
+        |       +-ColumnRef(type=UINT64, column=$analytic.$analytic1#7)
+        +-input_scan=
+          +-AnalyticScan
+            +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#6, $analytic.$analytic1#7, $analytic.$analytic_arg#5]
+            +-input_scan=
+            | +-ProjectScan
+            |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic_arg#5]
+            |   +-expr_list=
+            |   | +-$analytic_arg#5 := Literal(type=INT64, value=2)
+            |   +-input_scan=
+            |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+            +-function_group_list=
+              +-AnalyticFunctionGroup
+                +-partition_by=
+                | +-WindowPartitioning
+                |   +-partition_by_list=
+                |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+                +-order_by=
+                | +-WindowOrdering
+                |   +-order_by_item_list=
+                |     +-OrderByItem
+                |       +-column_ref=
+                |       | +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+                |       +-is_descending=TRUE
+                |       +-null_order=NULLS_LAST
+                +-analytic_function_list=
+                  +-$analytic1#6 := AnalyticFunctionCall(ZetaSQL:row_number() -> INT64)
+                  +-$analytic1#7 :=
+                    +-AnalyticFunctionCall(ZetaSQL:$count_star() -> INT64)
+                      +-window_frame=
+                        +-WindowFrame(frame_unit=ROWS)
+                          +-start_expr=
+                          | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+                          +-end_expr=
+                            +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
+==
+
+# Test the rewrite with SAFE - Note that the ERROR() call is replaced by a NULL
+# literal.
+[language_features=ANALYTIC_FUNCTIONS,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY,V_1_2_SAFE_FUNCTION_CALL]
+[enabled_ast_rewrites=DEFAULTS,+IS_FIRST_IS_LAST_FUNCTION]
+select SAFE.{{is_first|is_last}}(2) over (partition by key order by value)
+from keyvalue
+--
+ALTERNATION GROUP: is_first
+--
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#4 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#4]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#4]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+            +-partition_by=
+            | +-WindowPartitioning
+            |   +-partition_by_list=
+            |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-order_by=
+            | +-WindowOrdering
+            |   +-order_by_item_list=
+            |     +-OrderByItem
+            |       +-column_ref=
+            |         +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+            +-analytic_function_list=
+              +-$analytic1#4 :=
+                +-AnalyticFunctionCall({SAFE_ERROR_MODE} ZetaSQL:is_first(INT64) -> BOOL)
+                  +-Literal(type=INT64, value=2)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#4 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#4]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#4]
+        +-expr_list=
+        | +-$analytic1#4 :=
+        |   +-FunctionCall(ZetaSQL:if(BOOL, BOOL, BOOL) -> BOOL)
+        |     +-FunctionCall(ZetaSQL:$or(repeated(2) BOOL) -> BOOL)
+        |     | +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
+        |     | | +-ColumnRef(type=INT64, column=$analytic.$analytic_arg#5)
+        |     | +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
+        |     |   +-ColumnRef(type=INT64, column=$analytic.$analytic_arg#5)
+        |     |   +-Literal(type=INT64, value=0)
+        |     +-Literal(type=BOOL, value=NULL)
+        |     +-FunctionCall(ZetaSQL:$less_or_equal(INT64, INT64) -> BOOL)
+        |       +-ColumnRef(type=INT64, column=$analytic.$analytic1#6)
+        |       +-ColumnRef(type=INT64, column=$analytic.$analytic_arg#5)
+        +-input_scan=
+          +-AnalyticScan
+            +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#6, $analytic.$analytic_arg#5]
+            +-input_scan=
+            | +-ProjectScan
+            |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic_arg#5]
+            |   +-expr_list=
+            |   | +-$analytic_arg#5 := Literal(type=INT64, value=2)
+            |   +-input_scan=
+            |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+            +-function_group_list=
+              +-AnalyticFunctionGroup
+                +-partition_by=
+                | +-WindowPartitioning
+                |   +-partition_by_list=
+                |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+                +-order_by=
+                | +-WindowOrdering
+                |   +-order_by_item_list=
+                |     +-OrderByItem
+                |       +-column_ref=
+                |         +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+                +-analytic_function_list=
+                  +-$analytic1#6 := AnalyticFunctionCall(ZetaSQL:row_number() -> INT64)
+--
+ALTERNATION GROUP: is_last
+--
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#4 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#4]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#4]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+            +-partition_by=
+            | +-WindowPartitioning
+            |   +-partition_by_list=
+            |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-order_by=
+            | +-WindowOrdering
+            |   +-order_by_item_list=
+            |     +-OrderByItem
+            |       +-column_ref=
+            |         +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+            +-analytic_function_list=
+              +-$analytic1#4 :=
+                +-AnalyticFunctionCall({SAFE_ERROR_MODE} ZetaSQL:is_last(INT64) -> BOOL)
+                  +-Literal(type=INT64, value=2)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#4 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#4]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#4]
+        +-expr_list=
+        | +-$analytic1#4 :=
+        |   +-FunctionCall(ZetaSQL:if(BOOL, BOOL, BOOL) -> BOOL)
+        |     +-FunctionCall(ZetaSQL:$or(repeated(2) BOOL) -> BOOL)
+        |     | +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
+        |     | | +-ColumnRef(type=INT64, column=$analytic.$analytic_arg#5)
+        |     | +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
+        |     |   +-ColumnRef(type=INT64, column=$analytic.$analytic_arg#5)
+        |     |   +-Literal(type=INT64, value=0)
+        |     +-Literal(type=BOOL, value=NULL)
+        |     +-FunctionCall(ZetaSQL:$greater(INT64, UINT64) -> BOOL)
+        |       +-FunctionCall(ZetaSQL:$add(repeated(2) INT64) -> INT64)
+        |       | +-ColumnRef(type=INT64, column=$analytic.$analytic1#6)
+        |       | +-ColumnRef(type=INT64, column=$analytic.$analytic_arg#5)
+        |       +-ColumnRef(type=UINT64, column=$analytic.$analytic1#7)
+        +-input_scan=
+          +-AnalyticScan
+            +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#6, $analytic.$analytic1#7, $analytic.$analytic_arg#5]
+            +-input_scan=
+            | +-ProjectScan
+            |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic_arg#5]
+            |   +-expr_list=
+            |   | +-$analytic_arg#5 := Literal(type=INT64, value=2)
+            |   +-input_scan=
+            |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+            +-function_group_list=
+              +-AnalyticFunctionGroup
+                +-partition_by=
+                | +-WindowPartitioning
+                |   +-partition_by_list=
+                |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+                +-order_by=
+                | +-WindowOrdering
+                |   +-order_by_item_list=
+                |     +-OrderByItem
+                |       +-column_ref=
+                |         +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+                +-analytic_function_list=
+                  +-$analytic1#6 := AnalyticFunctionCall(ZetaSQL:row_number() -> INT64)
+                  +-$analytic1#7 :=
+                    +-AnalyticFunctionCall(ZetaSQL:$count_star() -> INT64)
+                      +-window_frame=
+                        +-WindowFrame(frame_unit=ROWS)
+                          +-start_expr=
+                          | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+                          +-end_expr=
+                            +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
+==
+
+# Arg must be a constant.
+select {{is_first|is_last}}(key) over () from keyvalue;
+--
+ALTERNATION GROUP: is_first
+--
+ERROR: The argument to IS_FIRST must be a literal or query parameter [at 1:17]
+select is_first(key) over () from keyvalue;
+                ^
+--
+ALTERNATION GROUP: is_last
+--
+ERROR: The argument to IS_LAST must be a literal or query parameter [at 1:16]
+select is_last(key) over () from keyvalue;
+               ^
+==
+
+# Parameter arg
+select {{is_first|is_last}}(@test_param_int64) over () from keyvalue;
+--
+
+ALTERNATION GROUP: is_first
+--
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#4 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#4]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[$analytic.$analytic1#4]
+        +-input_scan=
+        | +-TableScan(table=KeyValue)
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+            +-analytic_function_list=
+              +-$analytic1#4 :=
+                +-AnalyticFunctionCall(ZetaSQL:is_first(INT64) -> BOOL)
+                  +-Parameter(type=INT64, name="test_param_int64")
+--
+ALTERNATION GROUP: is_last
+--
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#4 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#4]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[$analytic.$analytic1#4]
+        +-input_scan=
+        | +-TableScan(table=KeyValue)
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+            +-analytic_function_list=
+              +-$analytic1#4 :=
+                +-AnalyticFunctionCall(ZetaSQL:is_last(INT64) -> BOOL)
+                  +-Parameter(type=INT64, name="test_param_int64")
+==
+
+# Parameter arg with coercion.
+select {{is_first|is_last}}(@test_param_int32) over () from keyvalue;
+--
+ALTERNATION GROUP: is_first
+--
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#4 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#4]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[$analytic.$analytic1#4]
+        +-input_scan=
+        | +-TableScan(table=KeyValue)
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+            +-analytic_function_list=
+              +-$analytic1#4 :=
+                +-AnalyticFunctionCall(ZetaSQL:is_first(INT64) -> BOOL)
+                  +-Cast(INT32 -> INT64)
+                    +-Parameter(type=INT32, name="test_param_int32")
+--
+ALTERNATION GROUP: is_last
+--
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#4 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#4]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[$analytic.$analytic1#4]
+        +-input_scan=
+        | +-TableScan(table=KeyValue)
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+            +-analytic_function_list=
+              +-$analytic1#4 :=
+                +-AnalyticFunctionCall(ZetaSQL:is_last(INT64) -> BOOL)
+                  +-Cast(INT32 -> INT64)
+                    +-Parameter(type=INT32, name="test_param_int32")

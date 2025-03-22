@@ -13,7 +13,7 @@ You can only use differentially private aggregate functions with
 [differentially private queries][dp-guide] in a
 [differential privacy clause][dp-syntax].
 
-Note: In this topic, the privacy parameters in the examples are not
+Note: In this topic, the privacy parameters in the examples aren't
 recommendations. You should work with your privacy or security officer to
 determine the optimal privacy parameters for your dataset and organization.
 
@@ -175,7 +175,7 @@ determine the optimal privacy parameters for your dataset and organization.
 ## `AVG` (`DIFFERENTIAL_PRIVACY`) 
 <a id="dp_avg"></a>
 
-```sql
+```zetasql
 WITH DIFFERENTIAL_PRIVACY ...
   AVG(
     expression,
@@ -209,7 +209,7 @@ The following differentially private query gets the average number of each item
 requested per professor. Smaller aggregations might not be included. This query
 references a table called [`professors`][dp-example-tables].
 
-```sql
+```zetasql
 -- With noise, using the epsilon parameter.
 SELECT
   WITH DIFFERENTIAL_PRIVACY
@@ -229,7 +229,7 @@ GROUP BY item;
  *----------+------------------*/
 ```
 
-```sql
+```zetasql
 -- Without noise, using the epsilon parameter.
 -- (this un-noised version is for demonstration only)
 SELECT
@@ -254,7 +254,7 @@ The following differentially private query gets the average number of each item
 requested per professor. Smaller aggregations might not be included. This query
 references a view called [`view_on_professors`][dp-example-views].
 
-```sql
+```zetasql
 -- With noise, using the epsilon parameter.
 SELECT
   WITH DIFFERENTIAL_PRIVACY
@@ -274,7 +274,7 @@ GROUP BY item;
  *----------+------------------*/
 ```
 
-```sql
+```zetasql
 -- Without noise, using the epsilon parameter.
 -- (this un-noised version is for demonstration only)
 SELECT
@@ -319,7 +319,7 @@ noise, see [Remove noise][dp-noise].
 #### Signature 1 
 <a id="dp_count_signature1"></a>
 
-```sql
+```zetasql
 WITH DIFFERENTIAL_PRIVACY ...
   COUNT(
     *,
@@ -351,7 +351,7 @@ The following differentially private query counts the number of requests for
 each item. This query references a table called
 [`professors`][dp-example-tables].
 
-```sql
+```zetasql
 -- With noise, using the epsilon parameter.
 SELECT
   WITH DIFFERENTIAL_PRIVACY
@@ -371,7 +371,7 @@ GROUP BY item;
  *----------+-----------------*/
 ```
 
-```sql
+```zetasql
 -- Without noise, using the epsilon parameter.
 -- (this un-noised version is for demonstration only)
 SELECT
@@ -396,7 +396,7 @@ The following differentially private query counts the number of requests for
 each item. This query references a view called
 [`view_on_professors`][dp-example-views].
 
-```sql
+```zetasql
 -- With noise, using the epsilon parameter.
 SELECT
   WITH DIFFERENTIAL_PRIVACY
@@ -416,7 +416,7 @@ GROUP BY item;
  *----------+-----------------*/
 ```
 
-```sql
+```zetasql
 -- Without noise, using the epsilon parameter.
 -- (this un-noised version is for demonstration only)
 SELECT
@@ -443,7 +443,7 @@ noise, see [Remove noise][dp-noise].
 #### Signature 2 
 <a id="dp_count_signature2"></a>
 
-```sql
+```zetasql
 WITH DIFFERENTIAL_PRIVACY ...
   COUNT(
     expression,
@@ -476,7 +476,7 @@ The following differentially private query counts the number of requests made
 for each type of item. This query references a table called
 [`professors`][dp-example-tables].
 
-```sql
+```zetasql
 -- With noise, using the epsilon parameter.
 SELECT
   WITH DIFFERENTIAL_PRIVACY
@@ -496,7 +496,7 @@ GROUP BY item;
  *----------+-----------------*/
 ```
 
-```sql
+```zetasql
 -- Without noise, using the epsilon parameter.
 -- (this un-noised version is for demonstration only)
 SELECT
@@ -521,7 +521,7 @@ The following differentially private query counts the number of requests made
 for each type of item. This query references a view called
 [`view_on_professors`][dp-example-views].
 
-```sql
+```zetasql
 -- With noise
 SELECT
   WITH DIFFERENTIAL_PRIVACY
@@ -541,7 +541,7 @@ GROUP BY item;
  *----------+-----------------*/
 ```
 
-```sql
+```zetasql
 --Without noise (this un-noised version is for demonstration only)
 SELECT
   WITH DIFFERENTIAL_PRIVACY
@@ -566,7 +566,7 @@ noise, see [Remove noise][dp-noise].
 
 [dp-clamp-implicit]: #dp_implicit_clamping
 
-[dp-from-clause]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_from
+[dp-from-clause]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_from_rules
 
 [dp-example-tables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_tables
 
@@ -581,7 +581,7 @@ noise, see [Remove noise][dp-noise].
 ## `PERCENTILE_CONT` (`DIFFERENTIAL_PRIVACY`) 
 <a id="dp_percentile_cont"></a>
 
-```sql
+```zetasql
 WITH DIFFERENTIAL_PRIVACY ...
   PERCENTILE_CONT(
     expression,
@@ -607,7 +607,7 @@ and can support these arguments:
   Performs clamping for each row separately before performing intermediate
   grouping on the privacy unit column.
 
-`NUMERIC` and `BIGNUMERIC` arguments are not allowed.
+`NUMERIC` and `BIGNUMERIC` arguments aren't allowed.
  If you need them, cast them as the
 `DOUBLE` data type first.
 
@@ -621,7 +621,7 @@ The following differentially private query gets the percentile of items
 requested. Smaller aggregations might not be included. This query references a
 view called [`professors`][dp-example-tables].
 
-```sql
+```zetasql
 -- With noise, using the epsilon parameter.
 SELECT
   WITH DIFFERENTIAL_PRIVACY
@@ -646,7 +646,7 @@ The following differentially private query gets the percentile of items
 requested. Smaller aggregations might not be included. This query references a
 view called [`view_on_professors`][dp-example-views].
 
-```sql
+```zetasql
 -- With noise, using the epsilon parameter.
 SELECT
   WITH DIFFERENTIAL_PRIVACY
@@ -678,7 +678,7 @@ GROUP BY item;
 ## `SUM` (`DIFFERENTIAL_PRIVACY`) 
 <a id="dp_sum"></a>
 
-```sql
+```zetasql
 WITH DIFFERENTIAL_PRIVACY ...
   SUM(
     expression,
@@ -714,7 +714,7 @@ The following differentially private query gets the sum of items requested.
 Smaller aggregations might not be included. This query references a view called
 [`professors`][dp-example-tables].
 
-```sql
+```zetasql
 -- With noise, using the epsilon parameter.
 SELECT
   WITH DIFFERENTIAL_PRIVACY
@@ -734,7 +734,7 @@ GROUP BY item;
  *----------+-----------*/
 ```
 
-```sql
+```zetasql
 -- Without noise, using the epsilon parameter.
 -- (this un-noised version is for demonstration only)
 SELECT
@@ -759,7 +759,7 @@ The following differentially private query gets the sum of items requested.
 Smaller aggregations might not be included. This query references a view called
 [`view_on_professors`][dp-example-views].
 
-```sql
+```zetasql
 -- With noise, using the epsilon parameter.
 SELECT
   WITH DIFFERENTIAL_PRIVACY
@@ -779,7 +779,7 @@ GROUP BY item;
  *----------+-----------*/
 ```
 
-```sql
+```zetasql
 -- Without noise, using the epsilon parameter.
 -- (this un-noised version is for demonstration only)
 SELECT
@@ -818,7 +818,7 @@ noise, see [Use differential privacy][dp-noise].
 ## `VAR_POP` (`DIFFERENTIAL_PRIVACY`) 
 <a id="dp_var_pop"></a>
 
-```sql
+```zetasql
 WITH DIFFERENTIAL_PRIVACY ...
   VAR_POP(
     expression,
@@ -844,7 +844,7 @@ can support these arguments:
   Performs clamping for each row separately before performing intermediate
   grouping on individual user values.
 
-`NUMERIC` and `BIGNUMERIC` arguments are not allowed.
+`NUMERIC` and `BIGNUMERIC` arguments aren't allowed.
  If you need them, cast them as the
 `DOUBLE` data type first.
 
@@ -859,7 +859,7 @@ population (biased) variance of items requested. Smaller aggregations may not
 be included. This query references a view called
 [`professors`][dp-example-tables].
 
-```sql
+```zetasql
 -- With noise
 SELECT
   WITH DIFFERENTIAL_PRIVACY
@@ -885,7 +885,7 @@ population (biased) variance of items requested. Smaller aggregations might not
 be included. This query references a view called
 [`view_on_professors`][dp-example-views].
 
-```sql
+```zetasql
 -- With noise
 SELECT
   WITH DIFFERENTIAL_PRIVACY
@@ -920,7 +920,7 @@ GROUP BY item;
 Warning: This function has been deprecated. Use
 `AVG` (differential privacy) instead.
 
-```sql
+```zetasql
 WITH ANONYMIZATION ...
   ANON_AVG(expression [clamped_between_clause])
 
@@ -952,7 +952,7 @@ The following differentially private query gets the average number of each item
 requested per professor. Smaller aggregations might not be included. This query
 references a view called [`view_on_professors`][dp-example-views].
 
-```sql
+```zetasql
 -- With noise, using the epsilon parameter.
 SELECT
   WITH ANONYMIZATION
@@ -972,7 +972,7 @@ GROUP BY item;
  *----------+------------------*/
 ```
 
-```sql
+```zetasql
 -- Without noise, using the epsilon parameter.
 -- (this un-noised version is for demonstration only)
 SELECT
@@ -1014,7 +1014,7 @@ Warning: This function has been deprecated. Use
 #### Signature 1 
 <a id="anon_count_signature1"></a>
 
-```sql
+```zetasql
 WITH ANONYMIZATION ...
   ANON_COUNT(*)
 ```
@@ -1039,7 +1039,7 @@ The following differentially private query counts the number of requests for
 each item. This query references a view called
 [`view_on_professors`][dp-example-views].
 
-```sql
+```zetasql
 -- With noise, using the epsilon parameter.
 SELECT
   WITH ANONYMIZATION
@@ -1059,7 +1059,7 @@ GROUP BY item;
  *----------+-----------------*/
 ```
 
-```sql
+```zetasql
 -- Without noise, using the epsilon parameter.
 -- (this un-noised version is for demonstration only)
 SELECT
@@ -1086,7 +1086,7 @@ noise [here][dp-noise].
 #### Signature 2 
 <a id="anon_count_signature2"></a>
 
-```sql
+```zetasql
 WITH ANONYMIZATION ...
   ANON_COUNT(expression [CLAMPED BETWEEN lower_bound AND upper_bound])
 ```
@@ -1114,7 +1114,7 @@ The following differentially private query counts the number of requests made
 for each type of item. This query references a view called
 [`view_on_professors`][dp-example-views].
 
-```sql
+```zetasql
 -- With noise
 SELECT
   WITH ANONYMIZATION
@@ -1134,7 +1134,7 @@ GROUP BY item;
  *----------+-----------------*/
 ```
 
-```sql
+```zetasql
 --Without noise (this un-noised version is for demonstration only)
 SELECT
   WITH ANONYMIZATION
@@ -1173,7 +1173,7 @@ noise [here][dp-noise].
 Warning: This function has been deprecated. Use
 `PERCENTILE_CONT` (differential privacy) instead.
 
-```sql
+```zetasql
 WITH ANONYMIZATION ...
   ANON_PERCENTILE_CONT(expression, percentile [CLAMPED BETWEEN lower_bound AND upper_bound])
 ```
@@ -1193,7 +1193,7 @@ can support these arguments:
 + `CLAMPED BETWEEN` clause:
   Perform [clamping][dp-clamp-between] per privacy unit column.
 
-`NUMERIC` and `BIGNUMERIC` arguments are not allowed.
+`NUMERIC` and `BIGNUMERIC` arguments aren't allowed.
  If you need them, cast them as the
 `DOUBLE` data type first.
 
@@ -1207,7 +1207,7 @@ The following differentially private query gets the percentile of items
 requested. Smaller aggregations might not be included. This query references a
 view called [`view_on_professors`][dp-example-views].
 
-```sql
+```zetasql
 -- With noise, using the epsilon parameter.
 SELECT
   WITH ANONYMIZATION
@@ -1238,7 +1238,7 @@ GROUP BY item;
 Warning: This function has been deprecated. Use
 `QUANTILES` (differential privacy) instead.
 
-```sql
+```zetasql
 WITH ANONYMIZATION ...
   ANON_QUANTILES(expression, number CLAMPED BETWEEN lower_bound AND upper_bound)
 ```
@@ -1259,7 +1259,7 @@ can support these arguments:
 + `CLAMPED BETWEEN` clause:
   Perform [clamping][dp-clamp-between] per privacy unit column.
 
-`NUMERIC` and `BIGNUMERIC` arguments are not allowed.
+`NUMERIC` and `BIGNUMERIC` arguments aren't allowed.
  If you need them, cast them as the
 `DOUBLE` data type first.
 
@@ -1274,7 +1274,7 @@ the four quartiles of the number of items requested. Smaller aggregations
 might not be included. This query references a view called
 [`view_on_professors`][dp-example-views].
 
-```sql
+```zetasql
 -- With noise, using the epsilon parameter.
 SELECT
   WITH ANONYMIZATION
@@ -1304,7 +1304,7 @@ GROUP BY item;
 Warning: This function has been deprecated. Use
 `STDDEV_POP` (differential privacy) instead.
 
-```sql
+```zetasql
 WITH ANONYMIZATION ...
   ANON_STDDEV_POP(expression [CLAMPED BETWEEN lower_bound AND upper_bound])
 ```
@@ -1323,7 +1323,7 @@ can support these arguments:
 + `CLAMPED BETWEEN` clause:
   Perform [clamping][dp-clamp-between] per individual entity values.
 
-`NUMERIC` and `BIGNUMERIC` arguments are not allowed.
+`NUMERIC` and `BIGNUMERIC` arguments aren't allowed.
  If you need them, cast them as the
 `DOUBLE` data type first.
 
@@ -1338,7 +1338,7 @@ population (biased) standard deviation of items requested. Smaller aggregations
 might not be included. This query references a view called
 [`view_on_professors`][dp-example-views].
 
-```sql
+```zetasql
 -- With noise, using the epsilon parameter.
 SELECT
   WITH ANONYMIZATION
@@ -1369,7 +1369,7 @@ GROUP BY item;
 Warning: This function has been deprecated. Use
 `SUM` (differential privacy) instead.
 
-```sql
+```zetasql
 WITH ANONYMIZATION ...
   ANON_SUM(expression [CLAMPED BETWEEN lower_bound AND upper_bound])
 ```
@@ -1401,7 +1401,7 @@ The following differentially private query gets the sum of items requested.
 Smaller aggregations might not be included. This query references a view called
 [`view_on_professors`][dp-example-views].
 
-```sql
+```zetasql
 -- With noise, using the epsilon parameter.
 SELECT
   WITH ANONYMIZATION
@@ -1421,7 +1421,7 @@ GROUP BY item;
  *----------+-----------*/
 ```
 
-```sql
+```zetasql
 -- Without noise, using the epsilon parameter.
 -- (this un-noised version is for demonstration only)
 SELECT
@@ -1459,7 +1459,7 @@ noise [here][dp-noise].
 Warning: This function has been deprecated. Use
 `VAR_POP` (differential privacy) instead.
 
-```sql
+```zetasql
 WITH ANONYMIZATION ...
   ANON_VAR_POP(expression [CLAMPED BETWEEN lower_bound AND upper_bound])
 ```
@@ -1480,7 +1480,7 @@ can support these arguments:
 + `CLAMPED BETWEEN` clause:
   Perform [clamping][dp-clamp-between] per individual entity values.
 
-`NUMERIC` and `BIGNUMERIC` arguments are not allowed.
+`NUMERIC` and `BIGNUMERIC` arguments aren't allowed.
  If you need them, cast them as the
 `DOUBLE` data type first.
 
@@ -1495,7 +1495,7 @@ population (biased) variance of items requested. Smaller aggregations might not
 be included. This query references a view called
 [`view_on_professors`][dp-example-views].
 
-```sql
+```zetasql
 -- With noise, using the epsilon parameter.
 SELECT
   WITH ANONYMIZATION
@@ -1575,7 +1575,7 @@ As long as all or most values fall within this range, your results
 will be accurate. This query references a view called
 [`view_on_professors`][dp-example-views].
 
-```sql
+```zetasql
 --Without noise (this un-noised version is for demonstration only)
 SELECT WITH DIFFERENTIAL_PRIVACY
   OPTIONS (
@@ -1603,7 +1603,7 @@ As long as all or most values fall within this range, your results
 will be accurate. This query references a view called
 [`view_on_professors`][dp-example-views].
 
-```sql
+```zetasql
 --Without noise (this un-noised version is for demonstration only)
 SELECT WITH DIFFERENTIAL_PRIVACY
   OPTIONS (
@@ -1628,11 +1628,11 @@ GROUP BY item;
 #### Explicitly clamp values 
 <a id="dp_clamped_named"></a>
 
-```sql
+```zetasql
 contribution_bounds_per_group => (lower_bound,upper_bound)
 ```
 
-```sql
+```zetasql
 contribution_bounds_per_row => (lower_bound,upper_bound)
 ```
 
@@ -1658,7 +1658,7 @@ Input values:
 + `upper_bound`: Numeric literal that represents the largest value to
   include in an aggregation.
 
-`NUMERIC` and `BIGNUMERIC` arguments are not allowed.
+`NUMERIC` and `BIGNUMERIC` arguments aren't allowed.
 
 **Details**
 
@@ -1676,7 +1676,7 @@ Explicit bounds should be chosen to reflect public information.
 For example, bounding ages between 0 and 100 reflects public information
 because the age of most people generally falls within this range.
 
-Important: The results of the query reveal the explicit bounds. Do not use
+Important: The results of the query reveal the explicit bounds. Don't use
 explicit bounds based on the entity data; explicit bounds should be based on
 public information.
 
@@ -1688,7 +1688,7 @@ As long as all or most values fall within this range, your results
 will be accurate. This query references a view called
 [`view_on_professors`][dp-example-views].
 
-```sql
+```zetasql
 --Without noise (this un-noised version is for demonstration only)
 SELECT WITH DIFFERENTIAL_PRIVACY
   OPTIONS (
@@ -1715,7 +1715,7 @@ To get accurate results, ensure that the difference between the upper and lower
 bound is as small as possible, and that most inputs are between the upper and
 lower bound.
 
-```sql {.bad}
+```zetasql {.bad}
 --Without noise (this un-noised version is for demonstration only)
 SELECT WITH DIFFERENTIAL_PRIVACY
   OPTIONS (
@@ -1743,7 +1743,7 @@ As long as all or most values fall within this range, your results will be
 accurate. This query references a view called
 [`view_on_professors`][dp-example-views].
 
-```sql
+```zetasql
 --Without noise (this un-noised version is for demonstration only)
 SELECT WITH DIFFERENTIAL_PRIVACY
   OPTIONS (
@@ -1770,7 +1770,7 @@ To get accurate results, ensure that the difference between the upper and lower
 bound is as small as possible, and that most inputs are between the upper and
 lower bound.
 
-```sql {.bad}
+```zetasql {.bad}
 --Without noise (this un-noised version is for demonstration only)
 SELECT WITH DIFFERENTIAL_PRIVACY
   OPTIONS (

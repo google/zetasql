@@ -59,14 +59,124 @@ create private view MyView as select * from KeyValue
 --
 ALTERNATION GROUP: module,public
 --
-ERROR: Statement not supported inside modules: CreateViewStatement [at 1:1]
+ERROR: CREATE VIEW statement is not supported inside modules [at 1:1]
 create public view MyView as select * from KeyValue
 ^
 --
 ALTERNATION GROUP: module,private
 --
-ERROR: Statement not supported inside modules: CreateViewStatement [at 1:1]
+ERROR: CREATE VIEW statement is not supported inside modules [at 1:1]
 create private view MyView as select * from KeyValue
+^
+==
+
+# TODO: Add tests for create view statements inside modules having
+# the sql security clause. (broken link) mentions that - "The rights
+# clause may not be specified if any of TEMP | TEMPORARY | PUBLIC | PRIVATE is
+# specified." This check was added for UDFs, TVFs but not for views. Check
+# whether this check should be added for views as well and add / update tests
+# accordingly.
+[statement_context=module]
+[language_features=V_1_4_VIEWS_IN_MODULES]
+create {{|temp|public|private}} view MyView as select * from KeyValue
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: CREATE VIEW requires the PUBLIC or PRIVATE modifier when used inside a module [at 1:1]
+create  view MyView as select * from KeyValue
+^
+--
+ALTERNATION GROUP: temp
+--
+ERROR: CREATE VIEW requires the PUBLIC or PRIVATE modifier when used inside a module [at 1:1]
+create temp view MyView as select * from KeyValue
+^
+--
+ALTERNATION GROUP: public
+--
+CreateViewStmt
++-name_path=MyView
++-create_scope=CREATE_PUBLIC
++-output_column_list=
+| +-KeyValue.Key#1 AS Key [INT64]
+| +-KeyValue.Value#2 AS Value [STRING]
++-query=
+| +-ProjectScan
+|   +-column_list=KeyValue.[Key#1, Value#2]
+|   +-input_scan=
+|     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
++-sql="select * from KeyValue"
++-column_definition_list=
+  +-ColumnDefinition(name="Key", type=INT64, column=MyView.Key#3)
+  +-ColumnDefinition(name="Value", type=STRING, column=MyView.Value#4)
+--
+ALTERNATION GROUP: private
+--
+CreateViewStmt
++-name_path=MyView
++-create_scope=CREATE_PRIVATE
++-output_column_list=
+| +-KeyValue.Key#1 AS Key [INT64]
+| +-KeyValue.Value#2 AS Value [STRING]
++-query=
+| +-ProjectScan
+|   +-column_list=KeyValue.[Key#1, Value#2]
+|   +-input_scan=
+|     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
++-sql="select * from KeyValue"
++-column_definition_list=
+  +-ColumnDefinition(name="Key", type=INT64, column=MyView.Key#3)
+  +-ColumnDefinition(name="Value", type=STRING, column=MyView.Value#4)
+==
+
+[statement_context=module]
+[language_features=V_1_4_VIEWS_IN_MODULES]
+create or replace {{public|private}} view MyView as select * from KeyValue
+--
+ALTERNATION GROUP: public
+--
+ERROR: Modules do not support CREATE OR REPLACE for CREATE VIEW [at 1:1]
+create or replace public view MyView as select * from KeyValue
+^
+--
+ALTERNATION GROUP: private
+--
+ERROR: Modules do not support CREATE OR REPLACE for CREATE VIEW [at 1:1]
+create or replace private view MyView as select * from KeyValue
+^
+==
+
+[statement_context=module]
+[language_features=V_1_4_VIEWS_IN_MODULES]
+create {{public|private}} view if not exists MyView as select * from KeyValue
+--
+ALTERNATION GROUP: public
+--
+ERROR: Modules do not support IF NOT EXISTS for CREATE VIEW [at 1:1]
+create public view if not exists MyView as select * from KeyValue
+^
+--
+ALTERNATION GROUP: private
+--
+ERROR: Modules do not support IF NOT EXISTS for CREATE VIEW [at 1:1]
+create private view if not exists MyView as select * from KeyValue
+^
+==
+
+[statement_context=module]
+[language_features=V_1_4_VIEWS_IN_MODULES]
+create {{materialized|approx}} view MyView as select * from KeyValue
+--
+ALTERNATION GROUP: materialized
+--
+ERROR: Statement not supported inside modules: CreateMaterializedViewStatement [at 1:1]
+create materialized view MyView as select * from KeyValue
+^
+--
+ALTERNATION GROUP: approx
+--
+ERROR: Statement not supported inside modules: CreateApproxViewStatement [at 1:1]
+create approx view MyView as select * from KeyValue
 ^
 ==
 

@@ -20,39 +20,14 @@
 #include <cstdint>
 
 #include "zetasql/common/timer_util.h"
-#include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/proto/logging.pb.h"
-#include "absl/base/attributes.h"
 
 namespace zetasql {
 
-inline ExecutionStats::ParserVariant GetPrimaryParser(
-    const LanguageOptions& language_options) {
-  return language_options.LanguageFeatureEnabled(
-             FEATURE_DISABLE_TEXTMAPPER_PARSER)
-             ? ExecutionStats::PARSER_BISON
-             : ExecutionStats::PARSER_TEXTMAPPER;
-}
-
-inline ExecutionStats::ParserVariant GetShadowParser(
-    const LanguageOptions& language_options) {
-  if (!language_options.LanguageFeatureEnabled(FEATURE_SHADOW_PARSING)) {
-    return ExecutionStats::PARSER_UNSPECIFIED;
-  }
-  return GetPrimaryParser(language_options) == ExecutionStats::PARSER_TEXTMAPPER
-             ? ExecutionStats::PARSER_BISON
-             : ExecutionStats::PARSER_TEXTMAPPER;
-}
-
 class ParserRuntimeInfo {
  public:
-  explicit ParserRuntimeInfo(const LanguageOptions& language_options)
-  {}
-  // Used only for analyzer_output's compatibility. "
-  ABSL_DEPRECATED("Use the constructor that takes a LanguageOptions.")
-  ParserRuntimeInfo()
-  {}
+  ParserRuntimeInfo() = default;
 
   internal::TimedValue& parser_timed_value() { return parser_timed_value_; }
   const internal::TimedValue& parser_timed_value() const {
@@ -74,20 +49,17 @@ class ParserRuntimeInfo {
     entry.set_num_lexical_tokens(num_lexical_tokens());
 
     auto add_timing = [&](AnalyzerLogEntry::LoggedOperationCategory op,
-                          const internal::TimedValue& time,
-                          const ExecutionStats::ParserVariant parser_variant) {
+                          const internal::TimedValue& time) {
       if (!time.HasAnyRecordedTiming()) return;
       auto& stage = *entry.add_execution_stats_by_op();
       stage.set_key(op);
       *stage.mutable_value() = time.ToExecutionStatsProto();
     };
-    add_timing(AnalyzerLogEntry::PARSER, parser_timed_value(),
-               ExecutionStats::PARSER_BISON);
+    add_timing(AnalyzerLogEntry::PARSER, parser_timed_value());
     return entry;
   }
 
  private:
-
   internal::TimedValue parser_timed_value_;
   int64_t num_lexical_tokens_ = 0;
 };

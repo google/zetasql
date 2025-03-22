@@ -726,7 +726,7 @@ QueryStmt
 select * from KeyValue
 |> call tvf_one_relation_arg_int64_input_value_table()
 --
-ERROR: Expected value table of type INT64 for argument 1 of TVF_ONE_RELATION_ARG_INT64_INPUT_VALUE_TABLE(TABLE<INT64>) [at 2:9]
+ERROR: Expected value table of type INT64 for argument 1; got TABLE<Key INT64, Value STRING> of TVF_ONE_RELATION_ARG_INT64_INPUT_VALUE_TABLE(TABLE<INT64>) [at 2:9]
 |> call tvf_one_relation_arg_int64_input_value_table()
         ^
 ==
@@ -1327,7 +1327,7 @@ ERROR: No matching signature for tvf_templated_select_scalar_and_relation_args
 # Templated SQL TVF with two relations.
 # SQLBuilder can't handle this case where one TVF outputs two columns with
 # duplicate names because it's impossible to write an explicit select list.
-[no_run_unparser]
+[no_run_sqlbuilder]
 from KeyValue
 |> call tvf_templated_select_two_relation_args(table KeyValue)
 --

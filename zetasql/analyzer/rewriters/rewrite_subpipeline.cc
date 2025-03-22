@@ -103,8 +103,7 @@ absl::StatusOr<std::unique_ptr<const ResolvedScan>> RewriteSubpipelineToScan(
   ZETASQL_RETURN_IF_ERROR(rewriter.CheckFinalStatus());
 
   ZETASQL_RET_CHECK(node->IsScan());
-  return std::unique_ptr<const ResolvedScan>(
-      node.release()->GetAs<ResolvedScan>());
+  return GetAsResolvedNode<ResolvedScan>(std::move(node));
 }
 
 }  // namespace zetasql

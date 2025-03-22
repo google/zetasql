@@ -54,6 +54,7 @@
 #include "zetasql/resolved_ast/resolved_node_kind.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/resolved_ast/validator.h"
+#include "absl/base/nullability.h"
 #include "absl/flags/declare.h"
 #include "absl/flags/flag.h"
 #include "absl/memory/memory.h"
@@ -174,11 +175,14 @@ static absl::Status AnalyzeStatementImpl(
 
     ZETASQL_VLOG(1) << "Parsing statement:\n" << sql;
     std::unique_ptr<ParserOutput> parser_output;
-    const absl::Status status =
+    absl::Status status =
         ParseStatement(sql, options.GetParserOptions(), &parser_output);
     if (!status.ok()) {
-      return UnsupportedStatementErrorOrStatus(
+      status = UnsupportedStatementErrorOrStatus(
           status, ParseResumeLocation::FromStringView(sql), options);
+      status = ConvertInternalErrorLocationAndAdjustErrorString(
+          options.error_message_options(), sql, status);
+      return status;
     }
 
     ZETASQL_RETURN_IF_ERROR(AnalyzeStatementFromParserOutputOwnedOnSuccess(
@@ -189,16 +193,13 @@ static absl::Status AnalyzeStatementImpl(
   return absl::OkStatus();
 }
 
-absl::Status AnalyzeStatement(absl::string_view sql,
-                              const AnalyzerOptions& options_in,
-                              Catalog* catalog, TypeFactory* type_factory,
-                              std::unique_ptr<const AnalyzerOutput>* output) {
+absl::Status AnalyzeStatement(
+    absl::string_view sql, const AnalyzerOptions& options_in,
+    absl::Nonnull<Catalog*> catalog, absl::Nonnull<TypeFactory*> type_factory,
+    absl::Nonnull<std::unique_ptr<const AnalyzerOutput>*> output) {
   std::unique_ptr<AnalyzerOptions> copy;
   const AnalyzerOptions& options = GetOptionsWithArenas(&options_in, &copy);
-  const absl::Status status =
-      AnalyzeStatementImpl(sql, options, catalog, type_factory, output);
-  return ConvertInternalErrorLocationAndAdjustErrorString(
-      options.error_message_options(), sql, status);
+  return AnalyzeStatementImpl(sql, options, catalog, type_factory, output);
 }
 
 static absl::Status AnalyzeNextStatementImpl(
@@ -216,11 +217,15 @@ static absl::Status AnalyzeNextStatementImpl(
   }
 
   std::unique_ptr<ParserOutput> parser_output;
-  const absl::Status status =
+  absl::Status status =
       ParseNextStatement(resume_location, options.GetParserOptions(),
                          &parser_output, at_end_of_input);
   if (!status.ok()) {
-    return UnsupportedStatementErrorOrStatus(status, *resume_location, options);
+    status =
+        UnsupportedStatementErrorOrStatus(status, *resume_location, options);
+    status = ConvertInternalErrorLocationAndAdjustErrorString(
+        options.error_message_options(), resume_location->input(), status);
+    return status;
   }
   ZETASQL_RET_CHECK(parser_output != nullptr);
 
@@ -229,17 +234,16 @@ static absl::Status AnalyzeNextStatementImpl(
       output);
 }
 
-absl::Status AnalyzeNextStatement(ParseResumeLocation* resume_location,
-                                  const AnalyzerOptions& options_in,
-                                  Catalog* catalog, TypeFactory* type_factory,
-                                  std::unique_ptr<const AnalyzerOutput>* output,
-                                  bool* at_end_of_input) {
+absl::Status AnalyzeNextStatement(
+    absl::Nonnull<ParseResumeLocation*> resume_location,
+    const AnalyzerOptions& options_in, absl::Nonnull<Catalog*> catalog,
+    absl::Nonnull<TypeFactory*> type_factory,
+    absl::Nonnull<std::unique_ptr<const AnalyzerOutput>*> output,
+    absl::Nonnull<bool*> at_end_of_input) {
   std::unique_ptr<AnalyzerOptions> copy;
   const AnalyzerOptions& options = GetOptionsWithArenas(&options_in, &copy);
-  const absl::Status status = AnalyzeNextStatementImpl(
-      resume_location, options, catalog, type_factory, output, at_end_of_input);
-  return ConvertInternalErrorLocationAndAdjustErrorString(
-      options.error_message_options(), resume_location->input(), status);
+  return AnalyzeNextStatementImpl(resume_location, options, catalog,
+                                  type_factory, output, at_end_of_input);
 }
 
 // All AnalyzeStatement* APIs eventually call through this method, so this
@@ -355,9 +359,10 @@ static absl::Status AnalyzeStatementFromParserOutputImpl(
 }
 
 absl::Status AnalyzeStatementFromParserOutputOwnedOnSuccess(
-    std::unique_ptr<ParserOutput>* statement_parser_output,
-    const AnalyzerOptions& options, absl::string_view sql, Catalog* catalog,
-    TypeFactory* type_factory, std::unique_ptr<const AnalyzerOutput>* output) {
+    absl::Nonnull<std::unique_ptr<ParserOutput>*> statement_parser_output,
+    const AnalyzerOptions& options, absl::string_view sql,
+    absl::Nonnull<Catalog*> catalog, absl::Nonnull<TypeFactory*> type_factory,
+    absl::Nonnull<std::unique_ptr<const AnalyzerOutput>*> output) {
   std::unique_ptr<AnalyzerOutput> mutable_output;
   ZETASQL_RETURN_IF_ERROR(AnalyzeStatementFromParserOutputImpl(
       statement_parser_output, /*take_ownership_on_success=*/true, options, sql,
@@ -368,9 +373,10 @@ absl::Status AnalyzeStatementFromParserOutputOwnedOnSuccess(
 }
 
 absl::Status AnalyzeStatementFromParserOutputUnowned(
-    std::unique_ptr<ParserOutput>* statement_parser_output,
-    const AnalyzerOptions& options, absl::string_view sql, Catalog* catalog,
-    TypeFactory* type_factory, std::unique_ptr<const AnalyzerOutput>* output) {
+    absl::Nonnull<std::unique_ptr<ParserOutput>*> statement_parser_output,
+    const AnalyzerOptions& options, absl::string_view sql,
+    absl::Nonnull<Catalog*> catalog, absl::Nonnull<TypeFactory*> type_factory,
+    absl::Nonnull<std::unique_ptr<const AnalyzerOutput>*> output) {
   std::unique_ptr<AnalyzerOutput> mutable_output;
   ZETASQL_RETURN_IF_ERROR(AnalyzeStatementFromParserOutputImpl(
       statement_parser_output, /*take_ownership_on_success=*/false, options,
@@ -382,8 +388,9 @@ absl::Status AnalyzeStatementFromParserOutputUnowned(
 
 absl::Status AnalyzeStatementFromParserAST(
     const ASTStatement& statement, const AnalyzerOptions& options,
-    absl::string_view sql, Catalog* catalog, TypeFactory* type_factory,
-    std::unique_ptr<const AnalyzerOutput>* output) {
+    absl::string_view sql, absl::Nonnull<Catalog*> catalog,
+    absl::Nonnull<TypeFactory*> type_factory,
+    absl::Nonnull<std::unique_ptr<const AnalyzerOutput>*> output) {
   std::unique_ptr<AnalyzerOptions> local_options;
   const AnalyzerOptions& options_with_arenas =
       GetOptionsWithArenas(&options, &local_options);
@@ -398,10 +405,10 @@ absl::Status AnalyzeStatementFromParserAST(
   return absl::OkStatus();
 }
 
-absl::Status AnalyzeExpression(absl::string_view sql,
-                               const AnalyzerOptions& options, Catalog* catalog,
-                               TypeFactory* type_factory,
-                               std::unique_ptr<const AnalyzerOutput>* output) {
+absl::Status AnalyzeExpression(
+    absl::string_view sql, const AnalyzerOptions& options,
+    absl::Nonnull<Catalog*> catalog, absl::Nonnull<TypeFactory*> type_factory,
+    absl::Nonnull<std::unique_ptr<const AnalyzerOutput>*> output) {
   // The internal analyzer cannot call RegisterBuiltinRewriters because it
   // would create a dependency cycle.
   RegisterBuiltinRewriters();
@@ -416,9 +423,10 @@ absl::Status AnalyzeExpression(absl::string_view sql,
 }
 
 absl::Status AnalyzeExpressionForAssignmentToType(
-    absl::string_view sql, const AnalyzerOptions& options, Catalog* catalog,
-    TypeFactory* type_factory, const Type* target_type,
-    std::unique_ptr<const AnalyzerOutput>* output) {
+    absl::string_view sql, const AnalyzerOptions& options,
+    absl::Nonnull<Catalog*> catalog, absl::Nonnull<TypeFactory*> type_factory,
+    absl::Nullable<const Type*> target_type,
+    absl::Nonnull<std::unique_ptr<const AnalyzerOutput>*> output) {
   // The internal analyzer cannot call RegisterBuiltinRewriters because it
   // would create a dependency cycle.
   RegisterBuiltinRewriters();
@@ -433,8 +441,9 @@ absl::Status AnalyzeExpressionForAssignmentToType(
 
 absl::Status AnalyzeExpressionFromParserAST(
     const ASTExpression& ast_expression, const AnalyzerOptions& options_in,
-    absl::string_view sql, TypeFactory* type_factory, Catalog* catalog,
-    std::unique_ptr<const AnalyzerOutput>* output) {
+    absl::string_view sql, absl::Nonnull<TypeFactory*> type_factory,
+    absl::Nonnull<Catalog*> catalog,
+    absl::Nonnull<std::unique_ptr<const AnalyzerOutput>*> output) {
   return AnalyzeExpressionFromParserASTForAssignmentToType(
       ast_expression, options_in, sql, type_factory, catalog,
       /*target_type=*/nullptr, output);
@@ -442,8 +451,9 @@ absl::Status AnalyzeExpressionFromParserAST(
 
 absl::Status AnalyzeExpressionFromParserASTForAssignmentToType(
     const ASTExpression& ast_expression, const AnalyzerOptions& options_in,
-    absl::string_view sql, TypeFactory* type_factory, Catalog* catalog,
-    const Type* target_type, std::unique_ptr<const AnalyzerOutput>* output) {
+    absl::string_view sql, absl::Nonnull<TypeFactory*> type_factory,
+    absl::Nonnull<Catalog*> catalog, absl::Nullable<const Type*> target_type,
+    absl::Nonnull<std::unique_ptr<const AnalyzerOutput>*> output) {
   std::unique_ptr<AnalyzerOptions> copy;
   const AnalyzerOptions& options = GetOptionsWithArenas(&options_in, &copy);
   // The internal analyzer cannot call RegisterBuiltinRewriters because it
@@ -481,17 +491,21 @@ static absl::Status AnalyzeTypeImpl(const std::string& type_name,
 }
 
 absl::Status AnalyzeType(const std::string& type_name,
-                         const AnalyzerOptions& options_in, Catalog* catalog,
-                         TypeFactory* type_factory, const Type** output_type) {
+                         const AnalyzerOptions& options_in,
+                         absl::Nonnull<Catalog*> catalog,
+                         absl::Nonnull<TypeFactory*> type_factory,
+                         absl::Nonnull<const Type**> output_type) {
   TypeModifiers type_modifiers;
   return AnalyzeType(type_name, options_in, catalog, type_factory, output_type,
                      &type_modifiers);
 }
 
 absl::Status AnalyzeType(const std::string& type_name,
-                         const AnalyzerOptions& options_in, Catalog* catalog,
-                         TypeFactory* type_factory, const Type** output_type,
-                         TypeModifiers* output_type_modifiers) {
+                         const AnalyzerOptions& options_in,
+                         absl::Nonnull<Catalog*> catalog,
+                         absl::Nonnull<TypeFactory*> type_factory,
+                         absl::Nonnull<const Type**> output_type,
+                         absl::Nonnull<TypeModifiers*> output_type_modifiers) {
   std::unique_ptr<AnalyzerOptions> copy;
   const AnalyzerOptions& options = GetOptionsWithArenas(&options_in, &copy);
   const absl::Status status =
@@ -538,10 +552,10 @@ static absl::Status ExtractTableResolutionTimeFromStatementImpl(
   return absl::OkStatus();
 }
 
-absl::Status ExtractTableNamesFromStatement(absl::string_view sql,
-                                            const AnalyzerOptions& options_in,
-                                            TableNamesSet* table_names,
-                                            TableNamesSet* tvf_names) {
+absl::Status ExtractTableNamesFromStatement(
+    absl::string_view sql, const AnalyzerOptions& options_in,
+    absl::Nonnull<TableNamesSet*> table_names,
+    absl::Nullable<TableNamesSet*> tvf_names) {
   std::unique_ptr<AnalyzerOptions> copy;
   const AnalyzerOptions& options = GetOptionsWithArenas(&options_in, &copy);
 
@@ -553,9 +567,11 @@ absl::Status ExtractTableNamesFromStatement(absl::string_view sql,
 
 absl::Status ExtractTableResolutionTimeFromStatement(
     absl::string_view sql, const AnalyzerOptions& options_in,
-    TypeFactory* type_factory, Catalog* catalog,
-    TableResolutionTimeInfoMap* table_resolution_time_info_map,
-    std::unique_ptr<ParserOutput>* parser_output) {
+    absl::Nullable<TypeFactory*> type_factory, absl::Nullable<Catalog*> catalog,
+    absl::Nonnull<TableResolutionTimeInfoMap*> table_resolution_time_info_map,
+    absl::Nonnull<std::unique_ptr<ParserOutput>*> parser_output) {
+  ZETASQL_RET_CHECK(catalog == nullptr || type_factory != nullptr)
+      << "If catalog is non-null then type_factory must be non-null";
   std::unique_ptr<AnalyzerOptions> copy;
   const AnalyzerOptions& options = GetOptionsWithArenas(&options_in, &copy);
   const absl::Status status = ExtractTableResolutionTimeFromStatementImpl(
@@ -585,9 +601,11 @@ static absl::Status ExtractTableNamesFromNextStatementImpl(
 }
 
 absl::Status ExtractTableNamesFromNextStatement(
-    ParseResumeLocation* resume_location, const AnalyzerOptions& options_in,
-    TableNamesSet* table_names, bool* at_end_of_input,
-    TableNamesSet* tvf_names) {
+    absl::Nonnull<ParseResumeLocation*> resume_location,
+    const AnalyzerOptions& options_in,
+    absl::Nonnull<TableNamesSet*> table_names,
+    absl::Nonnull<bool*> at_end_of_input,
+    absl::Nullable<TableNamesSet*> tvf_names) {
   std::unique_ptr<AnalyzerOptions> copy;
   const AnalyzerOptions& options = GetOptionsWithArenas(&options_in, &copy);
   const absl::Status status = ExtractTableNamesFromNextStatementImpl(
@@ -598,8 +616,8 @@ absl::Status ExtractTableNamesFromNextStatement(
 
 absl::Status ExtractTableNamesFromASTStatement(
     const ASTStatement& ast_statement, const AnalyzerOptions& options_in,
-    absl::string_view sql, TableNamesSet* table_names,
-    TableNamesSet* tvf_names) {
+    absl::string_view sql, absl::Nonnull<TableNamesSet*> table_names,
+    absl::Nullable<TableNamesSet*> tvf_names) {
   std::unique_ptr<AnalyzerOptions> copy;
   const AnalyzerOptions& options = GetOptionsWithArenas(&options_in, &copy);
   const absl::Status status = table_name_resolver::FindTables(
@@ -631,8 +649,11 @@ static absl::Status ExtractTableResolutionTimeFromASTStatementImpl(
 
 absl::Status ExtractTableResolutionTimeFromASTStatement(
     const ASTStatement& ast_statement, const AnalyzerOptions& options_in,
-    absl::string_view sql, TypeFactory* type_factory, Catalog* catalog,
-    TableResolutionTimeInfoMap* table_resolution_time_info_map) {
+    absl::string_view sql, absl::Nullable<TypeFactory*> type_factory,
+    absl::Nullable<Catalog*> catalog,
+    absl::Nonnull<TableResolutionTimeInfoMap*> table_resolution_time_info_map) {
+  ZETASQL_RET_CHECK(catalog == nullptr || type_factory != nullptr)
+      << "If catalog is non-null then type_factory must be non-null";
   std::unique_ptr<AnalyzerOptions> copy;
   const AnalyzerOptions& options = GetOptionsWithArenas(&options_in, &copy);
   const absl::Status status = ExtractTableResolutionTimeFromASTStatementImpl(
@@ -642,10 +663,10 @@ absl::Status ExtractTableResolutionTimeFromASTStatement(
       options.error_message_options(), sql, status);
 }
 
-absl::Status ExtractTableNamesFromScript(absl::string_view sql,
-                                         const AnalyzerOptions& options_in,
-                                         TableNamesSet* table_names,
-                                         TableNamesSet* tvf_names) {
+absl::Status ExtractTableNamesFromScript(
+    absl::string_view sql, const AnalyzerOptions& options_in,
+    absl::Nonnull<TableNamesSet*> table_names,
+    absl::Nullable<TableNamesSet*> tvf_names) {
   ZETASQL_RETURN_IF_ERROR(ValidateAnalyzerOptions(options_in));
   ZETASQL_VLOG(3) << "Extracting table names from script:\n" << sql;
   std::unique_ptr<AnalyzerOptions> copy;
@@ -665,11 +686,10 @@ absl::Status ExtractTableNamesFromScript(absl::string_view sql,
       options.error_message_options(), sql, status);
 }
 
-absl::Status ExtractTableNamesFromASTScript(const ASTScript& ast_script,
-                                            const AnalyzerOptions& options_in,
-                                            absl::string_view sql,
-                                            TableNamesSet* table_names,
-                                            TableNamesSet* tvf_names) {
+absl::Status ExtractTableNamesFromASTScript(
+    const ASTScript& ast_script, const AnalyzerOptions& options_in,
+    absl::string_view sql, absl::Nonnull<TableNamesSet*> table_names,
+    absl::Nullable<TableNamesSet*> tvf_names) {
   std::unique_ptr<AnalyzerOptions> copy;
   const AnalyzerOptions& options = GetOptionsWithArenas(&options_in, &copy);
   const absl::Status status = table_name_resolver::FindTableNamesInScript(
@@ -680,8 +700,8 @@ absl::Status ExtractTableNamesFromASTScript(const ASTScript& ast_script,
 
 absl::StatusOr<std::unique_ptr<const AnalyzerOutput>> RewriteForAnonymization(
     const std::unique_ptr<const AnalyzerOutput>& analyzer_output,
-    const AnalyzerOptions& analyzer_options, Catalog* catalog,
-    TypeFactory* type_factory) {
+    const AnalyzerOptions& analyzer_options, absl::Nonnull<Catalog*> catalog,
+    absl::Nonnull<TypeFactory*> type_factory) {
   ZETASQL_RET_CHECK_NE(analyzer_output.get(), nullptr);
   return RewriteForAnonymization(*analyzer_output, analyzer_options, catalog,
                                  type_factory);
@@ -689,8 +709,8 @@ absl::StatusOr<std::unique_ptr<const AnalyzerOutput>> RewriteForAnonymization(
 
 absl::StatusOr<std::unique_ptr<const AnalyzerOutput>> RewriteForAnonymization(
     const AnalyzerOutput& analyzer_output,
-    const AnalyzerOptions& analyzer_options, Catalog* catalog,
-    TypeFactory* type_factory) {
+    const AnalyzerOptions& analyzer_options, absl::Nonnull<Catalog*> catalog,
+    absl::Nonnull<TypeFactory*> type_factory) {
   ZETASQL_RET_CHECK_NE(analyzer_output.resolved_statement(), nullptr);
 
   ColumnFactory column_factory(analyzer_output.max_column_id(),
@@ -753,8 +773,9 @@ absl::StatusOr<std::unique_ptr<const AnalyzerOutput>> RewriteForAnonymization(
 }
 
 absl::Status RewriteResolvedAst(const AnalyzerOptions& analyzer_options,
-                                absl::string_view sql, Catalog* catalog,
-                                TypeFactory* type_factory,
+                                absl::string_view sql,
+                                absl::Nonnull<Catalog*> catalog,
+                                absl::Nonnull<TypeFactory*> type_factory,
                                 AnalyzerOutput& analyzer_output) {
   ZETASQL_RETURN_IF_ERROR(RewriteResolvedAstImpl(analyzer_options, sql, catalog,
                                          type_factory, analyzer_output));

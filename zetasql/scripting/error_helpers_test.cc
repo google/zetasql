@@ -31,7 +31,7 @@
 #include "zetasql/scripting/script_segment.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "zetasql/base/status_payload.h"
+#include "zetasql/base/status.h"
 
 namespace zetasql {
 namespace {

@@ -18,12 +18,17 @@
 #include <string>
 #include <vector>
 
+#include "zetasql/compliance/functions_testlib_common.h"
+#include "zetasql/public/civil_time.h"
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/interval_value_test_util.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/value.h"
 #include "zetasql/testing/test_function.h"
 #include "zetasql/testing/using_test_value.cc"  // NOLINT (build/include)
+#include "zetasql/base/check.h"
+#include "absl/status/status.h"
+#include "absl/strings/string_view.h"
 #include "absl/time/time.h"
 #include "absl/types/span.h"
 
@@ -97,6 +102,9 @@ Value YMDHMS(int64_t year, int64_t month, int64_t day, int64_t hour,
 Value FromString(absl::string_view str) {
   return Value::Interval(
       *IntervalValue::ParseFromString(str, /*allow_nanos=*/true));
+}
+Value SecondsNanos(int64_t seconds, __int128 nanos) {
+  return Nanos(seconds * IntervalValue::kNanosInSecond + nanos);
 }
 
 }  // namespace
@@ -1059,6 +1067,227 @@ std::vector<FunctionTestCall> GetFunctionTestsJustifyInterval() {
        OUT_OF_RANGE},
   };
   return WrapFeatureIntervalType(tests);
+}
+
+std::vector<FunctionTestCall> GetFunctionTestsToSecondsInterval() {
+  std::vector<FunctionTestCall> tests = {
+      {"to_seconds_interval", {NullInterval()}, NullString()},
+      {"to_seconds_interval", {FromString("0-0 0 0:0:0")}, "0-0 0 0:0:0"},
+
+      // Testcases where only a single interval part (months, days or nanos) is
+      // set.
+      {"to_seconds_interval",
+       {FromString("0:0:0.000000001")},
+       "0-0 0 0:0:0.000000001"},
+      {"to_seconds_interval",
+       {FromString("-0:0:0.000000001")},
+       "0-0 0 -0:0:0.000000001"},
+      {"to_seconds_interval", {FromString("0:0:0.1")}, "0-0 0 0:0:0.100"},
+      {"to_seconds_interval", {FromString("-0:0:0.1")}, "0-0 0 -0:0:0.100"},
+      {"to_seconds_interval", {FromString("0:0:1")}, "0-0 0 0:0:1"},
+      {"to_seconds_interval", {FromString("-0:0:1")}, "0-0 0 -0:0:1"},
+      {"to_seconds_interval", {FromString("0:1:0")}, "0-0 0 0:1:0"},
+      {"to_seconds_interval", {FromString("-0:1:0")}, "0-0 0 -0:1:0"},
+      {"to_seconds_interval", {FromString("1:0:0")}, "0-0 0 1:0:0"},
+      {"to_seconds_interval", {FromString("-1:0:0")}, "0-0 0 -1:0:0"},
+      {"to_seconds_interval", {FromString("1 0:0:0")}, "0-0 0 24:0:0"},
+      {"to_seconds_interval", {FromString("-1 0:0:0")}, "0-0 0 -24:0:0"},
+      {"to_seconds_interval", {FromString("0-1 0 0:0:0")}, "0-0 0 720:0:0"},
+      {"to_seconds_interval", {FromString("-0-1 0 0:0:0")}, "0-0 0 -720:0:0"},
+      {"to_seconds_interval", {FromString("1-0 0 0:0:0")}, "0-0 0 8640:0:0"},
+      {"to_seconds_interval", {FromString("-1-0 0 0:0:0")}, "0-0 0 -8640:0:0"},
+      {"to_seconds_interval", {FromString("1-1 0 0:0:0")}, "0-0 0 9360:0:0"},
+      {"to_seconds_interval", {FromString("-1-1 0 0:0:0")}, "0-0 0 -9360:0:0"},
+
+      // Testcases where only the nanos interval part is set (hours, minutes,
+      // seconds, subseconds). No change expected in how the interval is encoded
+      // as the months and days parts are already zero, only the string
+      // representation gets normalized.
+      {"to_seconds_interval", {FromString("1:2:3.45")}, "0-0 0 1:2:3.450"},
+      {"to_seconds_interval", {FromString("-1:2:3.45")}, "0-0 0 -1:2:3.450"},
+      {"to_seconds_interval", {FromString("1:1:100")}, "0-0 0 1:2:40"},
+      {"to_seconds_interval", {FromString("1:100:1")}, "0-0 0 2:40:1"},
+      {"to_seconds_interval",
+       {FromString("100:100:100.10000")},
+       "0-0 0 101:41:40.100"},
+
+      // Testcases where multiple interval parts (months, days and nanos) are
+      // set.
+      {"to_seconds_interval",
+       {FromString("1 2:3:4.56789")},
+       "0-0 0 26:3:4.567890"},
+      {"to_seconds_interval",
+       {FromString("1 -2:3:4.56789")},
+       "0-0 0 21:56:55.432110"},
+      {"to_seconds_interval",
+       {FromString("-1 2:3:4.56789")},
+       "0-0 0 -21:56:55.432110"},
+      {"to_seconds_interval",
+       {FromString("11-11 11 11:11:11.11")},
+       "0-0 0 103235:11:11.110"},
+      {"to_seconds_interval",
+       {FromString("-11-11 -11 -11:11:11.11")},
+       "0-0 0 -103235:11:11.110"},
+      {"to_seconds_interval",
+       {FromString("-11-11 11 11:11:11.11")},
+       "0-0 0 -102684:48:48.890"},
+      {"to_seconds_interval",
+       {FromString("11-11 -11 11:11:11.11")},
+       "0-0 0 102707:11:11.110"},
+      {"to_seconds_interval",
+       {FromString("11-11 11 -11:11:11.11")},
+       "0-0 0 103212:48:48.890"},
+
+      // Testcases with the max value of each interval part.
+      {"to_seconds_interval",
+       {FromString("10000-0 0 0:0:0")},
+       "0-0 0 86400000:0:0"},
+      {"to_seconds_interval",
+       {FromString("-10000-0 0 0:0:0")},
+       "0-0 0 -86400000:0:0"},
+      {"to_seconds_interval",
+       {FromString("0-120000 0 0:0:0")},
+       "0-0 0 86400000:0:0"},
+      {"to_seconds_interval",
+       {FromString("-0-120000 0 0:0:0")},
+       "0-0 0 -86400000:0:0"},
+      {"to_seconds_interval",
+       {FromString("0-0 3660000 0:0:0")},
+       "0-0 0 87840000:0:0"},
+      {"to_seconds_interval",
+       {FromString("0-0 -3660000 0:0:0")},
+       "0-0 0 -87840000:0:0"},
+      {"to_seconds_interval",
+       {FromString("0-0 0 87840000:0:0")},
+       "0-0 0 87840000:0:0"},
+      {"to_seconds_interval",
+       {FromString("0-0 0 -87840000:0:0")},
+       "0-0 0 -87840000:0:0"},
+      {"to_seconds_interval",
+       {FromString("0-0 0 0:5270400000:0")},
+       "0-0 0 87840000:0:0"},
+      {"to_seconds_interval",
+       {FromString("0-0 0 -0:5270400000:0")},
+       "0-0 0 -87840000:0:0"},
+      {"to_seconds_interval",
+       {FromString("0-0 0 0:0:316224000000")},
+       "0-0 0 87840000:0:0"},
+      {"to_seconds_interval",
+       {FromString("0-0 0 -0:0:316224000000")},
+       "0-0 0 -87840000:0:0"},
+
+      // Testcases where the interval itself is valid but the interval value in
+      // nanos is out of the range [kMinNanos, kMaxNanos].
+      {"to_seconds_interval",
+       {FromString("10000-0 100000 0:0:0")},
+       NullString(),
+       OUT_OF_RANGE},
+      {"to_seconds_interval",
+       {FromString("-10000-0 -100000 0:0:0")},
+       NullString(),
+       OUT_OF_RANGE},
+      {"to_seconds_interval",
+       {FromString("0-0 3660000 1:0:0")},
+       NullString(),
+       OUT_OF_RANGE},
+      {"to_seconds_interval",
+       {FromString("0-0 -3660000 -1:0:0")},
+       NullString(),
+       OUT_OF_RANGE},
+      {"to_seconds_interval",
+       {FromString("0-0 1 87840000:0:0")},
+       NullString(),
+       OUT_OF_RANGE},
+      {"to_seconds_interval",
+       {FromString("0-0 -1 -87840000:0:0")},
+       NullString(),
+       OUT_OF_RANGE},
+      {"to_seconds_interval",
+       {FromString("0-0 1 0:5270400000:0")},
+       NullString(),
+       OUT_OF_RANGE},
+      {"to_seconds_interval",
+       {FromString("0-0 -1 -0:5270400000:0")},
+       NullString(),
+       OUT_OF_RANGE},
+      {"to_seconds_interval",
+       {FromString("0-0 1 0:0:316224000000")},
+       NullString(),
+       OUT_OF_RANGE},
+      {"to_seconds_interval",
+       {FromString("0-0 -1 -0:0:316224000000")},
+       NullString(),
+       OUT_OF_RANGE},
+  };
+  return WrapFeatureIntervalType(tests);
+}
+
+std::vector<FunctionTestCall> GetFunctionTestsFromProtoDuration() {
+  const int64_t kDurationMinSeconds = -315576000000;
+  const int64_t kDurationMaxSeconds = 315576000000;
+  const int32_t kDurationMinNanoseconds = -999999999;
+  const int32_t kDurationMaxNanoseconds = 999999999;
+
+  // Tests cases where the timestamp scale is MICROSECONDS (currently determined
+  // based on the FEATURE_TIMESTAMP_NANOS language feature flag).
+  std::vector<FunctionTestCall> tests_scale_micro = {
+      {"from_proto", {ProtoDuration(0, 0)}, Seconds(0)},
+      {"from_proto", {ProtoDuration(0, 10)}, Micros(0)},
+      {"from_proto", {ProtoDuration(0, -10)}, Micros(0)},
+      {"from_proto", {ProtoDuration(0, 12345)}, Micros(12)},
+      {"from_proto", {ProtoDuration(0, -12345)}, Micros(-12)},
+      {"from_proto", {ProtoDuration(10, 10)}, Seconds(10)},
+      {"from_proto", {ProtoDuration(-10, 10)}, Seconds(-10)},
+      {"from_proto",
+       {ProtoDuration(123456, 123456)},
+       SecondsNanos(123456, 123000)},
+      {"from_proto",
+       {ProtoDuration(-123456, -123456)},
+       SecondsNanos(-123456, -123000)},
+      {"from_proto",
+       {ProtoDuration(kDurationMaxSeconds, kDurationMaxNanoseconds)},
+       SecondsNanos(kDurationMaxSeconds, 999999000)},
+      {"from_proto",
+       {ProtoDuration(kDurationMinSeconds, kDurationMinNanoseconds)},
+       SecondsNanos(kDurationMinSeconds, -999999000)},
+  };
+  for (FunctionTestCall& test : tests_scale_micro) {
+    test.params.AddRequiredFeatures(
+        {FEATURE_INTERVAL_TYPE, FEATURE_V_1_4_FROM_PROTO_DURATION});
+  }
+
+  // Tests cases where the timestamp precision is set to NANOSECONDS.
+  std::vector<FunctionTestCall> tests_scale_nano = {
+      {"from_proto", {ProtoDuration(0, 10)}, Nanos(10)},
+      {"from_proto", {ProtoDuration(0, -10)}, Nanos(-10)},
+      {"from_proto", {ProtoDuration(0, 12345)}, Nanos(12345)},
+      {"from_proto", {ProtoDuration(0, -12345)}, Nanos(-12345)},
+      {"from_proto", {ProtoDuration(10, 10)}, SecondsNanos(10, 10)},
+      {"from_proto", {ProtoDuration(-10, -10)}, SecondsNanos(-10, -10)},
+      {"from_proto",
+       {ProtoDuration(123456, 123456)},
+       SecondsNanos(123456, 123456)},
+      {"from_proto",
+       {ProtoDuration(-123456, -123456)},
+       SecondsNanos(-123456, -123456)},
+      {"from_proto",
+       {ProtoDuration(kDurationMaxSeconds, kDurationMaxNanoseconds)},
+       SecondsNanos(kDurationMaxSeconds, kDurationMaxNanoseconds)},
+      {"from_proto",
+       {ProtoDuration(kDurationMinSeconds, kDurationMinNanoseconds)},
+       SecondsNanos(kDurationMinSeconds, kDurationMinNanoseconds)},
+  };
+  for (FunctionTestCall& test : tests_scale_nano) {
+    test.params.AddRequiredFeatures({FEATURE_INTERVAL_TYPE,
+                                     FEATURE_V_1_4_FROM_PROTO_DURATION,
+                                     FEATURE_TIMESTAMP_NANOS});
+  }
+
+  std::vector<FunctionTestCall> tests;
+  tests.reserve(tests_scale_micro.size() + tests_scale_nano.size());
+  tests.insert(tests.end(), tests_scale_micro.begin(), tests_scale_micro.end());
+  tests.insert(tests.end(), tests_scale_nano.begin(), tests_scale_nano.end());
+  return tests;
 }
 
 }  // namespace zetasql

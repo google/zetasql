@@ -19,6 +19,7 @@
 #ifndef ZETASQL_REFERENCE_IMPL_FUNCTION_H_
 #define ZETASQL_REFERENCE_IMPL_FUNCTION_H_
 
+#include <cstdint>
 #include <functional>
 #include <initializer_list>
 #include <memory>
@@ -29,7 +30,6 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/public/cast.h"
-#include "google/protobuf/descriptor.h"
 #include "zetasql/public/collator.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/function_signature.h"
@@ -61,7 +61,6 @@
 #include "google/protobuf/descriptor.h"
 #include "zetasql/base/optional_ref.h"
 #include "re2/re2.h"
-#include "zetasql/base/status.h"
 
 namespace zetasql {
 
@@ -107,6 +106,8 @@ enum class FunctionKind {
   kCorr,
   kCovarPop,
   kCovarSamp,
+  kFirst,
+  kLast,
   kLogicalAnd,
   kLogicalOr,
   kMax,
@@ -322,6 +323,7 @@ enum class FunctionKind {
   kJsonArrayInsert,
   kJsonArrayAppend,
   kJsonSubscript,
+  kJsonContains,
   kJsonKeys,
   // Proto functions
   kFromProto,
@@ -448,6 +450,7 @@ enum class FunctionKind {
   kJustifyHours,
   kJustifyDays,
   kJustifyInterval,
+  kToSecondsInterval,
   // Net functions
   kNetFormatIP,
   kNetParseIP,
@@ -472,6 +475,8 @@ enum class FunctionKind {
   kPercentRank,
   kCumeDist,
   kNtile,
+  kIsFirst,
+  kIsLast,
   // Navigation functions
   kFirstValue,
   kLastValue,
@@ -582,6 +587,10 @@ class BuiltinFunctionCatalog {
 
   static std::string GetDebugNameByKind(FunctionKind kind);
 
+  // Returns the alias for the given function kind. If the function kind has no
+  // alias, returns an empty string.
+  static absl::string_view GetAliasByKind(FunctionKind kind);
+
  private:
   BuiltinFunctionCatalog() = default;
 };
@@ -591,6 +600,10 @@ class BuiltinFunctionCatalog {
 // represent function arguments are migrated to AlgebraArg.
 std::vector<std::unique_ptr<AlgebraArg>> ConvertValueExprsToAlgebraArgs(
     std::vector<std::unique_ptr<ValueExpr>>&& arguments);
+
+// Contains options for creating a built-in scalar function call.
+struct BuiltinScalarFunctionCallOptions {
+};
 
 // Abstract built-in scalar function.
 class BuiltinScalarFunction : public ScalarFunctionBody {
@@ -620,7 +633,8 @@ class BuiltinScalarFunction : public ScalarFunctionBody {
       const Type* output_type,
       std::vector<std::unique_ptr<AlgebraArg>> arguments,
       ResolvedFunctionCallBase::ErrorMode error_mode =
-          ResolvedFunctionCallBase::DEFAULT_ERROR_MODE);
+          ResolvedFunctionCallBase::DEFAULT_ERROR_MODE,
+      const BuiltinScalarFunctionCallOptions& options = {});
 
   // Similar to the above, but for functions which do not accept any lambda
   // arguments.
@@ -652,7 +666,8 @@ class BuiltinScalarFunction : public ScalarFunctionBody {
   static absl::StatusOr<std::unique_ptr<BuiltinScalarFunction>> CreateValidated(
       FunctionKind kind, const LanguageOptions& language_options,
       const Type* output_type,
-      absl::Span<const std::unique_ptr<AlgebraArg>> arguments);
+      absl::Span<const std::unique_ptr<AlgebraArg>> arguments,
+      const BuiltinScalarFunctionCallOptions& options = {});
 
   // Given a list of the AlgebraArgs to a function, store the arguments which
   // cannot be represented as `zetasql::Value`. Intended to be used only once,
@@ -688,7 +703,8 @@ class BuiltinScalarFunction : public ScalarFunctionBody {
   static absl::StatusOr<BuiltinScalarFunction*> CreateValidatedRaw(
       FunctionKind kind, const LanguageOptions& language_options,
       const Type* output_type,
-      absl::Span<const std::unique_ptr<AlgebraArg>> arguments);
+      absl::Span<const std::unique_ptr<AlgebraArg>> arguments,
+      const BuiltinScalarFunctionCallOptions& options);
 
   // Creates a like function.
   static absl::StatusOr<std::unique_ptr<BuiltinScalarFunction>>
@@ -1846,7 +1862,8 @@ class RowNumberFunction : public BuiltinAnalyticFunction {
   RowNumberFunction()
       : BuiltinAnalyticFunction(FunctionKind::kRowNumber, types::Int64Type()) {}
 
-  bool RequireTupleComparator() const override { return false; }
+  // The comparator is used only for nondeterminism detection.
+  bool RequireTupleComparator() const override { return true; }
 
   absl::Status Eval(const TupleSchema& schema,
                     const absl::Span<const TupleData* const>& tuples,
@@ -1931,6 +1948,48 @@ class NtileFunction : public BuiltinAnalyticFunction {
       const TupleSchema& schema, int key_tuple_id,
       absl::Span<const TupleData* const> tuples,
       const TupleComparator& comparator);
+};
+
+// IS_FIRST(<value expression>)
+// Returns a boolean indicating whether the current row is in the first N rows
+// in the partition, where N is the value of the argument, according to the
+// window ordering.
+class IsFirstFunction : public BuiltinAnalyticFunction {
+ public:
+  IsFirstFunction()
+      : BuiltinAnalyticFunction(FunctionKind::kIsFirst, types::BoolType()) {}
+
+  bool RequireTupleComparator() const override { return true; }
+
+  absl::Status Eval(const TupleSchema& schema,
+                    const absl::Span<const TupleData* const>& tuples,
+                    const absl::Span<const std::vector<Value>>& args,
+                    const absl::Span<const AnalyticWindow>& windows,
+                    const TupleComparator* comparator,
+                    ResolvedFunctionCallBase::ErrorMode error_mode,
+                    EvaluationContext* context,
+                    std::vector<Value>* result) const override;
+};
+
+// IS_LAST(<value expression>)
+// Returns a boolean indicating whether the current row is in the last N rows
+// in the partition, where N is the value of the argument, according to the
+// window ordering.
+class IsLastFunction : public BuiltinAnalyticFunction {
+ public:
+  IsLastFunction()
+      : BuiltinAnalyticFunction(FunctionKind::kIsLast, types::BoolType()) {}
+
+  bool RequireTupleComparator() const override { return true; }
+
+  absl::Status Eval(const TupleSchema& schema,
+                    const absl::Span<const TupleData* const>& tuples,
+                    const absl::Span<const std::vector<Value>>& args,
+                    const absl::Span<const AnalyticWindow>& windows,
+                    const TupleComparator* comparator,
+                    ResolvedFunctionCallBase::ErrorMode error_mode,
+                    EvaluationContext* context,
+                    std::vector<Value>* result) const override;
 };
 
 // FIRST_VALUE(<value expression>)

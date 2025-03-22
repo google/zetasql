@@ -17,15 +17,14 @@
 #ifndef ZETASQL_ANALYZER_NAMED_ARGUMENT_INFO_H_
 #define ZETASQL_ANALYZER_NAMED_ARGUMENT_INFO_H_
 
-#include <functional>
 #include <optional>
-#include <string>
 #include <utility>
 
 #include "zetasql/common/errors.h"
 #include "zetasql/parser/ast_node.h"
 #include "zetasql/parser/parse_tree_errors.h"
 #include "zetasql/public/id_string.h"
+#include "zetasql/public/parse_location.h"
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/base/status_builder.h"
 

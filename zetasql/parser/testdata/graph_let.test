@@ -1,0 +1,546 @@
+[default reserve_graph_table]
+[default language_features=V_1_4_SQL_GRAPH]
+
+# Test invalid identifier token in LET
+
+select * from
+  graph_table(my.graph.name
+    MATCH ()
+    LET 1 = b
+    RETURN 1 AS one, 1+1 AS two
+  ) g1
+--
+ERROR: Syntax error: Unexpected integer literal "1" [at 6:9]
+    LET 1 = b
+        ^
+
+==
+
+# Test single LET variable definition between MATCH and RETURN
+
+select * from
+  graph_table(
+    my.graph.name
+    MATCH (n) -> (m)
+    LET a = b
+    RETURN *
+  ) g1
+--
+
+QueryStatement [0-101] [select * from...ETURN *   ) g1]
+  Query [0-101] [select * from...ETURN *   ) g1]
+    Select [0-101] [select * from...ETURN *   ) g1]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-101] [from   graph_tabl...N *   ) g1]
+        GraphTableQuery [16-101] [graph_table...RETURN *   ) g1]
+          PathExpression [33-46] [my.graph.name]
+            Identifier(my) [33-35] [my]
+            Identifier(graph) [36-41] [graph]
+            Identifier(name) [42-46] [name]
+          GqlOperatorList [51-94] [MATCH (n)...RETURN *]
+            GqlOperatorList [51-94] [MATCH (n)...RETURN *]
+              GqlMatch [51-67] [MATCH (n) -> (m)]
+                GraphPattern [57-67] [(n) -> (m)]
+                  GraphPathPattern [57-67] [(n) -> (m)]
+                    GraphNodePattern [57-60] [(n)]
+                      GraphElementPatternFiller [58-59] [n]
+                        Identifier(n) [58-59] [n]
+                    GraphEdgePattern [61-63] [->]
+                    GraphNodePattern [64-67] [(m)]
+                      GraphElementPatternFiller [65-66] [m]
+                        Identifier(m) [65-66] [m]
+              GqlLet [72-81] [LET a = b]
+                GqlLetVariableDefinitionList [76-81] [a = b]
+                  GqlLetVariableDefinition [76-81] [a = b]
+                    Identifier(a) [76-77] [a]
+                    PathExpression [80-81] [b]
+                      Identifier(b) [80-81] [b]
+              GqlReturn [86-94] [RETURN *]
+                Select [92-94] [*]
+                  SelectList [93-94] [*]
+                    SelectColumn [93-94] [*]
+                      Star(*) [93-94] [*]
+          Alias [99-101] [g1]
+            Identifier(g1) [99-101] [g1]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    my.graph.name
+    MATCH
+      (n)
+      ->
+      (m)
+    LET
+      a = b
+    RETURN
+      *
+  ) AS g1
+
+==
+
+# Test comma-separate list of LET variable definitions
+
+select * from
+  graph_table(my.graph.name
+    MATCH ()
+    LET a = b, c = 1, d = a + 1
+    RETURN 1 AS one, 1+1 AS two
+  ) g1
+--
+
+QueryStatement [0-125] [select * from...two   ) g1]
+  Query [0-125] [select * from...two   ) g1]
+    Select [0-125] [select * from...two   ) g1]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-125] [from   graph_tabl...two   ) g1]
+        GraphTableQuery [16-125] [graph_table...two   ) g1]
+          PathExpression [28-41] [my.graph.name]
+            Identifier(my) [28-30] [my]
+            Identifier(graph) [31-36] [graph]
+            Identifier(name) [37-41] [name]
+          GqlOperatorList [46-118] [MATCH ()...1+1 AS two]
+            GqlOperatorList [46-118] [MATCH ()...1+1 AS two]
+              GqlMatch [46-54] [MATCH ()]
+                GraphPattern [52-54] [()]
+                  GraphPathPattern [52-54] [()]
+                    GraphNodePattern [52-54] [()]
+                      GraphElementPatternFiller [53-53] []
+              GqlLet [59-86] [LET a = b, c = 1, d = a + 1]
+                GqlLetVariableDefinitionList [63-86] [a = b, c = 1, d = a + 1]
+                  GqlLetVariableDefinition [63-68] [a = b]
+                    Identifier(a) [63-64] [a]
+                    PathExpression [67-68] [b]
+                      Identifier(b) [67-68] [b]
+                  GqlLetVariableDefinition [70-75] [c = 1]
+                    Identifier(c) [70-71] [c]
+                    IntLiteral(1) [74-75] [1]
+                  GqlLetVariableDefinition [77-86] [d = a + 1]
+                    Identifier(d) [77-78] [d]
+                    BinaryExpression(+) [81-86] [a + 1]
+                      PathExpression [81-82] [a]
+                        Identifier(a) [81-82] [a]
+                      IntLiteral(1) [85-86] [1]
+              GqlReturn [91-118] [RETURN 1 AS one, 1+1 AS two]
+                Select [97-118] [1 AS one, 1+1 AS two]
+                  SelectList [98-118] [1 AS one, 1+1 AS two]
+                    SelectColumn [98-106] [1 AS one]
+                      IntLiteral(1) [98-99] [1]
+                      Alias [100-106] [AS one]
+                        Identifier(one) [103-106] [one]
+                    SelectColumn [108-118] [1+1 AS two]
+                      BinaryExpression(+) [108-111] [1+1]
+                        IntLiteral(1) [108-109] [1]
+                        IntLiteral(1) [110-111] [1]
+                      Alias [112-118] [AS two]
+                        Identifier(two) [115-118] [two]
+          Alias [123-125] [g1]
+            Identifier(g1) [123-125] [g1]
+
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    my.graph.name
+    MATCH
+      ()
+    LET
+      a = b,
+      c = 1,
+      d = a + 1
+    RETURN
+      1 AS one,
+      1 + 1 AS two
+  ) AS g1
+
+==
+
+# Test use of LET as an identifier
+
+select * from
+  graph_table(LET
+    MATCH ()
+    LET a = b
+    RETURN 1 AS one, 1+1 AS two
+  ) g1
+--
+
+QueryStatement [0-97] [select * from...two   ) g1]
+  Query [0-97] [select * from...two   ) g1]
+    Select [0-97] [select * from...two   ) g1]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-97] [from   graph_tabl...two   ) g1]
+        GraphTableQuery [16-97] [graph_table...two   ) g1]
+          PathExpression [28-31] [LET]
+            Identifier(LET) [28-31] [LET]
+          GqlOperatorList [36-90] [MATCH ()...1+1 AS two]
+            GqlOperatorList [36-90] [MATCH ()...1+1 AS two]
+              GqlMatch [36-44] [MATCH ()]
+                GraphPattern [42-44] [()]
+                  GraphPathPattern [42-44] [()]
+                    GraphNodePattern [42-44] [()]
+                      GraphElementPatternFiller [43-43] []
+              GqlLet [49-58] [LET a = b]
+                GqlLetVariableDefinitionList [53-58] [a = b]
+                  GqlLetVariableDefinition [53-58] [a = b]
+                    Identifier(a) [53-54] [a]
+                    PathExpression [57-58] [b]
+                      Identifier(b) [57-58] [b]
+              GqlReturn [63-90] [RETURN 1 AS one, 1+1 AS two]
+                Select [69-90] [1 AS one, 1+1 AS two]
+                  SelectList [70-90] [1 AS one, 1+1 AS two]
+                    SelectColumn [70-78] [1 AS one]
+                      IntLiteral(1) [70-71] [1]
+                      Alias [72-78] [AS one]
+                        Identifier(one) [75-78] [one]
+                    SelectColumn [80-90] [1+1 AS two]
+                      BinaryExpression(+) [80-83] [1+1]
+                        IntLiteral(1) [80-81] [1]
+                        IntLiteral(1) [82-83] [1]
+                      Alias [84-90] [AS two]
+                        Identifier(two) [87-90] [two]
+          Alias [95-97] [g1]
+            Identifier(g1) [95-97] [g1]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    LET
+    MATCH
+      ()
+    LET
+      a = b
+    RETURN
+      1 AS one,
+      1 + 1 AS two
+  ) AS g1
+
+==
+
+# Test use of LET as the first operator
+
+select * from
+  graph_table(LET
+    LET a = 1
+    RETURN a AS one, 1+1 AS two
+  ) g1
+--
+
+QueryStatement [0-84] [select * from...two   ) g1]
+  Query [0-84] [select * from...two   ) g1]
+    Select [0-84] [select * from...two   ) g1]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-84] [from   graph_tabl...two   ) g1]
+        GraphTableQuery [16-84] [graph_table...two   ) g1]
+          PathExpression [28-31] [LET]
+            Identifier(LET) [28-31] [LET]
+          GqlOperatorList [36-77] [LET a = 1...1+1 AS two]
+            GqlOperatorList [36-77] [LET a = 1...1+1 AS two]
+              GqlLet [36-45] [LET a = 1]
+                GqlLetVariableDefinitionList [40-45] [a = 1]
+                  GqlLetVariableDefinition [40-45] [a = 1]
+                    Identifier(a) [40-41] [a]
+                    IntLiteral(1) [44-45] [1]
+              GqlReturn [50-77] [RETURN a AS one, 1+1 AS two]
+                Select [56-77] [a AS one, 1+1 AS two]
+                  SelectList [57-77] [a AS one, 1+1 AS two]
+                    SelectColumn [57-65] [a AS one]
+                      PathExpression [57-58] [a]
+                        Identifier(a) [57-58] [a]
+                      Alias [59-65] [AS one]
+                        Identifier(one) [62-65] [one]
+                    SelectColumn [67-77] [1+1 AS two]
+                      BinaryExpression(+) [67-70] [1+1]
+                        IntLiteral(1) [67-68] [1]
+                        IntLiteral(1) [69-70] [1]
+                      Alias [71-77] [AS two]
+                        Identifier(two) [74-77] [two]
+          Alias [82-84] [g1]
+            Identifier(g1) [82-84] [g1]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    LET
+    LET
+      a = 1
+    RETURN
+      a AS one,
+      1 + 1 AS two
+  ) AS g1
+
+==
+
+# Test use of LET as the first operator, followed by MATCH
+
+select * from
+  graph_table(LET
+    LET a = 1
+    MATCH ()
+    RETURN a AS one, 1+1 AS two
+  ) g1
+--
+
+QueryStatement [0-97] [select * from...two   ) g1]
+  Query [0-97] [select * from...two   ) g1]
+    Select [0-97] [select * from...two   ) g1]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-97] [from   graph_tabl...two   ) g1]
+        GraphTableQuery [16-97] [graph_table...two   ) g1]
+          PathExpression [28-31] [LET]
+            Identifier(LET) [28-31] [LET]
+          GqlOperatorList [36-90] [LET a = 1...1+1 AS two]
+            GqlOperatorList [36-90] [LET a = 1...1+1 AS two]
+              GqlLet [36-45] [LET a = 1]
+                GqlLetVariableDefinitionList [40-45] [a = 1]
+                  GqlLetVariableDefinition [40-45] [a = 1]
+                    Identifier(a) [40-41] [a]
+                    IntLiteral(1) [44-45] [1]
+              GqlMatch [50-58] [MATCH ()]
+                GraphPattern [56-58] [()]
+                  GraphPathPattern [56-58] [()]
+                    GraphNodePattern [56-58] [()]
+                      GraphElementPatternFiller [57-57] []
+              GqlReturn [63-90] [RETURN a AS one, 1+1 AS two]
+                Select [69-90] [a AS one, 1+1 AS two]
+                  SelectList [70-90] [a AS one, 1+1 AS two]
+                    SelectColumn [70-78] [a AS one]
+                      PathExpression [70-71] [a]
+                        Identifier(a) [70-71] [a]
+                      Alias [72-78] [AS one]
+                        Identifier(one) [75-78] [one]
+                    SelectColumn [80-90] [1+1 AS two]
+                      BinaryExpression(+) [80-83] [1+1]
+                        IntLiteral(1) [80-81] [1]
+                        IntLiteral(1) [82-83] [1]
+                      Alias [84-90] [AS two]
+                        Identifier(two) [87-90] [two]
+          Alias [95-97] [g1]
+            Identifier(g1) [95-97] [g1]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    LET
+    LET
+      a = 1
+    MATCH
+      ()
+    RETURN
+      a AS one,
+      1 + 1 AS two
+  ) AS g1
+
+==
+
+# Test LET with a function call in the expression
+
+select * from
+graph_table(my.graph.name
+  MATCH (n)
+  LET a = DATE_DIFF(CURRENT_DATE, n.birthday, YEAR)
+  RETURN a
+) g1
+
+--
+QueryStatement [0-119] [select * from...RETURN a ) g1]
+  Query [0-119] [select * from...RETURN a ) g1]
+    Select [0-119] [select * from...RETURN a ) g1]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-119] [from graph_table...TURN a ) g1]
+        GraphTableQuery [14-119] [graph_table...RETURN a ) g1]
+          PathExpression [26-39] [my.graph.name]
+            Identifier(my) [26-28] [my]
+            Identifier(graph) [29-34] [graph]
+            Identifier(name) [35-39] [name]
+          GqlOperatorList [42-114] [MATCH (n)...RETURN a]
+            GqlOperatorList [42-114] [MATCH (n)...RETURN a]
+              GqlMatch [42-51] [MATCH (n)]
+                GraphPattern [48-51] [(n)]
+                  GraphPathPattern [48-51] [(n)]
+                    GraphNodePattern [48-51] [(n)]
+                      GraphElementPatternFiller [49-50] [n]
+                        Identifier(n) [49-50] [n]
+              GqlLet [54-103] [LET a = DATE_DIFF...day, YEAR)]
+                GqlLetVariableDefinitionList [58-103] [a = DATE_DIFF...irthday, YEAR)]
+                  GqlLetVariableDefinition [58-103] [a = DATE_DIFF...irthday, YEAR)]
+                    Identifier(a) [58-59] [a]
+                    FunctionCall [62-103] [DATE_DIFF(...birthday, YEAR)]
+                      PathExpression [62-71] [DATE_DIFF]
+                        Identifier(DATE_DIFF) [62-71] [DATE_DIFF]
+                      FunctionCall [72-84] [CURRENT_DATE]
+                        PathExpression [72-84] [CURRENT_DATE]
+                          Identifier(`CURRENT_DATE`) [72-84] [CURRENT_DATE]
+                      PathExpression [86-96] [n.birthday]
+                        Identifier(n) [86-87] [n]
+                        Identifier(birthday) [88-96] [birthday]
+                      PathExpression [98-102] [YEAR]
+                        Identifier(YEAR) [98-102] [YEAR]
+              GqlReturn [106-114] [RETURN a]
+                Select [112-114] [a]
+                  SelectList [113-114] [a]
+                    SelectColumn [113-114] [a]
+                      PathExpression [113-114] [a]
+                        Identifier(a) [113-114] [a]
+          Alias [117-119] [g1]
+            Identifier(g1) [117-119] [g1]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    my.graph.name
+    MATCH
+      (n)
+    LET
+      a = DATE_DIFF(`CURRENT_DATE`(), n.birthday, YEAR)
+    RETURN
+      a
+  ) AS g1
+
+==
+
+# Test LET with quoted use of a keyword
+
+select * from
+  graph_table(my.graph.name
+    MATCH (`from`)
+    LET let = `from`.count + RAND()
+    RETURN let
+  ) g1
+
+--
+QueryStatement [0-118] [select * from...let   ) g1]
+  Query [0-118] [select * from...let   ) g1]
+    Select [0-118] [select * from...let   ) g1]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-118] [from   graph_tabl...let   ) g1]
+        GraphTableQuery [16-118] [graph_table...let   ) g1]
+          PathExpression [28-41] [my.graph.name]
+            Identifier(my) [28-30] [my]
+            Identifier(graph) [31-36] [graph]
+            Identifier(name) [37-41] [name]
+          GqlOperatorList [46-111] [MATCH (`from...RETURN let]
+            GqlOperatorList [46-111] [MATCH (`from...RETURN let]
+              GqlMatch [46-60] [MATCH (`from`)]
+                GraphPattern [52-60] [(`from`)]
+                  GraphPathPattern [52-60] [(`from`)]
+                    GraphNodePattern [52-60] [(`from`)]
+                      GraphElementPatternFiller [53-59] [`from`]
+                        Identifier(`from`) [53-59] [`from`]
+              GqlLet [65-96] [LET let =...count + RAND()]
+                GqlLetVariableDefinitionList [69-96] [let = `from`.count + RAND()]
+                  GqlLetVariableDefinition [69-96] [let = `from`.count + RAND()]
+                    Identifier(let) [69-72] [let]
+                    BinaryExpression(+) [75-96] [`from`.count + RAND()]
+                      PathExpression [75-87] [`from`.count]
+                        Identifier(`from`) [75-81] [`from`]
+                        Identifier(count) [82-87] [count]
+                      FunctionCall [90-96] [RAND()]
+                        PathExpression [90-94] [RAND]
+                          Identifier(RAND) [90-94] [RAND]
+              GqlReturn [101-111] [RETURN let]
+                Select [107-111] [let]
+                  SelectList [108-111] [let]
+                    SelectColumn [108-111] [let]
+                      PathExpression [108-111] [let]
+                        Identifier(let) [108-111] [let]
+          Alias [116-118] [g1]
+            Identifier(g1) [116-118] [g1]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    my.graph.name
+    MATCH
+      (`from`)
+    LET
+      let = `from`.count + RAND()
+    RETURN
+      let
+  ) AS g1
+
+==
+
+# Test LET with a quoted identifier
+
+select * from
+  graph_table(my.graph.name
+    MATCH (`from`)
+    LET `$let` = `from`.count + RAND()
+    RETURN `$let`
+  ) g1
+
+--
+QueryStatement [0-124] [select * from...let`   ) g1]
+  Query [0-124] [select * from...let`   ) g1]
+    Select [0-124] [select * from...let`   ) g1]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-124] [from   graph_tabl...et`   ) g1]
+        GraphTableQuery [16-124] [graph_table...let`   ) g1]
+          PathExpression [28-41] [my.graph.name]
+            Identifier(my) [28-30] [my]
+            Identifier(graph) [31-36] [graph]
+            Identifier(name) [37-41] [name]
+          GqlOperatorList [46-117] [MATCH (`from...RETURN `$let`]
+            GqlOperatorList [46-117] [MATCH (`from...RETURN `$let`]
+              GqlMatch [46-60] [MATCH (`from`)]
+                GraphPattern [52-60] [(`from`)]
+                  GraphPathPattern [52-60] [(`from`)]
+                    GraphNodePattern [52-60] [(`from`)]
+                      GraphElementPatternFiller [53-59] [`from`]
+                        Identifier(`from`) [53-59] [`from`]
+              GqlLet [65-99] [LET `$let`...count + RAND()]
+                GqlLetVariableDefinitionList [69-99] [`$let` = `from`.count + RAND()]
+                  GqlLetVariableDefinition [69-99] [`$let` = `from`.count + RAND()]
+                    Identifier(`$let`) [69-75] [`$let`]
+                    BinaryExpression(+) [78-99] [`from`.count + RAND()]
+                      PathExpression [78-90] [`from`.count]
+                        Identifier(`from`) [78-84] [`from`]
+                        Identifier(count) [85-90] [count]
+                      FunctionCall [93-99] [RAND()]
+                        PathExpression [93-97] [RAND]
+                          Identifier(RAND) [93-97] [RAND]
+              GqlReturn [104-117] [RETURN `$let`]
+                Select [110-117] [`$let`]
+                  SelectList [111-117] [`$let`]
+                    SelectColumn [111-117] [`$let`]
+                      PathExpression [111-117] [`$let`]
+                        Identifier(`$let`) [111-117] [`$let`]
+          Alias [122-124] [g1]
+            Identifier(g1) [122-124] [g1]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    my.graph.name
+    MATCH
+      (`from`)
+    LET
+      `$let` = `from`.count + RAND()
+    RETURN
+      `$let`
+  ) AS g1

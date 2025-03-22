@@ -1,12 +1,13 @@
 # Use (broken link) for pretty-printing the generated sql.
-[default show_unparsed]
+[default show_sqlbuilder_output]
 [default no_show_resolved_ast]
 
 DELETE SimpleTypes S
 WHERE S.int64 IN (select key from KeyValue)
 ASSERT_ROWS_MODIFIED 1
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 DELETE SimpleTypes AS simpletypes_1
 WHERE
   ((simpletypes_1.int64) IN (
@@ -16,12 +17,31 @@ WHERE
       KeyValue
   ))
 ASSERT_ROWS_MODIFIED 1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+DELETE SimpleTypes AS simpletypes_1
+WHERE
+  ((simpletypes_1.int64) IN (
+    FROM
+      KeyValue
+    |> SELECT
+         KeyValue.Key AS a_2
+  ))
+ASSERT_ROWS_MODIFIED 1;
 ==
 
 DELETE KitchenSinkValueTable
 WHERE float_val > int32_val
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+DELETE KitchenSinkValueTable AS kitchensinkvaluetable_1
+WHERE
+  CAST(kitchensinkvaluetable_1.float_val AS DOUBLE) > CAST(kitchensinkvaluetable_1.int32_val AS DOUBLE);
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 DELETE KitchenSinkValueTable AS kitchensinkvaluetable_1
 WHERE
   CAST(kitchensinkvaluetable_1.float_val AS DOUBLE) > CAST(kitchensinkvaluetable_1.int32_val AS DOUBLE);
@@ -31,11 +51,12 @@ INSERT KeyValue (value, key)
 select value, key from KeyValue
 ASSERT_ROWS_MODIFIED 1
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 INSERT INTO KeyValue(Value, Key)
 SELECT
-  keyvalue_3.a_2 AS a_2,
-  keyvalue_3.a_1 AS a_1
+  keyvalue_3.a_2 AS Value,
+  keyvalue_3.a_1 AS Key
 FROM
   (
     SELECT
@@ -45,12 +66,35 @@ FROM
       KeyValue
   ) AS keyvalue_3
 ASSERT_ROWS_MODIFIED 1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+INSERT INTO KeyValue(Value, Key)
+FROM
+  KeyValue
+|> SELECT
+     KeyValue.Key AS a_1,
+     KeyValue.Value AS a_2
+|> AS keyvalue_3
+|> SELECT
+     keyvalue_3.a_2 AS Value,
+     keyvalue_3.a_1 AS Key
+ASSERT_ROWS_MODIFIED 1;
 ==
 
 INSERT KeyValue (key, value)
 VALUES (1, "one"), (2, DEFAULT), (3, NULL)
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+INSERT INTO KeyValue(Key, Value)
+VALUES
+  (1, "one"),
+  (2, DEFAULT),
+  (3, CAST(NULL AS STRING));
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 INSERT INTO KeyValue(Key, Value)
 VALUES
   (1, "one"),
@@ -61,12 +105,21 @@ VALUES
 INSERT KitchenSinkValueTable
 select KitchenSink from TestTable
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 INSERT INTO KitchenSinkValueTable(value)
 SELECT
-  TestTable.KitchenSink AS a_1
+  TestTable.KitchenSink AS KitchenSink
 FROM
   TestTable;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+INSERT INTO KitchenSinkValueTable(value)
+FROM
+  TestTable
+|> SELECT
+     TestTable.KitchenSink AS KitchenSink;
 ==
 
 UPDATE KeyValue SET
@@ -75,7 +128,18 @@ UPDATE KeyValue SET
 WHERE key > 10
 ASSERT_ROWS_MODIFIED @test_param_int64
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+UPDATE KeyValue AS keyvalue_1
+SET
+  keyvalue_1.Key = 1,
+  keyvalue_1.Value = "a"
+WHERE
+  (keyvalue_1.Key) > 10
+ASSERT_ROWS_MODIFIED @test_param_int64;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 UPDATE KeyValue AS keyvalue_1
 SET
   keyvalue_1.Key = 1,
@@ -107,7 +171,8 @@ UPDATE TestTable SET
   (DELETE KitchenSink.repeated_uint64_val WHERE true)
 WHERE true
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 UPDATE TestTable AS testtable_1
 SET
   (
@@ -135,9 +200,73 @@ SET
   (
     INSERT INTO testtable_1.KitchenSink.repeated_int64_val
     SELECT
-      KeyValue.Key AS a_2
+      KeyValue.Key AS Key
     FROM
       KeyValue
+  ),
+  (
+    INSERT INTO testtable_1.KitchenSink.repeated_uint32_val
+    VALUES
+      (CAST(1 AS UINT32))
+  ),
+  (
+    INSERT INTO testtable_1.KitchenSink.repeated_uint32_val
+    VALUES
+      (CAST(1 AS UINT32)),
+      (CAST(2 AS UINT32))
+  ),
+  (
+    DELETE testtable_1.KitchenSink.repeated_int32_val AS repeated_int32_val
+    WHERE
+      true
+  ),
+  (
+    UPDATE testtable_1.KitchenSink.repeated_int32_val AS repeated_int32_val
+    SET
+      repeated_int32_val = DEFAULT
+    WHERE
+      true
+  ),
+  (
+    DELETE testtable_1.KitchenSink.repeated_uint64_val AS repeated_uint64_val
+    WHERE
+      true
+  )
+WHERE
+  true;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+UPDATE TestTable AS testtable_1
+SET
+  (
+    DELETE testtable_1.KitchenSink.repeated_int64_val AS repeated_int64_val
+    WHERE
+      repeated_int64_val = 1
+  ),
+  (
+    DELETE testtable_1.KitchenSink.repeated_int64_val AS repeated_int64_val
+    WHERE
+      repeated_int64_val = 2
+  ),
+  (
+    UPDATE testtable_1.KitchenSink.repeated_int64_val AS repeated_int64_val
+    SET
+      repeated_int64_val = 1
+    WHERE
+      repeated_int64_val > 5
+  ),
+  (
+    INSERT INTO testtable_1.KitchenSink.repeated_int64_val
+    VALUES
+      (1)
+  ),
+  (
+    INSERT INTO testtable_1.KitchenSink.repeated_int64_val
+    FROM
+      KeyValue
+    |> SELECT
+         KeyValue.Key AS Key
   ),
   (
     INSERT INTO testtable_1.KitchenSink.repeated_uint32_val
@@ -177,7 +306,22 @@ UPDATE TestTable T SET
    WHERE true)
 WHERE true
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+UPDATE TestTable AS testtable_1
+SET
+  (
+    UPDATE testtable_1.KitchenSink.repeated_int64_val AS T
+    SET
+      T = 1
+    WHERE
+      true
+  )
+WHERE
+  true;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 UPDATE TestTable AS testtable_1
 SET
   (
@@ -199,7 +343,28 @@ UPDATE TestTable SET
    WHERE true)
 WHERE true
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+UPDATE TestTable AS testtable_1
+SET
+  (
+    UPDATE testtable_1.KitchenSink.nested_repeated_group AS nested_repeated_group
+    SET
+      (
+        UPDATE nested_repeated_group.nestedrepeatedgroupnested AS nestedrepeatedgroupnested
+        SET
+          nestedrepeatedgroupnested.id = 1
+        WHERE
+          true
+      )
+    WHERE
+      true
+  )
+WHERE
+  true;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 UPDATE TestTable AS testtable_1
 SET
   (
@@ -222,7 +387,14 @@ WHERE
 DELETE ` Value`
 WHERE ` Value`.` Value` = "true"
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+DELETE ` Value` AS ` value_1`
+WHERE
+  (` value_1`.` Value`) = "true";
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 DELETE ` Value` AS ` value_1`
 WHERE
   (` value_1`.` Value`) = "true";
@@ -232,7 +404,16 @@ UPDATE ` Value` SET
   ` Value`.` Value` = "true"
 WHERE ` Key` > 1
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+UPDATE ` Value` AS ` value_1`
+SET
+  ` value_1`.` Value` = "true"
+WHERE
+  (` value_1`.` Key`) > 1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 UPDATE ` Value` AS ` value_1`
 SET
   ` value_1`.` Value` = "true"
@@ -243,20 +424,37 @@ WHERE
 INSERT ` Value` (` Key`, ` Value`)
 select * from ` Value`
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 INSERT INTO ` Value`(` Key`, ` Value`)
 SELECT
-  ` value_1`.` Key` AS a_2,
-  ` value_1`.` Value` AS a_3
+  ` value_1`.` Key` AS ` Key`,
+  ` value_1`.` Value` AS ` Value`
 FROM
   ` Value` AS ` value_1`;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+INSERT INTO ` Value`(` Key`, ` Value`)
+FROM
+  ` Value` AS ` value_1`
+|> SELECT
+     ` value_1`.` Key` AS ` Key`,
+     ` value_1`.` Value` AS ` Value`;
 ==
 
 # TODO: Catalog qualifiers can be printed for tables when
 # SQLBuilder is overriden to do so, but we should have a more general solution.
 INSERT INTO nested_catalog.KeyValueNested(key, value) VALUES (1, "2")
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+INSERT INTO nested_catalog.KeyValueNested(Key, Value)
+VALUES
+  (1, "2");
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 INSERT INTO nested_catalog.KeyValueNested(Key, Value)
 VALUES
   (1, "2");
@@ -267,7 +465,16 @@ VALUES
 UPDATE nested_catalog.KeyValueNested
 SET value = "3" WHERE key = 1
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+UPDATE nested_catalog.KeyValueNested AS keyvaluenested_1
+SET
+  keyvaluenested_1.Value = "3"
+WHERE
+  (keyvaluenested_1.Key) = 1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 UPDATE nested_catalog.KeyValueNested AS keyvaluenested_1
 SET
   keyvaluenested_1.Value = "3"
@@ -280,7 +487,14 @@ WHERE
 DELETE FROM nested_catalog.KeyValueNested
 WHERE key = 1
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+DELETE nested_catalog.KeyValueNested AS keyvaluenested_1
+WHERE
+  (keyvaluenested_1.Key) = 1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 DELETE nested_catalog.KeyValueNested AS keyvaluenested_1
 WHERE
   (keyvaluenested_1.Key) = 1;
@@ -292,7 +506,16 @@ WHERE
 INSERT INTO nested_catalog.KeyValueNested (key, value) VALUES (1, "one")
 THEN RETURN key+1
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+INSERT INTO nested_catalog.KeyValueNested(Key, Value)
+VALUES
+  (1, "one")
+THEN RETURN
+  (KeyValueNested.Key) + 1 AS `$col1`;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 INSERT INTO nested_catalog.KeyValueNested(Key, Value)
 VALUES
   (1, "one")
@@ -307,7 +530,18 @@ UPDATE nested_catalog.KeyValueNested
 SET value = "3" WHERE key = 1
 THEN RETURN key+1
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+UPDATE nested_catalog.KeyValueNested AS keyvaluenested_1
+SET
+  keyvaluenested_1.Value = "3"
+WHERE
+  (keyvaluenested_1.Key) = 1
+THEN RETURN
+  (keyvaluenested_1.Key) + 1 AS `$col1`;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 UPDATE nested_catalog.KeyValueNested AS keyvaluenested_1
 SET
   keyvaluenested_1.Value = "3"
@@ -324,7 +558,16 @@ DELETE FROM nested_catalog.KeyValueNested
 WHERE key = 1
 THEN RETURN key+1
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+DELETE nested_catalog.KeyValueNested AS keyvaluenested_1
+WHERE
+  (keyvaluenested_1.Key) = 1
+THEN RETURN
+  (keyvaluenested_1.Key) + 1 AS `$col1`;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 DELETE nested_catalog.KeyValueNested AS keyvaluenested_1
 WHERE
   (keyvaluenested_1.Key) = 1
@@ -339,7 +582,8 @@ DELETE FROM nested_catalog.KeyValueNested AS T
 WHERE key = 1
 THEN RETURN T.key+1 AS my_key, key, T.key AS ref_key, 100 AS value
 --
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 DELETE nested_catalog.KeyValueNested AS keyvaluenested_1
 WHERE
   (keyvaluenested_1.Key) = 1
@@ -348,4 +592,14 @@ THEN RETURN
   keyvaluenested_1.Key AS key,
   keyvaluenested_1.Key AS ref_key,
   100 AS value;
-==
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+DELETE nested_catalog.KeyValueNested AS keyvaluenested_1
+WHERE
+  (keyvaluenested_1.Key) = 1
+THEN RETURN
+  (keyvaluenested_1.Key) + 1 AS my_key,
+  keyvaluenested_1.Key AS key,
+  keyvaluenested_1.Key AS ref_key,
+  100 AS value;

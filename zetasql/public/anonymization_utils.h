@@ -18,6 +18,7 @@
 #define ZETASQL_PUBLIC_ANONYMIZATION_UTILS_H_
 
 #include <memory>
+#include <optional>
 
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
@@ -74,7 +75,8 @@ class FunctionEpsilonAssigner {
  public:
   // Creates a new epsilon assigner based on the options and aggregations in the
   // scan. Returns an error in case the sum of all `epsilon` named arguments
-  // exceeds the `epsilon` option of the scan.
+  // exceeds the `epsilon` option of the scan. Must be a rewritten scan, so that
+  // additional aggregations for group selection might already have been added.
   static absl::StatusOr<std::unique_ptr<FunctionEpsilonAssigner>>
   CreateFromScan(const ResolvedDifferentialPrivacyAggregateScan* scan);
 
@@ -93,6 +95,23 @@ class FunctionEpsilonAssigner {
   // the number of aggregate functions in 2.
   virtual absl::StatusOr<double> GetEpsilonForFunction(
       const ResolvedFunctionCallBase* function_call) = 0;
+
+  // Returns the total epsilon of the scan that has been used to create this
+  // object. This includes the epsilon budget for aggregations as well as for
+  // group selection.
+  //
+  // In case all aggregations of the scan have an `epsilon` parameter, the sum
+  // of those parameters is returned.  Otherwise, the `epsilon` of the scan is
+  // returned.
+  //
+  // CAVEAT: The `epsilon` on a DP scan is ONLY optional in case that all
+  // containing aggregate functions have an `epsilon` parameter.
+  virtual double GetTotalEpsilon() = 0;
+
+  // Returns the epsilon used in the query for group selection.  Returns nullopt
+  // in case the query does not use group selection (e.g., because it uses
+  // public groups).
+  virtual std::optional<double> GetGroupSelectionEpsilon() = 0;
 
   virtual ~FunctionEpsilonAssigner() = default;
 };

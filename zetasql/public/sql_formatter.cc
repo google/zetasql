@@ -53,8 +53,7 @@ absl::Status FormatSql(absl::string_view sql, std::string* formatted_sql) {
     std::unique_ptr<ParserOutput> parser_output;
     LanguageOptions language_options;
     language_options.EnableMaximumLanguageFeaturesForDevelopment();
-    // TODO Allow V_1_4_SQL_MACROS as well
-    language_options.DisableLanguageFeature(FEATURE_V_1_4_SQL_MACROS);
+    // TODO Handle macros as well
     const absl::Status status =
         ParseNextStatement(&location, ParserOptions(language_options),
                            &parser_output, &at_end_of_input);

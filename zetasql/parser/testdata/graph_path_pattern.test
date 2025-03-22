@@ -1,0 +1,372 @@
+[default reserve_graph_table]
+[default language_features=V_1_4_SQL_GRAPH]
+
+select * from graph_table(
+  my.graph.name
+  MATCH (a)-[b]->(c)
+  COLUMNS (1 AS one)
+)
+
+--
+QueryStatement [0-86] [select * from...AS one) )]
+  Query [0-86] [select * from...AS one) )]
+    Select [0-86] [select * from...AS one) )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-86] [from graph_table...AS one) )]
+        GraphTableQuery [14-86] [graph_table...AS one) )]
+          PathExpression [29-42] [my.graph.name]
+            Identifier(my) [29-31] [my]
+            Identifier(graph) [32-37] [graph]
+            Identifier(name) [38-42] [name]
+          GqlMatch [45-63] [MATCH (a)-[b]->(c)]
+            GraphPattern [51-63] [(a)-[b]->(c)]
+              GraphPathPattern [51-63] [(a)-[b]->(c)]
+                GraphNodePattern [51-54] [(a)]
+                  GraphElementPatternFiller [52-53] [a]
+                    Identifier(a) [52-53] [a]
+                GraphEdgePattern [54-60] [-[b]->]
+                  GraphElementPatternFiller [56-57] [b]
+                    Identifier(b) [56-57] [b]
+                GraphNodePattern [60-63] [(c)]
+                  GraphElementPatternFiller [61-62] [c]
+                    Identifier(c) [61-62] [c]
+          SelectList [75-83] [1 AS one]
+            SelectColumn [75-83] [1 AS one]
+              IntLiteral(1) [75-76] [1]
+              Alias [77-83] [AS one]
+                Identifier(one) [80-83] [one]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    my.graph.name
+    MATCH
+      (a)
+      -[b]->
+      (c)
+    COLUMNS(
+      1 AS one
+    )
+  )
+==
+
+select * from graph_table(
+  my.graph.name
+  MATCH -[a]-><-[b]-
+  COLUMNS (1 AS one)
+)
+
+--
+QueryStatement [0-86] [select * from...AS one) )]
+  Query [0-86] [select * from...AS one) )]
+    Select [0-86] [select * from...AS one) )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-86] [from graph_table...AS one) )]
+        GraphTableQuery [14-86] [graph_table...AS one) )]
+          PathExpression [29-42] [my.graph.name]
+            Identifier(my) [29-31] [my]
+            Identifier(graph) [32-37] [graph]
+            Identifier(name) [38-42] [name]
+          GqlMatch [45-63] [MATCH -[a]-><-[b]-]
+            GraphPattern [51-63] [-[a]-><-[b]-]
+              GraphPathPattern [51-63] [-[a]-><-[b]-]
+                GraphEdgePattern [51-57] [-[a]->]
+                  GraphElementPatternFiller [53-54] [a]
+                    Identifier(a) [53-54] [a]
+                GraphEdgePattern [57-63] [<-[b]-]
+                  GraphElementPatternFiller [60-61] [b]
+                    Identifier(b) [60-61] [b]
+          SelectList [75-83] [1 AS one]
+            SelectColumn [75-83] [1 AS one]
+              IntLiteral(1) [75-76] [1]
+              Alias [77-83] [AS one]
+                Identifier(one) [80-83] [one]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    my.graph.name
+    MATCH
+      -[a]->
+      <-[b]-
+    COLUMNS(
+      1 AS one
+    )
+  )
+==
+
+select * from graph_table(
+  my.graph.name
+  MATCH (a)(b)
+  COLUMNS (1 AS one)
+)
+
+--
+QueryStatement [0-80] [select * from...AS one) )]
+  Query [0-80] [select * from...AS one) )]
+    Select [0-80] [select * from...AS one) )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-80] [from graph_table...AS one) )]
+        GraphTableQuery [14-80] [graph_table...AS one) )]
+          PathExpression [29-42] [my.graph.name]
+            Identifier(my) [29-31] [my]
+            Identifier(graph) [32-37] [graph]
+            Identifier(name) [38-42] [name]
+          GqlMatch [45-57] [MATCH (a)(b)]
+            GraphPattern [51-57] [(a)(b)]
+              GraphPathPattern [51-57] [(a)(b)]
+                GraphNodePattern [51-54] [(a)]
+                  GraphElementPatternFiller [52-53] [a]
+                    Identifier(a) [52-53] [a]
+                GraphNodePattern [54-57] [(b)]
+                  GraphElementPatternFiller [55-56] [b]
+                    Identifier(b) [55-56] [b]
+          SelectList [69-77] [1 AS one]
+            SelectColumn [69-77] [1 AS one]
+              IntLiteral(1) [69-70] [1]
+              Alias [71-77] [AS one]
+                Identifier(one) [74-77] [one]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    my.graph.name
+    MATCH
+      (a)
+      (b)
+    COLUMNS(
+      1 AS one
+    )
+  )
+==
+
+# There should be at least one input pattern.
+select * from graph_table(
+  my.graph.name
+  MATCH
+  COLUMNS (1 AS one)
+)
+--
+ERROR: Syntax error: Expected "=" but got "(" [at 4:11]
+  COLUMNS (1 AS one)
+          ^
+
+==
+
+# Parses <source/destination predicate> and validates the <not_operator> on
+# source/destination as identifiers.
+select * from graph_table(
+  aml
+  match (source) -[e]-> (destination)
+  columns((not source) AS not_source,
+          (not destination) AS not_destination,
+          (source IS SOURCE OF e) AS val0,
+          (source IS SOURCE e) AS val1,
+          (source IS NOT SOURCE OF e) AS val2,
+          (source IS NOT SOURCE e) AS val3,
+          (destination IS DESTINATION OF e) AS val4,
+          (destination IS DESTINATION e) AS val5,
+          (destination IS NOT DESTINATION OF e) AS val6,
+          (destination IS NOT DESTINATION e) AS val7)
+)
+--
+QueryStatement [0-546] [select * from...AS val7) )]
+  Query [0-546] [select * from...AS val7) )]
+    Select [0-546] [select * from...AS val7) )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-546] [from graph_table...AS val7) )]
+        GraphTableQuery [14-546] [graph_table...AS val7) )]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlMatch [35-70] [match (source...destination)]
+            GraphPattern [41-70] [(source) -[e]-> (destination)]
+              GraphPathPattern [41-70] [(source) -[e]-> (destination)]
+                GraphNodePattern [41-49] [(source)]
+                  GraphElementPatternFiller [42-48] [source]
+                    Identifier(source) [42-48] [source]
+                GraphEdgePattern [50-56] [-[e]->]
+                  GraphElementPatternFiller [52-53] [e]
+                    Identifier(e) [52-53] [e]
+                GraphNodePattern [57-70] [(destination)]
+                  GraphElementPatternFiller [58-69] [destination]
+                    Identifier(destination) [58-69] [destination]
+          SelectList [81-543] [(not source...e) AS val7]
+            SelectColumn [81-107] [(not source) AS not_source]
+              UnaryExpression(NOT) [82-92] [not source]
+                PathExpression [86-92] [source]
+                  Identifier(source) [86-92] [source]
+              Alias [94-107] [AS not_source]
+                Identifier(not_source) [97-107] [not_source]
+            SelectColumn [119-155] [(not destination...destination]
+              UnaryExpression(NOT) [120-135] [not destination]
+                PathExpression [124-135] [destination]
+                  Identifier(destination) [124-135] [destination]
+              Alias [137-155] [AS not_destination]
+                Identifier(not_destination) [140-155] [not_destination]
+            SelectColumn [167-198] [(source IS...e) AS val0]
+              BinaryExpression(IS SOURCE OF) [168-189] [source IS SOURCE OF e]
+                PathExpression [168-174] [source]
+                  Identifier(source) [168-174] [source]
+                PathExpression [188-189] [e]
+                  Identifier(e) [188-189] [e]
+              Alias [191-198] [AS val0]
+                Identifier(val0) [194-198] [val0]
+            SelectColumn [210-238] [(source IS SOURCE e) AS val1]
+              BinaryExpression(IS SOURCE OF) [211-229] [source IS SOURCE e]
+                PathExpression [211-217] [source]
+                  Identifier(source) [211-217] [source]
+                PathExpression [228-229] [e]
+                  Identifier(e) [228-229] [e]
+              Alias [231-238] [AS val1]
+                Identifier(val1) [234-238] [val1]
+            SelectColumn [250-285] [(source IS...e) AS val2]
+              BinaryExpression(IS NOT SOURCE OF) [251-276] [source IS NOT SOURCE OF e]
+                PathExpression [251-257] [source]
+                  Identifier(source) [251-257] [source]
+                PathExpression [275-276] [e]
+                  Identifier(e) [275-276] [e]
+              Alias [278-285] [AS val2]
+                Identifier(val2) [281-285] [val2]
+            SelectColumn [297-329] [(source IS...e) AS val3]
+              BinaryExpression(IS NOT SOURCE OF) [298-320] [source IS NOT SOURCE e]
+                PathExpression [298-304] [source]
+                  Identifier(source) [298-304] [source]
+                PathExpression [319-320] [e]
+                  Identifier(e) [319-320] [e]
+              Alias [322-329] [AS val3]
+                Identifier(val3) [325-329] [val3]
+            SelectColumn [341-382] [(destination...e) AS val4]
+              BinaryExpression(IS DESTINATION OF) [342-373] [destination...DESTINATION OF e]
+                PathExpression [342-353] [destination]
+                  Identifier(destination) [342-353] [destination]
+                PathExpression [372-373] [e]
+                  Identifier(e) [372-373] [e]
+              Alias [375-382] [AS val4]
+                Identifier(val4) [378-382] [val4]
+            SelectColumn [394-432] [(destination...e) AS val5]
+              BinaryExpression(IS DESTINATION OF) [395-423] [destination IS DESTINATION e]
+                PathExpression [395-406] [destination]
+                  Identifier(destination) [395-406] [destination]
+                PathExpression [422-423] [e]
+                  Identifier(e) [422-423] [e]
+              Alias [425-432] [AS val5]
+                Identifier(val5) [428-432] [val5]
+            SelectColumn [444-489] [(destination...e) AS val6]
+              BinaryExpression(IS NOT DESTINATION OF) [445-480] [destination...DESTINATION OF e]
+                PathExpression [445-456] [destination]
+                  Identifier(destination) [445-456] [destination]
+                PathExpression [479-480] [e]
+                  Identifier(e) [479-480] [e]
+              Alias [482-489] [AS val6]
+                Identifier(val6) [485-489] [val6]
+            SelectColumn [501-543] [(destination...e) AS val7]
+              BinaryExpression(IS NOT DESTINATION OF) [502-534] [destination...DESTINATION e]
+                PathExpression [502-513] [destination]
+                  Identifier(destination) [502-513] [destination]
+                PathExpression [533-534] [e]
+                  Identifier(e) [533-534] [e]
+              Alias [536-543] [AS val7]
+                Identifier(val7) [539-543] [val7]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (source)
+      -[e]->
+      (destination)
+    COLUMNS(
+      (NOT source) AS not_source,
+      (NOT destination) AS not_destination,
+      (source IS SOURCE OF e) AS val0,
+      (source IS SOURCE OF e) AS val1,
+      (source IS NOT SOURCE OF e) AS val2,
+      (source IS NOT SOURCE OF e) AS val3,
+      (destination IS DESTINATION OF e) AS val4,
+      (destination IS DESTINATION OF e) AS val5,
+      (destination IS NOT DESTINATION OF e) AS val6,
+      (destination IS NOT DESTINATION OF e) AS val7
+    )
+  )
+==
+
+# is source of as lhs of is destination of, no parens around lhs
+select * from graph_table(
+  aml
+  match (source) -[e]-> (destination)
+  columns((source is source of e is destination of destination) as val1)
+)
+--
+ERROR: Syntax error: Unexpected keyword IS [at 4:34]
+  columns((source is source of e is destination of destination) as val1)
+                                 ^
+==
+
+# is source of as lhs of is destination of with parens
+select * from graph_table(
+  aml
+  match (source) -[e]-> (destination)
+  columns(((source is source of e) is destination of destination) as val1)
+)
+--
+QueryStatement [0-147] [select * from...as val1) )]
+  Query [0-147] [select * from...as val1) )]
+    Select [0-147] [select * from...as val1) )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-147] [from graph_table...as val1) )]
+        GraphTableQuery [14-147] [graph_table...as val1) )]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlMatch [35-70] [match (source...destination)]
+            GraphPattern [41-70] [(source) -[e]-> (destination)]
+              GraphPathPattern [41-70] [(source) -[e]-> (destination)]
+                GraphNodePattern [41-49] [(source)]
+                  GraphElementPatternFiller [42-48] [source]
+                    Identifier(source) [42-48] [source]
+                GraphEdgePattern [50-56] [-[e]->]
+                  GraphElementPatternFiller [52-53] [e]
+                    Identifier(e) [52-53] [e]
+                GraphNodePattern [57-70] [(destination)]
+                  GraphElementPatternFiller [58-69] [destination]
+                    Identifier(destination) [58-69] [destination]
+          SelectList [81-144] [((source is...ination) as val1]
+            SelectColumn [81-144] [((source is...ination) as val1]
+              BinaryExpression(IS DESTINATION OF) [82-135] [(source is...destination]
+                BinaryExpression(IS SOURCE OF) [83-104] [source is source of e]
+                  PathExpression [83-89] [source]
+                    Identifier(source) [83-89] [source]
+                  PathExpression [103-104] [e]
+                    Identifier(e) [103-104] [e]
+                PathExpression [124-135] [destination]
+                  Identifier(destination) [124-135] [destination]
+              Alias [137-144] [as val1]
+                Identifier(val1) [140-144] [val1]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (source)
+      -[e]->
+      (destination)
+    COLUMNS(
+      ((source IS SOURCE OF e) IS DESTINATION OF destination) AS val1
+    )
+  )

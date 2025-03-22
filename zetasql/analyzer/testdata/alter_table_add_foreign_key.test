@@ -1,5 +1,6 @@
 [default language_features=FOREIGN_KEYS]
-[show_unparsed]
+[show_sqlbuilder_output]
+
 ALTER TABLE TwoIntegers ADD FOREIGN KEY(key) REFERENCES FourIntegers(key1);
 --
 AlterTableStmt
@@ -11,7 +12,12 @@ AlterTableStmt
     | +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=FourIntegers, referenced_column_offset_list=[0], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=key)
     +-table=TwoIntegers
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+ALTER TABLE TwoIntegers ADD FOREIGN KEY(key) REFERENCES FourIntegers(key1) MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION ENFORCED;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 ALTER TABLE TwoIntegers ADD FOREIGN KEY(key) REFERENCES FourIntegers(key1) MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION ENFORCED;
 ==
 

@@ -1,0 +1,2352 @@
+[default reserve_graph_table]
+[default language_features=V_1_4_SQL_GRAPH]
+
+# Element pattern hints
+SELECT * from GRAPH_TABLE(
+  aml
+  MATCH (@{key=a} a IS Account) -[@{key=b} b]-> (c IS Account)
+  COLUMNS (1 AS one)
+)
+--
+QueryStatement [24-142] [SELECT * from...AS one) )]
+  Query [24-142] [SELECT * from...AS one) )]
+    Select [24-142] [SELECT * from...AS one) )]
+      SelectList [31-32] [*]
+        SelectColumn [31-32] [*]
+          Star(*) [31-32] [*]
+      FromClause [33-142] [from GRAPH_TABLE...AS one) )]
+        GraphTableQuery [38-142] [GRAPH_TABLE...AS one) )]
+          PathExpression [53-56] [aml]
+            Identifier(aml) [53-56] [aml]
+          GqlMatch [59-119] [MATCH (@{key...IS Account)]
+            GraphPattern [65-119] [(@{key=a}...IS Account)]
+              GraphPathPattern [65-119] [(@{key=a}...IS Account)]
+                GraphNodePattern [65-88] [(@{key=a} a IS Account)]
+                  GraphElementPatternFiller [66-87] [@{key=a} a IS Account]
+                    Identifier(a) [75-76] [a]
+                    GraphLabelFilter [77-87] [IS Account]
+                      GraphElementLabel [80-87] [Account]
+                        Identifier(Account) [80-87] [Account]
+                    Hint [66-74] [@{key=a}]
+                      HintEntry [68-73] [key=a]
+                        Identifier(key) [68-71] [key]
+                        PathExpression [72-73] [a]
+                          Identifier(a) [72-73] [a]
+                GraphEdgePattern [89-104] [-[@{key=b} b]->]
+                  GraphElementPatternFiller [91-101] [@{key=b} b]
+                    Identifier(b) [100-101] [b]
+                    Hint [91-99] [@{key=b}]
+                      HintEntry [93-98] [key=b]
+                        Identifier(key) [93-96] [key]
+                        PathExpression [97-98] [b]
+                          Identifier(b) [97-98] [b]
+                GraphNodePattern [105-119] [(c IS Account)]
+                  GraphElementPatternFiller [106-118] [c IS Account]
+                    Identifier(c) [106-107] [c]
+                    GraphLabelFilter [108-118] [IS Account]
+                      GraphElementLabel [111-118] [Account]
+                        Identifier(Account) [111-118] [Account]
+          SelectList [131-139] [1 AS one]
+            SelectColumn [131-139] [1 AS one]
+              IntLiteral(1) [131-132] [1]
+              Alias [133-139] [AS one]
+                Identifier(one) [136-139] [one]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (@{ key = a } a
+      IS Account)
+      -[@{ key = b } b]->
+      (c
+      IS Account)
+    COLUMNS(
+      1 AS one
+    )
+  )
+==
+
+# Path pattern: Only LHS hint
+select * from graph_table(
+  graph
+  MATCH (alef) @{key=a_d} -[beta]-> (theta)
+  COLUMNS (1 AS one)
+)
+--
+QueryStatement [0-101] [select * from...AS one) )]
+  Query [0-101] [select * from...AS one) )]
+    Select [0-101] [select * from...AS one) )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-101] [from graph_table...AS one) )]
+        GraphTableQuery [14-101] [graph_table...AS one) )]
+          PathExpression [29-34] [graph]
+            Identifier(graph) [29-34] [graph]
+          GqlMatch [37-78] [MATCH (alef...-> (theta)]
+            GraphPattern [43-78] [(alef) @{key...-> (theta)]
+              GraphPathPattern [43-78] [(alef) @{key...-> (theta)]
+                GraphNodePattern [43-49] [(alef)]
+                  GraphElementPatternFiller [44-48] [alef]
+                    Identifier(alef) [44-48] [alef]
+                GraphEdgePattern [50-70] [@{key=a_d} -[beta]->]
+                  GraphLhsHint [50-60] [@{key=a_d}]
+                    Hint [50-60] [@{key=a_d}]
+                      HintEntry [52-59] [key=a_d]
+                        Identifier(key) [52-55] [key]
+                        PathExpression [56-59] [a_d]
+                          Identifier(a_d) [56-59] [a_d]
+                  GraphElementPatternFiller [63-67] [beta]
+                    Identifier(beta) [63-67] [beta]
+                GraphNodePattern [71-78] [(theta)]
+                  GraphElementPatternFiller [72-77] [theta]
+                    Identifier(theta) [72-77] [theta]
+          SelectList [90-98] [1 AS one]
+            SelectColumn [90-98] [1 AS one]
+              IntLiteral(1) [90-91] [1]
+              Alias [92-98] [AS one]
+                Identifier(one) [95-98] [one]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    graph
+    MATCH
+      (alef)
+      @{ key = a_d } -[beta]->
+      (theta)
+    COLUMNS(
+      1 AS one
+    )
+  )
+==
+
+# Path pattern: Only RHS hint
+select * from graph_table(
+  graph
+  MATCH (alef) -[beta]-> @{key=d_e} (theta)
+  COLUMNS (1 AS one)
+)
+--
+QueryStatement [0-101] [select * from...AS one) )]
+  Query [0-101] [select * from...AS one) )]
+    Select [0-101] [select * from...AS one) )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-101] [from graph_table...AS one) )]
+        GraphTableQuery [14-101] [graph_table...AS one) )]
+          PathExpression [29-34] [graph]
+            Identifier(graph) [29-34] [graph]
+          GqlMatch [37-78] [MATCH (alef...d_e} (theta)]
+            GraphPattern [43-78] [(alef) -[beta...d_e} (theta)]
+              GraphPathPattern [43-78] [(alef) -[beta...d_e} (theta)]
+                GraphNodePattern [43-49] [(alef)]
+                  GraphElementPatternFiller [44-48] [alef]
+                    Identifier(alef) [44-48] [alef]
+                GraphEdgePattern [50-70] [-[beta]-> @{key=d_e}]
+                  GraphRhsHint [60-70] [@{key=d_e}]
+                    Hint [60-70] [@{key=d_e}]
+                      HintEntry [62-69] [key=d_e]
+                        Identifier(key) [62-65] [key]
+                        PathExpression [66-69] [d_e]
+                          Identifier(d_e) [66-69] [d_e]
+                  GraphElementPatternFiller [52-56] [beta]
+                    Identifier(beta) [52-56] [beta]
+                GraphNodePattern [71-78] [(theta)]
+                  GraphElementPatternFiller [72-77] [theta]
+                    Identifier(theta) [72-77] [theta]
+          SelectList [90-98] [1 AS one]
+            SelectColumn [90-98] [1 AS one]
+              IntLiteral(1) [90-91] [1]
+              Alias [92-98] [AS one]
+                Identifier(one) [95-98] [one]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    graph
+    MATCH
+      (alef)
+      -[beta]-> @{ key = d_e }
+      (theta)
+    COLUMNS(
+      1 AS one
+    )
+  )
+==
+
+# Path pattern: both LHS and RHS hints
+SELECT * from GRAPH_TABLE(
+  graph
+  MATCH (alef) @{key=a_d} -[beta]-> @{key=d_e} (theta)
+  COLUMNS (1 AS one)
+)
+--
+QueryStatement [0-112] [SELECT * from...AS one) )]
+  Query [0-112] [SELECT * from...AS one) )]
+    Select [0-112] [SELECT * from...AS one) )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-112] [from GRAPH_TABLE...AS one) )]
+        GraphTableQuery [14-112] [GRAPH_TABLE...AS one) )]
+          PathExpression [29-34] [graph]
+            Identifier(graph) [29-34] [graph]
+          GqlMatch [37-89] [MATCH (alef...d_e} (theta)]
+            GraphPattern [43-89] [(alef) @{key...d_e} (theta)]
+              GraphPathPattern [43-89] [(alef) @{key...d_e} (theta)]
+                GraphNodePattern [43-49] [(alef)]
+                  GraphElementPatternFiller [44-48] [alef]
+                    Identifier(alef) [44-48] [alef]
+                GraphEdgePattern [50-81] [@{key=a_d}...@{key=d_e}]
+                  GraphLhsHint [50-60] [@{key=a_d}]
+                    Hint [50-60] [@{key=a_d}]
+                      HintEntry [52-59] [key=a_d]
+                        Identifier(key) [52-55] [key]
+                        PathExpression [56-59] [a_d]
+                          Identifier(a_d) [56-59] [a_d]
+                  GraphRhsHint [71-81] [@{key=d_e}]
+                    Hint [71-81] [@{key=d_e}]
+                      HintEntry [73-80] [key=d_e]
+                        Identifier(key) [73-76] [key]
+                        PathExpression [77-80] [d_e]
+                          Identifier(d_e) [77-80] [d_e]
+                  GraphElementPatternFiller [63-67] [beta]
+                    Identifier(beta) [63-67] [beta]
+                GraphNodePattern [82-89] [(theta)]
+                  GraphElementPatternFiller [83-88] [theta]
+                    Identifier(theta) [83-88] [theta]
+          SelectList [101-109] [1 AS one]
+            SelectColumn [101-109] [1 AS one]
+              IntLiteral(1) [101-102] [1]
+              Alias [103-109] [AS one]
+                Identifier(one) [106-109] [one]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    graph
+    MATCH
+      (alef)
+      @{ key = a_d } -[beta]-> @{ key = d_e }
+      (theta)
+    COLUMNS(
+      1 AS one
+    )
+  )
+==
+
+# Summarized path pattern hints (no explicit edge)
+SELECT * from GRAPH_TABLE(
+  graph
+  MATCH (alef) @{key=a_d} -> @{key=d_e} (theta)
+  COLUMNS (1 AS one)
+)
+--
+QueryStatement [0-105] [SELECT * from...AS one) )]
+  Query [0-105] [SELECT * from...AS one) )]
+    Select [0-105] [SELECT * from...AS one) )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-105] [from GRAPH_TABLE...AS one) )]
+        GraphTableQuery [14-105] [GRAPH_TABLE...AS one) )]
+          PathExpression [29-34] [graph]
+            Identifier(graph) [29-34] [graph]
+          GqlMatch [37-82] [MATCH (alef...d_e} (theta)]
+            GraphPattern [43-82] [(alef) @{key...d_e} (theta)]
+              GraphPathPattern [43-82] [(alef) @{key...d_e} (theta)]
+                GraphNodePattern [43-49] [(alef)]
+                  GraphElementPatternFiller [44-48] [alef]
+                    Identifier(alef) [44-48] [alef]
+                GraphEdgePattern [50-74] [@{key=a_d} -> @{key=d_e}]
+                  GraphLhsHint [50-60] [@{key=a_d}]
+                    Hint [50-60] [@{key=a_d}]
+                      HintEntry [52-59] [key=a_d]
+                        Identifier(key) [52-55] [key]
+                        PathExpression [56-59] [a_d]
+                          Identifier(a_d) [56-59] [a_d]
+                  GraphRhsHint [64-74] [@{key=d_e}]
+                    Hint [64-74] [@{key=d_e}]
+                      HintEntry [66-73] [key=d_e]
+                        Identifier(key) [66-69] [key]
+                        PathExpression [70-73] [d_e]
+                          Identifier(d_e) [70-73] [d_e]
+                GraphNodePattern [75-82] [(theta)]
+                  GraphElementPatternFiller [76-81] [theta]
+                    Identifier(theta) [76-81] [theta]
+          SelectList [94-102] [1 AS one]
+            SelectColumn [94-102] [1 AS one]
+              IntLiteral(1) [94-95] [1]
+              Alias [96-102] [AS one]
+                Identifier(one) [99-102] [one]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    graph
+    MATCH
+      (alef)
+      @{ key = a_d } -> @{ key = d_e }
+      (theta)
+    COLUMNS(
+      1 AS one
+    )
+  )
+==
+
+# Graph path pattern hint
+SELECT * FROM GRAPH_TABLE(
+  aml
+  MATCH (a IS Account ) -[b]-> (c IS Account), @{key=path_path}
+        (a IS Account) <-[d]- (e IS Person)
+  COLUMNS (1 AS one)
+)
+--
+QueryStatement [0-163] [SELECT * FROM...AS one) )]
+  Query [0-163] [SELECT * FROM...AS one) )]
+    Select [0-163] [SELECT * FROM...AS one) )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-163] [FROM GRAPH_TABLE...AS one) )]
+        GraphTableQuery [14-163] [GRAPH_TABLE...AS one) )]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlMatch [35-140] [MATCH (a IS...IS Person)]
+            GraphPattern [41-140] [(a IS Account...IS Person)]
+              GraphPathPattern [41-78] [(a IS Account...IS Account)]
+                GraphNodePattern [41-56] [(a IS Account )]
+                  GraphElementPatternFiller [42-54] [a IS Account]
+                    Identifier(a) [42-43] [a]
+                    GraphLabelFilter [44-54] [IS Account]
+                      GraphElementLabel [47-54] [Account]
+                        Identifier(Account) [47-54] [Account]
+                GraphEdgePattern [57-63] [-[b]->]
+                  GraphElementPatternFiller [59-60] [b]
+                    Identifier(b) [59-60] [b]
+                GraphNodePattern [64-78] [(c IS Account)]
+                  GraphElementPatternFiller [65-77] [c IS Account]
+                    Identifier(c) [65-66] [c]
+                    GraphLabelFilter [67-77] [IS Account]
+                      GraphElementLabel [70-77] [Account]
+                        Identifier(Account) [70-77] [Account]
+              GraphPathPattern [80-140] [@{key=path_path...IS Person)]
+                Hint [80-96] [@{key=path_path}]
+                  HintEntry [82-95] [key=path_path]
+                    Identifier(key) [82-85] [key]
+                    PathExpression [86-95] [path_path]
+                      Identifier(path_path) [86-95] [path_path]
+                GraphNodePattern [105-119] [(a IS Account)]
+                  GraphElementPatternFiller [106-118] [a IS Account]
+                    Identifier(a) [106-107] [a]
+                    GraphLabelFilter [108-118] [IS Account]
+                      GraphElementLabel [111-118] [Account]
+                        Identifier(Account) [111-118] [Account]
+                GraphEdgePattern [120-126] [<-[d]-]
+                  GraphElementPatternFiller [123-124] [d]
+                    Identifier(d) [123-124] [d]
+                GraphNodePattern [127-140] [(e IS Person)]
+                  GraphElementPatternFiller [128-139] [e IS Person]
+                    Identifier(e) [128-129] [e]
+                    GraphLabelFilter [130-139] [IS Person]
+                      GraphElementLabel [133-139] [Person]
+                        Identifier(Person) [133-139] [Person]
+          SelectList [152-160] [1 AS one]
+            SelectColumn [152-160] [1 AS one]
+              IntLiteral(1) [152-153] [1]
+              Alias [154-160] [AS one]
+                Identifier(one) [157-160] [one]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a
+      IS Account)
+      -[b]->
+      (c
+      IS Account),
+      @{ key = path_path }
+      (a
+      IS Account)
+      <-[d]-
+      (e
+      IS Person)
+    COLUMNS(
+      1 AS one
+    )
+  )
+==
+
+# All hint types in the same Query
+SELECT * FROM GRAPH_TABLE(
+  aml
+  MATCH (@{key=a} a IS Account) @{key=a_b} -[@{key=b} b]-> @{key=b_c} (c IS Account), @{key=path_path}
+        (a IS Account) @{key=a_d} <-[d]- @{key=d_e} (e IS Person)
+  COLUMNS (1 AS one)
+)
+--
+QueryStatement [0-224] [SELECT * FROM...AS one) )]
+  Query [0-224] [SELECT * FROM...AS one) )]
+    Select [0-224] [SELECT * FROM...AS one) )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-224] [FROM GRAPH_TABLE...AS one) )]
+        GraphTableQuery [14-224] [GRAPH_TABLE...AS one) )]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlMatch [35-201] [MATCH (@{key...IS Person)]
+            GraphPattern [41-201] [(@{key=a}...IS Person)]
+              GraphPathPattern [41-117] [(@{key=a}...IS Account)]
+                GraphNodePattern [41-64] [(@{key=a} a IS Account)]
+                  GraphElementPatternFiller [42-63] [@{key=a} a IS Account]
+                    Identifier(a) [51-52] [a]
+                    GraphLabelFilter [53-63] [IS Account]
+                      GraphElementLabel [56-63] [Account]
+                        Identifier(Account) [56-63] [Account]
+                    Hint [42-50] [@{key=a}]
+                      HintEntry [44-49] [key=a]
+                        Identifier(key) [44-47] [key]
+                        PathExpression [48-49] [a]
+                          Identifier(a) [48-49] [a]
+                GraphEdgePattern [65-102] [@{key=a_b}...@{key=b_c}]
+                  GraphLhsHint [65-75] [@{key=a_b}]
+                    Hint [65-75] [@{key=a_b}]
+                      HintEntry [67-74] [key=a_b]
+                        Identifier(key) [67-70] [key]
+                        PathExpression [71-74] [a_b]
+                          Identifier(a_b) [71-74] [a_b]
+                  GraphRhsHint [92-102] [@{key=b_c}]
+                    Hint [92-102] [@{key=b_c}]
+                      HintEntry [94-101] [key=b_c]
+                        Identifier(key) [94-97] [key]
+                        PathExpression [98-101] [b_c]
+                          Identifier(b_c) [98-101] [b_c]
+                  GraphElementPatternFiller [78-88] [@{key=b} b]
+                    Identifier(b) [87-88] [b]
+                    Hint [78-86] [@{key=b}]
+                      HintEntry [80-85] [key=b]
+                        Identifier(key) [80-83] [key]
+                        PathExpression [84-85] [b]
+                          Identifier(b) [84-85] [b]
+                GraphNodePattern [103-117] [(c IS Account)]
+                  GraphElementPatternFiller [104-116] [c IS Account]
+                    Identifier(c) [104-105] [c]
+                    GraphLabelFilter [106-116] [IS Account]
+                      GraphElementLabel [109-116] [Account]
+                        Identifier(Account) [109-116] [Account]
+              GraphPathPattern [119-201] [@{key=path_path...IS Person)]
+                Hint [119-135] [@{key=path_path}]
+                  HintEntry [121-134] [key=path_path]
+                    Identifier(key) [121-124] [key]
+                    PathExpression [125-134] [path_path]
+                      Identifier(path_path) [125-134] [path_path]
+                GraphNodePattern [144-158] [(a IS Account)]
+                  GraphElementPatternFiller [145-157] [a IS Account]
+                    Identifier(a) [145-146] [a]
+                    GraphLabelFilter [147-157] [IS Account]
+                      GraphElementLabel [150-157] [Account]
+                        Identifier(Account) [150-157] [Account]
+                GraphEdgePattern [159-187] [@{key=a_d} <-[d]- @{key=d_e}]
+                  GraphLhsHint [159-169] [@{key=a_d}]
+                    Hint [159-169] [@{key=a_d}]
+                      HintEntry [161-168] [key=a_d]
+                        Identifier(key) [161-164] [key]
+                        PathExpression [165-168] [a_d]
+                          Identifier(a_d) [165-168] [a_d]
+                  GraphRhsHint [177-187] [@{key=d_e}]
+                    Hint [177-187] [@{key=d_e}]
+                      HintEntry [179-186] [key=d_e]
+                        Identifier(key) [179-182] [key]
+                        PathExpression [183-186] [d_e]
+                          Identifier(d_e) [183-186] [d_e]
+                  GraphElementPatternFiller [173-174] [d]
+                    Identifier(d) [173-174] [d]
+                GraphNodePattern [188-201] [(e IS Person)]
+                  GraphElementPatternFiller [189-200] [e IS Person]
+                    Identifier(e) [189-190] [e]
+                    GraphLabelFilter [191-200] [IS Person]
+                      GraphElementLabel [194-200] [Person]
+                        Identifier(Person) [194-200] [Person]
+          SelectList [213-221] [1 AS one]
+            SelectColumn [213-221] [1 AS one]
+              IntLiteral(1) [213-214] [1]
+              Alias [215-221] [AS one]
+                Identifier(one) [218-221] [one]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (@{ key = a } a
+      IS Account)
+      @{ key = a_b } -[@{ key = b } b]-> @{ key = b_c }
+      (c
+      IS Account),
+      @{ key = path_path }
+      (a
+      IS Account)
+      @{ key = a_d } <-[d]- @{ key = d_e }
+      (e
+      IS Person)
+    COLUMNS(
+      1 AS one
+    )
+  )
+==
+
+select * from graph_table(
+  graph
+  MATCH -[a]-> @{key=a_b} <-[b]-
+  COLUMNS (1 AS one)
+)
+--
+ERROR: Hint cannot be used in between two GraphEdgePatterns [at 3:16]
+  MATCH -[a]-> @{key=a_b} <-[b]-
+               ^
+==
+
+select * from graph_table(
+  graph
+  MATCH -[a]-> @{key=ambiguous_e_n}
+  COLUMNS (1 AS one)
+)
+--
+
+ERROR: Syntax error: Expected "(" or "-" or "<" or -> but got keyword COLUMNS [at 4:3]
+  COLUMNS (1 AS one)
+  ^
+==
+
+select * from graph_table(
+  graph
+  MATCH  <-[b]- @{key=e_sub} (-[a]->-[a]->) @{key=sub_e} <-[b]-
+  COLUMNS (1 AS one)
+)
+--
+
+QueryStatement [0-121] [select * from...AS one) )]
+  Query [0-121] [select * from...AS one) )]
+    Select [0-121] [select * from...AS one) )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-121] [from graph_table...AS one) )]
+        GraphTableQuery [14-121] [graph_table...AS one) )]
+          PathExpression [29-34] [graph]
+            Identifier(graph) [29-34] [graph]
+          GqlMatch [37-98] [MATCH  <-[...sub_e} <-[b]-]
+            GraphPattern [44-98] [<-[b]- @{key...sub_e} <-[b]-]
+              GraphPathPattern [44-98] [<-[b]- @{key...sub_e} <-[b]-]
+                GraphEdgePattern [44-63] [<-[b]- @{key=e_sub}]
+                  GraphRhsHint [51-63] [@{key=e_sub}]
+                    Hint [51-63] [@{key=e_sub}]
+                      HintEntry [53-62] [key=e_sub]
+                        Identifier(key) [53-56] [key]
+                        PathExpression [57-62] [e_sub]
+                          Identifier(e_sub) [57-62] [e_sub]
+                  GraphElementPatternFiller [47-48] [b]
+                    Identifier(b) [47-48] [b]
+                ParenthesizedGraphPathPattern [64-78] [(-[a]->-[a]->)]
+                  GraphEdgePattern [65-71] [-[a]->]
+                    GraphElementPatternFiller [67-68] [a]
+                      Identifier(a) [67-68] [a]
+                  GraphEdgePattern [71-77] [-[a]->]
+                    GraphElementPatternFiller [73-74] [a]
+                      Identifier(a) [73-74] [a]
+                GraphEdgePattern [79-98] [@{key=sub_e} <-[b]-]
+                  GraphLhsHint [79-91] [@{key=sub_e}]
+                    Hint [79-91] [@{key=sub_e}]
+                      HintEntry [81-90] [key=sub_e]
+                        Identifier(key) [81-84] [key]
+                        PathExpression [85-90] [sub_e]
+                          Identifier(sub_e) [85-90] [sub_e]
+                  GraphElementPatternFiller [95-96] [b]
+                    Identifier(b) [95-96] [b]
+          SelectList [110-118] [1 AS one]
+            SelectColumn [110-118] [1 AS one]
+              IntLiteral(1) [110-111] [1]
+              Alias [112-118] [AS one]
+                Identifier(one) [115-118] [one]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    graph
+    MATCH
+      <-[b]- @{ key = e_sub }
+      (
+        -[a]->
+        -[a]->
+      )
+      @{ key = sub_e } <-[b]-
+    COLUMNS(
+      1 AS one
+    )
+  )
+==
+
+select * from graph_table(
+  graph
+  MATCH  <-[b]- (() @{key=n_e} -[a]-> () -[a]-> @{key=e_n} ()) @{key=sub_e} <-[b]-
+  COLUMNS (1 AS one)
+)
+--
+
+QueryStatement [0-140] [select * from...AS one) )]
+  Query [0-140] [select * from...AS one) )]
+    Select [0-140] [select * from...AS one) )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-140] [from graph_table...AS one) )]
+        GraphTableQuery [14-140] [graph_table...AS one) )]
+          PathExpression [29-34] [graph]
+            Identifier(graph) [29-34] [graph]
+          GqlMatch [37-117] [MATCH  <-[...sub_e} <-[b]-]
+            GraphPattern [44-117] [<-[b]- (()...sub_e} <-[b]-]
+              GraphPathPattern [44-117] [<-[b]- (()...sub_e} <-[b]-]
+                GraphEdgePattern [44-50] [<-[b]-]
+                  GraphElementPatternFiller [47-48] [b]
+                    Identifier(b) [47-48] [b]
+                ParenthesizedGraphPathPattern [51-97] [(() @{key=...key=e_n} ())]
+                  GraphNodePattern [52-54] [()]
+                    GraphElementPatternFiller [53-53] []
+                  GraphEdgePattern [55-72] [@{key=n_e} -[a]->]
+                    GraphLhsHint [55-65] [@{key=n_e}]
+                      Hint [55-65] [@{key=n_e}]
+                        HintEntry [57-64] [key=n_e]
+                          Identifier(key) [57-60] [key]
+                          PathExpression [61-64] [n_e]
+                            Identifier(n_e) [61-64] [n_e]
+                    GraphElementPatternFiller [68-69] [a]
+                      Identifier(a) [68-69] [a]
+                  GraphNodePattern [73-75] [()]
+                    GraphElementPatternFiller [74-74] []
+                  GraphEdgePattern [76-93] [-[a]-> @{key=e_n}]
+                    GraphRhsHint [83-93] [@{key=e_n}]
+                      Hint [83-93] [@{key=e_n}]
+                        HintEntry [85-92] [key=e_n]
+                          Identifier(key) [85-88] [key]
+                          PathExpression [89-92] [e_n]
+                            Identifier(e_n) [89-92] [e_n]
+                    GraphElementPatternFiller [78-79] [a]
+                      Identifier(a) [78-79] [a]
+                  GraphNodePattern [94-96] [()]
+                    GraphElementPatternFiller [95-95] []
+                GraphEdgePattern [98-117] [@{key=sub_e} <-[b]-]
+                  GraphLhsHint [98-110] [@{key=sub_e}]
+                    Hint [98-110] [@{key=sub_e}]
+                      HintEntry [100-109] [key=sub_e]
+                        Identifier(key) [100-103] [key]
+                        PathExpression [104-109] [sub_e]
+                          Identifier(sub_e) [104-109] [sub_e]
+                  GraphElementPatternFiller [114-115] [b]
+                    Identifier(b) [114-115] [b]
+          SelectList [129-137] [1 AS one]
+            SelectColumn [129-137] [1 AS one]
+              IntLiteral(1) [129-130] [1]
+              Alias [131-137] [AS one]
+                Identifier(one) [134-137] [one]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    graph
+    MATCH
+      <-[b]-
+      (
+        ()
+        @{ key = n_e } -[a]->
+        ()
+        -[a]-> @{ key = e_n }
+        ()
+      )
+      @{ key = sub_e } <-[b]-
+    COLUMNS(
+      1 AS one
+    )
+  )
+==
+
+select * from graph_table(
+  graph
+  MATCH (-[a]->@{key=e_e} -[a]->) (<-[b]-)
+  COLUMNS (1 AS one)
+)
+--
+
+ERROR: Hint cannot be used in between two GraphEdgePatterns [at 3:16]
+  MATCH (-[a]->@{key=e_e} -[a]->) (<-[b]-)
+               ^
+==
+
+select * from graph_table(
+  graph
+  MATCH (-[a]-> -[a]-> @{key=ambiguous_e_n}) (<-[b]-)
+  COLUMNS (1 AS one)
+)
+--
+ERROR: Syntax error: Expected "(" or "-" or "<" or -> but got ")" [at 3:44]
+  MATCH (-[a]-> -[a]-> @{key=ambiguous_e_n}) (<-[b]-)
+                                           ^
+==
+
+select * from graph_table(
+  graph
+  MATCH (@{key=ambiguous_n_e} -[a]-> -[a]-> @{key=ambiguous_e_n})
+  COLUMNS (1 AS one)
+)
+--
+ERROR: Syntax error: Expected "(" or "-" or "<" or -> but got ")" [at 3:65]
+  MATCH (@{key=ambiguous_n_e} -[a]-> -[a]-> @{key=ambiguous_e_n})
+                                                                ^
+==
+
+select * from graph_table(
+  graph
+  MATCH (a) -[b]-> (c),  @{key=path_spath} ((d) -[e]-> (f)), @{key=spath_spath} (-[e]->)
+  COLUMNS (1 AS one)
+)
+--
+QueryStatement [0-146] [select * from...AS one) )]
+  Query [0-146] [select * from...AS one) )]
+    Select [0-146] [select * from...AS one) )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-146] [from graph_table...AS one) )]
+        GraphTableQuery [14-146] [graph_table...AS one) )]
+          PathExpression [29-34] [graph]
+            Identifier(graph) [29-34] [graph]
+          GqlMatch [37-123] [MATCH (a)...} (-[e]->)]
+            GraphPattern [43-123] [(a) -[b]->...} (-[e]->)]
+              GraphPathPattern [43-57] [(a) -[b]-> (c)]
+                GraphNodePattern [43-46] [(a)]
+                  GraphElementPatternFiller [44-45] [a]
+                    Identifier(a) [44-45] [a]
+                GraphEdgePattern [47-53] [-[b]->]
+                  GraphElementPatternFiller [49-50] [b]
+                    Identifier(b) [49-50] [b]
+                GraphNodePattern [54-57] [(c)]
+                  GraphElementPatternFiller [55-56] [c]
+                    Identifier(c) [55-56] [c]
+              ParenthesizedGraphPathPattern [60-94] [@{key=path_spath...[e]-> (f))]
+                Hint [60-77] [@{key=path_spath}]
+                  HintEntry [62-76] [key=path_spath]
+                    Identifier(key) [62-65] [key]
+                    PathExpression [66-76] [path_spath]
+                      Identifier(path_spath) [66-76] [path_spath]
+                GraphNodePattern [79-82] [(d)]
+                  GraphElementPatternFiller [80-81] [d]
+                    Identifier(d) [80-81] [d]
+                GraphEdgePattern [83-89] [-[e]->]
+                  GraphElementPatternFiller [85-86] [e]
+                    Identifier(e) [85-86] [e]
+                GraphNodePattern [90-93] [(f)]
+                  GraphElementPatternFiller [91-92] [f]
+                    Identifier(f) [91-92] [f]
+              ParenthesizedGraphPathPattern [96-123] [@{key=spath_spath} (-[e]->)]
+                Hint [96-114] [@{key=spath_spath}]
+                  HintEntry [98-113] [key=spath_spath]
+                    Identifier(key) [98-101] [key]
+                    PathExpression [102-113] [spath_spath]
+                      Identifier(spath_spath) [102-113] [spath_spath]
+                GraphEdgePattern [116-122] [-[e]->]
+                  GraphElementPatternFiller [118-119] [e]
+                    Identifier(e) [118-119] [e]
+          SelectList [135-143] [1 AS one]
+            SelectColumn [135-143] [1 AS one]
+              IntLiteral(1) [135-136] [1]
+              Alias [137-143] [AS one]
+                Identifier(one) [140-143] [one]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    graph
+    MATCH
+      (a)
+      -[b]->
+      (c),
+      @{ key = path_spath }
+      (
+        (d)
+        -[e]->
+        (f)
+      ),
+      @{ key = spath_spath }
+      (
+        -[e]->
+      )
+    COLUMNS(
+      1 AS one
+    )
+  )
+
+==
+
+select * from graph_table(
+  my.graph.name
+  MATCH ((-[b]-> WHERE true) @{key = ambiguous_hint}), ((((-[b]->))) WHERE true)
+  COLUMNS (b.x)
+)
+--
+
+ERROR: Syntax error: Expected "(" or "-" or "<" or -> but got ")" [at 3:53]
+  MATCH ((-[b]-> WHERE true) @{key = ambiguous_hint}), ((((-[b]->))) WHERE true)
+                                                    ^
+
+==
+
+select * from graph_table(
+  my.graph.name
+  MATCH ((-[b]-> WHERE true)), @{key = path_path_1} ((((-[b]->))) WHERE true), @{key = path_path_2} (((( -> @{key = e_subpath} ((-[b]-> WHERE true)) @{key = subpath_e} -> )) WHERE false)), (((-[b]->))), @{key = path_path_3} ((()))
+  COLUMNS (b.x)
+)
+--
+
+QueryStatement [0-291] [select * from...OLUMNS (b.x) )]
+  Query [0-291] [select * from...OLUMNS (b.x) )]
+    Select [0-291] [select * from...OLUMNS (b.x) )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-291] [from graph_table...MNS (b.x) )]
+        GraphTableQuery [14-291] [graph_table...COLUMNS (b.x) )]
+          PathExpression [29-42] [my.graph.name]
+            Identifier(my) [29-31] [my]
+            Identifier(graph) [32-37] [graph]
+            Identifier(name) [38-42] [name]
+          GqlMatch [45-273] [MATCH ((-[...th_path_3} ((()))]
+            GraphPattern [51-273] [((-[b]-> WHERE...ath_3} ((()))]
+              ParenthesizedGraphPathPattern [51-72] [((-[b]-> WHERE true))]
+                WhereClause [60-70] [WHERE true]
+                  BooleanLiteral(true) [66-70] [true]
+                GraphEdgePattern [53-59] [-[b]->]
+                  GraphElementPatternFiller [55-56] [b]
+                    Identifier(b) [55-56] [b]
+              ParenthesizedGraphPathPattern [74-120] [@{key = path_path...HERE true)]
+                Hint [74-94] [@{key = path_path_1}]
+                  HintEntry [76-93] [key = path_path_1]
+                    Identifier(key) [76-79] [key]
+                    PathExpression [82-93] [path_path_1]
+                      Identifier(path_path_1) [82-93] [path_path_1]
+                WhereClause [109-119] [WHERE true]
+                  BooleanLiteral(true) [115-119] [true]
+                ParenthesizedGraphPathPattern [96-108] [(((-[b]->)))]
+                  GraphEdgePattern [99-105] [-[b]->]
+                    GraphElementPatternFiller [101-102] [b]
+                      Identifier(b) [101-102] [b]
+              ParenthesizedGraphPathPattern [122-230] [@{key = path_path...RE false))]
+                Hint [122-142] [@{key = path_path_2}]
+                  HintEntry [124-141] [key = path_path_2]
+                    Identifier(key) [124-127] [key]
+                    PathExpression [130-141] [path_path_2]
+                      Identifier(path_path_2) [130-141] [path_path_2]
+                WhereClause [217-228] [WHERE false]
+                  BooleanLiteral(false) [223-228] [false]
+                ParenthesizedGraphPathPattern [145-216] [(( -> @{key...subpath_e} -> ))]
+                  GraphEdgePattern [148-169] [-> @{key = e_subpath}]
+                    GraphRhsHint [151-169] [@{key = e_subpath}]
+                      Hint [151-169] [@{key = e_subpath}]
+                        HintEntry [153-168] [key = e_subpath]
+                          Identifier(key) [153-156] [key]
+                          PathExpression [159-168] [e_subpath]
+                            Identifier(e_subpath) [159-168] [e_subpath]
+                  ParenthesizedGraphPathPattern [170-191] [((-[b]-> WHERE true))]
+                    WhereClause [179-189] [WHERE true]
+                      BooleanLiteral(true) [185-189] [true]
+                    GraphEdgePattern [172-178] [-[b]->]
+                      GraphElementPatternFiller [174-175] [b]
+                        Identifier(b) [174-175] [b]
+                  GraphEdgePattern [192-213] [@{key = subpath_e} ->]
+                    GraphLhsHint [192-210] [@{key = subpath_e}]
+                      Hint [192-210] [@{key = subpath_e}]
+                        HintEntry [194-209] [key = subpath_e]
+                          Identifier(key) [194-197] [key]
+                          PathExpression [200-209] [subpath_e]
+                            Identifier(subpath_e) [200-209] [subpath_e]
+              ParenthesizedGraphPathPattern [232-244] [(((-[b]->)))]
+                GraphEdgePattern [235-241] [-[b]->]
+                  GraphElementPatternFiller [237-238] [b]
+                    Identifier(b) [237-238] [b]
+              ParenthesizedGraphPathPattern [246-273] [@{key = path_path_3} ((()))]
+                Hint [246-266] [@{key = path_path_3}]
+                  HintEntry [248-265] [key = path_path_3]
+                    Identifier(key) [248-251] [key]
+                    PathExpression [254-265] [path_path_3]
+                      Identifier(path_path_3) [254-265] [path_path_3]
+                GraphNodePattern [269-271] [()]
+                  GraphElementPatternFiller [270-270] []
+          SelectList [285-288] [b.x]
+            SelectColumn [285-288] [b.x]
+              PathExpression [285-288] [b.x]
+                Identifier(b) [285-286] [b]
+                Identifier(x) [287-288] [x]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    my.graph.name
+    MATCH
+      (
+        -[b]->
+        WHERE
+          true
+      ),
+      @{ key = path_path_1 }
+      (
+        (
+          -[b]->
+        )
+        WHERE
+          true
+      ),
+      @{ key = path_path_2 }
+      (
+        (
+          -> @{ key = e_subpath }
+          (
+            -[b]->
+            WHERE
+              true
+          )
+          @{ key = subpath_e } ->
+        )
+        WHERE
+          false
+      ),
+      (
+        -[b]->
+      ),
+      @{ key = path_path_3 }
+      (
+        ()
+      )
+    COLUMNS(
+      b.x
+    )
+  )
+
+==
+
+# Traversal hints within a quantified path
+select * from graph_table(
+  my.graph.name
+  MATCH ((a)-[b]->@{key=val}(c)){, 3}
+  COLUMNS(1 AS One)
+)
+--
+QueryStatement [0-102] [select * from...AS One) )]
+  Query [0-102] [select * from...AS One) )]
+    Select [0-102] [select * from...AS One) )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-102] [from graph_table...AS One) )]
+        GraphTableQuery [14-102] [graph_table...AS One) )]
+          PathExpression [29-42] [my.graph.name]
+            Identifier(my) [29-31] [my]
+            Identifier(graph) [32-37] [graph]
+            Identifier(name) [38-42] [name]
+          GqlMatch [45-80] [MATCH ((a)...}(c)){, 3}]
+            GraphPattern [51-80] [((a)-[b]->@{key=val}(c)){, 3}]
+              ParenthesizedGraphPathPattern [51-80] [((a)-[b]->@{key=val}(c)){, 3}]
+                BoundedQuantifier [75-80] [{, 3}]
+                  QuantifierBound [76-76] []
+                  QuantifierBound [78-79] [3]
+                    IntLiteral(3) [78-79] [3]
+                GraphNodePattern [52-55] [(a)]
+                  GraphElementPatternFiller [53-54] [a]
+                    Identifier(a) [53-54] [a]
+                GraphEdgePattern [55-71] [-[b]->@{key=val}]
+                  GraphRhsHint [61-71] [@{key=val}]
+                    Hint [61-71] [@{key=val}]
+                      HintEntry [63-70] [key=val]
+                        Identifier(key) [63-66] [key]
+                        PathExpression [67-70] [val]
+                          Identifier(val) [67-70] [val]
+                  GraphElementPatternFiller [57-58] [b]
+                    Identifier(b) [57-58] [b]
+                GraphNodePattern [71-74] [(c)]
+                  GraphElementPatternFiller [72-73] [c]
+                    Identifier(c) [72-73] [c]
+          SelectList [91-99] [1 AS One]
+            SelectColumn [91-99] [1 AS One]
+              IntLiteral(1) [91-92] [1]
+              Alias [93-99] [AS One]
+                Identifier(One) [96-99] [One]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    my.graph.name
+    MATCH
+      (
+        (a)
+        -[b]-> @{ key = val }
+        (c)
+      ) {, 3 }
+    COLUMNS(
+      1 AS One
+    )
+  )
+==
+
+# Traversal hints from a quantified path to an edge
+select * from graph_table(
+  my.graph.name
+  MATCH ((a)-[b]->(c)){1, 3}@{key=val}->(d)
+  COLUMNS(1 AS One)
+)
+--
+QueryStatement [0-108] [select * from...AS One) )]
+  Query [0-108] [select * from...AS One) )]
+    Select [0-108] [select * from...AS One) )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-108] [from graph_table...AS One) )]
+        GraphTableQuery [14-108] [graph_table...AS One) )]
+          PathExpression [29-42] [my.graph.name]
+            Identifier(my) [29-31] [my]
+            Identifier(graph) [32-37] [graph]
+            Identifier(name) [38-42] [name]
+          GqlMatch [45-86] [MATCH ((a)...=val}->(d)]
+            GraphPattern [51-86] [((a)-[b]->...=val}->(d)]
+              GraphPathPattern [51-86] [((a)-[b]->...=val}->(d)]
+                ParenthesizedGraphPathPattern [51-71] [((a)-[b]->(c)){1, 3}]
+                  BoundedQuantifier [65-71] [{1, 3}]
+                    QuantifierBound [66-67] [1]
+                      IntLiteral(1) [66-67] [1]
+                    QuantifierBound [69-70] [3]
+                      IntLiteral(3) [69-70] [3]
+                  GraphNodePattern [52-55] [(a)]
+                    GraphElementPatternFiller [53-54] [a]
+                      Identifier(a) [53-54] [a]
+                  GraphEdgePattern [55-61] [-[b]->]
+                    GraphElementPatternFiller [57-58] [b]
+                      Identifier(b) [57-58] [b]
+                  GraphNodePattern [61-64] [(c)]
+                    GraphElementPatternFiller [62-63] [c]
+                      Identifier(c) [62-63] [c]
+                GraphEdgePattern [71-83] [@{key=val}->]
+                  GraphLhsHint [71-81] [@{key=val}]
+                    Hint [71-81] [@{key=val}]
+                      HintEntry [73-80] [key=val]
+                        Identifier(key) [73-76] [key]
+                        PathExpression [77-80] [val]
+                          Identifier(val) [77-80] [val]
+                GraphNodePattern [83-86] [(d)]
+                  GraphElementPatternFiller [84-85] [d]
+                    Identifier(d) [84-85] [d]
+          SelectList [97-105] [1 AS One]
+            SelectColumn [97-105] [1 AS One]
+              IntLiteral(1) [97-98] [1]
+              Alias [99-105] [AS One]
+                Identifier(One) [102-105] [One]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    my.graph.name
+    MATCH
+      (
+        (a)
+        -[b]->
+        (c)
+      ) { 1, 3 }
+      @{ key = val } ->
+      (d)
+    COLUMNS(
+      1 AS One
+    )
+  )
+==
+
+# Traversal hints cannot be placed next to a quantifier when there is no
+# traversal from it.
+select * from graph_table(
+  my.graph.name
+  MATCH -[b]->{1, 3} @{key=ambiguous_hint}
+  COLUMNS(1 AS One)
+)
+--
+ERROR: Syntax error: Expected "(" or "-" or "<" or -> but got keyword COLUMNS [at 4:3]
+  COLUMNS(1 AS One)
+  ^
+==
+
+# Traversal hints from an edge quantifier to an edge
+select * from graph_table(
+  my.graph.name
+  MATCH -[b]->{1, 3} @{key=ambiguous_hint}->(x)
+  COLUMNS(1 AS One)
+)
+--
+QueryStatement [0-112] [select * from...AS One) )]
+  Query [0-112] [select * from...AS One) )]
+    Select [0-112] [select * from...AS One) )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-112] [from graph_table...AS One) )]
+        GraphTableQuery [14-112] [graph_table...AS One) )]
+          PathExpression [29-42] [my.graph.name]
+            Identifier(my) [29-31] [my]
+            Identifier(graph) [32-37] [graph]
+            Identifier(name) [38-42] [name]
+          GqlMatch [45-90] [MATCH -[b]...iguous_hint}->(x)]
+            GraphPattern [51-90] [-[b]->{1,...biguous_hint}->(x)]
+              GraphPathPattern [51-90] [-[b]->{1,...biguous_hint}->(x)]
+                ParenthesizedGraphPathPattern [51-63] [-[b]->{1, 3}]
+                  BoundedQuantifier [57-63] [{1, 3}]
+                    QuantifierBound [58-59] [1]
+                      IntLiteral(1) [58-59] [1]
+                    QuantifierBound [61-62] [3]
+                      IntLiteral(3) [61-62] [3]
+                  GraphEdgePattern [51-57] [-[b]->]
+                    GraphElementPatternFiller [53-54] [b]
+                      Identifier(b) [53-54] [b]
+                GraphEdgePattern [64-87] [@{key=ambiguous_hint}->]
+                  GraphLhsHint [64-85] [@{key=ambiguous_hint}]
+                    Hint [64-85] [@{key=ambiguous_hint}]
+                      HintEntry [66-84] [key=ambiguous_hint]
+                        Identifier(key) [66-69] [key]
+                        PathExpression [70-84] [ambiguous_hint]
+                          Identifier(ambiguous_hint) [70-84] [ambiguous_hint]
+                GraphNodePattern [87-90] [(x)]
+                  GraphElementPatternFiller [88-89] [x]
+                    Identifier(x) [88-89] [x]
+          SelectList [101-109] [1 AS One]
+            SelectColumn [101-109] [1 AS One]
+              IntLiteral(1) [101-102] [1]
+              Alias [103-109] [AS One]
+                Identifier(One) [106-109] [One]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    my.graph.name
+    MATCH
+      (
+        -[b]->
+      ) { 1, 3 }
+      @{ key = ambiguous_hint } ->
+      (x)
+    COLUMNS(
+      1 AS One
+    )
+  )
+==
+
+# Hints in conjunction with quantifier query parameters
+SELECT one FROM GRAPH_TABLE(
+  aml
+  MATCH((@{key1=value1} a)-[e]->@{key2=value2}(c)){@lower, @upper}
+  COLUMNS(1 AS one)
+  )
+--
+QueryStatement [0-125] [SELECT one...AS one)   )]
+  Query [0-125] [SELECT one...AS one)   )]
+    Select [0-125] [SELECT one...AS one)   )]
+      SelectList [7-10] [one]
+        SelectColumn [7-10] [one]
+          PathExpression [7-10] [one]
+            Identifier(one) [7-10] [one]
+      FromClause [11-125] [FROM GRAPH_TABLE...AS one)   )]
+        GraphTableQuery [16-125] [GRAPH_TABLE...AS one)   )]
+          PathExpression [31-34] [aml]
+            Identifier(aml) [31-34] [aml]
+          GqlMatch [37-101] [MATCH((@{key1...lower, @upper}]
+            GraphPattern [42-101] [((@{key1=value1...wer, @upper}]
+              ParenthesizedGraphPathPattern [42-101] [((@{key1=value1...wer, @upper}]
+                BoundedQuantifier [85-101] [{@lower, @upper}]
+                  QuantifierBound [86-92] [@lower]
+                    ParameterExpr [86-92] [@lower]
+                      Identifier(lower) [87-92] [lower]
+                  QuantifierBound [94-100] [@upper]
+                    ParameterExpr [94-100] [@upper]
+                      Identifier(upper) [95-100] [upper]
+                GraphNodePattern [43-61] [(@{key1=value1} a)]
+                  GraphElementPatternFiller [44-60] [@{key1=value1} a]
+                    Identifier(a) [59-60] [a]
+                    Hint [44-58] [@{key1=value1}]
+                      HintEntry [46-57] [key1=value1]
+                        Identifier(key1) [46-50] [key1]
+                        PathExpression [51-57] [value1]
+                          Identifier(value1) [51-57] [value1]
+                GraphEdgePattern [61-81] [-[e]->@{key2=value2}]
+                  GraphRhsHint [67-81] [@{key2=value2}]
+                    Hint [67-81] [@{key2=value2}]
+                      HintEntry [69-80] [key2=value2]
+                        Identifier(key2) [69-73] [key2]
+                        PathExpression [74-80] [value2]
+                          Identifier(value2) [74-80] [value2]
+                  GraphElementPatternFiller [63-64] [e]
+                    Identifier(e) [63-64] [e]
+                GraphNodePattern [81-84] [(c)]
+                  GraphElementPatternFiller [82-83] [c]
+                    Identifier(c) [82-83] [c]
+          SelectList [112-120] [1 AS one]
+            SelectColumn [112-120] [1 AS one]
+              IntLiteral(1) [112-113] [1]
+              Alias [114-120] [AS one]
+                Identifier(one) [117-120] [one]
+--
+SELECT
+  one
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (
+        (@{ key1 = value1 } a)
+        -[e]-> @{ key2 = value2 }
+        (c)
+      ) { @lower, @upper }
+    COLUMNS(
+      1 AS one
+    )
+  )
+==
+
+# Hints on MATCH
+GRAPH my.graph.name
+MATCH@{key=val} (a)->(b)
+RETURN 1 AS One
+--
+QueryStatement [0-60] [GRAPH my.graph...TURN 1 AS One]
+  Query [0-60] [GRAPH my.graph...TURN 1 AS One]
+    GqlQuery [0-60] [GRAPH my.graph...TURN 1 AS One]
+      GraphTableQuery [0-60] [GRAPH my.graph...TURN 1 AS One]
+        PathExpression [6-19] [my.graph.name]
+          Identifier(my) [6-8] [my]
+          Identifier(graph) [9-14] [graph]
+          Identifier(name) [15-19] [name]
+        GqlOperatorList [20-60] [MATCH@{key...RETURN 1 AS One]
+          GqlOperatorList [20-60] [MATCH@{key...RETURN 1 AS One]
+            GqlMatch [20-44] [MATCH@{key=val} (a)->(b)]
+              GraphPattern [36-44] [(a)->(b)]
+                GraphPathPattern [36-44] [(a)->(b)]
+                  GraphNodePattern [36-39] [(a)]
+                    GraphElementPatternFiller [37-38] [a]
+                      Identifier(a) [37-38] [a]
+                  GraphEdgePattern [39-41] [->]
+                  GraphNodePattern [41-44] [(b)]
+                    GraphElementPatternFiller [42-43] [b]
+                      Identifier(b) [42-43] [b]
+              Hint [25-35] [@{key=val}]
+                HintEntry [27-34] [key=val]
+                  Identifier(key) [27-30] [key]
+                  PathExpression [31-34] [val]
+                    Identifier(val) [31-34] [val]
+            GqlReturn [45-60] [RETURN 1 AS One]
+              Select [51-60] [1 AS One]
+                SelectList [52-60] [1 AS One]
+                  SelectColumn [52-60] [1 AS One]
+                    IntLiteral(1) [52-53] [1]
+                    Alias [54-60] [AS One]
+                      Identifier(One) [57-60] [One]
+--
+GRAPH my.graph.name
+MATCH @{ key = val }
+  (a)
+  ->
+  (b)
+RETURN
+  1 AS One
+==
+
+# Hints on OPTIONAL MATCH
+GRAPH my.graph.name
+MATCH (a)->(b)
+OPTIONAL MATCH@{key=val} (b)->(c)
+RETURN 1 AS One
+--
+QueryStatement [0-84] [GRAPH my.graph...TURN 1 AS One]
+  Query [0-84] [GRAPH my.graph...TURN 1 AS One]
+    GqlQuery [0-84] [GRAPH my.graph...TURN 1 AS One]
+      GraphTableQuery [0-84] [GRAPH my.graph...TURN 1 AS One]
+        PathExpression [6-19] [my.graph.name]
+          Identifier(my) [6-8] [my]
+          Identifier(graph) [9-14] [graph]
+          Identifier(name) [15-19] [name]
+        GqlOperatorList [20-84] [MATCH (a)-...RETURN 1 AS One]
+          GqlOperatorList [20-84] [MATCH (a)-...RETURN 1 AS One]
+            GqlMatch [20-34] [MATCH (a)->(b)]
+              GraphPattern [26-34] [(a)->(b)]
+                GraphPathPattern [26-34] [(a)->(b)]
+                  GraphNodePattern [26-29] [(a)]
+                    GraphElementPatternFiller [27-28] [a]
+                      Identifier(a) [27-28] [a]
+                  GraphEdgePattern [29-31] [->]
+                  GraphNodePattern [31-34] [(b)]
+                    GraphElementPatternFiller [32-33] [b]
+                      Identifier(b) [32-33] [b]
+            GqlMatch (optional) [35-68] [OPTIONAL MATCH...} (b)->(c)]
+              GraphPattern [60-68] [(b)->(c)]
+                GraphPathPattern [60-68] [(b)->(c)]
+                  GraphNodePattern [60-63] [(b)]
+                    GraphElementPatternFiller [61-62] [b]
+                      Identifier(b) [61-62] [b]
+                  GraphEdgePattern [63-65] [->]
+                  GraphNodePattern [65-68] [(c)]
+                    GraphElementPatternFiller [66-67] [c]
+                      Identifier(c) [66-67] [c]
+              Hint [49-59] [@{key=val}]
+                HintEntry [51-58] [key=val]
+                  Identifier(key) [51-54] [key]
+                  PathExpression [55-58] [val]
+                    Identifier(val) [55-58] [val]
+            GqlReturn [69-84] [RETURN 1 AS One]
+              Select [75-84] [1 AS One]
+                SelectList [76-84] [1 AS One]
+                  SelectColumn [76-84] [1 AS One]
+                    IntLiteral(1) [76-77] [1]
+                    Alias [78-84] [AS One]
+                      Identifier(One) [81-84] [One]
+--
+GRAPH my.graph.name
+MATCH
+  (a)
+  ->
+  (b)
+OPTIONAL MATCH @{ key = val }
+  (b)
+  ->
+  (c)
+RETURN
+  1 AS One
+==
+
+# Hints on ORDER BY
+GRAPH my.graph.name
+MATCH (a)->(b)
+ORDER@{key=val} BY a.id
+RETURN 1 AS One
+--
+QueryStatement [0-74] [GRAPH my.graph...TURN 1 AS One]
+  Query [0-74] [GRAPH my.graph...TURN 1 AS One]
+    GqlQuery [0-74] [GRAPH my.graph...TURN 1 AS One]
+      GraphTableQuery [0-74] [GRAPH my.graph...TURN 1 AS One]
+        PathExpression [6-19] [my.graph.name]
+          Identifier(my) [6-8] [my]
+          Identifier(graph) [9-14] [graph]
+          Identifier(name) [15-19] [name]
+        GqlOperatorList [20-74] [MATCH (a)-...RETURN 1 AS One]
+          GqlOperatorList [20-74] [MATCH (a)-...RETURN 1 AS One]
+            GqlMatch [20-34] [MATCH (a)->(b)]
+              GraphPattern [26-34] [(a)->(b)]
+                GraphPathPattern [26-34] [(a)->(b)]
+                  GraphNodePattern [26-29] [(a)]
+                    GraphElementPatternFiller [27-28] [a]
+                      Identifier(a) [27-28] [a]
+                  GraphEdgePattern [29-31] [->]
+                  GraphNodePattern [31-34] [(b)]
+                    GraphElementPatternFiller [32-33] [b]
+                      Identifier(b) [32-33] [b]
+            GqlOrderByAndPage [35-58] [ORDER@{key=val} BY a.id]
+              OrderBy [35-58] [ORDER@{key=val} BY a.id]
+                Hint [40-50] [@{key=val}]
+                  HintEntry [42-49] [key=val]
+                    Identifier(key) [42-45] [key]
+                    PathExpression [46-49] [val]
+                      Identifier(val) [46-49] [val]
+                OrderingExpression(ASC) [54-58] [a.id]
+                  PathExpression [54-58] [a.id]
+                    Identifier(a) [54-55] [a]
+                    Identifier(id) [56-58] [id]
+            GqlReturn [59-74] [RETURN 1 AS One]
+              Select [65-74] [1 AS One]
+                SelectList [66-74] [1 AS One]
+                  SelectColumn [66-74] [1 AS One]
+                    IntLiteral(1) [66-67] [1]
+                    Alias [68-74] [AS One]
+                      Identifier(One) [71-74] [One]
+--
+GRAPH my.graph.name
+MATCH
+  (a)
+  ->
+  (b)
+ORDER @{ key = val } BY a.id
+RETURN
+  1 AS One
+==
+
+# Hints on RETURN ... ORDER BY
+GRAPH my.graph.name
+MATCH (a)->(b)
+RETURN a.id AS One
+ORDER@{key=val} BY a.id
+--
+QueryStatement [0-77] [GRAPH my.graph...val} BY a.id]
+  Query [0-77] [GRAPH my.graph...val} BY a.id]
+    GqlQuery [0-77] [GRAPH my.graph...val} BY a.id]
+      GraphTableQuery [0-77] [GRAPH my.graph...val} BY a.id]
+        PathExpression [6-19] [my.graph.name]
+          Identifier(my) [6-8] [my]
+          Identifier(graph) [9-14] [graph]
+          Identifier(name) [15-19] [name]
+        GqlOperatorList [20-77] [MATCH (a)-...val} BY a.id]
+          GqlOperatorList [20-77] [MATCH (a)-...val} BY a.id]
+            GqlMatch [20-34] [MATCH (a)->(b)]
+              GraphPattern [26-34] [(a)->(b)]
+                GraphPathPattern [26-34] [(a)->(b)]
+                  GraphNodePattern [26-29] [(a)]
+                    GraphElementPatternFiller [27-28] [a]
+                      Identifier(a) [27-28] [a]
+                  GraphEdgePattern [29-31] [->]
+                  GraphNodePattern [31-34] [(b)]
+                    GraphElementPatternFiller [32-33] [b]
+                      Identifier(b) [32-33] [b]
+            GqlReturn [35-77] [RETURN a.id...val} BY a.id]
+              Select [41-53] [a.id AS One]
+                SelectList [42-53] [a.id AS One]
+                  SelectColumn [42-53] [a.id AS One]
+                    PathExpression [42-46] [a.id]
+                      Identifier(a) [42-43] [a]
+                      Identifier(id) [44-46] [id]
+                    Alias [47-53] [AS One]
+                      Identifier(One) [50-53] [One]
+              GqlOrderByAndPage [54-77] [ORDER@{key=val} BY a.id]
+                OrderBy [54-77] [ORDER@{key=val} BY a.id]
+                  Hint [59-69] [@{key=val}]
+                    HintEntry [61-68] [key=val]
+                      Identifier(key) [61-64] [key]
+                      PathExpression [65-68] [val]
+                        Identifier(val) [65-68] [val]
+                  OrderingExpression(ASC) [73-77] [a.id]
+                    PathExpression [73-77] [a.id]
+                      Identifier(a) [73-74] [a]
+                      Identifier(id) [75-77] [id]
+--
+GRAPH my.graph.name
+MATCH
+  (a)
+  ->
+  (b)
+RETURN
+  a.id AS One
+ORDER @{ key = val } BY a.id
+==
+
+# Hints on RETURN
+GRAPH my.graph.name
+MATCH (a)->(b)
+RETURN@{key=val} 1 AS One
+--
+QueryStatement [0-60] [GRAPH my.graph...} 1 AS One]
+  Query [0-60] [GRAPH my.graph...} 1 AS One]
+    GqlQuery [0-60] [GRAPH my.graph...} 1 AS One]
+      GraphTableQuery [0-60] [GRAPH my.graph...} 1 AS One]
+        PathExpression [6-19] [my.graph.name]
+          Identifier(my) [6-8] [my]
+          Identifier(graph) [9-14] [graph]
+          Identifier(name) [15-19] [name]
+        GqlOperatorList [20-60] [MATCH (a)-...} 1 AS One]
+          GqlOperatorList [20-60] [MATCH (a)-...} 1 AS One]
+            GqlMatch [20-34] [MATCH (a)->(b)]
+              GraphPattern [26-34] [(a)->(b)]
+                GraphPathPattern [26-34] [(a)->(b)]
+                  GraphNodePattern [26-29] [(a)]
+                    GraphElementPatternFiller [27-28] [a]
+                      Identifier(a) [27-28] [a]
+                  GraphEdgePattern [29-31] [->]
+                  GraphNodePattern [31-34] [(b)]
+                    GraphElementPatternFiller [32-33] [b]
+                      Identifier(b) [32-33] [b]
+            GqlReturn [35-60] [RETURN@{key=val} 1 AS One]
+              Select [41-60] [@{key=val} 1 AS One]
+                Hint [41-51] [@{key=val}]
+                  HintEntry [43-50] [key=val]
+                    Identifier(key) [43-46] [key]
+                    PathExpression [47-50] [val]
+                      Identifier(val) [47-50] [val]
+                SelectList [52-60] [1 AS One]
+                  SelectColumn [52-60] [1 AS One]
+                    IntLiteral(1) [52-53] [1]
+                    Alias [54-60] [AS One]
+                      Identifier(One) [57-60] [One]
+--
+GRAPH my.graph.name
+MATCH
+  (a)
+  ->
+  (b)
+RETURN @{ key = val }
+  1 AS One
+==
+
+# Hints on GROUP BY
+GRAPH my.graph.name
+MATCH (a)->(b)
+RETURN a.id AS a_id, COUNT(*) AS cnt
+GROUP@{key=val} BY a_id
+--
+QueryStatement [0-95] [GRAPH my.graph...val} BY a_id]
+  Query [0-95] [GRAPH my.graph...val} BY a_id]
+    GqlQuery [0-95] [GRAPH my.graph...val} BY a_id]
+      GraphTableQuery [0-95] [GRAPH my.graph...val} BY a_id]
+        PathExpression [6-19] [my.graph.name]
+          Identifier(my) [6-8] [my]
+          Identifier(graph) [9-14] [graph]
+          Identifier(name) [15-19] [name]
+        GqlOperatorList [20-95] [MATCH (a)-...val} BY a_id]
+          GqlOperatorList [20-95] [MATCH (a)-...val} BY a_id]
+            GqlMatch [20-34] [MATCH (a)->(b)]
+              GraphPattern [26-34] [(a)->(b)]
+                GraphPathPattern [26-34] [(a)->(b)]
+                  GraphNodePattern [26-29] [(a)]
+                    GraphElementPatternFiller [27-28] [a]
+                      Identifier(a) [27-28] [a]
+                  GraphEdgePattern [29-31] [->]
+                  GraphNodePattern [31-34] [(b)]
+                    GraphElementPatternFiller [32-33] [b]
+                      Identifier(b) [32-33] [b]
+            GqlReturn [35-95] [RETURN a.id...val} BY a_id]
+              Select [41-95] [a.id AS a_id...val} BY a_id]
+                SelectList [42-71] [a.id AS a_id, COUNT(*) AS cnt]
+                  SelectColumn [42-54] [a.id AS a_id]
+                    PathExpression [42-46] [a.id]
+                      Identifier(a) [42-43] [a]
+                      Identifier(id) [44-46] [id]
+                    Alias [47-54] [AS a_id]
+                      Identifier(a_id) [50-54] [a_id]
+                  SelectColumn [56-71] [COUNT(*) AS cnt]
+                    FunctionCall [56-64] [COUNT(*)]
+                      PathExpression [56-61] [COUNT]
+                        Identifier(COUNT) [56-61] [COUNT]
+                      Star(*) [62-63] [*]
+                    Alias [65-71] [AS cnt]
+                      Identifier(cnt) [68-71] [cnt]
+                GroupBy [72-95] [GROUP@{key=val} BY a_id]
+                  Hint [77-87] [@{key=val}]
+                    HintEntry [79-86] [key=val]
+                      Identifier(key) [79-82] [key]
+                      PathExpression [83-86] [val]
+                        Identifier(val) [83-86] [val]
+                  GroupingItem [91-95] [a_id]
+                    PathExpression [91-95] [a_id]
+                      Identifier(a_id) [91-95] [a_id]
+--
+GRAPH my.graph.name
+MATCH
+  (a)
+  ->
+  (b)
+RETURN
+  a.id AS a_id,
+  COUNT(*) AS cnt
+GROUP @{ key = val } BY a_id
+==
+
+# Hints on RETURN *
+GRAPH my.graph.name
+MATCH (a)->(b)
+RETURN@{key=val} *
+--
+QueryStatement [0-53] [GRAPH my.graph...key=val} *]
+  Query [0-53] [GRAPH my.graph...key=val} *]
+    GqlQuery [0-53] [GRAPH my.graph...key=val} *]
+      GraphTableQuery [0-53] [GRAPH my.graph...key=val} *]
+        PathExpression [6-19] [my.graph.name]
+          Identifier(my) [6-8] [my]
+          Identifier(graph) [9-14] [graph]
+          Identifier(name) [15-19] [name]
+        GqlOperatorList [20-53] [MATCH (a)-...key=val} *]
+          GqlOperatorList [20-53] [MATCH (a)-...key=val} *]
+            GqlMatch [20-34] [MATCH (a)->(b)]
+              GraphPattern [26-34] [(a)->(b)]
+                GraphPathPattern [26-34] [(a)->(b)]
+                  GraphNodePattern [26-29] [(a)]
+                    GraphElementPatternFiller [27-28] [a]
+                      Identifier(a) [27-28] [a]
+                  GraphEdgePattern [29-31] [->]
+                  GraphNodePattern [31-34] [(b)]
+                    GraphElementPatternFiller [32-33] [b]
+                      Identifier(b) [32-33] [b]
+            GqlReturn [35-53] [RETURN@{key=val} *]
+              Select [41-53] [@{key=val} *]
+                Hint [41-51] [@{key=val}]
+                  HintEntry [43-50] [key=val]
+                    Identifier(key) [43-46] [key]
+                    PathExpression [47-50] [val]
+                      Identifier(val) [47-50] [val]
+                SelectList [52-53] [*]
+                  SelectColumn [52-53] [*]
+                    Star(*) [52-53] [*]
+--
+GRAPH my.graph.name
+MATCH
+  (a)
+  ->
+  (b)
+RETURN @{ key = val }
+  *
+==
+
+# Hints between a node and a subpath
+GRAPH aml
+MATCH (a:Account) @{key=val} ((b:Account)-[:Transfer]->(c:Account))
+RETURN 1 AS one
+--
+QueryStatement [0-93] [GRAPH aml...RETURN 1 AS one]
+  Query [0-93] [GRAPH aml...RETURN 1 AS one]
+    GqlQuery [0-93] [GRAPH aml...RETURN 1 AS one]
+      GraphTableQuery [0-93] [GRAPH aml...RETURN 1 AS one]
+        PathExpression [6-9] [aml]
+          Identifier(aml) [6-9] [aml]
+        GqlOperatorList [10-93] [MATCH (a:Account...RN 1 AS one]
+          GqlOperatorList [10-93] [MATCH (a:Account...RN 1 AS one]
+            GqlMatch [10-77] [MATCH (a:Account...:Account))]
+              GraphPattern [16-77] [(a:Account...:Account))]
+                GraphPathPattern [16-77] [(a:Account...:Account))]
+                  GraphNodePattern [16-27] [(a:Account)]
+                    GraphElementPatternFiller [17-26] [a:Account]
+                      Identifier(a) [17-18] [a]
+                      GraphLabelFilter [18-26] [:Account]
+                        GraphElementLabel [19-26] [Account]
+                          Identifier(Account) [19-26] [Account]
+                  ParenthesizedGraphPathPattern [28-77] [@{key=val}...:Account))]
+                    Hint [28-38] [@{key=val}]
+                      HintEntry [30-37] [key=val]
+                        Identifier(key) [30-33] [key]
+                        PathExpression [34-37] [val]
+                          Identifier(val) [34-37] [val]
+                    GraphNodePattern [40-51] [(b:Account)]
+                      GraphElementPatternFiller [41-50] [b:Account]
+                        Identifier(b) [41-42] [b]
+                        GraphLabelFilter [42-50] [:Account]
+                          GraphElementLabel [43-50] [Account]
+                            Identifier(Account) [43-50] [Account]
+                    GraphEdgePattern [51-65] [-[:Transfer]->]
+                      GraphElementPatternFiller [53-62] [:Transfer]
+                        GraphLabelFilter [53-62] [:Transfer]
+                          GraphElementLabel [54-62] [Transfer]
+                            Identifier(Transfer) [54-62] [Transfer]
+                    GraphNodePattern [65-76] [(c:Account)]
+                      GraphElementPatternFiller [66-75] [c:Account]
+                        Identifier(c) [66-67] [c]
+                        GraphLabelFilter [67-75] [:Account]
+                          GraphElementLabel [68-75] [Account]
+                            Identifier(Account) [68-75] [Account]
+            GqlReturn [78-93] [RETURN 1 AS one]
+              Select [84-93] [1 AS one]
+                SelectList [85-93] [1 AS one]
+                  SelectColumn [85-93] [1 AS one]
+                    IntLiteral(1) [85-86] [1]
+                    Alias [87-93] [AS one]
+                      Identifier(one) [90-93] [one]
+--
+GRAPH aml
+MATCH
+  (a
+  IS Account)
+  @{ key = val }
+  (
+    (b
+    IS Account)
+    -[
+    IS Transfer]->
+    (c
+    IS Account)
+  )
+RETURN
+  1 AS one
+==
+
+# Hints between a node and a bounded quantified path pattern
+GRAPH aml
+MATCH (a:Account) @{key=val} ((b:Account)-[:Transfer]->(c:Account)){1,2}
+RETURN 1 AS one
+--
+QueryStatement [0-98] [GRAPH aml...RETURN 1 AS one]
+  Query [0-98] [GRAPH aml...RETURN 1 AS one]
+    GqlQuery [0-98] [GRAPH aml...RETURN 1 AS one]
+      GraphTableQuery [0-98] [GRAPH aml...RETURN 1 AS one]
+        PathExpression [6-9] [aml]
+          Identifier(aml) [6-9] [aml]
+        GqlOperatorList [10-98] [MATCH (a:Account...RN 1 AS one]
+          GqlOperatorList [10-98] [MATCH (a:Account...RN 1 AS one]
+            GqlMatch [10-82] [MATCH (a:Account...ount)){1,2}]
+              GraphPattern [16-82] [(a:Account...Account)){1,2}]
+                GraphPathPattern [16-82] [(a:Account...Account)){1,2}]
+                  GraphNodePattern [16-27] [(a:Account)]
+                    GraphElementPatternFiller [17-26] [a:Account]
+                      Identifier(a) [17-18] [a]
+                      GraphLabelFilter [18-26] [:Account]
+                        GraphElementLabel [19-26] [Account]
+                          Identifier(Account) [19-26] [Account]
+                  ParenthesizedGraphPathPattern [28-82] [@{key=val}...Account)){1,2}]
+                    Hint [28-38] [@{key=val}]
+                      HintEntry [30-37] [key=val]
+                        Identifier(key) [30-33] [key]
+                        PathExpression [34-37] [val]
+                          Identifier(val) [34-37] [val]
+                    BoundedQuantifier [77-82] [{1,2}]
+                      QuantifierBound [78-79] [1]
+                        IntLiteral(1) [78-79] [1]
+                      QuantifierBound [80-81] [2]
+                        IntLiteral(2) [80-81] [2]
+                    GraphNodePattern [40-51] [(b:Account)]
+                      GraphElementPatternFiller [41-50] [b:Account]
+                        Identifier(b) [41-42] [b]
+                        GraphLabelFilter [42-50] [:Account]
+                          GraphElementLabel [43-50] [Account]
+                            Identifier(Account) [43-50] [Account]
+                    GraphEdgePattern [51-65] [-[:Transfer]->]
+                      GraphElementPatternFiller [53-62] [:Transfer]
+                        GraphLabelFilter [53-62] [:Transfer]
+                          GraphElementLabel [54-62] [Transfer]
+                            Identifier(Transfer) [54-62] [Transfer]
+                    GraphNodePattern [65-76] [(c:Account)]
+                      GraphElementPatternFiller [66-75] [c:Account]
+                        Identifier(c) [66-67] [c]
+                        GraphLabelFilter [67-75] [:Account]
+                          GraphElementLabel [68-75] [Account]
+                            Identifier(Account) [68-75] [Account]
+            GqlReturn [83-98] [RETURN 1 AS one]
+              Select [89-98] [1 AS one]
+                SelectList [90-98] [1 AS one]
+                  SelectColumn [90-98] [1 AS one]
+                    IntLiteral(1) [90-91] [1]
+                    Alias [92-98] [AS one]
+                      Identifier(one) [95-98] [one]
+--
+GRAPH aml
+MATCH
+  (a
+  IS Account)
+  @{ key = val }
+  (
+    (b
+    IS Account)
+    -[
+    IS Transfer]->
+    (c
+    IS Account)
+  ) { 1, 2 }
+RETURN
+  1 AS one
+==
+
+# Hints between a node and a bounded quantified edge pattern
+GRAPH aml
+MATCH (a:Account) @{key=val} -[:Transfer]->{1,2}
+RETURN 1 AS one
+--
+QueryStatement [0-74] [GRAPH aml...RETURN 1 AS one]
+  Query [0-74] [GRAPH aml...RETURN 1 AS one]
+    GqlQuery [0-74] [GRAPH aml...RETURN 1 AS one]
+      GraphTableQuery [0-74] [GRAPH aml...RETURN 1 AS one]
+        PathExpression [6-9] [aml]
+          Identifier(aml) [6-9] [aml]
+        GqlOperatorList [10-74] [MATCH (a:Account...RN 1 AS one]
+          GqlOperatorList [10-74] [MATCH (a:Account...RN 1 AS one]
+            GqlMatch [10-58] [MATCH (a:Account...fer]->{1,2}]
+              GraphPattern [16-58] [(a:Account...Transfer]->{1,2}]
+                GraphPathPattern [16-58] [(a:Account...Transfer]->{1,2}]
+                  GraphNodePattern [16-27] [(a:Account)]
+                    GraphElementPatternFiller [17-26] [a:Account]
+                      Identifier(a) [17-18] [a]
+                      GraphLabelFilter [18-26] [:Account]
+                        GraphElementLabel [19-26] [Account]
+                          Identifier(Account) [19-26] [Account]
+                  ParenthesizedGraphPathPattern [28-58] [@{key=val} -[:Transfer]->{1,2}]
+                    Hint [28-38] [@{key=val}]
+                      HintEntry [30-37] [key=val]
+                        Identifier(key) [30-33] [key]
+                        PathExpression [34-37] [val]
+                          Identifier(val) [34-37] [val]
+                    BoundedQuantifier [53-58] [{1,2}]
+                      QuantifierBound [54-55] [1]
+                        IntLiteral(1) [54-55] [1]
+                      QuantifierBound [56-57] [2]
+                        IntLiteral(2) [56-57] [2]
+                    GraphEdgePattern [39-53] [-[:Transfer]->]
+                      GraphElementPatternFiller [41-50] [:Transfer]
+                        GraphLabelFilter [41-50] [:Transfer]
+                          GraphElementLabel [42-50] [Transfer]
+                            Identifier(Transfer) [42-50] [Transfer]
+            GqlReturn [59-74] [RETURN 1 AS one]
+              Select [65-74] [1 AS one]
+                SelectList [66-74] [1 AS one]
+                  SelectColumn [66-74] [1 AS one]
+                    IntLiteral(1) [66-67] [1]
+                    Alias [68-74] [AS one]
+                      Identifier(one) [71-74] [one]
+--
+GRAPH aml
+MATCH
+  (a
+  IS Account)
+  @{ key = val }
+  (
+    -[
+    IS Transfer]->
+  ) { 1, 2 }
+RETURN
+  1 AS one
+==
+
+# Hints between a node and a bounded quantified path pattern with hints in the
+# path pattern.
+GRAPH aml
+MATCH (a:Account) @{key=val} ((:Account)@{key=val}-[:Transfer]->@{key=val}(:Account)){1,2}
+RETURN 1 AS one
+--
+QueryStatement [0-116] [GRAPH aml...RETURN 1 AS one]
+  Query [0-116] [GRAPH aml...RETURN 1 AS one]
+    GqlQuery [0-116] [GRAPH aml...RETURN 1 AS one]
+      GraphTableQuery [0-116] [GRAPH aml...RETURN 1 AS one]
+        PathExpression [6-9] [aml]
+          Identifier(aml) [6-9] [aml]
+        GqlOperatorList [10-116] [MATCH (a:Account...RN 1 AS one]
+          GqlOperatorList [10-116] [MATCH (a:Account...RN 1 AS one]
+            GqlMatch [10-100] [MATCH (a:Account...ount)){1,2}]
+              GraphPattern [16-100] [(a:Account...Account)){1,2}]
+                GraphPathPattern [16-100] [(a:Account...Account)){1,2}]
+                  GraphNodePattern [16-27] [(a:Account)]
+                    GraphElementPatternFiller [17-26] [a:Account]
+                      Identifier(a) [17-18] [a]
+                      GraphLabelFilter [18-26] [:Account]
+                        GraphElementLabel [19-26] [Account]
+                          Identifier(Account) [19-26] [Account]
+                  ParenthesizedGraphPathPattern [28-100] [@{key=val}...Account)){1,2}]
+                    Hint [28-38] [@{key=val}]
+                      HintEntry [30-37] [key=val]
+                        Identifier(key) [30-33] [key]
+                        PathExpression [34-37] [val]
+                          Identifier(val) [34-37] [val]
+                    BoundedQuantifier [95-100] [{1,2}]
+                      QuantifierBound [96-97] [1]
+                        IntLiteral(1) [96-97] [1]
+                      QuantifierBound [98-99] [2]
+                        IntLiteral(2) [98-99] [2]
+                    GraphNodePattern [40-50] [(:Account)]
+                      GraphElementPatternFiller [41-49] [:Account]
+                        GraphLabelFilter [41-49] [:Account]
+                          GraphElementLabel [42-49] [Account]
+                            Identifier(Account) [42-49] [Account]
+                    GraphEdgePattern [50-84] [@{key=val}...@{key=val}]
+                      GraphLhsHint [50-60] [@{key=val}]
+                        Hint [50-60] [@{key=val}]
+                          HintEntry [52-59] [key=val]
+                            Identifier(key) [52-55] [key]
+                            PathExpression [56-59] [val]
+                              Identifier(val) [56-59] [val]
+                      GraphRhsHint [74-84] [@{key=val}]
+                        Hint [74-84] [@{key=val}]
+                          HintEntry [76-83] [key=val]
+                            Identifier(key) [76-79] [key]
+                            PathExpression [80-83] [val]
+                              Identifier(val) [80-83] [val]
+                      GraphElementPatternFiller [62-71] [:Transfer]
+                        GraphLabelFilter [62-71] [:Transfer]
+                          GraphElementLabel [63-71] [Transfer]
+                            Identifier(Transfer) [63-71] [Transfer]
+                    GraphNodePattern [84-94] [(:Account)]
+                      GraphElementPatternFiller [85-93] [:Account]
+                        GraphLabelFilter [85-93] [:Account]
+                          GraphElementLabel [86-93] [Account]
+                            Identifier(Account) [86-93] [Account]
+            GqlReturn [101-116] [RETURN 1 AS one]
+              Select [107-116] [1 AS one]
+                SelectList [108-116] [1 AS one]
+                  SelectColumn [108-116] [1 AS one]
+                    IntLiteral(1) [108-109] [1]
+                    Alias [110-116] [AS one]
+                      Identifier(one) [113-116] [one]
+--
+GRAPH aml
+MATCH
+  (a
+  IS Account)
+  @{ key = val }
+  (
+    (
+    IS Account)
+    @{ key = val } -[
+    IS Transfer]-> @{ key = val }
+    (
+    IS Account)
+  ) { 1, 2 }
+RETURN
+  1 AS one
+==
+
+# Hints between a bounded quantified path pattern and a node
+GRAPH aml
+MATCH ((a:Account)-[:Transfer]->(b:Account)){1,2} @{key=val} (c:Account)
+RETURN 1 AS one
+--
+QueryStatement [0-98] [GRAPH aml...RETURN 1 AS one]
+  Query [0-98] [GRAPH aml...RETURN 1 AS one]
+    GqlQuery [0-98] [GRAPH aml...RETURN 1 AS one]
+      GraphTableQuery [0-98] [GRAPH aml...RETURN 1 AS one]
+        PathExpression [6-9] [aml]
+          Identifier(aml) [6-9] [aml]
+        GqlOperatorList [10-98] [MATCH ((a:...RETURN 1 AS one]
+          GqlOperatorList [10-98] [MATCH ((a:...RETURN 1 AS one]
+            GqlMatch [10-82] [MATCH ((a:...c:Account)]
+              GraphPattern [16-82] [((a:Account...c:Account)]
+                GraphPathPattern [16-82] [((a:Account...c:Account)]
+                  ParenthesizedGraphPathPattern [16-59] [((a:Account...Account)){1,2}]
+                    BoundedQuantifier [54-59] [{1,2}]
+                      QuantifierBound [55-56] [1]
+                        IntLiteral(1) [55-56] [1]
+                      QuantifierBound [57-58] [2]
+                        IntLiteral(2) [57-58] [2]
+                    GraphNodePattern [17-28] [(a:Account)]
+                      GraphElementPatternFiller [18-27] [a:Account]
+                        Identifier(a) [18-19] [a]
+                        GraphLabelFilter [19-27] [:Account]
+                          GraphElementLabel [20-27] [Account]
+                            Identifier(Account) [20-27] [Account]
+                    GraphEdgePattern [28-42] [-[:Transfer]->]
+                      GraphElementPatternFiller [30-39] [:Transfer]
+                        GraphLabelFilter [30-39] [:Transfer]
+                          GraphElementLabel [31-39] [Transfer]
+                            Identifier(Transfer) [31-39] [Transfer]
+                    GraphNodePattern [42-53] [(b:Account)]
+                      GraphElementPatternFiller [43-52] [b:Account]
+                        Identifier(b) [43-44] [b]
+                        GraphLabelFilter [44-52] [:Account]
+                          GraphElementLabel [45-52] [Account]
+                            Identifier(Account) [45-52] [Account]
+                  GraphPathPattern [60-82] [@{key=val} (c:Account)]
+                    Hint [60-70] [@{key=val}]
+                      HintEntry [62-69] [key=val]
+                        Identifier(key) [62-65] [key]
+                        PathExpression [66-69] [val]
+                          Identifier(val) [66-69] [val]
+                    GraphNodePattern [71-82] [(c:Account)]
+                      GraphElementPatternFiller [72-81] [c:Account]
+                        Identifier(c) [72-73] [c]
+                        GraphLabelFilter [73-81] [:Account]
+                          GraphElementLabel [74-81] [Account]
+                            Identifier(Account) [74-81] [Account]
+            GqlReturn [83-98] [RETURN 1 AS one]
+              Select [89-98] [1 AS one]
+                SelectList [90-98] [1 AS one]
+                  SelectColumn [90-98] [1 AS one]
+                    IntLiteral(1) [90-91] [1]
+                    Alias [92-98] [AS one]
+                      Identifier(one) [95-98] [one]
+--
+GRAPH aml
+MATCH
+  (
+    (a
+    IS Account)
+    -[
+    IS Transfer]->
+    (b
+    IS Account)
+  ) { 1, 2 }
+  @{ key = val }
+  (c
+  IS Account)
+RETURN
+  1 AS one
+==
+
+# Hints between a bounded quantified edge pattern and a node
+GRAPH aml
+MATCH -[:Transfer]->{1,2} @{key=val} (a:Account)
+RETURN 1 AS one
+--
+QueryStatement [0-74] [GRAPH aml...RETURN 1 AS one]
+  Query [0-74] [GRAPH aml...RETURN 1 AS one]
+    GqlQuery [0-74] [GRAPH aml...RETURN 1 AS one]
+      GraphTableQuery [0-74] [GRAPH aml...RETURN 1 AS one]
+        PathExpression [6-9] [aml]
+          Identifier(aml) [6-9] [aml]
+        GqlOperatorList [10-74] [MATCH -[:Transfer...N 1 AS one]
+          GqlOperatorList [10-74] [MATCH -[:Transfer...N 1 AS one]
+            GqlMatch [10-58] [MATCH -[:Transfer...a:Account)]
+              GraphPattern [16-58] [-[:Transfer...a:Account)]
+                GraphPathPattern [16-58] [-[:Transfer...a:Account)]
+                  ParenthesizedGraphPathPattern [16-35] [-[:Transfer]->{1,2}]
+                    BoundedQuantifier [30-35] [{1,2}]
+                      QuantifierBound [31-32] [1]
+                        IntLiteral(1) [31-32] [1]
+                      QuantifierBound [33-34] [2]
+                        IntLiteral(2) [33-34] [2]
+                    GraphEdgePattern [16-30] [-[:Transfer]->]
+                      GraphElementPatternFiller [18-27] [:Transfer]
+                        GraphLabelFilter [18-27] [:Transfer]
+                          GraphElementLabel [19-27] [Transfer]
+                            Identifier(Transfer) [19-27] [Transfer]
+                  GraphPathPattern [36-58] [@{key=val} (a:Account)]
+                    Hint [36-46] [@{key=val}]
+                      HintEntry [38-45] [key=val]
+                        Identifier(key) [38-41] [key]
+                        PathExpression [42-45] [val]
+                          Identifier(val) [42-45] [val]
+                    GraphNodePattern [47-58] [(a:Account)]
+                      GraphElementPatternFiller [48-57] [a:Account]
+                        Identifier(a) [48-49] [a]
+                        GraphLabelFilter [49-57] [:Account]
+                          GraphElementLabel [50-57] [Account]
+                            Identifier(Account) [50-57] [Account]
+            GqlReturn [59-74] [RETURN 1 AS one]
+              Select [65-74] [1 AS one]
+                SelectList [66-74] [1 AS one]
+                  SelectColumn [66-74] [1 AS one]
+                    IntLiteral(1) [66-67] [1]
+                    Alias [68-74] [AS one]
+                      Identifier(one) [71-74] [one]
+--
+GRAPH aml
+MATCH
+  (
+    -[
+    IS Transfer]->
+  ) { 1, 2 }
+  @{ key = val }
+  (a
+  IS Account)
+RETURN
+  1 AS one
+==
+
+# Hints between two nodes
+GRAPH aml
+MATCH (a:Account) @{key=val} (b:Account)
+RETURN 1 AS one
+--
+QueryStatement [0-66] [GRAPH aml...RETURN 1 AS one]
+  Query [0-66] [GRAPH aml...RETURN 1 AS one]
+    GqlQuery [0-66] [GRAPH aml...RETURN 1 AS one]
+      GraphTableQuery [0-66] [GRAPH aml...RETURN 1 AS one]
+        PathExpression [6-9] [aml]
+          Identifier(aml) [6-9] [aml]
+        GqlOperatorList [10-66] [MATCH (a:Account...RN 1 AS one]
+          GqlOperatorList [10-66] [MATCH (a:Account...RN 1 AS one]
+            GqlMatch [10-50] [MATCH (a:Account...b:Account)]
+              GraphPattern [16-50] [(a:Account...b:Account)]
+                GraphPathPattern [16-50] [(a:Account...b:Account)]
+                  GraphNodePattern [16-27] [(a:Account)]
+                    GraphElementPatternFiller [17-26] [a:Account]
+                      Identifier(a) [17-18] [a]
+                      GraphLabelFilter [18-26] [:Account]
+                        GraphElementLabel [19-26] [Account]
+                          Identifier(Account) [19-26] [Account]
+                  GraphPathPattern [28-50] [@{key=val} (b:Account)]
+                    Hint [28-38] [@{key=val}]
+                      HintEntry [30-37] [key=val]
+                        Identifier(key) [30-33] [key]
+                        PathExpression [34-37] [val]
+                          Identifier(val) [34-37] [val]
+                    GraphNodePattern [39-50] [(b:Account)]
+                      GraphElementPatternFiller [40-49] [b:Account]
+                        Identifier(b) [40-41] [b]
+                        GraphLabelFilter [41-49] [:Account]
+                          GraphElementLabel [42-49] [Account]
+                            Identifier(Account) [42-49] [Account]
+            GqlReturn [51-66] [RETURN 1 AS one]
+              Select [57-66] [1 AS one]
+                SelectList [58-66] [1 AS one]
+                  SelectColumn [58-66] [1 AS one]
+                    IntLiteral(1) [58-59] [1]
+                    Alias [60-66] [AS one]
+                      Identifier(one) [63-66] [one]
+--
+GRAPH aml
+MATCH
+  (a
+  IS Account)
+  @{ key = val }
+  (b
+  IS Account)
+RETURN
+  1 AS one
+==
+
+# Hints between two subpaths
+GRAPH aml
+MATCH ((a:Account)-[:Transfer]->(b:Account)) @{key=val} ((c:Account)-[:Transfer]->(d:Account))
+RETURN 1 AS one
+--
+QueryStatement [0-120] [GRAPH aml...RETURN 1 AS one]
+  Query [0-120] [GRAPH aml...RETURN 1 AS one]
+    GqlQuery [0-120] [GRAPH aml...RETURN 1 AS one]
+      GraphTableQuery [0-120] [GRAPH aml...RETURN 1 AS one]
+        PathExpression [6-9] [aml]
+          Identifier(aml) [6-9] [aml]
+        GqlOperatorList [10-120] [MATCH ((a:...RETURN 1 AS one]
+          GqlOperatorList [10-120] [MATCH ((a:...RETURN 1 AS one]
+            GqlMatch [10-104] [MATCH ((a:...:Account))]
+              GraphPattern [16-104] [((a:Account...:Account))]
+                GraphPathPattern [16-104] [((a:Account...:Account))]
+                  ParenthesizedGraphPathPattern [16-54] [((a:Account...:Account))]
+                    GraphNodePattern [17-28] [(a:Account)]
+                      GraphElementPatternFiller [18-27] [a:Account]
+                        Identifier(a) [18-19] [a]
+                        GraphLabelFilter [19-27] [:Account]
+                          GraphElementLabel [20-27] [Account]
+                            Identifier(Account) [20-27] [Account]
+                    GraphEdgePattern [28-42] [-[:Transfer]->]
+                      GraphElementPatternFiller [30-39] [:Transfer]
+                        GraphLabelFilter [30-39] [:Transfer]
+                          GraphElementLabel [31-39] [Transfer]
+                            Identifier(Transfer) [31-39] [Transfer]
+                    GraphNodePattern [42-53] [(b:Account)]
+                      GraphElementPatternFiller [43-52] [b:Account]
+                        Identifier(b) [43-44] [b]
+                        GraphLabelFilter [44-52] [:Account]
+                          GraphElementLabel [45-52] [Account]
+                            Identifier(Account) [45-52] [Account]
+                  ParenthesizedGraphPathPattern [55-104] [@{key=val}...:Account))]
+                    Hint [55-65] [@{key=val}]
+                      HintEntry [57-64] [key=val]
+                        Identifier(key) [57-60] [key]
+                        PathExpression [61-64] [val]
+                          Identifier(val) [61-64] [val]
+                    GraphNodePattern [67-78] [(c:Account)]
+                      GraphElementPatternFiller [68-77] [c:Account]
+                        Identifier(c) [68-69] [c]
+                        GraphLabelFilter [69-77] [:Account]
+                          GraphElementLabel [70-77] [Account]
+                            Identifier(Account) [70-77] [Account]
+                    GraphEdgePattern [78-92] [-[:Transfer]->]
+                      GraphElementPatternFiller [80-89] [:Transfer]
+                        GraphLabelFilter [80-89] [:Transfer]
+                          GraphElementLabel [81-89] [Transfer]
+                            Identifier(Transfer) [81-89] [Transfer]
+                    GraphNodePattern [92-103] [(d:Account)]
+                      GraphElementPatternFiller [93-102] [d:Account]
+                        Identifier(d) [93-94] [d]
+                        GraphLabelFilter [94-102] [:Account]
+                          GraphElementLabel [95-102] [Account]
+                            Identifier(Account) [95-102] [Account]
+            GqlReturn [105-120] [RETURN 1 AS one]
+              Select [111-120] [1 AS one]
+                SelectList [112-120] [1 AS one]
+                  SelectColumn [112-120] [1 AS one]
+                    IntLiteral(1) [112-113] [1]
+                    Alias [114-120] [AS one]
+                      Identifier(one) [117-120] [one]
+--
+GRAPH aml
+MATCH
+  (
+    (a
+    IS Account)
+    -[
+    IS Transfer]->
+    (b
+    IS Account)
+  )
+  @{ key = val }
+  (
+    (c
+    IS Account)
+    -[
+    IS Transfer]->
+    (d
+    IS Account)
+  )
+RETURN
+  1 AS one
+==
+
+# Hints between two bounded quantified path patterns
+GRAPH aml
+MATCH ((a:Account)-[:Transfer]->(b:Account)){1,2} @{key=val} ((c:Account)-[:Transfer]->(d:Account)){1,2}
+RETURN 1 AS one
+--
+QueryStatement [0-130] [GRAPH aml...RETURN 1 AS one]
+  Query [0-130] [GRAPH aml...RETURN 1 AS one]
+    GqlQuery [0-130] [GRAPH aml...RETURN 1 AS one]
+      GraphTableQuery [0-130] [GRAPH aml...RETURN 1 AS one]
+        PathExpression [6-9] [aml]
+          Identifier(aml) [6-9] [aml]
+        GqlOperatorList [10-130] [MATCH ((a:...RETURN 1 AS one]
+          GqlOperatorList [10-130] [MATCH ((a:...RETURN 1 AS one]
+            GqlMatch [10-114] [MATCH ((a:...Account)){1,2}]
+              GraphPattern [16-114] [((a:Account...Account)){1,2}]
+                GraphPathPattern [16-114] [((a:Account...Account)){1,2}]
+                  ParenthesizedGraphPathPattern [16-59] [((a:Account...Account)){1,2}]
+                    BoundedQuantifier [54-59] [{1,2}]
+                      QuantifierBound [55-56] [1]
+                        IntLiteral(1) [55-56] [1]
+                      QuantifierBound [57-58] [2]
+                        IntLiteral(2) [57-58] [2]
+                    GraphNodePattern [17-28] [(a:Account)]
+                      GraphElementPatternFiller [18-27] [a:Account]
+                        Identifier(a) [18-19] [a]
+                        GraphLabelFilter [19-27] [:Account]
+                          GraphElementLabel [20-27] [Account]
+                            Identifier(Account) [20-27] [Account]
+                    GraphEdgePattern [28-42] [-[:Transfer]->]
+                      GraphElementPatternFiller [30-39] [:Transfer]
+                        GraphLabelFilter [30-39] [:Transfer]
+                          GraphElementLabel [31-39] [Transfer]
+                            Identifier(Transfer) [31-39] [Transfer]
+                    GraphNodePattern [42-53] [(b:Account)]
+                      GraphElementPatternFiller [43-52] [b:Account]
+                        Identifier(b) [43-44] [b]
+                        GraphLabelFilter [44-52] [:Account]
+                          GraphElementLabel [45-52] [Account]
+                            Identifier(Account) [45-52] [Account]
+                  ParenthesizedGraphPathPattern [60-114] [@{key=val}...Account)){1,2}]
+                    Hint [60-70] [@{key=val}]
+                      HintEntry [62-69] [key=val]
+                        Identifier(key) [62-65] [key]
+                        PathExpression [66-69] [val]
+                          Identifier(val) [66-69] [val]
+                    BoundedQuantifier [109-114] [{1,2}]
+                      QuantifierBound [110-111] [1]
+                        IntLiteral(1) [110-111] [1]
+                      QuantifierBound [112-113] [2]
+                        IntLiteral(2) [112-113] [2]
+                    GraphNodePattern [72-83] [(c:Account)]
+                      GraphElementPatternFiller [73-82] [c:Account]
+                        Identifier(c) [73-74] [c]
+                        GraphLabelFilter [74-82] [:Account]
+                          GraphElementLabel [75-82] [Account]
+                            Identifier(Account) [75-82] [Account]
+                    GraphEdgePattern [83-97] [-[:Transfer]->]
+                      GraphElementPatternFiller [85-94] [:Transfer]
+                        GraphLabelFilter [85-94] [:Transfer]
+                          GraphElementLabel [86-94] [Transfer]
+                            Identifier(Transfer) [86-94] [Transfer]
+                    GraphNodePattern [97-108] [(d:Account)]
+                      GraphElementPatternFiller [98-107] [d:Account]
+                        Identifier(d) [98-99] [d]
+                        GraphLabelFilter [99-107] [:Account]
+                          GraphElementLabel [100-107] [Account]
+                            Identifier(Account) [100-107] [Account]
+            GqlReturn [115-130] [RETURN 1 AS one]
+              Select [121-130] [1 AS one]
+                SelectList [122-130] [1 AS one]
+                  SelectColumn [122-130] [1 AS one]
+                    IntLiteral(1) [122-123] [1]
+                    Alias [124-130] [AS one]
+                      Identifier(one) [127-130] [one]
+--
+GRAPH aml
+MATCH
+  (
+    (a
+    IS Account)
+    -[
+    IS Transfer]->
+    (b
+    IS Account)
+  ) { 1, 2 }
+  @{ key = val }
+  (
+    (c
+    IS Account)
+    -[
+    IS Transfer]->
+    (d
+    IS Account)
+  ) { 1, 2 }
+RETURN
+  1 AS one
+==
+
+# Hints between two bounded quantified edge patterns
+GRAPH aml
+MATCH -[:Transfer]->{1,2} @{key=val} -[:Transfer]->{1,2}
+RETURN 1 AS one
+--
+QueryStatement [0-82] [GRAPH aml...RETURN 1 AS one]
+  Query [0-82] [GRAPH aml...RETURN 1 AS one]
+    GqlQuery [0-82] [GRAPH aml...RETURN 1 AS one]
+      GraphTableQuery [0-82] [GRAPH aml...RETURN 1 AS one]
+        PathExpression [6-9] [aml]
+          Identifier(aml) [6-9] [aml]
+        GqlOperatorList [10-82] [MATCH -[:Transfer...N 1 AS one]
+          GqlOperatorList [10-82] [MATCH -[:Transfer...N 1 AS one]
+            GqlMatch [10-66] [MATCH -[:Transfer...er]->{1,2}]
+              GraphPattern [16-66] [-[:Transfer...Transfer]->{1,2}]
+                GraphPathPattern [16-66] [-[:Transfer...Transfer]->{1,2}]
+                  ParenthesizedGraphPathPattern [16-35] [-[:Transfer]->{1,2}]
+                    BoundedQuantifier [30-35] [{1,2}]
+                      QuantifierBound [31-32] [1]
+                        IntLiteral(1) [31-32] [1]
+                      QuantifierBound [33-34] [2]
+                        IntLiteral(2) [33-34] [2]
+                    GraphEdgePattern [16-30] [-[:Transfer]->]
+                      GraphElementPatternFiller [18-27] [:Transfer]
+                        GraphLabelFilter [18-27] [:Transfer]
+                          GraphElementLabel [19-27] [Transfer]
+                            Identifier(Transfer) [19-27] [Transfer]
+                  ParenthesizedGraphPathPattern [36-66] [@{key=val} -[:Transfer]->{1,2}]
+                    Hint [36-46] [@{key=val}]
+                      HintEntry [38-45] [key=val]
+                        Identifier(key) [38-41] [key]
+                        PathExpression [42-45] [val]
+                          Identifier(val) [42-45] [val]
+                    BoundedQuantifier [61-66] [{1,2}]
+                      QuantifierBound [62-63] [1]
+                        IntLiteral(1) [62-63] [1]
+                      QuantifierBound [64-65] [2]
+                        IntLiteral(2) [64-65] [2]
+                    GraphEdgePattern [47-61] [-[:Transfer]->]
+                      GraphElementPatternFiller [49-58] [:Transfer]
+                        GraphLabelFilter [49-58] [:Transfer]
+                          GraphElementLabel [50-58] [Transfer]
+                            Identifier(Transfer) [50-58] [Transfer]
+            GqlReturn [67-82] [RETURN 1 AS one]
+              Select [73-82] [1 AS one]
+                SelectList [74-82] [1 AS one]
+                  SelectColumn [74-82] [1 AS one]
+                    IntLiteral(1) [74-75] [1]
+                    Alias [76-82] [AS one]
+                      Identifier(one) [79-82] [one]
+--
+GRAPH aml
+MATCH
+  (
+    -[
+    IS Transfer]->
+  ) { 1, 2 }
+  @{ key = val }
+  (
+    -[
+    IS Transfer]->
+  ) { 1, 2 }
+RETURN
+  1 AS one
+
+==
+
+# Unsupported hints between two edge patterns. Even though this might look
+# unambiguous, it is not currently supported.
+GRAPH aml
+MATCH -[:Transfer]-> @{key=val} @{key=val} -[:Transfer]->
+RETURN 1 AS one
+--
+ERROR: Syntax error: Expected "(" or "-" or "<" or -> but got "@" [at 2:33]
+MATCH -[:Transfer]-> @{key=val} @{key=val} -[:Transfer]->
+                                ^

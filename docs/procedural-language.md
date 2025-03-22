@@ -38,7 +38,7 @@ start of a `BEGIN` block. Variable names are case-insensitive.
 Multiple variable names can appear in a single `DECLARE` statement, but only
 one `variable_type` and `expression`.
 
-It is an error to declare a variable with the same name as a variable
+It's an error to declare a variable with the same name as a variable
 declared earlier in the current block or in a containing block.
 
 If the `DEFAULT` clause is present, the value of the expression must be
@@ -113,7 +113,7 @@ SET (a, b, c) = (1 + 3, 'foo', false);
 The following example assigns the result of a query to multiple variables.
 First, it declares two variables, `target_word` and `corpus_count`; next, it
 assigns the results of a
-[`SELECT AS STRUCT` query](query-syntax#select_modifiers)
+[`SELECT AS STRUCT` query](query-syntax#select_as_struct)
 to the two variables. The result of the query is a single row containing a
 `STRUCT` with two fields; the first element is
 assigned to the first variable, and the second element is assigned to the second
@@ -144,7 +144,7 @@ Found 151 occurrences of "methinks" across 38 Shakespeare works
 
 **Syntax**
 
-```sql
+```zetasql
 EXECUTE IMMEDIATE sql_expression [ INTO variable[, ...] ] [ USING identifier[, ...] ];
 
 sql_expression:
@@ -165,14 +165,14 @@ Executes a dynamic SQL statement on the fly.
     + A single [DDL statement][ddl]
     + A single [DML statement][dml]
 
-    This expression cannot be a control statement like `IF`.
+    This expression can't be a control statement like `IF`.
 +  `expression`: Can be a
    [function][functions], [conditional expression][conditional-expressions], or
    [expression subquery][expression-subqueries].
 +  `query_statement`: Represents a valid standalone SQL statement to execute.
    If this returns a value, the `INTO` clause must contain values of the same
    type. You may access both system variables and values present in the `USING`
-   clause; all other local variables and query parameters are not exposed to
+   clause; all other local variables and query parameters aren't exposed to
    the query statement.
 +  `INTO` clause: After the SQL expression is executed, you can store the
    results in one or more [variables][declare], using the `INTO` clause.
@@ -187,7 +187,7 @@ referenced in the `USING` clause:
 +  `?`: The value for this placeholder is bound to an identifier in the `USING`
    clause by index.
 
-   ```sql
+   ```zetasql
    -- y = 1 * (3 + 2) = 5
    EXECUTE IMMEDIATE "SELECT ? * (? + 2)" INTO y USING 1, 3;
    ```
@@ -195,7 +195,7 @@ referenced in the `USING` clause:
    the `USING` clause by name. This syntax is identical to
    the query parameter syntax.
 
-   ```sql
+   ```zetasql
    -- y = 1 * (3 + 2) = 5
    EXECUTE IMMEDIATE "SELECT @a * (@b + 2)" INTO y USING 1 as a, 3 as b;
    ```
@@ -204,7 +204,7 @@ Here are some additional notes about the behavior of the `EXECUTE IMMEDIATE`
 statement:
 
 + `EXECUTE IMMEDIATE` is restricted from being executed dynamically as a
-  nested element. This means `EXECUTE IMMEDIATE` cannot be nested in another
+  nested element. This means `EXECUTE IMMEDIATE` can't be nested in another
   `EXECUTE IMMEDIATE` statement.
 +  If an `EXECUTE IMMEDIATE` statement returns results, then those results
    become the result of the entire statement and any appropriate
@@ -225,7 +225,7 @@ In this example, we create a table of books and populate it with data. Note
 the different ways that you can reference variables, save values to
 variables, and use expressions.
 
-```sql
+```zetasql
 -- create some variables
 DECLARE book_name STRING DEFAULT 'Ulysses';
 DECLARE book_year INT64 DEFAULT 1922;
@@ -255,9 +255,9 @@ EXECUTE IMMEDIATE
     "INSERT INTO Books (title, publish_date)", "VALUES('Middlemarch', 1871)"
   );
 
--- save the publish date of the first book, Hamlet, to a variable called
+-- save the publish date of the earliest book, Hamlet, to a variable called
 -- first_date
-EXECUTE IMMEDIATE "SELECT publish_date FROM Books LIMIT 1" INTO first_date;
+EXECUTE IMMEDIATE "SELECT MIN(publish_date) FROM Books LIMIT 1" INTO first_date;
 
 /*------------------+------------------*
  | title            | publish_date     |
@@ -288,7 +288,7 @@ SQL statements ending with semicolons.
 
 Variable declarations must appear at the start of the block, prior to other
 types of statements. Variables declared inside a block may only be referenced
-within that block and in any nested blocks. It is an error to declare a variable
+within that block and in any nested blocks. It's an error to declare a variable
 with the same name as a variable declared in the same block or an outer block.
 
 There is a maximum nesting level of 50 for blocks and conditional statements
@@ -360,7 +360,7 @@ You can use a label with this statement. To learn more, see [Labels][labels].
 **Examples**
 
 In this example, when the division by zero error occurs, instead of
-stopping the entire multi-statement query, ZetaSQL will stop
+stopping the entire multi-statement query, ZetaSQL stops
 `schema1.proc1()` and `schema1.proc2()` and execute the `SELECT` statement in
 the exception handler.
 
@@ -400,13 +400,13 @@ or the optional `ELSE sql_statement_list` if no conditions match.
 `CASE` can have a maximum of 50 nesting levels.
 
 `CASE` is restricted from being executed dynamically as a nested element. This
-means `CASE` cannot be nested in an `EXECUTE IMMEDIATE` statement.
+means `CASE` can't be nested in an `EXECUTE IMMEDIATE` statement.
 
 **Examples**
 
 In this example, a search if conducted for the `target_product_ID` in the
-`products_a` table. If the ID is not found there, a search is conducted for
-the ID in the `products_b` table. If the ID is not found there, the statement in
+`products_a` table. If the ID isn't found there, a search is conducted for
+the ID in the `products_b` table. If the ID isn't found there, the statement in
 the `ELSE` block is executed.
 
 <pre class="lang-sql prettyprint">
@@ -446,7 +446,7 @@ is executed.
 `CASE` can have a maximum of 50 nesting levels.
 
 `CASE` is restricted from being executed dynamically as a nested element. This
-means `CASE` cannot be nested in an `EXECUTE IMMEDIATE` statement.
+means `CASE` can't be nested in an `EXECUTE IMMEDIATE` statement.
 
 **Examples**
 
@@ -487,7 +487,7 @@ There is a maximum nesting level of 50 for blocks and conditional statements
 such as `BEGIN`/`END`, `IF`/`ELSE`/`END IF`, and `WHILE`/`END WHILE`.
 
 `IF` is restricted from being executed dynamically as a nested element. This
-means `IF` cannot be nested in an `EXECUTE IMMEDIATE` statement.
+means `IF` can't be nested in an `EXECUTE IMMEDIATE` statement.
 
 **Examples**
 
@@ -496,7 +496,7 @@ The following example declares a INT64 variable
 table `schema.products` contains a row with the `product_id` column matches
 the value of `target_product_id`; if so, it outputs a string stating that the
 product has been found, along with the value of `default_product_id`; if not,
-it outputs a string stating that the product has not been found, also with the
+it outputs a string stating that the product hasn't been found, also with the
 value of `default_product_id`.
 
 <pre class="lang-sql prettyprint">
@@ -575,7 +575,7 @@ optionally at the end.
 
   ```none
   `foo.bar`: BEGIN ... END -- Works
-  foo.bar: BEGIN ... END -- Does not work
+  foo.bar: BEGIN ... END -- Doesn't work
   ```
 + Label names are case-insensitive.
 + Each stored procedure has an independent store of label names. For example,
@@ -687,7 +687,7 @@ END <span class="kwd">LOOP</span> label_1
 </pre>
 
 A `BREAK`, `LEAVE`, or `CONTINUE`, or `ITERATE` statement that specifies a label
-that does not exist throws an error:
+that doesn't exist throws an error:
 
 <pre class="lang-sql prettyprint">
 WHILE x &lt; 1 <span class="kwd">DO</span>
@@ -706,7 +706,7 @@ label_1: BEGIN
 END;
 </pre>
 
-`CONTINUE` cannot be used with a block label. This throws an error:
+`CONTINUE` can't be used with a block label. This throws an error:
 
 <pre class="lang-sql prettyprint">
 label_1: BEGIN
@@ -735,7 +735,7 @@ loop. `sql_statement_list` is a list of zero or more SQL statements ending with
 semicolons.
 
 `LOOP` is restricted from being executed dynamically as a nested element. This
-means `LOOP` cannot be nested in an `EXECUTE IMMEDIATE` statement.
+means `LOOP` can't be nested in an `EXECUTE IMMEDIATE` statement.
 
 You can use a label with this statement. To learn more, see [Labels][labels].
 
@@ -759,7 +759,7 @@ SELECT x;
 
 This example outputs the following:
 
-```sql
+```zetasql
 /*----*
  | x  |
  +----+
@@ -786,7 +786,7 @@ must be an expression. You can exit this loop early with the `BREAK` or `LEAVE`
 statement.
 
 `REPEAT` is restricted from being executed dynamically as a nested element. This
-means `REPEAT` cannot be nested in an `EXECUTE IMMEDIATE` statement.
+means `REPEAT` can't be nested in an `EXECUTE IMMEDIATE` statement.
 
 You can use a label with this statement. To learn more, see [Labels][labels].
 
@@ -808,7 +808,7 @@ END <span class="kwd">REPEAT</span>;
 
 This example outputs the following:
 
-```sql
+```zetasql
 /*---*
  | x |
  +---+
@@ -847,7 +847,7 @@ While `boolean_expression` is true, executes `sql_statement_list`.
 `boolean_expression` is evaluated for each iteration of the loop.
 
 `WHILE` is restricted from being executed dynamically as a nested element. This
-means `WHILE` cannot be nested in an `EXECUTE IMMEDIATE` statement.
+means `WHILE` can't be nested in an `EXECUTE IMMEDIATE` statement.
 
 You can use a label with this statement. To learn more, see [Labels][labels].
 
@@ -863,7 +863,7 @@ BREAK;
 
 Exit the current loop.
 
-It is an error to use `BREAK` outside of a loop.
+It's an error to use `BREAK` outside of a loop.
 
 You can use a label with this statement. To learn more, see [Labels][labels].
 
@@ -908,7 +908,7 @@ CONTINUE;
 Skip any following statements in the current loop and return to the start of
 the loop.
 
-It is an error to use `CONTINUE` outside of a loop.
+It's an error to use `CONTINUE` outside of a loop.
 
 You can use a label with this statement. To learn more, see [Labels][labels].
 
@@ -963,11 +963,11 @@ Loops over every row in `table_expression` and assigns the row to
 The value of `table_expression` is evaluated once at the start of the loop. On
 each iteration, the value of `loop_variable_name` is a `STRUCT` that contains
 the top-level columns of the table expression as fields. The order in which
-values are assigned to `loop_variable_name` is not defined, unless the table
+values are assigned to `loop_variable_name` isn't defined, unless the table
 expression has a top-level `ORDER BY` clause or `UNNEST` array operator.
 
 The scope of `loop_variable_name` is the body of the loop. The name of
-`loop_variable_name` cannot conflict with other variables within the same
+`loop_variable_name` can't conflict with other variables within the same
 scope.
 
 You can use a label with this statement. To learn more, see [Labels][labels].
@@ -1107,7 +1107,7 @@ RAISE [USING MESSAGE = message];
 Raises an error, optionally using the specified error message when `USING
 MESSAGE = message` is supplied.
 
-#### When `USING MESSAGE` is not supplied
+#### When `USING MESSAGE` isn't supplied
 
 The `RAISE` statement must only be used within an `EXCEPTION` clause. The
 `RAISE` statement will re-raise the exception that was caught, and preserve the
@@ -1121,8 +1121,8 @@ If the `RAISE` statement is contained within the `BEGIN` section of a
 + The handler will be invoked.
 + The stack trace will be set to the `RAISE` statement.
 
-If the `RAISE` statement is not contained within the `BEGIN` section of a
-`BEGIN...EXCEPTION` block, the `RAISE` statement will stop execution of the
+If the `RAISE` statement isn't contained within the `BEGIN` section of a
+`BEGIN...EXCEPTION` block, the `RAISE` statement stops execution of the
 multi-statement query with the error message supplied.
 
 ## `RETURN`
@@ -1145,7 +1145,7 @@ Calls a [procedure][procedures] with an argument list.
 The maximum depth of procedure calls is 50 frames.
 
 `CALL` is restricted from being executed dynamically as a nested element. This
-means `CALL` cannot be nested in an `EXECUTE IMMEDIATE` statement.
+means `CALL` can't be nested in an `EXECUTE IMMEDIATE` statement.
 
 **Examples**
 

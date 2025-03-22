@@ -26,9 +26,12 @@
 
 // NOLINTBEGIN(google-global-names-in-headers)
 using zetasql::test_values::Array;
+using zetasql::test_values::GraphEdge;
+using zetasql::test_values::GraphNode;
 using zetasql::test_values::kIgnoresOrder;
 using zetasql::test_values::kPreservesOrder;
 using zetasql::test_values::MakeArrayType;
+using zetasql::test_values::MakeGraphElementType;
 using zetasql::test_values::MakeMapType;
 using zetasql::test_values::MakeRangeType;
 using zetasql::test_values::MakeStructType;
@@ -37,9 +40,6 @@ using zetasql::test_values::OrderPreservationKind;
 using zetasql::test_values::Range;
 using zetasql::test_values::Struct;
 using zetasql::test_values::StructArray;
-using zetasql::test_values::GraphEdge;
-using zetasql::test_values::GraphNode;
-using zetasql::test_values::MakeGraphElementType;
 
 using zetasql::types::BigNumericType;
 using zetasql::types::BoolType;
@@ -130,6 +130,7 @@ using zetasql::values::NullUuid;
 using zetasql::values::NullString;
 using zetasql::values::NullTime;
 using zetasql::values::NullTimestamp;
+using zetasql::values::NullTimestampPicos;
 using zetasql::values::NullUint32;
 using zetasql::values::NullUint64;
 

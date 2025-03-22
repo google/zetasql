@@ -164,6 +164,14 @@ class DebugStrings {
     return assignmentOp == AssignmentOp.DEFAULT_ASSIGN;
   }
 
+  static boolean isDefaultValue(GraphPropertyDeclaration propertyDeclaration) {
+    return propertyDeclaration == null || propertyDeclaration.getName().isEmpty();
+  }
+
+  static boolean isDefaultValue(GraphElementLabel elementLabel) {
+    return elementLabel == null || elementLabel.getName().isEmpty();
+  }
+
   // toStringImpl functions for different node field types, similar to the C++ implementation in
   // zetasql/resolved_ast/resolved_ast.cc.template
 

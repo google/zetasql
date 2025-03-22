@@ -109,9 +109,9 @@ be used in a `MATCH` statement.
 A graph pattern consists of a list path patterns. You can optionally
 include a `WHERE` clause. For example:
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   (a:Account)-[e:Transfers]->(b:Account)          -- path pattern
-  WHERE a.nick_name = b.nick_name                 -- WHERE clause
+  WHERE a != b                                    -- WHERE clause
   ```
 
 #### Definitions
@@ -119,7 +119,7 @@ include a `WHERE` clause. For example:
 + `path_pattern_list`: A list of path patterns. For example, the
   following list contains two path patterns:
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   (a:Account)-[t:Transfers]->(b:Account),         -- path pattern 1
   (a)<-[o:Owns]-(p:Person)                        -- path pattern 2
   ```
@@ -131,7 +131,7 @@ path, or any shortest path. For more information, see [Path search prefix][searc
 + `path_pattern`: A path pattern that matches paths in a property graph.
   For example:
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   (a:Account)-[e:Transfers]->(b:Account)
   ```
 + `path_term`: An [element pattern][element-pattern-definition] or a
@@ -143,9 +143,9 @@ path, or any shortest path. For more information, see [Path search prefix][searc
 + `where_clause`: A `WHERE` clause, which filters the matched results. For
   example:
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   MATCH (a:Account)->(b:Account)
-  WHERE a.nick_name = b.nick_name
+  WHERE a != b
   ```
 
   Boolean expressions can be used in a `WHERE` clause, including
@@ -162,7 +162,7 @@ Note: The examples in this section reference a property graph called
 
 The following query matches all nodes:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (n)
 RETURN n.name, n.id
@@ -181,7 +181,7 @@ RETURN n.name, n.id
 
 The following query matches all directed edges:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH ()-[e]->()
 RETURN COUNT(e.id) AS results
@@ -195,7 +195,7 @@ RETURN COUNT(e.id) AS results
 
 The following query matches all directed edges in either direction:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH ()-[e]-()
 RETURN COUNT(e.id) AS results
@@ -209,7 +209,7 @@ RETURN COUNT(e.id) AS results
 
 The following query matches paths matching two path patterns:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH
   (src:Account)-[t1:Transfers]->(mid:Account)-[t2:Transfers]->(dst:Account),
@@ -316,28 +316,28 @@ An element pattern is either a node pattern or an edge pattern.
 
 + `node_pattern`: a pattern to match nodes in a property graph. For example:
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   (n:Person)          -- Matches all Person nodes in a property graph.
   ```
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   (c:City)            -- Matches all City nodes in a property graph.
   ```
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   ()                  -- Matches all nodes in a property graph.
   ```
 + `edge_pattern`: a pattern to match edges in a property graph. For example:
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   -[LivesIn]->        -- Matches all LivesIn edges in a property graph.
   ```
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   -[]->               -- Matches all right directed edges in a property graph.
   ```
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   (n:Person)-(c:City) -- Matches edges between Person and City nodes in any direction.
   ```
 
@@ -346,7 +346,7 @@ An element pattern is either a node pattern or an edge pattern.
   + `full_edge_any`: Any-direction edge with an optional pattern filler.
   + `abbreviated_edge_any`: Any-direction edge, no pattern filler.
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
 -[e:Located_In]-     -- Any-direction full edge with filler.
 -[]-                 -- Any-direction full edge, no filler.
 -                    -- Any-direction abbreviated edge.
@@ -355,7 +355,7 @@ An element pattern is either a node pattern or an edge pattern.
   + `full_edge_left`: Left-direction edge with an optional pattern filler.
   + `abbreviated_edge_left`: Left-direction edge, no pattern filler.
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   <-[e:Located_In]-  -- Left full edge with filler.
   <-[]-              -- Left full edge, no filler.
   <-                 -- Left abbreviated edge.
@@ -364,7 +364,7 @@ An element pattern is either a node pattern or an edge pattern.
   + `full_edge_right`: Right-direction edge with an optional pattern filler.
   + `abbreviated_edge_right`: Right-direction edge, no pattern filler.
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   -[e:Located_In]->  -- Right full edge with filler.
   -[]->              -- Right full edge, no filler.
   ->                 -- Right abbreviated edge.
@@ -374,7 +374,7 @@ An element pattern is either a node pattern or an edge pattern.
   `graph_pattern_variable`, `is_label_condition`, and
   `where_clause`. For example:
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   (p:Person WHERE p.name = 'Kai')
   ```
 
@@ -387,7 +387,7 @@ An element pattern is either a node pattern or an edge pattern.
   `p` is the variable for the graph pattern element `p:Person` in the
   following example:
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   (p:Person)-[:Located_In]->(c:City),
   (p)-[:Knows]->(p:Person WHERE p.name = 'Kai')
   ```
@@ -395,19 +395,19 @@ An element pattern is either a node pattern or an edge pattern.
   must satisfy. This condition includes `label expression`. You can use
   either `IS` or `:` to begin a condition. For example, these are the same:
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   (p IS Person)
   ```
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   (p:Person)
   ```
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   -[IS Knows]->
   ```
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   -[:Knows]->
   ```
 + `label_expression`: The expression for the label. For more information,
@@ -426,16 +426,16 @@ An element pattern is either a node pattern or an edge pattern.
 
   Examples:
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   (m:MusicCreator WHERE m.name = 'Cruz Richards')
   ```
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   (s:Singer)->(album:Album)<-(s2)
   WHERE s.name != s2.name
   ```
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   (s:Singer)-[has_friend:Knows]->
   (s2:Singer WHERE s2.singer_name = 'Mahan Lomond')
   ```
@@ -445,11 +445,11 @@ An element pattern is either a node pattern or an edge pattern.
 
   Examples:
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   {name: 'Cruz Richards'}
   ```
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   {last_name: 'Richards', albums: 2}
   ```
 + `element_property`: An element property in `property_filters`. The same
@@ -467,55 +467,55 @@ An element pattern is either a node pattern or an edge pattern.
 
   Examples:
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   (n:Person {age: 20})
   ```
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   (n:Person {id: n.age})
   ```
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   (n1:Person)-[e: Owns {since: 2023}]->(n2:Account)
   ```
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   (:Person {id: 100, age: 20})-[e:Knows]->(n2:Person)
   ```
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   (n:Person|Student {id: n.age + n.student_id})
   ```
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   (n:Person {age: 20, id: 30})
   ```
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   (n {id: 100, age: 20})
   ```
 
-  ```sql {.no-copy}
-  (n:Person {id: 10 + n.age})-[e:Knows {since: 2023 + e.id}]
+  ```zetasql {.no-copy}
+  (n:Person {id: 10 + n.age})-[e:Knows {since: 2023 + e.id}]->
   ```
 
   The following are equivalent:
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   (n:Person WHERE n.id = 100 AND n.age = 20)
   ```
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   (n:Person {id: 100, age: 20})
   ```
 
   The following are equivalent:
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   (a:Employee {employee_id: 10})->(:University)<-(a:Alumni {alumni_id: 20})
   ```
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   (a:Employee&Alumni {employee_id: 10, alumni_id: 20})->
   (:University)<-(a:Employee&Alumni {employee_id: 10, alumni_id: 20})
   ```
@@ -524,7 +524,7 @@ An element pattern is either a node pattern or an edge pattern.
   property filter, the semantics is `= NULL`, not `IS NULL`.
   This distinction is important when you create an element pattern:
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   (n:Person {age: NULL})          -- '= NULL'
   (n:Person WHERE n.age = NULL)   -- '= NULL'
   (n:Person WHERE n.age IS NULL)  -- 'IS NULL'
@@ -532,23 +532,23 @@ An element pattern is either a node pattern or an edge pattern.
 
   The following produce errors:
 
-  ```sql {.bad .no-copy}
+  ```zetasql {.bad .no-copy}
   -- Error: The property specification for n2 can't reference properties in
   -- e and n1.
   (n1:Person)-[e:Knows]->(n2:Person {id: e.since+n1.age})
   ```
 
-  ```sql {.bad .no-copy}
-  -- Error: Aggregate expressions are not allowed.
+  ```zetasql {.bad .no-copy}
+  -- Error: Aggregate expressions aren't allowed.
   (n:Person {id: SUM(n.age)})
   ```
 
-  ```sql {.bad .no-copy}
-  -- Error: A property called unknown_property does not exist for Person.
+  ```zetasql {.bad .no-copy}
+  -- Error: A property called unknown_property doesn't exist for Person.
   (n:Person {unknown_property: 100})
   ```
 
-  ```sql {.bad .no-copy}
+  ```zetasql {.bad .no-copy}
   -- Error: An element property filter list can't be empty
   (n:Person {})
   ```
@@ -569,9 +569,9 @@ Note: The examples in this section reference a property graph called
 [fin-graph]: https://github.com/google/zetasql/blob/master/docs/graph-schema-statements.md#fin_graph
 
 The following query matches all nodes in the graph. `n` is a graph pattern
-variable that is bound to the matching nodes:
+variable that's bound to the matching nodes:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (n)
 RETURN LABELS(n) AS label
@@ -589,9 +589,9 @@ RETURN LABELS(n) AS label
 ```
 
 The following query matches all edges in the graph.
-`e` is a graph pattern variable that is bound to the matching edges:
+`e` is a graph pattern variable that's bound to the matching edges:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH -[e]->
 RETURN e.id
@@ -611,9 +611,9 @@ RETURN e.id
 ```
 
 The following queries matches all nodes with a given label in the graph. `n` is
-a graph pattern variable that is bound to the matching nodes:
+a graph pattern variable that's bound to the matching nodes:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (n:Person)
 RETURN n.name, n.id
@@ -627,7 +627,7 @@ RETURN n.name, n.id
  +-----------*/
 ```
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (n:Person|Account)
 RETURN n.id, n.name, n.nick_name
@@ -645,9 +645,9 @@ RETURN n.id, n.name, n.nick_name
 ```
 
 The following query matches all edges in the graph that have the `Owns` label.
-`e` is a graph pattern variable that is bound to the matching edges:
+`e` is a graph pattern variable that's bound to the matching edges:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH -[e:Owns]->
 RETURN e.id
@@ -664,7 +664,7 @@ RETURN e.id
 In the following query, the `WHERE` clause is used to filter out nodes whose
 `birthday` property is no greater than `1990-01-10`:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (n:Person WHERE n.birthday > '1990-01-10')
 RETURN n.name
@@ -679,7 +679,7 @@ RETURN n.name
 In the following query, the `WHERE` clause is used to only include edges whose
  `create_time` property is greater than `2020-01-14` and less than `2020-05-14`:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH -[e:Owns WHERE e.create_time > '2020-01-14'
                  AND e.create_time < '2020-05-14']->
@@ -697,7 +697,7 @@ In the following query, the
 [`PROPERTY_EXISTS` predicate][graph-predicates] is used to only include nodes
 that have a `name` property:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (n:Person|Account WHERE PROPERTY_EXISTS(n, name))
 RETURN n.id, n.name
@@ -715,7 +715,7 @@ You can filter graph elements with property filters. The following query
 uses a property filter, `{is_blocked: false}`, to only include elements
 that have the `is_blocked` property set as `false`:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (a:Account {is_blocked: false})
 RETURN a.id
@@ -734,7 +734,7 @@ query uses the property element filter list,
 to only include elements that have the `is_blocked` property set as `false`
 and the `nick_name` property set as `Vacation Fund`:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (a:Account {is_blocked: false, nick_name: 'Vacation Fund'})
 RETURN a.id
@@ -749,7 +749,7 @@ RETURN a.id
 The following query matches right directed `Transfers` edges connecting two
 `Account` nodes.
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (src:Account)-[transfer:Transfers]->(dst:Account)
 RETURN src.id AS src_id, transfer.amount, dst.id AS dst_id
@@ -768,7 +768,7 @@ RETURN src.id AS src_id, transfer.amount, dst.id AS dst_id
 The following query matches any direction `Transfers` edges connecting two
 `Account` nodes.
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (src:Account)-[transfer:Transfers]-(dst:Account)
 RETURN src.id AS src_id, transfer.amount, dst.id AS dst_id
@@ -792,7 +792,7 @@ RETURN src.id AS src_id, transfer.amount, dst.id AS dst_id
 The following query matches left directed edges connecting `Person` nodes to
 `Account` nodes, using the left directed abbreviated edge pattern.
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (account:Account)<-(person:Person)
 RETURN account.id, person.name
@@ -809,7 +809,7 @@ RETURN account.id, person.name
 You can reuse variable names in patterns. The same variable name binds to the
 same node or edge. The following query reuses a variable called `a`:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (a:Account)-[t1:Transfers]->(mid:Account)-[t2:Transfers]->(a:Account)
 RETURN a.id AS a_id
@@ -825,7 +825,7 @@ RETURN a.id AS a_id
 In the following query, `a` and `a2` are different variable names but can match
 the same node:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (a:Account)-[t1:Transfers]->(mid:Account)-[t2:Transfers]->(a2)
 RETURN a.id AS a_id, a2.id AS a2_id
@@ -846,7 +846,7 @@ RETURN a.id AS a_id, a2.id AS a2_id
 You need to explicitly apply the `WHERE` filter if you only want to match a path
 if `a` and `a2` are different. For example:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (a:Account)-[t1:Transfers]->(mid:Account)-[t2:Transfers]->(a2)
 WHERE a.id != a2.id
@@ -940,66 +940,66 @@ is performed on to the consecutive node patterns.
 
 The following are examples of subpath patterns:
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   -- Success: e and p are both declared within the same subpath pattern and
   -- can be referenced in that subpath pattern.
   (-[e:LocatedIn]->(p:Person)->(c:City) WHERE p.id = e.id)
   ```
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   -- Success: e and p are both declared within the same subpath pattern
   -- hierarchy and can be referenced inside of that subpath pattern hierarchy.
   (-[e:LocatedIn]->((p:Person)->(c:City)) WHERE p.id = e.id)
   ```
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   -- Error: e is declared outside of the inner subpath pattern and therefore
   -- can't be referenced inside of the inner subpath pattern.
   (-[e:LocatedIn]->((p:Person)->(c:City) WHERE p.id = e.id))
   ```
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   -- Success: e and p are declared in a subpath pattern and can be used outside
   -- of the subpath pattern.
   (-[e:LocatedIn]->(p:Person))->(c:City) WHERE p.id = e.id
   ```
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   -- No subpath patterns:
   (p:Person)-[e:LocatedIn]->(c:City)-[s:StudyAt]->(u:School)
   ```
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   -- One subpath pattern on the left:
   ((p:Person)-[e:LocatedIn]->(c:City))-[s:StudyAt]->(u:School)
   ```
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   -- One subpath pattern on the right:
   (p:Person)-[e:LocatedIn]->((c:City)-[s:StudyAt]->(u:School))
   ```
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   -- One subpath pattern around the entire path pattern:
   ((p:Person)-[e:LocatedIn]->(c:City)-[s:StudyAt]->(u:School))
   ```
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   -- One subpath pattern that contains only a node pattern:
   ((p:Person))-[e:LocatedIn]->(c:City)-[s:StudyAt]->(u:School)
   ```
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   -- One subpath pattern that contains only an edge pattern:
   (p:Person)(-[e:LocatedIn]->)(c:City)-[s:StudyAt]->(u:School)
   ```
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   -- Two subpath patterns, one inside the other:
   ((p:Person)(-[e:LocatedIn]->(c:City)))-[s:StudyAt]->(u:School)
   ```
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   -- Three consecutive subpath patterns:
   ((p:Person))(-[e:LocatedIn]->(c:City))(-[s:StudyAt]->(u:School))
   ```
@@ -1015,7 +1015,7 @@ In the following query, the subpath
 `(src:Account)-[t1:Transfers]->(mid:Account)` is evaluated first, then the rest
 of the path pattern:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH
   ((src:Account)-[t1:Transfers]->(mid:Account))-[t2:Transfers]->(dst:Account)
@@ -1072,7 +1072,7 @@ query.
   portion can repeat.
 
   + `lower_bound`: A non-negative integer that represents the minimum number of
-  times that the path pattern portion must repeat. If a lower bound is not
+  times that the path pattern portion must repeat. If a lower bound isn't
   provided, 0 is used by default.
 
   + `upper_bound`: A positive integer that represents the maximum number of
@@ -1122,7 +1122,7 @@ query.
     In the following `MATCH` statement, the variables `p`, `knows`, and `f` are
     singleton variables, which bind exactly to one element each.
 
-    ```sql {.no-copy}
+    ```zetasql {.no-copy}
     MATCH (p)-[knows]->(f)
     ```
 +   Variables defined within a quantified path pattern bind to an array of
@@ -1133,7 +1133,7 @@ query.
     `{1, 3}`. The variables `p`, `knows`, and `f` are each bind to an array of
     elements in the `MATCH` statement result and are considered group variables:
 
-    ```sql {.no-copy}
+    ```zetasql {.no-copy}
     MATCH ((p)-[knows]->(f)){1, 3}
     ```
 
@@ -1143,7 +1143,7 @@ query.
 
 Examples:
 
-```sql {.no-copy}
+```zetasql {.no-copy}
 -- Quantified path pattern with a fixed quantifier:
 MATCH ((p:Person)-[k:Knows]->(f:Person)){2}
 
@@ -1151,7 +1151,7 @@ MATCH ((p:Person)-[k:Knows]->(f:Person)){2}
 MATCH ((p0:Person)-[k0:Knows]->(f0:Person)(p1:Person)-[k1:Knows]->(f1:Person))
 ```
 
-```sql {.no-copy}
+```zetasql {.no-copy}
 -- Quantified path pattern with a bounded quantifier:
 MATCH ((p:Person)-[k:Knows]->(f:Person)){1,3}
 
@@ -1163,14 +1163,14 @@ UNION ALL
 MATCH ((p:Person)-[k:Knows]->(f:Person)){3}
 ```
 
-```sql {.no-copy}
+```zetasql {.no-copy}
 -- Quantified subpath with default lower bound (0) and an upper bound.
 -- When subpath is repeated 0 times, the path pattern is semantically equivalent
 -- to (source_person:Person)(dest_person:Person).
 MATCH (source_person:Person)((p:Person)-[k:Knows]->(f:Person)){, 4}(dest_person:Person)
 ```
 
-```sql {.no-copy}
+```zetasql {.no-copy}
 -- Edge quantification is canonicalized into subpath quantification:
 MATCH (p:Person)-[k:Knows]->{1,2}(f:Person)
 
@@ -1178,34 +1178,34 @@ MATCH (p:Person)-[k:Knows]->{1,2}(f:Person)
 MATCH (p:Person)(()-[k:Knows]->()){1,2}(f:Person)
 ```
 
-```sql {.no-copy}
+```zetasql {.no-copy}
 -- ERROR: Minimum path length for the quantified path is 0.
 MATCH (p:Person){1, 3}
 ```
 
-```sql {.no-copy}
+```zetasql {.no-copy}
 -- ERROR: Minimum node count and minimum path length for the entire path is 0.
 MATCH ((p:Person)-[k:Knows]->(f:Person)){0}
 ```
 
-```sql {.no-copy}
+```zetasql {.no-copy}
 -- ERROR: Minimum path length for the entire path is 0 when quantified portion
 -- is repeated 0 times.
 MATCH (:Person)((p:Person)-[k:Knows]->(f:Person)){0, 3}
 ```
 
-```sql {.no-copy}
+```zetasql {.no-copy}
 -- ERROR: `p` is declared once as a group variable and once as a singleton
 -- variable.
 MATCH (s:Person) ((p:Person)-[k:Knows]->(f:Person)){1, 3}->(p:Person)
 ```
 
-```sql {.no-copy}
+```zetasql {.no-copy}
 -- ERROR: `p` is declared twice as a group variable.
-MATCH ((p:Person)-[k:Knows]->(f:Person)){1, 3}->[x.Knows]->((p:Person)-[z:Knows]-(d:Person)){2}
+MATCH ((p:Person)-[k:Knows]->(f:Person)){1, 3}-[x.Knows]->((p:Person)-[z:Knows]-(d:Person)){2}
 ```
 
-```sql {.no-copy}
+```zetasql {.no-copy}
 -- Since both declarations of `p` are within the quantifier’s pattern,
 -- they are treated as singleton variables and can be multiply-declared.
 MATCH (s:person)((p:Person)-[k:Knows]->(p:Person)){1, 3}
@@ -1222,7 +1222,7 @@ The following query uses a quantified path pattern to match all of the
 destination accounts that are one to three transfers away from a source account
 with `id` equal to `7`:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (src:Account {id: 7})-[e:Transfers]->{1, 3}(dst:Account)
 WHERE src != dst
@@ -1244,11 +1244,11 @@ The following query uses a quantified path pattern to match paths between
 accounts with one to two transfers through intermediate accounts that are
 blocked:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH
   (src:Account)
-  ((:Account)-[:Transfers]->(mid:Account) WHERE mid.is_blocked){1,2}
+  ((:Account)-[:Transfers]->(mid:Account {is_blocked:true})){1,2}
   -[:Transfers]->(dst:Account)
 RETURN src.id AS src_account_id, dst.id AS dst_account_id
 
@@ -1266,7 +1266,7 @@ referenced outside of that pattern, `e` is a group variable bound to an array
 of `Transfers`. You can use the group variable in aggregate functions such
 as `SUM` and `ARRAY_LENGTH`:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH
   (src:Account {id: 7})-[e:Transfers WHERE e.amount > 100]->{0,2}
@@ -1311,53 +1311,53 @@ operators (AND, OR, NOT) and parentheses for grouping.
 + `label_name`: The label to match. Use `%` to match any label in the
   graph. For example:
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   (p:Person)
   ```
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   (p:%)
   ```
 + `or_expression`: [GQL logical `OR` operation][graph-operators] for
   label expressions. For example:
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   (p:(Singer|Writer))
   ```
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   (p:(Singer|(Producer|Writer)))
   ```
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   (p:(Singer|(Producer&Writer)))
   ```
 + `and_expression`: [GQL logical `AND` operation][graph-operators] for
   label expressions. For example:
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   (p:(Singer&Producer))
   ```
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   (p:(Singer&(Writer|Producer)))
   ```
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   (p:(Singer&(Writer&Producer)))
   ```
 + `not_expression`: [GQL logical `NOT` operation][graph-operators] for
   label expressions. For example:
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   (p:!Singer)
   ```
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   (p:(!Singer&!Writer))
   ```
 
-  ```sql {.no-copy}
+  ```zetasql {.no-copy}
   (p:(Singer|(!Writer&!Producer)))
   ```
 
@@ -1376,7 +1376,7 @@ Note: The examples in this section reference a property graph called
 The following query matches all nodes with the label `Person`
 in the [`FinGraph`][fin-graph] property graph.
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (n:Person)
 RETURN n.name
@@ -1393,7 +1393,7 @@ RETURN n.name
 The following query matches all nodes that have either a `Person`
 or an `Account` label in the [`FinGraph`][fin-graph] property graph.
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (n:Person|Account)
 RETURN n.id
@@ -1446,7 +1446,7 @@ The path search prefix first partitions the match results by their endpoints
 The `ANY` and `ANY SHORTEST` prefixes can return multiple paths, one
 for each distinct pair of endpoints.
 
-When using `ANY` or `ANY SHORTEST` prefixes in a path pattern, do not reuse
+When using `ANY` or `ANY SHORTEST` prefixes in a path pattern, don't reuse
 variables defined within that pattern elsewhere in the same `MATCH` statement,
 unless the variable represents an endpoint. Each prefix needs to operate
 independently on its associated path pattern.
@@ -1460,28 +1460,26 @@ Note: The examples in this section reference a property graph called
 
 The following query matches a shortest path between each pair of `[a, b]`.
 
-```sql {.no-copy}
+```zetasql {.no-copy}
 GRAPH FinGraph
-MATCH ANY SHORTEST (a:Account)-[t:Transfers]->{1, 4} (b:Account)
-WHERE a.is_blocked
-LET total = SUM(t.amount)
-RETURN a.id AS a_id, total, b.id AS b_id
+MATCH ANY SHORTEST (a:Account {is_blocked:true})-[t:Transfers]->{1, 4} (b:Account)
+LET path_length = COUNT(t)
+RETURN a.id AS a_id, path_length, b.id AS b_id
 
-/*------+-------+------+
- | a_id | total | b_id |
- +------+-------+------+
- | 16   | 500   | 16   |
- | 16   | 800   | 7    |
- | 16   | 300   | 20   |
- +------+-------+------*/
+/*------+-------------+------+
+ | a_id | path_length | b_id |
+ +------+-------------+------+
+ |   16 |           2 |   16 |
+ |   16 |           2 |    7 |
+ |   16 |           1 |   20 |
+ +------+-------------+------*/
 ```
 
 The following query matches any path between each pair of `[a, b]`.
 
-```sql {.no-copy}
+```zetasql {.no-copy}
 GRAPH FinGraph
-MATCH ANY (a:Account)->(mid:Account)->(b:Account)
-WHERE a.is_blocked
+MATCH ANY (a:Account {is_blocked: true})->(mid:Account)->(b:Account)
 RETURN a.id AS a_id, mid.id AS mid_id, b.id AS b_id
 
 /*------+--------+------+
@@ -1493,9 +1491,9 @@ RETURN a.id AS a_id, mid.id AS mid_id, b.id AS b_id
 ```
 
 The following query matches all paths between each pair of `[a, b]`. The `ALL`
-prefix does not filter out any result.
+prefix doesn't filter out any result.
 
-```sql {.no-copy}
+```zetasql {.no-copy}
 GRAPH FinGraph
 MATCH ALL (a:Account {id: 20})-[t:Transfers]->(b:Account)
 RETURN a.id AS a_id, t.amount, b.id AS b_id
@@ -1516,7 +1514,7 @@ RETURN a.id AS a_id, t.amount, b.id AS b_id
 The following query finds the middle account of any two-hop loops that starts and
 ends with the same account with `id = 20`, and gets the middle account's owner.
 
-```sql {.no-copy}
+```zetasql {.no-copy}
 GRAPH FinGraph
 MATCH ANY (a:Account {id: 20})->(mid:Account)->(a:Account)
 MATCH ALL (p:Person)->(mid)
@@ -1531,9 +1529,9 @@ RETURN p.name, mid.id
 
 The following query produces an error because `mid`, defined within a path
 pattern with the `ANY` prefix, can't be reused outside that pattern in the
-same `MATCH` statement. This is not permitted because `mid` is not an endpoint.
+same `MATCH` statement. This isn't permitted because `mid` isn't an endpoint.
 
-```sql {.bad .no-copy}
+```zetasql {.bad .no-copy}
 -- Error
 GRAPH FinGraph
 MATCH
@@ -1546,7 +1544,7 @@ The following query succeeds because `a`, even though defined in a path pattern
 with the `ANY` path search prefix, can be reused outside of the path pattern
 within the same `MATCH` statement, since `a` is an endpoint.
 
-```sql
+```zetasql
 -- Succeeds
 GRAPH FinGraph
 MATCH
@@ -1561,10 +1559,10 @@ RETURN p.name
  +------*/
 ```
 
-The following query succeeds because `mid` is not reused outside of the path
+The following query succeeds because `mid` isn't reused outside of the path
 pattern with the `ANY` prefix in the same `MATCH` statement.
 
-```sql
+```zetasql
 -- Succeeds
 GRAPH FinGraph
 MATCH ANY (a:Account {id: 20})->(mid:Account)->(a:Account)->(mid:Account)->(a:Account)
@@ -1579,11 +1577,11 @@ RETURN p.name
 ```
 
 All rules for [quantified path patterns][quantified-path-pattern] apply. In the
-following examples, although `p` is on the boundary of the first path, it is a
+following examples, although `p` is on the boundary of the first path, it's a
 group variable and still not allowed be declared again outside its parent
 quantified path:
 
-```sql {.bad .no-copy}
+```zetasql {.bad .no-copy}
 -- Error
 GRAPH FinGraph
 MATCH ANY ((p:Person)->(f:Person)){1, 3},
@@ -1591,7 +1589,7 @@ MATCH ANY ((p:Person)->(f:Person)){1, 3},
 RETURN p.name
 ```
 
-```sql {.bad .no-copy}
+```zetasql {.bad .no-copy}
 -- Error
 GRAPH FinGraph
 MATCH ANY ((p:Person)->(f:Person)){1, 3},
@@ -1608,6 +1606,7 @@ RETURN p.name
 <span class="var">path_mode</span>:
   {
     WALK [ PATH | PATHS ]
+    | ACYCLIC [ PATH | PATHS ]
     | TRAIL [ PATH | PATHS ]
   }
 </pre>
@@ -1619,14 +1618,16 @@ mode.
 
 #### Definitions
 
-+   `WALK` (default) : Keeps all paths. If the path mode is not present, `WALK`
++   `WALK` (default) : Keeps all paths. If the path mode isn't present, `WALK`
     is used by default.
++   `ACYCLIC`: Filters out paths that have repeating nodes.
 +   `TRAIL`: Filters out paths that have repeating edges.
++   `PATH` and `PATHS`: Syntactic sugar that has no effect on execution.
 
 #### Details
 
 A path mode is typically added in order to filter out paths with duplicate
-edges. It can be applied to any path or subpath pattern.
+edges or nodes. It can be applied to any path or subpath pattern.
 
 A path mode is applied to the whole path or subpath pattern that it restricts,
 regardless of whether other modes are used on subpath patterns.
@@ -1636,8 +1637,6 @@ A path mode is applied to path patterns only, not graph patterns.
 A path can have either a path mode or a [path search prefix][search-prefix], but
 not both.
 
-Keywords `PATH` and `PATHS` are syntactic sugar and have no effect on execution.
-
 #### Examples
 
 Note: The examples in this section reference a property graph called
@@ -1646,55 +1645,79 @@ Note: The examples in this section reference a property graph called
 [fin-graph]: https://github.com/google/zetasql/blob/master/docs/graph-schema-statements.md#fin_graph
 
 The following query demonstrates the use of the `WALK` path mode on a
-non-quantified path pattern. The first path on the results uses the same edge
-for `t1` and `t3`. Notice that results use property `id` as a proxy for the
-edge's id for illustration purposes.
+non-quantified path pattern. The first path in the results uses the same edge
+for `t1` and `t3`.
 
-```sql {.no-copy}
+```zetasql {.no-copy}
 GRAPH FinGraph
 MATCH
   WALK (a1:Account)-[t1:Transfers]->(a2:Account)-[t2:Transfers]->
   (a3:Account)-[t3:Transfers]->(a4:Account)
 WHERE a1.id < a4.id
 RETURN
-  t1.id as t1_id, t2.id as t2_id, t3.id as t3_id
+  t1.id as transfer1_id, t2.id as transfer2_id, t3.id as transfer3_id
 
-/*-------+-------+-------+
- | t1_id | t2_id | t3_id |
- +-------+-------+-------+
- | 16    | 20    | 16    |
- | 7     | 16    | 20    |
- | 7     | 16    | 20    |
- +-------+-------+-------*/
+/*--------------+--------------+--------------+
+ | transfer1_id | transfer2_id | transfer3_id |
+ +--------------+--------------+--------------+
+ | 16           | 20           | 16           |
+ | 7            | 16           | 20           |
+ | 7            | 16           | 20           |
+ +--------------+--------------+--------------*/
 ```
 
-The following query demonstrates the use of the `TRAIL` path mode on a
+The following queries demonstrate the use of the `ACYCLIC` path mode on a
+non-quantified path pattern. Notice that the path whose `a1` and `a3` nodes are
+equal has been filtered out.
+
+```zetasql {.no-copy}
+GRAPH FinGraph
+MATCH
+  ACYCLIC (a1:Account)-[t1:Transfers]->(a2:Account)-[t2:Transfers]->
+  (a3:Account)
+RETURN
+  a1.id as account1_id, a2.id as account2_id,
+  a3.id as account3_id
+
+/*-------------+-------------+-------------*
+ | account1_id | account2_id | account3_id |
+ +-------------+-------------+-------------+
+ | 20          | 7           | 16          |
+ | 20          | 7           | 16          |
+ | 7           | 16          | 20          |
+ | 7           | 16          | 20          |
+ | 16          | 20          | 7           |
+ +-------------+-------------+-------------*/
+```
+
+The following queries demonstrate the use of the `TRAIL` path mode on a
 non-quantified path pattern. Notice that the path whose `t1` and `t3` edges are
 equal has been filtered out.
 
-```sql {.no-copy}
+```zetasql {.no-copy}
 GRAPH FinGraph
 MATCH
   TRAIL (a1:Account)-[t1:Transfers]->(a2:Account)-[t2:Transfers]->
   (a3:Account)-[t3:Transfers]->(a4:Account)
 WHERE a1.id < a4.id
 RETURN
-  t1.id as t1_id, t2.id as t2_id, t3.id as t3_id
+  t1.id as transfer1_id, t2.id as transfer2_id,
+  t3.id as transfer3_id
 
-/*-------+-------+-------+
- | t1_id | t2_id | t3_id |
- +-------+-------+-------+
- | 7     | 16    | 20    |
- | 7     | 16    | 20    |
- +-------+-------+-------*/
+/*--------------+--------------+--------------*
+ | transfer1_id | transfer2_id | transfer3_id |
+ +--------------+--------------+--------------+
+ | 7            | 16           | 20           |
+ | 7            | 16           | 20           |
+ +--------------+--------------+-------------*/
 ```
 
 The following query demonstrates that path modes are applied on path patterns
 and not on graph patterns. Notice that, if `TRAIL` was applied on the graph
 pattern then there would be zero results returned since edge `t1` is explicitly
-duplicated. Instead, it is only applied on path pattern `(a1)-[t1]-(a2)`.
+duplicated. Instead, it's only applied on path pattern `(a1)-[t1]-(a2)`.
 
-```sql {.no-copy}
+```zetasql {.no-copy}
 GRAPH FinGraph
 MATCH TRAIL (a1)-[t1]-(a2), (a2)-[t1]-(a3)
 RETURN COUNT(1) as num_paths
@@ -1720,7 +1743,7 @@ The following query demonstrates the use of the `TRAIL` path mode on a
 quantified path pattern. Notice that `TRAIL` is applied on a path pattern that
 is the concatenation of four subpath patterns of the form `()-[:Transfers]->()`.
 
-```sql {.no-copy}
+```zetasql {.no-copy}
 GRAPH FinGraph
 MATCH TRAIL (a1:Account)-[t1:Transfers]->{4}(a5:Account)
 RETURN COUNT(1) as num_paths
@@ -1734,11 +1757,11 @@ RETURN COUNT(1) as num_paths
 
 The following query demonstrates that path modes are applied individually on the
 path or subpath pattern in which they are defined. In this example, the
-existence of `WALK` does not negate the semantics of the outer `TRAIL`. Notice
-that the result is the same with the previous example where `WALK` is not
+existence of `WALK` doesn't negate the semantics of the outer `TRAIL`. Notice
+that the result is the same with the previous example where `WALK` isn't
 present.
 
-```sql {.no-copy}
+```zetasql {.no-copy}
 GRAPH FinGraph
 MATCH TRAIL (WALK (a1:Account)-[t1:Transfers]->{4}(a5:Account))
 RETURN COUNT(1) as num_paths
@@ -1751,12 +1774,12 @@ RETURN COUNT(1) as num_paths
 ```
 
 The following query demonstrates the use of the `TRAIL` path mode on a subpath
-pattern. Notice that `TRAIL` is applied on a path pattern that is the
+pattern. Notice that `TRAIL` is applied on a path pattern that's the
 concatenation of three subpath patterns of the form `()-[:Transfers]->()`. Since
 edge `t4` is outside this path pattern, it can be equal to any of the edges on
 it. Compare this result with the result of the previous query.
 
-```sql {.no-copy}
+```zetasql {.no-copy}
 GRAPH FinGraph
 MATCH
   (TRAIL (a1:Account)-[t1:Transfers]->{3}(a4:Account))
@@ -1780,7 +1803,7 @@ distinct from each other. Similarly, the three edges on the second subpath must
 also be distinct from each other. However, there may be edges that are equal
 between the two subpaths.
 
-```sql {.no-copy}
+```zetasql {.no-copy}
 GRAPH FinGraph
 MATCH (TRAIL -[t1:Transfers]->()-[t2:Transfers]->()-[t3:Transfers]->){2}
 RETURN COUNT(1) as num_paths
@@ -1795,7 +1818,7 @@ RETURN COUNT(1) as num_paths
 The following query demonstrates that there are no paths of length six with
 non-repeating edges.
 
-```sql {.no-copy}
+```zetasql {.no-copy}
 GRAPH FinGraph
 MATCH TRAIL -[:Transfers]->{6}
 RETURN COUNT(1) as num_paths
@@ -1810,7 +1833,7 @@ RETURN COUNT(1) as num_paths
 The following query demonstrates that a path can't have both a path mode and a
 [path search prefix][search-prefix]:
 
-```sql {.bad .no-copy}
+```zetasql {.bad .no-copy}
 -- Error
 GRAPH FinGraph
 MATCH ANY SHORTEST TRAIL ->{1,4}
@@ -1820,7 +1843,7 @@ RETURN COUNT(1) as num_paths
 The following query demonstrates that path modes can coexist with
 [path search prefixes][search-prefix] when the path mode is placed on a subpath.
 
-```sql {.no-copy}
+```zetasql {.no-copy}
 GRAPH FinGraph
 MATCH ANY SHORTEST (TRAIL ->{1,4})
 RETURN COUNT(1) as num_paths

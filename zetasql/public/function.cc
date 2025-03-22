@@ -212,6 +212,7 @@ absl::StatusOr<std::unique_ptr<Function>> Function::Deserialize(
   auto function = std::make_unique<Function>(
       name_path, proto.group(), proto.mode(), function_signatures, *options);
   function->set_sql_security(proto.sql_security());
+  function->set_statement_context(proto.statement_context());
   return function;
 }
 
@@ -234,6 +235,9 @@ absl::Status Function::Serialize(
   if (sql_security() !=
       ResolvedCreateStatementEnums::SQL_SECURITY_UNSPECIFIED) {
     proto->set_sql_security(sql_security());
+  }
+  if (statement_context() != CONTEXT_DEFAULT) {
+    proto->set_statement_context(statement_context());
   }
   function_options().Serialize(proto->mutable_options());
 
@@ -649,6 +653,10 @@ bool Function::SupportsHavingModifier() const {
 
 bool Function::SupportsDistinctModifier() const {
   return function_options_.supports_distinct_modifier;
+}
+
+bool Function::SupportsGroupByModifier() const {
+  return function_options_.supports_group_by_modifier;
 }
 
 bool Function::SupportsClampedBetweenModifier() const {

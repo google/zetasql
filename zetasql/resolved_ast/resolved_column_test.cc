@@ -21,17 +21,19 @@
 #include <utility>
 #include <vector>
 
-#include "google/protobuf/descriptor.h"
 #include "zetasql/public/annotation/collation.h"
+#include "zetasql/public/id_string.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/annotation.h"
+#include "zetasql/public/types/simple_value.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/resolved_node.h"
-#include "gmock/gmock.h"
+#include "zetasql/resolved_ast/serialization.pb.h"
 #include "gtest/gtest.h"
+#include "zetasql/base/check.h"
+#include "absl/status/statusor.h"
 #include "zetasql/base/status.h"
-#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
@@ -165,8 +167,10 @@ TEST(ResolvedColumnTest, ClassAndProtoSize) {
   EXPECT_EQ(16, sizeof(ResolvedNode))
       << "The size of ResolvedNode class has changed, please also update the "
       << "proto and serialization code if you added/removed fields in it.";
-  EXPECT_EQ(2 * sizeof(IdString) + sizeof(const AnnotatedType*),
-            sizeof(ResolvedColumn) - sizeof(ResolvedNode))
+  // sizeof(ResolvedColumn) is 56 bytes in debug mode, including 4 bytes of
+  // padding. (In NDEBUG mode, the size is 40 bytes, since IdString is only 8
+  // bytes).
+  EXPECT_LE(sizeof(ResolvedColumn), 56)
       << "The size of ResolvedColumn class has changed, please also update the "
       << "proto and serialization code if you added/removed fields in it.";
   EXPECT_EQ(1, ResolvedNodeProto::descriptor()->field_count())

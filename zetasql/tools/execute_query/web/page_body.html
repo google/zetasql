@@ -1,100 +1,114 @@
 
     <main>
       <div id="header"><a href="/">ZetaSQL Execute Query</a></div>
-      <form class="left-section" action="/" method="post">
-        <textarea id="query" tabindex="0" name="query" spellcheck=false
-          placeholder="Enter your query here...">{{query}}</textarea>
+      <div class="left-section">
+        <div id="editor"></div>
+        <form id="form" action="/" method="post">
+          <textarea id="query" tabindex="0" name="query" spellcheck=false
+            placeholder="Enter your query here...">{{query}}</textarea>
 
-        <div class="options">
-          <div>
-            <fieldset>
-              <legend>Mode</legend>
-              <span class="mode-option">
-                <input type="checkbox" name="mode" value="execute" id="mode-execute"
-                  {{#mode_execute}}checked{{/mode_execute}}>
-                <label for="mode-execute">Execute</label>
-              </span>
+          <div class="options">
+            <div>
+              <fieldset>
+                <legend>Mode</legend>
+                <span class="mode-option">
+                  <input type="checkbox" name="mode" value="execute" id="mode-execute"
+                    {{#mode_execute}}checked{{/mode_execute}}>
+                  <label for="mode-execute">Execute</label>
+                </span>
 
-              <span class="mode-option">
-                <input type="checkbox" name="mode" value="analyze" id="mode-analyze"
-                  {{#mode_analyze}}checked{{/mode_analyze}}>
-                <label for="mode-analyze">Analyze</label>
-              </span>
+                <span class="mode-option">
+                  <input type="checkbox" name="mode" value="analyze" id="mode-analyze"
+                    {{#mode_analyze}}checked{{/mode_analyze}}>
+                  <label for="mode-analyze">Analyze</label>
+                </span>
 
-              <span class="mode-option">
-                <input type="checkbox" name="mode" value="parse" id="mode-parse"
-                  {{#mode_parse}}checked{{/mode_parse}}>
-                <label for="mode-parse">Parse</label>
-              </span>
+                <span class="mode-option">
+                  <input type="checkbox" name="mode" value="parse" id="mode-parse"
+                    {{#mode_parse}}checked{{/mode_parse}}>
+                  <label for="mode-parse">Parse</label>
+                </span>
 
-              <span class="mode-option">
-                <input type="checkbox" name="mode" value="explain" id="mode-explain"
-                  {{#mode_explain}}checked{{/mode_explain}}>
-                <label for="mode-explain">Explain</label>
-              </span>
+                <span class="mode-option">
+                  <input type="checkbox" name="mode" value="explain" id="mode-explain"
+                    {{#mode_explain}}checked{{/mode_explain}}>
+                  <label for="mode-explain">Explain</label>
+                </span>
 
-              <span class="mode-option">
-                <input type="checkbox" name="mode" value="unanalyze" id="mode-unanalyze"
-                  {{#mode_unanalyze}}checked{{/mode_unanalyze}}>
-                <label for="mode-unanalyze">Unanalyze</label>
-              </span>
+                <span class="mode-option">
+                  <input type="checkbox" name="mode" value="unanalyze" id="mode-unanalyze"
+                    {{#mode_unanalyze}}checked{{/mode_unanalyze}}>
+                  <label for="mode-unanalyze">Unanalyze</label>
+                </span>
 
-              <span class="mode-option">
-                <input type="checkbox" name="mode" value="unparse" id="mode-unparse"
-                  {{#mode_unparse}}checked{{/mode_unparse}}>
-                <label for="mode-unparse">Unparse</label>
-              </span>
-            </fieldset>
-            <fieldset>
-              <legend>SQL Mode</legend>
-              <input type="radio" name="sql_mode" value="query" id="sql-mode-query"
-                  {{#sql_mode_query}}checked{{/sql_mode_query}}>
-              <label for="sql-mode-query">Query</label>
+                <span class="mode-option">
+                  <input type="checkbox" name="mode" value="unparse" id="mode-unparse"
+                    {{#mode_unparse}}checked{{/mode_unparse}}>
+                  <label for="mode-unparse">Unparse</label>
+                </span>
+              </fieldset>
 
-              <input type="radio" name="sql_mode" value="expression" id="sql-mode-expression"
-                {{#sql_mode_expression}}checked{{/sql_mode_expression}}>
-              <label for="sql-mode-expression">Expression</label>
-
-              <input type="radio" name="sql_mode" value="script" id="sql-mode-script"
-                {{#sql_mode_script}}checked{{/sql_mode_script}}>
-              <label for="sql-mode-script">Script</label>
-            </fieldset>
-
-            <span class="select-options">
-              <label for="catalog-select">Catalog:</label>
-              <select name="catalog" id="catalog-select">
-                {{#catalogs}}
-                <option value="{{name}}" {{selected}}>{{label}}</option>
-                {{/catalogs}}
-              </select>
-            </span>
-
-            <details>
-              <summary>Advanced Options</summary>
               <span class="select-options">
-                <label for="language-features-select">Enabled Language Features:</label>
-                <select name="language-features" id="language-features-select">
-                  {{#language_features}}
-                  <option value="{{name}}" {{selected}}>{{name}}</option>
-                  {{/language_features}}
+                <label for="catalog-select">Catalog:</label>
+                <select name="catalog" id="catalog-select">
+                  {{#catalogs}}
+                  <option value="{{name}}" {{selected}}>{{label}}</option>
+                  {{/catalogs}}
                 </select>
               </span>
-              <span class="select-options">
-                <label for="ast-rewrites-select">Enabled AST Rewrites:</label>
-                <select name="ast-rewrites" id="ast-rewrites-select">
-                  {{#ast_rewrites}}
-                  <option value="{{name}}" {{selected}}>{{name}}</option>
-                  {{/ast_rewrites}}
-                </select>
-              </span>
-              <p><b>⚠️ Note:</b> Changing these default options may result in queries that produce wrong results.</p>
-            </details>
 
+              <details>
+                <summary>Advanced Options</summary>
+                <fieldset>
+                  <legend>SQL Mode</legend>
+                  <input type="radio" name="sql_mode" value="query" id="sql-mode-query"
+                      {{#sql_mode_query}}checked{{/sql_mode_query}}>
+                  <label for="sql-mode-query">Query</label>
+
+                  <input type="radio" name="sql_mode" value="expression" id="sql-mode-expression"
+                    {{#sql_mode_expression}}checked{{/sql_mode_expression}}>
+                  <label for="sql-mode-expression">Expression</label>
+
+                  <input type="radio" name="sql_mode" value="script" id="sql-mode-script"
+                    {{#sql_mode_script}}checked{{/sql_mode_script}}>
+                  <label for="sql-mode-script">Script</label>
+                </fieldset>
+                <fieldset>
+                  <legend>Unanalyze Syntax Mode</legend>
+                  <input type="radio" name="target_syntax_mode" value="standard" id="target-syntax-mode-standard"
+                      {{#target_syntax_mode_standard}}checked{{/target_syntax_mode_standard}}>
+                  <label for="target-syntax-mode-standard">Standard</label>
+
+                  <input type="radio" name="target_syntax_mode" value="pipe" id="target-syntax-mode-pipe"
+                    {{#target_syntax_mode_pipe}}checked{{/target_syntax_mode_pipe}}>
+                  <label for="target-syntax-mode-pipe">Pipe</label>
+                </fieldset>
+
+                <span class="select-options">
+                  <label for="language-features-select">Enabled Language Features:</label>
+                  <select name="language-features" id="language-features-select">
+                    {{#language_features}}
+                    <option value="{{name}}" {{selected}}>{{name}}</option>
+                    {{/language_features}}
+                  </select>
+                </span>
+
+                <span class="select-options">
+                  <label for="ast-rewrites-select">Enabled AST Rewrites:</label>
+                  <select name="ast-rewrites" id="ast-rewrites-select">
+                    {{#ast_rewrites}}
+                    <option value="{{name}}" {{selected}}>{{name}}</option>
+                    {{/ast_rewrites}}
+                  </select>
+                </span>
+              </details>
+
+            </div>
+
+            <input type="submit" id="submit" value="Submit">
           </div>
-
-          <input type="submit" id="submit" value="Submit">
-        </div>
-      </form>
+        </form>
+      </div>
 
       <div class="right-section" id="statements">
         {{#statements}}

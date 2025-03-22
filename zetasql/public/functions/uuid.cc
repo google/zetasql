@@ -21,6 +21,8 @@
 
 #include "zetasql/public/uuid_value.h"
 #include "absl/random/bit_gen_ref.h"
+#include "absl/random/distributions.h"
+#include "absl/strings/string_view.h"
 
 namespace zetasql {
 namespace functions {

@@ -30,10 +30,12 @@
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/strings.h"
+#include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/array_type.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "absl/algorithm/container.h"
+#include "absl/base/no_destructor.h"
 #include "absl/functional/bind_front.h"
 #include "zetasql/base/check.h"
 #include "absl/status/status.h"
@@ -41,6 +43,7 @@
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
+#include "zetasql/base/flat_set.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
@@ -145,8 +148,8 @@ void GetGraphFunctions(TypeFactory* type_factory,
                        NameToFunctionMap* functions) {
   const Type* bool_type = type_factory->get_bool();
   const Type* string_type = type_factory->get_string();
-  const ArrayType* string_array_type = types::StringArrayType();
   const Type* int64_type = type_factory->get_int64();
+  const ArrayType* string_array_type = types::StringArrayType();
 
   InsertFunction(
       functions, options, "$is_source_node", Function::SCALAR,

@@ -242,19 +242,26 @@ information on data type literals and constructors, see
   </td>
 </tr>
 
+<tr>
+  <td><a href="#uuid_type">UUID type</a>
+</td>
+  <td>
+     A universally unique identifier (UUID) represented as a 128-bit number.
+  </td>
+</tr>
+
   </tbody>
 </table>
 
 ## Data type properties
 
-When storing and querying data, it is helpful to keep the following data type
+When storing and querying data, it's helpful to keep the following data type
 properties in mind:
 
 ### Nullable data types
 
 For nullable data types, `NULL` is a valid value. Currently, all existing
-data types are nullable, except
-for `GRAPH_ELEMENT`. Conditions apply for
+data types are nullable. Conditions apply for
 [arrays][array-nulls].
 
 ### Orderable data types
@@ -300,7 +307,7 @@ Floating point values are sorted in this order, from least to greatest:
 
 `ARRAY<T>` is orderable if its type, `T`, is orderable. Empty arrays are
 sorted before non-empty arrays. Non-empty arrays are sorted
-lexicographically by element. An array that is a strict prefix of another array
+lexicographically by element. An array that's a strict prefix of another array
 orders less than the longer array.
 
 Lexicographical ordering for arrays first compares the elements of each array
@@ -310,7 +317,7 @@ array elements are ignored.
 
 For example:
 
-```sql
+```zetasql
 WITH
   t AS (
     SELECT [1, 2] a UNION ALL
@@ -346,12 +353,11 @@ Groupable data types can generally appear in an expression following `GROUP BY`,
 + `PROTO`
 + `GEOGRAPHY`
 + `JSON`
-+ `GRAPH_ELEMENT`
 
 #### Grouping with floating point types
 
 Groupable floating point types can appear in an expression following `GROUP BY`
-and `DISTINCT`. `PARTITION BY` expressions cannot
+and `DISTINCT`. `PARTITION BY` expressions can't
 include [floating point types][floating-point-types].
 
 Special floating point values are grouped in the following way, including
@@ -402,10 +408,10 @@ Notes:
 
 + Equality comparisons for array data types are supported as long as the
   element types are the same, and the element types are comparable. Less than
-  and greater than comparisons are not supported.
+  and greater than comparisons aren't supported.
 + Equality comparisons for structs are supported field by field, in
   field order. Field names are ignored. Less than and greater than comparisons
-  are not supported.
+  aren't supported.
 + To compare geography values, use [ST_Equals][st-equals].
 + When comparing ranges, the lower bounds are compared. If the lower bounds are
   equal, the upper bounds are compared, instead.
@@ -447,8 +453,8 @@ compare strings. These data types support collation:
 An array is an ordered list of zero or more elements of non-array values.
 Elements in an array must share the same type.
 
-Arrays of arrays are not allowed. Queries that would produce an array of
-arrays will return an error. Instead, a struct must be inserted between the
+Arrays of arrays aren't allowed. Queries that would produce an array of
+arrays return an error. Instead, a struct must be inserted between the
 arrays using the `SELECT AS STRUCT` construct.
 
 To learn more about the literal representation of an array type,
@@ -467,7 +473,7 @@ arrays:
 
   For example:
 
-  ```sql
+  ```zetasql
   SELECT CAST(NULL AS ARRAY<INT64>) IS NULL AS array_is_null;
 
   /*---------------*
@@ -482,7 +488,7 @@ arrays:
 
   For example:
 
-  ```sql
+  ```zetasql
   WITH Items AS (
     SELECT [] AS numbers, "Empty array in query" AS description UNION ALL
     SELECT CAST(NULL AS ARRAY<INT64>), "NULL array in query")
@@ -497,11 +503,11 @@ arrays:
    *---------+----------------------+--------------*/
   ```
 
-  When you write a `NULL` array to a table, it is converted to an
+  When you write a `NULL` array to a table, it's converted to an
   empty array. If you write `Items` to a table from the previous query,
   then each array is written as an empty array:
 
-  ```sql
+  ```zetasql
   SELECT numbers, description, numbers IS NULL AS numbers_null
   FROM Items;
 
@@ -521,7 +527,7 @@ ARRAY<T>
 
 Array types are declared using the angle brackets (`<` and `>`). The type
 of the elements of an array can be arbitrarily complex with the exception that
-an array cannot directly contain another array.
+an array can't directly contain another array.
 
 **Examples**
 
@@ -558,7 +564,7 @@ ARRAY&lt;ARRAY&lt;INT64&gt;&gt;
 </td>
 <td>This is an <strong>invalid</strong> type declaration which is included here
 just in case you came looking for how to create a multi-level array. Arrays
-cannot contain arrays directly. Instead see the next example.</td>
+can't contain arrays directly. Instead see the next example.</td>
 </tr>
 <tr>
 <td style="white-space:nowrap">
@@ -567,7 +573,7 @@ ARRAY&lt;STRUCT&lt;ARRAY&lt;INT64&gt;&gt;&gt;
 </code>
 </td>
 <td>An array of arrays of 64-bit integers. Notice that there is a struct between
-the two arrays because arrays cannot hold other arrays directly.</td>
+the two arrays because arrays can't hold other arrays directly.</td>
 </tr>
 <tbody>
 </table>
@@ -582,7 +588,7 @@ You can construct an array using array literals or array functions.
 You can build an array literal in ZetaSQL using brackets (`[` and
 `]`). Each element in an array is separated by a comma.
 
-```sql
+```zetasql
 SELECT [1, 2, 3] AS numbers;
 
 SELECT ["apple", "pear", "orange"] AS fruit;
@@ -593,7 +599,7 @@ SELECT [true, false, true] AS booleans;
 You can also create arrays from any expressions that have compatible types. For
 example:
 
-```sql
+```zetasql
 SELECT [a, b, c]
 FROM
   (SELECT 5 AS a,
@@ -615,21 +621,21 @@ declares a literal. This expression works because all three expressions share
 To declare a specific data type for an array, use angle
 brackets (`<` and `>`). For example:
 
-```sql
+```zetasql
 SELECT ARRAY<DOUBLE>[1, 2, 3] AS floats;
 ```
 
 Arrays of most data types, such as `INT64` or `STRING`, don't require
 that you declare them first.
 
-```sql
+```zetasql
 SELECT [1, 2, 3] AS numbers;
 ```
 
 You can write an empty array of a specific type using `ARRAY<type>[]`. You can
 also write an untyped empty array using `[]`, in which case ZetaSQL
 attempts to infer the array type from the surrounding context. If
-ZetaSQL cannot infer a type, the default type `ARRAY<INT64>` is used.
+ZetaSQL can't infer a type, the default type `ARRAY<INT64>` is used.
 
 #### Using generated values
 
@@ -642,7 +648,7 @@ generates an array of values from a starting and ending value and a step value.
 For example, the following query generates an array that contains all of the odd
 integers from 11 to 33, inclusive:
 
-```sql
+```zetasql
 SELECT GENERATE_ARRAY(11, 33, 2) AS odds;
 
 /*--------------------------------------------------*
@@ -655,7 +661,7 @@ SELECT GENERATE_ARRAY(11, 33, 2) AS odds;
 You can also generate an array of values in descending order by giving a
 negative step value:
 
-```sql
+```zetasql
 SELECT GENERATE_ARRAY(21, 14, -1) AS countdown;
 
 /*----------------------------------*
@@ -675,7 +681,7 @@ You can generate a set of `DATE` values using `GENERATE_DATE_ARRAY`. For
 example, this query returns the current `DATE` and the following
 `DATE`s at 1 `WEEK` intervals up to and including a later `DATE`:
 
-```sql
+```zetasql
 SELECT
   GENERATE_DATE_ARRAY('2017-11-21', '2017-12-31', INTERVAL 1 WEEK)
     AS date_array;
@@ -743,7 +749,7 @@ Boolean values are sorted in this order, from least to greatest:
 </tbody>
 </table>
 
-String and bytes are separate types that cannot be used interchangeably.
+String and bytes are separate types that can't be used interchangeably.
 Most functions on strings are also defined on bytes. The bytes version
 operates on raw bytes rather than Unicode characters. Casts between string and
 bytes enforce that the bytes are encoded using UTF-8.
@@ -772,7 +778,7 @@ see [Bytes literals][bytes-literals].
 </table>
 
 The date type represents a Gregorian calendar date, independent of time zone. A
-date value does not represent a specific 24-hour time period. Rather, a given
+date value doesn't represent a specific 24-hour time period. Rather, a given
 date value represents a different 24-hour period when interpreted in different
 time zones, and may represent a shorter or longer day during daylight saving
 time (DST) transitions.
@@ -893,7 +899,7 @@ Enum values are referenced using their integer value or their string value.
 You reference an enum type, such as when using CAST, by using its fully
 qualified name.
 
-You cannot create new enum types using ZetaSQL.
+You can't create new enum types using ZetaSQL.
 
 To learn more about the literal representation of an enum type,
 see [Enum literals][enum-literals].
@@ -1104,10 +1110,10 @@ by multiple elements of the collection. If self intersections exist, they
 are automatically removed.
 
 The geography that contains no points, linestrings or polygons is called an
-empty geography. An empty geography is not associated with a particular
+empty geography. An empty geography isn't associated with a particular
 geometry shape. For example, the following query produces the same results:
 
-```sql
+```zetasql
 SELECT
   ST_GEOGFROMTEXT('POINT EMPTY') AS a,
   ST_GEOGFROMTEXT('GEOMETRYCOLLECTION EMPTY') AS b
@@ -1119,12 +1125,12 @@ SELECT
  *--------------------------+--------------------------*/
 ```
 
-The structure of compound geometry objects is not preserved if a
+The structure of compound geometry objects isn't preserved if a
 simpler type can be produced. For example, in column `b`,
 `GEOMETRYCOLLECTION` with `(POINT(1 1)` and `POINT(2 2)` is converted into the
 simplest possible geometry, `MULTIPOINT(1 1, 2 2)`.
 
-```sql
+```zetasql
 SELECT
   ST_GEOGFROMTEXT('MULTIPOINT(1 1, 2 2)') AS a,
   ST_GEOGFROMTEXT('GEOMETRYCOLLECTION(POINT(1 1), POINT(2 2))') AS b
@@ -1183,7 +1189,7 @@ if multiple such tables match the given label expression.
 In the following example, `n` represents a graph element in the
 [`FinGraph`][fin-graph] property graph:
 
-```sql
+```zetasql
 GRAPH FinGraph
 MATCH (n:Person)
 RETURN n.name
@@ -1245,14 +1251,14 @@ a [single datetime part][single-datetime-part-interval] or a
 #### Construct an interval with a single datetime part 
 <a id="single_datetime_part_interval"></a>
 
-```sql
+```zetasql
 INTERVAL int64_expression datetime_part
 ```
 
 You can construct an `INTERVAL` object with an `INT64` expression and one
 [interval-supported datetime part][interval-datetime-parts]. For example:
 
-```sql
+```zetasql
 -- 1 year, 0 months, 0 days, 0 hours, 0 minutes, and 0 seconds (1-0 0 0:0:0)
 INTERVAL 1 YEAR
 INTERVAL 4 QUARTER
@@ -1286,7 +1292,7 @@ For additional examples, see [Interval literals][interval-literal-single].
 #### Construct an interval with a datetime part range 
 <a id="range_datetime_part_interval"></a>
 
-```sql
+```zetasql
 INTERVAL datetime_parts_string starting_datetime_part TO ending_datetime_part
 ```
 
@@ -1387,7 +1393,7 @@ You can use one of the following formats with the
 
 For example:
 
-```sql
+```zetasql
 -- 0 years, 8 months, 20 days, 17 hours, 0 minutes, and 0 seconds (0-8 20 17:0:0)
 INTERVAL '8 20 17' MONTH TO HOUR
 
@@ -1452,15 +1458,15 @@ You can use the following time parts to construct an interval:
 Expect these canonicalization behaviors when creating a value of JSON type:
 
 +  Booleans, strings, and nulls are preserved exactly.
-+  Whitespace characters are not preserved.
++  Whitespace characters aren't preserved.
 +  A JSON value can store integers in the range of
    -9,223,372,036,854,775,808 (minimum signed 64-bit integer) to
    18,446,744,073,709,551,615 (maximum unsigned 64-bit integer) and
    floating point numbers within a domain of
    `DOUBLE`.
 +  The order of elements in an array is preserved exactly.
-+  The order of the members of an object is not guaranteed or preserved.
-+  If an object has duplicate keys, the first key that is found is preserved.
++  The order of the members of an object isn't guaranteed or preserved.
++  If an object has duplicate keys, the first key that's found is preserved.
 +  The format of the original string representation of a JSON number may not be
    preserved.
 
@@ -1486,7 +1492,7 @@ Numeric types include the following types:
 ### Integer types 
 <a id="integer_types"></a>
 
-Integers are numeric values that do not have fractional components.
+Integers are numeric values that don't have fractional components.
 
 <table>
 <thead>
@@ -1628,7 +1634,7 @@ input is non-finite.
 
 Function calls and operators return an overflow error if the input is finite
 but the output would be non-finite. If the input contains non-finite values, the
-output can be non-finite. In general functions do not introduce `NaN`s or
+output can be non-finite. In general functions don't introduce `NaN`s or
 `+/-inf`. However, specific functions like `IEEE_DIVIDE` can return non-finite
 values on finite input. All such cases are noted explicitly in
 [Mathematical functions][mathematical-functions].
@@ -1639,21 +1645,21 @@ Floating point values are approximations.
   a subset of the numbers between the most positive number and most
   negative number in the value range. This enables efficient handling of a
   much larger range than would be possible otherwise.
-  Numbers that are not exactly representable are approximated by utilizing a
-  close value instead. For example, `0.1` cannot be represented as an integer
-  scaled by a power of `2`. When this value is displayed as a string, it is
+  Numbers that aren't exactly representable are approximated by utilizing a
+  close value instead. For example, `0.1` can't be represented as an integer
+  scaled by a power of `2`. When this value is displayed as a string, it's
   rounded to a limited number of digits, and the value approximating `0.1`
-  might appear as `"0.1"`, hiding the fact that the value is not precise.
+  might appear as `"0.1"`, hiding the fact that the value isn't precise.
   In other situations, the approximation can be visible.
 + Summation of floating point values might produce surprising results because
   of [limited precision][floating-point-accuracy]. For example,
   `(1e30 + 1) - 1e30 = 0`, while `(1e30 - 1e30) + 1 = 1.0`. This is
-  because the floating point value does not have enough precision to
+  because the floating point value doesn't have enough precision to
   represent `(1e30 + 1)`, and the result is rounded to `1e30`.
   This example also shows that the result of the `SUM` aggregate function of
   floating points values depends on the order in which the values are
-  accumulated. In general, this order is not deterministic and therefore the
-  result is not deterministic. Thus, the resulting `SUM` of
+  accumulated. In general, this order isn't deterministic and therefore the
+  result isn't deterministic. Thus, the resulting `SUM` of
   floating point values might not be deterministic and two executions of the
   same query on the same tables might produce different results.
 + If the above points are concerning, use a
@@ -1833,7 +1839,7 @@ method that you choose, the resulting protocol buffer is the same.
 You can create a protocol buffer using the [`NEW`][new-operator]
 operator with a map constructor:
 
-```sql
+```zetasql
 NEW protocol_buffer {
   field_name: literal_or_expression
   field_name { ... }
@@ -1855,7 +1861,7 @@ Where:
 
 **Example**
 
-```sql
+```zetasql
 NEW zetasql.examples.astronomy.Planet {
   planet_name: 'Jupiter'
   facts: {
@@ -1912,7 +1918,7 @@ When using this syntax, the following rules apply:
     literal-coercible to the type of the corresponding protocol buffer field.
 +   Commas between fields are optional.
 +   Extension names must have parentheses around the path and must have a comma
-    preceding the extension field (unless it is the first field).
+    preceding the extension field (unless it's the first field).
 +   A colon is required between field name and values unless the value is a map
     constructor.
 +   The `NEW protocol_buffer` prefix is optional if the protocol buffer type can
@@ -1923,7 +1929,7 @@ When using this syntax, the following rules apply:
 
 Simple:
 
-```sql
+```zetasql
 SELECT
   key,
   name,
@@ -1932,7 +1938,7 @@ SELECT
 
 Nested messages and arrays:
 
-```sql
+```zetasql
 SELECT
   NEW zetasql.examples.music.Album {
     album_name: 'New Moon'
@@ -1946,7 +1952,7 @@ SELECT
 
 With an extension field (note a comma is required before the extension field):
 
-```sql
+```zetasql
 SELECT
   NEW zetasql.examples.music.Album {
     album_name: 'New Moon',
@@ -1956,7 +1962,7 @@ SELECT
 
 Non-literal expressions as values:
 
-```sql
+```zetasql
 SELECT
   NEW zetasql.examples.music.Chart {
     rank: (SELECT COUNT(*) FROM TableName WHERE foo = 'bar')
@@ -1968,7 +1974,7 @@ The following examples infers the protocol buffer data type from context:
 
 +   From `ARRAY` constructor:
 
-    ```sql
+    ```zetasql
     SELECT
       ARRAY<zetasql.examples.music.Chart>[
         { rank: 1 chart_name: '2' },
@@ -1976,7 +1982,7 @@ The following examples infers the protocol buffer data type from context:
     ```
 +   From `STRUCT` constructor:
 
-    ```sql
+    ```zetasql
     SELECT
       STRUCT<STRING, zetasql.examples.music.Chart, INT64>(
         'foo', { rank: 1 chart_name: '2' }, 7)[1]
@@ -1985,13 +1991,13 @@ The following examples infers the protocol buffer data type from context:
 
     +   Simple column:
 
-    ```sql
+    ```zetasql
     UPDATE TableName SET proto_column = { rank: 1 chart_name: '2' }
     ```
 
     +   Array column:
 
-    ```sql
+    ```zetasql
     UPDATE TableName
     SET proto_array_column = [
       { rank: 1 chart_name: '2' }, { rank: 2 chart_name: '3' }]
@@ -1999,27 +2005,27 @@ The following examples infers the protocol buffer data type from context:
 
     +   Struct column:
 
-    ```sql
+    ```zetasql
     UPDATE TableName
     SET proto_struct_column = ('foo', { rank: 1 chart_name: '2' }, 7)
     ```
 +   From generated column names in `CREATE`:
 
-    ```sql
+    ```zetasql
     CREATE TABLE TableName (
       proto_column zetasql.examples.music.Chart GENERATED ALWAYS AS (
         { rank: 1 chart_name: '2' }))
     ```
 +   From column names in default values in `CREATE`:
 
-    ```sql
+    ```zetasql
     CREATE TABLE TableName(
       proto_column zetasql.examples.music.Chart DEFAULT (
         { rank: 1 chart_name: '2' }))
     ```
 +   From return types in SQL function body:
 
-    ```sql
+    ```zetasql
     CREATE FUNCTION MyFunc()
     RETURNS zetasql.examples.music.Chart
     AS (
@@ -2033,13 +2039,13 @@ The following examples infers the protocol buffer data type from context:
 You can create a protocol buffer using the [`NEW`][new-operator] operator with a
 parenthesized list of arguments and aliases to specify field names:
 
-```sql
+```zetasql
 NEW protocol_buffer(field [AS alias], ...)
 ```
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   key,
   name,
@@ -2062,7 +2068,7 @@ When using this syntax, the following rules apply:
 
 To create a protocol buffer with an extension, use this syntax:
 
-```sql
+```zetasql
 NEW protocol_buffer(expression AS (path.to.extension), ...)
 ```
 
@@ -2074,7 +2080,7 @@ NEW protocol_buffer(expression AS (path.to.extension), ...)
 
     Example:
 
-    ```sql
+    ```zetasql
     SELECT
      NEW zetasql.examples.music.Album (
        album AS album_name,
@@ -2093,7 +2099,7 @@ NEW protocol_buffer(expression AS (path.to.extension), ...)
 
     Example:
 
-    ```sql
+    ```zetasql
     SELECT
      NEW zetasql.examples.music.Album(
        'New Moon' AS album_name,
@@ -2118,17 +2124,17 @@ NEW protocol_buffer(expression AS (path.to.extension), ...)
 The [`SELECT AS typename`][select-as-typename] statement can produce a
 value table where the row type is a specific named protocol buffer type.
 
-`SELECT AS` does not support setting protocol buffer extensions. To do so, use
+`SELECT AS` doesn't support setting protocol buffer extensions. To do so, use
 the [`NEW`][new-keyword] keyword instead. For example,  to create a
 protocol buffer with an extension, change a query like this:
 
-```sql
+```zetasql
 SELECT AS typename field1, field2, ...
 ```
 
 to a query like this:
 
-```sql
+```zetasql
 SELECT AS VALUE NEW ProtoType(field1, field2, field3 AS (path.to.extension), ...)
 ```
 
@@ -2226,7 +2232,7 @@ see [`RANGE`][range-constructor].
 You can construct a range with a range literal. The canonical format for a
 range literal has the following parts:
 
-```sql
+```zetasql
 RANGE<T> '[lower_bound, upper_bound)'
 ```
 
@@ -2234,11 +2240,11 @@ RANGE<T> '[lower_bound, upper_bound)'
 +   `lower_bound`: The range starts from this value. This can be a
     [date][date-literals], [datetime][datetime-literals], or
     [timestamp][timestamp-literals] literal. If this value is `UNBOUNDED` or
-    `NULL`, the range does not include a lower bound.
+    `NULL`, the range doesn't include a lower bound.
 +   `upper_bound`: The range ends before this value. This can be a
     [date][date-literals], [datetime][datetime-literals], or
     [timestamp][timestamp-literals] literal. If this value is `UNBOUNDED` or
-    `NULL`, the range does not include an upper bound.
+    `NULL`, the range doesn't include an upper bound.
 
 `T`, `lower_bound`, and `upper_bound` must be of the same data type.
 
@@ -2247,7 +2253,7 @@ see [Range literals][range-literals].
 
 ### Additional details
 
-The range type does not support arithmetic operators.
+The range type doesn't support arithmetic operators.
 
 [range-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#range_literals
 
@@ -2282,7 +2288,7 @@ The range type does not support arithmetic operators.
 </table>
 
 Input string values must be UTF-8 encoded and output string values will be UTF-8
-encoded. Alternate encodings like CESU-8 and Modified UTF-8 are not treated as
+encoded. Alternate encodings like CESU-8 and Modified UTF-8 aren't treated as
 valid UTF-8.
 
 All functions and operators that act on string values operate on Unicode
@@ -2296,10 +2302,10 @@ than other characters.
 
 Most functions on strings are also defined on bytes. The bytes version
 operates on raw bytes rather than Unicode characters. Strings and bytes are
-separate types that cannot be used interchangeably. There is no implicit casting
+separate types that can't be used interchangeably. There is no implicit casting
 in either direction. Explicit casting between string and bytes does
 UTF-8 encoding and decoding. Casting bytes to string returns an error if the
-bytes are not valid UTF-8.
+bytes aren't valid UTF-8.
 
 To learn more about the literal representation of a string type,
 see [String literals][string-literals].
@@ -2427,7 +2433,7 @@ STRUCT( expr1 [AS field_name] [, ... ])
 ```
 
 Duplicate field names are allowed. Fields without names are considered anonymous
-fields and cannot be referenced by name. struct values can be `NULL`, or can
+fields and can't be referenced by name. struct values can be `NULL`, or can
 have `NULL` field values.
 
 **Examples**
@@ -2475,8 +2481,8 @@ STRUCT<[field_name] field_type, ...>( expr1 [, ... ])
 
 Typed syntax allows constructing structs with an explicit struct data type. The
 output type is exactly the `field_type` provided. The input expression is
-coerced to `field_type` if the two types are not the same, and an error is
-produced if the types are not compatible. `AS alias` is not allowed on the input
+coerced to `field_type` if the two types aren't the same, and an error is
+produced if the types aren't compatible. `AS alias` isn't allowed on the input
 expressions. The number of expressions must match the number of fields in the
 type, and the expression types must be coercible or literal-coercible to the
 field types.
@@ -2511,7 +2517,7 @@ field types.
 </tr>
 <tr>
 <td><code>STRUCT&lt;x int64&gt;(5 AS x)</code></td>
-<td>Error - Typed syntax does not allow <code>AS</code></td>
+<td>Error - Typed syntax doesn't allow <code>AS</code></td>
 </tr>
 </tbody>
 </table>
@@ -2618,7 +2624,7 @@ nanoseconds or
 microseconds
 since a fixed initial point in time.
 
-Note that a timestamp itself does not have a time zone; it represents the same
+Note that a timestamp itself doesn't have a time zone; it represents the same
 instant in time globally. However, the _display_ of a timestamp for human
 readability usually includes a Gregorian date, a time, and a time zone, in an
 implementation-dependent format. For example, the displayed values "2020-01-01
@@ -2663,7 +2669,7 @@ time_part:
 +   <code>[.F]</code>: Up to nine fractional
     digits (nanosecond precision).
 +   <code>[time_zone]</code>: String representing the time zone. When a time
-    zone is not explicitly specified, the default time zone,
+    zone isn't explicitly specified, the default time zone,
     which is implementation defined, is used. For details, see <a href="#time_zones">time
     zones</a>.
 +   <code>[time_zone_offset]</code>: String representing the offset from the
@@ -2683,7 +2689,7 @@ A time zone is used when converting from a civil date or time (as might appear
 on a calendar or clock) to a timestamp (an absolute time), or vice versa. This
 includes the operation of parsing a string containing a civil date and time like
 "2020-01-01 00:00:00" and converting it to a timestamp. The resulting timestamp
-value itself does not store a specific time zone, because it represents one
+value itself doesn't store a specific time zone, because it represents one
 instant in time globally.
 
 Time zones are represented by strings in one of these canonical formats:
@@ -2696,11 +2702,11 @@ Time zones are represented by strings in one of these canonical formats:
 The following timestamps are identical because the time zone offset
 for `America/Los_Angeles` is `-08` for the specified date and time.
 
-```sql
+```zetasql
 SELECT UNIX_MILLIS(TIMESTAMP '2008-12-25 15:30:00 America/Los_Angeles') AS millis;
 ```
 
-```sql
+```zetasql
 SELECT UNIX_MILLIS(TIMESTAMP '2008-12-25 15:30:00-08:00') AS millis;
 ```
 
@@ -2796,23 +2802,23 @@ report the same time during a given part of the year. For example,
 `America/Los_Angeles` reports the same time as `UTC-7:00` during daylight
 saving time (DST), but reports the same time as `UTC-8:00` outside of DST.
 
-If a time zone is not specified, the default time zone value is used.
+If a time zone isn't specified, the default time zone value is used.
 
 #### Leap seconds
 
 A timestamp is simply an offset from 1970-01-01 00:00:00 UTC, assuming there are
-exactly 60 seconds per minute. Leap seconds are not represented as part of a
+exactly 60 seconds per minute. Leap seconds aren't represented as part of a
 stored timestamp.
 
 If the input contains values that use ":60" in the seconds field to represent a
-leap second, that leap second is not preserved when converting to a timestamp
+leap second, that leap second isn't preserved when converting to a timestamp
 value. Instead that value is interpreted as a timestamp with ":00" in the
 seconds field of the following minute.
 
-Leap seconds do not affect timestamp computations. All timestamp computations
-are done using Unix-style timestamps, which do not reflect leap seconds. Leap
+Leap seconds don't affect timestamp computations. All timestamp computations
+are done using Unix-style timestamps, which don't reflect leap seconds. Leap
 seconds are only observable through functions that measure real-world time. In
-these functions, it is possible for a timestamp second to be skipped or repeated
+these functions, it's possible for a timestamp second to be skipped or repeated
 when there is a leap second.
 
 [rfc-3339-format]: https://datatracker.ietf.org/doc/html/rfc3339#page-10
@@ -2828,6 +2834,127 @@ when there is a leap second.
 [datetime-type]: #datetime_type
 
 [timestamp-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#timestamp_literals
+
+## UUID type 
+<a id="uuid_type"></a>
+
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>UUID</code></td>
+<td>A universally unique identifier (UUID) represented as a 128-bit number.</td>
+</tr>
+</tbody>
+</table>
+
+The following ASCII string format of lowercase hexadecimal digits is used to
+represent a UUID:
+
+`[8 digits]-[4 digits]-[4 digits]-[4 digits]-[12 digits]`
+
+**Example**
+
+`f81d4fae-7dec-11d0-a765-00a0c91e6bf6`
+
+### Cast a UUID to a string
+
+You can cast a UUID to a string by using the following syntax:
+
+```zetasql
+  SELECT CAST(NEW_UUID() AS STRING) AS UUID_STR;
+```
+
+You can also cast a string to a UUID, either explicitly or by using an
+implicit coercion of a literal or parameter.
+
+**Examples**
+
+```zetasql
+  SELECT UUID_id >= CAST("00000000-0000-0000-0000-000000000000" AS UUID) FROM T1;
+```
+
+```zetasql
+  SELECT UUID_id >= "00000000-0000-0000-0000-000000000000" FROM T1;
+```
+
+### Cast a UUID to bytes
+
+You can cast a UUID to bytes by using the following syntax:
+
+```zetasql
+  SELECT CAST(NEW_UUID() AS BYTES) AS UUID_BYTES;
+```
+
+You can also explicitly cast bytes to a UUID. Unlike strings, bytes can't be
+implicitly coerced to a UUID.
+
+##### Comparison operator examples
+
+The comparison operator compares UUIDs using their internal representation.
+However, the result is presented as if the comparison were performed on the
+36-character lowercase ASCII string representation of the UUIDs,
+using lexicographical order.
+
+<table>
+<thead>
+<tr>
+<th>Left term</th>
+<th>Operator</th>
+<th>Right term</th>
+<th>Returns</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Any value</td>
+<td><code>=</code></td>
+<td><code>NULL</code></td>
+<td><code>NULL</code></td>
+</tr>
+<tr>
+<td><code>NULL</code></td>
+<td><code>&lt;</code></td>
+<td>Any value</td>
+<td><code>NULL</code></td>
+</tr>
+<tr>
+<td>00000000-0000-0000-0000-000000000000</td>
+<td><code>&lt;</code></td>
+<td>ffffffff-ffff-ffff-ffff-ffffffffffff</td>
+<td><code>TRUE</code></td>
+</tr>
+<tr>
+<td>00000000-0000-0000-0000-000000000000</td>
+<td><code>=</code></td>
+<td>00000000-0000-0000-0000-000000000000</td>
+<td><code>TRUE</code></td>
+</tr>
+<tr>
+<td>00000000-0000-0000-0000-000000000000</td>
+<td><code>&gt;</code></td>
+<td>ffffffff-ffff-ffff-ffff-ffffffffffff</td>
+<td><code>FALSE</code></td>
+</tr>
+</tbody>
+</table>
+
+**Example**
+
+```zetasql
+  SELECT NEW_UUID() >= "00000000-0000-0000-0000-000000000000" AS Is_GE;
+
+/*-------*
+ | Is_GE |
+ +-------+
+ | true  |
+ *-------*/
+```
 
 [array-nulls]: #array_nulls
 

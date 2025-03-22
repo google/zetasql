@@ -132,6 +132,8 @@ message FunctionSignatureRewriteOptionsProto {
   optional bool enabled = 1;
   optional ResolvedASTRewrite rewriter = 2;
   optional string sql = 3;
+  optional bool allow_table_references = 4;
+  repeated string allowed_function_groups = 5;
 }
 
 message FunctionSignatureOptionsProto {
@@ -185,6 +187,7 @@ message FunctionProto {
   repeated string templated_sql_function_argument_name = 7;
   optional ResolvedCreateStatementEnums.SqlSecurity sql_security = 9
       [default = SQL_SECURITY_UNSPECIFIED];
+  optional StatementContext statement_context = 10 [default = CONTEXT_DEFAULT];
 }
 
 message ResolvedFunctionCallInfoProto {
@@ -212,6 +215,7 @@ message TableValuedFunctionProto {
   // is assumed to not be usable in an anonymization context, and not return
   // private data.
   optional SimpleAnonymizationInfoProto anonymization_info = 10;
+  optional StatementContext statement_context = 11 [default = CONTEXT_DEFAULT];
 }
 
 message TVFArgumentProto {

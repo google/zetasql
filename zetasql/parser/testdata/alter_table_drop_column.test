@@ -120,7 +120,7 @@ ALTER TABLE foo-bar.baz DROP COLUMN a
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `foo-bar.baz` [at 1:13]
+ERROR: Syntax error: Table name contains '-' character. The dashed identifier part of the table name needs to be quoted: `foo-bar` [at 1:13]
 ALTER TABLE foo-bar.baz DROP COLUMN a
             ^
 --

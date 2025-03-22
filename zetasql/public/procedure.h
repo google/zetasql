@@ -49,7 +49,7 @@ class Procedure {
       : name_path_(name_path), signature_(signature) {
     ZETASQL_CHECK_OK(signature.IsValidForProcedure());
   }
-  ~Procedure() {}
+  virtual ~Procedure() = default;
 
   Procedure(const Procedure&) = delete;
   Procedure& operator=(const Procedure&) = delete;

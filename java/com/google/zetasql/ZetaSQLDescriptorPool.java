@@ -79,10 +79,27 @@ public class ZetaSQLDescriptorPool implements DescriptorPool, Serializable {
   }
 
   /**
+   * Imports the {@code fileDescriptorSet} into the descriptor pool, overwriting existing {@link
+   * FileDescriptor}s.
+   *
+   * <p>Generally prefer to use {@code importFileDescriptorSet}, unless importing multiple {@code
+   * FileDescriptorSet}s which are known to be incomplete. This may be the case, for example, if the
+   * {@code FileDescriptorSet} comes from a source which prunes unused dependencies, and thus
+   * caching of these incomplete dependency trees may cause problems in subsequent imports.
+   *
+   * @throws IllegalArgumentException if {@code fileDescriptorSet} is not self-contained, i.e.
+   *     contains a FileDescriptor whose dependencies are not within the set.
+   */
+  public void importFileDescriptorSetWithOverwrite(FileDescriptorSet fileDescriptorSet) {
+    importFileDescriptorsWithOverwrite(fileDescriptorSet.getFileList());
+  }
+
+  /**
    * Imports a collection of {@code fileDescriptors} into the descriptor pool.
    *
    * <p>This will ignore inputs that are already represented in this pool (by file name).
    *
+   * @param fileDescriptorProtos The collection of {@link FileDescriptor}s to import.
    * @throws IllegalArgumentException if @{fileDescriptors} are not self-contained, i.e. have
    *     dependencies that are not within the collection.
    */
@@ -106,6 +123,27 @@ public class ZetaSQLDescriptorPool implements DescriptorPool, Serializable {
         ImmutableDescriptorPool.updateDescriptorMapsFromFileDescriptor(
             file, enumsByName, messagesByName, extensionRegistry);
       }
+    }
+  }
+
+  private void importFileDescriptorsWithOverwrite(
+      Collection<FileDescriptorProto> fileDescriptorProtos) {
+    LinkedHashMap<String, FileDescriptorProto> fileDescriptorProtosByName = new LinkedHashMap<>();
+    for (FileDescriptorProto proto : fileDescriptorProtos) {
+      fileDescriptorProtosByName.putIfAbsent(proto.getName(), proto);
+    }
+
+    LinkedHashMap<String, FileDescriptor> overwritingFileDescriptorsByName = new LinkedHashMap<>();
+
+    for (String filename : fileDescriptorProtosByName.keySet()) {
+      ImmutableDescriptorPool.resolveFileDescriptor(
+          filename, fileDescriptorProtosByName, overwritingFileDescriptorsByName);
+    }
+
+    for (Map.Entry<String, FileDescriptor> entry : overwritingFileDescriptorsByName.entrySet()) {
+      ImmutableDescriptorPool.updateDescriptorMapsFromFileDescriptor(
+          entry.getValue(), enumsByName, messagesByName, extensionRegistry);
+      fileDescriptorsByName.put(entry.getKey(), entry.getValue());
     }
   }
 

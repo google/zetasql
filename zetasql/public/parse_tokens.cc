@@ -31,6 +31,7 @@
 #include "zetasql/parser/lookahead_transformer.h"
 #include "zetasql/parser/tm_token.h"
 #include "zetasql/parser/token_codes.h"
+#include "zetasql/parser/token_with_location.h"
 #include "zetasql/public/error_helpers.h"
 #include "zetasql/public/functions/convert_string.h"
 #include "zetasql/public/parse_location.h"
@@ -251,12 +252,14 @@ absl::Status GetParseTokens(const ParseTokenOptions& options,
   }
 
   auto arena = std::make_unique<zetasql_base::UnsafeArena>(/*block_size=*/4096);
+  std::vector<std::unique_ptr<parser::StackFrame>> stack_frames;
   ZETASQL_ASSIGN_OR_RETURN(
       auto tokenizer,
       parser::LookaheadTransformer::Create(
           mode, resume_location->filename(), resume_location->input(),
           resume_location->byte_position(), options.language_options,
-          /*macro_catalog=*/nullptr, arena.get()));
+          parser::MacroExpansionMode::kNone,
+          /*macro_catalog=*/nullptr, arena.get(), stack_frames));
 
   absl::Status status;
   ParseLocationRange previous_location;

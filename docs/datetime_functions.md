@@ -110,11 +110,11 @@ ZetaSQL supports the following datetime functions.
 
 ## `CURRENT_DATETIME`
 
-```sql
+```zetasql
 CURRENT_DATETIME([time_zone])
 ```
 
-```sql
+```zetasql
 CURRENT_DATETIME
 ```
 
@@ -127,9 +127,9 @@ This function supports an optional `time_zone` parameter.
 See [Time zone definitions][datetime-timezone-definitions] for
 information on how to specify a time zone.
 
-The current date and time is recorded at the start of the query
-statement which contains this function, not when this specific function is
-evaluated.
+The current date and time value is set at the start of the query statement that
+contains this function. All invocations of `CURRENT_DATETIME()` within a query
+statement yield the same value.
 
 **Return Data Type**
 
@@ -137,7 +137,7 @@ evaluated.
 
 **Example**
 
-```sql
+```zetasql
 SELECT CURRENT_DATETIME() as now;
 
 /*----------------------------*
@@ -153,7 +153,7 @@ SELECT CURRENT_DATETIME() as now;
 
 ## `DATETIME`
 
-```sql
+```zetasql
 1. DATETIME(year, month, day, hour, minute, second)
 2. DATETIME(date_expression[, time_expression])
 3. DATETIME(timestamp_expression [, time_zone])
@@ -177,7 +177,7 @@ SELECT CURRENT_DATETIME() as now;
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   DATETIME(2008, 12, 25, 05, 30, 00) as datetime_ymdhms,
   DATETIME(TIMESTAMP "2008-12-25 05:30:00+00", "America/Los_Angeles") as datetime_tstz;
@@ -193,7 +193,7 @@ SELECT
 
 ## `DATETIME_ADD`
 
-```sql
+```zetasql
 DATETIME_ADD(datetime_expression, INTERVAL int64_expression part)
 ```
 
@@ -227,7 +227,7 @@ the new month.
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   DATETIME "2008-12-25 15:30:00" as original_date,
   DATETIME_ADD(DATETIME "2008-12-25 15:30:00", INTERVAL 10 MINUTE) as later;
@@ -241,7 +241,7 @@ SELECT
 
 ## `DATETIME_DIFF`
 
-```sql
+```zetasql
 DATETIME_DIFF(end_datetime, start_datetime, granularity)
 ```
 
@@ -298,7 +298,7 @@ behaves like `TIMESTAMP_DIFF(TIMESTAMP, TIMESTAMP, PART)`.
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   DATETIME "2010-07-07 10:20:00" as first_datetime,
   DATETIME "2008-12-25 15:30:00" as second_datetime,
@@ -312,7 +312,7 @@ SELECT
  *----------------------------+------------------------+------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   DATETIME_DIFF(DATETIME '2017-10-15 00:00:00',
     DATETIME '2017-10-14 00:00:00', DAY) as days_diff,
@@ -340,7 +340,7 @@ second `DATETIME` belongs to the ISO year 2015. The first Thursday of the 2015
 calendar year was 2015-01-01, so the ISO year 2015 begins on the preceding
 Monday, 2014-12-29.
 
-```sql
+```zetasql
 SELECT
   DATETIME_DIFF('2017-12-30 00:00:00',
     '2014-12-30 00:00:00', YEAR) AS year_diff,
@@ -361,7 +361,7 @@ part uses weeks that begin on Sunday. `DATETIME_DIFF` with the date part
 `WEEK(MONDAY)` returns 1. `DATETIME_DIFF` with the date part
 `ISOWEEK` also returns 1 because ISO weeks begin on Monday.
 
-```sql
+```zetasql
 SELECT
   DATETIME_DIFF('2017-12-18', '2017-12-17', WEEK) AS week_diff,
   DATETIME_DIFF('2017-12-18', '2017-12-17', WEEK(MONDAY)) AS week_weekday_diff,
@@ -380,7 +380,7 @@ SELECT
 
 ## `DATETIME_SUB`
 
-```sql
+```zetasql
 DATETIME_SUB(datetime_expression, INTERVAL int64_expression part)
 ```
 
@@ -414,7 +414,7 @@ the new month.
 
 **Example**
 
-```sql
+```zetasql
 SELECT
   DATETIME "2008-12-25 15:30:00" as original_date,
   DATETIME_SUB(DATETIME "2008-12-25 15:30:00", INTERVAL 10 MINUTE) as earlier;
@@ -428,11 +428,11 @@ SELECT
 
 ## `DATETIME_TRUNC`
 
-```sql
+```zetasql
 DATETIME_TRUNC(datetime_value, datetime_granularity)
 ```
 
-```sql
+```zetasql
 DATETIME_TRUNC(timestamp_value, timestamp_granularity[, time_zone])
 ```
 
@@ -462,7 +462,7 @@ Truncates a `DATETIME` or `TIMESTAMP` value at a particular granularity.
     and subtracts the minutes and seconds (when truncating to `HOUR`) or the
     seconds (when truncating to `MINUTE`) from that timestamp.
     While this provides intuitive results in most cases, the result is
-    non-intuitive near daylight savings transitions that are not hour-aligned.
+    non-intuitive near daylight savings transitions that aren't hour-aligned.
 
 <a id="datetime_trunc_granularity_date"></a>
 
@@ -548,7 +548,7 @@ The same data type as the first argument passed into this function.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT
   DATETIME "2008-12-25 15:30:00" as original,
   DATETIME_TRUNC(DATETIME "2008-12-25 15:30:00", DAY) as truncated;
@@ -564,7 +564,7 @@ In the following example, the original `DATETIME` falls on a Sunday. Because the
 `part` is `WEEK(MONDAY)`, `DATE_TRUNC` returns the `DATETIME` for the
 preceding Monday.
 
-```sql
+```zetasql
 SELECT
  datetime AS original,
  DATETIME_TRUNC(datetime, WEEK(MONDAY)) AS truncated
@@ -585,7 +585,7 @@ Gregorian calendar year. The first Thursday of the 2015 calendar year was
 Therefore the ISO year boundary preceding the `datetime_expression`
 2015-06-15 00:00:00 is 2014-12-29.
 
-```sql
+```zetasql
 SELECT
   DATETIME_TRUNC('2015-06-15 00:00:00', ISOYEAR) AS isoyear_boundary,
   EXTRACT(ISOYEAR FROM DATETIME '2015-06-15 00:00:00') AS isoyear_number;
@@ -605,7 +605,7 @@ SELECT
 
 ## `EXTRACT`
 
-```sql
+```zetasql
 EXTRACT(part FROM datetime_expression)
 ```
 
@@ -662,7 +662,7 @@ seconds, `EXTRACT` truncates the millisecond and microsecond values.
 In the following example, `EXTRACT` returns a value corresponding to the `HOUR`
 time part.
 
-```sql
+```zetasql
 SELECT EXTRACT(HOUR FROM DATETIME(2008, 12, 25, 15, 30, 00)) as hour;
 
 /*------------------*
@@ -675,7 +675,7 @@ SELECT EXTRACT(HOUR FROM DATETIME(2008, 12, 25, 15, 30, 00)) as hour;
 In the following example, `EXTRACT` returns values corresponding to different
 time parts from a column of datetimes.
 
-```sql
+```zetasql
 WITH Datetimes AS (
   SELECT DATETIME '2005-01-03 12:34:56' AS datetime UNION ALL
   SELECT DATETIME '2007-12-31' UNION ALL
@@ -709,7 +709,7 @@ In the following example, `datetime_expression` falls on a Sunday. `EXTRACT`
 calculates the first column using weeks that begin on Sunday, and it calculates
 the second column using weeks that begin on Monday.
 
-```sql
+```zetasql
 WITH table AS (SELECT DATETIME(TIMESTAMP "2017-11-05 00:00:00+00", "UTC") AS datetime)
 SELECT
   datetime,
@@ -730,7 +730,7 @@ FROM table;
 
 ## `FORMAT_DATETIME`
 
-```sql
+```zetasql
 FORMAT_DATETIME(format_string, datetime_expr)
 ```
 
@@ -752,7 +752,7 @@ Formats a `DATETIME` value according to a specified format string.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT
   FORMAT_DATETIME("%c", DATETIME "2008-12-25 15:30:00")
   AS formatted;
@@ -764,7 +764,7 @@ SELECT
  *--------------------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   FORMAT_DATETIME("%b-%d-%Y", DATETIME "2008-12-25 15:30:00")
   AS formatted;
@@ -776,7 +776,7 @@ SELECT
  *-------------*/
 ```
 
-```sql
+```zetasql
 SELECT
   FORMAT_DATETIME("%b %Y", DATETIME "2008-12-25 15:30:00")
   AS formatted;
@@ -792,7 +792,7 @@ SELECT
 
 ## `LAST_DAY`
 
-```sql
+```zetasql
 LAST_DAY(datetime_expression[, date_part])
 ```
 
@@ -802,7 +802,7 @@ Returns the last day from a datetime expression that contains the date.
 This is commonly used to return the last day of the month.
 
 You can optionally specify the date part for which the last day is returned.
-If this parameter is not used, the default value is `MONTH`.
+If this parameter isn't used, the default value is `MONTH`.
 `LAST_DAY` supports the following values for `date_part`:
 
 +  `YEAR`
@@ -826,7 +826,7 @@ If this parameter is not used, the default value is `MONTH`.
 
 These both return the last day of the month:
 
-```sql
+```zetasql
 SELECT LAST_DAY(DATETIME '2008-11-25', MONTH) AS last_day
 
 /*------------*
@@ -836,7 +836,7 @@ SELECT LAST_DAY(DATETIME '2008-11-25', MONTH) AS last_day
  *------------*/
 ```
 
-```sql
+```zetasql
 SELECT LAST_DAY(DATETIME '2008-11-25') AS last_day
 
 /*------------*
@@ -848,7 +848,7 @@ SELECT LAST_DAY(DATETIME '2008-11-25') AS last_day
 
 This returns the last day of the year:
 
-```sql
+```zetasql
 SELECT LAST_DAY(DATETIME '2008-11-25 15:30:00', YEAR) AS last_day
 
 /*------------*
@@ -860,7 +860,7 @@ SELECT LAST_DAY(DATETIME '2008-11-25 15:30:00', YEAR) AS last_day
 
 This returns the last day of the week for a week that starts on a Sunday:
 
-```sql
+```zetasql
 SELECT LAST_DAY(DATETIME '2008-11-10 15:30:00', WEEK(SUNDAY)) AS last_day
 
 /*------------*
@@ -872,7 +872,7 @@ SELECT LAST_DAY(DATETIME '2008-11-10 15:30:00', WEEK(SUNDAY)) AS last_day
 
 This returns the last day of the week for a week that starts on a Monday:
 
-```sql
+```zetasql
 SELECT LAST_DAY(DATETIME '2008-11-10 15:30:00', WEEK(MONDAY)) AS last_day
 
 /*------------*
@@ -888,7 +888,7 @@ SELECT LAST_DAY(DATETIME '2008-11-10 15:30:00', WEEK(MONDAY)) AS last_day
 
 ## `PARSE_DATETIME`
 
-```sql
+```zetasql
 PARSE_DATETIME(format_string, datetime_string)
 ```
 
@@ -909,7 +909,7 @@ Each element in `datetime_string` must have a corresponding element in
 `format_string`. The location of each element in `format_string` must match the
 location of each element in `datetime_string`.
 
-```sql
+```zetasql
 -- This works because elements on both sides match.
 SELECT PARSE_DATETIME("%a %b %e %I:%M:%S %Y", "Thu Dec 25 07:30:00 2008");
 
@@ -923,7 +923,8 @@ SELECT PARSE_DATETIME("%a %b %e %I:%M:%S", "Thu Dec 25 07:30:00 2008");
 SELECT PARSE_DATETIME("%c", "Thu Dec 25 07:30:00 2008");
 ```
 
-`PARSE_DATETIME` parses `string` according to the following rules:
+The following additional considerations apply when using the `PARSE_DATETIME`
+function:
 
 + Unspecified fields. Any unspecified field is initialized from
   `1970-01-01 00:00:00.0`. For example, if the year is unspecified then it
@@ -934,7 +935,7 @@ SELECT PARSE_DATETIME("%c", "Thu Dec 25 07:30:00 2008");
   matches zero or more consecutive white spaces in the
   `DATETIME` string. Leading and trailing
   white spaces in the `DATETIME` string are always
-  allowed, even if they are not in the format string.
+  allowed, even if they aren't in the format string.
 + Format precedence. When two or more format elements have overlapping
   information, the last one generally overrides any earlier ones, with some
   exceptions. For example, both `%F` and `%Y` affect the year, so the earlier
@@ -942,6 +943,21 @@ SELECT PARSE_DATETIME("%c", "Thu Dec 25 07:30:00 2008");
   of `%s`, `%C`, and `%y` in
   [Supported Format Elements For DATETIME][datetime-format-elements].
 + Format divergence. `%p` can be used with `am`, `AM`, `pm`, and `PM`.
++   Mixed ISO and non-ISO elements. The ISO format elements are `%G`, `%g`,
+    `%J`, and `%V`. When these ISO elements are used together with other non-ISO
+    elements, the ISO elements are ignored, resulting in different values. For
+    example, the function arguments `('%g %J', '8405')` return a value with the
+    year `1984`, whereas the arguments `('%g %j', '8405')` return a value with
+    the year `1970` because the ISO element `%g` is ignored.
++   Numeric values after `%G` input values. Any input string value that
+    corresponds to the `%G` format element requires a whitespace or non-digit
+    character as a separator from numeric values that follow. This is a known
+    issue in ZetaSQL. For example, the function arguments `('%G
+    %V','2020 50')` or `('%G-%V','2020-50')` work, but not `('%G%V','202050')`.
+    For input values before the corresponding `%G` value, no separator is
+    needed. For example, the arguments `('%V%G','502020')` work. The separator
+    after the `%G` values identifies the end of the specified ISO year value so
+    that the function can parse properly.
 
 **Return Data Type**
 
@@ -952,7 +968,7 @@ SELECT PARSE_DATETIME("%c", "Thu Dec 25 07:30:00 2008");
 The following examples parse a `STRING` literal as a
 `DATETIME`.
 
-```sql
+```zetasql
 SELECT PARSE_DATETIME('%Y-%m-%d %H:%M:%S', '1998-10-18 13:45:55') AS datetime;
 
 /*---------------------*
@@ -962,7 +978,7 @@ SELECT PARSE_DATETIME('%Y-%m-%d %H:%M:%S', '1998-10-18 13:45:55') AS datetime;
  *---------------------*/
 ```
 
-```sql
+```zetasql
 SELECT PARSE_DATETIME('%m/%d/%Y %I:%M:%S %p', '8/30/2018 2:23:38 pm') AS datetime;
 
 /*---------------------*
@@ -976,7 +992,7 @@ The following example parses a `STRING` literal
 containing a date in a natural language format as a
 `DATETIME`.
 
-```sql
+```zetasql
 SELECT PARSE_DATETIME('%A, %B %e, %Y','Wednesday, December 19, 2018')
   AS datetime;
 

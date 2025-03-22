@@ -25,6 +25,7 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/internal_proto_utils.h"
 #include "zetasql/public/types/internal_utils.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
@@ -32,6 +33,7 @@
 #include "zetasql/public/value_content.h"
 #include "absl/algorithm/container.h"
 #include "absl/hash/hash.h"
+#include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
@@ -157,23 +159,21 @@ std::string EnumType::ShortTypeName() const {
   return catalog_name_path;
 }
 
+std::string EnumType::CapitalizedName() const {
+  ABSL_CHECK_EQ(kind(), TYPE_ENUM);  // Crash OK
+  if (AsEnum()->IsOpaque()) {
+    return AsEnum()->ShortTypeName(ProductMode::PRODUCT_EXTERNAL);
+  } else {
+    return absl::StrCat("Enum<", AsEnum()->enum_descriptor()->full_name(), ">");
+  }
+}
+
 std::string EnumType::TypeName(ProductMode mode_unused) const {
   return TypeName();
 }
 
 bool EnumType::FindName(int number, absl::string_view* name) const {
-  const std::string* name_string = nullptr;
-  if (FindName(number, &name_string)) {
-    *name = *name_string;
-    return true;
-  } else {
-    *name = "";
-    return false;
-  }
-}
-
-bool EnumType::FindName(int number, const std::string** name) const {
-  *name = nullptr;
+  *name = "";
   const google::protobuf::EnumValueDescriptor* value_descr =
       enum_descriptor_->FindValueByNumber(number);
   if (value_descr == nullptr) {
@@ -183,7 +183,7 @@ bool EnumType::FindName(int number, const std::string** name) const {
                                .invalid_enum_value()) {
     return false;
   }
-  *name = &value_descr->name();
+  *name = value_descr->name();
   return true;
 }
 
@@ -254,7 +254,8 @@ bool EnumType::IsSupportedType(const LanguageOptions& language_options) const {
   // If below enums were not created as a builtin type, falls through to
   // the generic logic below.
   if (is_opaque_ && (Equivalent(types::ArrayZipModeEnumType()) ||
-                     Equivalent(types::UnsupportedFieldsEnumType()))) {
+                     Equivalent(types::UnsupportedFieldsEnumType()) ||
+                     Equivalent(types::BitwiseAggModeEnumType()))) {
     return true;
   }
 

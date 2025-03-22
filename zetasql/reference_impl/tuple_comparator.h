@@ -20,12 +20,9 @@
 #include <memory>
 #include <vector>
 
-#include "zetasql/common/internal_value.h"
-#include "zetasql/public/collator.h"
 #include "zetasql/reference_impl/common.h"
 #include "absl/status/statusor.h"
 #include "absl/types/span.h"
-#include "zetasql/base/status.h"
 
 namespace zetasql {
 
@@ -92,6 +89,10 @@ class TupleComparator {
         extra_sort_key_slots_(extra_sort_key_slots.begin(),
                               extra_sort_key_slots.end()),
         collators_(collators) {}
+
+  bool Compare(const TupleData& t1, const TupleData& t2,
+               bool compare_floating_point_approximately,
+               bool* has_approximate_comparison) const;
 
   const std::vector<const KeyArg*> keys_;
   const std::vector<int> slots_for_keys_;

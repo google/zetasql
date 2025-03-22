@@ -43,9 +43,11 @@ namespace zetasql {
 // Implements FindRelevantRewrites.
 class RewriteApplicabilityChecker : public ResolvedASTVisitor {
  public:
-  explicit RewriteApplicabilityChecker(
+  RewriteApplicabilityChecker(
+      bool check_templated_function_calls,
       absl::btree_set<ResolvedASTRewrite>* applicable_rewrites)
-      : applicable_rewrites_(applicable_rewrites) {}
+      : check_templated_function_calls_(check_templated_function_calls),
+        applicable_rewrites_(applicable_rewrites) {}
 
   absl::Status VisitResolvedFlatten(const ResolvedFlatten* node) override {
     applicable_rewrites_->insert(REWRITE_FLATTEN);
@@ -91,21 +93,50 @@ class RewriteApplicabilityChecker : public ResolvedASTVisitor {
     return DefaultVisit(node);
   }
 
-  absl::Status VisitResolvedFunctionCall(
-      const ResolvedFunctionCall* node) override {
-
+  void RegisterRewritesDeclaredOnFunctionCall(
+      const ResolvedFunctionCallBase* node) {
     // Identify functions that have rewriting configured in their function
     // signatures, add those rewriters to the relevant set.
     const FunctionSignature& signature = node->signature();
     if (signature.HasEnabledRewriteImplementation()) {
       applicable_rewrites_->insert(
           signature.options().rewrite_options()->rewriter());
-      return DefaultVisit(node);
     }
+  }
+
+  absl::Status VisitResolvedAnalyticFunctionCall(
+      const ResolvedAnalyticFunctionCall* node) override {
+    RegisterRewritesDeclaredOnFunctionCall(node);
+    return DefaultVisit(node);
+  }
+
+  absl::Status VisitTemplatedSQLFunctionCall(
+      const TemplatedSQLFunctionCall& function_call) {
+    ZETASQL_RETURN_IF_ERROR(function_call.expr()->Accept(this));
+    for (const auto& aggregate_expression :
+         function_call.aggregate_expression_list()) {
+      ZETASQL_RETURN_IF_ERROR(aggregate_expression->Accept(this));
+    }
+    return absl::OkStatus();
+  }
+
+  absl::Status VisitResolvedFunctionCall(
+      const ResolvedFunctionCall* node) override {
+
+    RegisterRewritesDeclaredOnFunctionCall(node);
 
     if (node->function()->Is<SQLFunctionInterface>() ||
         node->function()->Is<TemplatedSQLFunction>()) {
       applicable_rewrites_->insert(REWRITE_INLINE_SQL_FUNCTIONS);
+    }
+
+    // Traverse into the function call and check for applicable rewrites.
+    if (check_templated_function_calls_ &&
+        node->function_call_info() != nullptr &&
+        node->function_call_info()->Is<TemplatedSQLFunctionCall>()) {
+      const auto* function_call =
+          node->function_call_info()->GetAs<TemplatedSQLFunctionCall>();
+      ZETASQL_RETURN_IF_ERROR(VisitTemplatedSQLFunctionCall(*function_call));
     }
 
     if (!node->function()->IsZetaSQLBuiltin()) {
@@ -161,6 +192,20 @@ class RewriteApplicabilityChecker : public ResolvedASTVisitor {
     return DefaultVisit(node);
   }
 
+  absl::Status VisitResolvedAggregateFunctionCall(
+      const ResolvedAggregateFunctionCall* node) override {
+    // Traverse into the function call and check for applicable rewrites.
+    if (check_templated_function_calls_ &&
+        node->function_call_info() != nullptr &&
+        node->function_call_info()->Is<TemplatedSQLFunctionCall>()) {
+      const auto* function_call =
+          node->function_call_info()->GetAs<TemplatedSQLFunctionCall>();
+      ZETASQL_RETURN_IF_ERROR(VisitTemplatedSQLFunctionCall(*function_call));
+    }
+    RegisterRewritesDeclaredOnFunctionCall(node);
+    return DefaultVisit(node);
+  }
+
   absl::Status VisitResolvedTableScan(const ResolvedTableScan* node) override {
     if (node->table()->Is<SQLView>()) {
       applicable_rewrites_->insert(
@@ -183,6 +228,15 @@ class RewriteApplicabilityChecker : public ResolvedASTVisitor {
         node->tvf()->Is<TemplatedSQLTVF>()) {
       applicable_rewrites_->insert(ResolvedASTRewrite::REWRITE_INLINE_SQL_TVFS);
     }
+
+    if (check_templated_function_calls_ && node->signature() != nullptr &&
+        node->signature()->Is<TemplatedSQLTVFSignature>()) {
+      auto* templated_tvf_signature =
+          node->signature()->GetAs<TemplatedSQLTVFSignature>();
+      ZETASQL_RETURN_IF_ERROR(
+          templated_tvf_signature->resolved_templated_query()->Accept(this));
+    }
+
     return DefaultVisit(node);
   }
 
@@ -223,7 +277,24 @@ class RewriteApplicabilityChecker : public ResolvedASTVisitor {
     return DefaultVisit(node);
   }
 
+  absl::Status VisitResolvedGeneralizedQueryStmt(
+      const ResolvedGeneralizedQueryStmt* node) override {
+    applicable_rewrites_->insert(REWRITE_GENERALIZED_QUERY_STMT);
+    return DefaultVisit(node);
+  }
+
+  absl::Status VisitResolvedUpdateConstructor(
+      const ResolvedUpdateConstructor* node) override {
+    applicable_rewrites_->insert(
+        ResolvedASTRewrite::REWRITE_UPDATE_CONSTRUCTOR);
+    return DefaultVisit(node);
+  }
+
  private:
+  // If true, traverse into the resolved function call for TemplatedSQLFunction
+  // and TemplatedSQLTVF to check for applicable rewrites.
+  bool check_templated_function_calls_;
+
   absl::btree_set<ResolvedASTRewrite>* applicable_rewrites_;
 
   absl::Status VisitResolvedAggregateScanBasePrivate(
@@ -258,10 +329,11 @@ class RewriteApplicabilityChecker : public ResolvedASTVisitor {
 };
 
 absl::StatusOr<absl::btree_set<ResolvedASTRewrite>> FindRelevantRewriters(
-    const ResolvedNode* node) {
+    const ResolvedNode* node, bool check_templated_function_calls) {
   ZETASQL_RET_CHECK(node != nullptr);
   absl::btree_set<ResolvedASTRewrite> applicable_rewrites_;
-  RewriteApplicabilityChecker checker(&applicable_rewrites_);
+  RewriteApplicabilityChecker checker(check_templated_function_calls,
+                                      &applicable_rewrites_);
   ZETASQL_RETURN_IF_ERROR(node->Accept(&checker));
   return applicable_rewrites_;
 }

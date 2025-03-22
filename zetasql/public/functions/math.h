@@ -28,6 +28,7 @@
 #include "zetasql/public/functions/util.h"
 #include "zetasql/public/numeric_value.h"
 #include "absl/base/optimization.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"

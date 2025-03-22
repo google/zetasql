@@ -1,3 +1,4 @@
+
 select {{KeyValue.|}}key from KeyValue where true group by {{KeyValue.|}}key
 --
 QueryStmt
@@ -330,14 +331,38 @@ HAVING key+1 > 0
        ^
 ==
 
+[no_enable_literal_replacement]
 SELECT 1
 FROM KeyValue
 GROUP BY key+1
 ORDER BY key+1
 --
-ERROR: ORDER BY clause expression references column key which is neither grouped nor aggregated [at 4:10]
-ORDER BY key+1
-         ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#4 AS `$col1` [INT64]
++-query=
+  +-OrderByScan
+    +-column_list=[$query.$col1#4]
+    +-is_ordered=TRUE
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=[$groupby.$groupbycol1#3, $query.$col1#4]
+    |   +-expr_list=
+    |   | +-$col1#4 := Literal(type=INT64, value=1)
+    |   +-input_scan=
+    |     +-AggregateScan
+    |       +-column_list=[$groupby.$groupbycol1#3]
+    |       +-input_scan=
+    |       | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
+    |       +-group_by_list=
+    |         +-$groupbycol1#3 :=
+    |           +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |             +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    |             +-Literal(type=INT64, value=1)
+    +-order_by_item_list=
+      +-OrderByItem
+        +-column_ref=
+          +-ColumnRef(type=INT64, column=$groupby.$groupbycol1#3)
 ==
 
 [language_features=ANALYTIC_FUNCTIONS]
@@ -3987,9 +4012,6 @@ QueryStmt
               +-field_idx=1
 ==
 
-# TODO: The unparser chokes when producing expressions that
-# reference the anonymous columns that come out of the dot-star expression.
-[no_run_unparser]
 select any_value(structval).*
 from (select (1, 1) as structval
       union all
@@ -6626,7 +6648,6 @@ QueryStmt
 ==
 
 # Test case related to b/112108147 (but does not reproduce it).
-[no_run_unparser]
 with t as (select struct(1, 2, 3) as a, 4 as b)
 select a.*, count(*) from t group by 1,2,3 order by 4 limit 3;
 --

@@ -1,6 +1,6 @@
 [default language_features=V_1_1_ORDER_BY_IN_AGGREGATE]
 [default enabled_ast_rewrites=DEFAULTS,+ORDER_BY_AND_LIMIT_IN_AGGREGATE]
-[default show_unparsed]
+[default show_sqlbuilder_output]
 
 [no_enable_literal_replacement]
 [language_features=V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_HAVING_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE,V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE]
@@ -77,7 +77,8 @@ QueryStmt
               +-limit=
                 +-Literal(type=INT64, value=10)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   ARRAY_AGG(DISTINCT projectscan_7.a_6 IGNORE NULLS
     HAVING MAX 3
@@ -109,6 +110,40 @@ FROM
       UNNEST(arrayscan_4.a_1.repeated_uint64_val) AS a_5
   ) AS projectscan_7
 GROUP BY CAST(projectscan_7.a_3 AS UINT64) - (projectscan_7.a_5);
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+SELECT
+  ARRAY_AGG(DISTINCT projectscan_7.a_6 IGNORE NULLS
+    HAVING MAX 3
+    ORDER BY projectscan_7.a_6
+    LIMIT 10) AS a_8
+FROM
+  (
+    FROM
+      TestTable
+    |> SELECT
+         TestTable.KitchenSink AS a_1
+    |> AS testtable_2
+    |> JOIN
+       UNNEST(testtable_2.a_1.repeated_int64_val) AS a_3
+    |> SELECT
+         testtable_2.a_1 AS a_1,
+         a_3 AS a_3
+    |> AS arrayscan_4
+    |> JOIN
+       UNNEST(arrayscan_4.a_1.repeated_uint64_val) AS a_5
+    |> SELECT
+         arrayscan_4.a_1 AS a_1,
+         arrayscan_4.a_3 AS a_3,
+         a_5 AS a_5,
+         (arrayscan_4.a_3) + 1 AS a_6
+    |> AS projectscan_7
+  )
+GROUP BY CAST(projectscan_7.a_3 AS UINT64) - (projectscan_7.a_5)
+|> AS aggregatescan_9
+|> SELECT
+     aggregatescan_9.a_8 AS a_8;
 
 [REWRITTEN AST]
 QueryStmt
@@ -248,7 +283,8 @@ QueryStmt
                       +-kind=MAX
                       +-having_expr=
                         +-Literal(type=INT64, value=3)
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   (
     SELECT
@@ -310,6 +346,60 @@ FROM
       ) AS projectscan_7
     GROUP BY CAST(projectscan_7.a_3 AS UINT64) - (projectscan_7.a_5)
   ) AS aggregatescan_9;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+SELECT
+  ARRAY_AGG(STRUCT< `$orderbycol1_0` INT64 > (projectscan_7.a_6)
+    HAVING MAX 3) AS a_8
+FROM
+  (
+    FROM
+      TestTable
+    |> SELECT
+         TestTable.KitchenSink AS a_1
+    |> AS testtable_2
+    |> JOIN
+       UNNEST(testtable_2.a_1.repeated_int64_val) AS a_3
+    |> SELECT
+         testtable_2.a_1 AS a_1,
+         a_3 AS a_3
+    |> AS arrayscan_4
+    |> JOIN
+       UNNEST(arrayscan_4.a_1.repeated_uint64_val) AS a_5
+    |> SELECT
+         arrayscan_4.a_1 AS a_1,
+         arrayscan_4.a_3 AS a_3,
+         a_5 AS a_5,
+         (arrayscan_4.a_3) + 1 AS a_6
+    |> AS projectscan_7
+  )
+GROUP BY CAST(projectscan_7.a_3 AS UINT64) - (projectscan_7.a_5)
+|> AS aggregatescan_9
+|> SELECT
+     (
+       SELECT
+         ARRAY(
+           FROM
+             UNNEST(aggregatescan_9.a_8) AS a_12
+           |> SELECT
+                a_12.`$orderbycol1_0` AS a_13
+           |> AS projectscan_14
+           |> WHERE
+                NOT((projectscan_14.a_13) IS NULL)
+           |> EXTEND
+                projectscan_14.a_13 AS a_15
+           |> AGGREGATE
+              GROUP BY a_15
+           |> AS aggregatescan_16
+           |> ORDER BY aggregatescan_16.a_15
+           |> SELECT
+                aggregatescan_16.a_15 AS a_15
+           |> LIMIT 10 OFFSET 0) AS a_11
+       |> AS projectscan_17
+       |> SELECT
+            `IF`((ARRAY_LENGTH(projectscan_17.a_11)) >= 1, projectscan_17.a_11, CAST(NULL AS ARRAY< INT64 >)) AS a_18
+     ) AS a_10;
 ==
 
 # Duplicate ARRAY_AGGs in the same AggregateScan
@@ -355,7 +445,8 @@ QueryStmt
                   +-column_ref=
                     +-ColumnRef(type=INT64, column=$array.a#4)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   ARRAY_AGG(a_3
     ORDER BY a_3) AS a_4,
@@ -370,6 +461,21 @@ FROM
   ) AS testtable_2
   JOIN
   UNNEST(testtable_2.a_1.repeated_int64_val) AS a_3;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  TestTable
+|> SELECT
+     TestTable.KitchenSink AS a_1
+|> AS testtable_2
+|> JOIN
+   UNNEST(testtable_2.a_1.repeated_int64_val) AS a_3
+|> AGGREGATE
+     ARRAY_AGG(a_3
+       ORDER BY a_3) AS a_4,
+     ARRAY_AGG(a_3
+       ORDER BY a_3) AS a_5;
 
 [REWRITTEN AST]
 QueryStmt
@@ -520,7 +626,8 @@ QueryStmt
                     +-type=STRUCT<a_0 INT64>
                     +-field_list=
                       +-ColumnRef(type=INT64, column=$array.a#4)
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   (
     SELECT
@@ -575,6 +682,53 @@ FROM
       JOIN
       UNNEST(testtable_2.a_1.repeated_int64_val) AS a_3
   ) AS aggregatescan_6;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  TestTable
+|> SELECT
+     TestTable.KitchenSink AS a_1
+|> AS testtable_2
+|> JOIN
+   UNNEST(testtable_2.a_1.repeated_int64_val) AS a_3
+|> AGGREGATE
+     ARRAY_AGG(STRUCT< a_0 INT64 > (a_3)) AS a_4,
+     ARRAY_AGG(STRUCT< a_0 INT64 > (a_3)) AS a_5
+|> AS aggregatescan_6
+|> SELECT
+     (
+       SELECT
+         ARRAY(
+           FROM
+             UNNEST(aggregatescan_6.a_4) AS a_9
+           |> SELECT
+                a_9.a_0 AS a_10
+           |> AS projectscan_11
+           |> ORDER BY projectscan_11.a_10
+           |> SELECT
+                projectscan_11.a_10 AS a_10
+         ) AS a_8
+       |> AS projectscan_12
+       |> SELECT
+            `IF`((ARRAY_LENGTH(projectscan_12.a_8)) >= 1, projectscan_12.a_8, CAST(NULL AS ARRAY< INT64 >)) AS a_13
+     ) AS a_7,
+     (
+       SELECT
+         ARRAY(
+           FROM
+             UNNEST(aggregatescan_6.a_5) AS a_16
+           |> SELECT
+                a_16.a_0 AS a_17
+           |> AS projectscan_18
+           |> ORDER BY projectscan_18.a_17
+           |> SELECT
+                projectscan_18.a_17 AS a_17
+         ) AS a_15
+       |> AS projectscan_19
+       |> SELECT
+            `IF`((ARRAY_LENGTH(projectscan_19.a_15)) >= 1, projectscan_19.a_15, CAST(NULL AS ARRAY< INT64 >)) AS a_20
+     ) AS a_14;
 
 ==
 
@@ -632,7 +786,8 @@ QueryStmt
                   +-column_ref=
                     +-ColumnRef(type=INT64, column=$array.a#4)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   ARRAY_AGG(arrayscan_4.a_3
     ORDER BY a_5) AS a_6,
@@ -655,6 +810,27 @@ FROM
   ) AS arrayscan_4
   JOIN
   UNNEST(arrayscan_4.a_1.repeated_uint64_val) AS a_5;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  TestTable
+|> SELECT
+     TestTable.KitchenSink AS a_1
+|> AS testtable_2
+|> JOIN
+   UNNEST(testtable_2.a_1.repeated_int64_val) AS a_3
+|> SELECT
+     testtable_2.a_1 AS a_1,
+     a_3 AS a_3
+|> AS arrayscan_4
+|> JOIN
+   UNNEST(arrayscan_4.a_1.repeated_uint64_val) AS a_5
+|> AGGREGATE
+     ARRAY_AGG(arrayscan_4.a_3
+       ORDER BY a_5) AS a_6,
+     ARRAY_AGG(a_5
+       ORDER BY arrayscan_4.a_3) AS a_7;
 
 [REWRITTEN AST]
 QueryStmt
@@ -830,7 +1006,8 @@ QueryStmt
                     +-field_list=
                       +-ColumnRef(type=INT64, column=$array.a#4)
                       +-ColumnRef(type=UINT64, column=$array.b#5)
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   (
     SELECT
@@ -895,6 +1072,61 @@ FROM
       JOIN
       UNNEST(arrayscan_4.a_1.repeated_uint64_val) AS a_5
   ) AS aggregatescan_8;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  TestTable
+|> SELECT
+     TestTable.KitchenSink AS a_1
+|> AS testtable_2
+|> JOIN
+   UNNEST(testtable_2.a_1.repeated_int64_val) AS a_3
+|> SELECT
+     testtable_2.a_1 AS a_1,
+     a_3 AS a_3
+|> AS arrayscan_4
+|> JOIN
+   UNNEST(arrayscan_4.a_1.repeated_uint64_val) AS a_5
+|> AGGREGATE
+     ARRAY_AGG(STRUCT< a_0 INT64, b_1 UINT64 > (arrayscan_4.a_3, a_5)) AS a_6,
+     ARRAY_AGG(STRUCT< a_0 INT64, b_1 UINT64 > (arrayscan_4.a_3, a_5)) AS a_7
+|> AS aggregatescan_8
+|> SELECT
+     (
+       SELECT
+         ARRAY(
+           FROM
+             UNNEST(aggregatescan_8.a_6) AS a_11
+           |> SELECT
+                a_11.a_0 AS a_12,
+                a_11.b_1 AS a_13
+           |> AS projectscan_14
+           |> ORDER BY projectscan_14.a_13
+           |> SELECT
+                projectscan_14.a_12 AS a_12
+         ) AS a_10
+       |> AS projectscan_15
+       |> SELECT
+            `IF`((ARRAY_LENGTH(projectscan_15.a_10)) >= 1, projectscan_15.a_10, CAST(NULL AS ARRAY< INT64 >)) AS a_16
+     ) AS a_9,
+     (
+       SELECT
+         ARRAY(
+           FROM
+             UNNEST(aggregatescan_8.a_7) AS a_19
+           |> SELECT
+                a_19.a_0 AS a_20,
+                a_19.b_1 AS a_21
+           |> AS projectscan_22
+           |> ORDER BY projectscan_22.a_20
+           |> SELECT
+                projectscan_22.a_21 AS a_21
+         ) AS a_18
+       |> AS projectscan_23
+       |> SELECT
+            `IF`((ARRAY_LENGTH(projectscan_23.a_18)) >= 1, projectscan_23.a_18, CAST(NULL AS ARRAY< UINT64 >)) AS a_24
+     ) AS a_17;
 
 ==
 
@@ -974,7 +1206,8 @@ QueryStmt
                   +-column_ref=
                     +-ColumnRef(type=INT64, column=$array.a#4)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   ARRAY_AGG(arrayscan_4.a_3
     HAVING MAX CAST(arrayscan_4.a_3 AS UINT64) - a_5
@@ -1001,6 +1234,31 @@ FROM
   ) AS arrayscan_4
   JOIN
   UNNEST(arrayscan_4.a_1.repeated_uint64_val) AS a_5;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  TestTable
+|> SELECT
+     TestTable.KitchenSink AS a_1
+|> AS testtable_2
+|> JOIN
+   UNNEST(testtable_2.a_1.repeated_int64_val) AS a_3
+|> SELECT
+     testtable_2.a_1 AS a_1,
+     a_3 AS a_3
+|> AS arrayscan_4
+|> JOIN
+   UNNEST(arrayscan_4.a_1.repeated_uint64_val) AS a_5
+|> AGGREGATE
+     ARRAY_AGG(arrayscan_4.a_3
+       HAVING MAX CAST(arrayscan_4.a_3 AS UINT64) - a_5
+       ORDER BY a_5) AS a_6,
+     SUM(arrayscan_4.a_3) AS a_7,
+     COUNT(a_5) AS a_8,
+     ARRAY_AGG(a_5
+       HAVING MIN 3
+       ORDER BY arrayscan_4.a_3) AS a_9;
 
 [REWRITTEN AST]
 QueryStmt
@@ -1197,7 +1455,8 @@ QueryStmt
                       +-kind=MIN
                       +-having_expr=
                         +-Literal(type=INT64, value=3)
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   (
     SELECT
@@ -1269,6 +1528,67 @@ FROM
       UNNEST(arrayscan_4.a_1.repeated_uint64_val) AS a_5
   ) AS aggregatescan_10;
 
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  TestTable
+|> SELECT
+     TestTable.KitchenSink AS a_1
+|> AS testtable_2
+|> JOIN
+   UNNEST(testtable_2.a_1.repeated_int64_val) AS a_3
+|> SELECT
+     testtable_2.a_1 AS a_1,
+     a_3 AS a_3
+|> AS arrayscan_4
+|> JOIN
+   UNNEST(arrayscan_4.a_1.repeated_uint64_val) AS a_5
+|> AGGREGATE
+     ARRAY_AGG(STRUCT< a_0 INT64, b_1 UINT64 > (arrayscan_4.a_3, a_5)
+       HAVING MAX CAST(arrayscan_4.a_3 AS UINT64) - a_5) AS a_6,
+     SUM(arrayscan_4.a_3) AS a_7,
+     COUNT(a_5) AS a_8,
+     ARRAY_AGG(STRUCT< a_0 INT64, b_1 UINT64 > (arrayscan_4.a_3, a_5)
+       HAVING MIN 3) AS a_9
+|> AS aggregatescan_10
+|> SELECT
+     (
+       SELECT
+         ARRAY(
+           FROM
+             UNNEST(aggregatescan_10.a_6) AS a_13
+           |> SELECT
+                a_13.a_0 AS a_14,
+                a_13.b_1 AS a_15
+           |> AS projectscan_16
+           |> ORDER BY projectscan_16.a_15
+           |> SELECT
+                projectscan_16.a_14 AS a_14
+         ) AS a_12
+       |> AS projectscan_17
+       |> SELECT
+            `IF`((ARRAY_LENGTH(projectscan_17.a_12)) >= 1, projectscan_17.a_12, CAST(NULL AS ARRAY< INT64 >)) AS a_18
+     ) AS a_11,
+     aggregatescan_10.a_7 AS a_7,
+     aggregatescan_10.a_8 AS a_8,
+     (
+       SELECT
+         ARRAY(
+           FROM
+             UNNEST(aggregatescan_10.a_9) AS a_21
+           |> SELECT
+                a_21.a_0 AS a_22,
+                a_21.b_1 AS a_23
+           |> AS projectscan_24
+           |> ORDER BY projectscan_24.a_22
+           |> SELECT
+                projectscan_24.a_23 AS a_23
+         ) AS a_20
+       |> AS projectscan_25
+       |> SELECT
+            `IF`((ARRAY_LENGTH(projectscan_25.a_20)) >= 1, projectscan_25.a_20, CAST(NULL AS ARRAY< UINT64 >)) AS a_26
+     ) AS a_19;
+
 ==
 
 # No ORDER BYs, so the ARRAY_AGG rewriter shouldn't mess up the tree
@@ -1308,7 +1628,8 @@ QueryStmt
                 +-ColumnRef(type=INT64, column=$array.a#4)
                 +-Literal(type=INT64, value=2)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   ARRAY_AGG(a_3) AS a_4,
   ARRAY_AGG(a_3 + 2) AS a_5
@@ -1321,6 +1642,19 @@ FROM
   ) AS testtable_2
   JOIN
   UNNEST(testtable_2.a_1.repeated_int64_val) AS a_3;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  TestTable
+|> SELECT
+     TestTable.KitchenSink AS a_1
+|> AS testtable_2
+|> JOIN
+   UNNEST(testtable_2.a_1.repeated_int64_val) AS a_3
+|> AGGREGATE
+     ARRAY_AGG(a_3) AS a_4,
+     ARRAY_AGG(a_3 + 2) AS a_5;
 
 ==
 
@@ -1377,7 +1711,8 @@ QueryStmt
               +-limit=
                 +-Literal(type=INT64, value=3)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   ARRAY_AGG(projectscan_5.a_3
     LIMIT 2) AS a_6,
@@ -1400,6 +1735,27 @@ FROM
       JOIN
       UNNEST(testtable_2.a_1.repeated_int64_val) AS a_3
   ) AS projectscan_5;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  TestTable
+|> SELECT
+     TestTable.KitchenSink AS a_1
+|> AS testtable_2
+|> JOIN
+   UNNEST(testtable_2.a_1.repeated_int64_val) AS a_3
+|> SELECT
+     testtable_2.a_1 AS a_1,
+     a_3 AS a_3,
+     a_3 + 1 AS a_4
+|> AS projectscan_5
+|> AGGREGATE
+     ARRAY_AGG(projectscan_5.a_3
+       LIMIT 2) AS a_6,
+     ARRAY_AGG(projectscan_5.a_3
+       ORDER BY projectscan_5.a_4
+       LIMIT 3) AS a_7;
 
 [REWRITTEN AST]
 QueryStmt
@@ -1575,7 +1931,8 @@ QueryStmt
                     +-field_list=
                       +-ColumnRef(type=INT64, column=$array.a#4)
                       +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#6)
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   (
     SELECT
@@ -1634,6 +1991,55 @@ FROM
           UNNEST(testtable_2.a_1.repeated_int64_val) AS a_3
       ) AS projectscan_5
   ) AS aggregatescan_8;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  TestTable
+|> SELECT
+     TestTable.KitchenSink AS a_1
+|> AS testtable_2
+|> JOIN
+   UNNEST(testtable_2.a_1.repeated_int64_val) AS a_3
+|> SELECT
+     testtable_2.a_1 AS a_1,
+     a_3 AS a_3,
+     a_3 + 1 AS a_4
+|> AS projectscan_5
+|> AGGREGATE
+     ARRAY_AGG(STRUCT< a_0 INT64 > (projectscan_5.a_3)) AS a_6,
+     ARRAY_AGG(STRUCT< a_0 INT64, `$orderbycol1_1` INT64 > (projectscan_5.a_3, projectscan_5.a_4)) AS a_7
+|> AS aggregatescan_8
+|> SELECT
+     (
+       SELECT
+         ARRAY(
+           FROM
+             UNNEST(aggregatescan_8.a_6) AS a_11
+           |> SELECT
+                a_11.a_0 AS a_12
+           |> LIMIT 2 OFFSET 0) AS a_10
+       |> AS projectscan_13
+       |> SELECT
+            `IF`((ARRAY_LENGTH(projectscan_13.a_10)) >= 1, projectscan_13.a_10, CAST(NULL AS ARRAY< INT64 >)) AS a_14
+     ) AS a_9,
+     (
+       SELECT
+         ARRAY(
+           FROM
+             UNNEST(aggregatescan_8.a_7) AS a_17
+           |> SELECT
+                a_17.a_0 AS a_18,
+                a_17.`$orderbycol1_1` AS a_19
+           |> AS projectscan_20
+           |> ORDER BY projectscan_20.a_19
+           |> SELECT
+                projectscan_20.a_18 AS a_18
+           |> LIMIT 3 OFFSET 0) AS a_16
+       |> AS projectscan_21
+       |> SELECT
+            `IF`((ARRAY_LENGTH(projectscan_21.a_16)) >= 1, projectscan_21.a_16, CAST(NULL AS ARRAY< INT64 >)) AS a_22
+     ) AS a_15;
 
 ==
 
@@ -1715,7 +2121,8 @@ QueryStmt
         +-input_scan=
           +-WithRefScan(column_list=[t.correlated#2], with_query_name="t")
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 WITH
   t AS (
     SELECT
@@ -1747,6 +2154,35 @@ SELECT
   ) AS a_3
 FROM
   t AS withrefscan_2;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+WITH
+  t AS (
+    SELECT
+      1 AS a_1
+  )
+FROM
+  t AS withrefscan_2
+|> SELECT
+     (
+       FROM
+         TestTable
+       |> SELECT
+            TestTable.KitchenSink AS a_4
+       |> AS testtable_5
+       |> JOIN
+          UNNEST(testtable_5.a_4.repeated_int64_val) AS a_6
+       |> SELECT
+            testtable_5.a_4 AS a_4,
+            a_6 AS a_6,
+            a_6 + 1 AS a_7
+       |> AS projectscan_8
+       |> AGGREGATE
+            ARRAY_AGG(projectscan_8.a_6
+              HAVING MAX withrefscan_2.a_1
+              ORDER BY projectscan_8.a_7
+              LIMIT 3) AS a_9) AS a_3;
 
 [REWRITTEN AST]
 QueryStmt
@@ -1889,7 +2325,8 @@ QueryStmt
         |                             +-ColumnRef(type=INT64, column=t.correlated#2, is_correlated=TRUE)
         +-input_scan=
           +-WithRefScan(column_list=[t.correlated#2], with_query_name="t")
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 WITH
   t AS (
     SELECT
@@ -1944,3 +2381,50 @@ SELECT
   ) AS a_3
 FROM
   t AS withrefscan_2;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+WITH
+  t AS (
+    SELECT
+      1 AS a_1
+  )
+FROM
+  t AS withrefscan_2
+|> SELECT
+     (
+       FROM
+         TestTable
+       |> SELECT
+            TestTable.KitchenSink AS a_4
+       |> AS testtable_5
+       |> JOIN
+          UNNEST(testtable_5.a_4.repeated_int64_val) AS a_6
+       |> SELECT
+            testtable_5.a_4 AS a_4,
+            a_6 AS a_6,
+            a_6 + 1 AS a_7
+       |> AS projectscan_8
+       |> AGGREGATE
+            ARRAY_AGG(STRUCT< a_0 INT64, `$orderbycol1_1` INT64 > (projectscan_8.a_6, projectscan_8.a_7)
+              HAVING MAX withrefscan_2.a_1) AS a_9
+       |> AS aggregatescan_10
+       |> SELECT
+            (
+              SELECT
+                ARRAY(
+                  FROM
+                    UNNEST(aggregatescan_10.a_9) AS a_13
+                  |> SELECT
+                       a_13.a_0 AS a_14,
+                       a_13.`$orderbycol1_1` AS a_15
+                  |> AS projectscan_16
+                  |> ORDER BY projectscan_16.a_15
+                  |> SELECT
+                       projectscan_16.a_14 AS a_14
+                  |> LIMIT 3 OFFSET 0) AS a_12
+              |> AS projectscan_17
+              |> SELECT
+                   `IF`((ARRAY_LENGTH(projectscan_17.a_12)) >= 1, projectscan_17.a_12, CAST(NULL AS ARRAY< INT64 >)) AS a_18
+            ) AS a_11
+     ) AS a_3;

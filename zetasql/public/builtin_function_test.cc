@@ -291,6 +291,15 @@ TEST(SimpleBuiltinFunctionTests, SanityTests) {
       case FN_APPROX_DOT_PRODUCT_FLOAT_WITH_PROTO_OPTIONS:
       case FN_APPROX_DOT_PRODUCT_DOUBLE_WITH_PROTO_OPTIONS:
         continue;
+      // FEATURE_V_1_4_ENABLE_MEASURES is marked ideally_enabled=false, and so
+      // is not included in the available functions with the options used by
+      // this test.
+      // TODO: b/350555383 - Remove this case to re-enable the test once
+      // FEATURE_V_1_4_ENABLE_MEASURES is ideally enabled. We can't simply
+      // enable the feature above, as `FunctionSignatureIdToName` also
+      // constructs a map of functions, but without these features.
+      case FN_AGG:
+        continue;
       default:
         break;
     }
@@ -367,6 +376,8 @@ TEST(SimpleBuiltinFunctionTests, ExcludedBuiltinFunctionTests) {
   options.exclude_function_ids.insert(FN_MULTIPLY_DOUBLE);
   options.exclude_function_ids.insert(FN_MULTIPLY_NUMERIC);
   options.exclude_function_ids.insert(FN_MULTIPLY_BIGNUMERIC);
+  options.exclude_function_ids.insert(FN_MULTIPLY_INTERVAL_INT64);
+  options.exclude_function_ids.insert(FN_MULTIPLY_INT64_INTERVAL);
 
   // Remove all signatures for SUBTRACT.
   options.exclude_function_ids.insert(FN_SUBTRACT_DOUBLE);
@@ -375,6 +386,14 @@ TEST(SimpleBuiltinFunctionTests, ExcludedBuiltinFunctionTests) {
   options.exclude_function_ids.insert(FN_SUBTRACT_NUMERIC);
   options.exclude_function_ids.insert(FN_SUBTRACT_BIGNUMERIC);
   options.exclude_function_ids.insert(FN_SUBTRACT_DATE_INT64);
+  options.exclude_function_ids.insert(FN_SUBTRACT_DATE);
+  options.exclude_function_ids.insert(FN_SUBTRACT_TIMESTAMP);
+  options.exclude_function_ids.insert(FN_SUBTRACT_DATETIME);
+  options.exclude_function_ids.insert(FN_SUBTRACT_TIME);
+  options.exclude_function_ids.insert(FN_SUBTRACT_TIMESTAMP_INTERVAL);
+  options.exclude_function_ids.insert(FN_SUBTRACT_DATE_INTERVAL);
+  options.exclude_function_ids.insert(FN_SUBTRACT_DATETIME_INTERVAL);
+  options.exclude_function_ids.insert(FN_SUBTRACT_INTERVAL_INTERVAL);
 
   // Remove few signature for ADD but not all.
   options.exclude_function_ids.insert(FN_ADD_UINT64);
@@ -382,6 +401,13 @@ TEST(SimpleBuiltinFunctionTests, ExcludedBuiltinFunctionTests) {
   options.exclude_function_ids.insert(FN_ADD_BIGNUMERIC);
   options.exclude_function_ids.insert(FN_ADD_DATE_INT64);
   options.exclude_function_ids.insert(FN_ADD_INT64_DATE);
+  options.exclude_function_ids.insert(FN_ADD_TIMESTAMP_INTERVAL);
+  options.exclude_function_ids.insert(FN_ADD_INTERVAL_TIMESTAMP);
+  options.exclude_function_ids.insert(FN_ADD_DATE_INTERVAL);
+  options.exclude_function_ids.insert(FN_ADD_INTERVAL_DATE);
+  options.exclude_function_ids.insert(FN_ADD_DATETIME_INTERVAL);
+  options.exclude_function_ids.insert(FN_ADD_INTERVAL_DATETIME);
+  options.exclude_function_ids.insert(FN_ADD_INTERVAL_INTERVAL);
 
   // Get filtered functions.
   types.clear();
@@ -421,7 +447,7 @@ TEST(SimpleBuiltinFunctionTests, ExcludedBuiltinFunctionTests) {
       zetasql_base::FindOrNull(functions, FunctionSignatureIdToName(FN_SUBTRACT_INT64));
   EXPECT_THAT(function, IsNull());
 
-  // Two MULTIPLY signatures were removed.
+  // All MULTIPLY signatures except one were removed.
   function =
       zetasql_base::FindOrNull(functions, FunctionSignatureIdToName(FN_MULTIPLY_UINT64));
   EXPECT_THAT(function, NotNull());
@@ -429,7 +455,7 @@ TEST(SimpleBuiltinFunctionTests, ExcludedBuiltinFunctionTests) {
   EXPECT_EQ("(UINT64, UINT64) -> UINT64",
             (*function)->GetSignature(0)->DebugString());
 
-  // One ADD signature was excluded, two remain.
+  // All ADD signatures except two were excluded.
   function =
       zetasql_base::FindOrNull(functions, FunctionSignatureIdToName(FN_ADD_INT64));
   EXPECT_THAT(function, NotNull());
@@ -991,6 +1017,11 @@ TEST(SimpleFunctionTests,
     // to determine whether or not its signatures are correct, and that
     // there is no unintended argument coercion being allowed (particularly
     // for unsigned integer arguments).
+    // TODO: Fix FunctionMayHaveUnintendedArgumentCoercion so that
+    // it doesn't detect false positives. Temporarily, skip the divide function
+    // as the method incorrectly detects an unintended coercion for the
+    // following divide signatures : (DOUBLE, DOUBLE), (INTERVAL, INT64).
+    if (function->Name() == "$divide") continue;
     EXPECT_FALSE(FunctionMayHaveUnintendedArgumentCoercion(function))
         << function->DebugString();
   }

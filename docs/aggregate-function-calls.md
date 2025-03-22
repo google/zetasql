@@ -11,7 +11,7 @@ result for each row.
 
 ## Aggregate function call syntax
 
-```sql
+```zetasql
 function_name(
   [ DISTINCT ]
   function_arguments
@@ -33,10 +33,12 @@ aggregate function:
   `expression` is aggregated only once into the result.
 + `IGNORE NULLS` or `RESPECT NULLS`: If `IGNORE NULLS` is
   specified, the `NULL` values are excluded from the result. If
-  `RESPECT NULLS` is specified, the `NULL` values are included in the
-  result. If
-  neither is specified, the `NULL` values are included in the
-  result.
+  `RESPECT NULLS` is specified, both `NULL` and non-`NULL` values can be
+  included in the result.
+
+  If neither `IGNORE NULLS` nor `RESPECT NULLS` is specified, most functions
+  default to `IGNORE NULLS` behavior but in a few cases `NULL` values are
+  respected.
 + `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
   function aggregates by a maximum or minimum value.
   For details, see [HAVING MAX and HAVING MIN clause][max_min_clause].
@@ -64,11 +66,11 @@ aggregate function:
 
   +  If the input is an `ARRAY` value, the limit applies to the number of input
      arrays, not the number of elements in the arrays. An empty array counts
-     as `1`. A `NULL` array is not counted.
+     as `1`. A `NULL` array isn't counted.
 
   +  If the input is a `STRING` value, the limit applies to the number of input
      strings, not the number of characters or bytes in the inputs. An empty
-     string counts as `1`. A `NULL` string is not counted.
+     string counts as `1`. A `NULL` string isn't counted.
 
   + The limit `n` must be a constant `INT64`.
 + `OVER`: If the aggregate function is also a window function, use this clause
@@ -94,7 +96,7 @@ The clauses in an aggregate function call are applied in the following order:
 When used in conjunction with a `GROUP BY` clause, the groups summarized
 typically have at least one row. When the associated `SELECT` statement has
 no `GROUP BY` clause or when certain aggregate function modifiers filter rows
-from the group to be summarized, it is possible that the aggregate function
+from the group to be summarized, it's possible that the aggregate function
 needs to summarize an empty group.
 
 ## Restrict aggregation by a maximum or minimum value 
@@ -108,7 +110,7 @@ column.
 ### HAVING MAX clause 
 <a id="having_max"></a>
 
-```sql
+```zetasql
 HAVING MAX having_expression
 ```
 
@@ -129,7 +131,7 @@ In the following query, rows with the most inches of precipitation, `4`, are
 added to a group, and then the `year` for one of these rows is produced.
 Which row is produced is nondeterministic, not random.
 
-```sql
+```zetasql
 WITH
   Precipitation AS (
     SELECT 2009 AS year, 'spring' AS season, 3 AS inches
@@ -156,7 +158,7 @@ recent year specified in the query. First, the query gets the rows with the
 maximum value in the `year` column. Finally, the query averages the values in
 the `inches` column (`9` and `1`):
 
-```sql
+```zetasql
 WITH
   Precipitation AS (
     SELECT 2001 AS year, 'spring' AS season, 9 AS inches
@@ -183,7 +185,7 @@ SELECT AVG(inches HAVING MAX year) AS average FROM Precipitation;
 ### HAVING MIN clause 
 <a id="having_min"></a>
 
-```sql
+```zetasql
 HAVING MIN having_expression
 ```
 
@@ -204,7 +206,7 @@ In the following query, rows with the fewest inches of precipitation, `1`,
 are added to a group, and then the `year` for one of these rows is produced.
 Which row is produced is nondeterministic, not random.
 
-```sql
+```zetasql
 WITH
   Precipitation AS (
     SELECT 2009 AS year, 'spring' AS season, 3 AS inches
@@ -231,7 +233,7 @@ earliest year specified in the query. First, the query gets the rows with
 the minimum value in the `year` column, and finally, the query averages the
 values in the `inches` column:
 
-```sql
+```zetasql
 WITH
   Precipitation AS (
     SELECT 2001 AS year, 'spring' AS season, 9 AS inches
@@ -259,7 +261,7 @@ SELECT AVG(inches HAVING MIN year) AS average FROM Precipitation;
 
 A simple aggregate function call for `COUNT`, `MIN`, and `MAX` looks like this:
 
-```sql
+```zetasql
 SELECT
   COUNT(*) AS total_count,
   COUNT(fruit) AS non_null_count,
@@ -287,7 +289,7 @@ In the following example, the average of `x` over a specified window is returned
 for each row. To learn more about windows and how to use them, see
 [Window function calls][window-function-calls].
 
-```sql
+```zetasql
 SELECT
   x,
   AVG(x) OVER (ORDER BY x ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS avg

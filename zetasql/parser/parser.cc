@@ -50,6 +50,7 @@ namespace zetasql {
 using parser::BisonParser;
 using parser::BisonParserMode;
 using MacroCatalog = parser::macros::MacroCatalog;
+using MacroExpansionMode = parser::MacroExpansionMode;
 
 static ErrorMessageOptions GetDefaultErrorMessageOptions() {
   return {.mode = ERROR_MESSAGE_WITH_PAYLOAD,
@@ -62,19 +63,23 @@ static ErrorMessageOptions GetDefaultErrorMessageOptions() {
 ParserOptions::ParserOptions() : ParserOptions(LanguageOptions{}) {}
 
 ParserOptions::ParserOptions(LanguageOptions language_options,
+                             MacroExpansionMode macro_expansion_mode,
                              const MacroCatalog* macro_catalog)
     : arena_(std::make_shared<zetasql_base::UnsafeArena>(/*block_size=*/4096)),
       id_string_pool_(std::make_shared<IdStringPool>(arena_)),
       language_options_(std::move(language_options)),
+      macro_expansion_mode_(macro_expansion_mode),
       macro_catalog_(macro_catalog) {}
 
 ParserOptions::ParserOptions(std::shared_ptr<IdStringPool> id_string_pool,
                              std::shared_ptr<zetasql_base::UnsafeArena> arena,
                              LanguageOptions language_options,
+                             MacroExpansionMode macro_expansion_mode,
                              const MacroCatalog* macro_catalog)
     : arena_(std::move(arena)),
       id_string_pool_(std::move(id_string_pool)),
       language_options_(std::move(language_options)),
+      macro_expansion_mode_(macro_expansion_mode),
       macro_catalog_(macro_catalog) {}
 
 ParserOptions::~ParserOptions() = default;
@@ -123,8 +128,8 @@ absl::Status ParseStatement(absl::string_view statement_string,
       BisonParserMode::kStatement, /*filename=*/absl::string_view(),
       statement_string, /*start_byte_offset=*/0,
       parser_options.id_string_pool().get(), parser_options.arena().get(),
-      parser_options.language_options(), parser_options.macro_catalog(),
-      &ast_node, &other_allocated_ast_nodes,
+      parser_options.language_options(), parser_options.macro_expansion_mode(),
+      parser_options.macro_catalog(), &ast_node, &other_allocated_ast_nodes,
       /*ast_statement_properties=*/nullptr,
       /*statement_end_byte_offset=*/nullptr);
   ZETASQL_RETURN_IF_ERROR(ConvertInternalErrorLocationAndAdjustErrorString(
@@ -154,7 +159,8 @@ absl::Status ParseScript(absl::string_view script_string,
       BisonParserMode::kScript, /*filename=*/absl::string_view(), script_string,
       /*start_byte_offset=*/0, parser_options.id_string_pool().get(),
       parser_options.arena().get(), parser_options.language_options(),
-      parser_options.macro_catalog(), &ast_node, &other_allocated_ast_nodes,
+      parser_options.macro_expansion_mode(), parser_options.macro_catalog(),
+      &ast_node, &other_allocated_ast_nodes,
       /*ast_statement_properties=*/nullptr,
       /*statement_end_byte_offset=*/nullptr);
 
@@ -195,7 +201,8 @@ absl::Status ParseNextStatementInternal(ParseResumeLocation* resume_location,
       mode, resume_location->filename(), resume_location->input(),
       resume_location->byte_position(), parser_options.id_string_pool().get(),
       parser_options.arena().get(), parser_options.language_options(),
-      parser_options.macro_catalog(), &ast_node, &other_allocated_ast_nodes,
+      parser_options.macro_expansion_mode(), parser_options.macro_catalog(),
+      &ast_node, &other_allocated_ast_nodes,
       /*ast_statement_properties=*/nullptr, &next_statement_byte_offset);
   ZETASQL_RETURN_IF_ERROR(ConvertInternalErrorLocationAndAdjustErrorString(
       GetDefaultErrorMessageOptions(), resume_location->input(), status));
@@ -252,7 +259,8 @@ absl::Status ParseType(absl::string_view type_string,
       BisonParserMode::kType, /* filename = */ absl::string_view(), type_string,
       0 /* offset */, parser_options.id_string_pool().get(),
       parser_options.arena().get(), parser_options.language_options(),
-      parser_options.macro_catalog(), &ast_node, &other_allocated_ast_nodes,
+      parser_options.macro_expansion_mode(), parser_options.macro_catalog(),
+      &ast_node, &other_allocated_ast_nodes,
       /*ast_statement_properties=*/nullptr,
       /*statement_end_byte_offset=*/nullptr);
   ZETASQL_RETURN_IF_ERROR(ConvertInternalErrorLocationAndAdjustErrorString(
@@ -281,7 +289,8 @@ absl::Status ParseExpression(absl::string_view expression_string,
       BisonParserMode::kExpression, /* filename = */ absl::string_view(),
       expression_string, 0 /* offset */, parser_options.id_string_pool().get(),
       parser_options.arena().get(), parser_options.language_options(),
-      parser_options.macro_catalog(), &ast_node, &other_allocated_ast_nodes,
+      parser_options.macro_expansion_mode(), parser_options.macro_catalog(),
+      &ast_node, &other_allocated_ast_nodes,
       /*ast_statement_properties=*/nullptr,
       /*statement_end_byte_offset=*/nullptr);
   ZETASQL_RETURN_IF_ERROR(ConvertInternalErrorLocationAndAdjustErrorString(
@@ -311,8 +320,8 @@ absl::Status ParseExpression(const ParseResumeLocation& resume_location,
       BisonParserMode::kExpression, resume_location.filename(),
       resume_location.input(), resume_location.byte_position(),
       parser_options.id_string_pool().get(), parser_options.arena().get(),
-      parser_options.language_options(), parser_options.macro_catalog(),
-      &ast_node, &other_allocated_ast_nodes,
+      parser_options.language_options(), parser_options.macro_expansion_mode(),
+      parser_options.macro_catalog(), &ast_node, &other_allocated_ast_nodes,
       /*ast_statement_properties=*/nullptr,
       /*statement_end_byte_offset=*/nullptr);
   ZETASQL_RETURN_IF_ERROR(ConvertInternalErrorLocationAndAdjustErrorString(
@@ -330,13 +339,18 @@ absl::Status ParseExpression(const ParseResumeLocation& resume_location,
 
 ASTNodeKind ParseStatementKind(absl::string_view input,
                                const LanguageOptions& language_options,
+                               MacroExpansionMode macro_expansion_mode,
+                               const MacroCatalog* macro_catalog,
                                bool* statement_is_ctas) {
   return ParseNextStatementKind(ParseResumeLocation::FromStringView(input),
-                                language_options, statement_is_ctas);
+                                language_options, macro_expansion_mode,
+                                macro_catalog, statement_is_ctas);
 }
 
 ASTNodeKind ParseNextStatementKind(const ParseResumeLocation& resume_location,
                                    const LanguageOptions& language_options,
+                                   MacroExpansionMode macro_expansion_mode,
+                                   const MacroCatalog* macro_catalog,
                                    bool* next_statement_is_ctas) {
   ZETASQL_DCHECK_OK(resume_location.Validate());
 
@@ -348,9 +362,9 @@ ASTNodeKind ParseNextStatementKind(const ParseResumeLocation& resume_location,
   parser
       .Parse(BisonParserMode::kNextStatementKind, resume_location.filename(),
              resume_location.input(), resume_location.byte_position(),
-             &id_string_pool, &arena, language_options,
-             /*macro_catalog=*/nullptr, /*output=*/nullptr,
-             &other_allocated_ast_nodes, &ast_statement_properties,
+             &id_string_pool, &arena, language_options, macro_expansion_mode,
+             macro_catalog, /*output=*/nullptr, &other_allocated_ast_nodes,
+             &ast_statement_properties,
              /*statement_end_byte_offset=*/nullptr)
       .IgnoreError();
   *next_statement_is_ctas = ast_statement_properties.is_create_table_as_select;
@@ -382,8 +396,9 @@ absl::Status ParseNextStatementProperties(
       BisonParserMode::kNextStatementKind, resume_location.filename(),
       resume_location.input(), resume_location.byte_position(),
       parser_options.id_string_pool().get(), parser_options.arena().get(),
-      parser_options.language_options(), parser_options.macro_catalog(),
-      &output, allocated_ast_nodes, ast_statement_properties,
+      parser_options.language_options(), parser_options.macro_expansion_mode(),
+      parser_options.macro_catalog(), &output, allocated_ast_nodes,
+      ast_statement_properties,
       /*statement_end_byte_offset=*/nullptr);
 
   // In kNextStatementKind mode, the bison parser places the statement level

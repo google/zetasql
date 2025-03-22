@@ -66,6 +66,9 @@ message DeprecationWarning {
     // TODO: b/372326459 - Clean up this warning once the new resolution order
     // is rolled out, and there are no remaining references.
     TABLE_SYNTAX_ARGUMENT_RESOLUTION_ORDER = 7;
+
+    // The pipe WINDOW operator is deprecated.  Use pipe EXTEND instead.
+    PIPE_WINDOW = 8;
   }
 
   optional Kind kind = 1;

@@ -346,7 +346,7 @@ delete db-1-2.T where true
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `db-1-2.T` [at 1:8]
+ERROR: Syntax error: Table name contains '-' character. The dashed identifier part of the table name needs to be quoted: `db-1-2` [at 1:8]
 delete db-1-2.T where true
        ^
 --
@@ -417,4 +417,3 @@ HintedStatement [0-21] [@{a=b} delete from t1]
 --
 @{ a = b }
 DELETE t1
-==

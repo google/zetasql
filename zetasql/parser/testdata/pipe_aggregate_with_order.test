@@ -130,9 +130,30 @@ SELECT
 --
 ALTERNATION GROUP: alias NULLS FIRST
 --
-ERROR: Syntax error: Expected end of input but got identifier "alias" [at 3:17]
-   GROUP BY x+1 alias NULLS FIRST
-                ^
+QueryStatement [0-55] [select 1 |...NULLS FIRST]
+  Query [0-55] [select 1 |...NULLS FIRST]
+    Select [0-8] [select 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    PipeAggregate [9-55] [|> AGGREGATE...NULLS FIRST]
+      Select [12-55] [AGGREGATE...NULLS FIRST]
+        SelectList [21-21] []
+        GroupBy [25-55] [GROUP BY x+1 alias NULLS FIRST]
+          GroupingItem [34-55] [x+1 alias NULLS FIRST]
+            BinaryExpression(+) [34-37] [x+1]
+              PathExpression [34-35] [x]
+                Identifier(x) [34-35] [x]
+              IntLiteral(1) [36-37] [1]
+            Alias [38-43] [alias]
+              Identifier(alias) [38-43] [alias]
+            GroupingItemOrder(UNSPECIFIED) [44-55] [NULLS FIRST]
+              NullOrder(NULLS FIRST) [44-55] [NULLS FIRST]
+--
+SELECT
+  1
+|> AGGREGATE
+   GROUP BY x + 1 AS alias NULLS FIRST
 ==
 
 # COLLATE is not supported in GROUP BY.
@@ -140,6 +161,18 @@ from t
 |> aggregate count(*)
    GROUP {{|AND ORDER}} BY k {{|ASC}}
      COLLATE "abc"
+--
+ALTERNATION GROUPS:
+    <empty>
+    AND ORDER,
+--
+ERROR: Syntax error: Unexpected keyword COLLATE [at 4:6]
+     COLLATE "abc"
+     ^
+--
+ALTERNATION GROUPS:
+    ASC
+    AND ORDER,ASC
 --
 ERROR: Syntax error: Expected end of input but got keyword COLLATE [at 4:6]
      COLLATE "abc"
@@ -301,147 +334,33 @@ ERROR: Syntax error: Expected end of input but got keyword AS [at 3:21]
 ==
 
 # Now we try using order modifiers in regular GROUP BY syntax,
-# with FEATURE_PIPES turned on or off.  With PIPES disabled, these are
-# rejected immediately in parser.  With PIPES enabled, they parse
-# but will be rejected during analysis.
+# with FEATURE_PIPES turned on or off.  Order modifiers are
+# always rejected.
 
 [language_features={{PIPES|}}]
 select COUNT(*)
 from t
-GROUP BY x {{ASC|DESC|ASC NULLS FIRST|NULLS FIRST}}
+GROUP BY x {{ASC|DESC}}
+{{|NULLS FIRST}}
 --
-ALTERNATION GROUP: PIPES,ASC
+ALTERNATION GROUPS:
+    PIPES,ASC,
+    PIPES,ASC,NULLS FIRST
+    ASC,
+    ASC,NULLS FIRST
 --
-QueryStatement [0-37] [select COUNT...GROUP BY x ASC]
-  Query [0-37] [select COUNT...GROUP BY x ASC]
-    Select [0-37] [select COUNT...GROUP BY x ASC]
-      SelectList [7-15] [COUNT(*)]
-        SelectColumn [7-15] [COUNT(*)]
-          FunctionCall [7-15] [COUNT(*)]
-            PathExpression [7-12] [COUNT]
-              Identifier(COUNT) [7-12] [COUNT]
-            Star(*) [13-14] [*]
-      FromClause [16-22] [from t]
-        TablePathExpression [21-22] [t]
-          PathExpression [21-22] [t]
-            Identifier(t) [21-22] [t]
-      GroupBy [23-37] [GROUP BY x ASC]
-        GroupingItem [32-37] [x ASC]
-          PathExpression [32-33] [x]
-            Identifier(x) [32-33] [x]
-          GroupingItemOrder(ASC) [34-37] [ASC]
---
-SELECT
-  COUNT(*)
-FROM
-  t
-GROUP BY x ASC
---
-ALTERNATION GROUP: PIPES,DESC
---
-QueryStatement [0-38] [select COUNT...BY x DESC]
-  Query [0-38] [select COUNT...BY x DESC]
-    Select [0-38] [select COUNT...BY x DESC]
-      SelectList [7-15] [COUNT(*)]
-        SelectColumn [7-15] [COUNT(*)]
-          FunctionCall [7-15] [COUNT(*)]
-            PathExpression [7-12] [COUNT]
-              Identifier(COUNT) [7-12] [COUNT]
-            Star(*) [13-14] [*]
-      FromClause [16-22] [from t]
-        TablePathExpression [21-22] [t]
-          PathExpression [21-22] [t]
-            Identifier(t) [21-22] [t]
-      GroupBy [23-38] [GROUP BY x DESC]
-        GroupingItem [32-38] [x DESC]
-          PathExpression [32-33] [x]
-            Identifier(x) [32-33] [x]
-          GroupingItemOrder(DESC) [34-38] [DESC]
---
-SELECT
-  COUNT(*)
-FROM
-  t
-GROUP BY x DESC
---
-ALTERNATION GROUP: PIPES,ASC NULLS FIRST
---
-QueryStatement [0-49] [select COUNT...NULLS FIRST]
-  Query [0-49] [select COUNT...NULLS FIRST]
-    Select [0-49] [select COUNT...NULLS FIRST]
-      SelectList [7-15] [COUNT(*)]
-        SelectColumn [7-15] [COUNT(*)]
-          FunctionCall [7-15] [COUNT(*)]
-            PathExpression [7-12] [COUNT]
-              Identifier(COUNT) [7-12] [COUNT]
-            Star(*) [13-14] [*]
-      FromClause [16-22] [from t]
-        TablePathExpression [21-22] [t]
-          PathExpression [21-22] [t]
-            Identifier(t) [21-22] [t]
-      GroupBy [23-49] [GROUP BY x ASC NULLS FIRST]
-        GroupingItem [32-49] [x ASC NULLS FIRST]
-          PathExpression [32-33] [x]
-            Identifier(x) [32-33] [x]
-          GroupingItemOrder(ASC) [34-49] [ASC NULLS FIRST]
-            NullOrder(NULLS FIRST) [38-49] [NULLS FIRST]
---
-SELECT
-  COUNT(*)
-FROM
-  t
-GROUP BY x ASC NULLS FIRST
---
-ALTERNATION GROUP: PIPES,NULLS FIRST
---
-QueryStatement [0-45] [select COUNT...NULLS FIRST]
-  Query [0-45] [select COUNT...NULLS FIRST]
-    Select [0-45] [select COUNT...NULLS FIRST]
-      SelectList [7-15] [COUNT(*)]
-        SelectColumn [7-15] [COUNT(*)]
-          FunctionCall [7-15] [COUNT(*)]
-            PathExpression [7-12] [COUNT]
-              Identifier(COUNT) [7-12] [COUNT]
-            Star(*) [13-14] [*]
-      FromClause [16-22] [from t]
-        TablePathExpression [21-22] [t]
-          PathExpression [21-22] [t]
-            Identifier(t) [21-22] [t]
-      GroupBy [23-45] [GROUP BY x NULLS FIRST]
-        GroupingItem [32-45] [x NULLS FIRST]
-          PathExpression [32-33] [x]
-            Identifier(x) [32-33] [x]
-          GroupingItemOrder(UNSPECIFIED) [34-45] [NULLS FIRST]
-            NullOrder(NULLS FIRST) [34-45] [NULLS FIRST]
---
-SELECT
-  COUNT(*)
-FROM
-  t
-GROUP BY x NULLS FIRST
---
-ALTERNATION GROUP: ASC
---
-ERROR: Syntax error: Unexpected ASC [at 3:12]
+ERROR: Syntax error: Expected end of input but got keyword ASC [at 3:12]
 GROUP BY x ASC
            ^
 --
-ALTERNATION GROUP: DESC
+ALTERNATION GROUPS:
+    PIPES,DESC,
+    PIPES,DESC,NULLS FIRST
+    DESC,
+    DESC,NULLS FIRST
 --
-ERROR: Syntax error: Unexpected DESC [at 3:12]
+ERROR: Syntax error: Expected end of input but got keyword DESC [at 3:12]
 GROUP BY x DESC
-           ^
---
-ALTERNATION GROUP: ASC NULLS FIRST
---
-ERROR: Syntax error: Unexpected ASC [at 3:12]
-GROUP BY x ASC NULLS FIRST
-           ^
---
-ALTERNATION GROUP: NULLS FIRST
---
-ERROR: Syntax error: Unexpected NULLS [at 3:12]
-GROUP BY x NULLS FIRST
            ^
 ==
 
@@ -450,35 +369,7 @@ select COUNT(*)
 from t
 GROUP AND ORDER BY x
 --
-ALTERNATION GROUP: PIPES
---
-QueryStatement [0-43] [select COUNT...ORDER BY x]
-  Query [0-43] [select COUNT...ORDER BY x]
-    Select [0-43] [select COUNT...ORDER BY x]
-      SelectList [7-15] [COUNT(*)]
-        SelectColumn [7-15] [COUNT(*)]
-          FunctionCall [7-15] [COUNT(*)]
-            PathExpression [7-12] [COUNT]
-              Identifier(COUNT) [7-12] [COUNT]
-            Star(*) [13-14] [*]
-      FromClause [16-22] [from t]
-        TablePathExpression [21-22] [t]
-          PathExpression [21-22] [t]
-            Identifier(t) [21-22] [t]
-      GroupBy(and_order_by=true) [23-43] [GROUP AND ORDER BY x]
-        GroupingItem [42-43] [x]
-          PathExpression [42-43] [x]
-            Identifier(x) [42-43] [x]
---
-SELECT
-  COUNT(*)
-FROM
-  t
-GROUP AND ORDER BY x
---
-ALTERNATION GROUP: <empty>
---
-ERROR: Syntax error: Unexpected AND [at 3:7]
+ERROR: Syntax error: Expected keyword BY but got keyword AND [at 3:7]
 GROUP AND ORDER BY x
       ^
 ==
@@ -490,54 +381,9 @@ select * from GRAPH_TABLE(aml
   MATCH (a)
   RETURN a GROUP AND ORDER BY x)
 --
-ALTERNATION GROUP: <empty>
---
-ERROR: Syntax error: Unexpected AND [at 3:18]
+ERROR: Syntax error: Expected keyword BY but got keyword AND [at 3:18]
   RETURN a GROUP AND ORDER BY x)
                  ^
---
-ALTERNATION GROUP: ,PIPES
---
-QueryStatement [0-74] [select * from...ORDER BY x)]
-  Query [0-74] [select * from...ORDER BY x)]
-    Select [0-74] [select * from...ORDER BY x)]
-      SelectList [7-8] [*]
-        SelectColumn [7-8] [*]
-          Star(*) [7-8] [*]
-      FromClause [9-74] [from GRAPH_TABLE...ORDER BY x)]
-        GraphTableQuery [14-74] [GRAPH_TABLE...ORDER BY x)]
-          PathExpression [26-29] [aml]
-            Identifier(aml) [26-29] [aml]
-          GqlOperatorList [32-73] [MATCH (a)...ORDER BY x]
-            GqlOperatorList [32-73] [MATCH (a)...ORDER BY x]
-              GqlMatch [32-41] [MATCH (a)]
-                GraphPattern [38-41] [(a)]
-                  GraphPathPattern [38-41] [(a)]
-                    GraphNodePattern [38-41] [(a)]
-                      GraphElementPatternFiller [39-40] [a]
-                        Identifier(a) [39-40] [a]
-              GqlReturn [44-73] [RETURN a GROUP AND ORDER BY x]
-                Select [50-73] [a GROUP AND ORDER BY x]
-                  SelectList [51-52] [a]
-                    SelectColumn [51-52] [a]
-                      PathExpression [51-52] [a]
-                        Identifier(a) [51-52] [a]
-                  GroupBy(and_order_by=true) [53-73] [GROUP AND ORDER BY x]
-                    GroupingItem [72-73] [x]
-                      PathExpression [72-73] [x]
-                        Identifier(x) [72-73] [x]
---
-SELECT
-  *
-FROM
-  GRAPH_TABLE(
-    aml
-    MATCH
-      (a)
-    RETURN
-      a
-    GROUP AND ORDER BY x
-  )
 ==
 
 [reserve_graph_table]
@@ -546,112 +392,21 @@ select * from GRAPH_TABLE(aml
   MATCH (a)
   RETURN a GROUP BY x, y {{ASC|NULLS FIRST}})
 --
-ALTERNATION GROUP: ASC
+ALTERNATION GROUPS:
+    ASC
+    ,PIPES,ASC
 --
-ERROR: Syntax error: Unexpected ASC [at 3:26]
+ERROR: Syntax error: Expected ")" or keyword NEXT but got keyword ASC [at 3:26]
   RETURN a GROUP BY x, y ASC)
                          ^
 --
-ALTERNATION GROUP: NULLS FIRST
+ALTERNATION GROUPS:
+    NULLS FIRST
+    ,PIPES,NULLS FIRST
 --
-ERROR: Syntax error: Unexpected NULLS [at 3:26]
+ERROR: Syntax error: Expected ")" or keyword NEXT but got keyword NULLS [at 3:26]
   RETURN a GROUP BY x, y NULLS FIRST)
                          ^
---
-ALTERNATION GROUP: ,PIPES,ASC
---
-QueryStatement [0-71] [select * from...x, y ASC)]
-  Query [0-71] [select * from...x, y ASC)]
-    Select [0-71] [select * from...x, y ASC)]
-      SelectList [7-8] [*]
-        SelectColumn [7-8] [*]
-          Star(*) [7-8] [*]
-      FromClause [9-71] [from GRAPH_TABLE...x, y ASC)]
-        GraphTableQuery [14-71] [GRAPH_TABLE...x, y ASC)]
-          PathExpression [26-29] [aml]
-            Identifier(aml) [26-29] [aml]
-          GqlOperatorList [32-70] [MATCH (a)...BY x, y ASC]
-            GqlOperatorList [32-70] [MATCH (a)...BY x, y ASC]
-              GqlMatch [32-41] [MATCH (a)]
-                GraphPattern [38-41] [(a)]
-                  GraphPathPattern [38-41] [(a)]
-                    GraphNodePattern [38-41] [(a)]
-                      GraphElementPatternFiller [39-40] [a]
-                        Identifier(a) [39-40] [a]
-              GqlReturn [44-70] [RETURN a GROUP BY x, y ASC]
-                Select [50-70] [a GROUP BY x, y ASC]
-                  SelectList [51-52] [a]
-                    SelectColumn [51-52] [a]
-                      PathExpression [51-52] [a]
-                        Identifier(a) [51-52] [a]
-                  GroupBy [53-70] [GROUP BY x, y ASC]
-                    GroupingItem [62-63] [x]
-                      PathExpression [62-63] [x]
-                        Identifier(x) [62-63] [x]
-                    GroupingItem [65-70] [y ASC]
-                      PathExpression [65-66] [y]
-                        Identifier(y) [65-66] [y]
-                      GroupingItemOrder(ASC) [67-70] [ASC]
---
-SELECT
-  *
-FROM
-  GRAPH_TABLE(
-    aml
-    MATCH
-      (a)
-    RETURN
-      a
-    GROUP BY x, y ASC
-  )
---
-ALTERNATION GROUP: ,PIPES,NULLS FIRST
---
-QueryStatement [0-79] [select * from...NULLS FIRST)]
-  Query [0-79] [select * from...NULLS FIRST)]
-    Select [0-79] [select * from...NULLS FIRST)]
-      SelectList [7-8] [*]
-        SelectColumn [7-8] [*]
-          Star(*) [7-8] [*]
-      FromClause [9-79] [from GRAPH_TABLE...ULLS FIRST)]
-        GraphTableQuery [14-79] [GRAPH_TABLE...NULLS FIRST)]
-          PathExpression [26-29] [aml]
-            Identifier(aml) [26-29] [aml]
-          GqlOperatorList [32-78] [MATCH (a)...NULLS FIRST]
-            GqlOperatorList [32-78] [MATCH (a)...NULLS FIRST]
-              GqlMatch [32-41] [MATCH (a)]
-                GraphPattern [38-41] [(a)]
-                  GraphPathPattern [38-41] [(a)]
-                    GraphNodePattern [38-41] [(a)]
-                      GraphElementPatternFiller [39-40] [a]
-                        Identifier(a) [39-40] [a]
-              GqlReturn [44-78] [RETURN a GROUP...NULLS FIRST]
-                Select [50-78] [a GROUP BY x, y NULLS FIRST]
-                  SelectList [51-52] [a]
-                    SelectColumn [51-52] [a]
-                      PathExpression [51-52] [a]
-                        Identifier(a) [51-52] [a]
-                  GroupBy [53-78] [GROUP BY x, y NULLS FIRST]
-                    GroupingItem [62-63] [x]
-                      PathExpression [62-63] [x]
-                        Identifier(x) [62-63] [x]
-                    GroupingItem [65-78] [y NULLS FIRST]
-                      PathExpression [65-66] [y]
-                        Identifier(y) [65-66] [y]
-                      GroupingItemOrder(UNSPECIFIED) [67-78] [NULLS FIRST]
-                        NullOrder(NULLS FIRST) [67-78] [NULLS FIRST]
---
-SELECT
-  *
-FROM
-  GRAPH_TABLE(
-    aml
-    MATCH
-      (a)
-    RETURN
-      a
-    GROUP BY x, y NULLS FIRST
-  )
 ==
 
 # Order suffixes in the aggregate list.

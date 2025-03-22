@@ -34,7 +34,7 @@ SELECT NEW INT64{}
 ==
 
 # The unparsed SQL uses the old syntax.
-[show_unparsed]
+[show_sqlbuilder_output]
 SELECT NEW zetasql_test__.TestExtraPB {}
 --
 QueryStmt
@@ -48,7 +48,13 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  NEW `zetasql_test__.TestExtraPB`() AS a_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 SELECT
   NEW `zetasql_test__.TestExtraPB`() AS a_1;
 ==
@@ -254,6 +260,49 @@ QueryStmt
     |             +-ext_value := Literal(type=ARRAY<INT32>, value=[1])
     +-input_scan=
       +-SingleRowScan
+==
+
+[language_features=V_1_3_BRACED_PROTO_CONSTRUCTORS{{|,V_1_4_UPDATE_CONSTRUCTOR}}]
+# An identifier `UPDATE` before an extension parses to UPDATE constructor.
+WITH cte AS (
+  SELECT 3 AS UPDATE
+)
+SELECT NEW zetasql_test__.TestExtraPB {
+     int32_val1: UPDATE
+     (zetasql_test__.TestExtraPBExtensionHolder.test_extra_proto_extension) {
+         ext_value: [1]
+     }
+}
+--
+
+ALTERNATION GROUP: <empty>
+--
+ERROR: Unexpected braced syntax after call to function 'UPDATE'. If the intent is to set an extension field, the preceding field must include a trailing comma. [at 7:77]
+     (zetasql_test__.TestExtraPBExtensionHolder.test_extra_proto_extension) {
+                                                                            ^
+--
+ALTERNATION GROUP: ,V_1_4_UPDATE_CONSTRUCTOR
+--
+ERROR: Unrecognized name: zetasql_test__ [at 7:7]
+     (zetasql_test__.TestExtraPBExtensionHolder.test_extra_proto_extension) {
+      ^
+==
+
+[language_features=V_1_3_BRACED_PROTO_CONSTRUCTORS,V_1_4_UPDATE_CONSTRUCTOR]
+# A possibly misspelled identifier `UDPATE` before an extension returns an appropriate error.
+WITH cte AS (
+  SELECT 3 AS UDPATE
+)
+SELECT NEW zetasql_test__.TestExtraPB {
+     int32_val1: UDPATE
+     (zetasql_test__.TestExtraPBExtensionHolder.test_extra_proto_extension) {
+         ext_value: [1]
+     }
+}
+--
+ERROR: Unexpected braced syntax after call to function 'UDPATE'. If the intent is to set an extension field, the preceding field must include a trailing comma. If the intent is to invoke the UPDATE constructor for a proto, the function name is misspelled. [at 7:77]
+     (zetasql_test__.TestExtraPBExtensionHolder.test_extra_proto_extension) {
+                                                                            ^
 ==
 
 # Extension without parenthesis is an error.

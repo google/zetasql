@@ -1,5 +1,6 @@
 [default language_features=V_1_4_MULTILEVEL_AGGREGATION,V_1_3_WITH_GROUP_ROWS,V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE,V_1_1_HAVING_IN_AGGREGATE,V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE,ANALYTIC_FUNCTIONS,V_1_3_QUALIFY,V_1_4_GROUPING_BUILTIN,V_1_2_GROUP_BY_STRUCT,V_1_4_ENFORCE_CONDITIONAL_EVALUATION,V_1_3_PIVOT]
-[default show_unparsed]
+[default show_sqlbuilder_output]
+
 # Test file for multi-level aggregate queries that fail because corresponding
 # functionality is not yet supported.
 # TODO: Improve grouping constness recognition. 'double + int64'
@@ -26,119 +27,7 @@ PIVOT(
   FOR int64 IN (0, 1)
 );
 --
-[PRE-REWRITE AST]
-QueryStmt
-+-output_column_list=
-| +-$groupby.bool#35 AS bool [BOOL]
-| +-$groupby.bytes#36 AS bytes [BYTES]
-| +-$pivot.agg1_0#37 AS agg1_0 [DOUBLE]
-| +-$pivot.agg2_0#38 AS agg2_0 [ARRAY<STRING>]
-| +-$pivot.agg1_1#39 AS agg1_1 [DOUBLE]
-| +-$pivot.agg2_1#40 AS agg2_1 [ARRAY<STRING>]
-+-query=
-  +-ProjectScan
-    +-column_list=[$groupby.bool#35, $groupby.bytes#36, $pivot.agg1_0#37, $pivot.agg2_0#38, $pivot.agg1_1#39, $pivot.agg2_1#40]
-    +-input_scan=
-      +-PivotScan
-        +-column_list=[$groupby.bool#35, $groupby.bytes#36, $pivot.agg1_0#37, $pivot.agg2_0#38, $pivot.agg1_1#39, $pivot.agg2_1#40]
-        +-input_scan=
-        | +-ProjectScan
-        |   +-column_list=$subquery1.[int64#20, double#21, int32#22, string#23, bool#24, bytes#25]
-        |   +-expr_list=
-        |   | +-int64#20 := ColumnRef(type=INT64, column=SimpleTypes.int64#2)
-        |   | +-double#21 := ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
-        |   | +-int32#22 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
-        |   | +-string#23 := ColumnRef(type=STRING, column=SimpleTypes.string#5)
-        |   | +-bool#24 := ColumnRef(type=BOOL, column=SimpleTypes.bool#7)
-        |   | +-bytes#25 := ColumnRef(type=BYTES, column=SimpleTypes.bytes#6)
-        |   +-input_scan=
-        |     +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, string#5, bytes#6, bool#7, double#9], table=SimpleTypes, column_index_list=[0, 1, 4, 5, 6, 8])
-        +-group_by_list=
-        | +-bool#35 := ColumnRef(type=BOOL, column=$subquery1.bool#24)
-        | +-bytes#36 := ColumnRef(type=BYTES, column=$subquery1.bytes#25)
-        +-pivot_expr_list=
-        | +-AggregateFunctionCall(ZetaSQL:sum(DOUBLE) -> DOUBLE)
-        | | +-parse_location=95-171
-        | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
-        | |   +-ColumnRef(type=DOUBLE, column=$group_by_list.$groupbymod#26)
-        | |   +-ColumnRef(type=DOUBLE, column=$aggregate.$agg1#30)
-        | | +-group_by_list=
-        | | | +-$groupbymod#26 := ColumnRef(type=DOUBLE, column=$subquery1.double#21)
-        | | +-group_by_aggregate_list=
-        | |   +-$agg1#30 :=
-        | |     +-AggregateFunctionCall(ZetaSQL:avg(INT64) -> DOUBLE)
-        | |       +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
-        | |         +-ColumnRef(type=INT64, column=$group_by_list.$groupbymod#28)
-        | |         +-Cast(INT32 -> INT64)
-        | |           +-ColumnRef(type=INT32, column=$aggregate.$agg1#29)
-        | |       +-group_by_list=
-        | |       | +-$groupbymod#27 := ColumnRef(type=DOUBLE, column=$subquery1.double#21)
-        | |       | +-$groupbymod#28 := ColumnRef(type=INT64, column=$subquery1.int64#20)
-        | |       +-group_by_aggregate_list=
-        | |         +-$agg1#29 :=
-        | |           +-AggregateFunctionCall(ZetaSQL:max(INT32) -> INT32)
-        | |             +-ColumnRef(type=INT32, column=$subquery1.int32#22)
-        | +-AggregateFunctionCall(ZetaSQL:array_agg(STRING) -> ARRAY<STRING>)
-        |   +-parse_location=175-249
-        |   +-ColumnRef(type=STRING, column=$group_by_list.$groupbymod#32)
-        |   +-null_handling_modifier=IGNORE_NULLS
-        |   +-order_by_item_list=
-        |   | +-OrderByItem
-        |   |   +-column_ref=
-        |   |     +-ColumnRef(type=DOUBLE, column=$aggregate.$agg1#33)
-        |   +-group_by_list=
-        |   | +-$groupbymod#32 := ColumnRef(type=STRING, column=$subquery1.string#23)
-        |   +-group_by_aggregate_list=
-        |     +-$agg1#33 :=
-        |       +-AggregateFunctionCall(ZetaSQL:avg(INT64) -> DOUBLE)
-        |         +-ColumnRef(type=INT64, column=$subquery1.int64#20)
-        +-for_expr=
-        | +-ColumnRef(parse_location=256-261, type=INT64, column=$subquery1.int64#20)
-        +-pivot_value_list=
-        | +-Literal(type=INT64, value=0, preserve_in_literal_remover=TRUE)
-        | +-Literal(type=INT64, value=1, preserve_in_literal_remover=TRUE)
-        +-pivot_column_list=
-          +-PivotColumn(column=$pivot.agg1_0#37, pivot_expr_index=0, pivot_value_index=0)
-          +-PivotColumn(column=$pivot.agg2_0#38, pivot_expr_index=1, pivot_value_index=0)
-          +-PivotColumn(column=$pivot.agg1_1#39, pivot_expr_index=0, pivot_value_index=1)
-          +-PivotColumn(column=$pivot.agg2_1#40, pivot_expr_index=1, pivot_value_index=1)
-
-[UNPARSED_SQL]
-SELECT
-  a_12 AS bool,
-  a_13 AS bytes,
-  a_15_a_17 AS agg1_0,
-  a_16_a_17 AS agg2_0,
-  a_15_a_18 AS agg1_1,
-  a_16_a_18 AS agg2_1
-FROM
-  (
-    SELECT
-      simpletypes_7.a_2 AS a_8,
-      simpletypes_7.a_6 AS a_9,
-      simpletypes_7.a_1 AS a_10,
-      simpletypes_7.a_3 AS a_11,
-      simpletypes_7.a_5 AS a_12,
-      simpletypes_7.a_4 AS a_13
-    FROM
-      (
-        SELECT
-          SimpleTypes.int32 AS a_1,
-          SimpleTypes.int64 AS a_2,
-          SimpleTypes.string AS a_3,
-          SimpleTypes.bytes AS a_4,
-          SimpleTypes.bool AS a_5,
-          SimpleTypes.double AS a_6
-        FROM
-          SimpleTypes
-      ) AS simpletypes_7
-  ) AS projectscan_14 PIVOT(SUM((projectscan_14.a_9) + (AVG((projectscan_14.a_8) + CAST(MAX(projectscan_14.a_10) AS INT64)
-      GROUP BY projectscan_14.a_9, projectscan_14.a_8))
-    GROUP BY projectscan_14.a_9) AS a_15, ARRAY_AGG(projectscan_14.a_11 IGNORE NULLS
-    GROUP BY projectscan_14.a_11
-    ORDER BY AVG(projectscan_14.a_8)) AS a_16 FOR(projectscan_14.a_8) IN (0 AS a_17, 1 AS a_18));
-
-Rewrite ERROR: generic::unimplemented: Multi-level aggregate functions currently cannot be used as PIVOT expressions. [at 6:3]
+ERROR: PIVOT expression cannot be a multi-level aggregate function call [at 6:3]
   SUM(double + AVG(int64 + MAX(int32) GROUP BY int64) GROUP BY double) AS agg1,
   ^
 ==
@@ -189,7 +78,8 @@ QueryStmt
               +-group_by_list=
                 +-$groupbymod#20 := ColumnRef(type=STRING, column=SimpleTypes.string#5)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   ARRAY_AGG(simpletypes_2.a_1
     GROUP BY simpletypes_2.a_1
@@ -203,10 +93,36 @@ FROM
       SimpleTypes
   ) AS simpletypes_2;
 
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  SimpleTypes
+|> SELECT
+     SimpleTypes.string AS a_1
+|> AS simpletypes_2
+|> AGGREGATE
+     ARRAY_AGG(simpletypes_2.a_1
+       GROUP BY simpletypes_2.a_1
+       ORDER BY simpletypes_2.a_1
+       LIMIT 1) AS a_3;
+
 Rewrite ERROR: generic::unimplemented: Aggregate functions with GROUP BY modifiers are not supported in ORDER_BY_AND_LIMIT_IN_AGGREGATE rewriter
 ==
 
-# Anonymization rewriter doesn't support multi-level aggregates.
+# Multi-level aggregation does not support anonymized aggregates.
+[language_features=V_1_4_MULTILEVEL_AGGREGATION,ANONYMIZATION]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+[no_expect_error_location]
+SELECT
+  ANON_COUNT(* GROUP BY int64)
+FROM SimpleTypes;
+--
+ERROR: ANON_COUNT(*) Anonymization / Differential Privacy Function  does not support GROUP BY modifiers [at 2:3]
+  ANON_COUNT(* GROUP BY int64)
+  ^
+==
+
+# Multi-level aggregation does not support anonymized aggregates.
 [language_features=V_1_4_MULTILEVEL_AGGREGATION,ANONYMIZATION]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 [no_expect_error_location]
@@ -214,10 +130,51 @@ SELECT WITH ANONYMIZATION
   ANON_SUM(int64 GROUP BY int64)
 FROM SimpleTypesWithAnonymizationUid;
 --
-ERROR: AnonymizedAggregateScan does not support aggregate functions with GROUP BY modifiers.
+ERROR: ANON_SUM Anonymization / Differential Privacy Function  does not support GROUP BY modifiers [at 2:3]
+  ANON_SUM(int64 GROUP BY int64)
+  ^
 ==
 
-# Anonymization rewriter doesn't support multi-level aggregates.
+# Multi-level aggregates cannot contain nested anonymized aggregates.
+[language_features=V_1_4_MULTILEVEL_AGGREGATION,ANONYMIZATION]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+[no_expect_error_location]
+SELECT
+  COUNT(ANON_SUM(int64) GROUP BY int64)
+FROM SimpleTypes;
+--
+ERROR: Multi-level aggregate function does not support ANON_SUM as a nested aggregate function. [at 2:3]
+  COUNT(ANON_SUM(int64) GROUP BY int64)
+  ^
+==
+
+# Multi-level aggregates cannot contain nested anonymized aggregates.
+[language_features=V_1_4_MULTILEVEL_AGGREGATION,ANONYMIZATION,V_1_1_ORDER_BY_IN_AGGREGATE]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+[no_expect_error_location]
+SELECT
+  ARRAY_AGG(string GROUP BY string ORDER BY ANON_SUM(int64))
+FROM SimpleTypes;
+--
+ERROR: Multi-level aggregate function does not support ANON_SUM as a nested aggregate function. [at 2:3]
+  ARRAY_AGG(string GROUP BY string ORDER BY ANON_SUM(int64))
+  ^
+==
+
+# Multi-level aggregates cannot contain nested anonymized aggregates.
+[language_features=V_1_4_MULTILEVEL_AGGREGATION,ANONYMIZATION]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+[no_expect_error_location]
+SELECT
+  COUNT(SUM(int64) + AVG(ANON_SUM(int64) GROUP BY bool) GROUP BY int64)
+FROM SimpleTypes;
+--
+ERROR: Multi-level aggregate function does not support ANON_SUM as a nested aggregate function. [at 2:22]
+  COUNT(SUM(int64) + AVG(ANON_SUM(int64) GROUP BY bool) GROUP BY int64)
+                     ^
+==
+
+# Multi-level aggregation does not work with differential privacy.
 [language_features=V_1_4_MULTILEVEL_AGGREGATION,DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 [no_expect_error_location]
@@ -225,10 +182,12 @@ SELECT WITH DIFFERENTIAL_PRIVACY
   COUNT(int64 GROUP BY int64)
 from SimpleTypesWithAnonymizationUid;
 --
-ERROR: DifferentialPrivacyAggregateScan does not support aggregate functions with GROUP BY modifiers.
+ERROR: COUNT Anonymization / Differential Privacy Function  does not support GROUP BY modifiers [at 2:3]
+  COUNT(int64 GROUP BY int64)
+  ^
 ==
 
-# Anonymization rewriter doesn't support multi-level aggregates.
+# Multi-level aggregation does not work with aggregation threshold.
 [language_features=V_1_4_MULTILEVEL_AGGREGATION,AGGREGATION_THRESHOLD]
 [enabled_ast_rewrites=DEFAULTS,+AGGREGATION_THRESHOLD]
 [no_expect_error_location]
@@ -255,3 +214,17 @@ GROUP BY int32;
 ERROR: Dot-star and star expansion is not permitted on expressions that use GROUP ROWS or GROUP BY modifiers on an aggregate function. [at 2:3]
   STRUCT(
   ^
+==
+
+# TODO: Improve grouping constness recognition. 'double + int64'
+# should ideally be recognized as a grouping key.
+SELECT
+  STRING_AGG(string GROUP BY string ORDER BY double + int64)
+FROM SimpleTypes
+GROUP BY double + int64;
+--
+ERROR: multi-level aggregate expression references column double which is neither grouped nor aggregated [at 2:46]
+  STRING_AGG(string GROUP BY string ORDER BY double + int64)
+                                             ^
+==
+

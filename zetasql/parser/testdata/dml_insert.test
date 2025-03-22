@@ -1343,7 +1343,7 @@ InsertStatement [0-89] [insert into...@row_count]
     WithClause [19-40] [with q1 as (select 1)]
       AliasedQuery [24-40] [q1 as (select 1)]
         Identifier(q1) [24-26] [q1]
-        Query [31-39] [select 1]
+        Query [30-40] [(select 1)]
           Select [31-39] [select 1]
             SelectList [38-39] [1]
               SelectColumn [38-39] [1]
@@ -1484,7 +1484,7 @@ InsertStatement [0-47] [insert T with...* from q1]
     WithClause [9-30] [with q1 as (select 1)]
       AliasedQuery [14-30] [q1 as (select 1)]
         Identifier(q1) [14-16] [q1]
-        Query [21-29] [select 1]
+        Query [20-30] [(select 1)]
           Select [21-29] [select 1]
             SelectList [28-29] [1]
               SelectColumn [28-29] [1]
@@ -1832,13 +1832,13 @@ insert{{| into}} project-987654321.a.b values (1)
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `project-987654321.a.b` [at 1:8]
+ERROR: Syntax error: Table name contains '-' character. The dashed identifier part of the table name needs to be quoted: `project-987654321` [at 1:8]
 insert project-987654321.a.b values (1)
        ^
 --
 ALTERNATION GROUP:  into
 --
-ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `project-987654321.a.b` [at 1:13]
+ERROR: Syntax error: Table name contains '-' character. The dashed identifier part of the table name needs to be quoted: `project-987654321` [at 1:13]
 insert into project-987654321.a.b values (1)
             ^
 --

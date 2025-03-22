@@ -59,10 +59,14 @@ absl::StatusOr<std::unique_ptr<CompiledNFA>> CompiledNFA::Create(
 }
 
 CompiledNFA::CompiledNFA(const NFA& nfa)
-    : start_state_(nfa.start_state()), final_state_(nfa.final_state()) {}
+    : start_state_(nfa.start_state()),
+      final_state_(nfa.final_state()),
+      num_pattern_variables_(nfa.num_pattern_variables()) {}
 
 CompiledNFA::CompiledNFA(const CompiledNFAProto& proto)
-    : start_state_(proto.start_state()), final_state_(proto.final_state()) {
+    : start_state_(proto.start_state()),
+      final_state_(proto.final_state()),
+      num_pattern_variables_(proto.num_pattern_variables()) {
   int state_number = 0;
   int edge_number = 0;
   for (const StateProto& state_proto : proto.states()) {
@@ -106,8 +110,13 @@ absl::Status CompiledNFA::Validate() const {
     ZETASQL_RET_CHECK(edge.to.IsValid());
     ZETASQL_RET_CHECK_LT(edge.to.value(), num_states());
 
+    if (edge.consumed != std::nullopt) {
+      ZETASQL_RET_CHECK_LT(edge.consumed->value(), num_pattern_variables_);
+    }
+
     prior_edge_from = edge.from;
   }
+  ZETASQL_RET_CHECK_GE(num_pattern_variables_, 0);
 
   return absl::OkStatus();
 }
@@ -116,6 +125,7 @@ CompiledNFAProto CompiledNFA::Serialize() const {
   CompiledNFAProto proto;
   proto.set_start_state(start_state_.value());
   proto.set_final_state(final_state_.value());
+  proto.set_num_pattern_variables(num_pattern_variables_);
   for (int i = 0; i < num_states(); ++i) {
     proto.add_states();
   }
@@ -153,7 +163,6 @@ std::string CompiledNFA::DebugString() const {
   std::string result;
 
   // Display details of all of the edges.
-  absl::StrAppend(&result, "Edges:\n");
   for (int i = 0; i < num_edges(); ++i) {
     absl::StrAppend(&result, i, ": ", edges_[i].from, " => ", edges_[i].to,
                     (edges_[i].consumed.has_value()
@@ -165,7 +174,8 @@ std::string CompiledNFA::DebugString() const {
                     "\n");
   }
   absl::StrAppend(&result, "Start state: ", start_state_.value(),
-                  "\nFinal state: ", final_state_.value(), "\n");
+                  "\nFinal state: ", final_state_.value(),
+                  "\nPattern variable count: ", num_pattern_variables_, "\n");
   return result;
 }
 }  // namespace zetasql::functions::match_recognize

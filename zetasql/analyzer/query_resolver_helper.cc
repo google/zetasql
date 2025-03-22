@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <map>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -37,6 +38,7 @@
 #include "zetasql/parser/visit_result.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/language_options.h"
+#include "zetasql/public/select_with_mode.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
@@ -45,9 +47,11 @@
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
+#include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
@@ -541,6 +545,45 @@ absl::Status QueryResolutionInfo::ReleaseGroupingSetsAndRollupList(
   return absl::OkStatus();
 }
 
+absl::Status QueryResolutionInfo::PinToRowRange(
+    std::optional<IdString> pattern_variable) {
+  ZETASQL_RET_CHECK(
+      !scoped_aggregation_state_->target_pattern_variable_ref.has_value());
+
+  scoped_aggregation_state_->row_range_determined = true;
+  scoped_aggregation_state_->target_pattern_variable_ref = pattern_variable;
+
+  // Move any pending aggregate columns to the appropriate list.
+  // The unscoped list may be non-empty if we have intermediate aggregations
+  // that are not referencing any input columns. For example, the min()
+  // aggregation in order by in:
+  //      agg(...ORDER BY min(correlated_col + @p)
+  //
+  // Note that the destination variable's list may itself also be non-empty,
+  // if there were previous aggregations that were completely resolved, e.g.
+  // MEASURES max(a.x) + min(y) + .. /*here, the first 2 aggs are already added
+  // to the appropriate lists.
+
+  // Use the empty IdString to indicate the full range as a key in the map.
+  IdString target_range_name = pattern_variable.value_or(IdString());
+  for (auto& agg : release_unscoped_aggregate_columns_to_compute()) {
+    group_by_info_
+        .match_recognize_aggregate_columns_to_compute[target_range_name]
+        .push_back(std::move(agg));
+  }
+  if (scoped_aggregate_columns_to_compute().empty() &&
+      !pattern_variable.has_value()) {
+    // If we have no aggregations at all and we're pinning to the full range,
+    // ensure an empty list exists for the full range, in case it's accessed.
+    // Calling "reserve(0)" to avoid a reassignment.
+    ABSL_DCHECK(target_range_name.empty());
+    group_by_info_
+        .match_recognize_aggregate_columns_to_compute[target_range_name]
+        .reserve(0);
+  }
+  return absl::OkStatus();
+}
+
 void QueryResolutionInfo::AddAggregateComputedColumn(
     const ASTFunctionCall* ast_function_call,
     std::unique_ptr<const ResolvedComputedColumnBase> column) {
@@ -549,10 +592,11 @@ void QueryResolutionInfo::AddAggregateComputedColumn(
     zetasql_base::InsertIfNotPresent(&group_by_info_.aggregate_expr_map,
                             ast_function_call, column.get());
   }
-  if (scoped_aggregation_state_->target_pattern_variable_ref.has_value()) {
-    group_by_info_
-        .match_recognize_aggregate_columns_to_compute
-            [*scoped_aggregation_state_->target_pattern_variable_ref]
+  if (scoped_aggregation_state_->row_range_determined) {
+    IdString target_range =
+        scoped_aggregation_state_->target_pattern_variable_ref.value_or(
+            IdString());
+    group_by_info_.match_recognize_aggregate_columns_to_compute[target_range]
         .push_back(std::move(column));
   } else {
     group_by_info_.aggregate_columns_to_compute.push_back(std::move(column));
@@ -712,8 +756,18 @@ absl::Status QueryResolutionInfo::CheckComputedColumnListsAreEmpty() const {
   ZETASQL_RET_CHECK(select_list_columns_to_compute_.empty());
   ZETASQL_RET_CHECK(group_by_info_.group_by_column_state_list.empty());
   ZETASQL_RET_CHECK(group_by_info_.aggregate_columns_to_compute.empty());
-  ZETASQL_RET_CHECK(
-      group_by_info_.match_recognize_aggregate_columns_to_compute.empty());
+  if (scoped_aggregation_state_->row_range_determined) {
+    // If there were no aggregations, sometimes release() may not have been
+    // called.
+    if (!scoped_aggregate_columns_to_compute().empty()) {
+      ZETASQL_RET_CHECK_EQ(scoped_aggregate_columns_to_compute().size(), 1);
+      ZETASQL_RET_CHECK(scoped_aggregate_columns_to_compute().begin()->first.empty());
+      ZETASQL_RET_CHECK(scoped_aggregate_columns_to_compute().begin()->second.empty());
+    }
+  } else {
+    ZETASQL_RET_CHECK(
+        group_by_info_.match_recognize_aggregate_columns_to_compute.empty());
+  }
   ZETASQL_RET_CHECK(group_by_info_.grouping_set_list.empty());
   ZETASQL_RET_CHECK(order_by_columns_to_compute_.empty());
   ZETASQL_RET_CHECK(!analytic_resolver_->HasWindowColumnsToCompute());

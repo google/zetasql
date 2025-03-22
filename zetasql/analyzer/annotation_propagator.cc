@@ -20,8 +20,19 @@
 #include <utility>
 #include <vector>
 
+#include "zetasql/parser/ast_node.h"
 #include "zetasql/parser/parse_tree_errors.h"
+#include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/annotation/collation.h"
+#include "zetasql/public/options.pb.h"
+#include "zetasql/public/types/annotation.h"
+#include "zetasql/public/types/type_factory.h"
+#include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_column.h"
+#include "zetasql/resolved_ast/resolved_node.h"
+#include "zetasql/resolved_ast/resolved_node_kind.pb.h"
+#include "absl/status/status.h"
+#include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {

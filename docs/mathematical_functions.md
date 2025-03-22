@@ -266,7 +266,7 @@ All mathematical functions have the following behaviors:
   <td><a href="https://github.com/google/zetasql/blob/master/docs/mathematical_functions.md#ceil"><code>CEIL</code></a>
 </td>
   <td>
-    Gets the smallest integral value that is not less than <code>X</code>.
+    Gets the smallest integral value that isn't less than <code>X</code>.
   </td>
 </tr>
 
@@ -358,7 +358,7 @@ All mathematical functions have the following behaviors:
   <td><a href="https://github.com/google/zetasql/blob/master/docs/mathematical_functions.md#floor"><code>FLOOR</code></a>
 </td>
   <td>
-    Gets the largest integral value that is not greater than <code>X</code>.
+    Gets the largest integral value that isn't greater than <code>X</code>.
   </td>
 </tr>
 
@@ -374,7 +374,7 @@ All mathematical functions have the following behaviors:
   <td><a href="https://github.com/google/zetasql/blob/master/docs/mathematical_functions.md#ieee_divide"><code>IEEE_DIVIDE</code></a>
 </td>
   <td>
-    Divides <code>X</code> by <code>Y</code>, but does not generate errors for
+    Divides <code>X</code> by <code>Y</code>, but doesn't generate errors for
     division by zero or overflow.
   </td>
 </tr>
@@ -670,7 +670,7 @@ ABS(X)
 **Description**
 
 Computes absolute value. Returns an error if the argument is an integer and the
-output value cannot be represented as the same type; this happens only for the
+output value can't be represented as the same type; this happens only for the
 largest negative input value, which has no positive representation.
 
 <table>
@@ -847,7 +847,7 @@ ASINH(X)
 
 **Description**
 
-Computes the inverse hyperbolic sine of X. Does not fail.
+Computes the inverse hyperbolic sine of X. Doesn't fail.
 
 <table>
   <thead>
@@ -881,7 +881,7 @@ ATAN(X)
 **Description**
 
 Computes the principal value of the inverse tangent of X. The return value is
-in the range [-&pi;/2,&pi;/2]. Does not fail.
+in the range [-&pi;/2,&pi;/2]. Doesn't fail.
 
 <table>
   <thead>
@@ -1081,7 +1081,7 @@ Supports the `SAFE.` prefix.
 
 **Example**
 
-```sql
+```zetasql
 SELECT CBRT(27) AS cube_root;
 
 /*--------------------*
@@ -1101,7 +1101,7 @@ CEIL(X)
 
 **Description**
 
-Returns the smallest integral value that is not less than X.
+Returns the smallest integral value that isn't less than X.
 
 <table>
   <thead>
@@ -1252,7 +1252,7 @@ Generates an error if overflow occurs.
 
 ## `COSINE_DISTANCE`
 
-```sql
+```zetasql
 COSINE_DISTANCE(vector1, vector2)
 ```
 
@@ -1262,10 +1262,10 @@ Computes the [cosine distance][wiki-cosine-distance] between two vectors.
 
 **Definitions**
 
-+   `vector1`: A vector that is represented by an
++   `vector1`: A vector that's represented by an
     `ARRAY<T>` value or a sparse vector that is
     represented by an `ARRAY<STRUCT<dimension,magnitude>>` value.
-+   `vector2`: A vector that is represented by an
++   `vector2`: A vector that's represented by an
     `ARRAY<T>` value or a sparse vector that is
     represented by an `ARRAY<STRUCT<dimension,magnitude>>` value.
 
@@ -1321,12 +1321,12 @@ Computes the [cosine distance][wiki-cosine-distance] between two vectors.
     sparse vector. For example, the following sparse vector and
     non-sparse vector are equivalent:
 
-    ```sql
+    ```zetasql
     -- sparse vector ARRAY<STRUCT<INT64, DOUBLE>>
     [(1, 10.0), (2, 30.0), (5, 40.0)]
     ```
 
-    ```sql
+    ```zetasql
     -- vector ARRAY<DOUBLE>
     [0.0, 10.0, 30.0, 0.0, 0.0, 40.0]
     ```
@@ -1334,11 +1334,11 @@ Computes the [cosine distance][wiki-cosine-distance] between two vectors.
     In a sparse vector, dimension-magnitude pairs don't need to be in any
     particular order. The following sparse vectors are equivalent:
 
-    ```sql
+    ```zetasql
     [('a', 10.0), ('b', 30.0), ('d', 40.0)]
     ```
 
-    ```sql
+    ```zetasql
     [('d', 40.0), ('a', 10.0), ('b', 30.0)]
     ```
 +   Both  non-sparse vectors
@@ -1359,7 +1359,7 @@ Computes the [cosine distance][wiki-cosine-distance] between two vectors.
 In the following example, non-sparsevectors
 are used to compute the cosine distance:
 
-```sql
+```zetasql
 SELECT COSINE_DISTANCE([1.0, 2.0], [3.0, 4.0]) AS results;
 
 /*----------*
@@ -1372,7 +1372,7 @@ SELECT COSINE_DISTANCE([1.0, 2.0], [3.0, 4.0]) AS results;
 In the following example, sparse vectors are used to compute the
 cosine distance:
 
-```sql
+```zetasql
 SELECT COSINE_DISTANCE(
  [(1, 1.0), (2, 2.0)],
  [(2, 4.0), (1, 3.0)]) AS results;
@@ -1388,19 +1388,19 @@ The ordering of numeric values in a vector doesn't impact the results
 produced by this function. For example these queries produce the same results
 even though the numeric values in each vector is in a different order:
 
-```sql
+```zetasql
 SELECT COSINE_DISTANCE([1.0, 2.0], [3.0, 4.0]) AS results;
 ```
 
-```sql
+```zetasql
 SELECT COSINE_DISTANCE([2.0, 1.0], [4.0, 3.0]) AS results;
 ```
 
-```sql
+```zetasql
 SELECT COSINE_DISTANCE([(1, 1.0), (2, 2.0)], [(1, 3.0), (2, 4.0)]) AS results;
 ```
 
-```sql
+```zetasql
  /*----------*
   | results  |
   +----------+
@@ -1411,12 +1411,12 @@ SELECT COSINE_DISTANCE([(1, 1.0), (2, 2.0)], [(1, 3.0), (2, 4.0)]) AS results;
 In the following example, the function can't compute cosine distance against
 the first vector, which is a zero vector:
 
-```sql
+```zetasql
 -- ERROR
 SELECT COSINE_DISTANCE([0.0, 0.0], [3.0, 4.0]) AS results;
 ```
 
-```sql
+```zetasql
 -- ERROR
 SELECT COSINE_DISTANCE([(1, 0.0), (2, 0.0)], [(1, 3.0), (2, 4.0)]) AS results;
 ```
@@ -1425,7 +1425,7 @@ Both non-sparse vectors must have the same
 dimensions. If not, an error is produced. In the following example, the
 first vector has two dimensions and the second vector has three:
 
-```sql
+```zetasql
 -- ERROR
 SELECT COSINE_DISTANCE([9.0, 7.0], [8.0, 4.0, 5.0]) AS results;
 ```
@@ -1433,7 +1433,7 @@ SELECT COSINE_DISTANCE([9.0, 7.0], [8.0, 4.0, 5.0]) AS results;
 If you use sparse vectors and you repeat a dimension, an error is
 produced:
 
-```sql
+```zetasql
 -- ERROR
 SELECT COSINE_DISTANCE(
   [(1, 9.0), (2, 7.0), (2, 8.0)], [(1, 8.0), (2, 4.0), (3, 5.0)]) AS results;
@@ -1491,7 +1491,7 @@ Supports the `SAFE.` prefix.
 
 **Example**
 
-```sql
+```zetasql
 SELECT COT(1) AS a, SAFE.COT(0) AS b;
 
 /*---------------------+------*
@@ -1553,7 +1553,7 @@ Supports the `SAFE.` prefix.
 
 **Example**
 
-```sql
+```zetasql
 SELECT COTH(1) AS a, SAFE.COTH(0) AS b;
 
 /*----------------+------*
@@ -1615,7 +1615,7 @@ Supports the `SAFE.` prefix.
 
 **Example**
 
-```sql
+```zetasql
 SELECT CSC(100) AS a, CSC(-1) AS b, SAFE.CSC(0) AS c;
 
 /*----------------+-----------------+------*
@@ -1677,7 +1677,7 @@ Supports the `SAFE.` prefix.
 
 **Example**
 
-```sql
+```zetasql
 SELECT CSCH(0.5) AS a, CSCH(-2) AS b, SAFE.CSCH(0) AS c;
 
 /*----------------+----------------+------*
@@ -1811,7 +1811,7 @@ result overflows.
 
 ## `EUCLIDEAN_DISTANCE`
 
-```sql
+```zetasql
 EUCLIDEAN_DISTANCE(vector1, vector2)
 ```
 
@@ -1821,10 +1821,10 @@ Computes the [Euclidean distance][wiki-euclidean-distance] between two vectors.
 
 **Definitions**
 
-+   `vector1`: A vector that is represented by an
++   `vector1`: A vector that's represented by an
     `ARRAY<T>` value or a sparse vector that is
     represented by an `ARRAY<STRUCT<dimension,magnitude>>` value.
-+   `vector2`: A vector that is represented by an
++   `vector2`: A vector that's represented by an
     `ARRAY<T>` value or a sparse vector that is
     represented by an `ARRAY<STRUCT<dimension,magnitude>>` value.
 
@@ -1880,12 +1880,12 @@ Computes the [Euclidean distance][wiki-euclidean-distance] between two vectors.
     sparse vector. For example, the following sparse vector and
     non-sparse vector are equivalent:
 
-    ```sql
+    ```zetasql
     -- sparse vector ARRAY<STRUCT<INT64, DOUBLE>>
     [(1, 10.0), (2, 30.0), (5, 40.0)]
     ```
 
-    ```sql
+    ```zetasql
     -- vector ARRAY<DOUBLE>
     [0.0, 10.0, 30.0, 0.0, 0.0, 40.0]
     ```
@@ -1893,11 +1893,11 @@ Computes the [Euclidean distance][wiki-euclidean-distance] between two vectors.
     In a sparse vector, dimension-magnitude pairs don't need to be in any
     particular order. The following sparse vectors are equivalent:
 
-    ```sql
+    ```zetasql
     [('a', 10.0), ('b', 30.0), ('d', 40.0)]
     ```
 
-    ```sql
+    ```zetasql
     [('d', 40.0), ('a', 10.0), ('b', 30.0)]
     ```
 +   Both  non-sparse vectors
@@ -1918,7 +1918,7 @@ Computes the [Euclidean distance][wiki-euclidean-distance] between two vectors.
 In the following example, non-sparse vectors
 are used to compute the Euclidean distance:
 
-```sql
+```zetasql
 SELECT EUCLIDEAN_DISTANCE([1.0, 2.0], [3.0, 4.0]) AS results;
 
 /*----------*
@@ -1931,7 +1931,7 @@ SELECT EUCLIDEAN_DISTANCE([1.0, 2.0], [3.0, 4.0]) AS results;
 In the following example, sparse vectors are used to compute the
 Euclidean distance:
 
-```sql
+```zetasql
 SELECT EUCLIDEAN_DISTANCE(
  [(1, 1.0), (2, 2.0)],
  [(2, 4.0), (1, 3.0)]) AS results;
@@ -1947,19 +1947,19 @@ The ordering of magnitudes in a vector doesn't impact the results
 produced by this function. For example these queries produce the same results
 even though the magnitudes in each vector is in a different order:
 
-```sql
+```zetasql
 SELECT EUCLIDEAN_DISTANCE([1.0, 2.0], [3.0, 4.0]);
 ```
 
-```sql
+```zetasql
 SELECT EUCLIDEAN_DISTANCE([2.0, 1.0], [4.0, 3.0]);
 ```
 
-```sql
+```zetasql
 SELECT EUCLIDEAN_DISTANCE([(1, 1.0), (2, 2.0)], [(1, 3.0), (2, 4.0)]) AS results;
 ```
 
-```sql
+```zetasql
  /*----------*
   | results  |
   +----------+
@@ -1971,7 +1971,7 @@ Both non-sparse vectors must have the same
 dimensions. If not, an error is produced. In the following example, the first
 vector has two dimensions and the second vector has three:
 
-```sql
+```zetasql
 -- ERROR
 SELECT EUCLIDEAN_DISTANCE([9.0, 7.0], [8.0, 4.0, 5.0]) AS results;
 ```
@@ -1979,7 +1979,7 @@ SELECT EUCLIDEAN_DISTANCE([9.0, 7.0], [8.0, 4.0, 5.0]) AS results;
 If you use sparse vectors and you repeat a dimension, an error is
 produced:
 
-```sql
+```zetasql
 -- ERROR
 SELECT EUCLIDEAN_DISTANCE(
   [(1, 9.0), (2, 7.0), (2, 8.0)], [(1, 8.0), (2, 4.0), (3, 5.0)]) AS results;
@@ -1995,7 +1995,7 @@ FLOOR(X)
 
 **Description**
 
-Returns the largest integral value that is not greater than X.
+Returns the largest integral value that isn't greater than X.
 
 <table>
   <thead>
@@ -2117,7 +2117,7 @@ Divides X by Y; this function never fails. Returns
 `DOUBLE` unless
 both X and Y are `FLOAT`, in which case it returns
 `FLOAT`. Unlike the division operator (/),
-this function does not generate errors for division by zero or overflow.</p>
+this function doesn't generate errors for division by zero or overflow.</p>
 
 <table>
   <thead>
@@ -2518,7 +2518,7 @@ table.
 
 ## `PI`
 
-```sql
+```zetasql
 PI()
 ```
 
@@ -2533,7 +2533,7 @@ value.
 
 **Example**
 
-```sql
+```zetasql
 SELECT PI() AS pi
 
 /*--------------------*
@@ -2545,7 +2545,7 @@ SELECT PI() AS pi
 
 ## `PI_BIGNUMERIC`
 
-```sql
+```zetasql
 PI_BIGNUMERIC()
 ```
 
@@ -2559,7 +2559,7 @@ Returns the mathematical constant `π` as a `BIGNUMERIC` value.
 
 **Example**
 
-```sql
+```zetasql
 SELECT PI_BIGNUMERIC() AS pi
 
 /*-----------------------------------------*
@@ -2571,7 +2571,7 @@ SELECT PI_BIGNUMERIC() AS pi
 
 ## `PI_NUMERIC`
 
-```sql
+```zetasql
 PI_NUMERIC()
 ```
 
@@ -2585,7 +2585,7 @@ Returns the mathematical constant `π` as a `NUMERIC` value.
 
 **Example**
 
-```sql
+```zetasql
 SELECT PI_NUMERIC() AS pi
 
 /*-------------*
@@ -2603,8 +2603,8 @@ POW(X, Y)
 
 **Description**
 
-Returns the value of X raised to the power of Y. If the result underflows and is
-not representable, then the function returns a  value of zero.
+Returns the value of X raised to the power of Y. If the result underflows and
+isn't representable, then the function returns a  value of zero.
 
 <table>
   <thead>
@@ -2743,7 +2743,7 @@ the range of [0, 1), inclusive of 0 and exclusive of 1.
 
 ## `RANGE_BUCKET`
 
-```sql
+```zetasql
 RANGE_BUCKET(point, boundaries_array)
 ```
 
@@ -2757,40 +2757,40 @@ build partitions, histograms, business-defined rules, and more.
 
 +  If the point exists in the array, returns the index of the next larger value.
 
-   ```sql
+   ```zetasql
    RANGE_BUCKET(20, [0, 10, 20, 30, 40]) -- 3 is return value
    RANGE_BUCKET(20, [0, 10, 20, 20, 40, 40]) -- 4 is return value
    ```
-+  If the point does not exist in the array, but it falls between two values,
++  If the point doesn't exist in the array, but it falls between two values,
    returns the index of the larger value.
 
-   ```sql
+   ```zetasql
    RANGE_BUCKET(25, [0, 10, 20, 30, 40]) -- 3 is return value
    ```
 +  If the point is smaller than the first value in the array, returns 0.
 
-   ```sql
+   ```zetasql
    RANGE_BUCKET(-10, [5, 10, 20, 30, 40]) -- 0 is return value
    ```
 +  If the point is greater than or equal to the last value in the array,
    returns the length of the array.
 
-   ```sql
+   ```zetasql
    RANGE_BUCKET(80, [0, 10, 20, 30, 40]) -- 5 is return value
    ```
 +  If the array is empty, returns 0.
 
-   ```sql
+   ```zetasql
    RANGE_BUCKET(80, []) -- 0 is return value
    ```
 +  If the point is `NULL` or `NaN`, returns `NULL`.
 
-   ```sql
+   ```zetasql
    RANGE_BUCKET(NULL, [0, 10, 20, 30, 40]) -- NULL is return value
    ```
 +  The data type for the point and array must be compatible.
 
-   ```sql
+   ```zetasql
    RANGE_BUCKET('a', ['a', 'b', 'c', 'd']) -- 1 is return value
    RANGE_BUCKET(1.2, [1, 1.2, 1.4, 1.6]) -- 2 is return value
    RANGE_BUCKET(1.2, [1, 2, 4, 6]) -- execution failure
@@ -2800,12 +2800,12 @@ Execution failure occurs when:
 
 +  The array has a `NaN` or `NULL` value in it.
 
-   ```sql
+   ```zetasql
    RANGE_BUCKET(80, [NULL, 10, 20, 30, 40]) -- execution failure
    ```
-+  The array is not sorted in ascending order.
++  The array isn't sorted in ascending order.
 
-   ```sql
+   ```zetasql
    RANGE_BUCKET(30, [10, 30, 20, 40, 50]) -- execution failure
    ```
 
@@ -2831,7 +2831,7 @@ exist in each `age_group` bucket, based on a student's age:
 +  age_group 2 (age >= 20, age < 30)
 +  age_group 3 (age >= 30)
 
-```sql
+```zetasql
 WITH students AS
 (
   SELECT 9 AS age UNION ALL
@@ -2878,7 +2878,7 @@ to one of the following:
 +   [`"ROUND_HALF_EVEN"`][round-half-even]: Rounds halfway cases
     towards the nearest even digit.
 
-If you set the `rounding_mode` and X is not a `NUMERIC` or `BIGNUMERIC` type,
+If you set the `rounding_mode` and X isn't a `NUMERIC` or `BIGNUMERIC` type,
 then the function generates an error.
 
 <table>
@@ -3292,7 +3292,7 @@ that [coerces to `DOUBLE`][conversion-rules].
 
 **Example**
 
-```sql
+```zetasql
 SELECT SEC(100) AS a, SEC(-1) AS b;
 
 /*----------------+---------------*
@@ -3350,7 +3350,7 @@ Never produces an error.
 
 **Example**
 
-```sql
+```zetasql
 SELECT SECH(0.5) AS a, SECH(-2) AS b, SECH(100) AS c;
 
 /*----------------+----------------+---------------------*
@@ -3371,7 +3371,7 @@ SIGN(X)
 **Description**
 
 Returns `-1`, `0`, or `+1` for negative, zero and positive arguments
-respectively. For floating point arguments, this function does not distinguish
+respectively. For floating point arguments, this function doesn't distinguish
 between positive and negative zero.
 
 <table>
@@ -3573,7 +3573,7 @@ TANH(X)
 
 **Description**
 
-Computes the hyperbolic tangent of X where X is specified in radians. Does not
+Computes the hyperbolic tangent of X where X is specified in radians. Doesn't
 fail.
 
 <table>
@@ -3608,7 +3608,7 @@ TRUNC(X [, N])
 **Description**
 
 If only X is present, `TRUNC` rounds X to the nearest integer whose absolute
-value is not greater than the absolute value of X. If N is also present, `TRUNC`
+value isn't greater than the absolute value of X. If N is also present, `TRUNC`
 behaves like `ROUND(X, N)`, but always rounds towards zero and never overflows.
 
 <table>

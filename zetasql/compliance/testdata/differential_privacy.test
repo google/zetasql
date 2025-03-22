@@ -1911,3 +1911,25 @@ RIGHT OUTER JOIN (
 GROUP BY int64_val;
 --
 ARRAY<STRUCT<int64_val INT64, INT64>>[{9999, NULL}]
+==
+# Per-aggregation epsilon produces results.
+[name=differential_privacy_per_aggregation_epsilon]
+[required_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,DIFFERENTIAL_PRIVACY_PER_AGGREGATION_BUDGET]
+[labels=differential_privacy]
+SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=10e20, delta=1.0, group_selection_epsilon = 1e20)
+  int64_val,
+  COUNT(*, epsilon => 1e20),
+  ROUND(SUM(double_val, epsilon => 1e20), 3),
+  ROUND(AVG(double_val, epsilon => 1e20), 3),
+  ROUND(VAR_POP(double_val, epsilon => 1e20), 3),
+FROM TestTableWithUid
+GROUP BY int64_val;
+--
+
+ARRAY<STRUCT<int64_val INT64, INT64, DOUBLE, DOUBLE, DOUBLE>>[unknown order:
+  {3, 1, 2.5, 2.5, 1},
+  {2, 3, 3, 1.5, 0},
+  {1, 3, 4.5, 1.5, 2.667},
+  {NULL, 2, 2.5, 2.5, 1},
+  {4, 1, -1.5, -1.5, 0.25}
+]

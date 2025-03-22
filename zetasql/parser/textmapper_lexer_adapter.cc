@@ -20,6 +20,7 @@
 #include <deque>
 #include <memory>
 #include <utility>
+#include <vector>
 
 #include "zetasql/base/arena.h"
 #include "zetasql/parser/bison_parser_mode.h"
@@ -37,10 +38,12 @@ namespace zetasql::parser {
 TextMapperLexerAdapter::TextMapperLexerAdapter(
     BisonParserMode mode, absl::string_view filename, absl::string_view input,
     int start_offset, const LanguageOptions& language_options,
+    MacroExpansionMode macro_expansion_mode,
     const macros::MacroCatalog* macro_catalog, zetasql_base::UnsafeArena* arena) {
   absl::StatusOr<std::unique_ptr<LookaheadTransformer>> lexer =
       LookaheadTransformer::Create(mode, filename, input, start_offset,
-                                   language_options, macro_catalog, arena);
+                                   language_options, macro_expansion_mode,
+                                   macro_catalog, arena, stack_frames_);
   ZETASQL_DCHECK_OK(lexer.status());
   tokenizer_ = std::shared_ptr<LookaheadTransformer>(std::move(*lexer));
   tokenizer_->watching_lexers_.push_back(this);

@@ -33,7 +33,6 @@
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/array_type.h"
 #include "zetasql/public/types/enum_type.h"
-#include "zetasql/public/types/extended_type.h"
 #include "zetasql/public/types/graph_element_type.h"
 #include "zetasql/public/types/graph_path_type.h"
 #include "zetasql/public/types/proto_type.h"
@@ -43,6 +42,7 @@
 #include "zetasql/public/types/type.h"
 #include "absl/base/attributes.h"
 #include "absl/base/macros.h"
+#include "absl/base/nullability.h"
 #include "absl/base/thread_annotations.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
@@ -54,6 +54,7 @@
 #include "absl/status/statusor.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/types/span.h"
+#include "google/protobuf/descriptor.h"
 
 namespace zetasql {
 class TypeFactory;
@@ -98,66 +99,6 @@ struct TypeFactoryOptions {
 
 namespace internal {  // For internal use only
 
-// Class is used by TypeFactory to store created types.
-// TODO: should we consider doing refcounting for Type obects
-// instead of refcounting for TypeStores? This requires to add a counter and a
-// flag per each non-simple type, but on the other hand, will allow us to have
-// more granular memory management and avoid checks for cycles between
-// TypeStores.
-// TODO: Should TypeStore have a DescriptorPool?
-class TypeStore final {
- public:
-#ifndef SWIG
-  TypeStore(const TypeStore&) = delete;
-  TypeStore& operator=(const TypeStore&) = delete;
-#endif
-
- private:
-  friend class zetasql::TypeFactory;
-  friend class TypeStoreHelper;
-
-  explicit TypeStore(bool keep_alive_while_referenced_from_value);
-  ~TypeStore();
-
-  void Ref() const;
-  void Unref() const;
-
-  // Use our own ref counter because SimpleReferenceCounted uses int32_t for its
-  // counter, which could be not enough to count references from all values.
-  // Ref count is 1 for type factory that creates it.
-  mutable std::atomic<int64_t> ref_count_{1};
-
-  const bool keep_alive_while_referenced_from_value_;
-
-  mutable absl::Mutex mutex_;
-
-  std::vector<const Type*> owned_types_ ABSL_GUARDED_BY(mutex_);
-
-  std::vector<const AnnotationMap*> owned_annotation_maps_
-      ABSL_GUARDED_BY(mutex_);
-
-  // Store links to and from TypeStores that this TypeStores depends on.
-  // This is used as a sanity check to catch incorrect destruction order.
-  mutable absl::flat_hash_set<const TypeStore*> depends_on_factories_
-      ABSL_GUARDED_BY(mutex_);
-  mutable absl::flat_hash_set<const TypeStore*> factories_depending_on_this_
-      ABSL_GUARDED_BY(mutex_);
-};
-
-// Helper class to work with TypeStore. These internal helpers are usable only
-// in the friend classes.
-class TypeStoreHelper {
- private:
-  friend class zetasql::Value;
-  friend class zetasql::ValueTest;
-  friend class zetasql::Type;
-
-  static void RefFromValue(const TypeStore* store);
-  static void UnrefFromValue(const TypeStore* store);
-  static const TypeStore* GetTypeStore(const TypeFactory* factory);
-  static int64_t Test_GetRefCount(const TypeStore* store);
-};
-
 // Chain of the catalog names that reference TypeProto or TypeEnum. Prepended to
 // the type name.
 struct CatalogName {
@@ -197,7 +138,7 @@ class TypeFactoryHelper {
 // outlive this one.
 //
 // This class is thread-safe.
-class TypeFactory {
+class TypeFactory : public TypeFactoryBase {
  public:
   explicit TypeFactory(const TypeFactoryOptions& options);
   TypeFactory() : TypeFactory(TypeFactoryOptions{}) {}
@@ -205,7 +146,7 @@ class TypeFactory {
   TypeFactory(const TypeFactory&) = delete;
   TypeFactory& operator=(const TypeFactory&) = delete;
 #endif  // SWIG
-  ~TypeFactory();
+  ~TypeFactory() override;
 
   // Helpers to get simple scalar types directly.
   const Type* get_int32();
@@ -299,28 +240,22 @@ class TypeFactory {
       const LanguageOptions& language_options);
 
   // Make a graph element type.
-  // <graph_reference> is path to the graph to which this type belongs,
+  // `graph_reference` is path to the graph to which this type belongs,
   //  can be used for looking up the property graph in the catalog;
-  // <element_kind> must be node or edge;
-  // <property_types>:
-  //  property type name is case-insensitive;
-  //  property types with the same name must have same value type;
-  //  duplicate property types are removed:
-  //    e.g. {{"a", string}, {"a", string}} <property_types> produces the
-  //    same
-  //         type as {{"a", string}}.
-  // If value_types of <property_types> are not created by this TypeFactory,
+  // `element_kind` must be node or edge;
+  // `property_types`:
+  //  - property type name is case-insensitive;
+  //  - property types with the same name must have same value type;
+  //  - duplicate property types are removed:
+  //    e.g. {{"a", string}, {"a", string}} `property_types` produces the
+  //    same type as {{"a", string}}.
+  // If value_types of `property_types` are not created by this TypeFactory,
   // the TypeFactory that created the value_types must outlive this
   // TypeFactory.
   absl::Status MakeGraphElementType(
       absl::Span<const std::string> graph_reference,
       GraphElementType::ElementKind element_kind,
       absl::Span<const GraphElementType::PropertyType> property_types,
-      const GraphElementType** result);
-  absl::Status MakeGraphElementTypeFromVector(
-      absl::Span<const std::string> graph_reference,
-      GraphElementType::ElementKind element_kind,
-      std::vector<GraphElementType::PropertyType> property_types,
       const GraphElementType** result);
 
   // Make a graph path type. <node_type> is the supertype of all nodes in the
@@ -445,10 +380,9 @@ class TypeFactory {
       "Use TypeDeserializer calling "
       "DeserializeFromSelfContainedProtoWithDistinctFiles to populate "
       "DesciptorPools and Deserialize for type deserialization")
-  absl::Status DeserializeFromSelfContainedProto(
-      const TypeProto& type_proto,
-      google::protobuf::DescriptorPool* pool,
-      const Type** type);
+  absl::Status DeserializeFromSelfContainedProto(const TypeProto& type_proto,
+                                                 google::protobuf::DescriptorPool* pool,
+                                                 const Type** type);
 
   // Similar to the above, but supports types referencing multiple
   // DescriptorPools.  The provided pools must match the number of
@@ -460,8 +394,7 @@ class TypeFactory {
       "DesciptorPools and Deserialize for type deserialization")
   absl::Status DeserializeFromSelfContainedProtoWithDistinctFiles(
       const TypeProto& type_proto,
-      const std::vector<google::protobuf::DescriptorPool*>& pools,
-      const Type** type);
+      const std::vector<google::protobuf::DescriptorPool*>& pools, const Type** type);
 
   // Make a ZetaSQL Type from a ZetaSQL TypeProto.  All protos referenced
   // by <type_proto> must already have related descriptors in the <pool>.
@@ -469,8 +402,7 @@ class TypeFactory {
   // <type_proto> serialized via Type::SerializeToProtoAndFileDescriptors.
   ABSL_DEPRECATED("Use TypeDeserializer instead")
   absl::Status DeserializeFromProtoUsingExistingPool(
-      const TypeProto& type_proto,
-      const google::protobuf::DescriptorPool* pool,
+      const TypeProto& type_proto, const google::protobuf::DescriptorPool* pool,
       const Type** type);
 
   // Similar to the above, but expects that all protos and enums referenced by
@@ -502,6 +434,13 @@ class TypeFactory {
       const google::protobuf::EnumDescriptor* enum_descriptor, const EnumType** result,
       absl::Span<const std::string> catalog_name_path = {});
 
+  // Internal method to make a graph element type.
+  absl::Status MakeGraphElementTypeFromVector(
+      absl::Span<const std::string> graph_reference,
+      GraphElementType::ElementKind element_kind,
+      std::vector<GraphElementType::PropertyType> property_types,
+      const GraphElementType** result);
+
   // Add <type> into <owned_types_>.  Templated so it can return the
   // specific subclass of Type.
   template <class TYPE>
@@ -520,7 +459,7 @@ class TypeFactory {
       const AnnotationMap* annotation_map);
 
   // Mark that <other_type>'s factory must outlive <this>.
-  void AddDependency(const Type* other_type)
+  void AddDependency(absl::Nonnull<const Type*> other_type)
       ABSL_LOCKS_EXCLUDED(store_->mutex_);
 
   const ProtoType* MakeProtoTypeImpl(
@@ -583,7 +522,6 @@ class TypeFactory {
       const Type** result_type,
       std::set<const google::protobuf::Descriptor*>* ancestor_messages);
 
-  friend class internal::TypeStoreHelper;
   friend class internal::TypeFactoryHelper;
 
   absl::flat_hash_map<const Type*, const ArrayType*> cached_array_types_
@@ -618,8 +556,6 @@ class TypeFactory {
 
   // Cached extended types.
   TypeFlatHashSet<> cached_extended_types_ ABSL_GUARDED_BY(store_->mutex_);
-
-  internal::TypeStore* store_;  // Stores created types.
 
   // Set in constructor and never changed.
   const int nesting_depth_limit_;
@@ -736,6 +672,13 @@ DifferentialPrivacyCountDistinctContributionBoundingStrategyEnumType();
 // of ARRAY_ZIP and UNNEST when there are multiple arrays of different
 // lengths. This is an opaque enum type.
 const EnumType* ArrayZipModeEnumType();
+
+// Accessor for the enum type
+// (functions::BitwiseAggEnums::BitwiseAggMode) that represents the bitwise
+// aggregation mode to be used as an optional argument of the function
+// BIT_AND, BIT_OR, and BIT_XOR. It decides the aggregation behavior when there
+// are multiple BYTES values of different lengths. This is an opaque enum type.
+const EnumType* BitwiseAggModeEnumType();
 
 // Accessor for the enum type
 // (functions::RangeSessionizeEnums::RangeSessionizeMode) that represents the

@@ -119,7 +119,7 @@ class TypeDeserializer {
   // Returns type factory used by this deserialize to store deserialized types.
   TypeFactory* type_factory() const { return type_factory_; }
 
-  // List of DescriptoPools used to serialize incoming types.
+  // List of DescriptorPools used to serialize incoming types.
   absl::Span<const google::protobuf::DescriptorPool* const> descriptor_pools() const {
     return descriptor_pools_;
   }

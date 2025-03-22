@@ -1,6 +1,6 @@
 # This file includes tests for parsing type names outside of queries.
 [default mode=type]
-[default no_run_unparser]
+[default no_run_sqlbuilder]
 
 int32
 --

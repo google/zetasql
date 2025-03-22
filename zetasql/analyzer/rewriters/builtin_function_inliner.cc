@@ -170,6 +170,19 @@ class BuiltinFunctionInliner : public Rewriter {
   }
 
   std::string Name() const override { return "BuiltinFunctionInliner"; }
+
+  // This rewriter is provided an unfiltered Catalog by the ZetaSQL analyzer,
+  // and so filtering must be done by the rewriter itself to ensure that
+  // non-builtin Catalog objects are not referenced. This is required as engines
+  // may provide SQL templates that are handled by this rewriter, and those
+  // templates may reference engine-builtin functions.
+  // TODO: b/388929260 - Once engines can specify the filtering criteria when
+  // they define a template for this rewriter, use zetasql::BuiltinOnlyCatalog
+  // to filter the catalog to prevent wrong results due to shadowing of builtin
+  // Catalog objects.
+  bool ProvideUnfilteredCatalogToBuiltinRewriter() const override {
+    return true;
+  }
 };
 
 }  // namespace

@@ -1,0 +1,1583 @@
+###
+### Path search prefix tests, with interactions with quantified path and path mode.
+###
+
+[default reserve_graph_table]
+[default language_features=V_1_4_SQL_GRAPH]
+[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+
+SELECT one FROM GRAPH_TABLE(
+  aml
+  MATCH ANY SHORTEST -[b]->, ALL SHORTEST -[b]->, ANY -[b]->, ALL -[b]->
+  COLUMNS(1 AS one)
+)
+--
+
+QueryStatement [0-129] [SELECT one...AS one) )]
+  Query [0-129] [SELECT one...AS one) )]
+    Select [0-129] [SELECT one...AS one) )]
+      SelectList [7-10] [one]
+        SelectColumn [7-10] [one]
+          PathExpression [7-10] [one]
+            Identifier(one) [7-10] [one]
+      FromClause [11-129] [FROM GRAPH_TABLE...AS one) )]
+        GraphTableQuery [16-129] [GRAPH_TABLE...AS one) )]
+          PathExpression [31-34] [aml]
+            Identifier(aml) [31-34] [aml]
+          GqlMatch [37-107] [MATCH ANY...ALL -[b]->]
+            GraphPattern [43-107] [ANY SHORTEST...ALL -[b]->]
+              GraphPathPattern [43-62] [ANY SHORTEST -[b]->]
+                GraphPathSearchPrefix [43-55] [ANY SHORTEST]
+                GraphEdgePattern [56-62] [-[b]->]
+                  GraphElementPatternFiller [58-59] [b]
+                    Identifier(b) [58-59] [b]
+              GraphPathPattern [64-83] [ALL SHORTEST -[b]->]
+                GraphPathSearchPrefix [64-76] [ALL SHORTEST]
+                GraphEdgePattern [77-83] [-[b]->]
+                  GraphElementPatternFiller [79-80] [b]
+                    Identifier(b) [79-80] [b]
+              GraphPathPattern [85-95] [ANY -[b]->]
+                GraphPathSearchPrefix [85-88] [ANY]
+                GraphEdgePattern [89-95] [-[b]->]
+                  GraphElementPatternFiller [91-92] [b]
+                    Identifier(b) [91-92] [b]
+              GraphPathPattern [97-107] [ALL -[b]->]
+                GraphPathSearchPrefix [97-100] [ALL]
+                GraphEdgePattern [101-107] [-[b]->]
+                  GraphElementPatternFiller [103-104] [b]
+                    Identifier(b) [103-104] [b]
+          SelectList [118-126] [1 AS one]
+            SelectColumn [118-126] [1 AS one]
+              IntLiteral(1) [118-119] [1]
+              Alias [120-126] [AS one]
+                Identifier(one) [123-126] [one]
+--
+SELECT
+  one
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      ANY SHORTEST -[b]->,
+      ALL SHORTEST -[b]->,
+      ANY -[b]->,
+      ALL -[b]->
+    COLUMNS(
+      1 AS one
+    )
+  )
+==
+
+# SHORTEST should not work
+SELECT one FROM GRAPH_TABLE(
+  aml
+  MATCH SHORTEST -[b]->
+  COLUMNS(1 AS one)
+)
+
+--
+
+ERROR: Syntax error: Expected "=" but got "-" [at 3:18]
+  MATCH SHORTEST -[b]->
+                 ^
+==
+
+# ALL SHORTEST should work in parser, but not in the resolver yet.
+SELECT one FROM GRAPH_TABLE(
+  aml
+  MATCH ALL SHORTEST -[b]->
+  COLUMNS(1 AS one)
+)
+--
+
+QueryStatement [0-84] [SELECT one...AS one) )]
+  Query [0-84] [SELECT one...AS one) )]
+    Select [0-84] [SELECT one...AS one) )]
+      SelectList [7-10] [one]
+        SelectColumn [7-10] [one]
+          PathExpression [7-10] [one]
+            Identifier(one) [7-10] [one]
+      FromClause [11-84] [FROM GRAPH_TABLE...AS one) )]
+        GraphTableQuery [16-84] [GRAPH_TABLE...AS one) )]
+          PathExpression [31-34] [aml]
+            Identifier(aml) [31-34] [aml]
+          GqlMatch [37-62] [MATCH ALL SHORTEST -[b]->]
+            GraphPattern [43-62] [ALL SHORTEST -[b]->]
+              GraphPathPattern [43-62] [ALL SHORTEST -[b]->]
+                GraphPathSearchPrefix [43-55] [ALL SHORTEST]
+                GraphEdgePattern [56-62] [-[b]->]
+                  GraphElementPatternFiller [58-59] [b]
+                    Identifier(b) [58-59] [b]
+          SelectList [73-81] [1 AS one]
+            SelectColumn [73-81] [1 AS one]
+              IntLiteral(1) [73-74] [1]
+              Alias [75-81] [AS one]
+                Identifier(one) [78-81] [one]
+--
+SELECT
+  one
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      ALL SHORTEST -[b]->
+    COLUMNS(
+      1 AS one
+    )
+  )
+==
+
+# Path Mode can co-exist with search prefix with search prefix first
+SELECT one FROM GRAPH_TABLE(
+  aml
+  MATCH ANY SHORTEST TRAIL -[b]->
+  COLUMNS(1 AS one)
+)
+--
+
+QueryStatement [0-90] [SELECT one...AS one) )]
+  Query [0-90] [SELECT one...AS one) )]
+    Select [0-90] [SELECT one...AS one) )]
+      SelectList [7-10] [one]
+        SelectColumn [7-10] [one]
+          PathExpression [7-10] [one]
+            Identifier(one) [7-10] [one]
+      FromClause [11-90] [FROM GRAPH_TABLE...AS one) )]
+        GraphTableQuery [16-90] [GRAPH_TABLE...AS one) )]
+          PathExpression [31-34] [aml]
+            Identifier(aml) [31-34] [aml]
+          GqlMatch [37-68] [MATCH ANY...TRAIL -[b]->]
+            GraphPattern [43-68] [ANY SHORTEST TRAIL -[b]->]
+              GraphPathPattern [43-68] [ANY SHORTEST TRAIL -[b]->]
+                GraphPathSearchPrefix [43-55] [ANY SHORTEST]
+                GraphPathMode [56-61] [TRAIL]
+                GraphEdgePattern [62-68] [-[b]->]
+                  GraphElementPatternFiller [64-65] [b]
+                    Identifier(b) [64-65] [b]
+          SelectList [79-87] [1 AS one]
+            SelectColumn [79-87] [1 AS one]
+              IntLiteral(1) [79-80] [1]
+              Alias [81-87] [AS one]
+                Identifier(one) [84-87] [one]
+--
+SELECT
+  one
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      ANY SHORTEST TRAIL
+      -[b]->
+    COLUMNS(
+      1 AS one
+    )
+  )
+==
+
+# Path Mode should not co-exist with search prefix in this order
+SELECT one FROM GRAPH_TABLE(
+  aml
+  MATCH TRAIL ANY SHORTEST -[b]->
+  COLUMNS(1 AS one)
+)
+--
+
+ERROR: Syntax error: Expected "(" or "-" or "<" or -> but got keyword ANY [at 3:15]
+  MATCH TRAIL ANY SHORTEST -[b]->
+              ^
+==
+
+# Path Mode should not co-exsist with search prefix, unless using parentheses
+SELECT one FROM GRAPH_TABLE(
+  aml
+  MATCH ANY SHORTEST (TRAIL -[b]->)
+  COLUMNS(1 AS one)
+)
+--
+
+QueryStatement [0-92] [SELECT one...AS one) )]
+  Query [0-92] [SELECT one...AS one) )]
+    Select [0-92] [SELECT one...AS one) )]
+      SelectList [7-10] [one]
+        SelectColumn [7-10] [one]
+          PathExpression [7-10] [one]
+            Identifier(one) [7-10] [one]
+      FromClause [11-92] [FROM GRAPH_TABLE...AS one) )]
+        GraphTableQuery [16-92] [GRAPH_TABLE...AS one) )]
+          PathExpression [31-34] [aml]
+            Identifier(aml) [31-34] [aml]
+          GqlMatch [37-70] [MATCH ANY...TRAIL -[b]->)]
+            GraphPattern [43-70] [ANY SHORTEST (TRAIL -[b]->)]
+              GraphPathPattern [43-70] [ANY SHORTEST (TRAIL -[b]->)]
+                GraphPathSearchPrefix [43-55] [ANY SHORTEST]
+                ParenthesizedGraphPathPattern [56-70] [(TRAIL -[b]->)]
+                  GraphPathMode [57-62] [TRAIL]
+                  GraphEdgePattern [63-69] [-[b]->]
+                    GraphElementPatternFiller [65-66] [b]
+                      Identifier(b) [65-66] [b]
+          SelectList [81-89] [1 AS one]
+            SelectColumn [81-89] [1 AS one]
+              IntLiteral(1) [81-82] [1]
+              Alias [83-89] [AS one]
+                Identifier(one) [86-89] [one]
+--
+SELECT
+  one
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      ANY SHORTEST (
+        TRAIL
+        -[b]->
+      )
+    COLUMNS(
+      1 AS one
+    )
+  )
+==
+
+# Search prefix can be parsed inside
+SELECT one FROM GRAPH_TABLE(
+  aml
+  MATCH TRAIL (ANY SHORTEST -[b]->)
+  COLUMNS(1 AS one)
+)
+--
+QueryStatement [0-92] [SELECT one...AS one) )]
+  Query [0-92] [SELECT one...AS one) )]
+    Select [0-92] [SELECT one...AS one) )]
+      SelectList [7-10] [one]
+        SelectColumn [7-10] [one]
+          PathExpression [7-10] [one]
+            Identifier(one) [7-10] [one]
+      FromClause [11-92] [FROM GRAPH_TABLE...AS one) )]
+        GraphTableQuery [16-92] [GRAPH_TABLE...AS one) )]
+          PathExpression [31-34] [aml]
+            Identifier(aml) [31-34] [aml]
+          GqlMatch [37-70] [MATCH TRAIL...SHORTEST -[b]->)]
+            GraphPattern [43-70] [TRAIL (ANY SHORTEST -[b]->)]
+              GraphPathPattern [43-70] [TRAIL (ANY SHORTEST -[b]->)]
+                GraphPathMode [43-48] [TRAIL]
+                ParenthesizedGraphPathPattern [49-70] [(ANY SHORTEST -[b]->)]
+                  GraphPathSearchPrefix [50-62] [ANY SHORTEST]
+                  GraphEdgePattern [63-69] [-[b]->]
+                    GraphElementPatternFiller [65-66] [b]
+                      Identifier(b) [65-66] [b]
+          SelectList [81-89] [1 AS one]
+            SelectColumn [81-89] [1 AS one]
+              IntLiteral(1) [81-82] [1]
+              Alias [83-89] [AS one]
+                Identifier(one) [86-89] [one]
+
+--
+SELECT
+  one
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      TRAIL
+      (
+        ANY SHORTEST -[b]->
+      )
+    COLUMNS(
+      1 AS one
+    )
+  )
+==
+
+# Search prefix with path modes, path / graph where clause and quantifiers parse correctly
+SELECT one FROM GRAPH_TABLE(
+  aml
+  MATCH ANY SHORTEST (TRAIL (ACYCLIC -[b]->) WHERE true), @{what=hint} ANY (TRAIL -> ) WHERE false
+  MATCH ANY (SIMPLE ->){2} WHERE false
+  MATCH SIMPLE (TRAIL->){2} WHERE false
+  MATCH ANY ->{2} WHERE false
+  RETURN 1 AS one
+)
+--
+
+QueryStatement [0-262] [SELECT one...1 AS one )]
+  Query [0-262] [SELECT one...1 AS one )]
+    Select [0-262] [SELECT one...1 AS one )]
+      SelectList [7-10] [one]
+        SelectColumn [7-10] [one]
+          PathExpression [7-10] [one]
+            Identifier(one) [7-10] [one]
+      FromClause [11-262] [FROM GRAPH_TABLE...1 AS one )]
+        GraphTableQuery [16-262] [GRAPH_TABLE...1 AS one )]
+          PathExpression [31-34] [aml]
+            Identifier(aml) [31-34] [aml]
+          GqlOperatorList [37-260] [MATCH ANY...RETURN 1 AS one]
+            GqlOperatorList [37-260] [MATCH ANY...RETURN 1 AS one]
+              GqlMatch [37-133] [MATCH ANY...WHERE false]
+                GraphPattern [43-133] [ANY SHORTEST...WHERE false]
+                  GraphPathPattern [43-91] [ANY SHORTEST...WHERE true)]
+                    GraphPathSearchPrefix [43-55] [ANY SHORTEST]
+                    ParenthesizedGraphPathPattern [56-91] [(TRAIL (ACYCLIC...WHERE true)]
+                      WhereClause [80-90] [WHERE true]
+                        BooleanLiteral(true) [86-90] [true]
+                      GraphPathMode [57-62] [TRAIL]
+                      ParenthesizedGraphPathPattern [63-79] [(ACYCLIC -[b]->)]
+                        GraphPathMode [64-71] [ACYCLIC]
+                        GraphEdgePattern [72-78] [-[b]->]
+                          GraphElementPatternFiller [74-75] [b]
+                            Identifier(b) [74-75] [b]
+                  GraphPathPattern [93-121] [@{what=hint} ANY (TRAIL -> )]
+                    Hint [93-105] [@{what=hint}]
+                      HintEntry [95-104] [what=hint]
+                        Identifier(what) [95-99] [what]
+                        PathExpression [100-104] [hint]
+                          Identifier(hint) [100-104] [hint]
+                    GraphPathSearchPrefix [106-109] [ANY]
+                    ParenthesizedGraphPathPattern [110-121] [(TRAIL -> )]
+                      GraphPathMode [111-116] [TRAIL]
+                      GraphEdgePattern [117-119] [->]
+                  WhereClause [122-133] [WHERE false]
+                    BooleanLiteral(false) [128-133] [false]
+              GqlMatch [136-172] [MATCH ANY...WHERE false]
+                GraphPattern [142-172] [ANY (SIMPLE ->){2} WHERE false]
+                  GraphPathPattern [142-160] [ANY (SIMPLE ->){2}]
+                    GraphPathSearchPrefix [142-145] [ANY]
+                    ParenthesizedGraphPathPattern [146-160] [(SIMPLE ->){2}]
+                      FixedQuantifier [158-159] [2]
+                        IntLiteral(2) [158-159] [2]
+                      GraphPathMode [147-153] [SIMPLE]
+                      GraphEdgePattern [154-156] [->]
+                  WhereClause [161-172] [WHERE false]
+                    BooleanLiteral(false) [167-172] [false]
+              GqlMatch [175-212] [MATCH SIMPLE...WHERE false]
+                GraphPattern [181-212] [SIMPLE (TRAIL...WHERE false]
+                  GraphPathPattern [181-200] [SIMPLE (TRAIL->){2}]
+                    GraphPathMode [181-187] [SIMPLE]
+                    ParenthesizedGraphPathPattern [188-200] [(TRAIL->){2}]
+                      FixedQuantifier [198-199] [2]
+                        IntLiteral(2) [198-199] [2]
+                      GraphPathMode [189-194] [TRAIL]
+                      GraphEdgePattern [194-196] [->]
+                  WhereClause [201-212] [WHERE false]
+                    BooleanLiteral(false) [207-212] [false]
+              GqlMatch [215-242] [MATCH ANY ->{2} WHERE false]
+                GraphPattern [221-242] [ANY ->{2} WHERE false]
+                  GraphPathPattern [221-230] [ANY ->{2}]
+                    GraphPathSearchPrefix [221-224] [ANY]
+                    ParenthesizedGraphPathPattern [225-230] [->{2}]
+                      FixedQuantifier [228-229] [2]
+                        IntLiteral(2) [228-229] [2]
+                      GraphEdgePattern [225-227] [->]
+                  WhereClause [231-242] [WHERE false]
+                    BooleanLiteral(false) [237-242] [false]
+              GqlReturn [245-260] [RETURN 1 AS one]
+                Select [251-260] [1 AS one]
+                  SelectList [252-260] [1 AS one]
+                    SelectColumn [252-260] [1 AS one]
+                      IntLiteral(1) [252-253] [1]
+                      Alias [254-260] [AS one]
+                        Identifier(one) [257-260] [one]
+--
+SELECT
+  one
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      ANY SHORTEST (
+        TRAIL
+        (
+          ACYCLIC
+          -[b]->
+        )
+        WHERE
+          true
+      ),
+      @{ what = hint }
+      ANY (
+        TRAIL
+        ->
+      )
+      WHERE
+        false
+    MATCH
+      ANY (
+        SIMPLE
+        ->
+      ) { 2 }
+      WHERE
+        false
+    MATCH
+      SIMPLE
+      (
+        TRAIL
+        ->
+      ) { 2 }
+      WHERE
+        false
+    MATCH
+      ANY (
+        ->
+      ) { 2 }
+      WHERE
+        false
+    RETURN
+      1 AS one
+  )
+
+==
+
+# b/353375029: Search prefix at the wrong place.
+SELECT * FROM GRAPH_TABLE(
+  aml
+  MATCH ANY ((a)->(b))(ANY (c)->(d))
+  COLUMNS(1 AS One)
+)
+--
+QueryStatement [0-91] [SELECT * FROM...AS One) )]
+  Query [0-91] [SELECT * FROM...AS One) )]
+    Select [0-91] [SELECT * FROM...AS One) )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-91] [FROM GRAPH_TABLE...AS One) )]
+        GraphTableQuery [14-91] [GRAPH_TABLE...AS One) )]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlMatch [35-69] [MATCH ANY...(c)->(d))]
+            GraphPattern [41-69] [ANY ((a)->(b))(ANY (c)->(d))]
+              GraphPathPattern [41-69] [ANY ((a)->(b))(ANY (c)->(d))]
+                GraphPathSearchPrefix [41-44] [ANY]
+                ParenthesizedGraphPathPattern [45-55] [((a)->(b))]
+                  GraphNodePattern [46-49] [(a)]
+                    GraphElementPatternFiller [47-48] [a]
+                      Identifier(a) [47-48] [a]
+                  GraphEdgePattern [49-51] [->]
+                  GraphNodePattern [51-54] [(b)]
+                    GraphElementPatternFiller [52-53] [b]
+                      Identifier(b) [52-53] [b]
+                ParenthesizedGraphPathPattern [55-69] [(ANY (c)->(d))]
+                  GraphPathSearchPrefix [56-59] [ANY]
+                  GraphNodePattern [60-63] [(c)]
+                    GraphElementPatternFiller [61-62] [c]
+                      Identifier(c) [61-62] [c]
+                  GraphEdgePattern [63-65] [->]
+                  GraphNodePattern [65-68] [(d)]
+                    GraphElementPatternFiller [66-67] [d]
+                      Identifier(d) [66-67] [d]
+          SelectList [80-88] [1 AS One]
+            SelectColumn [80-88] [1 AS One]
+              IntLiteral(1) [80-81] [1]
+              Alias [82-88] [AS One]
+                Identifier(One) [85-88] [One]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      ANY (
+        (a)
+        ->
+        (b)
+      )
+      (
+        ANY (c)
+        ->
+        (d)
+      )
+    COLUMNS(
+      1 AS One
+    )
+  )
+==
+
+# b/376604809 Search prefix inside a top-level parenthesized, quantified path pattern. This will be blocked in the resolver.
+select * from graph_table(
+   aml
+   match (ANY (x)-[y]->(z)){3}
+   RETURN 1 AS one
+ )
+--
+QueryStatement [0-86] [select * from...AS one  )]
+  Query [0-86] [select * from...AS one  )]
+    Select [0-86] [select * from...AS one  )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-86] [from graph_table...AS one  )]
+        GraphTableQuery [14-86] [graph_table...AS one  )]
+          PathExpression [30-33] [aml]
+            Identifier(aml) [30-33] [aml]
+          GqlOperatorList [37-83] [match (ANY...RETURN 1 AS one]
+            GqlOperatorList [37-83] [match (ANY...RETURN 1 AS one]
+              GqlMatch [37-64] [match (ANY (x)-[y]->(z)){3}]
+                GraphPattern [43-64] [(ANY (x)-[y]->(z)){3}]
+                  ParenthesizedGraphPathPattern [43-64] [(ANY (x)-[y]->(z)){3}]
+                    FixedQuantifier [62-63] [3]
+                      IntLiteral(3) [62-63] [3]
+                    GraphPathSearchPrefix [44-47] [ANY]
+                    GraphNodePattern [48-51] [(x)]
+                      GraphElementPatternFiller [49-50] [x]
+                        Identifier(x) [49-50] [x]
+                    GraphEdgePattern [51-57] [-[y]->]
+                      GraphElementPatternFiller [53-54] [y]
+                        Identifier(y) [53-54] [y]
+                    GraphNodePattern [57-60] [(z)]
+                      GraphElementPatternFiller [58-59] [z]
+                        Identifier(z) [58-59] [z]
+              GqlReturn [68-83] [RETURN 1 AS one]
+                Select [74-83] [1 AS one]
+                  SelectList [75-83] [1 AS one]
+                    SelectColumn [75-83] [1 AS one]
+                      IntLiteral(1) [75-76] [1]
+                      Alias [77-83] [AS one]
+                        Identifier(one) [80-83] [one]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (
+        ANY (x)
+        -[y]->
+        (z)
+      ) { 3 }
+    RETURN
+      1 AS one
+  )
+==
+
+# Any K
+SELECT one FROM GRAPH_TABLE(
+  aml
+  MATCH ANY 4 -[b]->, ALL SHORTEST -[b]->, ANY -[b]->, ALL -[b]->
+  COLUMNS(1 AS one)
+)
+--
+QueryStatement [0-122] [SELECT one...AS one) )]
+  Query [0-122] [SELECT one...AS one) )]
+    Select [0-122] [SELECT one...AS one) )]
+      SelectList [7-10] [one]
+        SelectColumn [7-10] [one]
+          PathExpression [7-10] [one]
+            Identifier(one) [7-10] [one]
+      FromClause [11-122] [FROM GRAPH_TABLE...AS one) )]
+        GraphTableQuery [16-122] [GRAPH_TABLE...AS one) )]
+          PathExpression [31-34] [aml]
+            Identifier(aml) [31-34] [aml]
+          GqlMatch [37-100] [MATCH ANY...ALL -[b]->]
+            GraphPattern [43-100] [ANY 4 -[b]...ALL -[b]->]
+              GraphPathPattern [43-55] [ANY 4 -[b]->]
+                GraphPathSearchPrefix [43-48] [ANY 4]
+                  GraphPathSearchPrefixCount [43-48] [ANY 4]
+                    IntLiteral(4) [47-48] [4]
+                GraphEdgePattern [49-55] [-[b]->]
+                  GraphElementPatternFiller [51-52] [b]
+                    Identifier(b) [51-52] [b]
+              GraphPathPattern [57-76] [ALL SHORTEST -[b]->]
+                GraphPathSearchPrefix [57-69] [ALL SHORTEST]
+                GraphEdgePattern [70-76] [-[b]->]
+                  GraphElementPatternFiller [72-73] [b]
+                    Identifier(b) [72-73] [b]
+              GraphPathPattern [78-88] [ANY -[b]->]
+                GraphPathSearchPrefix [78-81] [ANY]
+                GraphEdgePattern [82-88] [-[b]->]
+                  GraphElementPatternFiller [84-85] [b]
+                    Identifier(b) [84-85] [b]
+              GraphPathPattern [90-100] [ALL -[b]->]
+                GraphPathSearchPrefix [90-93] [ALL]
+                GraphEdgePattern [94-100] [-[b]->]
+                  GraphElementPatternFiller [96-97] [b]
+                    Identifier(b) [96-97] [b]
+          SelectList [111-119] [1 AS one]
+            SelectColumn [111-119] [1 AS one]
+              IntLiteral(1) [111-112] [1]
+              Alias [113-119] [AS one]
+                Identifier(one) [116-119] [one]
+--
+SELECT
+  one
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      ANY 4  -[b]->,
+      ALL SHORTEST -[b]->,
+      ANY -[b]->,
+      ALL -[b]->
+    COLUMNS(
+      1 AS one
+    )
+  )
+==
+
+# Shortest K
+SELECT one FROM GRAPH_TABLE(
+  aml
+  MATCH SHORTEST 4 -[b]->, ALL SHORTEST -[b]->, ANY -[b]->, ALL -[b]->
+  COLUMNS(1 AS one)
+)
+--
+QueryStatement [0-127] [SELECT one...AS one) )]
+  Query [0-127] [SELECT one...AS one) )]
+    Select [0-127] [SELECT one...AS one) )]
+      SelectList [7-10] [one]
+        SelectColumn [7-10] [one]
+          PathExpression [7-10] [one]
+            Identifier(one) [7-10] [one]
+      FromClause [11-127] [FROM GRAPH_TABLE...AS one) )]
+        GraphTableQuery [16-127] [GRAPH_TABLE...AS one) )]
+          PathExpression [31-34] [aml]
+            Identifier(aml) [31-34] [aml]
+          GqlMatch [37-105] [MATCH SHORTEST...ALL -[b]->]
+            GraphPattern [43-105] [SHORTEST 4...ALL -[b]->]
+              GraphPathPattern [43-60] [SHORTEST 4 -[b]->]
+                GraphPathSearchPrefix [43-53] [SHORTEST 4]
+                  GraphPathSearchPrefixCount [43-53] [SHORTEST 4]
+                    IntLiteral(4) [52-53] [4]
+                GraphEdgePattern [54-60] [-[b]->]
+                  GraphElementPatternFiller [56-57] [b]
+                    Identifier(b) [56-57] [b]
+              GraphPathPattern [62-81] [ALL SHORTEST -[b]->]
+                GraphPathSearchPrefix [62-74] [ALL SHORTEST]
+                GraphEdgePattern [75-81] [-[b]->]
+                  GraphElementPatternFiller [77-78] [b]
+                    Identifier(b) [77-78] [b]
+              GraphPathPattern [83-93] [ANY -[b]->]
+                GraphPathSearchPrefix [83-86] [ANY]
+                GraphEdgePattern [87-93] [-[b]->]
+                  GraphElementPatternFiller [89-90] [b]
+                    Identifier(b) [89-90] [b]
+              GraphPathPattern [95-105] [ALL -[b]->]
+                GraphPathSearchPrefix [95-98] [ALL]
+                GraphEdgePattern [99-105] [-[b]->]
+                  GraphElementPatternFiller [101-102] [b]
+                    Identifier(b) [101-102] [b]
+          SelectList [116-124] [1 AS one]
+            SelectColumn [116-124] [1 AS one]
+              IntLiteral(1) [116-117] [1]
+              Alias [118-124] [AS one]
+                Identifier(one) [121-124] [one]
+--
+SELECT
+  one
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      SHORTEST 4  -[b]->,
+      ALL SHORTEST -[b]->,
+      ANY -[b]->,
+      ALL -[b]->
+    COLUMNS(
+      1 AS one
+    )
+  )
+==
+
+# Shortest K with hex Literal
+SELECT one FROM GRAPH_TABLE(
+  aml
+  MATCH SHORTEST 0x45 -[b]->, ALL SHORTEST -[b]->, ANY -[b]->, ALL -[b]->
+  COLUMNS(1 AS one)
+)
+--
+QueryStatement [0-130] [SELECT one...AS one) )]
+  Query [0-130] [SELECT one...AS one) )]
+    Select [0-130] [SELECT one...AS one) )]
+      SelectList [7-10] [one]
+        SelectColumn [7-10] [one]
+          PathExpression [7-10] [one]
+            Identifier(one) [7-10] [one]
+      FromClause [11-130] [FROM GRAPH_TABLE...AS one) )]
+        GraphTableQuery [16-130] [GRAPH_TABLE...AS one) )]
+          PathExpression [31-34] [aml]
+            Identifier(aml) [31-34] [aml]
+          GqlMatch [37-108] [MATCH SHORTEST...ALL -[b]->]
+            GraphPattern [43-108] [SHORTEST 0x45...ALL -[b]->]
+              GraphPathPattern [43-63] [SHORTEST 0x45 -[b]->]
+                GraphPathSearchPrefix [43-56] [SHORTEST 0x45]
+                  GraphPathSearchPrefixCount [43-56] [SHORTEST 0x45]
+                    IntLiteral(0x45) [52-56] [0x45]
+                GraphEdgePattern [57-63] [-[b]->]
+                  GraphElementPatternFiller [59-60] [b]
+                    Identifier(b) [59-60] [b]
+              GraphPathPattern [65-84] [ALL SHORTEST -[b]->]
+                GraphPathSearchPrefix [65-77] [ALL SHORTEST]
+                GraphEdgePattern [78-84] [-[b]->]
+                  GraphElementPatternFiller [80-81] [b]
+                    Identifier(b) [80-81] [b]
+              GraphPathPattern [86-96] [ANY -[b]->]
+                GraphPathSearchPrefix [86-89] [ANY]
+                GraphEdgePattern [90-96] [-[b]->]
+                  GraphElementPatternFiller [92-93] [b]
+                    Identifier(b) [92-93] [b]
+              GraphPathPattern [98-108] [ALL -[b]->]
+                GraphPathSearchPrefix [98-101] [ALL]
+                GraphEdgePattern [102-108] [-[b]->]
+                  GraphElementPatternFiller [104-105] [b]
+                    Identifier(b) [104-105] [b]
+          SelectList [119-127] [1 AS one]
+            SelectColumn [119-127] [1 AS one]
+              IntLiteral(1) [119-120] [1]
+              Alias [121-127] [AS one]
+                Identifier(one) [124-127] [one]
+--
+SELECT
+  one
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      SHORTEST 0x45  -[b]->,
+      ALL SHORTEST -[b]->,
+      ANY -[b]->,
+      ALL -[b]->
+    COLUMNS(
+      1 AS one
+    )
+  )
+==
+
+# Shortest K with param
+SELECT one FROM GRAPH_TABLE(
+  aml
+  MATCH SHORTEST @p1 -[b]->, ALL SHORTEST -[b]->, ANY -[b]->, ALL -[b]->
+  COLUMNS(1 AS one)
+)
+--
+QueryStatement [0-129] [SELECT one...AS one) )]
+  Query [0-129] [SELECT one...AS one) )]
+    Select [0-129] [SELECT one...AS one) )]
+      SelectList [7-10] [one]
+        SelectColumn [7-10] [one]
+          PathExpression [7-10] [one]
+            Identifier(one) [7-10] [one]
+      FromClause [11-129] [FROM GRAPH_TABLE...AS one) )]
+        GraphTableQuery [16-129] [GRAPH_TABLE...AS one) )]
+          PathExpression [31-34] [aml]
+            Identifier(aml) [31-34] [aml]
+          GqlMatch [37-107] [MATCH SHORTEST...ALL -[b]->]
+            GraphPattern [43-107] [SHORTEST @...ALL -[b]->]
+              GraphPathPattern [43-62] [SHORTEST @p1 -[b]->]
+                GraphPathSearchPrefix [43-55] [SHORTEST @p1]
+                  GraphPathSearchPrefixCount [43-55] [SHORTEST @p1]
+                    ParameterExpr [52-55] [@p1]
+                      Identifier(p1) [53-55] [p1]
+                GraphEdgePattern [56-62] [-[b]->]
+                  GraphElementPatternFiller [58-59] [b]
+                    Identifier(b) [58-59] [b]
+              GraphPathPattern [64-83] [ALL SHORTEST -[b]->]
+                GraphPathSearchPrefix [64-76] [ALL SHORTEST]
+                GraphEdgePattern [77-83] [-[b]->]
+                  GraphElementPatternFiller [79-80] [b]
+                    Identifier(b) [79-80] [b]
+              GraphPathPattern [85-95] [ANY -[b]->]
+                GraphPathSearchPrefix [85-88] [ANY]
+                GraphEdgePattern [89-95] [-[b]->]
+                  GraphElementPatternFiller [91-92] [b]
+                    Identifier(b) [91-92] [b]
+              GraphPathPattern [97-107] [ALL -[b]->]
+                GraphPathSearchPrefix [97-100] [ALL]
+                GraphEdgePattern [101-107] [-[b]->]
+                  GraphElementPatternFiller [103-104] [b]
+                    Identifier(b) [103-104] [b]
+          SelectList [118-126] [1 AS one]
+            SelectColumn [118-126] [1 AS one]
+              IntLiteral(1) [118-119] [1]
+              Alias [120-126] [AS one]
+                Identifier(one) [123-126] [one]
+--
+SELECT
+  one
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      SHORTEST @p1  -[b]->,
+      ALL SHORTEST -[b]->,
+      ANY -[b]->,
+      ALL -[b]->
+    COLUMNS(
+      1 AS one
+    )
+  )
+==
+
+# Shortest K with system var
+SELECT one FROM GRAPH_TABLE(
+  aml
+  MATCH SHORTEST @@my.system.var -[b]->, ALL SHORTEST -[b]->, ANY -[b]->, ALL -[b]->
+  COLUMNS(1 AS one)
+)
+--
+QueryStatement [0-141] [SELECT one...AS one) )]
+  Query [0-141] [SELECT one...AS one) )]
+    Select [0-141] [SELECT one...AS one) )]
+      SelectList [7-10] [one]
+        SelectColumn [7-10] [one]
+          PathExpression [7-10] [one]
+            Identifier(one) [7-10] [one]
+      FromClause [11-141] [FROM GRAPH_TABLE...AS one) )]
+        GraphTableQuery [16-141] [GRAPH_TABLE...AS one) )]
+          PathExpression [31-34] [aml]
+            Identifier(aml) [31-34] [aml]
+          GqlMatch [37-119] [MATCH SHORTEST...ALL -[b]->]
+            GraphPattern [43-119] [SHORTEST @...ALL -[b]->]
+              GraphPathPattern [43-74] [SHORTEST @...var -[b]->]
+                GraphPathSearchPrefix [43-67] [SHORTEST @@my.system.var]
+                  GraphPathSearchPrefixCount [43-67] [SHORTEST @@my.system.var]
+                    SystemVariableExpr [52-67] [@@my.system.var]
+                      PathExpression [54-67] [my.system.var]
+                        Identifier(my) [54-56] [my]
+                        Identifier(system) [57-63] [system]
+                        Identifier(var) [64-67] [var]
+                GraphEdgePattern [68-74] [-[b]->]
+                  GraphElementPatternFiller [70-71] [b]
+                    Identifier(b) [70-71] [b]
+              GraphPathPattern [76-95] [ALL SHORTEST -[b]->]
+                GraphPathSearchPrefix [76-88] [ALL SHORTEST]
+                GraphEdgePattern [89-95] [-[b]->]
+                  GraphElementPatternFiller [91-92] [b]
+                    Identifier(b) [91-92] [b]
+              GraphPathPattern [97-107] [ANY -[b]->]
+                GraphPathSearchPrefix [97-100] [ANY]
+                GraphEdgePattern [101-107] [-[b]->]
+                  GraphElementPatternFiller [103-104] [b]
+                    Identifier(b) [103-104] [b]
+              GraphPathPattern [109-119] [ALL -[b]->]
+                GraphPathSearchPrefix [109-112] [ALL]
+                GraphEdgePattern [113-119] [-[b]->]
+                  GraphElementPatternFiller [115-116] [b]
+                    Identifier(b) [115-116] [b]
+          SelectList [130-138] [1 AS one]
+            SelectColumn [130-138] [1 AS one]
+              IntLiteral(1) [130-131] [1]
+              Alias [132-138] [AS one]
+                Identifier(one) [135-138] [one]
+--
+SELECT
+  one
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      SHORTEST @@my.system.var  -[b]->,
+      ALL SHORTEST -[b]->,
+      ANY -[b]->,
+      ALL -[b]->
+    COLUMNS(
+      1 AS one
+    )
+  )
+==
+
+# Shortest K with ? param
+SELECT one FROM GRAPH_TABLE(
+  aml
+  MATCH SHORTEST ? -[b]->, ALL SHORTEST -[b]->, ANY -[b]->, ALL -[b]->
+  COLUMNS(1 AS one)
+)
+--
+QueryStatement [0-127] [SELECT one...AS one) )]
+  Query [0-127] [SELECT one...AS one) )]
+    Select [0-127] [SELECT one...AS one) )]
+      SelectList [7-10] [one]
+        SelectColumn [7-10] [one]
+          PathExpression [7-10] [one]
+            Identifier(one) [7-10] [one]
+      FromClause [11-127] [FROM GRAPH_TABLE...AS one) )]
+        GraphTableQuery [16-127] [GRAPH_TABLE...AS one) )]
+          PathExpression [31-34] [aml]
+            Identifier(aml) [31-34] [aml]
+          GqlMatch [37-105] [MATCH SHORTEST...ALL -[b]->]
+            GraphPattern [43-105] [SHORTEST ?...ALL -[b]->]
+              GraphPathPattern [43-60] [SHORTEST ? -[b]->]
+                GraphPathSearchPrefix [43-53] [SHORTEST ?]
+                  GraphPathSearchPrefixCount [43-53] [SHORTEST ?]
+                    ParameterExpr(1) [52-53] [?]
+                GraphEdgePattern [54-60] [-[b]->]
+                  GraphElementPatternFiller [56-57] [b]
+                    Identifier(b) [56-57] [b]
+              GraphPathPattern [62-81] [ALL SHORTEST -[b]->]
+                GraphPathSearchPrefix [62-74] [ALL SHORTEST]
+                GraphEdgePattern [75-81] [-[b]->]
+                  GraphElementPatternFiller [77-78] [b]
+                    Identifier(b) [77-78] [b]
+              GraphPathPattern [83-93] [ANY -[b]->]
+                GraphPathSearchPrefix [83-86] [ANY]
+                GraphEdgePattern [87-93] [-[b]->]
+                  GraphElementPatternFiller [89-90] [b]
+                    Identifier(b) [89-90] [b]
+              GraphPathPattern [95-105] [ALL -[b]->]
+                GraphPathSearchPrefix [95-98] [ALL]
+                GraphEdgePattern [99-105] [-[b]->]
+                  GraphElementPatternFiller [101-102] [b]
+                    Identifier(b) [101-102] [b]
+          SelectList [116-124] [1 AS one]
+            SelectColumn [116-124] [1 AS one]
+              IntLiteral(1) [116-117] [1]
+              Alias [118-124] [AS one]
+                Identifier(one) [121-124] [one]
+--
+SELECT
+  one
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      SHORTEST ?  -[b]->,
+      ALL SHORTEST -[b]->,
+      ANY -[b]->,
+      ALL -[b]->
+    COLUMNS(
+      1 AS one
+    )
+  )
+==
+
+# shortest K in graph subquery
+
+graph aml
+match (n:person)
+return exists {shortest 100 (n2:person)}
+--
+
+QueryStatement [0-67] [graph aml...n2:person)}]
+  Query [0-67] [graph aml...n2:person)}]
+    GqlQuery [0-67] [graph aml...n2:person)}]
+      GraphTableQuery [0-67] [graph aml...n2:person)}]
+        PathExpression [6-9] [aml]
+          Identifier(aml) [6-9] [aml]
+        GqlOperatorList [10-67] [match (n:person...n2:person)}]
+          GqlOperatorList [10-67] [match (n:person...n2:person)}]
+            GqlMatch [10-26] [match (n:person)]
+              GraphPattern [16-26] [(n:person)]
+                GraphPathPattern [16-26] [(n:person)]
+                  GraphNodePattern [16-26] [(n:person)]
+                    GraphElementPatternFiller [17-25] [n:person]
+                      Identifier(n) [17-18] [n]
+                      GraphLabelFilter [18-25] [:person]
+                        GraphElementLabel [19-25] [person]
+                          Identifier(person) [19-25] [person]
+            GqlReturn [27-67] [return exists...n2:person)}]
+              Select [33-67] [exists {shortest...n2:person)}]
+                SelectList [34-67] [exists {shortest...n2:person)}]
+                  SelectColumn [34-67] [exists {shortest...n2:person)}]
+                    ExpressionSubquery(modifier=EXISTS) [34-67] [exists {shortest...n2:person)}]
+                      Query [34-67] [exists {shortest...n2:person)}]
+                        GqlGraphPatternQuery [34-67] [exists {shortest...n2:person)}]
+                          GraphPattern [42-66] [shortest 100 (n2:person)]
+                            GraphPathPattern [42-66] [shortest 100 (n2:person)]
+                              GraphPathSearchPrefix [42-54] [shortest 100]
+                                GraphPathSearchPrefixCount [42-54] [shortest 100]
+                                  IntLiteral(100) [51-54] [100]
+                              GraphNodePattern [55-66] [(n2:person)]
+                                GraphElementPatternFiller [56-65] [n2:person]
+                                  Identifier(n2) [56-58] [n2]
+                                  GraphLabelFilter [58-65] [:person]
+                                    GraphElementLabel [59-65] [person]
+                                      Identifier(person) [59-65] [person]
+--
+GRAPH aml
+MATCH
+  (n
+  IS person)
+RETURN
+  EXISTS {
+    SHORTEST 100  (n2
+    IS person)
+  }
+==
+
+# any with path var assignment
+SELECT one FROM GRAPH_TABLE(
+  aml
+  MATCH p = ANY 4 -[b]->, ALL SHORTEST -[b]->, ANY -[b]->, ALL -[b]->
+  COLUMNS(1 AS one)
+)
+--
+
+QueryStatement [0-126] [SELECT one...AS one) )]
+  Query [0-126] [SELECT one...AS one) )]
+    Select [0-126] [SELECT one...AS one) )]
+      SelectList [7-10] [one]
+        SelectColumn [7-10] [one]
+          PathExpression [7-10] [one]
+            Identifier(one) [7-10] [one]
+      FromClause [11-126] [FROM GRAPH_TABLE...AS one) )]
+        GraphTableQuery [16-126] [GRAPH_TABLE...AS one) )]
+          PathExpression [31-34] [aml]
+            Identifier(aml) [31-34] [aml]
+          GqlMatch [37-104] [MATCH p =...ALL -[b]->]
+            GraphPattern [43-104] [p = ANY 4...ALL -[b]->]
+              GraphPathPattern [43-59] [p = ANY 4 -[b]->]
+                Identifier(p) [43-44] [p]
+                GraphPathSearchPrefix [47-52] [ANY 4]
+                  GraphPathSearchPrefixCount [47-52] [ANY 4]
+                    IntLiteral(4) [51-52] [4]
+                GraphEdgePattern [53-59] [-[b]->]
+                  GraphElementPatternFiller [55-56] [b]
+                    Identifier(b) [55-56] [b]
+              GraphPathPattern [61-80] [ALL SHORTEST -[b]->]
+                GraphPathSearchPrefix [61-73] [ALL SHORTEST]
+                GraphEdgePattern [74-80] [-[b]->]
+                  GraphElementPatternFiller [76-77] [b]
+                    Identifier(b) [76-77] [b]
+              GraphPathPattern [82-92] [ANY -[b]->]
+                GraphPathSearchPrefix [82-85] [ANY]
+                GraphEdgePattern [86-92] [-[b]->]
+                  GraphElementPatternFiller [88-89] [b]
+                    Identifier(b) [88-89] [b]
+              GraphPathPattern [94-104] [ALL -[b]->]
+                GraphPathSearchPrefix [94-97] [ALL]
+                GraphEdgePattern [98-104] [-[b]->]
+                  GraphElementPatternFiller [100-101] [b]
+                    Identifier(b) [100-101] [b]
+          SelectList [115-123] [1 AS one]
+            SelectColumn [115-123] [1 AS one]
+              IntLiteral(1) [115-116] [1]
+              Alias [117-123] [AS one]
+                Identifier(one) [120-123] [one]
+--
+SELECT
+  one
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      p = ANY 4  -[b]->,
+      ALL SHORTEST -[b]->,
+      ANY -[b]->,
+      ALL -[b]->
+    COLUMNS(
+      1 AS one
+    )
+  )
+==
+
+# any with path var assignment when variable is shortest
+SELECT one FROM GRAPH_TABLE(
+  aml
+  MATCH shortest = ANY 4 -[b]->, ALL SHORTEST -[b]->, ANY -[b]->, ALL -[b]->
+  COLUMNS(1 AS one)
+)
+--
+QueryStatement [0-133] [SELECT one...AS one) )]
+  Query [0-133] [SELECT one...AS one) )]
+    Select [0-133] [SELECT one...AS one) )]
+      SelectList [7-10] [one]
+        SelectColumn [7-10] [one]
+          PathExpression [7-10] [one]
+            Identifier(one) [7-10] [one]
+      FromClause [11-133] [FROM GRAPH_TABLE...AS one) )]
+        GraphTableQuery [16-133] [GRAPH_TABLE...AS one) )]
+          PathExpression [31-34] [aml]
+            Identifier(aml) [31-34] [aml]
+          GqlMatch [37-111] [MATCH shortest...ALL -[b]->]
+            GraphPattern [43-111] [shortest =...ALL -[b]->]
+              GraphPathPattern [43-66] [shortest = ANY 4 -[b]->]
+                Identifier(shortest) [43-51] [shortest]
+                GraphPathSearchPrefix [54-59] [ANY 4]
+                  GraphPathSearchPrefixCount [54-59] [ANY 4]
+                    IntLiteral(4) [58-59] [4]
+                GraphEdgePattern [60-66] [-[b]->]
+                  GraphElementPatternFiller [62-63] [b]
+                    Identifier(b) [62-63] [b]
+              GraphPathPattern [68-87] [ALL SHORTEST -[b]->]
+                GraphPathSearchPrefix [68-80] [ALL SHORTEST]
+                GraphEdgePattern [81-87] [-[b]->]
+                  GraphElementPatternFiller [83-84] [b]
+                    Identifier(b) [83-84] [b]
+              GraphPathPattern [89-99] [ANY -[b]->]
+                GraphPathSearchPrefix [89-92] [ANY]
+                GraphEdgePattern [93-99] [-[b]->]
+                  GraphElementPatternFiller [95-96] [b]
+                    Identifier(b) [95-96] [b]
+              GraphPathPattern [101-111] [ALL -[b]->]
+                GraphPathSearchPrefix [101-104] [ALL]
+                GraphEdgePattern [105-111] [-[b]->]
+                  GraphElementPatternFiller [107-108] [b]
+                    Identifier(b) [107-108] [b]
+          SelectList [122-130] [1 AS one]
+            SelectColumn [122-130] [1 AS one]
+              IntLiteral(1) [122-123] [1]
+              Alias [124-130] [AS one]
+                Identifier(one) [127-130] [one]
+--
+SELECT
+  one
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      shortest = ANY 4  -[b]->,
+      ALL SHORTEST -[b]->,
+      ANY -[b]->,
+      ALL -[b]->
+    COLUMNS(
+      1 AS one
+    )
+  )
+==
+
+# shortest with path var assignment
+SELECT one FROM GRAPH_TABLE(
+  aml
+  MATCH p = SHORTEST 4 -[b]->, ALL SHORTEST -[b]->, ANY -[b]->, ALL -[b]->
+  COLUMNS(1 AS one)
+)
+--
+QueryStatement [0-131] [SELECT one...AS one) )]
+  Query [0-131] [SELECT one...AS one) )]
+    Select [0-131] [SELECT one...AS one) )]
+      SelectList [7-10] [one]
+        SelectColumn [7-10] [one]
+          PathExpression [7-10] [one]
+            Identifier(one) [7-10] [one]
+      FromClause [11-131] [FROM GRAPH_TABLE...AS one) )]
+        GraphTableQuery [16-131] [GRAPH_TABLE...AS one) )]
+          PathExpression [31-34] [aml]
+            Identifier(aml) [31-34] [aml]
+          GqlMatch [37-109] [MATCH p =...ALL -[b]->]
+            GraphPattern [43-109] [p = SHORTEST...ALL -[b]->]
+              GraphPathPattern [43-64] [p = SHORTEST 4 -[b]->]
+                Identifier(p) [43-44] [p]
+                GraphPathSearchPrefix [47-57] [SHORTEST 4]
+                  GraphPathSearchPrefixCount [47-57] [SHORTEST 4]
+                    IntLiteral(4) [56-57] [4]
+                GraphEdgePattern [58-64] [-[b]->]
+                  GraphElementPatternFiller [60-61] [b]
+                    Identifier(b) [60-61] [b]
+              GraphPathPattern [66-85] [ALL SHORTEST -[b]->]
+                GraphPathSearchPrefix [66-78] [ALL SHORTEST]
+                GraphEdgePattern [79-85] [-[b]->]
+                  GraphElementPatternFiller [81-82] [b]
+                    Identifier(b) [81-82] [b]
+              GraphPathPattern [87-97] [ANY -[b]->]
+                GraphPathSearchPrefix [87-90] [ANY]
+                GraphEdgePattern [91-97] [-[b]->]
+                  GraphElementPatternFiller [93-94] [b]
+                    Identifier(b) [93-94] [b]
+              GraphPathPattern [99-109] [ALL -[b]->]
+                GraphPathSearchPrefix [99-102] [ALL]
+                GraphEdgePattern [103-109] [-[b]->]
+                  GraphElementPatternFiller [105-106] [b]
+                    Identifier(b) [105-106] [b]
+          SelectList [120-128] [1 AS one]
+            SelectColumn [120-128] [1 AS one]
+              IntLiteral(1) [120-121] [1]
+              Alias [122-128] [AS one]
+                Identifier(one) [125-128] [one]
+--
+SELECT
+  one
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      p = SHORTEST 4  -[b]->,
+      ALL SHORTEST -[b]->,
+      ANY -[b]->,
+      ALL -[b]->
+    COLUMNS(
+      1 AS one
+    )
+  )
+==
+
+# shortest with path var assignment when variable is shortest
+SELECT one FROM GRAPH_TABLE(
+  aml
+  MATCH shortest = SHORTEST 4 -[b]->, ALL SHORTEST -[b]->, ANY -[b]->, ALL -[b]->
+  COLUMNS(1 AS one)
+)
+--
+QueryStatement [0-138] [SELECT one...AS one) )]
+  Query [0-138] [SELECT one...AS one) )]
+    Select [0-138] [SELECT one...AS one) )]
+      SelectList [7-10] [one]
+        SelectColumn [7-10] [one]
+          PathExpression [7-10] [one]
+            Identifier(one) [7-10] [one]
+      FromClause [11-138] [FROM GRAPH_TABLE...AS one) )]
+        GraphTableQuery [16-138] [GRAPH_TABLE...AS one) )]
+          PathExpression [31-34] [aml]
+            Identifier(aml) [31-34] [aml]
+          GqlMatch [37-116] [MATCH shortest...ALL -[b]->]
+            GraphPattern [43-116] [shortest =...ALL -[b]->]
+              GraphPathPattern [43-71] [shortest = SHORTEST 4 -[b]->]
+                Identifier(shortest) [43-51] [shortest]
+                GraphPathSearchPrefix [54-64] [SHORTEST 4]
+                  GraphPathSearchPrefixCount [54-64] [SHORTEST 4]
+                    IntLiteral(4) [63-64] [4]
+                GraphEdgePattern [65-71] [-[b]->]
+                  GraphElementPatternFiller [67-68] [b]
+                    Identifier(b) [67-68] [b]
+              GraphPathPattern [73-92] [ALL SHORTEST -[b]->]
+                GraphPathSearchPrefix [73-85] [ALL SHORTEST]
+                GraphEdgePattern [86-92] [-[b]->]
+                  GraphElementPatternFiller [88-89] [b]
+                    Identifier(b) [88-89] [b]
+              GraphPathPattern [94-104] [ANY -[b]->]
+                GraphPathSearchPrefix [94-97] [ANY]
+                GraphEdgePattern [98-104] [-[b]->]
+                  GraphElementPatternFiller [100-101] [b]
+                    Identifier(b) [100-101] [b]
+              GraphPathPattern [106-116] [ALL -[b]->]
+                GraphPathSearchPrefix [106-109] [ALL]
+                GraphEdgePattern [110-116] [-[b]->]
+                  GraphElementPatternFiller [112-113] [b]
+                    Identifier(b) [112-113] [b]
+          SelectList [127-135] [1 AS one]
+            SelectColumn [127-135] [1 AS one]
+              IntLiteral(1) [127-128] [1]
+              Alias [129-135] [AS one]
+                Identifier(one) [132-135] [one]
+--
+SELECT
+  one
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      shortest = SHORTEST 4  -[b]->,
+      ALL SHORTEST -[b]->,
+      ANY -[b]->,
+      ALL -[b]->
+    COLUMNS(
+      1 AS one
+    )
+  )
+==
+
+# shortest with path var assignment
+SELECT one FROM GRAPH_TABLE(
+  aml
+  MATCH p = SHORTEST 50 -[b]->, ALL SHORTEST -[b]->, ANY -[b]->, ALL -[b]->
+  COLUMNS(1 AS one)
+)
+--
+QueryStatement [0-132] [SELECT one...AS one) )]
+  Query [0-132] [SELECT one...AS one) )]
+    Select [0-132] [SELECT one...AS one) )]
+      SelectList [7-10] [one]
+        SelectColumn [7-10] [one]
+          PathExpression [7-10] [one]
+            Identifier(one) [7-10] [one]
+      FromClause [11-132] [FROM GRAPH_TABLE...AS one) )]
+        GraphTableQuery [16-132] [GRAPH_TABLE...AS one) )]
+          PathExpression [31-34] [aml]
+            Identifier(aml) [31-34] [aml]
+          GqlMatch [37-110] [MATCH p =...ALL -[b]->]
+            GraphPattern [43-110] [p = SHORTEST...ALL -[b]->]
+              GraphPathPattern [43-65] [p = SHORTEST 50 -[b]->]
+                Identifier(p) [43-44] [p]
+                GraphPathSearchPrefix [47-58] [SHORTEST 50]
+                  GraphPathSearchPrefixCount [47-58] [SHORTEST 50]
+                    IntLiteral(50) [56-58] [50]
+                GraphEdgePattern [59-65] [-[b]->]
+                  GraphElementPatternFiller [61-62] [b]
+                    Identifier(b) [61-62] [b]
+              GraphPathPattern [67-86] [ALL SHORTEST -[b]->]
+                GraphPathSearchPrefix [67-79] [ALL SHORTEST]
+                GraphEdgePattern [80-86] [-[b]->]
+                  GraphElementPatternFiller [82-83] [b]
+                    Identifier(b) [82-83] [b]
+              GraphPathPattern [88-98] [ANY -[b]->]
+                GraphPathSearchPrefix [88-91] [ANY]
+                GraphEdgePattern [92-98] [-[b]->]
+                  GraphElementPatternFiller [94-95] [b]
+                    Identifier(b) [94-95] [b]
+              GraphPathPattern [100-110] [ALL -[b]->]
+                GraphPathSearchPrefix [100-103] [ALL]
+                GraphEdgePattern [104-110] [-[b]->]
+                  GraphElementPatternFiller [106-107] [b]
+                    Identifier(b) [106-107] [b]
+          SelectList [121-129] [1 AS one]
+            SelectColumn [121-129] [1 AS one]
+              IntLiteral(1) [121-122] [1]
+              Alias [123-129] [AS one]
+                Identifier(one) [126-129] [one]
+--
+SELECT
+  one
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      p = SHORTEST 50  -[b]->,
+      ALL SHORTEST -[b]->,
+      ANY -[b]->,
+      ALL -[b]->
+    COLUMNS(
+      1 AS one
+    )
+  )
+==
+
+# graph subquery with shortest K in graph subquery
+GRAPH aml
+RETURN exists {shortest 100 (n2:person)}
+--
+QueryStatement [0-50] [GRAPH aml...n2:person)}]
+  Query [0-50] [GRAPH aml...n2:person)}]
+    GqlQuery [0-50] [GRAPH aml...n2:person)}]
+      GraphTableQuery [0-50] [GRAPH aml...n2:person)}]
+        PathExpression [6-9] [aml]
+          Identifier(aml) [6-9] [aml]
+        GqlOperatorList [10-50] [RETURN exists...n2:person)}]
+          GqlOperatorList [10-50] [RETURN exists...n2:person)}]
+            GqlReturn [10-50] [RETURN exists...n2:person)}]
+              Select [16-50] [exists {shortest...n2:person)}]
+                SelectList [17-50] [exists {shortest...n2:person)}]
+                  SelectColumn [17-50] [exists {shortest...n2:person)}]
+                    ExpressionSubquery(modifier=EXISTS) [17-50] [exists {shortest...n2:person)}]
+                      Query [17-50] [exists {shortest...n2:person)}]
+                        GqlGraphPatternQuery [17-50] [exists {shortest...n2:person)}]
+                          GraphPattern [25-49] [shortest 100 (n2:person)]
+                            GraphPathPattern [25-49] [shortest 100 (n2:person)]
+                              GraphPathSearchPrefix [25-37] [shortest 100]
+                                GraphPathSearchPrefixCount [25-37] [shortest 100]
+                                  IntLiteral(100) [34-37] [100]
+                              GraphNodePattern [38-49] [(n2:person)]
+                                GraphElementPatternFiller [39-48] [n2:person]
+                                  Identifier(n2) [39-41] [n2]
+                                  GraphLabelFilter [41-48] [:person]
+                                    GraphElementLabel [42-48] [person]
+                                      Identifier(person) [42-48] [person]
+--
+GRAPH aml
+RETURN
+  EXISTS {
+    SHORTEST 100  (n2
+    IS person)
+  }
+==
+
+# graph subquery with shortest K and path var assignment in graph subquery
+GRAPH aml
+RETURN exists {p = shortest 100 (n2:person)}
+--
+QueryStatement [0-54] [GRAPH aml...n2:person)}]
+  Query [0-54] [GRAPH aml...n2:person)}]
+    GqlQuery [0-54] [GRAPH aml...n2:person)}]
+      GraphTableQuery [0-54] [GRAPH aml...n2:person)}]
+        PathExpression [6-9] [aml]
+          Identifier(aml) [6-9] [aml]
+        GqlOperatorList [10-54] [RETURN exists...n2:person)}]
+          GqlOperatorList [10-54] [RETURN exists...n2:person)}]
+            GqlReturn [10-54] [RETURN exists...n2:person)}]
+              Select [16-54] [exists {p...n2:person)}]
+                SelectList [17-54] [exists {p...n2:person)}]
+                  SelectColumn [17-54] [exists {p...n2:person)}]
+                    ExpressionSubquery(modifier=EXISTS) [17-54] [exists {p...n2:person)}]
+                      Query [17-54] [exists {p...n2:person)}]
+                        GqlGraphPatternQuery [17-54] [exists {p...n2:person)}]
+                          GraphPattern [25-53] [p = shortest 100 (n2:person)]
+                            GraphPathPattern [25-53] [p = shortest 100 (n2:person)]
+                              Identifier(p) [25-26] [p]
+                              GraphPathSearchPrefix [29-41] [shortest 100]
+                                GraphPathSearchPrefixCount [29-41] [shortest 100]
+                                  IntLiteral(100) [38-41] [100]
+                              GraphNodePattern [42-53] [(n2:person)]
+                                GraphElementPatternFiller [43-52] [n2:person]
+                                  Identifier(n2) [43-45] [n2]
+                                  GraphLabelFilter [45-52] [:person]
+                                    GraphElementLabel [46-52] [person]
+                                      Identifier(person) [46-52] [person]
+--
+GRAPH aml
+RETURN
+  EXISTS {
+    p = SHORTEST 100  (n2
+    IS person)
+  }
+==
+
+# graph subquery with shortest K and path var=shortest in graph subquery
+GRAPH aml
+RETURN exists {shortest = shortest 100 (n2:person)}
+--
+QueryStatement [0-61] [GRAPH aml...n2:person)}]
+  Query [0-61] [GRAPH aml...n2:person)}]
+    GqlQuery [0-61] [GRAPH aml...n2:person)}]
+      GraphTableQuery [0-61] [GRAPH aml...n2:person)}]
+        PathExpression [6-9] [aml]
+          Identifier(aml) [6-9] [aml]
+        GqlOperatorList [10-61] [RETURN exists...n2:person)}]
+          GqlOperatorList [10-61] [RETURN exists...n2:person)}]
+            GqlReturn [10-61] [RETURN exists...n2:person)}]
+              Select [16-61] [exists {shortest...n2:person)}]
+                SelectList [17-61] [exists {shortest...n2:person)}]
+                  SelectColumn [17-61] [exists {shortest...n2:person)}]
+                    ExpressionSubquery(modifier=EXISTS) [17-61] [exists {shortest...n2:person)}]
+                      Query [17-61] [exists {shortest...n2:person)}]
+                        GqlGraphPatternQuery [17-61] [exists {shortest...n2:person)}]
+                          GraphPattern [25-60] [shortest =...n2:person)]
+                            GraphPathPattern [25-60] [shortest =...n2:person)]
+                              Identifier(shortest) [25-33] [shortest]
+                              GraphPathSearchPrefix [36-48] [shortest 100]
+                                GraphPathSearchPrefixCount [36-48] [shortest 100]
+                                  IntLiteral(100) [45-48] [100]
+                              GraphNodePattern [49-60] [(n2:person)]
+                                GraphElementPatternFiller [50-59] [n2:person]
+                                  Identifier(n2) [50-52] [n2]
+                                  GraphLabelFilter [52-59] [:person]
+                                    GraphElementLabel [53-59] [person]
+                                      Identifier(person) [53-59] [person]
+--
+GRAPH aml
+RETURN
+  EXISTS {
+    shortest = SHORTEST 100  (n2
+    IS person)
+  }
+==
+
+# shortest with path var assignment in subpath
+SELECT one FROM GRAPH_TABLE(
+  aml
+  MATCH p = SHORTEST 50 (a)(q = SHORTEST 10-[b]->{1,3}), ALL SHORTEST -[b]->, ANY -[b]->, ALL -[b]->
+  COLUMNS(1 AS one)
+)
+--
+QueryStatement [0-157] [SELECT one...AS one) )]
+  Query [0-157] [SELECT one...AS one) )]
+    Select [0-157] [SELECT one...AS one) )]
+      SelectList [7-10] [one]
+        SelectColumn [7-10] [one]
+          PathExpression [7-10] [one]
+            Identifier(one) [7-10] [one]
+      FromClause [11-157] [FROM GRAPH_TABLE...AS one) )]
+        GraphTableQuery [16-157] [GRAPH_TABLE...AS one) )]
+          PathExpression [31-34] [aml]
+            Identifier(aml) [31-34] [aml]
+          GqlMatch [37-135] [MATCH p =...ALL -[b]->]
+            GraphPattern [43-135] [p = SHORTEST...ALL -[b]->]
+              GraphPathPattern [43-90] [p = SHORTEST...b]->{1,3})]
+                Identifier(p) [43-44] [p]
+                GraphPathSearchPrefix [47-58] [SHORTEST 50]
+                  GraphPathSearchPrefixCount [47-58] [SHORTEST 50]
+                    IntLiteral(50) [56-58] [50]
+                GraphNodePattern [59-62] [(a)]
+                  GraphElementPatternFiller [60-61] [a]
+                    Identifier(a) [60-61] [a]
+                ParenthesizedGraphPathPattern [62-90] [(q = SHORTEST 10-[b]->{1,3})]
+                  Identifier(q) [63-64] [q]
+                  GraphPathSearchPrefix [67-78] [SHORTEST 10]
+                    GraphPathSearchPrefixCount [67-78] [SHORTEST 10]
+                      IntLiteral(10) [76-78] [10]
+                  ParenthesizedGraphPathPattern [78-89] [-[b]->{1,3}]
+                    BoundedQuantifier [84-89] [{1,3}]
+                      QuantifierBound [85-86] [1]
+                        IntLiteral(1) [85-86] [1]
+                      QuantifierBound [87-88] [3]
+                        IntLiteral(3) [87-88] [3]
+                    GraphEdgePattern [78-84] [-[b]->]
+                      GraphElementPatternFiller [80-81] [b]
+                        Identifier(b) [80-81] [b]
+              GraphPathPattern [92-111] [ALL SHORTEST -[b]->]
+                GraphPathSearchPrefix [92-104] [ALL SHORTEST]
+                GraphEdgePattern [105-111] [-[b]->]
+                  GraphElementPatternFiller [107-108] [b]
+                    Identifier(b) [107-108] [b]
+              GraphPathPattern [113-123] [ANY -[b]->]
+                GraphPathSearchPrefix [113-116] [ANY]
+                GraphEdgePattern [117-123] [-[b]->]
+                  GraphElementPatternFiller [119-120] [b]
+                    Identifier(b) [119-120] [b]
+              GraphPathPattern [125-135] [ALL -[b]->]
+                GraphPathSearchPrefix [125-128] [ALL]
+                GraphEdgePattern [129-135] [-[b]->]
+                  GraphElementPatternFiller [131-132] [b]
+                    Identifier(b) [131-132] [b]
+          SelectList [146-154] [1 AS one]
+            SelectColumn [146-154] [1 AS one]
+              IntLiteral(1) [146-147] [1]
+              Alias [148-154] [AS one]
+                Identifier(one) [151-154] [one]
+--
+SELECT
+  one
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      p = SHORTEST 50  (a)
+      (
+        q = SHORTEST 10  (
+          -[b]->
+        ) { 1, 3 }
+      ),
+      ALL SHORTEST -[b]->,
+      ANY -[b]->,
+      ALL -[b]->
+    COLUMNS(
+      1 AS one
+    )
+  )
+==
+
+# shortest in subpath
+SELECT one FROM GRAPH_TABLE(
+  aml
+  MATCH (a) (q = SHORTEST 10-[b]->{1,3})
+  COLUMNS(1 AS one)
+)
+--
+QueryStatement [0-97] [SELECT one...AS one) )]
+  Query [0-97] [SELECT one...AS one) )]
+    Select [0-97] [SELECT one...AS one) )]
+      SelectList [7-10] [one]
+        SelectColumn [7-10] [one]
+          PathExpression [7-10] [one]
+            Identifier(one) [7-10] [one]
+      FromClause [11-97] [FROM GRAPH_TABLE...AS one) )]
+        GraphTableQuery [16-97] [GRAPH_TABLE...AS one) )]
+          PathExpression [31-34] [aml]
+            Identifier(aml) [31-34] [aml]
+          GqlMatch [37-75] [MATCH (a)...b]->{1,3})]
+            GraphPattern [43-75] [(a) (q = SHORTEST...b]->{1,3})]
+              GraphPathPattern [43-75] [(a) (q = SHORTEST...b]->{1,3})]
+                GraphNodePattern [43-46] [(a)]
+                  GraphElementPatternFiller [44-45] [a]
+                    Identifier(a) [44-45] [a]
+                ParenthesizedGraphPathPattern [47-75] [(q = SHORTEST 10-[b]->{1,3})]
+                  Identifier(q) [48-49] [q]
+                  GraphPathSearchPrefix [52-63] [SHORTEST 10]
+                    GraphPathSearchPrefixCount [52-63] [SHORTEST 10]
+                      IntLiteral(10) [61-63] [10]
+                  ParenthesizedGraphPathPattern [63-74] [-[b]->{1,3}]
+                    BoundedQuantifier [69-74] [{1,3}]
+                      QuantifierBound [70-71] [1]
+                        IntLiteral(1) [70-71] [1]
+                      QuantifierBound [72-73] [3]
+                        IntLiteral(3) [72-73] [3]
+                    GraphEdgePattern [63-69] [-[b]->]
+                      GraphElementPatternFiller [65-66] [b]
+                        Identifier(b) [65-66] [b]
+          SelectList [86-94] [1 AS one]
+            SelectColumn [86-94] [1 AS one]
+              IntLiteral(1) [86-87] [1]
+              Alias [88-94] [AS one]
+                Identifier(one) [91-94] [one]
+--
+SELECT
+  one
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+      (
+        q = SHORTEST 10  (
+          -[b]->
+        ) { 1, 3 }
+      )
+    COLUMNS(
+      1 AS one
+    )
+  )

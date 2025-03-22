@@ -1183,7 +1183,7 @@ WHEN NOT MATCHED BY SOURCE THEN INSERT ROW
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `my-project-123.a.t` [at 1:12]
+ERROR: Syntax error: Table name contains '-' character. The dashed identifier part of the table name needs to be quoted: `my-project-123` [at 1:12]
 MERGE INTO my-project-123.a.t
            ^
 --

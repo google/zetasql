@@ -15,8 +15,9 @@
 #
 
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
-
-# Placeholder: load py_proto_library
+load("@com_github_grpc_grpc//bazel:python_rules.bzl", "py_proto_library")
+load("@com_google_protobuf//bazel:java_proto_library.bzl", "java_proto_library")
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
 load(
     "//zetasql/compliance:builddefs.bzl",
     "zetasql_compliance_test",
@@ -60,6 +61,7 @@ cc_library(
         "//zetasql/public:parse_helpers",
         "//zetasql/public:simple_catalog",
         "//zetasql/public:simple_catalog_util",
+        "//zetasql/public:strings",
         "//zetasql/public:type",
         "//zetasql/public:type_cc_proto",
         "//zetasql/public:value",
@@ -189,6 +191,7 @@ cc_library(
     data = glob(["testdata/*.test"]) + [
         "//zetasql/public/functions:array_find_mode_proto",
         "//zetasql/public/functions:array_zip_mode_proto",
+        "//zetasql/public/functions:bitwise_agg_mode_proto",
         "//zetasql/public/functions:rounding_mode_proto",
         "//zetasql/testdata:test_proto3_proto",
         "//zetasql/testdata:test_schema_proto",
@@ -312,7 +315,9 @@ cc_library(
         "//zetasql/public:language_options",
         "//zetasql/public:type",
         "//zetasql/public:value",
+        "//zetasql/public/types",
         "//zetasql/reference_impl:reference_driver",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
     ],
@@ -524,11 +529,14 @@ cc_library(
         "//zetasql/public:language_options",
         "//zetasql/public:numeric_value",
         "//zetasql/public:options_cc_proto",
+        "//zetasql/public:pico_time",
+        "//zetasql/public:timestamp_picos_value",
         "//zetasql/public:token_list_util",
         "//zetasql/public:type",
         "//zetasql/public:type_cc_proto",
         "//zetasql/public:uuid_value",
         "//zetasql/public:value",
+        "//zetasql/public/functions:bitwise_agg_mode_cc_proto",
         "//zetasql/public/functions:common_proto",
         "//zetasql/public/functions:date_time_util",
         "//zetasql/public/functions:datetime_cc_proto",

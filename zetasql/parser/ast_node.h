@@ -263,7 +263,7 @@ class ASTNode : public zetasql_base::ArenaOnlyGladiator {
  protected:
   // Dispatches to non-recursive visitor implementation.
   // Used by TraverseNonRecursive().
-  ABSL_MUST_USE_RESULT virtual absl::StatusOr<VisitResult> Accept(
+  virtual absl::StatusOr<VisitResult> Accept(
       NonRecursiveParseTreeVisitor* visitor) const = 0;
 
   // Similar to GetDescendantsWithKinds. If 'continue_traversal' is true,

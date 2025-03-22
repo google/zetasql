@@ -141,6 +141,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <compare>
 #include <cstdint>
 #include <iterator>
 #include <limits>
@@ -278,7 +279,7 @@ class FixedUint final {
       const std::array<Word, kNumWords>& little_endian_number)
       : number_(little_endian_number) {}
 
-  explicit operator unsigned __int128() const {
+  explicit constexpr operator unsigned __int128() const {
     return multiprecision_int_impl::ArrayToUint<128, kNumBitsPerWord>(
         number_.data());
   }
@@ -931,7 +932,7 @@ class FixedInt final {
       const std::array<UnsignedWord, kNumWords>& little_endian_number)
       : rep_(little_endian_number) {}
 
-  explicit operator __int128() const {
+  explicit constexpr operator __int128() const {
     return static_cast<unsigned __int128>(rep_);
   }
 
@@ -1052,10 +1053,12 @@ class FixedInt final {
     if (ABSL_PREDICT_FALSE(is_negative())) {
       *this = -(*this);
     }
-    // use | instead of ||, to call SetSignAndAbs even when MultiplyOverflow
-    // returns true.
-    return rep_.MultiplyOverflow(SafeAbs(rh)) |
-           !SetSignAndAbs(result_non_positive, rep_);
+
+    bool mult_overflow = rep_.MultiplyOverflow(SafeAbs(rh));
+    bool set_sign_overflow = !SetSignAndAbs(result_non_positive, rep_);
+    // The calls to MultiplyOverflow and SetSignAndAbs are not inlined here,
+    // because they must both be called in the given order.
+    return ABSL_PREDICT_FALSE(mult_overflow || set_sign_overflow);
   }
 
   template <UnsignedWord divisor>

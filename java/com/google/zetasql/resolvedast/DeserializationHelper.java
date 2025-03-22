@@ -157,11 +157,8 @@ public final class DeserializationHelper extends AbstractDeserializationHelper {
   PropertyGraph deserialize(PropertyGraphRefProto proto) {
     PropertyGraph propertyGraph;
     ImmutableList<String> path = ImmutableList.copyOf(Splitter.on('.').split(proto.getFullName()));
-    // the full path has the current catalog name as first element.
-    // use subpath to find below the current catalog.
-    ImmutableList<String> subPath = path.subList(1, path.size());
     try {
-      propertyGraph = catalog.findPropertyGraph(subPath);
+      propertyGraph = catalog.findPropertyGraph(path);
     } catch (NotFoundException e) {
       propertyGraph = null;
     }

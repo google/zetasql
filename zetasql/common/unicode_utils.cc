@@ -20,16 +20,40 @@
 
 #include "zetasql/base/logging.h"
 #include "absl/algorithm/container.h"
+#include "absl/base/nullability.h"
 #include "absl/flags/flag.h"
 #include "absl/log/log.h"
+#include "absl/strings/ascii.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/string_view.h"
+#include "unicode/bytestream.h"
 #include "unicode/errorcode.h"
 #include "unicode/normalizer2.h"
 
 ABSL_FLAG(bool, zetasql_idstring_allow_unicode_characters, false,
           "Enables case insensitive comparison for idstrings with unicode "
           "characters.");
+
+namespace {
+
+absl::Nullable<const icu::Normalizer2*> GetCaseFoldingNormalizer() {
+  static const icu::Normalizer2* normalizer = []() -> const icu::Normalizer2* {
+    icu::ErrorCode error_code;
+    const icu::Normalizer2* normalizer =
+        icu::Normalizer2::getNFKCCasefoldInstance(error_code);
+
+    if (error_code.isFailure()) {
+      ABSL_LOG(ERROR) << "Failed to get a casefolding normalizer instance: "
+                 << error_code.errorName();
+      return nullptr;
+    }
+    return normalizer;
+  }();
+
+  return normalizer;
+}
+
+}  // namespace
 
 namespace zetasql {
 
@@ -38,27 +62,26 @@ std::string GetNormalizedAndCasefoldedString(absl::string_view str) {
       absl::c_all_of(str, absl::ascii_isascii)) {
     return absl::AsciiStrToLower(str);
   }
-  icu::ErrorCode error_code;
-  static const icu::Normalizer2* normalizer =
-      icu::Normalizer2::getNFKCCasefoldInstance(error_code);
-  if (error_code.isFailure()) {
-    LOG_EVERY_N_SEC(ERROR, 5)
-        << "Failed to get a normalizer instance: " << error_code.errorName()
-        << ". Falling back to ASCII lowercase.";
-    error_code.reset();
+
+  const icu::Normalizer2* normalizer = GetCaseFoldingNormalizer();
+  if (normalizer == nullptr) {
+    LOG_EVERY_N_SEC(ERROR, 5) << "Failed to get a normalizer instance. "
+                              << "Falling back to ASCII lowercase.";
     return absl::AsciiStrToLower(str);
   }
+
+  icu::ErrorCode error_code;
   std::string result;
-  result.clear();
+  result.reserve(str.size());
   icu::StringByteSink<std::string> sink(&result);
   normalizer->normalizeUTF8(/*options=*/0, str, sink, /*edits=*/nullptr,
                             error_code);
   if (error_code.isFailure()) {
     LOG_EVERY_N_SEC(ERROR, 5)
-        << "Failed to normalize input: " << absl::Utf8SafeCHexEscape(str)
+        << "Failed to normalize input: " << error_code.errorName()
+        << ". Input: " << absl::Utf8SafeCHexEscape(str)
         << ". Falling back to ASCII lowercase.";
     result = absl::AsciiStrToLower(str);
-    error_code.reset();
   }
   return result;
 }

@@ -26,6 +26,7 @@
 #include "zetasql/analyzer/resolver.h"
 #include "zetasql/common/thread_stack.h"  
 #include "zetasql/parser/parse_tree.h"
+#include "zetasql/public/function.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "absl/status/status.h"
 #include "zetasql/base/status_macros.h"
@@ -49,6 +50,12 @@ absl::Status Resolver::ResolveHintsForNode(const ASTHint* ast_hints,
     }
   }
   return absl::OkStatus();
+}
+
+inline bool IsMeasureAggFunction(const Function* function) {
+  return function->NumSignatures() == 1 &&
+         function->signatures()[0].context_id() == FN_AGG &&
+         function->IsZetaSQLBuiltin();
 }
 
 }  // namespace zetasql

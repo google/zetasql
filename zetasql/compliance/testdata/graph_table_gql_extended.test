@@ -2478,6 +2478,296 @@ ARRAY<STRUCT<x_id INT64, y_id INT64, hops INT64>>[known order:
 ]
 
 NOTE: Reference implementation reports non-determinism.
+==
+
+[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[name=any_0_with_ties_counting_hops]
+select * from graph_table(aml
+  MATCH ANY 0 (x:Account)((a)-[e:Transfer]->(b)){1, 3}(y:Account)
+  let hops = ARRAY_LENGTH(e)
+  return x.account_id AS x_id, y.account_id AS y_id, hops
+)
+order by x_id, y_id, hops
+--
+ARRAY<STRUCT<x_id INT64, y_id INT64, hops INT64>>[]
+==
+[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[name=shortest_0_with_ties_counting_hops]
+select * from graph_table(aml
+  MATCH SHORTEST 0 (x:Account)((a)-[e:Transfer]->(b)){1, 3}(y:Account)
+  let hops = ARRAY_LENGTH(e)
+  return x.account_id AS x_id, y.account_id AS y_id, hops
+)
+order by x_id, y_id, hops
+--
+ARRAY<STRUCT<x_id INT64, y_id INT64, hops INT64>>[]
+==
+[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[name=any_2_with_ties_counting_hops]
+select x_id, y_id from graph_table(aml
+  MATCH ANY 2 (x:Account)((a)-[e:Transfer]->(b)){1, 3}(y:Account)
+  let hops = ARRAY_LENGTH(e)
+  return x.account_id AS x_id, y.account_id AS y_id, hops
+)
+order by x_id, y_id
+--
+ARRAY<STRUCT<x_id INT64, y_id INT64>>[known order:
+  {1010, 1010},
+  {1010, 1010},
+  {1010, 1020},
+  {1010, 1020},
+  {1010, 1030},
+  {1010, 1030},
+  {1020, 1010},
+  {1020, 1010},
+  {1020, 1020},
+  {1020, 1020},
+  {1020, 1030},
+  {1020, 1030},
+  {1030, 1010},
+  {1030, 1010},
+  {1030, 1020},
+  {1030, 1020},
+  {1030, 1030},
+  {1030, 1030}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[name=shortest_2_with_ties_counting_hops]
+select * from graph_table(aml
+  MATCH SHORTEST 2 (x:Account)((a)-[e:Transfer]->(b)){1, 3}(y:Account)
+  let hops = ARRAY_LENGTH(e)
+  return x.account_id AS x_id, y.account_id AS y_id, hops
+)
+order by x_id, y_id, hops
+--
+ARRAY<STRUCT<x_id INT64, y_id INT64, hops INT64>>[known order:
+  {1010, 1010, 1},
+  {1010, 1010, 2},
+  {1010, 1020, 1},
+  {1010, 1020, 1},
+  {1010, 1030, 2},
+  {1010, 1030, 2},
+  {1020, 1010, 2},
+  {1020, 1010, 2},
+  {1020, 1020, 3},
+  {1020, 1020, 3},
+  {1020, 1030, 1},
+  {1020, 1030, 1},
+  {1030, 1010, 1},
+  {1030, 1010, 2},
+  {1030, 1020, 2},
+  {1030, 1020, 2},
+  {1030, 1030, 3},
+  {1030, 1030, 3}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[name=shortest_10_with_ties_counting_hops]
+select * from graph_table(aml
+  MATCH SHORTEST 10 (x:Account)((a)-[e:Transfer]->(b)){1, 3}(y:Account)
+  let hops = ARRAY_LENGTH(e)
+  return x.account_id AS x_id, y.account_id AS y_id, hops
+)
+order by x_id, y_id, hops
+--
+ARRAY<STRUCT<x_id INT64, y_id INT64, hops INT64>>[known order:
+  {1010, 1010, 1},
+  {1010, 1010, 2},
+  {1010, 1010, 3},
+  {1010, 1010, 3},
+  {1010, 1010, 3},
+  {1010, 1010, 3},
+  {1010, 1010, 3},
+  {1010, 1020, 1},
+  {1010, 1020, 1},
+  {1010, 1020, 2},
+  {1010, 1020, 2},
+  {1010, 1020, 3},
+  {1010, 1020, 3},
+  {1010, 1030, 2},
+  {1010, 1030, 2},
+  {1010, 1030, 2},
+  {1010, 1030, 2},
+  {1010, 1030, 3},
+  {1010, 1030, 3},
+  {1010, 1030, 3},
+  {1010, 1030, 3},
+  {1020, 1010, 2},
+  {1020, 1010, 2},
+  {1020, 1010, 3},
+  {1020, 1010, 3},
+  {1020, 1020, 3},
+  {1020, 1020, 3},
+  {1020, 1020, 3},
+  {1020, 1020, 3},
+  {1020, 1030, 1},
+  {1020, 1030, 1},
+  {1030, 1010, 1},
+  {1030, 1010, 2},
+  {1030, 1010, 3},
+  {1030, 1020, 2},
+  {1030, 1020, 2},
+  {1030, 1020, 3},
+  {1030, 1020, 3},
+  {1030, 1030, 3},
+  {1030, 1030, 3},
+  {1030, 1030, 3},
+  {1030, 1030, 3}
+]
+==
+[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[name=any_10_with_ties_counting_hops]
+select * from graph_table(aml
+  MATCH ANY 10 (x:Account)((a)-[e:Transfer]->(b)){1, 3}(y:Account)
+  let hops = ARRAY_LENGTH(e)
+  return x.account_id AS x_id, y.account_id AS y_id, hops
+)
+order by x_id, y_id, hops
+--
+ARRAY<STRUCT<x_id INT64, y_id INT64, hops INT64>>[known order:
+  {1010, 1010, 1},
+  {1010, 1010, 2},
+  {1010, 1010, 3},
+  {1010, 1010, 3},
+  {1010, 1010, 3},
+  {1010, 1010, 3},
+  {1010, 1010, 3},
+  {1010, 1020, 1},
+  {1010, 1020, 1},
+  {1010, 1020, 2},
+  {1010, 1020, 2},
+  {1010, 1020, 3},
+  {1010, 1020, 3},
+  {1010, 1030, 2},
+  {1010, 1030, 2},
+  {1010, 1030, 2},
+  {1010, 1030, 2},
+  {1010, 1030, 3},
+  {1010, 1030, 3},
+  {1010, 1030, 3},
+  {1010, 1030, 3},
+  {1020, 1010, 2},
+  {1020, 1010, 2},
+  {1020, 1010, 3},
+  {1020, 1010, 3},
+  {1020, 1020, 3},
+  {1020, 1020, 3},
+  {1020, 1020, 3},
+  {1020, 1020, 3},
+  {1020, 1030, 1},
+  {1020, 1030, 1},
+  {1030, 1010, 1},
+  {1030, 1010, 2},
+  {1030, 1010, 3},
+  {1030, 1020, 2},
+  {1030, 1020, 2},
+  {1030, 1020, 3},
+  {1030, 1020, 3},
+  {1030, 1030, 3},
+  {1030, 1030, 3},
+  {1030, 1030, 3},
+  {1030, 1030, 3}
+]
+==
+
+[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[name=any_0_with_no_ties_counting_hops]
+select * from graph_table(aml
+  MATCH ANY 0 (x:Account)((a)-[e:Transfer WHERE e.amount != 400 AND e.amount != 200]->(b)){2}(y:Account)
+  let hops = ARRAY_LENGTH(e)
+  return x.account_id AS x_id, y.account_id AS y_id, hops
+)
+order by x_id, y_id, hops
+--
+ARRAY<STRUCT<x_id INT64, y_id INT64, hops INT64>>[]
+==
+[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[name=shortest_0_with_no_ties_counting_hops]
+select * from graph_table(aml
+  MATCH SHORTEST 0 (x:Account)((a)-[e:Transfer WHERE e.amount != 400 AND e.amount != 200]->(b)){2}(y:Account)
+  let hops = ARRAY_LENGTH(e)
+  return x.account_id AS x_id, y.account_id AS y_id, hops
+)
+order by x_id, y_id, hops
+--
+ARRAY<STRUCT<x_id INT64, y_id INT64, hops INT64>>[]
+==
+[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[name=any_2_with_no_ties_counting_hops]
+select * from graph_table(aml
+  MATCH ANY 2 (x:Account)((a)-[e:Transfer WHERE e.amount != 400 AND e.amount != 200]->(b)){2}(y:Account)
+  let hops = ARRAY_LENGTH(e)
+  return x.account_id AS x_id, y.account_id AS y_id, hops
+)
+order by x_id, y_id, hops
+--
+ARRAY<STRUCT<x_id INT64, y_id INT64, hops INT64>>[known order:
+  {1010, 1010, 2},
+  {1010, 1020, 2},
+  {1010, 1030, 2},
+  {1020, 1010, 2},
+  {1030, 1010, 2},
+  {1030, 1020, 2}
+]
+==
+[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[name=shortest_2_with_no_ties_counting_hops]
+select * from graph_table(aml
+  MATCH SHORTEST 2 (x:Account)((a)-[e:Transfer WHERE e.amount != 400 AND e.amount != 200]->(b)){2}(y:Account)
+  let hops = ARRAY_LENGTH(e)
+  return x.account_id AS x_id, y.account_id AS y_id, hops
+)
+order by x_id, y_id, hops
+--
+ARRAY<STRUCT<x_id INT64, y_id INT64, hops INT64>>[known order:
+  {1010, 1010, 2},
+  {1010, 1020, 2},
+  {1010, 1030, 2},
+  {1020, 1010, 2},
+  {1030, 1010, 2},
+  {1030, 1020, 2}
+]
+==
+[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[name=shortest_10_with_no_ties_counting_hops]
+select * from graph_table(aml
+  MATCH SHORTEST 10 (x:Account)((a)-[e:Transfer WHERE e.amount != 400 AND e.amount != 200]->(b)){2}(y:Account)
+  let hops = ARRAY_LENGTH(e)
+  return x.account_id AS x_id, y.account_id AS y_id, hops
+)
+order by x_id, y_id, hops
+--
+ARRAY<STRUCT<x_id INT64, y_id INT64, hops INT64>>[known order:
+  {1010, 1010, 2},
+  {1010, 1020, 2},
+  {1010, 1030, 2},
+  {1020, 1010, 2},
+  {1030, 1010, 2},
+  {1030, 1020, 2}
+]
+==
+[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[name=any_10_with_no_ties_counting_hops]
+select * from graph_table(aml
+  MATCH ANY 10 (x:Account)((a)-[e:Transfer WHERE e.amount != 400 AND e.amount != 200]->(b)){2}(y:Account)
+  let hops = ARRAY_LENGTH(e)
+  return x.account_id AS x_id, y.account_id AS y_id, hops
+)
+order by x_id, y_id, hops
+--
+ARRAY<STRUCT<x_id INT64, y_id INT64, hops INT64>>[known order:
+  {1010, 1010, 2},
+  {1010, 1020, 2},
+  {1010, 1030, 2},
+  {1020, 1010, 2},
+  {1030, 1010, 2},
+  {1030, 1020, 2}
+]
 
 ==
 [required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
@@ -4108,4 +4398,72 @@ ARRAY<STRUCT<src INT64, tgt INT64>>[known order:
   {1010, 1030},
   {1010, 1030},
   {1030, 1020}
+]
+==
+
+[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,TABLESAMPLE]
+[name=graph_sample_bernoulli_none]
+select *
+FROM GRAPH_TABLE(aml
+  match ALL (a IS Account)-[t IS transfer]->(tgt)
+  tablesample bernoulli(0 percent) WITH weight repeatable(123)
+  RETURN a.account_id AS src, t.amount, tgt.account_id AS tgt, weight
+) gt
+ORDER BY 1, 2, 3
+--
+ARRAY<STRUCT<src INT64, amount INT64, tgt INT64, weight DOUBLE>>[]
+==
+
+[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,TABLESAMPLE]
+[name=graph_sample_bernoulli_all]
+select *
+FROM GRAPH_TABLE(aml
+  match ALL (a IS Account)-[t IS transfer]->(tgt)
+  tablesample bernoulli(100 percent) WITH weight repeatable(123)
+  RETURN a.account_id AS src, t.amount, tgt.account_id AS tgt, weight
+) gt
+ORDER BY 1, 2, 3
+--
+ARRAY<STRUCT<src INT64, amount INT64, tgt INT64, weight DOUBLE>>[known order:
+  {1010, 100, 1020, 1},
+  {1010, 200, 1020, 1},
+  {1010, 600, 1010, 1},
+  {1020, 300, 1030, 1},
+  {1020, 400, 1030, 1},
+  {1030, 500, 1010, 1}
+]
+==
+
+[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,TABLESAMPLE]
+[name=graph_sample_bernoulli_invalid_percentage]
+[parameters=123 as p]
+select *
+FROM GRAPH_TABLE(aml
+  match ALL (a IS Account)-[t IS transfer]->(tgt)
+  tablesample bernoulli(@p percent) WITH weight repeatable(123)
+  RETURN a.account_id AS src, t.amount, tgt.account_id AS tgt, weight
+) gt
+ORDER BY 1, 2, 3
+--
+ERROR: generic::out_of_range: PERCENT value must be in the range [0, 100]
+==
+
+# Stratified sampling
+[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,TABLESAMPLE,STRATIFIED_RESERVOIR_TABLESAMPLE]
+[name=graph_sample_stratified_sampling]
+select *
+FROM GRAPH_TABLE(aml
+  match ALL (a IS Account)-[t IS transfer]->(tgt)
+  tablesample reservoir(1 ROWS PARTITION BY element_id(a), t.amount, element_id(tgt)) WITH weight repeatable(123)
+  RETURN a.account_id AS src, t.amount, tgt.account_id AS tgt, weight
+) gt
+ORDER BY 1, 2, 3
+--
+ARRAY<STRUCT<src INT64, amount INT64, tgt INT64, weight DOUBLE>>[known order:
+  {1010, 100, 1020, 1},
+  {1010, 200, 1020, 1},
+  {1010, 600, 1010, 1},
+  {1020, 300, 1030, 1},
+  {1020, 400, 1030, 1},
+  {1030, 500, 1010, 1}
 ]

@@ -70,6 +70,24 @@ class TemplatedSQLTVF : public TableValuedFunction {
         arg_name_list_(arg_name_list),
         parse_resume_location_(parse_resume_location) {}
 
+  // Constructs a new templated SQL TVF named <function_name_path>, with a
+  // single signature in <signature>. The <arg_name_list> should contain exactly
+  // one string for each argument name in <signature>, indicating the name of
+  // the argument. The <parse_resume_location> contains the source location
+  // and string contents of the table function's SQL query body. The
+  // <anonymization_info> contains anonymization properties, such as the user id
+  // column name.
+  TemplatedSQLTVF(const std::vector<std::string>& function_name_path,
+                  const FunctionSignature& signature,
+                  const std::vector<std::string>& arg_name_list,
+                  const ParseResumeLocation& parse_resume_location,
+                  std::unique_ptr<AnonymizationInfo> anonymization_info,
+                  TableValuedFunctionOptions tvf_options)
+      : TableValuedFunction(function_name_path, signature,
+                            std::move(anonymization_info), tvf_options),
+        arg_name_list_(arg_name_list),
+        parse_resume_location_(parse_resume_location) {}
+
   ~TemplatedSQLTVF() override = default;
 
   const std::vector<std::string>& GetArgumentNames() const {
@@ -200,6 +218,11 @@ class TemplatedSQLTVFSignature : public TVFSignature {
   const std::vector<std::string>& GetArgumentNames() const {
     return arg_name_list_;
   }
+
+  // Returns a copy of this TVF signature without the
+  // `resolved_templated_query_`.
+  std::shared_ptr<TemplatedSQLTVFSignature> CopyWithoutResolvedTemplatedQuery()
+      const;
 
  private:
   std::unique_ptr<const ResolvedQueryStmt> resolved_templated_query_;

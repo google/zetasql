@@ -17,23 +17,16 @@
 #include "zetasql/resolved_ast/resolved_ast_helper.h"
 
 #include <memory>
-#include <string>
 #include <vector>
 
-#include "zetasql/base/logging.h"
-#include "google/protobuf/descriptor.h"
-#include "zetasql/analyzer/query_resolver_helper.h"
-#include "zetasql/public/function.h"
-#include "zetasql/public/proto_util.h"
+#include "zetasql/public/id_string.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/make_node_vector.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/testdata/test_schema.pb.h"
-#include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "absl/memory/memory.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {

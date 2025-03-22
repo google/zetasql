@@ -19,6 +19,7 @@
 #include <ctype.h>
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <memory>
@@ -35,12 +36,13 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "absl/types/optional.h"
 #include "absl/types/span.h"
 #include "unicode/utf8.h"
+#include "re2/re2.h"
 #include "zetasql/base/status.h"
-#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 namespace functions {

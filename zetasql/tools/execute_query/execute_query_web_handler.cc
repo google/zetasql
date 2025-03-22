@@ -16,12 +16,14 @@
 
 #include "zetasql/tools/execute_query/execute_query_web_handler.h"
 
+#include <algorithm>
 #include <optional>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "zetasql/common/options_utils.h"
+#include "zetasql/resolved_ast/sql_builder.h"
 #include "zetasql/tools/execute_query/execute_query_tool.h"
 #include "zetasql/tools/execute_query/execute_query_web_writer.h"
 #include "zetasql/tools/execute_query/execute_query_writer.h"
@@ -31,6 +33,7 @@
 #include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
 #include "absl/strings/str_replace.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/strip.h"
@@ -63,9 +66,10 @@ ModeSet ModeSetFromStrings(absl::Span<const std::string> mode_strings) {
 
 ExecuteQueryWebRequest::ExecuteQueryWebRequest(
     absl::Span<const std::string> str_modes,
-    std::optional<ExecuteQueryConfig::SqlMode> sql_mode, std::string query,
-    std::string catalog, std::string enabled_language_features,
-    std::string enabled_ast_rewrites)
+    std::optional<ExecuteQueryConfig::SqlMode> sql_mode,
+    std::optional<SQLBuilder::TargetSyntaxMode> target_syntax_mode,
+    std::string query, std::string catalog,
+    std::string enabled_language_features, std::string enabled_ast_rewrites)
     : modes_(ModeSetFromStrings(str_modes)),
       query_(std::move(query)),
       catalog_(std::move(catalog)),
@@ -77,6 +81,15 @@ ExecuteQueryWebRequest::ExecuteQueryWebRequest(
     sql_mode_ =
         ExecuteQueryConfig::parse_sql_mode(absl::GetFlag(FLAGS_sql_mode))
             .value_or(ExecuteQueryConfig::SqlMode::kQuery);
+  }
+
+  if (target_syntax_mode.has_value()) {
+    target_syntax_mode_ = *target_syntax_mode;
+  } else {
+    target_syntax_mode_ =
+        ExecuteQueryConfig::parse_target_syntax_mode(
+            absl::GetFlag(FLAGS_target_syntax))
+            .value_or(SQLBuilder::TargetSyntaxMode::kStandard);
   }
 
   // TODO: Also default modes_ to flags if not supplied.
@@ -93,18 +106,40 @@ ExecuteQueryWebRequest::ExecuteQueryWebRequest(
   absl::StrReplaceAll({{"\xc2\xa0", " "}, {"\xa0", " "}}, &query_);
 }
 
+std::string ExecuteQueryWebRequest::DebugString() const {
+  std::vector<absl::string_view> modes;
+  for (const auto &mode : modes_) {
+    modes.push_back(ExecuteQueryConfig::tool_mode_name(mode));
+  }
+  std::sort(modes.begin(), modes.end());
+
+  absl::string_view sql_mode_name =
+      sql_mode_.has_value() ? ExecuteQueryConfig::sql_mode_name(*sql_mode_)
+                            : "none";
+
+  absl::string_view target_syntax_mode_name =
+      ExecuteQueryConfig::target_syntax_mode_name(target_syntax_mode_);
+
+  return absl::StrCat("modes: [", absl::StrJoin(modes, ","),
+                      "], catalog: ", catalog_, ", sql_mode: ", sql_mode_name,
+                      ", target_syntax_mode: ", target_syntax_mode_name,
+                      ", query_size: ", query_.size(), ", lang_features: ",
+                      GetEnabledLanguageFeaturesOptionsStr(),
+                      ", ast_rewrites: ", GetEnabledAstRewritesOptionsStr());
+}
+
 bool ExecuteQueryWebHandler::HandleRequest(
     const ExecuteQueryWebRequest &request, const Writer &writer) {
   mstch::map template_params = {{"query", request.query()},
                                 {"css", templates_.GetWebPageCSS()}};
 
   mstch::array catalogs;
-  for (const auto *selectable_catalog : GetSelectableCatalogs()) {
-    mstch::map entry = {
-        {"name", selectable_catalog->name()},
-        {"label", absl::StrCat(selectable_catalog->name(), " - ",
-                               selectable_catalog->description())}};
-    if (selectable_catalog->name() == request.catalog()) {
+  for (const SelectableCatalogInfo &catalog_info :
+       GetSelectableCatalogsInfo()) {
+    mstch::map entry = {{"name", std::string(catalog_info.name)},
+                        {"label", absl::StrCat(catalog_info.name, " - ",
+                                               catalog_info.description)}};
+    if (catalog_info.name == request.catalog()) {
       entry["selected"] = std::string("selected");
     }
     catalogs.push_back(entry);
@@ -151,13 +186,16 @@ bool ExecuteQueryWebHandler::HandleRequest(
   // are checked when the page is rendered again.
   for (const auto &mode : request.modes()) {
     template_params[absl::StrCat(
-        "mode_", ExecuteQueryConfig::tool_mode_name(mode))] = "1";
+        "mode_", ExecuteQueryConfig::tool_mode_name(mode))] = true;
   }
   if (request.sql_mode().has_value()) {
     template_params[absl::StrCat(
         "sql_mode_", ExecuteQueryConfig::sql_mode_name(*request.sql_mode()))] =
-        "1";
+        true;
   }
+  template_params[absl::StrCat("target_syntax_mode_",
+                               ExecuteQueryConfig::target_syntax_mode_name(
+                                   request.target_syntax_mode()))] = true;
 
   // Render the page.
   std::string rendered =
@@ -184,6 +222,8 @@ absl::Status ExecuteQueryWebHandler::ExecuteQueryImpl(
   if (request.sql_mode().has_value()) {
     config.set_sql_mode(*request.sql_mode());
   }
+  config.set_target_syntax_mode(request.target_syntax_mode());
+
   config.mutable_analyzer_options().set_error_message_mode(
       ERROR_MESSAGE_MULTI_LINE_WITH_CARET);
 
@@ -200,6 +240,9 @@ absl::Status ExecuteQueryWebHandler::ExecuteQueryImpl(
         .mutable_language()
         ->SetEnabledLanguageFeatures({language_features->options.begin(),
                                       language_features->options.end()});
+
+    config.SetBuiltinsCatalogFromLanguageOptions(
+        config.analyzer_options().language());
   }
 
   const std::string &enabled_ast_rewrites =

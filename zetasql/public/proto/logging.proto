@@ -49,6 +49,8 @@ message ExecutionStats {
 // We expect incomplete information in error cases.
 message AnalyzerLogEntry {
   enum LoggedOperationCategory {
+    reserved 6;
+
     UNKNOWN_LOGGED_OPERATION_CATEGORY = 0;
     // Parsing may not occur for pre-parsed queries.
     PARSER = 1;

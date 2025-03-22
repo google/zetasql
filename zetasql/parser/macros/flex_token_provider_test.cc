@@ -31,6 +31,7 @@ namespace zetasql {
 namespace parser {
 namespace macros {
 
+using ::testing::_;
 using ::testing::Eq;
 using ::testing::ExplainMatchResult;
 using ::testing::FieldsAre;
@@ -51,7 +52,8 @@ MATCHER_P(IsOkAndHoldsToken, expected, "") {
          ExplainMatchResult(
              FieldsAre(Eq(expected.kind), Eq(expected.location),
                        Eq(expected.text), Eq(expected.preceding_whitespaces),
-                       Eq(expected.topmost_invocation_location)),
+                       Eq(expected.topmost_invocation_location),
+                       _ /* parent */),
              arg.value(), result_listener);
 }
 
@@ -67,7 +69,9 @@ static ParseLocationRange MakeLocation(int start_offset, int end_offset) {
 
 static FlexTokenProvider MakeTokenProvider(absl::string_view input) {
   return FlexTokenProvider(kFileName, input,
-                           /*start_offset=*/0, /*end_offset=*/std::nullopt);
+                           /*start_offset=*/0, /*end_offset=*/std::nullopt,
+                           /*offset_in_original_input=*/0,
+                           /*force_flex=*/false);
 }
 
 TEST(FlexTokenProviderTest, RawTokenizerMode) {

@@ -414,9 +414,7 @@ static const auto all_literals = new std::set<ASTNodeKind>{
     ASTNodeKind::AST_DATE_OR_TIME_LITERAL};
 
 absl::StatusOr<std::string> DeidentifySQLIdentifiersAndLiterals(
-    absl::string_view input,
-    const zetasql::LanguageOptions& language_options) {
-  ParserOptions parser_options(language_options);
+    absl::string_view input, const ParserOptions& parser_options) {
   std::unique_ptr<zetasql::ParserOutput> parser_output;
   zetasql::ParseResumeLocation parse_resume =
       zetasql::ParseResumeLocation::FromStringView(input);
@@ -427,7 +425,7 @@ absl::StatusOr<std::string> DeidentifySQLIdentifiersAndLiterals(
   ZETASQL_RETURN_IF_ERROR(catalog.AddBuiltinFunctionsAndTypes(
       zetasql::BuiltinFunctionOptions::AllReleasedFunctions()));
   DeidentifyingUnparser unparser(
-      catalog, language_options, *all_literals,
+      catalog, parser_options.language_options(), *all_literals,
       {ASTNodeKind::AST_IDENTIFIER, ASTNodeKind::AST_ALIAS});
 
   do {
@@ -444,9 +442,7 @@ absl::StatusOr<std::string> DeidentifySQLIdentifiersAndLiterals(
 
 absl::StatusOr<DeidentificationResult> DeidentifySQLWithMapping(
     absl::string_view input, std::set<ASTNodeKind> deidentified_kinds,
-    std::set<ASTNodeKind> remapped_kinds,
-    const zetasql::LanguageOptions& language_options) {
-  ParserOptions parser_options(language_options);
+    std::set<ASTNodeKind> remapped_kinds, const ParserOptions& parser_options) {
   std::unique_ptr<zetasql::ParserOutput> parser_output;
   zetasql::ParseResumeLocation parse_resume =
       zetasql::ParseResumeLocation::FromStringView(input);
@@ -456,8 +452,8 @@ absl::StatusOr<DeidentificationResult> DeidentifySQLWithMapping(
   SimpleCatalog catalog("allowed identifiers for deidentification");
   ZETASQL_RETURN_IF_ERROR(catalog.AddBuiltinFunctionsAndTypes(
       zetasql::BuiltinFunctionOptions::AllReleasedFunctions()));
-  DeidentifyingUnparser unparser(catalog, language_options, deidentified_kinds,
-                                 remapped_kinds);
+  DeidentifyingUnparser unparser(catalog, parser_options.language_options(),
+                                 deidentified_kinds, remapped_kinds);
 
   for (bool at_end_of_input = false; !at_end_of_input;) {
     ZETASQL_RETURN_IF_ERROR(zetasql::ParseNextStatement(

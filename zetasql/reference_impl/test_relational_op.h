@@ -22,20 +22,28 @@
 #include <string>
 #include <vector>
 
+#include "zetasql/reference_impl/evaluation.h"
 #include "zetasql/reference_impl/operator.h"
+#include "zetasql/reference_impl/tuple.h"
 #include "zetasql/reference_impl/tuple_test_util.h"
+#include "zetasql/reference_impl/variable_id.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
+#include "absl/types/span.h"
+#include "zetasql/base/ret_check.h"
 
 namespace zetasql {
 
 class TestRelationalOp : public RelationalOp {
  public:
   TestRelationalOp(const std::vector<VariableId>& variables,
-                   const std::vector<TupleData>& values, bool preserves_order)
+                   const std::vector<TupleData>& values, bool preserves_order,
+                   bool may_preserve_order = false)
       : variables_(variables),
         values_(values),
-        preserves_order_(preserves_order) {}
+        preserves_order_(preserves_order),
+        may_preserve_order_(may_preserve_order) {}
 
   TestRelationalOp(const TestRelationalOp&) = delete;
   TestRelationalOp& operator=(const TestRelationalOp&) = delete;
@@ -74,10 +82,13 @@ class TestRelationalOp : public RelationalOp {
     return absl::StrCat("TestRelationalOp");
   }
 
+  bool may_preserve_order() const override { return may_preserve_order_; }
+
  private:
   const std::vector<VariableId> variables_;
   const std::vector<TupleData> values_;
   const bool preserves_order_;
+  const bool may_preserve_order_;
 };
 
 }  // namespace zetasql

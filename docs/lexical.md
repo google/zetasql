@@ -28,7 +28,7 @@ are [case-sensitive][case-sensitivity].
 
 + Must be enclosed by backtick (`) characters.
 + Can contain any characters, including spaces and symbols.
-+ Cannot be empty.
++ Can't be empty.
 + Have the same escape sequences as [string literals][string-literals].
 + If an identifier is the same as a [reserved keyword](#reserved_keywords), the
   identifier must be quoted. For example, the identifier `FROM` must be quoted.
@@ -41,28 +41,28 @@ are [case-sensitive][case-sensitivity].
 
 Path expression examples:
 
-```sql
+```zetasql
 -- Valid. _5abc and dataField are valid identifiers.
 _5abc.dataField
 
 -- Valid. `5abc` and dataField are valid identifiers.
 `5abc`.dataField
 
--- Invalid. 5abc is an invalid identifier because it is unquoted and starts
+-- Invalid. 5abc is an invalid identifier because it's unquoted and starts
 -- with a number rather than a letter or underscore.
 5abc.dataField
 
 -- Valid. abc5 and dataField are valid identifiers.
 abc5.dataField
 
--- Invalid. abc5! is an invalid identifier because it is unquoted and contains
--- a character that is not a letter, number, or underscore.
+-- Invalid. abc5! is an invalid identifier because it's unquoted and contains
+-- a character that isn't a letter, number, or underscore.
 abc5!.dataField
 
 -- Valid. `GROUP` and dataField are valid identifiers.
 `GROUP`.dataField
 
--- Invalid. GROUP is an invalid identifier because it is unquoted and is a
+-- Invalid. GROUP is an invalid identifier because it's unquoted and is a
 -- stand-alone reserved keyword.
 GROUP.dataField
 
@@ -72,47 +72,47 @@ abc5.GROUP
 
 Function examples:
 
-```sql
+```zetasql
 -- Valid. dataField is a valid identifier in a function called foo().
 foo().dataField
 ```
 
 Array access operation examples:
 
-```sql
+```zetasql
 -- Valid. dataField is a valid identifier in an array called items.
 items[OFFSET(3)].dataField
 ```
 
 Named query parameter examples:
 
-```sql
+```zetasql
 -- Valid. param and dataField are valid identifiers.
 @param.dataField
 ```
 
 Protocol buffer examples:
 
-```sql
+```zetasql
 -- Valid. dataField is a valid identifier in a protocol buffer called foo.
 (foo).dataField
 ```
 
 Table name examples:
 
-```sql
+```zetasql
 -- Valid table name.
 mytable287
 ```
 
-```sql
+```zetasql
 -- Invalid table name. The table name starts with a number and is
 -- unquoted.
 287mytable
 ```
 
-```sql
--- Invalid table name. The table name is unquoted and is not a valid
+```zetasql
+-- Invalid table name. The table name is unquoted and isn't a valid
 -- dashed identifier, as the part after the dash is neither a number nor
 -- an identifier starting with a letter or an underscore.
 mytable-287a
@@ -208,12 +208,12 @@ all, data types can be expressed as literals.
 
 A literal can contain one or more tokens. For example:
 
-  ```sql
+  ```zetasql
   -- This date literal has one token: '2014-01-31'
   SELECT DATE '2014-01-31'
   ```
 
-  ```sql
+  ```zetasql
   -- This date literal has three tokens: '2014', '-01', and '-31'
   SELECT DATE '2014' '-01' '-31'
   ```
@@ -222,19 +222,19 @@ When a literal contains multiple tokens, the tokens must be separated by
 whitespace, comments, or both. For example, the following date literals
 produce the same results:
 
-  ```sql
+  ```zetasql
   SELECT DATE '2014-01-31'
   ```
 
-  ```sql
+  ```zetasql
   SELECT DATE '2014' '-01' '-31'
   ```
 
-  ```sql
+  ```zetasql
   SELECT DATE /* year */ '2014' /* month */ '-01' /* day */ '-31'
   ```
 
-  ```sql
+  ```zetasql
   SELECT DATE /* year and month */ '2014' '-01' /* day */ '-31'
   ```
 
@@ -243,17 +243,17 @@ used with string tokens and bytes tokens can only be used with
 bytes tokens. If you try to use them together in a literal, an error is
 produced. For example:
 
-  ```sql
+  ```zetasql
   -- The following string literal contains string tokens.
   SELECT 'x' 'y' 'z'
   ```
 
-  ```sql
+  ```zetasql
   -- The following bytes literal contains bytes tokens.
   SELECT b'x' b'y' b'z'
   ```
 
-  ```sql
+  ```zetasql
   -- Error: string and bytes tokens can't be used together in the same literal.
   SELECT 'x' b'y'
   ```
@@ -270,7 +270,7 @@ String tokens can be one of the following
 
   Examples:
 
-  ```sql
+  ```zetasql
   -- Compatible format types can be used together in a string literal.
   SELECT 'abc' "d" '''ef'''
 
@@ -279,13 +279,13 @@ String tokens can be one of the following
    +--------*/
   ```
 
-  ```sql
+  ```zetasql
   -- \n is escaped in the raw string token but not in the quoted string token.
   SELECT '\na' r"\n"
 
   /*-----+
    |     |
-   | a/n |
+   | a\n |
    +-----*/
   ```
 
@@ -300,7 +300,7 @@ Bytes tokens can be one of the following
 
   Examples:
 
-  ```sql
+  ```zetasql
   -- Compatible format types can be used together in a bytes literal.
   SELECT b'\x41' b'''\x42''' b"""\x41"""
 
@@ -309,7 +309,7 @@ Bytes tokens can be one of the following
    +-----*/
   ```
 
-  ```sql
+  ```zetasql
   -- Control characters are escaped in the raw bytes tokens but not in the
   -- bytes token.
   SELECT b'\x41' RB'\x42' br'\x41'
@@ -321,7 +321,7 @@ Bytes tokens can be one of the following
 
 Additional examples:
 
-```sql
+```zetasql
 -- The following JSON literal is equivalent to: JSON '{"name":"my_file.md","regex":"\\d+"}'
 SELECT JSON '{"name": "my_file.md", "regex": ' /*start*/ r' "\\d+"' /*end*/ '}'
 
@@ -330,7 +330,7 @@ SELECT JSON '{"name": "my_file.md", "regex": ' /*start*/ r' "\\d+"' /*end*/ '}'
  +--------------------------------------*/
 ```
 
-```sql
+```zetasql
 -- The following NUMERIC literal is equivalent to: NUMERIC '-1.2'
 SELECT NUMERIC '-' "1" '''.''' r'2'
 
@@ -339,7 +339,7 @@ SELECT NUMERIC '-' "1" '''.''' r'2'
  +------*/
 ```
 
-```sql
+```zetasql
 -- The following NUMERIC literal is equivalent to: NUMERIC '1.23e-6 '
 SELECT NUMERIC "1" '''.'''' r'23' 'e-6'
 
@@ -348,7 +348,7 @@ SELECT NUMERIC "1" '''.'''' r'23' 'e-6'
  +------------*/
 ```
 
-```sql
+```zetasql
 -- The following DATE literal is equivalent to: DATE '2014-01-31'
 SELECT DATE /* year */ '2014' /* month and day */ "-01-31"
 
@@ -357,12 +357,12 @@ SELECT DATE /* year */ '2014' /* month and day */ "-01-31"
  +------------*/
 ```
 
-```sql
+```zetasql
 -- Error: Illegal escape sequence found in '\def'.
 SELECT r'abc' '\def'
 ```
 
-```sql
+```zetasql
 -- Error: backticks are reserved for quoted identifiers and not a valid
 -- format type.
 SELECT `abc` `def` AS results;
@@ -396,17 +396,17 @@ The following table lists all of the ways you can format a quoted literal.
 <tr>
 <td>Quoted string</td>
 <td><ul><li><code>"abc"</code></li><li><code>"it's"</code></li><li><code>'it\'s'</code></li><li><code>'Title: "Boy"'</code></li></ul></td>
-<td>Quoted strings enclosed by single (<code>'</code>) quotes can contain unescaped double (<code>"</code>) quotes, as well as the inverse. <br>Backslashes (<code>\</code>) introduce escape sequences. See the Escape Sequences table below.<br>Quoted strings cannot contain newlines, even when preceded by a backslash (<code>\</code>).</td>
+<td>Quoted strings enclosed by single (<code>'</code>) quotes can contain unescaped double (<code>"</code>) quotes, as well as the inverse. <br>Backslashes (<code>\</code>) introduce escape sequences. See the Escape Sequences table below.<br>Quoted strings can't contain newlines, even when preceded by a backslash (<code>\</code>).</td>
 </tr>
 <tr>
 <td>Triple-quoted string</td>
 <td><ul><li><code>"""abc"""</code></li><li><code>'''it's'''</code></li><li><code>'''Title:"Boy"'''</code></li><li><code>'''two<br>lines'''</code></li><li><code>'''why\?'''</code></li></ul></td>
-<td>Embedded newlines and quotes are allowed without escaping - see fourth example.<br>Backslashes (<code>\</code>) introduce escape sequences. See Escape Sequences table below.<br>A trailing unescaped backslash (<code>\</code>) at the end of a line is not allowed.<br>End the string with three unescaped quotes in a row that match the starting quotes.</td>
+<td>Embedded newlines and quotes are allowed without escaping - see fourth example.<br>Backslashes (<code>\</code>) introduce escape sequences. See Escape Sequences table below.<br>A trailing unescaped backslash (<code>\</code>) at the end of a line isn't allowed.<br>End the string with three unescaped quotes in a row that match the starting quotes.</td>
 </tr>
 <tr>
 <td>Raw string</td>
 <td><ul><li><code>r"abc+"</code></li><li> <code>r'''abc+'''</code></li><li> <code>r"""abc+"""</code></li><li><code>r'f\(abc,(.*),def\)'</code></li></ul></td>
-<td>Quoted or triple-quoted literals that have the raw string literal prefix (<code>r</code> or <code>R</code>) are interpreted as raw strings (sometimes described as regex strings).<br>Backslash characters (<code>\</code>) do not act as escape characters. If a backslash followed by another character occurs inside the string literal, both characters are preserved.<br>A raw string cannot end with an odd number of backslashes.<br>Raw strings are useful for constructing regular expressions.
+<td>Quoted or triple-quoted literals that have the raw string literal prefix (<code>r</code> or <code>R</code>) are interpreted as raw strings (sometimes described as regex strings).<br>Backslash characters (<code>\</code>) don't act as escape characters. If a backslash followed by another character occurs inside the string literal, both characters are preserved.<br>A raw string can't end with an odd number of backslashes.<br>Raw strings are useful for constructing regular expressions.
 The prefix is case-insensitive.
 </td>
 </tr>
@@ -502,11 +502,11 @@ this table produces an error.
 </tr>
 <tr>
 <td><code>\uhhhh</code></td>
-<td>Unicode escape, with lowercase 'u' and exactly 4 hex digits. Valid only in string literals or identifiers.<br/>Note that the range D800-DFFF is not allowed, as these are surrogate unicode values.</td>
+<td>Unicode escape, with lowercase 'u' and exactly 4 hex digits. Valid only in string literals or identifiers.<br/>Note that the range D800-DFFF isn't allowed, as these are surrogate unicode values.</td>
 </tr>
 <tr>
 <td><code>\Uhhhhhhhh</code></td>
-<td>Unicode escape, with uppercase 'U' and exactly 8 hex digits. Valid only in string literals or identifiers.<br/>The range D800-DFFF is not allowed, as these values are surrogate unicode values. Also, values greater than 10FFFF are not allowed.</td>
+<td>Unicode escape, with uppercase 'U' and exactly 8 hex digits. Valid only in string literals or identifiers.<br/>The range D800-DFFF isn't allowed, as these values are surrogate unicode values. Also, values greater than 10FFFF aren't allowed.</td>
 </tr>
 </tbody>
 </table>
@@ -515,7 +515,7 @@ this table produces an error.
 <a id="integer_literals"></a>
 
 Integer literals are either a sequence of decimal digits (0–9) or a hexadecimal
-value that is prefixed with "`0x`" or "`0X`". Integers can be prefixed by "`+`"
+value that's prefixed with "`0x`" or "`0X`". Integers can be prefixed by "`+`"
 or "`-`" to represent positive and negative values, respectively.
 Examples:
 
@@ -528,7 +528,7 @@ Examples:
 An integer literal is interpreted as an `INT64`.
 
 Coercion (implicit casting) of integer literals to other integer types can occur
-if casting does not result in truncation. For example, if the integer 55 of type
+if casting doesn't result in truncation. For example, if the integer 55 of type
 `INT32` is compared to the integer literal 77, the
 literal value 77 is coerced into type `INT32` because
 `77` can be represented by the `INT32` type.
@@ -543,7 +543,7 @@ You can construct `NUMERIC` literals using the
 
 Examples:
 
-```sql
+```zetasql
 SELECT NUMERIC '0';
 SELECT NUMERIC '123456';
 SELECT NUMERIC '-3.14';
@@ -562,7 +562,7 @@ by a floating point value in quotes.
 
 Examples:
 
-```sql
+```zetasql
 SELECT BIGNUMERIC '0';
 SELECT BIGNUMERIC '123456';
 SELECT BIGNUMERIC '-3.14';
@@ -579,7 +579,7 @@ A `BIGNUMERIC` literal represents a constant value of the
 
 Syntax options:
 
-```sql
+```zetasql
 [+-]DIGITS.[DIGITS][e[+-]DIGITS]
 [+-][DIGITS].DIGITS[e[+-]DIGITS]
 DIGITSe[+-]DIGITS
@@ -624,11 +624,11 @@ element type T is also optional.
 You can write an empty array of a specific type using `ARRAY<type>[]`. You can
 also write an untyped empty array using `[]`, in which case ZetaSQL
 attempts to infer the array type from the surrounding context. If
-ZetaSQL cannot infer a type, the default type `ARRAY<INT64>` is used.
+ZetaSQL can't infer a type, the default type `ARRAY<INT64>` is used.
 
 Examples:
 
-```sql
+```zetasql
 [1, 2, 3]
 ['x', 'y', 'xy']
 ARRAY[1, 2, 3]
@@ -693,7 +693,7 @@ A struct literal represents a constant value of the
 
 Syntax:
 
-```sql
+```zetasql
 DATE 'date_canonical_format'
 ```
 
@@ -705,14 +705,14 @@ years 1 and 9999, inclusive. Dates outside of this range are invalid.
 
 For example, the following date literal represents September 27, 2014:
 
-```sql
+```zetasql
 DATE '2014-09-27'
 ```
 
 String literals in canonical date format also implicitly coerce to DATE type
 when used where a DATE-type expression is expected. For example, in the query
 
-```sql
+```zetasql
 SELECT * FROM foo WHERE date_col = "2014-09-27"
 ```
 
@@ -727,7 +727,7 @@ A date literal represents a constant value of the
 
 Syntax:
 
-```sql
+```zetasql
 TIME 'time_canonical_format'
 ```
 
@@ -737,7 +737,7 @@ the canonical time format, enclosed in single quotation marks.
 
 For example, the following time represents 12:30 p.m.:
 
-```sql
+```zetasql
 TIME '12:30:00.45'
 ```
 
@@ -748,7 +748,7 @@ A time literal represents a constant value of the
 
 Syntax:
 
-```sql
+```zetasql
 DATETIME 'datetime_canonical_format'
 ```
 
@@ -759,7 +759,7 @@ conforms to the canonical datetime format, enclosed in single quotation marks.
 For example, the following datetime represents 12:30 p.m. on September 27,
 2014:
 
-```sql
+```zetasql
 DATETIME '2014-09-27 12:30:00.45'
 ```
 
@@ -771,7 +771,7 @@ datetime literal when used where a datetime expression is expected.
 
 For example:
 
-```sql
+```zetasql
 SELECT * FROM foo
 WHERE datetime_col = "2014-09-27 12:30:00.45"
 ```
@@ -783,7 +783,7 @@ A datetime literal can also include the optional character `T` or `t`. If
 you use this character, a space can't be included before or after it.
 These are valid:
 
-```sql
+```zetasql
 DATETIME '2014-09-27T12:30:00.45'
 DATETIME '2014-09-27t12:30:00.45'
 ```
@@ -808,7 +808,7 @@ Timestamps outside of this range are invalid.
 
 A timestamp literal can include a numerical suffix to indicate the time zone:
 
-```sql
+```zetasql
 TIMESTAMP '2014-09-27 12:30:00.45-08'
 ```
 
@@ -818,7 +818,7 @@ which is implementation defined, is used.
 For example, the following timestamp represents 12:30 p.m. on September 27,
 2014 in the default time zone, which is implementation defined:
 
-```sql
+```zetasql
 TIMESTAMP '2014-09-27 12:30:00.45'
 ```
 
@@ -830,7 +830,7 @@ timestamp expression is expected.  For example, in the following query, the
 string literal `"2014-09-27 12:30:00.45 America/Los_Angeles"` is coerced
 to a timestamp literal.
 
-```sql
+```zetasql
 SELECT * FROM foo
 WHERE timestamp_col = "2014-09-27 12:30:00.45 America/Los_Angeles"
 ```
@@ -843,7 +843,7 @@ A timestamp literal can include these optional characters:
 If you use one of these characters, a space can't be included before or after
 it. These are valid:
 
-```sql
+```zetasql
 TIMESTAMP '2017-01-18T12:34:56.123456Z'
 TIMESTAMP '2017-01-18t12:34:56.123456'
 TIMESTAMP '2017-01-18 12:34:56.123456z'
@@ -857,7 +857,7 @@ A timestamp literal represents a constant value of the
 <a id="timezone"></a>
 
 Since timestamp literals must be mapped to a specific point in time, a time zone
-is necessary to correctly interpret a literal. If a time zone is not specified
+is necessary to correctly interpret a literal. If a time zone isn't specified
 as part of the literal itself, then ZetaSQL uses the default time zone
 value, which the ZetaSQL implementation sets.
 
@@ -879,7 +879,7 @@ Time zones can also be expressed using string
 
 Examples:
 
-```sql
+```zetasql
 TIMESTAMP '2014-09-27 12:30:00 America/Los_Angeles'
 TIMESTAMP '2014-09-27 12:30:00 America/Argentina/Buenos_Aires'
 ```
@@ -888,7 +888,7 @@ TIMESTAMP '2014-09-27 12:30:00 America/Argentina/Buenos_Aires'
 
 Syntax:
 
-```sql
+```zetasql
 RANGE<T> '[lower_bound, upper_bound)'
 ```
 
@@ -899,59 +899,59 @@ if desired.
 
 Example of a date range literal with a lower and upper bound:
 
-```sql
+```zetasql
 RANGE<DATE> '[2020-01-01, 2020-12-31)'
 ```
 
 Example of a datetime range literal with a lower and upper bound:
 
-```sql
+```zetasql
 RANGE<DATETIME> '[2020-01-01 12:00:00, 2020-12-31 12:00:00)'
 ```
 
 Example of a timestamp range literal with a lower and upper bound:
 
-```sql
+```zetasql
 RANGE<TIMESTAMP> '[2020-10-01 12:00:00+08, 2020-12-31 12:00:00+08)'
 ```
 
 Examples of a range literal without a lower bound:
 
-```sql
+```zetasql
 RANGE<DATE> '[UNBOUNDED, 2020-12-31)'
 ```
-```sql
+```zetasql
 RANGE<DATE> '[NULL, 2020-12-31)'
 ```
 
 Examples of a range literal without an upper bound:
 
-```sql
+```zetasql
 RANGE<DATE> '[2020-01-01, UNBOUNDED)'
 ```
-```sql
+```zetasql
 RANGE<DATE> '[2020-01-01, NULL)'
 ```
 
 Examples of a range literal that includes all possible values:
 
-```sql
+```zetasql
 RANGE<DATE> '[UNBOUNDED, UNBOUNDED)'
 ```
 
-```sql
+```zetasql
 RANGE<DATE> '[NULL, NULL)'
 ```
 
 There must be a single whitespace after the comma in a range literal, otherwise
 an error is produced. For example:
 
-```sql
+```zetasql
 -- This range literal is valid:
 RANGE<DATE> '[2020-01-01, 2020-12-31)'
 ```
 
-```sql
+```zetasql
 -- This range literal produces an error:
 RANGE<DATE> '[2020-01-01,2020-12-31)'
 ```
@@ -976,7 +976,7 @@ and as an argument in some functions that support the interval data type.
 
 Syntax:
 
-```sql
+```zetasql
 INTERVAL int64_expression datetime_part
 ```
 
@@ -984,7 +984,7 @@ The single datetime part syntax includes an `INT64` expression and a
 single [interval-supported datetime part][interval-datetime-parts].
 For example:
 
-```sql
+```zetasql
 -- 0 years, 0 months, 5 days, 0 hours, 0 minutes, 0 seconds (0-0 5 0:0:0)
 INTERVAL 5 DAY
 
@@ -1000,7 +1000,7 @@ negative sign distributes over the years and months. Or, when a negative sign
 precedes the time part in an interval literal, the negative sign distributes
 over the hours, minutes, and seconds. For example:
 
-```sql
+```zetasql
 -- -2 years, -1 months, 0 days, 0 hours, 0 minutes, and 0 seconds (-2-1 0 0:0:0)
 INTERVAL -25 MONTH
 
@@ -1016,7 +1016,7 @@ see [Construct an interval with a single datetime part][construct-single-interva
 
 Syntax:
 
-```sql
+```zetasql
 INTERVAL datetime_parts_string starting_datetime_part TO ending_datetime_part
 ```
 
@@ -1027,7 +1027,7 @@ a [starting datetime part][interval-datetime-parts], and an
 
 For example:
 
-```sql
+```zetasql
 -- 0 years, 0 months, 0 days, 10 hours, 20 minutes, 30 seconds (0-0 0 10:20:30.520)
 INTERVAL '10:20:30.52' HOUR TO SECOND
 
@@ -1046,7 +1046,7 @@ negative sign distributes over the years and months. Or, when a negative sign
 precedes the time part in an interval literal, the negative sign distributes
 over the hours, minutes, and seconds.  For example:
 
-```sql
+```zetasql
 -- -23 years, -2 months, 10 days, -12 hours, -30 minutes, and 0 seconds (-23-2 10 -12:30:0)
 INTERVAL '-23-2 10 -12:30' YEAR TO MINUTE
 
@@ -1085,7 +1085,7 @@ An enum literal represents a constant value of the
 
 Syntax:
 
-```sql
+```zetasql
 JSON 'json_formatted_data'
 ```
 
@@ -1093,7 +1093,7 @@ A JSON literal represents [JSON][json-wiki]-formatted data.
 
 Example:
 
-```sql
+```zetasql
 JSON '
 {
   "id": 10,
@@ -1163,6 +1163,11 @@ ZetaSQL follows these rules for case sensitivity:
       <td>No</td>
       <td>&nbsp;</td>
     </tr>
+    <tr>
+      <td>Field names</td>
+      <td>No</td>
+      <td>&nbsp;</td>
+    </tr>
     
     <tr>
       <td>All type names except for protocol buffer type names</td>
@@ -1176,6 +1181,11 @@ ZetaSQL follows these rules for case sensitivity:
     </tr>
     
     <tr>
+      <td>Enum type names</td>
+      <td>Yes</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
       <td>String values</td>
       <td>Yes</td>
       <td>
@@ -1185,7 +1195,12 @@ ZetaSQL follows these rules for case sensitivity:
     <tr>
       <td>String comparisons</td>
       <td>Yes</td>
-      <td>&nbsp;</td>
+      <td>
+        
+        However, string comparisons are case-insensitive in <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md">collations</a>
+ that are case-insensitive. This behavior also applies to operations affected by collation, such as <code>GROUP BY</code> and <code>DISTINCT</code> clauses.
+        
+      </td>
     </tr>
     <tr>
       <td>Aliases within a query</td>
@@ -1205,6 +1220,7 @@ ZetaSQL follows these rules for case sensitivity:
       <td>Yes</td>
       <td>&nbsp;</td>
     </tr>
+    
     
     <tr>
       <td>Property graph names</td>
@@ -1231,7 +1247,7 @@ ZetaSQL follows these rules for case sensitivity:
 Keywords are a group of tokens that have special meaning in the ZetaSQL
 language, and  have the following characteristics:
 
- + Keywords cannot be used as identifiers unless enclosed by backtick (`) characters.
+ + Keywords can't be used as identifiers unless enclosed by backtick (`) characters.
  + Keywords are case-insensitive.
 
 ZetaSQL has the following reserved keywords.
@@ -1375,27 +1391,27 @@ SELECT name, release_date, FROM Books
 <a id="query_parameters"></a>
 
 You can use query parameters to substitute arbitrary expressions.
-However, query parameters cannot be used to substitute identifiers,
+However, query parameters can't be used to substitute identifiers,
 column names, table names, or other parts of the query itself.
 Query parameters are defined outside of the query statement.
 
 Client APIs allow the binding of parameter names to values; the query engine
 substitutes a bound value for a parameter at execution time.
 
-Query parameters cannot be used in the SQL body of these statements:
+Query parameters can't be used in the SQL body of these statements:
 `CREATE FUNCTION`, `CREATE TABLE FUNCTION`, `CREATE VIEW`, `CREATE MATERIALIZED VIEW`, and `CREATE PROCEDURE`.
 
 ### Named query parameters
 
 Syntax:
 
-```sql
+```zetasql
 @parameter_name
 ```
 
 A named query parameter is denoted using an [identifier][lexical-identifiers]
 preceded by the `@` character. Named query
-parameters cannot be used alongside [positional query
+parameters can't be used alongside [positional query
 parameters][positional-query-parameters].
 
 A named query parameter can start with an identifier or a reserved keyword.
@@ -1406,7 +1422,7 @@ An identifier can be unquoted or quoted.
 This example returns all rows where `LastName` is equal to the value of the
 named query parameter `myparam`.
 
-```sql
+```zetasql
 SELECT * FROM Roster WHERE LastName = @myparam
 ```
 
@@ -1414,7 +1430,7 @@ SELECT * FROM Roster WHERE LastName = @myparam
 
 Positional query parameters are denoted using the `?` character.
 Positional parameters are evaluated by the order in which they are passed in.
-Positional query parameters cannot be used
+Positional query parameters can't be used
 alongside [named query parameters][named-query-parameters].
 
 **Example:**
@@ -1424,14 +1440,14 @@ values passed into this query. The order in which these values are passed in
 matters. If the last name is passed in first, followed by the first name, the
 expected results will not be returned.
 
-```sql
+```zetasql
 SELECT * FROM Roster WHERE FirstName = ? and LastName = ?
 ```
 
 ## Hints 
 <a id="hints"></a>
 
-```sql
+```zetasql
 @{ hint [, ...] }
 
 hint:
@@ -1439,7 +1455,7 @@ hint:
 ```
 
 The purpose of a hint is to modify the execution strategy for a query
-without changing the result of the query. Hints generally do not affect query
+without changing the result of the query. Hints generally don't affect query
 semantics, but may have performance implications.
 
 Hint syntax requires the `@` character followed by curly braces.
@@ -1468,7 +1484,7 @@ In this example, a literal is assigned to a hint. This hint is only used
 with two database engines called `database_engine_a` and `database_engine_b`.
 The value for the hint is different for each database engine.
 
-```sql
+```zetasql
 @{ database_engine_a.file_count=23, database_engine_b.file_count=10 }
 ```
 
@@ -1484,22 +1500,22 @@ Use a single-line comment if you want the comment to appear on a line by itself.
 
 **Examples**
 
-```sql
+```zetasql
 # this is a single-line comment
 SELECT book FROM library;
 ```
 
-```sql
+```zetasql
 -- this is a single-line comment
 SELECT book FROM library;
 ```
 
-```sql
+```zetasql
 /* this is a single-line comment */
 SELECT book FROM library;
 ```
 
-```sql
+```zetasql
 SELECT book FROM library
 /* this is a single-line comment */
 WHERE book = "Ulysses";
@@ -1508,35 +1524,35 @@ WHERE book = "Ulysses";
 ### Inline comments
 
 Use an inline comment if you want the comment to appear on the same line as
-a statement. A comment that is prepended with `#` or `--` must appear to the
+a statement. A comment that's prepended with `#` or `--` must appear to the
 right of a statement.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT book FROM library; # this is an inline comment
 ```
 
-```sql
+```zetasql
 SELECT book FROM library; -- this is an inline comment
 ```
 
-```sql
+```zetasql
 SELECT book FROM library; /* this is an inline comment */
 ```
 
-```sql
+```zetasql
 SELECT book FROM library /* this is an inline comment */ WHERE book = "Ulysses";
 ```
 
 ### Multiline comments
 
 Use a multiline comment if you need the comment to span multiple lines.
-Nested multiline comments are not supported.
+Nested multiline comments aren't supported.
 
 **Examples**
 
-```sql
+```zetasql
 SELECT book FROM library
 /*
   This is a multiline comment
@@ -1545,7 +1561,7 @@ SELECT book FROM library
 WHERE book = "Ulysses";
 ```
 
-```sql
+```zetasql
 SELECT book FROM library
 /* this is a multiline comment
 on two lines */

@@ -23,7 +23,6 @@
 #include "zetasql/public/types/type_factory.h"
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
-#include "absl/types/span.h"
 
 namespace zetasql {
 // Similar to RewriteResolvedAst() in analyzer.h, except that it does

@@ -266,7 +266,7 @@ TEST_P(StringTemplateTest, Testlib) {
             args[1].int64_value(), args[2].int64_value());
       }
     }
-  } else if (function == "upper") {
+  } else if (function == "upper" || function == "ucase") {
     if (args[0].type_kind() == TYPE_BYTES) {
       TestBytesFunction<std::string>(&UpperBytes, param.params,
                                      args[0].bytes_value());
@@ -278,7 +278,7 @@ TEST_P(StringTemplateTest, Testlib) {
       TestStringFunction<std::string>(upper_function, param.params,
                                       args[0].string_value());
     }
-  } else if (function == "lower") {
+  } else if (function == "lower" || function == "lcase") {
     if (args[0].type_kind() == TYPE_BYTES) {
       TestBytesFunction<std::string>(&LowerBytes, param.params,
                                      args[0].bytes_value());

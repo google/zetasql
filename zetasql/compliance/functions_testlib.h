@@ -106,9 +106,12 @@ GetFunctionTestsCastBetweenDifferentArrayTypes(bool arrays_with_nulls);
 std::vector<QueryParamsWithResult> GetFunctionTestsCastTokenList();
 
 std::vector<QueryParamsWithResult> GetFunctionTestsBitwiseNot();
-std::vector<QueryParamsWithResult> GetFunctionTestsBitwiseOr();
-std::vector<QueryParamsWithResult> GetFunctionTestsBitwiseXor();
-std::vector<QueryParamsWithResult> GetFunctionTestsBitwiseAnd();
+std::vector<QueryParamsWithResult> GetFunctionTestsBitwiseOr(
+    bool with_mode_tests = false);
+std::vector<QueryParamsWithResult> GetFunctionTestsBitwiseXor(
+    bool with_mode_tests = false);
+std::vector<QueryParamsWithResult> GetFunctionTestsBitwiseAnd(
+    bool with_mode_tests = false);
 std::vector<QueryParamsWithResult> GetFunctionTestsBitwiseLeftShift();
 std::vector<QueryParamsWithResult> GetFunctionTestsBitwiseRightShift();
 std::vector<QueryParamsWithResult> GetFunctionTestsBitCount();
@@ -170,6 +173,8 @@ std::vector<FunctionTestCall> GetFunctionTestsDateFromUnixDate();
 std::vector<FunctionTestCall> GetFunctionTestsDateAdd();
 std::vector<FunctionTestCall> GetFunctionTestsDateSub();
 std::vector<FunctionTestCall> GetFunctionTestsDateAddSub();
+std::vector<FunctionTestCall> GetFunctionTestsAddDate();
+std::vector<FunctionTestCall> GetFunctionTestsSubDate();
 std::vector<FunctionTestCall> GetFunctionTestsDateTrunc();
 std::vector<FunctionTestCall> GetFunctionTestsDatetimeAddSub();
 std::vector<FunctionTestCall> GetFunctionTestsDatetimeDiff();
@@ -190,7 +195,9 @@ std::vector<FunctionTestCall> GetFunctionTestsFormatDateTimestamp();
 std::vector<FunctionTestCall> GetFunctionTestsFormatDatetime();
 std::vector<FunctionTestCall> GetFunctionTestsFormatTime();
 std::vector<FunctionTestCall> GetFunctionTestsParseDateTimestamp();
+std::vector<FunctionTestCall> GetFunctionTestsParseTimestampPicos();
 std::vector<FunctionTestCall> GetFunctionTestsCastStringToDateTimestamp();
+std::vector<FunctionTestCall> GetFunctionTestsCastStringToTimestampPicos();
 std::vector<FunctionTestCall> GetFunctionTestsTimestampConversion();
 std::vector<FunctionTestCall> GetFunctionTestsTimestampFromDate();
 
@@ -204,6 +211,11 @@ std::vector<FunctionTestCall> GetFunctionTestsConvertTimestampToDatetime();
 
 // Tests for CAST formatting of time types.
 std::vector<FunctionTestCall> GetFunctionTestsCastFormatDateTimestamp();
+
+std::vector<FunctionTestCall>
+GetFunctionTestsCastFormatTimestampPicosSuccessTests();
+std::vector<FunctionTestCall>
+GetFunctionTestsCastFormatTimestampPicosFailureTests();
 
 std::vector<FunctionTestCall> GetFunctionTestsIntervalConstructor();
 std::vector<FunctionTestCall> GetFunctionTestsIntervalComparisons();
@@ -220,9 +232,11 @@ std::vector<QueryParamsWithResult> GetFunctionTestsIntervalMultiply();
 std::vector<QueryParamsWithResult> GetFunctionTestsIntervalDivide();
 std::vector<QueryParamsWithResult> GetFunctionTestsExtractInterval();
 std::vector<FunctionTestCall> GetFunctionTestsJustifyInterval();
+std::vector<FunctionTestCall> GetFunctionTestsToSecondsInterval();
 
 std::vector<FunctionTestCall> GetFunctionTestsFromProto();
 std::vector<QueryParamsWithResult> GetFunctionTestsFromProto3TimeOfDay();
+std::vector<FunctionTestCall> GetFunctionTestsFromProtoDuration();
 
 std::vector<FunctionTestCall> GetFunctionTestsToProto();
 std::vector<QueryParamsWithResult> GetFunctionTestsToProto3TimeOfDay();
@@ -241,6 +255,8 @@ std::vector<FunctionTestCall> GetFunctionTestsUnicode();
 std::vector<FunctionTestCall> GetFunctionTestsChr();
 std::vector<FunctionTestCall> GetFunctionTestsOctetLength();
 std::vector<FunctionTestCall> GetFunctionTestsSubstring();
+std::vector<FunctionTestCall> GetFunctionTestsLcase();
+std::vector<FunctionTestCall> GetFunctionTestsUcase();
 std::vector<FunctionTestCall> GetFunctionTestsString();
 std::vector<FunctionTestCall> GetFunctionTestsInstr1();
 std::vector<FunctionTestCall> GetFunctionTestsInstr2();

@@ -337,3 +337,17 @@ ExportDataStmt
     +-column_list=KeyValue.[Key#1, Value#2]
     +-input_scan=
       +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+==
+
+# EXPORT DATA with a column of an unselectable type.
+# TODO Measures don't work in java yet.
+[no_java]
+[language_features=V_1_4_ENABLE_MEASURES]
+EXPORT DATA
+AS
+SELECT key, measure_count_star
+FROM MeasureTable_SingleKey
+--
+ERROR: Returning expressions of type MEASURE is not allowed [at 1:1]
+EXPORT DATA
+^

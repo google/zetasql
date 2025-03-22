@@ -22,23 +22,19 @@
 #include <initializer_list>
 #include <iosfwd>
 #include <memory>
+#include <optional>
 #include <ostream>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
 
-#include "google/protobuf/dynamic_message.h"
-#include "google/protobuf/message.h"
-#include "zetasql/common/float_margin.h"
 #include "zetasql/public/civil_time.h"
 #include "zetasql/public/interval_value.h"
 #include "zetasql/public/json_value.h"
-#include "zetasql/public/language_options.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
-#include "zetasql/public/timestamp_pico_value.h"
-#include "zetasql/public/token_list.h"
+#include "zetasql/public/timestamp_picos_value.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/extended_type.h"
@@ -50,7 +46,6 @@
 #include "zetasql/public/value_content.h"
 #include "absl/base/attributes.h"
 #include "absl/base/macros.h"
-#include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
@@ -147,17 +142,17 @@ class Value {
 
   // Accessors for accessing the data within atomic typed Values.
   // REQUIRES: !is_null().
-  int32_t int32_value() const;              // REQUIRES: int32_t type
-  int64_t int64_value() const;              // REQUIRES: int64_t type
-  uint32_t uint32_value() const;            // REQUIRES: uint32_t type
-  uint64_t uint64_value() const;            // REQUIRES: uint64_t type
-  bool bool_value() const;                  // REQUIRES: bool type
-  float float_value() const;                // REQUIRES: float type
-  double double_value() const;              // REQUIRES: double type
-  const std::string& string_value() const;  // REQUIRES: string type
-  const std::string& bytes_value() const;   // REQUIRES: bytes type
-  int32_t date_value() const;               // REQUIRES: date type
-  int32_t enum_value() const;               // REQUIRES: enum type
+  int32_t int32_value() const;                        // REQUIRES: int32_t type
+  int64_t int64_value() const;                        // REQUIRES: int64_t type
+  uint32_t uint32_value() const;                      // REQUIRES: uint32_t type
+  uint64_t uint64_value() const;                      // REQUIRES: uint64_t type
+  bool bool_value() const;                            // REQUIRES: bool type
+  float float_value() const;                          // REQUIRES: float type
+  double double_value() const;                        // REQUIRES: double type
+  const std::string& string_value() const;            // REQUIRES: string type
+  const std::string& bytes_value() const;             // REQUIRES: bytes type
+  int32_t date_value() const;                         // REQUIRES: date type
+  int32_t enum_value() const;                         // REQUIRES: enum type
   absl::StatusOr<std::string_view> EnumName() const;  // REQUIRES: enum type
   // Returns the name like "TESTENUM1" or number as string, like "7" if the name
   // is not known.
@@ -176,7 +171,7 @@ class Value {
   // does not fit into an int64_t.
   absl::Status ToUnixNanos(int64_t* nanos) const;  // REQUIRES: timestamp type.
 
-  const TimestampPicoValue& timestamp_pico_value() const;
+  const TimestampPicosValue& timestamp_picos_value() const;
 
   // Returns time and datetime values at micros precision as bitwise encoded
   // int64_t, see public/civil_time.h for the encoding.
@@ -301,7 +296,7 @@ class Value {
   absl::string_view GetDefinitionName() const;
 
   // Returns all the labels of the graph element, sorted by alphabet order
-  // case-insensitively.
+  // case-insensitively. The output preserves the original case.
   absl::Span<const std::string> GetLabels() const;
 
   // Returns the source/destination node identifier of the edge.
@@ -316,10 +311,20 @@ class Value {
   // Returns all the property values of the graph element.
   absl::Span<const Value> property_values() const;
 
-  // Returns the value of the property with the given 'name'. If one doesn't
-  // exist, returns an error status.
+  // Returns the value of the property in its union-ed graph element type with
+  // the given 'name'. If one doesn't exist, returns an error status.
   // Note that Value is designed to be copied cheaply.
   absl::StatusOr<Value> FindPropertyByName(const std::string& name) const;
+
+  // Returns the value of the property with a valid value with the given 'name'.
+  // If one doesn't exist, returns an error status.
+  // Note that Value is designed to be copied cheaply.
+  absl::StatusOr<Value> FindValidPropertyValueByName(
+      const std::string& name) const;
+
+  // Returns the value of the static property with the given 'name'. If one
+  // doesn't exist, returns an error status.
+  absl::StatusOr<Value> FindStaticPropertyByName(const std::string& name) const;
 
   // GraphPath-specific methods
   // Returns the number of graph elements in the path.
@@ -507,8 +512,8 @@ class Value {
   // Creates a timestamp value from absl::Time at nanoseconds precision.
   static Value Timestamp(absl::Time t);
 
-  // Creates a timestamp value from TimestampPico at picoseconds precision.
-  static Value TimestampPicos(TimestampPicoValue t);
+  // Creates a timestamp value from TimestampPicos at picoseconds precision.
+  static Value TimestampPicos(TimestampPicosValue t);
 
   // Creates a timestamp value from Unix micros.
   static Value TimestampFromUnixMicros(int64_t v);
@@ -568,6 +573,8 @@ class Value {
       return Value::Uuid(value);
     } else {
       constexpr int kNumBits = sizeof(T) * CHAR_BIT;
+      static_assert(kNumBits == 32 || kNumBits == 64,
+                    "Unsupported numeric type.");
       if constexpr (std::is_signed_v<T>) {
         if constexpr (kNumBits == 32) {
           return Value::Int32(value);
@@ -605,7 +612,7 @@ class Value {
       return Value::NullString();
     } else if constexpr (std::is_same_v<T, UuidValue>) {
       return Value::NullUuid();
-    } else if constexpr (std::is_same_v<T, TimestampPicoValue>) {
+    } else if constexpr (std::is_same_v<T, TimestampPicosValue>) {
       return Value::NullTimestampPicos();
     } else {
       constexpr int kNumBits = sizeof(T) * CHAR_BIT;
@@ -793,45 +800,76 @@ class Value {
   static absl::StatusOr<Value> MakeRangeFromValidatedInputs(
       const RangeType* range_type, const Value& start, const Value& end);
 
+  typedef std::pair<std::string, Value> Property;
+
+  // Contains labels and properties of a graph element.
+  // - `static_labels` must not be empty.
+  // - `static_properties` must be a subset of the declared static properties in
+  //    the containing GraphElementType.
+  struct GraphElementLabelsAndProperties {
+    std::vector<std::string> static_labels;
+    std::vector<Value::Property> static_properties;
+  };
+
   // Creates a graph node. A node has an identifier, a list of properties, a
   // definition name and a list of labels.
   // - <identifier> should not be empty;
   // - <properties> must be a subset of what is declared in <graph_element_type>
   // with matching types. otherwise returns an error.
-  typedef std::pair<std::string, Value> Property;
+  ABSL_DEPRECATED("Inline me!")
   static absl::StatusOr<Value> MakeGraphNode(
       const GraphElementType* graph_element_type, absl::string_view identifier,
       absl::Span<const Property> properties,
-      absl::Span<const std::string> labels, absl::string_view definition_name);
+      absl::Span<const std::string> labels, absl::string_view definition_name) {
+    return MakeGraphNode(
+        graph_element_type, identifier,
+        GraphElementLabelsAndProperties{
+            .static_labels = {labels.begin(), labels.end()},
+            .static_properties = {properties.begin(), properties.end()}},
+        definition_name);
+  }
   static absl::StatusOr<Value> MakeGraphNode(
-      const GraphElementType* graph_element_type, std::string identifier,
-      std::vector<Property> properties, std::vector<std::string> labels,
-      std::string definition_name);
+      const GraphElementType* graph_element_type, absl::string_view identifier,
+      const GraphElementLabelsAndProperties& labels_and_properties,
+      absl::string_view definition_name);
 
   // Creates a graph edge. An edge has an identifier, a source node identifier,
   // a destination node identifier, a definition name, and a list of properties.
   // - <identifier>, <source/dest_node_identifier> should not be empty;
   // - <properties> must be a subset of what is declared in <graph_element_type>
   // with matching types. otherwise returns an error.
+  ABSL_DEPRECATED("Inline me!")
   static absl::StatusOr<Value> MakeGraphEdge(
       const GraphElementType* graph_element_type, absl::string_view identifier,
       absl::Span<const Property> properties,
       absl::Span<const std::string> labels, absl::string_view definition_name,
       absl::string_view source_node_identifier,
-      absl::string_view dest_node_identifier);
+      absl::string_view dest_node_identifier) {
+    return MakeGraphEdge(
+        graph_element_type, identifier,
+        GraphElementLabelsAndProperties{
+            .static_labels = {labels.begin(), labels.end()},
+            .static_properties = {properties.begin(), properties.end()}},
+        definition_name, source_node_identifier, dest_node_identifier);
+  }
   static absl::StatusOr<Value> MakeGraphEdge(
-      const GraphElementType* graph_element_type, std::string identifier,
-      std::vector<Property> properties, std::vector<std::string> labels,
-      std::string definition_name, std::string source_node_identifier,
-      std::string dest_node_identifier);
+      const GraphElementType* graph_element_type, absl::string_view identifier,
+      const GraphElementLabelsAndProperties& labels_and_properties,
+      absl::string_view definition_name,
+      absl::string_view source_node_identifier,
+      absl::string_view dest_node_identifier);
 
   ABSL_DEPRECATED("Inline me!")
   static absl::StatusOr<Value> MakeGraphNode(
       const GraphElementType* graph_element_type, absl::string_view identifier,
       absl::Span<const Property> properties,
       absl::Span<const std::string> labels) {
-    return MakeGraphNode(graph_element_type, identifier, properties, labels,
-                         /*definition_name=*/"");
+    return MakeGraphNode(
+        graph_element_type, identifier,
+        GraphElementLabelsAndProperties{
+            .static_labels = {labels.begin(), labels.end()},
+            .static_properties = {properties.begin(), properties.end()}},
+        /*definition_name=*/"");
   }
 
   ABSL_DEPRECATED("Inline me!")
@@ -841,9 +879,12 @@ class Value {
       absl::Span<const std::string> labels,
       absl::string_view source_node_identifier,
       absl::string_view dest_node_identifier) {
-    return MakeGraphEdge(graph_element_type, identifier, properties, labels,
-                         /*definition_name=*/"", source_node_identifier,
-                         dest_node_identifier);
+    return MakeGraphEdge(
+        graph_element_type, identifier,
+        GraphElementLabelsAndProperties{
+            .static_labels = {labels.begin(), labels.end()},
+            .static_properties = {properties.begin(), properties.end()}},
+        /*definition_name=*/"", source_node_identifier, dest_node_identifier);
   }
 
   // Create a graph path. A path is a list of interleaved nodes and edges given
@@ -978,8 +1019,8 @@ class Value {
   // Constructs a timestamp value.
   explicit Value(absl::Time t);
 
-  // Constructs a timestamp_pico value.
-  explicit Value(const TimestampPicoValue& t);
+  // Constructs a timestamp_picos value.
+  explicit Value(const TimestampPicosValue& t);
 
   // Constructs a TIME value.
   explicit Value(TimeValue time);
@@ -1060,7 +1101,7 @@ class Value {
   // explanation.
   static absl::StatusOr<Value> MakeGraphElement(
       const GraphElementType* graph_element_type, std::string identifier,
-      std::vector<Property>, std::vector<std::string> labels,
+      const GraphElementLabelsAndProperties& labels_and_properties,
       std::string definition_name, std::string source_node_identifier,
       std::string dest_node_identifier);
 
@@ -1243,16 +1284,17 @@ class Value {
     internal::NumericRef*
         numeric_ptr_;  // Owned. Used for values of TYPE_NUMERIC.
     internal::BigNumericRef*
-        bignumeric_ptr_;           // Owned. Used for values of TYPE_BIGNUMERIC.
-    internal::TimestampPicoRef*
-        timestamp_pico_ptr_;  // Owned. Used for values of TYPE_TIMESTAMP_NANO.
+        bignumeric_ptr_;  // Owned. Used for values of TYPE_BIGNUMERIC.
+    internal::TimestampPicosRef*
+        timestamp_picos_ptr_;      // Owned. Used for values of
+                                   // TYPE_TIMESTAMP_PICOS.
     internal::JSONRef* json_ptr_;  // Owned. Used for values of TYPE_JSON.
     internal::IntervalRef*
         interval_ptr_;  // Owned. Used for values of TYPE_INTERVAL.
     internal::TokenListRef*
         tokenlist_ptr_;  // Owned. Used for values of TYPE_TOKENLIST.
     internal::ValueContentMapRef*
-        map_ptr_;  // Owned. Used for values of TYPE_MAP.
+        map_ptr_;                  // Owned. Used for values of TYPE_MAP.
     internal::UuidRef* uuid_ptr_;  // Owned. Used for values of TYPE_UUID.
   };
   // Intentionally copyable.
@@ -1292,7 +1334,7 @@ Value Date(int32_t v);
 Value Date(absl::CivilDay d);
 Value Timestamp(absl::Time t);
 Value TimestampFromUnixMicros(int64_t v);
-Value TimestampPico(TimestampPicoValue t);
+Value TimestampPicos(TimestampPicosValue t);
 
 Value Time(TimeValue time);
 Value TimeFromPacked64Micros(int64_t v);
@@ -1333,7 +1375,7 @@ Value NullString();
 Value NullBytes();
 Value NullDate();
 Value NullTimestamp();
-Value NullTimestampPico();
+Value NullTimestampPicos();
 Value NullTime();
 Value NullDatetime();
 Value NullInterval();
@@ -1365,7 +1407,7 @@ Value JsonArray(absl::Span<const JSONValue> values);
 // 'values' are JSON values (e.g. '{"a": 10}') and not literal strings values.
 Value UnvalidatedJsonStringArray(absl::Span<const std::string> values);
 Value TimestampArray(absl::Span<const absl::Time> values);
-Value TimestampPicosArray(absl::Span<const TimestampPicoValue> values);
+Value TimestampPicosArray(absl::Span<const TimestampPicosValue> values);
 
 }  // namespace values
 }  // namespace zetasql

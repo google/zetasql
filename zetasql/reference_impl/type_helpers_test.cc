@@ -17,6 +17,11 @@
 #include "zetasql/reference_impl/type_helpers.h"
 
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/public/id_string.h"
+#include "zetasql/public/types/array_type.h"
+#include "zetasql/public/types/struct_type.h"
+#include "zetasql/public/types/type_factory.h"
+#include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/testing/using_test_value.cc"  // NOLINT
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"

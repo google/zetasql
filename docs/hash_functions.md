@@ -84,7 +84,7 @@ INT64
 
 **Examples**
 
-```sql
+```zetasql
 WITH example AS (
   SELECT 1 AS x, "foo" AS y, true AS z UNION ALL
   SELECT 2 AS x, "apple" AS y, false AS z UNION ALL
@@ -129,7 +129,7 @@ For increased security use another hashing function.
 
 **Example**
 
-```sql
+```zetasql
 SELECT MD5("Hello World") as md5;
 
 /*-------------------------------------------------*
@@ -164,7 +164,7 @@ For increased security, use another hashing function.
 
 **Example**
 
-```sql
+```zetasql
 SELECT SHA1("Hello World") as sha1;
 
 /*-----------------------------------------------------------*
@@ -196,7 +196,7 @@ This function returns 32 bytes.
 
 **Example**
 
-```sql
+```zetasql
 SELECT SHA256("Hello World") as sha256;
 ```
 
@@ -222,7 +222,7 @@ This function returns 64 bytes.
 
 **Example**
 
-```sql
+```zetasql
 SELECT SHA512("Hello World") as sha512;
 ```
 

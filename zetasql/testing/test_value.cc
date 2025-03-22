@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "zetasql/common/float_margin.h"
+#include "zetasql/public/json_value.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/graph_element_type.h"
 #include "zetasql/public/types/type.h"
@@ -121,7 +122,8 @@ const GraphElementType* InferGraphElementType(
     absl::Span<const std::string> graph_reference,
     GraphElementType::ElementKind element_kind,
     absl::Span<const std::pair<std::string, Value>> properties,
-    TypeFactory* type_factory) {
+    TypeFactory* type_factory
+) {
   std::vector<GraphElementType::PropertyType> property_types;
   property_types.reserve(properties.size());
   for (const auto& property : properties) {
@@ -133,31 +135,39 @@ const GraphElementType* InferGraphElementType(
 
 }  // namespace
 
-Value GraphNode(absl::Span<const std::string> graph_reference,
-                absl::string_view identifier,
-                absl::Span<const std::pair<std::string, Value>> properties,
-                absl::Span<const std::string> labels,
-                absl::string_view definition_name, TypeFactory* type_factory) {
-  const GraphElementType* graph_element_type = InferGraphElementType(
-      graph_reference, GraphElementType::kNode, properties, type_factory);
+Value GraphNode(
+    absl::Span<const std::string> graph_reference, absl::string_view identifier,
+    absl::Span<const std::pair<std::string, Value>> static_properties,
+    absl::Span<const std::string> static_labels,
+    absl::string_view definition_name, TypeFactory* type_factory) {
+  const GraphElementType* graph_element_type =
+      InferGraphElementType(graph_reference, GraphElementType::kNode,
+                            static_properties, type_factory);
+  Value::GraphElementLabelsAndProperties labels_and_properties{
+      .static_labels = {static_labels.begin(), static_labels.end()},
+      .static_properties = {static_properties.begin(),
+                            static_properties.end()}};
   absl::StatusOr<Value> graph_element = Value::MakeGraphNode(
-      graph_element_type, identifier, properties, labels, definition_name);
+      graph_element_type, identifier, labels_and_properties, definition_name);
   ZETASQL_CHECK_OK(graph_element);  // Crash ok
   return *graph_element;
 }
 
-Value GraphEdge(absl::Span<const std::string> graph_reference,
-                absl::string_view identifier,
-                absl::Span<const std::pair<std::string, Value>> properties,
-                absl::Span<const std::string> labels,
-                absl::string_view definition_name,
-                absl::string_view source_node_identifier,
-                absl::string_view dest_node_identifier,
-                TypeFactory* type_factory) {
-  const GraphElementType* graph_element_type = InferGraphElementType(
-      graph_reference, GraphElementType::kEdge, properties, type_factory);
+Value GraphEdge(
+    absl::Span<const std::string> graph_reference, absl::string_view identifier,
+    absl::Span<const std::pair<std::string, Value>> static_properties,
+    absl::Span<const std::string> static_labels,
+    absl::string_view definition_name, absl::string_view source_node_identifier,
+    absl::string_view dest_node_identifier, TypeFactory* type_factory) {
+  const GraphElementType* graph_element_type =
+      InferGraphElementType(graph_reference, GraphElementType::kEdge,
+                            static_properties, type_factory);
+  Value::GraphElementLabelsAndProperties labels_and_properties{
+      .static_labels = {static_labels.begin(), static_labels.end()},
+      .static_properties = {static_properties.begin(),
+                            static_properties.end()}};
   absl::StatusOr<Value> graph_element = Value::MakeGraphEdge(
-      graph_element_type, identifier, properties, labels, definition_name,
+      graph_element_type, identifier, labels_and_properties, definition_name,
       source_node_identifier, dest_node_identifier);
   ZETASQL_CHECK_OK(graph_element);  // Crash ok
   return *graph_element;

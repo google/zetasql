@@ -16,17 +16,19 @@
 
 #include "zetasql/analyzer/all_rewriters.h"
 
-#include <vector>
 
 #include "zetasql/analyzer/rewriters/aggregation_threshold_rewriter.h"
 #include "zetasql/analyzer/rewriters/anonymization_rewriter.h"
-#include "zetasql/analyzer/rewriters/array_functions_rewriter.h"
 #include "zetasql/analyzer/rewriters/builtin_function_inliner.h"
 #include "zetasql/analyzer/rewriters/flatten_rewriter.h"
+#include "zetasql/analyzer/rewriters/generalized_query_stmt_rewriter.h"
 #include "zetasql/analyzer/rewriters/grouping_set_rewriter.h"
 #include "zetasql/analyzer/rewriters/insert_dml_values_rewriter.h"
+#include "zetasql/analyzer/rewriters/is_first_is_last_function_rewriter.h"
 #include "zetasql/analyzer/rewriters/like_any_all_rewriter.h"
 #include "zetasql/analyzer/rewriters/map_function_rewriter.h"
+#include "zetasql/analyzer/rewriters/match_recognize_function_rewriter.h"
+#include "zetasql/analyzer/rewriters/measure_type_rewriter.h"
 #include "zetasql/analyzer/rewriters/multiway_unnest_rewriter.h"
 #include "zetasql/analyzer/rewriters/nulliferror_function_rewriter.h"
 #include "zetasql/analyzer/rewriters/order_by_and_limit_in_aggregate_rewriter.h"
@@ -38,6 +40,7 @@
 #include "zetasql/analyzer/rewriters/sql_view_inliner.h"
 #include "zetasql/analyzer/rewriters/typeof_function_rewriter.h"
 #include "zetasql/analyzer/rewriters/unpivot_rewriter.h"
+#include "zetasql/analyzer/rewriters/update_constructor_rewriter.h"
 #include "zetasql/analyzer/rewriters/with_expr_rewriter.h"
 #include "zetasql/public/options.pb.h"
 #include "absl/base/call_once.h"
@@ -65,6 +68,14 @@ void RegisterBuiltinRewriters() {
     r.Register(ResolvedASTRewrite::REWRITE_INLINE_SQL_VIEWS,
                GetSqlViewInliner());
 
+    // TODO: b/350555383 - Figure if the measure type rewriter needs to be run
+    // before the function inliners.
+    r.Register(ResolvedASTRewrite::REWRITE_MEASURE_TYPE,
+               GetMeasureTypeRewriter());
+
+    r.Register(ResolvedASTRewrite::REWRITE_UPDATE_CONSTRUCTOR,
+               GetUpdateConstructorRewriter());
+
     r.Register(ResolvedASTRewrite::REWRITE_FLATTEN, GetFlattenRewriter());
     r.Register(ResolvedASTRewrite::REWRITE_ANONYMIZATION,
                GetAnonymizationRewriter());
@@ -72,12 +83,8 @@ void RegisterBuiltinRewriters() {
                GetAggregationThresholdRewriter());
     r.Register(ResolvedASTRewrite::REWRITE_PROTO_MAP_FNS,
                GetMapFunctionRewriter());
-    r.Register(ResolvedASTRewrite::REWRITE_ARRAY_FILTER_TRANSFORM,
-               GetArrayFilterTransformRewriter());
     r.Register(ResolvedASTRewrite::REWRITE_UNPIVOT, GetUnpivotRewriter());
     r.Register(ResolvedASTRewrite::REWRITE_PIVOT, GetPivotRewriter());
-    r.Register(ResolvedASTRewrite::REWRITE_ARRAY_INCLUDES,
-               GetArrayIncludesRewriter());
     r.Register(ResolvedASTRewrite::REWRITE_TYPEOF_FUNCTION,
                GetTypeofFunctionRewriter());
     r.Register(ResolvedASTRewrite::REWRITE_NULLIFERROR_FUNCTION,
@@ -86,6 +93,10 @@ void RegisterBuiltinRewriters() {
                GetBuiltinFunctionInliner());
     r.Register(ResolvedASTRewrite::REWRITE_LIKE_ANY_ALL,
                GetLikeAnyAllRewriter());
+    r.Register(ResolvedASTRewrite::REWRITE_IS_FIRST_IS_LAST_FUNCTION,
+               GetIsFirstIsLastFunctionRewriter());
+    r.Register(ResolvedASTRewrite::REWRITE_MATCH_RECOGNIZE_FUNCTION,
+               GetMatchRecognizeFunctionRewriter());
 
     r.Register(ResolvedASTRewrite::REWRITE_GROUPING_SET,
                GetGroupingSetRewriter());
@@ -96,6 +107,9 @@ void RegisterBuiltinRewriters() {
     r.Register(ResolvedASTRewrite::REWRITE_PIPE_ASSERT,
                GetPipeAssertRewriter());
     r.Register(ResolvedASTRewrite::REWRITE_PIPE_IF, GetPipeIfRewriter());
+    // REWRITE_PIPE_IF must happen before REWRITE_GENERALIZED_QUERY_STMT.
+    r.Register(ResolvedASTRewrite::REWRITE_GENERALIZED_QUERY_STMT,
+               GetGeneralizedQueryStmtRewriter());
     r.Register(ResolvedASTRewrite::REWRITE_ORDER_BY_AND_LIMIT_IN_AGGREGATE,
                GetOrderByAndLimitInAggregateRewriter());
 

@@ -23,7 +23,6 @@
 #include <limits>
 #include <map>
 #include <memory>
-#include <new>
 #include <optional>
 #include <string>
 #include <utility>
@@ -5230,15 +5229,13 @@ absl::Status RewriterVisitor::VisitResolvedAggregationThresholdAggregateScan(
           node, {.name = "AGGREGATION_THRESHOLD", .uses_a_article = false},
           options_uid_column, /*public_groups_state=*/nullptr));
   auto [rewritten_scan, inner_uid_column] = std::move(rewrite_per_user_result);
-  auto privacy_unit_column =
-      GetResolvedColumn(inner_uid_column.get()).value_or(ResolvedColumn());
   // Construct a function call to count the number of distinct privacy units.
   FunctionCallBuilder builder(*analyzer_options_, *catalog_, *type_factory_);
-  ZETASQL_ASSIGN_OR_RETURN(
-      std::unique_ptr<const ResolvedExpr> count_distinct_uid,
-      builder.Count(MakeResolvedColumnRef(privacy_unit_column.type(),
-                                          privacy_unit_column, false),
-                    /*is_distinct=*/true));
+  std::unique_ptr<const ResolvedExpr> count_distinct_uid;
+  // Call the count function with the inner uid column.
+  ZETASQL_ASSIGN_OR_RETURN(count_distinct_uid,
+                   builder.Count(std::move(inner_uid_column),
+                                 /*is_distinct=*/true));
   // Create a column to hold the results of the privacy unit distinct count.
   ResolvedColumn count_column = allocator_->MakeCol(
       "$aggregate", "$privacy_unit_count", types::Int64Type());
@@ -5298,7 +5295,7 @@ absl::Status RewriterVisitor::VisitResolvedWithScan(
   // Remember the offset for the with_entry_list_size() number of nodes we add
   // to the list of all WITH entries, those are the ones we need to add back
   // to with_entry_list() after rewriting.
-  std::size_t local_with_entries_offset = with_entries_.size();
+  int64_t local_with_entries_offset = with_entries_.size();
   for (const std::unique_ptr<const ResolvedWithEntry>& entry :
        node->with_entry_list()) {
     with_entries_.emplace_back(new WithEntryRewriteState(
@@ -5308,11 +5305,13 @@ absl::Status RewriterVisitor::VisitResolvedWithScan(
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedScan> subquery,
                    ProcessNode(node->query()));
 
-  // Extract (and rewrite if needed) the WITH entries belonging to this node
-  // out of the WITH entries list.
+  // Extract (and rewrite if needed) the slice of WITH entries belonging to this
+  // node out of `with_entries_`.
+  // This is done in reverse order to ensure that entries are rewritten in the
+  // order that they are referenced.
   std::vector<std::unique_ptr<const ResolvedWithEntry>> copied_entries;
-  for (std::size_t i = local_with_entries_offset;
-       i < local_with_entries_offset + node->with_entry_list_size(); ++i) {
+  for (int64_t i = local_with_entries_offset + node->with_entry_list_size() - 1;
+       i >= local_with_entries_offset; --i) {
     WithEntryRewriteState& entry = *with_entries_[i];
     if (entry.rewritten_entry == nullptr) {
       // Copy unreferenced WITH entries.
@@ -5323,6 +5322,8 @@ absl::Status RewriterVisitor::VisitResolvedWithScan(
     copied_entries.emplace_back(std::move(entry.rewritten_entry_owned));
   }
   ZETASQL_RET_CHECK_EQ(copied_entries.size(), node->with_entry_list_size());
+  // Reverse the list to match the order of the original WITH entries.
+  std::reverse(copied_entries.begin(), copied_entries.end());
 
   // Copy the with scan now that we have the subquery and WITH entry list
   // copied.

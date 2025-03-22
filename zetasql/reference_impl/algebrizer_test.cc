@@ -39,6 +39,8 @@
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/types/extended_type.h"
+#include "zetasql/public/types/value_equality_check_options.h"
 #include "zetasql/public/value.h"
 #include "zetasql/reference_impl/operator.h"
 #include "zetasql/reference_impl/parameters.h"
@@ -51,14 +53,17 @@
 #include "zetasql/testing/using_test_value.cc"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/hash/hash.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
+#include "zetasql/base/compact_reference_counted.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
@@ -71,6 +76,156 @@ namespace zetasql {
 
 static const auto DEFAULT_ERROR_MODE =
     ResolvedFunctionCallBase::DEFAULT_ERROR_MODE;
+
+class NewTypeRef final : public zetasql_base::refcount::CompactReferenceCounted<NewTypeRef> {
+ public:
+  NewTypeRef() = default;
+  explicit NewTypeRef(absl::Cord normalized)
+      : normalized_(std::move(normalized)) {}
+
+  NewTypeRef(const NewTypeRef&) = delete;
+  NewTypeRef& operator=(const NewTypeRef&) = delete;
+
+  const absl::Cord& value() const { return normalized_; }
+
+  uint64_t physical_byte_size() const {
+    uint64_t temp = sizeof(NewTypeRef) + normalized_.size() * sizeof(char);
+    return temp;
+  }
+
+ private:
+  const absl::Cord normalized_;
+};
+
+class NewType : public ExtendedType {
+ public:
+  explicit NewType(const TypeFactory* type_factory)
+      : ExtendedType(type_factory) {}
+  ~NewType() override = default;
+
+  std::string ShortTypeName(ProductMode unused) const override {
+    return "NEWTYPE";
+  }
+
+  std::string TypeName(ProductMode unused) const override {
+    return ShortTypeName(unused);
+  }
+
+  absl::StatusOr<std::string> TypeNameWithModifiers(
+      const TypeModifiers& type_modifiers, ProductMode mode) const override {
+    return ShortTypeName(/*unused=*/mode);
+  }
+
+  bool IsSupportedType(const LanguageOptions& language_options) const override {
+    return true;
+  }
+
+ protected:
+  absl::HashState HashTypeParameter(absl::HashState state) const override {
+    return state;  // Type doesn't have parameters.
+  }
+
+  absl::Status SerializeToProtoAndDistinctFileDescriptorsImpl(
+      const BuildFileDescriptorSetMapOptions& options, TypeProto* type_proto,
+      FileDescriptorSetMap* file_descriptor_set_map) const override {
+    type_proto->set_type_kind(zetasql::TypeKind::TYPE_EXTENDED);
+    type_proto->set_extended_type_name(TypeName(zetasql::PRODUCT_EXTERNAL));
+    return absl::OkStatus();
+  }
+
+  int64_t GetEstimatedOwnedMemoryBytesSize() const override {
+    return sizeof(*this);
+  }
+
+ private:
+  bool SupportsGroupingImpl(const LanguageOptions& language_options,
+                            const Type** no_grouping_type) const override {
+    if (no_grouping_type != nullptr) {
+      *no_grouping_type = nullptr;
+    }
+    return true;
+  }
+
+  bool SupportsPartitioningImpl(
+      const LanguageOptions& language_options,
+      const Type** no_partitioning_type) const override {
+    if (no_partitioning_type != nullptr) {
+      *no_partitioning_type = nullptr;
+    }
+    return true;
+  }
+
+  bool EqualsForSameKind(const Type* that, bool equivalent) const override {
+    return that == this;
+  }
+
+  void DebugStringImpl(bool details, TypeOrStringVector* stack,
+                       std::string* debug_string) const override {
+    absl::StrAppend(debug_string,
+                    ShortTypeName(/*unused=*/zetasql::PRODUCT_EXTERNAL));
+  }
+
+  void CopyValueContent(const ValueContent& from,
+                        ValueContent* to) const override {
+    from.GetAs<zetasql_base::refcount::CompactReferenceCounted<NewTypeRef>*>()->Ref();
+    *to = from;
+  }
+
+  void ClearValueContent(const ValueContent& value) const override {
+    value.GetAs<zetasql_base::refcount::CompactReferenceCounted<NewTypeRef>*>()->Unref();
+  }
+
+  bool ValueContentEquals(
+      const ValueContent& x, const ValueContent& y,
+      const zetasql::ValueEqualityCheckOptions& options) const override {
+    return x.GetAs<NewTypeRef*>()->value() == y.GetAs<NewTypeRef*>()->value();
+  }
+
+  bool ValueContentLess(const ValueContent& x, const ValueContent& y,
+                        const Type* other_type) const override {
+    return x.GetAs<NewTypeRef*>()->value() < y.GetAs<NewTypeRef*>()->value();
+  }
+
+  uint64_t GetValueContentExternallyAllocatedByteSize(
+      const ValueContent& value) const override {
+    return value.GetAs<NewTypeRef*>()->physical_byte_size();
+  }
+
+  absl::HashState HashValueContent(const ValueContent& value,
+                                   absl::HashState state) const override {
+    return absl::HashState::combine(std::move(state),
+                                    value.GetAs<NewTypeRef*>()->value());
+  }
+
+  std::string FormatValueContent(
+      const ValueContent& value,
+      const FormatValueContentOptions& options) const override {
+    std::string normalized;
+    normalized.reserve(value.GetAs<NewTypeRef*>()->value().size());
+    absl::CopyCordToString(value.GetAs<NewTypeRef*>()->value(), &normalized);
+    if (options.mode == FormatValueContentOptions::Mode::kSQLLiteral ||
+        options.mode == FormatValueContentOptions::Mode::kSQLExpression) {
+      return absl::StrCat("CAST('", normalized, "' AS ",
+                          ShortTypeName(zetasql::PRODUCT_EXTERNAL), ")");
+    }
+    return absl::StrCat(ShortTypeName(zetasql::PRODUCT_EXTERNAL), "(",
+                        normalized, ")");
+  }
+
+  absl::Status SerializeValueContent(const ValueContent& value,
+                                     ValueProto* value_proto) const override {
+    return absl::InvalidArgumentError(
+        absl::StrCat(ShortTypeName(/*unused=*/zetasql::PRODUCT_EXTERNAL),
+                     " does not support serializing value content."));
+  }
+
+  absl::Status DeserializeValueContent(const ValueProto& value_proto,
+                                       ValueContent* value) const override {
+    return absl::InvalidArgumentError(
+        absl::StrCat(ShortTypeName(/*unused=*/zetasql::PRODUCT_EXTERNAL),
+                     " does not support deserializing value content."));
+  }
+};
 
 class AlgebrizerTestBase : public ::testing::Test {
  public:
@@ -1147,6 +1302,52 @@ TEST_P(AlgebrizerTestFunctions, SelectFunctions) {
 INSTANTIATE_TEST_SUITE_P(AlgebrizerTestSelectFunctionsTest,
                          AlgebrizerTestFunctions,
                          ValuesIn(AlgebrizerTestFunctions::AllFunctionTests()));
+
+TEST_F(ExpressionAlgebrizerTest,
+       ExtendedTypeBuiltInFunction_WithCustomEvaluator) {
+  auto new_type = std::make_unique<NewType>(&type_factory_);
+  FunctionSignature signature(new_type.get(), {new_type.get()},
+                              /*context_id=*/-1);
+  FunctionOptions function_options;
+  function_options.set_evaluator(
+      [](absl::Span<const Value> args) -> absl::StatusOr<Value> {
+        ZETASQL_RET_CHECK(args.size() == 1);
+        return args[0];
+      });
+  Function function("abs", Function::kZetaSQLFunctionGroupName,
+                    Function::SCALAR, {signature}, function_options);
+
+  Value value = Value::Extended(
+      new_type.get(),
+      zetasql::ValueContent::Create(new NewTypeRef(absl::Cord("1"))));
+  auto function_call = MakeResolvedFunctionCall(
+      new_type.get(), &function, signature,
+      MakeNodeVectorP<const ResolvedExpr>(MakeResolvedLiteral(value)),
+      DEFAULT_ERROR_MODE);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ValueExpr> fct,
+                       TestAlgebrizeExpressionInternal(function_call.get()));
+  EXPECT_EQ(fct->DebugString(), "UDF[abs](ConstExpr(NEWTYPE(1)))");
+}
+
+TEST_F(ExpressionAlgebrizerTest,
+       ExtendedTypeBuiltInFunction_WithoutCustomEvaluator) {
+  auto new_type = std::make_unique<NewType>(&type_factory_);
+  FunctionSignature signature(new_type.get(), {new_type.get()},
+                              /*context_id=*/-1);
+  Function function("abs", Function::kZetaSQLFunctionGroupName,
+                    Function::SCALAR, {signature});
+
+  Value value = Value::Extended(
+      new_type.get(),
+      zetasql::ValueContent::Create(new NewTypeRef(absl::Cord("1"))));
+  auto function_call = MakeResolvedFunctionCall(
+      new_type.get(), &function, signature,
+      MakeNodeVectorP<const ResolvedExpr>(MakeResolvedLiteral(value)),
+      DEFAULT_ERROR_MODE);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ValueExpr> fct,
+                       TestAlgebrizeExpressionInternal(function_call.get()));
+  EXPECT_EQ(fct->DebugString(), "Abs(ConstExpr(NEWTYPE(1)))");
+}
 
 // Tests that the algebrizer does not crash on unknown functions.
 // TODO: add a test that calls the top-level Algebrize() method

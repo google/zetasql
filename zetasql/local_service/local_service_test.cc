@@ -860,6 +860,7 @@ TEST_F(ZetaSqlLocalServiceImplTest, ParseScript) {
                            parenthesized: false
                          }
                          id_string: "variable"
+                         is_quoted: false
                        }
                      }
                      type {
@@ -898,6 +899,7 @@ TEST_F(ZetaSqlLocalServiceImplTest, ParseScript) {
                                parenthesized: false
                              }
                              id_string: "INT64"
+                             is_quoted: false
                            }
                          }
                        }
@@ -931,6 +933,7 @@ TEST_F(ZetaSqlLocalServiceImplTest, ParseScript) {
                          parenthesized: false
                        }
                        id_string: "variable"
+                       is_quoted: false
                      }
                      expression {
                        ast_leaf_node {

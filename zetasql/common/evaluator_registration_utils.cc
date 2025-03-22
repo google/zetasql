@@ -19,7 +19,7 @@
 #include "zetasql/public/collator.h"
 #include "zetasql/reference_impl/functions/register_all.h"
 #include "absl/base/call_once.h"
-#include "zetasql/base/status_builder.h"
+#include "absl/strings/string_view.h"
 
 namespace zetasql::internal {
 

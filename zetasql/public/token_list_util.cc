@@ -27,10 +27,15 @@
 
 namespace zetasql {
 
-Value TokenListFromStringArray(std::vector<std::string> tokens) {
+Value TokenListFromStringArray(std::vector<std::string> tokens,
+                               const bool make_index) {
   tokens::TokenListBuilder tlb;
   for (const auto& t : tokens) {
-    tlb.Add(tokens::TextToken::Make(std::move(t)));
+    if (make_index) {
+      tlb.Add(tokens::TextToken::MakeIndex(std::move(t)));
+    } else {
+      tlb.Add(tokens::TextToken::Make(std::move(t)));
+    }
   }
   return Value::TokenList(tlb.Build());
 }

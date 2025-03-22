@@ -6532,6 +6532,320 @@ TEST_P(JsonQueryLaxTest, Success) {
       JsonEq(JSONValue::ParseJSONString(GetExpectedResult())->GetConstRef()));
 }
 
+struct JsonContainsTestCase {
+  std::string input;
+  std::string target;
+  bool expected;
+};
+
+void TestJsonContainsFn(absl::Span<const JsonContainsTestCase> cases) {
+  for (const auto& [input, target, expected] : cases) {
+    JSONValue input_value = JSONValue::ParseJSONString(input).value();
+    JSONValue target_value = JSONValue::ParseJSONString(target).value();
+    EXPECT_EQ(
+        JsonContains(input_value.GetConstRef(), target_value.GetConstRef()),
+        expected)
+        << "Failed test case: JSON_CONTAINS(" << input << ", " << target
+        << ") should return " << !expected;
+  }
+}
+
+TEST(JsonContainsTest, JsonScalar) {
+  std::vector<JsonContainsTestCase> cases;
+  // Test boolean type.
+  cases.push_back({R"(true)", R"(true)", true});
+  cases.push_back({R"(true)", R"(false)", false});
+
+  // Test numeric type.
+  cases.push_back({R"(0)", R"(0)", true});
+  cases.push_back({R"(1)", R"(1)", true});
+  cases.push_back({R"(0)", R"(-0.0)", true});
+  cases.push_back({R"(1)", R"(1.0)", true});
+  cases.push_back({R"(1)", R"(1.00)", true});
+  cases.push_back({R"(1.0)", R"(1)", true});
+  cases.push_back({R"(1.0)", R"(1.00)", true});
+
+  // Test string type.
+  cases.push_back({R"("true")", R"("true")", true});
+  cases.push_back({R"("true")", R"("TRUE")", false});
+  cases.push_back({R"("true")", R"(true)", false});
+  cases.push_back({R"("true")", R"(1)", false});
+
+  // Test null type.
+  cases.push_back({R"(null)", R"(null)", true});
+  cases.push_back({R"(null)", R"("null")", false});
+
+  TestJsonContainsFn(cases);
+}
+
+TEST(JsonContainsTest, JsonArray) {
+  std::vector<JsonContainsTestCase> cases;
+
+  //
+  // Test JSON array with nested arrays.
+  //
+  std::string input = R"([1,2,[3,4,[5]],[6,7]])";
+  // Test empty array.
+  cases.push_back({R"([])", R"([])", true});
+  cases.push_back({input, R"([])", true});
+  cases.push_back({input, R"([[]])", true});
+  cases.push_back({input, R"([[[]]])", true});
+  cases.push_back({input, R"([[[[]]]])", false});
+
+  // Test scalar values.
+  cases.push_back({input, R"(1)", true});
+  cases.push_back({input, R"(2)", true});
+  cases.push_back({input, R"(3)", false});
+  cases.push_back({input, R"(5)", false});
+  cases.push_back({input, R"(6)", false});
+  cases.push_back({input, R"(null)", false});
+
+  // Test array values.
+  cases.push_back({input, R"([1,1])", true});
+  cases.push_back({input, R"([3])", false});
+  cases.push_back({input, R"([[3]])", true});
+  cases.push_back({input, R"([[3,4,3]])", true});
+  cases.push_back({input, R"([[4,3]])", true});
+  cases.push_back({input, R"([[3,4,5]])", false});
+  cases.push_back({input, R"([[3,4,6]])", false});
+  cases.push_back({input, R"([5])", false});
+  cases.push_back({input, R"([[5]])", false});
+  cases.push_back({input, R"([[[5]]])", true});
+  cases.push_back({input, R"([1,[[5]]])", true});
+  cases.push_back({input, R"([[3,[5]]])", true});
+  cases.push_back({input, R"([[[5],3]])", true});
+  cases.push_back({input, R"([[6,[5]]])", false});
+  cases.push_back({input, R"([[6],[[5]]])", true});
+  cases.push_back({input, R"([[7,4]])", false});
+  cases.push_back({input, R"([[7,6]])", true});
+
+  // Test object values.
+  cases.push_back({input, R"({})", false});
+  cases.push_back({input, R"({"a":1})", false});
+
+  //
+  // Test JSON array with nested objects.
+  //
+  input = R"([{"a":1,"b":2},
+              [{"a":1,"b":3},{"c":[3,4]},{"d":5}],
+              {"a":1,"b":4,"c":5,"d":{"e":6,"f":7}}
+             ])";
+  cases.push_back({input, R"({})", false});
+  cases.push_back({input, R"([])", true});
+  cases.push_back({input, R"([{}])", true});
+  cases.push_back({input, R"([[]])", true});
+
+  cases.push_back({input, R"([{"a":1}])", true});
+  cases.push_back({input, R"([{"b":2}])", true});
+  cases.push_back({input, R"([{"b":2, "c":5}])", false});
+  cases.push_back({input, R"([{"b":4, "c":5}])", true});
+
+  // Test nested array.
+  cases.push_back({input, R"([[{"a":1}]])", true});
+  cases.push_back({input, R"([[{"a":2}]])", false});
+  cases.push_back({input, R"([[{"a":1},{"b":3}]])", true});
+  cases.push_back({input, R"([[{"a":1,"b":3}]])", true});
+  cases.push_back({input, R"([[{"a":1},{"d":5}]])", true});
+  cases.push_back({input, R"([[{"a":1,"d":5}]])", false});
+
+  cases.push_back({input, R"([[{"c":3}]])", false});
+  cases.push_back({input, R"([[{"c":[]}]])", true});
+  cases.push_back({input, R"([[{"d":[]}]])", false});
+  cases.push_back({input, R"([[{"c":[3]}]])", true});
+  cases.push_back({input, R"([[{"c":[3,3]}]])", true});
+  cases.push_back({input, R"([[{"c":[3,5]}]])", false});
+
+  // Test nested objects.
+  cases.push_back({input, R"([{"d":[]}])", false});
+  cases.push_back({input, R"([{"d":{}}])", true});
+  cases.push_back({input, R"([{"d":{"e":6}}])", true});
+  cases.push_back({input, R"([{"d":{"e":6, "b":2}}])", false});
+  cases.push_back({input, R"([{"d":{"e":6}}, {"b":2}])", true});
+  cases.push_back({input, R"([{"d":{"e":6}}, {"b":3}])", false});
+  cases.push_back({input, R"([{"d":{"e":6, "b":4}}])", false});
+  cases.push_back({input, R"([{"d":{"e":6}, "b":4}])", true});
+  cases.push_back({input, R"([{"d":{"e":6}}, {"b":4}])", true});
+  cases.push_back({input, R"([{"d":{"e":6,"f":7}}])", true});
+
+  TestJsonContainsFn(cases);
+}
+
+TEST(JsonContainsTest, JsonObject) {
+  std::vector<JsonContainsTestCase> cases;
+  //
+  // Test basic JSON object cases.
+  //
+  std::string input = R"({"a":true, "b":null, "c":1, "d": -10, "e":1.1570E2,
+                          "f": "1.0", "g": {"a":1, "b":2, "c":{"d":2,"e":3}}
+                         })";
+  // Test empty object.
+  cases.push_back({input, R"({})", true});
+  cases.push_back({input, R"([{}])", false});
+
+  // Test boolean values.
+  cases.push_back({input, R"({"a":true})", true});
+  cases.push_back({input, R"({"a":false})", false});
+  cases.push_back({input, R"({"a":1})", false});
+  cases.push_back({input, R"({"b":true})", false});
+
+  // Test null values.
+  cases.push_back({input, R"({"b":null})", true});
+  cases.push_back({input, R"({"z":null})", false});
+  cases.push_back({input, R"({"b":2})", false});
+
+  // Test numeric values.
+  cases.push_back({input, R"({"c":1})", true});
+  cases.push_back({input, R"({"c":1.00})", true});
+  cases.push_back({input, R"({"c":1.01})", false});
+  cases.push_back({input, R"({"d":-10})", true});
+  cases.push_back({input, R"({"d":-10.0})", true});
+  cases.push_back({input, R"({"e":115.7})", true});
+  cases.push_back({input, R"({"e":115.70})", true});
+  cases.push_back({input, R"({"e":1.157E2})", true});
+
+  // Test string values.
+  cases.push_back({input, R"({"f":1.0})", false});
+  cases.push_back({input, R"({"f":1.00})", false});
+  cases.push_back({input, R"({"f":"1.0"})", true});
+  cases.push_back({input, R"({"f":"1"})", false});
+
+  // Test nested objects.
+  cases.push_back({input, R"({"g":{}})", true});
+  cases.push_back({input, R"({"g":{"a":1}})", true});
+  cases.push_back({input, R"({"g":{"aa":1}})", false});
+  cases.push_back({input, R"({"g":{"b":2.0}})", true});
+  cases.push_back({input, R"({"g":{"c":{}}})", true});
+  cases.push_back({input, R"({"g":{"c":{"a": 1}}})", false});
+  cases.push_back({input, R"({"g":{"c":{"d":2}}})", true});
+  cases.push_back({input, R"({"g":{"c":{"e":3, "d":2.0}}})", true});
+  cases.push_back({input, R"({"g":{"c":{"e":3, "a":1}}})", false});
+  cases.push_back({input, R"({"g":{"c":{"e":3, "d":2.0, "a":1}}})", false});
+
+  // Test multiple containment check.
+  cases.push_back({input, R"({"b":null, "f":"1.0"})", true});
+  cases.push_back({input, R"({"d":-10.0, "g":{"b":2.0}})", true});
+  cases.push_back({input, R"({"d":-10.0, "g":{"b":1}})", false});
+
+  //
+  // Test empty keys, values, objects, and nulls.
+  //
+  input = R"({"":1, "a": "", "b":{}, "c":{"d":2}})";
+  cases.push_back({input, R"({"":1})", true});
+  cases.push_back({input, R"({"a":1})", false});
+  cases.push_back({input, R"({"a":null})", false});
+  cases.push_back({input, R"({"a":"null"})", false});
+  cases.push_back({input, R"({"a":""})", true});
+
+  cases.push_back({input, R"({})", true});
+  cases.push_back({input, R"({"":{}})", false});
+  cases.push_back({input, R"({"a":{}})", false});
+  cases.push_back({input, R"({"b":null})", false});
+  cases.push_back({input, R"({"b":{}})", true});
+  cases.push_back({input, R"({"c":{}})", true});
+  cases.push_back({input, R"({"c":{"d":{}}})", false});
+
+  cases.push_back({R"({})", R"({})", true});
+  cases.push_back({R"({})", R"(null)", false});
+
+  TestJsonContainsFn(cases);
+}
+
+TEST(JsonContainsTest, JsonObjectWithArrayValue) {
+  std::vector<JsonContainsTestCase> cases;
+  //
+  // Test JSON array with scalar values and nested arrays.
+  //
+  std::string input = R"({"a":[1,2,[3,4,[5]],[6,7]]})";
+
+  // JSON object needs to match key first.
+  cases.push_back({input, R"(1)", false});
+
+  // Test empty array.
+  cases.push_back({input, R"({"a":[]})", true});
+  cases.push_back({input, R"({"a":[[]]})", true});
+  cases.push_back({input, R"({"a":[[[]]]})", true});
+  cases.push_back({input, R"({"a":[[[[]]]]})", false});
+
+  // Test scalar values.
+  cases.push_back({input, R"({"a":1})", false});
+  cases.push_back({input, R"({"a":2})", false});
+  cases.push_back({input, R"({"a":3})", false});
+  cases.push_back({input, R"({"a":5})", false});
+  cases.push_back({input, R"({"a":6})", false});
+  cases.push_back({input, R"({"a":null})", false});
+
+  // Test array values.
+  cases.push_back({input, R"({"a":[1]})", true});
+  cases.push_back({input, R"({"a":[1,1]})", true});
+  cases.push_back({input, R"({"a":[3]})", false});
+  cases.push_back({input, R"({"a":[[3]]})", true});
+  cases.push_back({input, R"({"a":[[3,4,3]]})", true});
+  cases.push_back({input, R"({"a":[[3,4,5]]})", false});
+  cases.push_back({input, R"({"a":[[3,4,6]]})", false});
+  cases.push_back({input, R"({"a":[5]})", false});
+  cases.push_back({input, R"({"a":[[5]]})", false});
+  cases.push_back({input, R"({"a":[[[5]]]})", true});
+  cases.push_back({input, R"({"a":[1,[[5]]]})", true});
+  cases.push_back({input, R"({"a":[[3,[5]]]})", true});
+  cases.push_back({input, R"({"a":[[6,[5]]]})", false});
+  cases.push_back({input, R"({"a":[[6],[[5]]]})", true});
+  cases.push_back({input, R"({"a":[[7,4]]})", false});
+  cases.push_back({input, R"({"a":[[7,6]]})", true});
+
+  // Test empty object values.
+  cases.push_back({input, R"({})", true});
+  cases.push_back({input, R"({"a":{}})", false});
+  cases.push_back({input, R"({"a":1})", false});
+
+  //
+  // Test JSON array with nested objects.
+  //
+  input = R"({"k":[{"a":1,"b":2},
+                   [{"a":1,"b":3},{"c":[3,4]},{"d":5}],
+                   {"a":1,"b":4,"c":5,"d":{"e":6,"f":7}}
+                  ]})";
+
+  cases.push_back({input, R"({})", true});
+  cases.push_back({input, R"([])", false});
+  cases.push_back({input, R"({"k":[]})", true});
+  cases.push_back({input, R"({"k":[{}]})", true});
+  cases.push_back({input, R"({"k":[[]]})", true});
+
+  cases.push_back({input, R"({"k":[{"a":1}]})", true});
+  cases.push_back({input, R"({"k":[{"b":2}]})", true});
+  cases.push_back({input, R"({"k":[{"b":2, "c":5}]})", false});
+  cases.push_back({input, R"({"k":[{"b":4, "c":5}]})", true});
+
+  // Test nested array.
+  cases.push_back({input, R"({"k":[[{"a":1}]]})", true});
+  cases.push_back({input, R"({"k":[[{"a":2}]]})", false});
+  cases.push_back({input, R"({"k":[[{"a":1},{"b":3}]]})", true});
+  cases.push_back({input, R"({"k":[[{"a":1,"b":3}]]})", true});
+  cases.push_back({input, R"({"k":[[{"a":1},{"d":5}]]})", true});
+  cases.push_back({input, R"({"k":[[{"a":1,"d":5}]]})", false});
+
+  cases.push_back({input, R"({"k":[[{"c":3}]]})", false});
+  cases.push_back({input, R"({"k":[[{"c":[]}]]})", true});
+  cases.push_back({input, R"({"k":[[{"d":[]}]]})", false});
+  cases.push_back({input, R"({"k":[[{"c":[3]}]]})", true});
+  cases.push_back({input, R"({"k":[[{"c":[3,3]}]]})", true});
+  cases.push_back({input, R"({"k":[[{"c":[3,5]}]]})", false});
+
+  // Test nested objects.
+  cases.push_back({input, R"({"k":[{"d":[]}]})", false});
+  cases.push_back({input, R"({"k":[{"d":{}}]})", true});
+  cases.push_back({input, R"({"k":[{"d":{"e":6}}]})", true});
+  cases.push_back({input, R"({"k":[{"d":{"e":6, "b":2}}]})", false});
+  cases.push_back({input, R"({"k":[{"d":{"e":6}}, {"b":2}]})", true});
+  cases.push_back({input, R"({"k":[{"d":{"e":6}}, {"b":3}]})", false});
+  cases.push_back({input, R"({"k":[{"d":{"e":6, "b":4}}]})", false});
+  cases.push_back({input, R"({"k":[{"d":{"e":6}, "b":4}]})", true});
+  cases.push_back({input, R"({"k":[{"d":{"e":6}}, {"b":4}]})", true});
+  cases.push_back({input, R"({"k":[{"d":{"e":6,"f":7}}]})", true});
+
+  TestJsonContainsFn(cases);
+}
+
 class JsonKeysTest
     : public ::testing::TestWithParam<
           std::tuple<std::tuple<std::string, std::vector<std::string>, int64_t>,

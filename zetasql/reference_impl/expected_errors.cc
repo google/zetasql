@@ -22,7 +22,19 @@
 #include <vector>
 
 #include "zetasql/compliance/matchers.h"
+#include "absl/flags/flag.h"
 #include "absl/status/status.h"
+
+ABSL_FLAG(bool,
+          zetasql_add_expected_error_for_invalid_query_with_pivot_clause,
+          false, "Add expected error for invalid query with PIVOT clause.");
+
+ABSL_FLAG(
+    bool,
+    zetasql_add_expected_error_for_MLAs_in_order_by_and_limit_agg_rewriter,
+    false,
+    "Add expected error for multi-level aggregates in order by and limit in "
+    "aggregate rewriter.");
 
 namespace zetasql {
 
@@ -141,10 +153,10 @@ std::unique_ptr<MatcherCollection<absl::Status>> ReferenceExpectedErrorMatcher(
       absl::StatusCode::kResourceExhausted, "Arrays are limited to "));
 
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
-      absl::StatusCode::kResourceExhausted,
+      absl::StatusCode::kOutOfRange,
       "Cannot construct array Value larger than "));
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
-      absl::StatusCode::kResourceExhausted,
+      absl::StatusCode::kOutOfRange,
       "Cannot construct struct Value larger than "));
 
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
@@ -172,6 +184,37 @@ std::unique_ptr<MatcherCollection<absl::Status>> ReferenceExpectedErrorMatcher(
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kUnimplemented,
       "WITH clauses under subquery in DML statement is not supported yet."));
+
+  if (absl::GetFlag(
+          FLAGS_zetasql_add_expected_error_for_invalid_query_with_pivot_clause)) {
+    // TODO: Reference implementation can not parse the query with
+    // PIVOT clause.
+    error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+        absl::StatusCode::kInvalidArgument, "Unrecognized name"));
+  }
+
+  if (absl::GetFlag(
+          FLAGS_zetasql_add_expected_error_for_MLAs_in_order_by_and_limit_agg_rewriter)) {
+    error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+        absl::StatusCode::kUnimplemented,
+        "Aggregate functions with GROUP BY modifiers are not supported in "
+        "ORDER_BY_AND_LIMIT_IN_AGGREGATE rewriter"));
+  }
+
+  // TODO: Reference implementation does not support TOKENLIST
+  // for TO_JSON_STRING.
+  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kUnimplemented,
+      "Unsupported argument type TOKENLIST for TO_JSON_STRING"));
+
+  // TODO: Reference implementation does not support TOKENLIST
+  // for TO_JSON.
+  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kUnimplemented,
+      "Unsupported argument type TOKENLIST for TO_JSON"));
+  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "Unsupported argument type TOKENLIST for TO_JSON"));
 
   return std::make_unique<MatcherCollection<absl::Status>>(
       matcher_name, std::move(error_matchers));

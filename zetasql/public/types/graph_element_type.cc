@@ -135,12 +135,15 @@ absl::StatusOr<std::string> MakePropertyTypeName(
 GraphElementType::GraphElementType(
     const internal::GraphReference* graph_reference, ElementKind element_kind,
     const TypeFactory* factory,
-    absl::flat_hash_set<PropertyType> property_types, int nesting_depth)
+    absl::flat_hash_set<PropertyType> property_types,
+    int nesting_depth
+    )
     : ListBackedType(factory, TYPE_GRAPH_ELEMENT),
       graph_reference_(graph_reference),
       element_kind_(element_kind),
       property_types_(SortPropertyTypes(std::move(property_types))),
-      nesting_depth_(nesting_depth) {}
+      nesting_depth_(nesting_depth)
+{}
 
 absl::Span<const std::string> GraphElementType::graph_reference() const {
   return graph_reference_->path;
@@ -187,8 +190,8 @@ bool GraphElementType::IsSupportedType(
     return false;
   }
 
-  // A graph element is only supported when all of its property value types are
-  // supported.
+  // A graph element is only supported when all of its static property value
+  // types are supported.
   return absl::c_all_of(
       property_types_, [&](const PropertyType& property_type) {
         return property_type.value_type->IsSupportedType(language_options);
@@ -200,14 +203,16 @@ bool GraphElementType::CoercibleTo(const GraphElementType* to) const {
   if (Equals(to)) {
     return true;
   }
+  bool contains_all_static_properties_in_from_type =
+      absl::c_all_of(property_types(), [&](const auto& from_pt) {
+        const auto* to_pt = to->FindPropertyType(from_pt.name);
+        return to_pt != nullptr &&
+               from_pt.value_type->Equals(to_pt->value_type);
+      });
   return absl::c_equal(graph_reference(), to->graph_reference(),
                        zetasql_base::CaseEqual) &&
          element_kind() == to->element_kind() &&
-         absl::c_all_of(property_types(), [&](const auto& from_pt) {
-           const auto* to_pt = to->FindPropertyType(from_pt.name);
-           return to_pt != nullptr &&
-                  from_pt.value_type->Equals(to_pt->value_type);
-         });
+         contains_all_static_properties_in_from_type;
 }
 
 bool GraphElementType::EqualsForSameKind(const Type* that,
@@ -359,6 +364,11 @@ absl::StatusOr<std::string> GraphElementType::TypeNameWithModifiers(
   return TypeNameImpl(std::numeric_limits<int>::max(), property_type_name_fn);
 }
 
+std::string GraphElementType::CapitalizedName() const {
+  ABSL_CHECK_EQ(kind(), TYPE_GRAPH_ELEMENT);  // Crash OK
+  return AsGraphElement()->IsNode() ? "GraphNode" : "GraphEdge";
+}
+
 Type::HasFieldResult GraphElementType::HasFieldImpl(
     const std::string& name, int* field_id, bool include_pseudo_fields) const {
   return FindPropertyTypeImpl(name, field_id) == nullptr ? HAS_NO_FIELD
@@ -389,22 +399,24 @@ int64_t GraphElementType::GetEstimatedOwnedMemoryBytesSize() const {
 bool GraphElementType::EqualsImpl(const GraphElementType* type1,
                                   const GraphElementType* type2,
                                   bool equivalent) {
+  bool has_equal_static_properties = absl::c_equal(
+      type1->property_types(), type2->property_types(),
+      [&](const auto& lhs, const auto& rhs) {
+        // Property type name is case insensitive.
+        return zetasql_base::CaseEqual(lhs.name, rhs.name) &&
+               lhs.value_type->EqualsImpl(rhs.value_type, equivalent);
+      });
   return absl::c_equal(type1->graph_reference(), type2->graph_reference(),
                        zetasql_base::CaseEqual) &&
          type1->element_kind() == type2->element_kind() &&
-         absl::c_equal(type1->property_types(), type2->property_types(),
-                       [&](const auto& lhs, const auto& rhs) {
-                         // Property type name is case insensitive.
-                         return zetasql_base::CaseEqual(lhs.name, rhs.name) &&
-                                lhs.value_type->EqualsImpl(rhs.value_type,
-                                                           equivalent);
-                       });
+         has_equal_static_properties;
 }
 
 absl::HashState GraphElementType::HashTypeParameter(
     absl::HashState state) const {
-  return absl::HashState::combine(std::move(state), element_kind_,
-                                  property_types_);
+  return absl::HashState::combine(
+      std::move(state),
+      element_kind_, property_types_);
 }
 
 void GraphElementType::CopyValueContent(const ValueContent& from,
@@ -451,7 +463,7 @@ void GraphElementType::FormatValueContentDebugModeImpl(
   if (options.verbose) {
     absl::StrAppend(result, CapitalizedName(), "{");
 
-    // Adds name, identifier, labels, source/dest node identifier (for edge)
+    // Adds name, identifier, labels, source/dest node identifier (for edge),
     // in verbose mode.
     absl::StrAppend(result,
                     "$name:", ToStringLiteral(container->GetDefinitionName()),
@@ -462,7 +474,7 @@ void GraphElementType::FormatValueContentDebugModeImpl(
     absl::StrAppend(
         result, "$labels:[",
         absl::StrJoin(container->GetLabels(), ", ",
-                      [](std::string* out, const std::string& label) {
+                      [](std::string* out, absl::string_view label) {
                         absl::StrAppend(out, ToStringLiteral(label));
                       }),
         "], ");
@@ -476,7 +488,7 @@ void GraphElementType::FormatValueContentDebugModeImpl(
     absl::StrAppend(result, "{");
   }
 
-  for (int i = 0; i < container->num_elements(); ++i) {
+  for (int i = 0; i < property_types_.size(); ++i) {
     const internal::NullableValueContent& element_value_content =
         container->element(i);
     if (i > 0) {
@@ -490,8 +502,16 @@ void GraphElementType::FormatValueContentDebugModeImpl(
                                 element_value_content,
                                 current_property.value_type, options));
   }
-
   absl::StrAppend(result, "}");
+
+  if (options.verbose) {
+    absl::StrAppend(result, "\n property_name_to_index: {\n");
+    for (const auto& [property_name, element_index] :
+         container->GetValidPropertyNameToIndexMap()) {
+      absl::StrAppend(result, "  ", property_name, ": ", element_index, "\n");
+    }
+    absl::StrAppend(result, " }");
+  }
 }
 
 std::string GraphElementType::FormatValueContent(

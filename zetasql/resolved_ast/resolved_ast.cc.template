@@ -302,6 +302,9 @@ static std::string ToStringImpl(
 static std::string ToStringImpl(ResolvedDropIndexStmt::IndexType index_type) {
   return ResolvedDropIndexStmt::IndexTypeToString(index_type);
 }
+static std::string ToStringImpl(ResolvedAlterIndexStmt::AlterIndexType index_type) {
+  return ResolvedAlterIndexStmt::AlterIndexTypeToString(index_type);
+}
 static std::string ToStringVerbose(const absl::optional<FunctionSignature>& signature) {
   return signature->DebugString("" /* function_name */, true /* verbose */);
 }
@@ -1143,9 +1146,8 @@ absl::StatusOr<const PropertyGraph*> RestoreFromImpl(
     const ResolvedNode::RestoreParams& params) {
   const PropertyGraph* propery_graph;
   const std::vector<std::string> path = absl::StrSplit(proto.full_name(), '.');
-  // The first part in full_name() is params.catalog.
   ZETASQL_RETURN_IF_ERROR(params.catalog->FindPropertyGraph(
-      absl::MakeSpan(path).subspan(1), propery_graph));
+      absl::MakeSpan(path), propery_graph));
   return propery_graph;
 }
 
@@ -1294,6 +1296,13 @@ static std::string ToStringImpl(
   }
   ABSL_LOG(ERROR) << "Invalid PathSearchPrefixType: " << prefix_type;
   return absl::StrCat("INVALID_PATH_SEARCH_PREFIX_TYPE(", prefix_type, ")");
+}
+
+static std::string ToStringImpl(ResolvedUpdateFieldItemEnums::Operation operation) {
+  std::string name = ResolvedUpdateFieldItemEnums::Operation_Name(operation);
+  if (!name.empty()) return name;
+  ABSL_LOG(ERROR) << "Invalid operation: " << operation;
+  return absl::StrCat("INVALID_OPERATION(", operation, ")");
 }
 
 }  // anonymous namespace
@@ -1615,34 +1624,50 @@ absl::Status {{node.name}}::CheckFieldsAccessedImpl(
     const ResolvedNode* root) const {
   ZETASQL_RETURN_IF_ERROR(SUPER::CheckFieldsAccessedImpl(root));
 
- # for field in node.fields
-  # if field.is_not_ignorable
-  if ((accessed_ & {{field.bitmap}}) == 0) {
-    NodeAnnotation annotation = {
-      .node = this,
-      .annotation = "(*** This node has unaccessed field ***)"
-    };
-    return ::zetasql_base::UnimplementedErrorBuilder(zetasql_base::SourceLocation::current()).LogError()
-        << "Unimplemented feature "
-           "({{node.name}}::{{field.name}} not accessed)\n"
-        << root->DebugString(DebugStringConfig{ {annotation}, /*print_accessed=*/true});
+  # if node.is_not_ignorable_bitmap != '0x0' or node.is_ignorable_default_bitmap != '0x0':
+  uint32_t accessed_local = accessed_.load();
+  # endif
+  # if node.is_not_ignorable_bitmap != '0x0':
+  constexpr static uint32_t kIsNotIgnorableBitmap = {{node.is_not_ignorable_bitmap}};
+  if ((accessed_local & kIsNotIgnorableBitmap) != kIsNotIgnorableBitmap) {
+  # for field in node.fields
+    # if field.is_not_ignorable
+    if ((accessed_local & {{field.bitmap}}) == 0) {
+      NodeAnnotation annotation = {
+        .node = this,
+        .annotation = "(*** This node has unaccessed field ***)"
+      };
+      return ::zetasql_base::UnimplementedErrorBuilder(zetasql_base::SourceLocation::current()).LogError()
+          << "Unimplemented feature "
+            "({{node.name}}::{{field.name}} not accessed)\n"
+          << root->DebugString(DebugStringConfig{ {annotation}, /*print_accessed=*/true});
+    }
+    # endif
+  # endfor
   }
   # endif
-  # if field.is_ignorable_default
-  if ((accessed_ & {{field.bitmap}}) == 0 &&
-      !IsDefaultValue({{field.member_name}})) {
-    NodeAnnotation annotation = {
-      .node = this,
-      .annotation = "(*** This node has unaccessed field ***)"
-    };
-    return ::zetasql_base::UnimplementedErrorBuilder(zetasql_base::SourceLocation::current()).LogError()
-        << "Unimplemented feature "
-           "({{node.name}}::{{field.name}} not accessed "
-           "and has non-default value)\n"
-        << root->DebugString(DebugStringConfig{ {annotation}, /*print_accessed=*/true});
+
+  # if node.is_ignorable_default_bitmap != '0x0':
+  constexpr static uint32_t kIsIgnorableDefaultBitmap = {{node.is_ignorable_default_bitmap}};
+  if ((accessed_local & kIsIgnorableDefaultBitmap) != kIsIgnorableDefaultBitmap) {
+  # for field in node.fields
+    # if field.is_ignorable_default
+    if ((accessed_local & {{field.bitmap}}) == 0 &&
+        !IsDefaultValue({{field.member_name}})) {
+      NodeAnnotation annotation = {
+        .node = this,
+        .annotation = "(*** This node has unaccessed field ***)"
+      };
+      return ::zetasql_base::UnimplementedErrorBuilder(zetasql_base::SourceLocation::current()).LogError()
+          << "Unimplemented feature "
+            "({{node.name}}::{{field.name}} not accessed "
+            "and has non-default value)\n"
+          << root->DebugString(DebugStringConfig{ {annotation}, /*print_accessed=*/true});
+    }
+    # endif
+  # endfor
   }
   # endif
- # endfor
 
  # for field in node.fields
   # if field.is_node_vector or field.is_node_ptr

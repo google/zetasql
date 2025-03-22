@@ -29,10 +29,12 @@
 #include "zetasql/public/interval_value.h"
 #include "zetasql/public/json_value.h"
 #include "zetasql/public/numeric_value.h"
-#include "zetasql/public/timestamp_pico_value.h"
+#include "zetasql/public/timestamp_picos_value.h"
 #include "zetasql/public/token_list.h"  
 #include "zetasql/public/uuid_value.h"
 #include "zetasql/public/value_content.h"
+#include "zetasql/base/case.h"
+#include "absl/container/btree_map.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
@@ -287,19 +289,20 @@ class BigNumericRef final
   BigNumericValue value_;
 };
 
-class TimestampPicoRef final
-    : public zetasql_base::refcount::CompactReferenceCounted<TimestampPicoRef, int64_t> {
+class TimestampPicosRef final
+    : public zetasql_base::refcount::CompactReferenceCounted<TimestampPicosRef, int64_t> {
  public:
-  TimestampPicoRef() = default;
-  explicit TimestampPicoRef(const TimestampPicoValue& value) : value_(value) {}
+  TimestampPicosRef() = default;
+  explicit TimestampPicosRef(const TimestampPicosValue& value)
+      : value_(value) {}
 
-  TimestampPicoRef(const TimestampPicoRef&) = delete;
-  TimestampPicoRef& operator=(const TimestampPicoRef&) = delete;
+  TimestampPicosRef(const TimestampPicosRef&) = delete;
+  TimestampPicosRef& operator=(const TimestampPicosRef&) = delete;
 
-  const TimestampPicoValue& value() { return value_; }
+  const TimestampPicosValue& value() { return value_; }
 
  private:
-  TimestampPicoValue value_;
+  TimestampPicosValue value_;
 };
 
 // -------------------------------------------------------------
@@ -440,6 +443,9 @@ class UuidRef final
   UuidValue value_;
 };
 
+using ValidPropertyNameToIndexMap =
+    absl::btree_map<std::string, int, zetasql_base::CaseLess>;
+
 class GraphElementContainer : public ValueContentOrderedList {
  public:
   // Returns an identifier for graph element.
@@ -454,6 +460,11 @@ class GraphElementContainer : public ValueContentOrderedList {
 
   // Returns all labels for graph element.
   virtual absl::Span<const std::string> GetLabels() const = 0;
+
+  // Returns a map of property names to element indexes that have valid values
+  // in the value content.
+  virtual const ValidPropertyNameToIndexMap& GetValidPropertyNameToIndexMap()
+      const = 0;
 };
 
 // -------------------------------------------------------

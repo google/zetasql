@@ -1,6 +1,7 @@
 [default enabled_ast_rewrites=DEFAULTS]
-[default show_unparsed]
+[default show_sqlbuilder_output]
 [default language_features=V_1_4_WITH_EXPRESSION]
+
 select WITH(a AS 2, b AS 3 * 4, a + b)
 --
 QueryStmt
@@ -26,7 +27,13 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  WITH(a_2 AS 2, a_3 AS 3 * 4, a_2 + a_3) AS a_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 SELECT
   WITH(a_2 AS 2, a_3 AS 3 * 4, a_2 + a_3) AS a_1;
 
@@ -67,7 +74,8 @@ QueryStmt
     |                   +-SingleRowScan
     +-input_scan=
       +-SingleRowScan
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   (
     SELECT
@@ -83,6 +91,21 @@ SELECT
               2 AS a_2
           ) AS projectscan_3
       ) AS projectscan_5
+  ) AS a_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+SELECT
+  (
+    SELECT
+      2 AS a_2
+    |> AS projectscan_3
+    |> SELECT
+         projectscan_3.a_2 AS a_2,
+         3 * 4 AS a_4
+    |> AS projectscan_5
+    |> SELECT
+         (projectscan_5.a_2) + (projectscan_5.a_4) AS a_6
   ) AS a_1;
 ==
 
@@ -113,7 +136,8 @@ QueryStmt
     +-input_scan=
       +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   WITH(a_5 AS 2, ((keyvalue_3.a_1) + a_5) + (LENGTH(keyvalue_3.a_2))) AS a_4
 FROM
@@ -124,6 +148,17 @@ FROM
     FROM
       KeyValue
   ) AS keyvalue_3;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  KeyValue
+|> SELECT
+     KeyValue.Key AS a_1,
+     KeyValue.Value AS a_2
+|> AS keyvalue_3
+|> SELECT
+     WITH(a_5 AS 2, ((keyvalue_3.a_1) + a_5) + (LENGTH(keyvalue_3.a_2))) AS a_4;
 
 [REWRITTEN AST]
 QueryStmt
@@ -160,7 +195,8 @@ QueryStmt
     |               +-SingleRowScan
     +-input_scan=
       +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   (
     SELECT
@@ -179,6 +215,23 @@ FROM
     FROM
       KeyValue
   ) AS keyvalue_3;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  KeyValue
+|> SELECT
+     KeyValue.Key AS a_1,
+     KeyValue.Value AS a_2
+|> AS keyvalue_3
+|> SELECT
+     (
+       SELECT
+         2 AS a_5
+       |> AS projectscan_6
+       |> SELECT
+            ((keyvalue_3.a_1) + (projectscan_6.a_5)) + (LENGTH(keyvalue_3.a_2)) AS a_7
+     ) AS a_4;
 ==
 
 # We can reference expressions computed in one stage of a WITH expression
@@ -218,7 +271,13 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  WITH(a_2 AS 1, a_5 AS a_2 + 2, a_3 AS a_5 + 3, a_4 AS a_2 * 2, (a_2 + a_3) + a_4) AS a_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 SELECT
   WITH(a_2 AS 1, a_5 AS a_2 + 2, a_3 AS a_5 + 3, a_4 AS a_2 * 2, (a_2 + a_3) + a_4) AS a_1;
 
@@ -277,7 +336,8 @@ QueryStmt
     |                           +-SingleRowScan
     +-input_scan=
       +-SingleRowScan
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   (
     SELECT
@@ -308,6 +368,32 @@ SELECT
               ) AS projectscan_5
           ) AS projectscan_7
       ) AS projectscan_9
+  ) AS a_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+SELECT
+  (
+    SELECT
+      1 AS a_2
+    |> AS projectscan_3
+    |> SELECT
+         projectscan_3.a_2 AS a_2,
+         (projectscan_3.a_2) + 2 AS a_4
+    |> AS projectscan_5
+    |> SELECT
+         projectscan_5.a_2 AS a_2,
+         projectscan_5.a_4 AS a_4,
+         (projectscan_5.a_4) + 3 AS a_6
+    |> AS projectscan_7
+    |> SELECT
+         projectscan_7.a_2 AS a_2,
+         projectscan_7.a_4 AS a_4,
+         projectscan_7.a_6 AS a_6,
+         (projectscan_7.a_2) * 2 AS a_8
+    |> AS projectscan_9
+    |> SELECT
+         ((projectscan_9.a_2) + (projectscan_9.a_6)) + (projectscan_9.a_8) AS a_10
   ) AS a_1;
 ==
 
@@ -343,7 +429,13 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  WITH(a_2 AS "abc", a_3 AS WITH(a_4 AS "def", a_5 AS "ghi", CONCAT(a_4, a_5)), CONCAT(a_2, a_3)) AS a_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
 SELECT
   WITH(a_2 AS "abc", a_3 AS WITH(a_4 AS "def", a_5 AS "ghi", CONCAT(a_4, a_5)), CONCAT(a_2, a_3)) AS a_1;
 
@@ -404,7 +496,8 @@ QueryStmt
     |                   +-SingleRowScan
     +-input_scan=
       +-SingleRowScan
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   (
     SELECT
@@ -434,6 +527,31 @@ SELECT
               "abc" AS a_2
           ) AS projectscan_3
       ) AS projectscan_10
+  ) AS a_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+SELECT
+  (
+    SELECT
+      "abc" AS a_2
+    |> AS projectscan_3
+    |> SELECT
+         projectscan_3.a_2 AS a_2,
+         (
+           SELECT
+             "def" AS a_5
+           |> AS projectscan_6
+           |> SELECT
+                projectscan_6.a_5 AS a_5,
+                "ghi" AS a_7
+           |> AS projectscan_8
+           |> SELECT
+                CONCAT(projectscan_8.a_5, projectscan_8.a_7) AS a_9
+         ) AS a_4
+    |> AS projectscan_10
+    |> SELECT
+         CONCAT(projectscan_10.a_2, projectscan_10.a_4) AS a_11
   ) AS a_1;
 ==
 
@@ -482,7 +600,8 @@ QueryStmt
             +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
               +-ColumnRef(type=INT64, column=KeyValue.Key#1)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   WITH(a_8 AS LENGTH(aggregatescan_6.a_4), a_9 AS aggregatescan_6.a_5, a_8 * a_9) AS a_7
 FROM
@@ -500,6 +619,23 @@ FROM
       ) AS keyvalue_3
     GROUP BY 1
   ) AS aggregatescan_6;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  KeyValue
+|> SELECT
+     KeyValue.Key AS a_1,
+     KeyValue.Value AS a_2
+|> AS keyvalue_3
+|> EXTEND
+     keyvalue_3.a_2 AS a_4
+|> AGGREGATE
+     SUM(keyvalue_3.a_1) AS a_5
+   GROUP BY a_4
+|> AS aggregatescan_6
+|> SELECT
+     WITH(a_8 AS LENGTH(aggregatescan_6.a_4), a_9 AS aggregatescan_6.a_5, a_8 * a_9) AS a_7;
 
 [REWRITTEN AST]
 QueryStmt
@@ -549,7 +685,8 @@ QueryStmt
           +-$agg1#4 :=
             +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
               +-ColumnRef(type=INT64, column=KeyValue.Key#1)
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   (
     SELECT
@@ -581,6 +718,33 @@ FROM
       ) AS keyvalue_3
     GROUP BY 1
   ) AS aggregatescan_6;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  KeyValue
+|> SELECT
+     KeyValue.Key AS a_1,
+     KeyValue.Value AS a_2
+|> AS keyvalue_3
+|> EXTEND
+     keyvalue_3.a_2 AS a_4
+|> AGGREGATE
+     SUM(keyvalue_3.a_1) AS a_5
+   GROUP BY a_4
+|> AS aggregatescan_6
+|> SELECT
+     (
+       SELECT
+         LENGTH(aggregatescan_6.a_4) AS a_8
+       |> AS projectscan_9
+       |> SELECT
+            projectscan_9.a_8 AS a_8,
+            aggregatescan_6.a_5 AS a_10
+       |> AS projectscan_11
+       |> SELECT
+            (projectscan_11.a_8) * (projectscan_11.a_10) AS a_12
+     ) AS a_7;
 ==
 
 [language_features=ANALYTIC_FUNCTIONS,V_1_4_WITH_EXPRESSION]
@@ -649,7 +813,8 @@ QueryStmt
             +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
               +-ColumnRef(type=INT64, column=KeyValue.Key#1)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   WITH(a_9 AS aggregatescan_6.a_4, a_8 AS aggregatescan_6.a_5, CAST(a_8 AS DOUBLE) / CAST(a_9 AS DOUBLE)) AS a_7
 FROM
@@ -667,6 +832,25 @@ FROM
       ) AS keyvalue_3
     GROUP BY keyvalue_3.a_2
   ) AS aggregatescan_6;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+SELECT
+  COUNT(keyvalue_3.a_1) AS a_4,
+  SUM(keyvalue_3.a_1) AS a_5
+FROM
+  (
+    FROM
+      KeyValue
+    |> SELECT
+         KeyValue.Key AS a_1,
+         KeyValue.Value AS a_2
+    |> AS keyvalue_3
+  )
+GROUP BY keyvalue_3.a_2
+|> AS aggregatescan_6
+|> SELECT
+     WITH(a_9 AS aggregatescan_6.a_4, a_8 AS aggregatescan_6.a_5, CAST(a_8 AS DOUBLE) / CAST(a_9 AS DOUBLE)) AS a_7;
 
 [REWRITTEN AST]
 QueryStmt
@@ -719,7 +903,8 @@ QueryStmt
           +-$agg2#5 :=
             +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
               +-ColumnRef(type=INT64, column=KeyValue.Key#1)
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   (
     SELECT
@@ -751,6 +936,35 @@ FROM
       ) AS keyvalue_3
     GROUP BY keyvalue_3.a_2
   ) AS aggregatescan_6;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+SELECT
+  COUNT(keyvalue_3.a_1) AS a_4,
+  SUM(keyvalue_3.a_1) AS a_5
+FROM
+  (
+    FROM
+      KeyValue
+    |> SELECT
+         KeyValue.Key AS a_1,
+         KeyValue.Value AS a_2
+    |> AS keyvalue_3
+  )
+GROUP BY keyvalue_3.a_2
+|> AS aggregatescan_6
+|> SELECT
+     (
+       SELECT
+         aggregatescan_6.a_4 AS a_8
+       |> AS projectscan_9
+       |> SELECT
+            projectscan_9.a_8 AS a_8,
+            aggregatescan_6.a_5 AS a_10
+       |> AS projectscan_11
+       |> SELECT
+            CAST(projectscan_11.a_10 AS DOUBLE) / CAST(projectscan_11.a_8 AS DOUBLE) AS a_12
+     ) AS a_7;
 ==
 
 SELECT WITH(sumk AS SUM(KeyValue.key),
@@ -797,7 +1011,8 @@ QueryStmt
             +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
               +-ColumnRef(type=INT64, column=KeyValue.Key#1)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   WITH(a_8 AS LENGTH(aggregatescan_6.a_4), a_8 * (aggregatescan_6.a_5)) AS a_7
 FROM
@@ -815,6 +1030,23 @@ FROM
       ) AS keyvalue_3
     GROUP BY 1
   ) AS aggregatescan_6;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  KeyValue
+|> SELECT
+     KeyValue.Key AS a_1,
+     KeyValue.Value AS a_2
+|> AS keyvalue_3
+|> EXTEND
+     keyvalue_3.a_2 AS a_4
+|> AGGREGATE
+     SUM(keyvalue_3.a_1) AS a_5
+   GROUP BY a_4
+|> AS aggregatescan_6
+|> SELECT
+     WITH(a_8 AS LENGTH(aggregatescan_6.a_4), a_8 * (aggregatescan_6.a_5)) AS a_7;
 
 [REWRITTEN AST]
 QueryStmt
@@ -859,7 +1091,8 @@ QueryStmt
           +-$agg1#4 :=
             +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
               +-ColumnRef(type=INT64, column=KeyValue.Key#1)
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   (
     SELECT
@@ -885,6 +1118,29 @@ FROM
       ) AS keyvalue_3
     GROUP BY 1
   ) AS aggregatescan_6;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  KeyValue
+|> SELECT
+     KeyValue.Key AS a_1,
+     KeyValue.Value AS a_2
+|> AS keyvalue_3
+|> EXTEND
+     keyvalue_3.a_2 AS a_4
+|> AGGREGATE
+     SUM(keyvalue_3.a_1) AS a_5
+   GROUP BY a_4
+|> AS aggregatescan_6
+|> SELECT
+     (
+       SELECT
+         LENGTH(aggregatescan_6.a_4) AS a_8
+       |> AS projectscan_9
+       |> SELECT
+            (projectscan_9.a_8) * (aggregatescan_6.a_5) AS a_10
+     ) AS a_7;
 
 ==
 
@@ -945,7 +1201,8 @@ QueryStmt
             +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
               +-ColumnRef(type=INT64, column=KeyValue.Key#1)
 
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   WITH(a_8 AS aggregatescan_6.a_4, CAST(aggregatescan_6.a_5 AS DOUBLE) / CAST(a_8 AS DOUBLE)) AS a_7
 FROM
@@ -963,6 +1220,25 @@ FROM
       ) AS keyvalue_3
     GROUP BY keyvalue_3.a_2
   ) AS aggregatescan_6;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+SELECT
+  COUNT(keyvalue_3.a_1) AS a_4,
+  SUM(keyvalue_3.a_1) AS a_5
+FROM
+  (
+    FROM
+      KeyValue
+    |> SELECT
+         KeyValue.Key AS a_1,
+         KeyValue.Value AS a_2
+    |> AS keyvalue_3
+  )
+GROUP BY keyvalue_3.a_2
+|> AS aggregatescan_6
+|> SELECT
+     WITH(a_8 AS aggregatescan_6.a_4, CAST(aggregatescan_6.a_5 AS DOUBLE) / CAST(a_8 AS DOUBLE)) AS a_7;
 
 [REWRITTEN AST]
 QueryStmt
@@ -1010,7 +1286,8 @@ QueryStmt
           +-$agg2#5 :=
             +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
               +-ColumnRef(type=INT64, column=KeyValue.Key#1)
-[UNPARSED_SQL]
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
 SELECT
   (
     SELECT
@@ -1036,6 +1313,31 @@ FROM
       ) AS keyvalue_3
     GROUP BY keyvalue_3.a_2
   ) AS aggregatescan_6;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+SELECT
+  COUNT(keyvalue_3.a_1) AS a_4,
+  SUM(keyvalue_3.a_1) AS a_5
+FROM
+  (
+    FROM
+      KeyValue
+    |> SELECT
+         KeyValue.Key AS a_1,
+         KeyValue.Value AS a_2
+    |> AS keyvalue_3
+  )
+GROUP BY keyvalue_3.a_2
+|> AS aggregatescan_6
+|> SELECT
+     (
+       SELECT
+         aggregatescan_6.a_4 AS a_8
+       |> AS projectscan_9
+       |> SELECT
+            CAST(aggregatescan_6.a_5 AS DOUBLE) / CAST(projectscan_9.a_8 AS DOUBLE) AS a_10
+     ) AS a_7;
 ==
 
 SELECT WITH(sumk AS SUM(KeyValue.key),
@@ -1054,3 +1356,159 @@ FROM KeyValue GROUP BY value;
 ERROR: Column 'sumk' is introduced by WITH. Columns introduced by WITH cannot be used in the arguments to aggregate or analytic functions. [at 2:19]
             COUNT(sumk * 2))
                   ^
+==
+
+[language_features=V_1_4_WITH_EXPRESSION,PIPES,V_1_4_MULTIWAY_UNNEST]
+SELECT
+     [1, 2, 3] AS a_1
+|> SELECT
+     ARRAY(
+       FROM
+         UNNEST(WITH(a_6 AS a_1, a_6)
+         )
+        ) AS unnest_scan2
+--
+QueryStmt
++-output_column_list=
+| +-$pipe_select.unnest_scan2#4 AS unnest_scan2 [ARRAY<INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$pipe_select.unnest_scan2#4]
+    +-expr_list=
+    | +-unnest_scan2#4 :=
+    |   +-SubqueryExpr
+    |     +-type=ARRAY<INT64>
+    |     +-subquery_type=ARRAY
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=ARRAY<INT64>, column=$query.a_1#1)
+    |     +-subquery=
+    |       +-ArrayScan
+    |         +-column_list=[$array.$unnest1#3]
+    |         +-array_expr_list=
+    |         | +-WithExpr
+    |         |   +-type=ARRAY<INT64>
+    |         |   +-assignment_list=
+    |         |   | +-a_6#2 := ColumnRef(type=ARRAY<INT64>, column=$query.a_1#1, is_correlated=TRUE)
+    |         |   +-expr=
+    |         |     +-ColumnRef(type=ARRAY<INT64>, column=$with_expr.a_6#2)
+    |         +-element_column_list=[$array.$unnest1#3]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$query.a_1#1]
+        +-expr_list=
+        | +-a_1#1 := Literal(type=ARRAY<INT64>, value=[1, 2, 3])
+        +-input_scan=
+          +-SingleRowScan
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  ARRAY(
+    SELECT
+      a_5 AS a_5
+    FROM
+      UNNEST(WITH(a_4 AS projectscan_2.a_1, a_4) AS a_5)
+  ) AS unnest_scan2
+FROM
+  (
+    SELECT
+      ARRAY< INT64 >[1, 2, 3] AS a_1
+  ) AS projectscan_2;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+SELECT
+  ARRAY< INT64 >[1, 2, 3] AS a_1
+|> AS projectscan_2
+|> SELECT
+     ARRAY(
+       FROM
+         UNNEST(WITH(a_4 AS projectscan_2.a_1, a_4) AS a_5)
+       |> SELECT
+            a_5 AS a_5
+     ) AS unnest_scan2;
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$pipe_select.unnest_scan2#4 AS unnest_scan2 [ARRAY<INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$pipe_select.unnest_scan2#4]
+    +-expr_list=
+    | +-unnest_scan2#4 :=
+    |   +-SubqueryExpr
+    |     +-type=ARRAY<INT64>
+    |     +-subquery_type=ARRAY
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=ARRAY<INT64>, column=$query.a_1#1)
+    |     +-subquery=
+    |       +-ArrayScan
+    |         +-column_list=[$array.$unnest1#3]
+    |         +-array_expr_list=
+    |         | +-SubqueryExpr
+    |         |   +-type=ARRAY<INT64>
+    |         |   +-subquery_type=SCALAR
+    |         |   +-parameter_list=
+    |         |   | +-ColumnRef(type=ARRAY<INT64>, column=$query.a_1#1, is_correlated=TRUE)
+    |         |   +-subquery=
+    |         |     +-ProjectScan
+    |         |       +-column_list=[$with_expr.injected#5]
+    |         |       +-expr_list=
+    |         |       | +-injected#5 := ColumnRef(type=ARRAY<INT64>, column=$with_expr.a_6#2)
+    |         |       +-input_scan=
+    |         |         +-ProjectScan
+    |         |           +-column_list=[$with_expr.a_6#2]
+    |         |           +-expr_list=
+    |         |           | +-a_6#2 := ColumnRef(type=ARRAY<INT64>, column=$query.a_1#1, is_correlated=TRUE)
+    |         |           +-input_scan=
+    |         |             +-SingleRowScan
+    |         +-element_column_list=[$array.$unnest1#3]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$query.a_1#1]
+        +-expr_list=
+        | +-a_1#1 := Literal(type=ARRAY<INT64>, value=[1, 2, 3])
+        +-input_scan=
+          +-SingleRowScan
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  ARRAY(
+    SELECT
+      a_7 AS a_7
+    FROM
+      UNNEST((
+        SELECT
+          projectscan_5.a_4 AS a_6
+        FROM
+          (
+            SELECT
+              projectscan_2.a_1 AS a_4
+          ) AS projectscan_5
+      ) AS a_7)
+  ) AS unnest_scan2
+FROM
+  (
+    SELECT
+      ARRAY< INT64 >[1, 2, 3] AS a_1
+  ) AS projectscan_2;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+SELECT
+  ARRAY< INT64 >[1, 2, 3] AS a_1
+|> AS projectscan_2
+|> SELECT
+     ARRAY(
+       FROM
+         UNNEST((
+           SELECT
+             projectscan_2.a_1 AS a_4
+           |> AS projectscan_5
+           |> SELECT
+                projectscan_5.a_4 AS a_6
+         ) AS a_7)
+       |> SELECT
+            a_7 AS a_7
+     ) AS unnest_scan2;

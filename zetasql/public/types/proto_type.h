@@ -118,6 +118,8 @@ class ProtoType : public Type {
     return ShortTypeName();
   }
 
+  std::string CapitalizedName() const override;
+
   std::string ShortTypeName() const;
   std::string TypeName() const;  // Proto-specific version does not need mode.
 
@@ -286,6 +288,8 @@ class ProtoType : public Type {
   int64_t GetEstimatedOwnedMemoryBytesSize() const override {
     return sizeof(*this);
   }
+
+  bool HasFloatingPointFields() const override;
 
  private:
   // Returns true iff <validated_descriptor_set> is not null and already

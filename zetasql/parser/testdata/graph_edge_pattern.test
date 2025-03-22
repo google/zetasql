@@ -1,0 +1,422 @@
+[default reserve_graph_table]
+[default language_features=V_1_4_SQL_GRAPH]
+
+# Filler of edge patterns are already tested inside graph_node_pattern.test.
+# This test file focus on edge orientation.
+
+select * from graph_table(
+  my.graph.name
+  MATCH -[]-
+  COLUMNS(1)
+)
+
+--
+QueryStatement [122-192] [select * from...COLUMNS(1) )]
+  Query [122-192] [select * from...COLUMNS(1) )]
+    Select [122-192] [select * from...COLUMNS(1) )]
+      SelectList [129-130] [*]
+        SelectColumn [129-130] [*]
+          Star(*) [129-130] [*]
+      FromClause [131-192] [from graph_table...OLUMNS(1) )]
+        GraphTableQuery [136-192] [graph_table...COLUMNS(1) )]
+          PathExpression [151-164] [my.graph.name]
+            Identifier(my) [151-153] [my]
+            Identifier(graph) [154-159] [graph]
+            Identifier(name) [160-164] [name]
+          GqlMatch [167-177] [MATCH -[]-]
+            GraphPattern [173-177] [-[]-]
+              GraphPathPattern [173-177] [-[]-]
+                GraphEdgePattern [173-177] [-[]-]
+                  GraphElementPatternFiller [175-175] []
+          SelectList [188-189] [1]
+            SelectColumn [188-189] [1]
+              IntLiteral(1) [188-189] [1]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    my.graph.name
+    MATCH
+      -[]-
+    COLUMNS(
+      1
+    )
+  )
+==
+
+select * from graph_table(
+  my.graph.name
+  MATCH <-[]-
+  COLUMNS(1)
+)
+
+--
+QueryStatement [0-71] [select * from...COLUMNS(1) )]
+  Query [0-71] [select * from...COLUMNS(1) )]
+    Select [0-71] [select * from...COLUMNS(1) )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-71] [from graph_table...OLUMNS(1) )]
+        GraphTableQuery [14-71] [graph_table...COLUMNS(1) )]
+          PathExpression [29-42] [my.graph.name]
+            Identifier(my) [29-31] [my]
+            Identifier(graph) [32-37] [graph]
+            Identifier(name) [38-42] [name]
+          GqlMatch [45-56] [MATCH <-[]-]
+            GraphPattern [51-56] [<-[]-]
+              GraphPathPattern [51-56] [<-[]-]
+                GraphEdgePattern [51-56] [<-[]-]
+                  GraphElementPatternFiller [54-54] []
+          SelectList [67-68] [1]
+            SelectColumn [67-68] [1]
+              IntLiteral(1) [67-68] [1]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    my.graph.name
+    MATCH
+      <-[]-
+    COLUMNS(
+      1
+    )
+  )
+==
+
+select * from graph_table(
+  my.graph.name
+  MATCH -[]->
+  COLUMNS(1)
+)
+--
+QueryStatement [0-71] [select * from...COLUMNS(1) )]
+  Query [0-71] [select * from...COLUMNS(1) )]
+    Select [0-71] [select * from...COLUMNS(1) )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-71] [from graph_table...OLUMNS(1) )]
+        GraphTableQuery [14-71] [graph_table...COLUMNS(1) )]
+          PathExpression [29-42] [my.graph.name]
+            Identifier(my) [29-31] [my]
+            Identifier(graph) [32-37] [graph]
+            Identifier(name) [38-42] [name]
+          GqlMatch [45-56] [MATCH -[]->]
+            GraphPattern [51-56] [-[]->]
+              GraphPathPattern [51-56] [-[]->]
+                GraphEdgePattern [51-56] [-[]->]
+                  GraphElementPatternFiller [53-53] []
+          SelectList [67-68] [1]
+            SelectColumn [67-68] [1]
+              IntLiteral(1) [67-68] [1]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    my.graph.name
+    MATCH
+      -[]->
+    COLUMNS(
+      1
+    )
+  )
+==
+
+select * from graph_table(
+  my.graph.name
+  MATCH -
+  COLUMNS(1)
+)
+--
+QueryStatement [0-67] [select * from...COLUMNS(1) )]
+  Query [0-67] [select * from...COLUMNS(1) )]
+    Select [0-67] [select * from...COLUMNS(1) )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-67] [from graph_table...OLUMNS(1) )]
+        GraphTableQuery [14-67] [graph_table...COLUMNS(1) )]
+          PathExpression [29-42] [my.graph.name]
+            Identifier(my) [29-31] [my]
+            Identifier(graph) [32-37] [graph]
+            Identifier(name) [38-42] [name]
+          GqlMatch [45-52] [MATCH -]
+            GraphPattern [51-52] [-]
+              GraphPathPattern [51-52] [-]
+                GraphEdgePattern [51-52] [-]
+          SelectList [63-64] [1]
+            SelectColumn [63-64] [1]
+              IntLiteral(1) [63-64] [1]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    my.graph.name
+    MATCH
+      -
+    COLUMNS(
+      1
+    )
+  )
+==
+
+select * from graph_table(
+  my.graph.name
+  MATCH <-
+  COLUMNS(1)
+)
+--
+QueryStatement [0-68] [select * from...COLUMNS(1) )]
+  Query [0-68] [select * from...COLUMNS(1) )]
+    Select [0-68] [select * from...COLUMNS(1) )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-68] [from graph_table...OLUMNS(1) )]
+        GraphTableQuery [14-68] [graph_table...COLUMNS(1) )]
+          PathExpression [29-42] [my.graph.name]
+            Identifier(my) [29-31] [my]
+            Identifier(graph) [32-37] [graph]
+            Identifier(name) [38-42] [name]
+          GqlMatch [45-53] [MATCH <-]
+            GraphPattern [51-53] [<-]
+              GraphPathPattern [51-53] [<-]
+                GraphEdgePattern [51-53] [<-]
+          SelectList [64-65] [1]
+            SelectColumn [64-65] [1]
+              IntLiteral(1) [64-65] [1]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    my.graph.name
+    MATCH
+      <-
+    COLUMNS(
+      1
+    )
+  )
+==
+
+select * from graph_table(
+  my.graph.name
+  MATCH ->
+  COLUMNS(1)
+)
+--
+QueryStatement [0-68] [select * from...COLUMNS(1) )]
+  Query [0-68] [select * from...COLUMNS(1) )]
+    Select [0-68] [select * from...COLUMNS(1) )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-68] [from graph_table...OLUMNS(1) )]
+        GraphTableQuery [14-68] [graph_table...COLUMNS(1) )]
+          PathExpression [29-42] [my.graph.name]
+            Identifier(my) [29-31] [my]
+            Identifier(graph) [32-37] [graph]
+            Identifier(name) [38-42] [name]
+          GqlMatch [45-53] [MATCH ->]
+            GraphPattern [51-53] [->]
+              GraphPathPattern [51-53] [->]
+                GraphEdgePattern [51-53] [->]
+          SelectList [64-65] [1]
+            SelectColumn [64-65] [1]
+              IntLiteral(1) [64-65] [1]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    my.graph.name
+    MATCH
+      ->
+    COLUMNS(
+      1
+    )
+  )
+==
+
+# Invalid edge patterns.
+select * from graph_table(
+  my.graph.name
+  MATCH <-[]->
+  COLUMNS(1)
+)
+
+--
+ERROR: Syntax error: Expected "-" but got "->" [at 3:13]
+  MATCH <-[]->
+            ^
+==
+
+select * from graph_table(
+  my.graph.name
+  MATCH <->
+  COLUMNS(1)
+)
+--
+ERROR: Syntax error: Expected "-" but got "->" [at 3:10]
+  MATCH <->
+         ^
+==
+
+select * from graph_table(
+  my.graph.name
+  MATCH - []-
+  COLUMNS(1)
+)
+--
+ERROR: Syntax error: Unexpected whitespace between "-" and "[" [at 3:9]
+  MATCH - []-
+        ^
+==
+
+select * from graph_table(
+  my.graph.name
+  MATCH -[] -
+  COLUMNS(1)
+)
+--
+ERROR: Syntax error: Unexpected whitespace between "]" and "-" [at 3:11]
+  MATCH -[] -
+          ^
+==
+
+select * from graph_table(
+  my.graph.name
+  MATCH <- []-
+  COLUMNS(1)
+)
+--
+ERROR: Syntax error: Unexpected whitespace between "-" and "[" [at 3:10]
+  MATCH <- []-
+         ^
+==
+
+select * from graph_table(
+  my.graph.name
+  MATCH <-[] -
+  COLUMNS(1)
+)
+--
+ERROR: Syntax error: Unexpected whitespace between "]" and "-" [at 3:12]
+  MATCH <-[] -
+           ^
+==
+
+select * from graph_table(
+  my.graph.name
+  MATCH - []->
+  COLUMNS(1)
+)
+--
+ERROR: Syntax error: Unexpected whitespace between "-" and "[" [at 3:9]
+  MATCH - []->
+        ^
+==
+
+select * from graph_table(
+  my.graph.name
+  MATCH -[] ->
+  COLUMNS(1)
+)
+--
+ERROR: Syntax error: Unexpected whitespace between "]" and "->" [at 3:11]
+  MATCH -[] ->
+          ^
+
+==
+
+select * from graph_table(
+  my.graph.name
+  MATCH < -[]-
+  COLUMNS(1)
+)
+--
+ERROR: Syntax error: Unexpected whitespace between "<" and "-" [at 3:9]
+  MATCH < -[]-
+        ^
+==
+
+select * from graph_table(
+  my.graph.name
+  MATCH < -
+  COLUMNS(1)
+)
+--
+ERROR: Syntax error: Unexpected whitespace between "<" and "-" [at 3:9]
+  MATCH < -
+        ^
+
+
+==
+
+# Test against "<-" and "]-" and also provide coverage for pattern filler.
+select * from graph_table(
+  my.graph.name
+  MATCH -[a IS A WHERE a.prop <-3]->
+  COLUMNS((a.array[0]-3) AS val)
+)
+--
+QueryStatement [0-114] [select * from...AS val) )]
+  Query [0-114] [select * from...AS val) )]
+    Select [0-114] [select * from...AS val) )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-114] [from graph_table...AS val) )]
+        GraphTableQuery [14-114] [graph_table...AS val) )]
+          PathExpression [29-42] [my.graph.name]
+            Identifier(my) [29-31] [my]
+            Identifier(graph) [32-37] [graph]
+            Identifier(name) [38-42] [name]
+          GqlMatch [45-79] [MATCH -[a...prop <-3]->]
+            GraphPattern [51-79] [-[a IS A WHERE a.prop <-3]->]
+              GraphPathPattern [51-79] [-[a IS A WHERE a.prop <-3]->]
+                GraphEdgePattern [51-79] [-[a IS A WHERE a.prop <-3]->]
+                  GraphElementPatternFiller [53-76] [a IS A WHERE a.prop <-3]
+                    Identifier(a) [53-54] [a]
+                    GraphLabelFilter [55-59] [IS A]
+                      GraphElementLabel [58-59] [A]
+                        Identifier(A) [58-59] [A]
+                    WhereClause [60-76] [WHERE a.prop <-3]
+                      BinaryExpression(<) [66-76] [a.prop <-3]
+                        PathExpression [66-72] [a.prop]
+                          Identifier(a) [66-67] [a]
+                          Identifier(prop) [68-72] [prop]
+                        UnaryExpression(-) [74-76] [-3]
+                          IntLiteral(3) [75-76] [3]
+          SelectList [90-111] [(a.array[0]-3) AS val]
+            SelectColumn [90-111] [(a.array[0]-3) AS val]
+              BinaryExpression(-) [91-103] [a.array[0]-3]
+                ArrayElement [91-101] [a.array[0]]
+                  PathExpression [91-98] [a.array]
+                    Identifier(a) [91-92] [a]
+                    Identifier(`array`) [93-98] [array]
+                  Location [98-99] [[]
+                  IntLiteral(0) [99-100] [0]
+                IntLiteral(3) [102-103] [3]
+              Alias [105-111] [AS val]
+                Identifier(val) [108-111] [val]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    my.graph.name
+    MATCH
+      -[a
+      IS A
+      WHERE
+        a.prop < -3]->
+    COLUMNS(
+      (a.`array`[0] - 3) AS val
+    )
+  )
